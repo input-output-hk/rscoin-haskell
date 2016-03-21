@@ -1,14 +1,14 @@
 module RSCoin.Core.Constants
        (period
        ,epoch
-       )where
+       ) where
+
+import           Data.Time.Units (Second)
 
 -- Just dummies
-second :: Integer
-second = 10 ^ (6 :: Integer)
 
-period :: Integer
-period = 50 * second
+period :: Second
+period = 50
 
-epoch :: Integer
-epoch = 5 * second
+epoch :: Second
+epoch = 5

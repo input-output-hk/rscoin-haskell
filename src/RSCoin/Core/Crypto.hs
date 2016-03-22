@@ -3,7 +3,6 @@ module RSCoin.Core.Crypto
        ( Hash
        , getHash
        , Signature
-       , getSignature
        , SecretKey
        , PublicKey
        , hash
@@ -22,7 +21,7 @@ import           OpenSSL.EVP.PKey       (SomeKeyPair, SomePublicKey)
 newtype Hash = Hash { getHash :: ByteString }
 newtype Signature = Signature { getSignature :: ByteString }
 
-newtype SecretKey  = SecretKey { getSecretKey :: SomeKeyPair }
+newtype SecretKey = SecretKey { getSecretKey :: SomeKeyPair }
 newtype PublicKey = PublicKey { getPublicKey :: SomePublicKey }
 
 -- | Gets something serializable and gives back hash of it.

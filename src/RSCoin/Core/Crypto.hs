@@ -5,7 +5,7 @@ module RSCoin.Core.Crypto
        , Signature
        , getSignature
        , SecretKey
-       , PrivateKey
+       , PublicKey
        , hash
        , sign
        , verify
@@ -23,7 +23,7 @@ newtype Hash = Hash { getHash :: ByteString }
 newtype Signature = Signature { getSignature :: ByteString }
 
 newtype SecretKey  = SecretKey { getSecretKey :: SomeKeyPair }
-newtype PrivateKey = PrivateKey { getPrivateKey :: SomePublicKey }
+newtype PublicKey = PublicKey { getPublicKey :: SomePublicKey }
 
 -- | Gets something serializable and gives back hash of it.
 hash :: Binary t => t -> Hash
@@ -32,8 +32,8 @@ hash = Hash . B64.encode . SHA256.hashlazy . encode
 sign :: Binary t => SecretKey -> t -> IO Signature
 sign = undefined
 
-verify :: Binary t => PrivateKey -> t -> Signature -> IO Bool
+verify :: Binary t => PublicKey -> t -> Signature -> IO Bool
 verify = undefined
 
-keyGen :: IO (SecretKey, PrivateKey)
+keyGen :: IO (SecretKey, PublicKey)
 keyGen = undefined

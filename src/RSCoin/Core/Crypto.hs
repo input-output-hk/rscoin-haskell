@@ -16,13 +16,23 @@ import qualified Data.ByteString.Base64 as B64
 import           Data.Binary            (Binary, encode)
 import qualified Crypto.Hash.SHA256     as SHA256
 
-import           OpenSSL.EVP.PKey       (SomeKeyPair, SomePublicKey)
+import           OpenSSL.RSA            (RSAKeyPair, RSAPubKey)
 
-newtype Hash = Hash { getHash :: ByteString }
-newtype Signature = Signature { getSignature :: ByteString }
+newtype Hash =
+  Hash { getHash :: ByteString }
+  deriving (Eq, Show)
 
-newtype SecretKey = SecretKey { getSecretKey :: SomeKeyPair }
-newtype PublicKey = PublicKey { getPublicKey :: SomePublicKey }
+newtype Signature =
+  Signature { getSignature :: ByteString }
+  deriving (Eq, Show)
+
+newtype SecretKey =
+  SecretKey { getSecretKey :: RSAKeyPair }
+  deriving (Eq, Show)
+
+newtype PublicKey =
+  PublicKey { getPublicKey :: RSAPubKey }
+  deriving (Eq, Show)
 
 -- | Gets something serializable and gives back hash of it.
 hash :: Binary t => t -> Hash

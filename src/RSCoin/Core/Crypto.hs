@@ -11,10 +11,12 @@ module RSCoin.Core.Crypto
        , keyGen
        ) where
 
+import           Control.Monad.IO.Class (MonadIO)
 import           Data.ByteString        (ByteString)
 import qualified Data.ByteString.Base64 as B64
 import           Data.Binary            (Binary, encode)
 import qualified Crypto.Hash.SHA256     as SHA256
+
 
 import           OpenSSL.RSA            (RSAKeyPair, RSAPubKey)
 
@@ -38,11 +40,11 @@ newtype PublicKey =
 hash :: Binary t => t -> Hash
 hash = Hash . B64.encode . SHA256.hashlazy . encode
 
-sign :: Binary t => SecretKey -> t -> IO Signature
+sign :: (MonadIO m, Binary t) => SecretKey -> t -> m Signature
 sign = undefined
 
-verify :: Binary t => PublicKey -> t -> Signature -> IO Bool
+verify :: (MonadIO m, Binary t) => PublicKey -> t -> Signature -> m Bool
 verify = undefined
 
-keyGen :: IO (SecretKey, PublicKey)
+keyGen :: MonadIO m => m (SecretKey, PublicKey)
 keyGen = undefined

@@ -6,6 +6,9 @@ resolver: lts-5.8
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
+- location:
+    git: ssh://git@serokell.io:2222/serokell-team/serokell-core.git
+    commit: 107efa4e1fdbf32d8b5bf6cd073ca5f82c73de3e
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps: []

@@ -12,17 +12,21 @@ module RSCoin.Core.Crypto
        ) where
 
 import           Control.Monad.IO.Class (MonadIO)
+import qualified Crypto.Hash.SHA256     as SHA256
+import           Data.Binary            (Binary (put, get), encode)
 import           Data.ByteString        (ByteString)
 import qualified Data.ByteString.Base64 as B64
-import           Data.Binary            (Binary, encode)
-import qualified Crypto.Hash.SHA256     as SHA256
-
+import           Data.Text.Buildable    (Buildable (build))
+import qualified Data.Text.Format       as F
 
 import           OpenSSL.RSA            (RSAKeyPair, RSAPubKey)
 
 newtype Hash =
   Hash { getHash :: ByteString }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Binary)
+
+instance Buildable Hash where
+    build = build . F.Shown
 
 newtype Signature =
   Signature { getSignature :: ByteString }
@@ -35,6 +39,13 @@ newtype SecretKey =
 newtype PublicKey =
   PublicKey { getPublicKey :: RSAPubKey }
   deriving (Eq, Show)
+
+instance Buildable PublicKey where
+    build = build . F.Shown
+
+instance Binary PublicKey where
+  get = undefined
+  put = undefined
 
 -- | Gets something serializable and gives back hash of it.
 hash :: Binary t => t -> Hash

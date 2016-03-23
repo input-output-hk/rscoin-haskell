@@ -9,6 +9,7 @@ module RSCoin.Core.Primitives
        ) where
 
 import           Data.Binary         (Binary (put, get))
+import           Data.Int            (Int64)
 import           Data.Text.Buildable (Buildable (build))
 import qualified Data.Text.Format    as F
 
@@ -19,8 +20,8 @@ import           RSCoin.Core.Crypto  (Hash, PublicKey)
 -- | Coin is the least possible unit of currency.
 -- We use very simple model at this point.
 newtype Coin = Coin
-    { getCoin :: Word
-    } deriving (Show, Binary)
+    { getCoin :: Int64
+    } deriving (Show, Binary, Num, Eq, Ord)
 
 instance Buildable Coin where
     build (Coin c) = mconcat [build c, " coin(s)"]

@@ -94,6 +94,8 @@ keyGen = do
 withBinaryHashedMsg :: Binary t => (Msg -> a) -> t -> a
 withBinaryHashedMsg action =
   maybe
-    (error "Message is too long")
+    (error "Message is too long") -- NOTE: this shouldn't ever happen
+                                  -- becouse SHA256.hashlazy encodes
+                                  -- messages in 32 bytes
     action
     . msg . SHA256.hashlazy . encode

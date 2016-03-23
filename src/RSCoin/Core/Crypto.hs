@@ -35,32 +35,32 @@ import           Crypto.Secp256k1          (Msg, PubKey, SecKey, Sig,
 
 -- | Hash is just a base64 encoded ByteString.
 newtype Hash =
-  Hash { getHash :: ByteString }
-  deriving (Eq, Show, Binary)
+    Hash { getHash :: ByteString }
+    deriving (Eq, Show, Binary)
 
 instance Buildable Hash where
     build = build . F.Shown
 
 newtype Signature =
-  Signature { getSignature :: Sig }
-  deriving (Eq, Show)
+    Signature { getSignature :: Sig }
+    deriving (Eq, Show)
 
 instance Buildable Signature where
     build = build . F.Shown
 
 instance Binary Signature where
-  get = do
-    mSig <- importSig <$> get
-    return $ maybe (error "Signature import failed") Signature mSig
-  put = put . exportSig . getSignature
+    get = do
+        mSig <- importSig <$> get
+        return $ maybe (error "Signature import failed") Signature mSig
+    put = put . exportSig . getSignature
 
 newtype SecretKey =
-  SecretKey { getSecretKey :: SecKey }
-  deriving (Eq, Show)
+    SecretKey { getSecretKey :: SecKey }
+    deriving (Eq, Show)
 
 newtype PublicKey =
-  PublicKey { getPublicKey :: PubKey }
-  deriving (Eq, Show)
+    PublicKey { getPublicKey :: PubKey }
+    deriving (Eq, Show)
 
 instance SafeCopy PublicKey where
     putCopy = contain . safePut . encode
@@ -76,10 +76,10 @@ instance Buildable PublicKey where
     build = build . F.Shown
 
 instance Binary PublicKey where
-  get = do
-    mKey <- importPubKey <$> get
-    return $ maybe (error "Public key import failed") PublicKey mKey
-  put = put . exportPubKey True . getPublicKey
+    get = do
+        mKey <- importPubKey <$> get
+        return $ maybe (error "Public key import failed") PublicKey mKey
+    put = put . exportPubKey True . getPublicKey
 
 -- | Generate a hash from a binary data.
 hash :: Binary t => t -> Hash
@@ -88,26 +88,26 @@ hash = Hash . B64.encode . SHA256.hashlazy . encode
 -- | Generate a signature from a binary data.
 sign :: Binary t => SecretKey -> t -> Signature
 sign (getSecretKey -> secKey) =
-  withBinaryHashedMsg $
-    Signature . signMsg secKey
+    withBinaryHashedMsg $
+        Signature . signMsg secKey
 
 -- | Verify signature from a binary message data.
 verify :: Binary t => PublicKey -> Signature -> t -> Bool
 verify (getPublicKey -> pubKey) (getSignature -> sig) =
-  withBinaryHashedMsg $
-    verifySig pubKey sig
+    withBinaryHashedMsg $
+        verifySig pubKey sig
 
 -- | Generate arbitrary (secret key, public key) key pairs.
 keyGen :: IO (SecretKey, PublicKey)
 keyGen = do
-  sKey <- generate arbitrary
-  return (SecretKey sKey, PublicKey $ derivePubKey sKey)
+    sKey <- generate arbitrary
+    return (SecretKey sKey, PublicKey $ derivePubKey sKey)
 
 withBinaryHashedMsg :: Binary t => (Msg -> a) -> t -> a
 withBinaryHashedMsg action =
-  maybe
-    (error "Message is too long") -- NOTE: this shouldn't ever happen
-                                  -- becouse SHA256.hashlazy encodes
-                                  -- messages in 32 bytes
-    action
-    . msg . SHA256.hashlazy . encode
+    maybe
+        (error "Message is too long") -- NOTE: this shouldn't ever happen
+                                      -- becouse SHA256.hashlazy encodes
+                                      -- messages in 32 bytes
+        action
+        . msg . SHA256.hashlazy . encode

@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 -- | A small module providing necessary cryptographic functions
 module RSCoin.Core.Crypto
        ( Hash
@@ -19,7 +20,9 @@ import qualified Data.ByteString.Base64 as B64
 import           Data.Text.Buildable    (Buildable (build))
 import qualified Data.Text.Format       as F
 
-import           OpenSSL.RSA            (RSAKeyPair, RSAPubKey)
+import           Crypto.Secp256k1       (SecKey, PubKey, Sig,
+                                        exportPubKey, importPubKey,
+                                        importSig, exportSig, signMsg)
 
 newtype Hash =
   Hash { getHash :: ByteString }
@@ -29,32 +32,43 @@ instance Buildable Hash where
     build = build . F.Shown
 
 newtype Signature =
-  Signature { getSignature :: ByteString }
+  Signature { getSignature :: Sig }
   deriving (Eq, Show)
 
+instance Buildable Signature where
+    build = build . F.Shown
+
+instance Binary Signature where
+  get = do
+    mSig <- importSig <$> get
+    return $ maybe (error "Signature import failed") Signature mSig
+  put = put . exportSig . getSignature
+
 newtype SecretKey =
-  SecretKey { getSecretKey :: RSAKeyPair }
+  SecretKey { getSecretKey :: SecKey }
   deriving (Eq, Show)
 
 newtype PublicKey =
-  PublicKey { getPublicKey :: RSAPubKey }
+  PublicKey { getPublicKey :: PubKey }
   deriving (Eq, Show)
 
 instance Buildable PublicKey where
     build = build . F.Shown
 
 instance Binary PublicKey where
-  get = undefined
-  put = undefined
+  get = do
+    mKey <- importPubKey <$> get
+    return $ maybe (error "Public key import failed") PublicKey mKey
+  put = put . exportPubKey True . getPublicKey
 
 -- | Gets something serializable and gives back hash of it.
 hash :: Binary t => t -> Hash
 hash = Hash . B64.encode . SHA256.hashlazy . encode
 
-sign :: (MonadIO m, Binary t) => SecretKey -> t -> m Signature
-sign = undefined
+sign :: Binary t => SecretKey -> t -> Signature
+sign = undefined -- (getSecretKey -> secKey) = Signature . signMsg secKey
 
-verify :: (MonadIO m, Binary t) => PublicKey -> t -> Signature -> m Bool
+verify :: (MonadIO m, Binary t) => PublicKey -> Signature -> t -> m Bool
 verify = undefined
 
 keyGen :: MonadIO m => m (SecretKey, PublicKey)

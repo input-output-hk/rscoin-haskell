@@ -11,7 +11,8 @@ packages:
     commit: 107efa4e1fdbf32d8b5bf6cd073ca5f82c73de3e
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
-extra-deps: []
+extra-deps:
+- secp256k1-0.4.5
 
 # Override default flag values for local packages and extra-deps
 flags: {}

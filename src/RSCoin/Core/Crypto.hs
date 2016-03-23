@@ -12,9 +12,7 @@ module RSCoin.Core.Crypto
        , PublicKey
        , hash
        , sign
-       , signHash
        , verify
-       , verifyHash
        , keyGen
        ) where
 
@@ -28,11 +26,12 @@ import qualified Data.Text.Format          as F
 import           Test.QuickCheck.Arbitrary (arbitrary)
 import           Test.QuickCheck.Gen       (generate)
 
-import           Crypto.Secp256k1          (SecKey, PubKey, Sig,
+import           Crypto.Secp256k1          (SecKey, PubKey, Sig, Msg,
                                            exportPubKey, importPubKey,
                                            importSig, exportSig, signMsg,
                                            msg, verifySig, derivePubKey)
--- | Hash is just a ByteString.
+
+-- | Hash is just a base64 encoded ByteString.
 newtype Hash =
   Hash { getHash :: ByteString }
   deriving (Eq, Show, Binary)
@@ -76,30 +75,25 @@ hash = Hash . B64.encode . SHA256.hashlazy . encode
 
 -- | Generate a signature from a binary data.
 sign :: Binary t => SecretKey -> t -> Signature
-sign secKey = signHash secKey . hash
-
--- | Generate a signature from a hash data.
-signHash :: SecretKey -> Hash -> Signature
-signHash (getSecretKey -> secKey) =
-  maybe
-    (error "Message is too long")
-    (Signature . signMsg secKey)
-    . msg . getHash
+sign (getSecretKey -> secKey) =
+  withBinaryHashedMsg $
+    Signature . signMsg secKey
 
 -- | Verify signature from a binary message data.
 verify :: Binary t => PublicKey -> Signature -> t -> Bool
-verify pubKey sig = verifyHash pubKey sig . hash
-
--- | Verify signature from a hash message data.
-verifyHash :: PublicKey -> Signature -> Hash -> Bool
-verifyHash (getPublicKey -> pubKey) (getSignature -> sig) =
-  maybe
-    (error "Message is too long")
-    (verifySig pubKey sig)
-    . msg . getHash
+verify (getPublicKey -> pubKey) (getSignature -> sig) =
+  withBinaryHashedMsg $
+    verifySig pubKey sig
 
 -- | Generate arbitrary (secret key, public key) key pairs.
 keyGen :: IO (SecretKey, PublicKey)
 keyGen = do
   sKey <- generate arbitrary
   return (SecretKey sKey, PublicKey $ derivePubKey sKey)
+
+withBinaryHashedMsg :: Binary t => (Msg -> a) -> t -> a
+withBinaryHashedMsg action =
+  maybe
+    (error "Message is too long")
+    action
+    . msg . SHA256.hashlazy . encode

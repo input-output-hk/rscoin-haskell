@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | More complex types from the paper.
 
 module RSCoin.Core.Types
@@ -17,6 +19,7 @@ module RSCoin.Core.Types
        ) where
 
 import qualified Data.Map               as M
+import           Data.SafeCopy          (base, deriveSafeCopy)
 
 import           RSCoin.Core.Crypto     (Hash, PublicKey, Signature)
 import           RSCoin.Core.Primitives (AddrId, Transaction)
@@ -30,6 +33,8 @@ data Mintette = Mintette
     , mintettePort :: !Int
     , mintetteKey  :: !PublicKey
     }
+
+$(deriveSafeCopy 0 'base ''Mintette)
 
 -- | Mintettes list is stored by Bank and doesn't change over period.
 type Mintettes = [Mintette]

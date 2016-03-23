@@ -16,9 +16,12 @@ module RSCoin.Core.Crypto
        ) where
 
 import qualified Crypto.Hash.SHA256        as SHA256
-import           Data.Binary               (Binary (put, get), encode)
+import           Data.Binary               (Binary (put, get), decodeOrFail,
+                                            encode)
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Base64    as B64
+import           Data.SafeCopy             (SafeCopy (putCopy, getCopy),
+                                            contain, safeGet, safePut)
 import           Data.Text.Buildable       (Buildable (build))
 import qualified Data.Text.Format          as F
 
@@ -58,6 +61,16 @@ newtype SecretKey =
 newtype PublicKey =
   PublicKey { getPublicKey :: PubKey }
   deriving (Eq, Show)
+
+instance SafeCopy PublicKey where
+    putCopy = contain . safePut . encode
+    getCopy =
+        contain $
+        do bs <- safeGet
+           either onError onSuccess . decodeOrFail $ bs
+      where
+        onError (_,_,errMsg) = fail errMsg
+        onSuccess (_,_,res) = return res
 
 instance Buildable PublicKey where
     build = build . F.Shown

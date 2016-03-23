@@ -1,6 +1,9 @@
 {-# LANGUAGE ViewPatterns               #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+
 -- | A small module providing necessary cryptographic functions
+-- We are using secp256k1 implementation.
+-- For more see wiki https://en.bitcoin.it/wiki/Secp256k1
 module RSCoin.Core.Crypto
        ( Hash
        , getHash
@@ -9,7 +12,9 @@ module RSCoin.Core.Crypto
        , PublicKey
        , hash
        , sign
+       , signHash
        , verify
+       , verifyHash
        , keyGen
        ) where
 
@@ -27,7 +32,7 @@ import           Crypto.Secp256k1          (SecKey, PubKey, Sig,
                                            exportPubKey, importPubKey,
                                            importSig, exportSig, signMsg,
                                            msg, verifySig, derivePubKey)
-
+-- | Hash is just a ByteString.
 newtype Hash =
   Hash { getHash :: ByteString }
   deriving (Eq, Show, Binary)
@@ -65,27 +70,35 @@ instance Binary PublicKey where
     return $ maybe (error "Public key import failed") PublicKey mKey
   put = put . exportPubKey True . getPublicKey
 
--- | Gets something serializable and gives back hash of it.
+-- | Generate a hash from a binary data.
 hash :: Binary t => t -> Hash
-hash = Hash . B64.encode . hash'
+hash = Hash . B64.encode . SHA256.hashlazy . encode
 
-hash' :: Binary t => t -> ByteString
-hash' = SHA256.hashlazy . encode
-
+-- | Generate a signature from a binary data.
 sign :: Binary t => SecretKey -> t -> Signature
-sign (getSecretKey -> secKey) = 
+sign secKey = signHash secKey . hash
+
+-- | Generate a signature from a hash data.
+signHash :: SecretKey -> Hash -> Signature
+signHash (getSecretKey -> secKey) =
   maybe
     (error "Message is too long")
     (Signature . signMsg secKey)
-    . msg . hash'
+    . msg . getHash
 
+-- | Verify signature from a binary message data.
 verify :: Binary t => PublicKey -> Signature -> t -> Bool
-verify (getPublicKey -> pubKey) (getSignature -> sig) =
+verify pubKey sig = verifyHash pubKey sig . hash
+
+-- | Verify signature from a hash message data.
+verifyHash :: PublicKey -> Signature -> Hash -> Bool
+verifyHash (getPublicKey -> pubKey) (getSignature -> sig) =
   maybe
     (error "Message is too long")
     (verifySig pubKey sig)
-    . msg . hash'
+    . msg . getHash
 
+-- | Generate arbitrary (secret key, public key) key pairs.
 keyGen :: IO (SecretKey, PublicKey)
 keyGen = do
   sKey <- generate arbitrary

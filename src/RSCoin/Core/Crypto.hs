@@ -51,7 +51,7 @@ instance Buildable Signature where
 instance Binary Signature where
     get = do
         mSig <- importSig <$> get
-        return $ maybe (error "Signature import failed") Signature mSig
+        maybe (fail "Signature import failed") (return . Signature) mSig
     put = put . exportSig . getSignature
 
 newtype SecretKey =
@@ -78,7 +78,7 @@ instance Buildable PublicKey where
 instance Binary PublicKey where
     get = do
         mKey <- importPubKey <$> get
-        return $ maybe (error "Public key import failed") PublicKey mKey
+        maybe (fail "Public key import failed") (return . PublicKey) mKey
     put = put . exportPubKey True . getPublicKey
 
 -- | Generate a hash from a binary data.

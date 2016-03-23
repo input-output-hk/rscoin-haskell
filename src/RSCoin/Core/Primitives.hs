@@ -14,7 +14,7 @@ import qualified Data.Text.Format    as F
 
 import           Serokell.Util.Text  (listBuilderJSON, pairBuilder)
 
-import           RSCoin.Core.Crypto  (Hash, PublicKey, Signature)
+import           RSCoin.Core.Crypto  (Hash, PublicKey)
 
 -- | Coin is the least possible unit of currency.
 -- We use very simple model at this point.

@@ -1,4 +1,5 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns               #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 -- | A small module providing necessary cryptographic functions
 module RSCoin.Core.Crypto
        ( Hash
@@ -12,17 +13,20 @@ module RSCoin.Core.Crypto
        , keyGen
        ) where
 
-import           Control.Monad.IO.Class (MonadIO)
-import qualified Crypto.Hash.SHA256     as SHA256
-import           Data.Binary            (Binary (put, get), encode)
-import           Data.ByteString        (ByteString)
-import qualified Data.ByteString.Base64 as B64
-import           Data.Text.Buildable    (Buildable (build))
-import qualified Data.Text.Format       as F
+import qualified Crypto.Hash.SHA256        as SHA256
+import           Data.Binary               (Binary (put, get), encode)
+import           Data.ByteString           (ByteString)
+import qualified Data.ByteString.Base64    as B64
+import           Data.Text.Buildable       (Buildable (build))
+import qualified Data.Text.Format          as F
 
-import           Crypto.Secp256k1       (SecKey, PubKey, Sig,
-                                        exportPubKey, importPubKey,
-                                        importSig, exportSig, signMsg)
+import           Test.QuickCheck.Arbitrary (arbitrary)
+import           Test.QuickCheck.Gen       (generate)
+
+import           Crypto.Secp256k1          (SecKey, PubKey, Sig,
+                                           exportPubKey, importPubKey,
+                                           importSig, exportSig, signMsg,
+                                           msg, verifySig, derivePubKey)
 
 newtype Hash =
   Hash { getHash :: ByteString }
@@ -63,13 +67,26 @@ instance Binary PublicKey where
 
 -- | Gets something serializable and gives back hash of it.
 hash :: Binary t => t -> Hash
-hash = Hash . B64.encode . SHA256.hashlazy . encode
+hash = Hash . B64.encode . hash'
+
+hash' :: Binary t => t -> ByteString
+hash' = SHA256.hashlazy . encode
 
 sign :: Binary t => SecretKey -> t -> Signature
-sign = undefined -- (getSecretKey -> secKey) = Signature . signMsg secKey
+sign (getSecretKey -> secKey) = 
+  maybe
+    (error "Message is too long")
+    (Signature . signMsg secKey)
+    . msg . hash'
 
-verify :: (MonadIO m, Binary t) => PublicKey -> Signature -> t -> m Bool
-verify = undefined
+verify :: Binary t => PublicKey -> Signature -> t -> Bool
+verify (getPublicKey -> pubKey) (getSignature -> sig) =
+  maybe
+    (error "Message is too long")
+    (verifySig pubKey sig)
+    . msg . hash'
 
-keyGen :: MonadIO m => m (SecretKey, PublicKey)
-keyGen = undefined
+keyGen :: IO (SecretKey, PublicKey)
+keyGen = do
+  sKey <- generate arbitrary
+  return (SecretKey sKey, PublicKey $ derivePubKey sKey)

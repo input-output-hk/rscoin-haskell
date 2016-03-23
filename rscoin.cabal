@@ -16,7 +16,8 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     RSCoin.Core.Constants
+  exposed-modules:     RSCoin.Core
+                     , RSCoin.Core.Constants
                      , RSCoin.Core.Crypto
                      , RSCoin.Core.Primitives
                      , RSCoin.Core.Types

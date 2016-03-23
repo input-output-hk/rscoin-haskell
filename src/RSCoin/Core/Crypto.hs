@@ -1,5 +1,4 @@
-{-# LANGUAGE ViewPatterns               #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | A small module providing necessary cryptographic functions
 -- We are using secp256k1 implementation.
@@ -26,10 +25,10 @@ import qualified Data.Text.Format          as F
 import           Test.QuickCheck.Arbitrary (arbitrary)
 import           Test.QuickCheck.Gen       (generate)
 
-import           Crypto.Secp256k1          (SecKey, PubKey, Sig, Msg,
-                                           exportPubKey, importPubKey,
-                                           importSig, exportSig, signMsg,
-                                           msg, verifySig, derivePubKey)
+import           Crypto.Secp256k1          (Msg, PubKey, SecKey, Sig,
+                                            derivePubKey, exportPubKey,
+                                            exportSig, importPubKey, importSig,
+                                            msg, signMsg, verifySig)
 
 -- | Hash is just a base64 encoded ByteString.
 newtype Hash =

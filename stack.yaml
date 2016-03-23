@@ -10,6 +10,10 @@ packages:
     git: ssh://git@serokell.io:2222/serokell-team/serokell-core.git
     commit: 107efa4e1fdbf32d8b5bf6cd073ca5f82c73de3e
 
+nix:
+    enable: false
+    packages: [git,openssh,autoreconfHook]
+
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
 - secp256k1-0.4.5

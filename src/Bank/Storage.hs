@@ -9,14 +9,19 @@ module Storage
        , getMintettes
        , getPeriodId
        , addMintette
+       , startNewPeriod
        ) where
 
-import           Control.Lens        (Getter, makeLenses, to, (%=))
-import           Control.Monad.State (State)
-import qualified Data.Map            as M
-import           Data.Typeable       (Typeable)
+import           Control.Lens         (Getter, makeLenses, to, (%=))
+import           Control.Monad.Except (ExceptT)
+import           Control.Monad.State  (State)
+import qualified Data.Map             as M
+import           Data.Typeable        (Typeable)
 
-import           RSCoin.Core         (Mintette, Mintettes, PeriodId, PublicKey)
+import           RSCoin.Core          (Mintette, Mintettes, PeriodId,
+                                       PeriodResult, PublicKey)
+
+import           Error                (BankError (..))
 
 data Storage = Storage
     { _mintettes :: M.Map Mintette PublicKey
@@ -37,8 +42,12 @@ getPeriodId :: Query PeriodId
 getPeriodId = periodId
 
 type Update = State Storage
+type ExceptUpdate = ExceptT BankError (State Storage)
 
 -- | Add given mintette to storage and associate given key with it.
 -- Overrides existing record if it already exists.
 addMintette :: Mintette -> PublicKey -> Update ()
 addMintette m k = mintettes %= (M.insert m k)
+
+startNewPeriod :: [Maybe PeriodResult] -> ExceptUpdate ()
+startNewPeriod = undefined

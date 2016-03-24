@@ -5,6 +5,7 @@ module RSCoin.Core
          module Exports
        ) where
 
+import           RSCoin.Core.Constants  as Exports
 import           RSCoin.Core.Crypto     as Exports
 import           RSCoin.Core.Owners     as Exports
 import           RSCoin.Core.Primitives as Exports

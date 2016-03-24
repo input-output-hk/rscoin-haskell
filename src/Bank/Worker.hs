@@ -6,14 +6,17 @@ module Worker
        ( runWorker
        ) where
 
-import           Control.Concurrent    (forkFinally, threadDelay)
-import           Control.Exception     (SomeException)
-import           Control.Monad         (void)
-import           Data.Time.Units       (toMicroseconds)
+import           Control.Concurrent (forkFinally, threadDelay)
+import           Control.Exception  (SomeException, try)
+import           Control.Monad      (void)
+import           Data.Acid          (query, update)
+import           Data.Time.Units    (toMicroseconds)
 
-import           RSCoin.Core.Constants (periodDelta)
+import           RSCoin.Core        (Mintette, PeriodId, PeriodResult,
+                                     periodDelta)
 
-import           AcidState             (State)
+import           AcidState          (GetMintettes (..), GetPeriodId (..),
+                                     StartNewPeriod (..), State)
 
 -- | Start worker which runs appropriate action when a period finishes
 runWorker :: State -> IO ()
@@ -30,4 +33,18 @@ runWorker st =
     handler f (Right _) = f
 
 onPeriodFinished :: State -> IO ()
-onPeriodFinished = undefined
+onPeriodFinished st = do
+    mintettes <- query st GetMintettes
+    pId <- query st GetPeriodId
+    periodResults <- mapM (handleError . flip sendPeriodFinished pId) mintettes
+    update st $ StartNewPeriod periodResults
+  where
+    handleError action = do
+        either onError (return . Just) =<< try action
+    -- TODO: catching appropriate exception according to protocol implementation
+    onError (e :: SomeException) = do
+        putStrLn $ "Error occurred: " ++ show e
+        return Nothing
+
+sendPeriodFinished :: Mintette -> PeriodId -> IO PeriodResult
+sendPeriodFinished = undefined  -- it depends on protocol

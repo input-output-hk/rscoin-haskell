@@ -47,6 +47,7 @@ library
 executable rscoin-bank
   main-is:             Main.hs
   other-modules:       AcidState
+                     , Error
                      , Options
                      , Server
                      , Storage
@@ -60,6 +61,7 @@ executable rscoin-bank
                      , rscoin
                      , safecopy
                      , serokell-core
+                     , text
                      , text-format
                      , time-units >= 1.0.0
   hs-source-dirs:      src/Bank

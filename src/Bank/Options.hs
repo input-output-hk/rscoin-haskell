@@ -11,8 +11,6 @@ import           Options.Applicative (Parser, auto, command, execParser,
                                       option, progDesc, short, strOption,
                                       subparser, value, (<>))
 
-import           RSCoin.Core         (Mintette (..))
-
 data Command
     = Serve Int
     | AddMintette String Int FilePath

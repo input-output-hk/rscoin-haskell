@@ -1,4 +1,5 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns    #-}
 
 -- | A small module providing necessary cryptographic functions
 -- We are using secp256k1 implementation.
@@ -24,8 +25,11 @@ import           Data.Binary               (Binary (put, get), decodeOrFail,
                                             encode)
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Base64    as B64
-import           Data.SafeCopy             (SafeCopy (putCopy, getCopy),
-                                            contain, safeGet, safePut)
+import           Data.SafeCopy             (Contained,
+                                            SafeCopy (putCopy, getCopy), base,
+                                            contain, deriveSafeCopy, safeGet,
+                                            safePut)
+import           Data.Serialize            (Get, Put)
 import           Data.Text.Buildable       (Buildable (build))
 import qualified Data.Text.Format          as F
 
@@ -40,7 +44,9 @@ import           Crypto.Secp256k1          (Msg, PubKey, SecKey, Sig,
 -- | Hash is just a base64 encoded ByteString.
 newtype Hash =
     Hash { getHash :: ByteString }
-    deriving (Eq, Show, Binary)
+    deriving (Eq, Show, Binary, Ord)
+
+$(deriveSafeCopy 0 'base ''Hash)
 
 instance Buildable Hash where
     build = build . F.Shown
@@ -48,6 +54,22 @@ instance Buildable Hash where
 newtype Signature =
     Signature { getSignature :: Sig }
     deriving (Eq, Show)
+
+putCopyBinary :: Binary a => a -> Contained Put
+putCopyBinary = contain . safePut . encode
+
+getCopyBinary :: Binary a => Contained (Get a)
+getCopyBinary =
+    contain $
+    do bs <- safeGet
+       either onError onSuccess . decodeOrFail $ bs
+  where
+    onError (_,_,errMsg) = fail errMsg
+    onSuccess (_,_,res) = return res
+
+instance SafeCopy Signature where
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary
 
 instance Buildable Signature where
     build = build . F.Shown
@@ -67,14 +89,8 @@ newtype PublicKey =
     deriving (Eq, Show, Read)
 
 instance SafeCopy PublicKey where
-    putCopy = contain . safePut . encode
-    getCopy =
-        contain $
-        do bs <- safeGet
-           either onError onSuccess . decodeOrFail $ bs
-      where
-        onError (_,_,errMsg) = fail errMsg
-        onSuccess (_,_,res) = return res
+    putCopy = putCopyBinary
+    getCopy = getCopyBinary
 
 instance Buildable PublicKey where
     build = build . F.Shown

@@ -14,6 +14,7 @@ module RSCoin.Core.Types
        , ActionLogEntry (..)
        , ActionLog
        , LBlock (..)
+       , PeriodResult
        , Dpk
        , HBlock (..)
        ) where
@@ -58,6 +59,8 @@ data CheckConfirmation = CheckConfirmation
     , ccHead              :: !LogChainHead  -- ^ head of log
     } deriving (Show)
 
+$(deriveSafeCopy 0 'base ''CheckConfirmation)
+
 -- | CheckConfirmations is a bundle of evidence collected by user and
 -- sent to mintette as payload for Commit action.
 type CheckConfirmations = M.Map (MintetteId, AddrId) CheckConfirmation
@@ -69,6 +72,8 @@ data ActionLogEntry
                   !CheckConfirmations
     | CloseEpochEntry !LogChainHeads
     deriving (Show)
+
+$(deriveSafeCopy 0 'base ''ActionLogEntry)
 
 -- | Action log is a list of entries.
 type ActionLog = [ActionLogEntry]
@@ -84,6 +89,11 @@ data LBlock = LBlock
     , lbSignature    :: !Signature     -- ^ signature given by mintette for hash
     , lbHeads        :: LogChainHeads  -- ^ heads received from other mintettes
     } deriving (Show)
+
+$(deriveSafeCopy 0 'base ''LBlock)
+
+-- | PeriodResult is sent by mintette to bank when period finishes.
+type PeriodResult = (PeriodId, [LBlock], ActionLog)
 
 -- | DPK is a list of signatures which authorizies mintettes for one period
 type Dpk = [(PublicKey, Signature)]

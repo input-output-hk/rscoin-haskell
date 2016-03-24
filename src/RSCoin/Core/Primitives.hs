@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | The most basic primitives from the paper.
 
 module RSCoin.Core.Primitives
@@ -10,6 +12,7 @@ module RSCoin.Core.Primitives
 
 import           Data.Binary         (Binary (put, get))
 import           Data.Int            (Int64)
+import           Data.SafeCopy       (base, deriveSafeCopy)
 import           Data.Text.Buildable (Buildable (build))
 import qualified Data.Text.Format    as F
 
@@ -60,3 +63,7 @@ instance Buildable Transaction where
 
 -- | Transaction is identified by its hash
 type TransactionId = Hash
+
+$(deriveSafeCopy 0 'base ''Coin)
+$(deriveSafeCopy 0 'base ''Address)
+$(deriveSafeCopy 0 'base ''Transaction)

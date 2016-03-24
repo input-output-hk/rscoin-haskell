@@ -10,7 +10,7 @@ module RSCoin.Core.Primitives
        , TransactionId
        ) where
 
-import           Data.Binary         (Binary (put, get))
+import           Data.Binary         (Binary (get, put))
 import           Data.Int            (Int64)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 import           Data.Text.Buildable (Buildable (build))

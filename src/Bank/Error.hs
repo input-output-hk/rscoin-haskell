@@ -9,7 +9,7 @@ import           Data.Text         (Text)
 import           Data.Typeable     (Typeable)
 
 data BankError =
-    InternalError Text
+    BEInternal Text
     deriving (Show, Typeable)
 
 instance Exception BankError

@@ -107,3 +107,5 @@ data HBlock = HBlock
     , hbSignature    :: !Signature
     , hbDpk          :: Dpk
     } deriving (Show)
+
+$(deriveSafeCopy 0 'base ''HBlock)

@@ -7,12 +7,14 @@ module Storage
        ( Storage
        , mkStorage
        , getMintettes
+       , addMintette
        ) where
 
-import           Control.Lens  (Getter, makeLenses)
-import           Data.Typeable (Typeable)
+import           Control.Lens        (Getter, makeLenses, (%=))
+import           Control.Monad.State (State)
+import           Data.Typeable       (Typeable)
 
-import           RSCoin.Core   (Mintettes)
+import           RSCoin.Core         (Mintette, Mintettes)
 
 data Storage = Storage
     { _mintettes :: Mintettes
@@ -27,3 +29,8 @@ type Query a = Getter Storage a
 
 getMintettes :: Query Mintettes
 getMintettes = mintettes
+
+type Update = State Storage
+
+addMintette :: Mintette -> Update ()
+addMintette m = mintettes %= (m:)

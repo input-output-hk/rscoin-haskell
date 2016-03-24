@@ -45,10 +45,14 @@ library
 executable rscoin-bank
   main-is:             Main.hs
   other-modules:       AcidState
+                     , Options
+                     , Server
                      , Storage
   build-depends:       acid-state
                      , base >= 4.8 && < 4.9
                      , lens
+                     , mtl
+                     , optparse-applicative
                      , rscoin
                      , safecopy
                      , serokell-core

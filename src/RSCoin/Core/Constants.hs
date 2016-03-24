@@ -1,14 +1,14 @@
 module RSCoin.Core.Constants
-       (period
-       ,epoch
+       ( periodDelta
+       , epochDelta
        ) where
 
 import           Data.Time.Units (Second)
 
 -- Just dummies
 
-period :: Second
-period = 50
+periodDelta :: Second
+periodDelta = 50
 
-epoch :: Second
-epoch = 5
+epochDelta :: Second
+epochDelta = 5

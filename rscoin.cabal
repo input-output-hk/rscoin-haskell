@@ -51,6 +51,7 @@ executable rscoin-bank
                      , Worker
   build-depends:       acid-state
                      , base >= 4.8 && < 4.9
+                     , containers
                      , lens
                      , mtl
                      , optparse-applicative

@@ -17,5 +17,6 @@ main = do
         runWorker st
         serve port st
     run (AddMintette name port keyPath) st = do
-        m <- Mintette name port <$> readPublicKey keyPath
-        update st (AS.AddMintette m)
+        k <- readPublicKey keyPath
+        let m = Mintette name port
+        update st $ AS.AddMintette m k

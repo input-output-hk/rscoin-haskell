@@ -11,31 +11,34 @@ module Storage
        , addMintette
        ) where
 
-import           Control.Lens        (Getter, makeLenses, (%=))
+import           Control.Lens        (Getter, makeLenses, to, (%=))
 import           Control.Monad.State (State)
+import qualified Data.Map            as M
 import           Data.Typeable       (Typeable)
 
-import           RSCoin.Core         (Mintette, Mintettes, PeriodId)
+import           RSCoin.Core         (Mintette, Mintettes, PeriodId, PublicKey)
 
 data Storage = Storage
-    { _mintettes :: Mintettes
+    { _mintettes :: M.Map Mintette PublicKey
     , _periodId  :: PeriodId
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
 
 mkStorage :: Storage
-mkStorage = Storage [] 0
+mkStorage = Storage M.empty 0
 
 type Query a = Getter Storage a
 
 getMintettes :: Query Mintettes
-getMintettes = mintettes
+getMintettes = mintettes . to M.keys
 
 getPeriodId :: Query PeriodId
 getPeriodId = periodId
 
 type Update = State Storage
 
-addMintette :: Mintette -> Update ()
-addMintette m = mintettes %= (m:)
+-- | Add given mintette to storage and associate given key with it.
+-- Overrides existing record if it already exists.
+addMintette :: Mintette -> PublicKey -> Update ()
+addMintette m k = mintettes %= (M.insert m k)

@@ -31,8 +31,7 @@ type PeriodId = Int
 data Mintette = Mintette
     { mintetteHost :: !String
     , mintettePort :: !Int
-    , mintetteKey  :: !PublicKey
-    }
+    } deriving (Show, Eq, Ord)
 
 $(deriveSafeCopy 0 'base ''Mintette)
 

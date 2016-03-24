@@ -29,7 +29,7 @@ openState fp = openLocalStateFrom fp BS.mkStorage
 closeState :: State -> IO ()
 closeState = closeAcidState
 
-addMintette = stateToUpdate . BS.addMintette
+addMintette m = stateToUpdate . BS.addMintette m
 
 $(makeAcidic ''BS.Storage
              [ 'addMintette

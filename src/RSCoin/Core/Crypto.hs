@@ -13,6 +13,10 @@ module RSCoin.Core.Crypto
        , sign
        , verify
        , keyGen
+       , writePublicKey
+       , readPublicKey
+       , writeSecretKey
+       , readSecretKey
        ) where
 
 import qualified Crypto.Hash.SHA256        as SHA256
@@ -49,18 +53,18 @@ instance Buildable Signature where
     build = build . F.Shown
 
 instance Binary Signature where
-    get = do
+    get = do -- NOTE: we can implement Binary with Show/Read
         mSig <- importSig <$> get
         maybe (fail "Signature import failed") (return . Signature) mSig
     put = put . exportSig . getSignature
 
 newtype SecretKey =
     SecretKey { getSecretKey :: SecKey }
-    deriving (Eq, Show)
+    deriving (Eq, Show, Read)
 
 newtype PublicKey =
     PublicKey { getPublicKey :: PubKey }
-    deriving (Eq, Show)
+    deriving (Eq, Show, Read)
 
 instance SafeCopy PublicKey where
     putCopy = contain . safePut . encode
@@ -76,7 +80,7 @@ instance Buildable PublicKey where
     build = build . F.Shown
 
 instance Binary PublicKey where
-    get = do
+    get = do -- NOTE: we can implement Binary with Show/Read
         mKey <- importPubKey <$> get
         maybe (fail "Public key import failed") (return . PublicKey) mKey
     put = put . exportPubKey True . getPublicKey
@@ -103,11 +107,27 @@ keyGen = do
     sKey <- generate arbitrary
     return (SecretKey sKey, PublicKey $ derivePubKey sKey)
 
+-- | Writes PublicKey to a file
+writePublicKey :: FilePath -> PublicKey -> IO ()
+writePublicKey fp = writeFile fp . show
+
+-- | Reads PublicKey from a file
+readPublicKey :: FilePath -> IO PublicKey
+readPublicKey = fmap read . readFile
+
+-- | Writes SecretKey to a file
+writeSecretKey :: FilePath -> SecretKey -> IO ()
+writeSecretKey fp = writeFile fp . show
+
+-- | Reads SecretKey from a file
+readSecretKey :: FilePath -> IO SecretKey
+readSecretKey = fmap read . readFile
+
 withBinaryHashedMsg :: Binary t => (Msg -> a) -> t -> a
 withBinaryHashedMsg action =
     maybe
         (error "Message is too long") -- NOTE: this shouldn't ever happen
-                                      -- becouse SHA256.hashlazy encodes
+                                      -- because SHA256.hashlazy encodes
                                       -- messages in 32 bytes
         action
         . msg . SHA256.hashlazy . encode

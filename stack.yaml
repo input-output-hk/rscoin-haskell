@@ -8,7 +8,7 @@ packages:
 - '.'
 - location:
     git: ssh://git@serokell.io:2222/serokell-team/serokell-core.git
-    commit: 107efa4e1fdbf32d8b5bf6cd073ca5f82c73de3e
+    commit: 1d5afbcac707572b3c5d2e7f081cf65f83b06a66
 
 nix:
     enable: false

@@ -22,13 +22,15 @@ import           AcidState          (GetMintettes (..), GetPeriodId (..),
 runWorker :: State -> IO ()
 runWorker st =
     foreverE $
-    do threadDelay (fromIntegral $ toMicroseconds periodDelta)
-       onPeriodFinished st
+    do onPeriodFinished st
+       threadDelay (fromIntegral $ toMicroseconds periodDelta)
   where
     foreverE f = void $ forkFinally f $ handler $ foreverE f
     -- TODO: use logging system once we have one
     handler f (Left (e :: SomeException)) = do
-        putStrLn $ "Error occurred in worker, restarting in 1 minute: " ++ show e
+        putStrLn $
+            "Error occurred in worker, restarting in 1 minute: " ++ show e
+        threadDelay $ 1 * 60 * 1000 * 1000
         f
     handler f (Right _) = f
 
@@ -36,6 +38,8 @@ onPeriodFinished :: State -> IO ()
 onPeriodFinished st = do
     mintettes <- query st GetMintettes
     pId <- query st GetPeriodId
+    -- Mintettes list is empty before the first period, so we'll simply
+    -- get [] here in this case (and it's fine).
     periodResults <- mapM (handleError . flip sendPeriodFinished pId) mintettes
     update st $ StartNewPeriod periodResults
   where

@@ -9,7 +9,9 @@ module RSCoin.Core.Crypto
        , getHash
        , Signature
        , SecretKey
+       , getSecretKey
        , PublicKey
+       , getPublicKey
        , hash
        , sign
        , verify

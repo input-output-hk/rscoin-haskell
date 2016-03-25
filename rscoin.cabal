@@ -21,6 +21,7 @@ library
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Crypto
                      , RSCoin.Core.HBlock
+                     , RSCoin.Core.LBlock
                      , RSCoin.Core.Owners
                      , RSCoin.Core.Primitives
                      , RSCoin.Core.Types

@@ -19,8 +19,10 @@ module RSCoin.Core.Types
        , HBlock (..)
        ) where
 
+import           Data.Binary            (Binary (get, put), Get, Put)
 import qualified Data.Map               as M
 import           Data.SafeCopy          (base, deriveSafeCopy)
+import           Data.Word              (Word8)
 
 import           RSCoin.Core.Crypto     (Hash, PublicKey, Signature)
 import           RSCoin.Core.Primitives (AddrId, Transaction)
@@ -59,6 +61,13 @@ data CheckConfirmation = CheckConfirmation
     , ccHead              :: !LogChainHead  -- ^ head of log
     } deriving (Show)
 
+instance Binary CheckConfirmation where
+    put CheckConfirmation{..} = do
+        put ccMintetteKey
+        put ccMintetteSignature
+        put ccHead
+    get = CheckConfirmation <$> get <*> get <*> get
+
 $(deriveSafeCopy 0 'base ''CheckConfirmation)
 
 -- | CheckConfirmations is a bundle of evidence collected by user and
@@ -72,6 +81,21 @@ data ActionLogEntry
                   !CheckConfirmations
     | CloseEpochEntry !LogChainHeads
     deriving (Show)
+
+putByte :: Word8 -> Put
+putByte = put
+
+instance Binary ActionLogEntry where
+    put (QueryEntry tr) = putByte 0 >> put tr
+    put (CommitEntry tr cc) = putByte 1 >> put (tr, cc)
+    put (CloseEpochEntry heads) = putByte 2 >> put heads
+    get = do
+        t <- get :: Get Word8
+        case t of
+            0 -> QueryEntry <$> get
+            1 -> uncurry CommitEntry <$> get
+            2 -> CloseEpochEntry <$> get
+            _ -> fail "Unexpected ActionLogEntry type"
 
 $(deriveSafeCopy 0 'base ''ActionLogEntry)
 

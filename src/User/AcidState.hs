@@ -27,10 +27,6 @@ import           Data.Acid           (makeAcidic)
 import qualified Data.Acid           as A
 import           Data.SafeCopy       (SafeCopy (..), base, deriveSafeCopy)
 
-instance SafeCopy C.SecretKey where
-    putCopy = undefined
-    getCopy = undefined
-
 $(deriveSafeCopy 0 'base ''UserAddress)
 $(deriveSafeCopy 0 'base ''WalletStorage)
 

@@ -32,7 +32,7 @@ import           Data.Monoid                ((<>))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
 
-import           Serokell.Util.Text         (format', formatSingle')
+import           Serokell.Util.Text         (format', formatSingle', show')
 
 import           RSCoin.Core.Crypto         (PublicKey (..), SecretKey (..),
                                              keyGen)
@@ -47,6 +47,7 @@ data UserAddress = UserAddress
 
 $(L.makeLenses ''UserAddress)
 
+-- TODO REMOVE THIS MOCK
 instance Buildable SecretKey where
     build = undefined
 
@@ -59,8 +60,8 @@ instance Buildable UserAddress where
 instance Show UserAddress where
     show ud =
         "UserAddress with PK: " ++
-        (show . getPublicKey $ ud ^. publicAddress) ++
-        "; SK: " ++ hideLast 10 (show . getSecretKey $ ud ^. privateAddress)
+        (T.unpack $ show' $ ud ^. publicAddress) ++
+        "; SK: " ++ hideLast 10 (T.unpack $ show' $ ud ^. privateAddress)
       where
         hideLast n str =
             if n > length str

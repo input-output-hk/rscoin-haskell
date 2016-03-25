@@ -18,11 +18,13 @@ import           Control.Monad              (guard, unless)
 import           Control.Monad.State        (State)
 import           Control.Monad.Trans.Except (ExceptT, throwE)
 import           Data.Typeable              (Typeable)
+import           Safe                       (headMay)
 
-import           RSCoin.Core                (Dpk, HBlock (..), LBlock (..),
+import           RSCoin.Core                (ActionLog, Dpk, HBlock (..),
                                              Mintette, Mintettes, PeriodId,
-                                             PeriodResult, PublicKey, hash,
-                                             sign, verify)
+                                             PeriodResult, PublicKey, SecretKey,
+                                             checkActionLog, checkLBlock,
+                                             mkGenesisHBlock, sign)
 
 import           RSCoin.Bank.Error          (BankError (BEInternal))
 
@@ -33,13 +35,14 @@ data Storage = Storage
     , _periodId         :: PeriodId
     , _blocks           :: [HBlock]
     , _dpk              :: Dpk
+    , _actionLogs       :: [ActionLog]
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
 
 -- | Make empty storage
 mkStorage :: Storage
-mkStorage = Storage [] [] 0 [] []
+mkStorage = Storage [] [] 0 [] [] []
 
 type Query a = Getter Storage a
 
@@ -59,60 +62,63 @@ addMintette m k = pendingMintettes %= ((m, k):)
 -- | When period finishes, Bank receives period results from mintettes,
 -- updates storage and starts new period with potentially different set
 -- of mintettes.
-startNewPeriod :: [Maybe PeriodResult] -> ExceptUpdate ()
-startNewPeriod results = do
+startNewPeriod :: SecretKey -> [Maybe PeriodResult] -> ExceptUpdate ()
+startNewPeriod sk results = do
     mts <- use mintettes
     unless (length mts == length results) $
         throwE $
         BEInternal
             "Length of results is different from the length of mintettes"
     pId <- use periodId
-    startNewPeriodDo pId mts results
+    startNewPeriodDo sk pId results
 
-startNewPeriodDo :: PeriodId
-                 -> Mintettes
+startNewPeriodDo :: SecretKey
+                 -> PeriodId
                  -> [Maybe PeriodResult]
                  -> ExceptUpdate ()
-startNewPeriodDo 0 _ _ = do
-    startNewPeriodFinally [] undefined
-startNewPeriodDo pId mts results = do
+startNewPeriodDo sk 0 _ = do
+    startNewPeriodFinally sk [] mkGenesisHBlock
+startNewPeriodDo sk pId results = do
     lastHBlock <- head <$> use blocks
     curDpk <- use dpk
+    logs <- use actionLogs
     let keys = map fst curDpk
     unless (length keys == length results) $
         throwE $
         BEInternal "Length of keys is different from the length of results"
-    let checkedResults = map (checkResult pId lastHBlock) $ zip results keys
+    let checkedResults = map (checkResult pId lastHBlock) $ zip3 results keys logs
     undefined
 
-startNewPeriodFinally :: [Int] -> HBlock -> ExceptUpdate ()
-startNewPeriodFinally goodMintettes newBlock = do
+startNewPeriodFinally :: SecretKey
+                      -> [Int]
+                      -> (SecretKey -> Dpk -> HBlock)
+                      -> ExceptUpdate ()
+startNewPeriodFinally sk goodMintettes newBlockCtor = do
     periodId += 1
-    updateMintettes goodMintettes
+    updateMintettes sk goodMintettes
+    newBlock <- newBlockCtor sk <$> use dpk
     blocks %= (newBlock:)
 
 checkResult :: PeriodId
             -> HBlock
-            -> (Maybe PeriodResult, PublicKey)
+            -> (Maybe PeriodResult, PublicKey, ActionLog)
             -> Maybe PeriodResult
-checkResult expectedPid lastHBlock (r, key) = do
-    (pId, lBlocks, logActions) <- r
+checkResult expectedPid lastHBlock (r, key, storedLog) = do
+    (pId, lBlocks, actionLog) <- r
     guard $ pId == expectedPid
-    mapM_ (checkBlock (hbHash lastHBlock)) lBlocks
+    guard $ checkActionLog (headMay storedLog) actionLog
+    mapM_ (guard . checkLBlock key (hbHash lastHBlock) actionLog) lBlocks
     r
-  where
-    checkBlock lastBankHash LBlock{..} = do
-        guard $
-            lbHash ==
-            hash (lastBankHash, (undefined :: Int), lbHeads, lbTransactions)
-        guard $ verify key lbSignature lbHash
 
-updateMintettes :: [Int] -> ExceptUpdate ()
-updateMintettes goodMintettes = do
+updateMintettes :: SecretKey -> [Int] -> ExceptUpdate ()
+updateMintettes sk goodMintettes = do
     existing <- use mintettes
     pending <- use pendingMintettes
     mintettes .= map (existing !!) goodMintettes ++ map fst pending
     currentDpk <- use dpk
     dpk .= map (currentDpk !!) goodMintettes ++ map doSign pending
+    currentLogs <- use actionLogs
+    actionLogs .= map (currentLogs !!) goodMintettes ++
+        replicate (length pending) []
   where
-    doSign (_, mpk) = (mpk, sign undefined mpk)
+    doSign (_,mpk) = (mpk, sign sk mpk)

@@ -42,6 +42,7 @@ library
                      , lens
                      , mtl
                      , QuickCheck >= 2.8.1
+                     , safe
                      , safecopy
                      , secp256k1 >= 0.4.5
                      , serokell-core

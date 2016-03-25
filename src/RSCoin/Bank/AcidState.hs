@@ -40,8 +40,8 @@ getMintettes = view BS.getMintettes
 getPeriodId :: Query BS.Storage PeriodId
 getPeriodId = view BS.getPeriodId
 
-addMintette m = stateToUpdate . BS.addMintette m
-startNewPeriod = exceptStateToUpdate . BS.startNewPeriod
+addMintette a = stateToUpdate . BS.addMintette a
+startNewPeriod a = exceptStateToUpdate . BS.startNewPeriod a
 
 $(makeAcidic ''BS.Storage
              [ 'getMintettes

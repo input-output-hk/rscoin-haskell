@@ -12,7 +12,7 @@ main = do
     bracket (B.openState cloPath) B.closeState $ run cloCommand
   where
     run (Opts.Serve port) st = do
-        B.runWorker st
+        B.runWorker undefined st
         B.serve port st
     run (Opts.AddMintette name port keyPath) st = do
         k <- readPublicKey keyPath

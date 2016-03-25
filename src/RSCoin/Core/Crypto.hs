@@ -23,12 +23,13 @@ module RSCoin.Core.Crypto
        ) where
 
 import qualified Crypto.Hash.SHA256        as SHA256
-import           Data.Binary               (Binary (put, get), decodeOrFail,
+import           Data.Binary               (Binary (get, put), decodeOrFail,
                                             encode)
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Base64    as B64
+import           Data.Ord                  (comparing)
 import           Data.SafeCopy             (Contained,
-                                            SafeCopy (putCopy, getCopy), base,
+                                            SafeCopy (getCopy, putCopy), base,
                                             contain, deriveSafeCopy, safeGet,
                                             safePut)
 import           Data.Serialize            (Get, Put)
@@ -86,9 +87,15 @@ newtype SecretKey =
     SecretKey { getSecretKey :: SecKey }
     deriving (Eq, Show, Read)
 
+instance Ord SecretKey where
+    compare = comparing (show . getSecretKey)
+
 newtype PublicKey =
     PublicKey { getPublicKey :: PubKey }
     deriving (Eq, Show, Read)
+
+instance Ord PublicKey where
+    compare = comparing (show . getPublicKey)
 
 instance SafeCopy PublicKey where
     putCopy = putCopyBinary

@@ -18,6 +18,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     RSCoin.Bank
                      , RSCoin.Core
+                     , RSCoin.Core.ActionLog
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Crypto
                      , RSCoin.Core.HBlock

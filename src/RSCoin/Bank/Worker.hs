@@ -2,21 +2,21 @@
 
 -- | Worker that handles end of period.
 
-module Worker
+module RSCoin.Bank.Worker
        ( runWorker
        ) where
 
-import           Control.Concurrent (forkFinally, threadDelay)
-import           Control.Exception  (SomeException, try)
-import           Control.Monad      (void)
-import           Data.Acid          (query, update)
-import           Data.Time.Units    (toMicroseconds)
+import           Control.Concurrent    (forkFinally, threadDelay)
+import           Control.Exception     (SomeException, try)
+import           Control.Monad         (void)
+import           Data.Acid             (query, update)
+import           Data.Time.Units       (toMicroseconds)
 
-import           RSCoin.Core        (Mintette, PeriodId, PeriodResult,
-                                     periodDelta)
+import           RSCoin.Core           (Mintette, PeriodId, PeriodResult,
+                                        periodDelta)
 
-import           AcidState          (GetMintettes (..), GetPeriodId (..),
-                                     StartNewPeriod (..), State)
+import           RSCoin.Bank.AcidState (GetMintettes (..), GetPeriodId (..),
+                                        StartNewPeriod (..), State)
 
 -- | Start worker which runs appropriate action when a period finishes
 runWorker :: State -> IO ()

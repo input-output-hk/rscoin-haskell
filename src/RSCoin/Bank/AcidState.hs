@@ -4,7 +4,7 @@
 
 -- | Wrap Storage into AcidState
 
-module AcidState
+module RSCoin.Bank.AcidState
        ( State
        , openState
        , closeState
@@ -23,7 +23,7 @@ import           Serokell.Util.AcidState (exceptStateToUpdate, stateToUpdate)
 
 import           RSCoin.Core             (Mintettes, PeriodId)
 
-import qualified Storage                 as BS
+import qualified RSCoin.Bank.Storage     as BS
 
 type State = AcidState BS.Storage
 

@@ -16,24 +16,34 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     RSCoin.Core
+  exposed-modules:     RSCoin.Bank
+                     , RSCoin.Core
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Crypto
                      , RSCoin.Core.HBlock
                      , RSCoin.Core.Owners
                      , RSCoin.Core.Primitives
                      , RSCoin.Core.Types
-  build-depends:       base >=4.8 && <4.9
+  other-modules:       RSCoin.Bank.AcidState
+                     , RSCoin.Bank.Error
+                     , RSCoin.Bank.Server
+                     , RSCoin.Bank.Storage
+                     , RSCoin.Bank.Worker
+  build-depends:       acid-state
+                     , base >=4.8 && <4.9
                      , bytestring >= 0.10.6.0
                      , binary >= 0.7.5.0
                      , cereal
                      , cryptohash >= 0.11.6
                      , containers
                      , base64-bytestring >= 1.0.0.1
+                     , lens
+                     , mtl
                      , QuickCheck >= 2.8.1
                      , safecopy
                      , secp256k1 >= 0.4.5
                      , serokell-core
+                     , text
                      , text-format
                      , time-units >= 1.0.0
                      , transformers >= 0.4.2.0
@@ -47,25 +57,11 @@ library
 
 executable rscoin-bank
   main-is:             Main.hs
-  other-modules:       AcidState
-                     , Error
-                     , Options
-                     , Server
-                     , Storage
-                     , Worker
+  other-modules:       Options
   build-depends:       acid-state
                      , base >= 4.8 && < 4.9
-                     , containers
-                     , lens
-                     , mtl
                      , optparse-applicative
                      , rscoin
-                     , safecopy
-                     , serokell-core
-                     , text
-                     , text-format
-                     , time-units >= 1.0.0
-                     , transformers
   hs-source-dirs:      src/Bank
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans

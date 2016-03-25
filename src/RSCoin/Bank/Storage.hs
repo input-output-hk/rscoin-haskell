@@ -3,7 +3,7 @@
 
 -- | Storage for Bank data
 
-module Storage
+module RSCoin.Bank.Storage
        ( Storage
        , mkStorage
        , getMintettes
@@ -24,7 +24,7 @@ import           RSCoin.Core                (Dpk, HBlock (..), LBlock (..),
                                              PeriodResult, PublicKey, hash,
                                              sign, verify)
 
-import           Error                      (BankError (BEInternal))
+import           RSCoin.Bank.Error          (BankError (BEInternal))
 
 -- | Storage contains all the data used by Bank
 data Storage = Storage

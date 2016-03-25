@@ -19,6 +19,7 @@ library
   exposed-modules:     RSCoin.Core
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Crypto
+                     , RSCoin.Core.HBlock
                      , RSCoin.Core.Owners
                      , RSCoin.Core.Primitives
                      , RSCoin.Core.Types

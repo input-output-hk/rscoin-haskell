@@ -12,13 +12,15 @@ import           Options.Applicative (Parser, auto, command, execParser,
                                       option, progDesc, some, strOption,
                                       subparser, value)
 
+-- | Input user command that's contained in every program call
 data UserCommand
     = ListWallets
     | UpdateBlockchain
     | FormTransaction [Int]
-                      [(String, Int)]
+                      (String, Int)
     deriving (Show)
 
+-- | Datatype describing user command line options
 data UserOptions = UserOptions
     { userCommand :: UserCommand
     , walletPath  :: FilePath
@@ -49,9 +51,7 @@ userCommandParser =
              auto
              (long "addrid" <>
               help "Id of address as numbered in list-wallets output.")) <*>
-        (some $
-         (,) <$>
-         option auto (long "addrout" <> help "Address to send coins to.") <*>
+        ((,) <$> strOption (long "addrout" <> help "Address to send coins to.") <*>
          option auto (long "value" <> help "Value to send."))
 
 userOptionsParser :: Parser UserOptions
@@ -61,6 +61,7 @@ userOptionsParser =
         (long "wallet-path" <> help "Path to wallet database." <>
          value "wallet-db")
 
+-- | IO call that retrieves command line options
 getUserOptions :: IO UserOptions
 getUserOptions =
     execParser $

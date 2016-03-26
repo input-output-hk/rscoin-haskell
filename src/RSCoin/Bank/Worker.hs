@@ -12,8 +12,8 @@ import           Control.Monad         (void)
 import           Data.Acid             (createCheckpoint, query, update)
 import           Data.Time.Units       (toMicroseconds)
 
-import           RSCoin.Core           (Mintette, PeriodId, PeriodResult,
-                                        SecretKey, periodDelta)
+import           RSCoin.Core           (Mintette, NewPeriodData, PeriodId,
+                                        PeriodResult, SecretKey, periodDelta)
 
 import           RSCoin.Bank.AcidState (GetMintettes (..), GetPeriodId (..),
                                         StartNewPeriod (..), State)
@@ -40,16 +40,22 @@ onPeriodFinished sk st = do
     pId <- query st GetPeriodId
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
-    periodResults <- mapM (handleError . flip sendPeriodFinished pId) mintettes
-    update st $ StartNewPeriod sk periodResults
+    periodResults <- mapM (handlerPeriodFinished . flip sendPeriodFinished pId) mintettes
+    newPeriodData <- update st $ StartNewPeriod sk periodResults
     createCheckpoint st
+    newMintettes <- query st GetMintettes
+    mapM_ (handlerAnnouncePeriod . flip announceNewPeriod newPeriodData) newMintettes
   where
-    handleError action = do
-        either onError (return . Just) =<< try action
+    handlerPeriodFinished action = do
+        either onPeriodFinishedError (return . Just) =<< try action
     -- TODO: catching appropriate exception according to protocol implementation
-    onError (e :: SomeException) = do
+    onPeriodFinishedError (e :: SomeException) = do
         putStrLn $ "Error occurred: " ++ show e
         return Nothing
+    handlerAnnouncePeriod = id  -- TODO
 
 sendPeriodFinished :: Mintette -> PeriodId -> IO PeriodResult
 sendPeriodFinished = undefined  -- it depends on protocol
+
+announceNewPeriod :: Mintette -> NewPeriodData -> IO ()
+announceNewPeriod = undefined   -- it depends on protocol

@@ -26,11 +26,12 @@ import           Safe                       (headMay)
 
 import           RSCoin.Core                (ActionLog, Dpk, HBlock (..),
                                              Mintette, MintetteId, Mintettes,
-                                             PeriodId, PeriodResult, PublicKey,
-                                             SecretKey, Transaction,
-                                             checkActionLog, checkLBlock, hash,
-                                             lbTransactions, mkGenesisHBlock,
-                                             mkHBlock, owners, sign)
+                                             NewPeriodData (..), PeriodId,
+                                             PeriodResult, PublicKey, SecretKey,
+                                             Transaction, checkActionLog,
+                                             checkLBlock, hash, lbTransactions,
+                                             mkGenesisHBlock, mkHBlock, owners,
+                                             sign)
 
 import           RSCoin.Bank.Error          (BankError (BEInternal))
 
@@ -68,7 +69,9 @@ addMintette m k = pendingMintettes %= ((m, k):)
 -- | When period finishes, Bank receives period results from mintettes,
 -- updates storage and starts new period with potentially different set
 -- of mintettes.
-startNewPeriod :: SecretKey -> [Maybe PeriodResult] -> ExceptUpdate ()
+startNewPeriod :: SecretKey
+               -> [Maybe PeriodResult]
+               -> ExceptUpdate NewPeriodData
 startNewPeriod sk results = do
     mts <- use mintettes
     unless (length mts == length results) $
@@ -77,6 +80,7 @@ startNewPeriod sk results = do
             "Length of results is different from the length of mintettes"
     pId <- use periodId
     startNewPeriodDo sk pId results
+    NewPeriodData <$> use periodId <*> use mintettes <*> use dpk
 
 startNewPeriodDo :: SecretKey
                  -> PeriodId

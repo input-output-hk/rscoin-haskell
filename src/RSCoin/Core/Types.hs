@@ -17,6 +17,7 @@ module RSCoin.Core.Types
        , PeriodResult
        , Dpk
        , HBlock (..)
+       , NewPeriodData (..)
        ) where
 
 import           Data.Binary            (Binary (get, put), Get, Put)
@@ -133,3 +134,11 @@ data HBlock = HBlock
     } deriving (Show)
 
 $(deriveSafeCopy 0 'base ''HBlock)
+
+data NewPeriodData = NewPeriodData
+    { npdPeriodId  :: PeriodId
+    , npdMintettes :: Mintettes
+    , npdDpk       :: Dpk
+    } deriving (Show)
+
+$(deriveSafeCopy 0 'base ''NewPeriodData)

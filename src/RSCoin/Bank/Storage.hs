@@ -1,5 +1,6 @@
 {-# LANGUAGE Rank2Types      #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections   #-}
 
 -- | Storage for Bank data
 
@@ -17,14 +18,19 @@ import           Control.Lens               (Getter, makeLenses, use, (%=),
 import           Control.Monad              (guard, unless)
 import           Control.Monad.State        (State)
 import           Control.Monad.Trans.Except (ExceptT, throwE)
+import qualified Data.HashMap.Lazy          as M
+import qualified Data.HashSet               as S
+import           Data.Maybe                 (catMaybes)
 import           Data.Typeable              (Typeable)
 import           Safe                       (headMay)
 
 import           RSCoin.Core                (ActionLog, Dpk, HBlock (..),
-                                             Mintette, Mintettes, PeriodId,
-                                             PeriodResult, PublicKey, SecretKey,
-                                             checkActionLog, checkLBlock,
-                                             mkGenesisHBlock, sign)
+                                             Mintette, MintetteId, Mintettes,
+                                             PeriodId, PeriodResult, PublicKey,
+                                             SecretKey, Transaction,
+                                             checkActionLog, checkLBlock, hash,
+                                             lbTransactions, mkGenesisHBlock,
+                                             mkHBlock, owners, sign)
 
 import           RSCoin.Bank.Error          (BankError (BEInternal))
 
@@ -86,11 +92,19 @@ startNewPeriodDo sk pId results = do
     unless (length keys == length results) $
         throwE $
         BEInternal "Length of keys is different from the length of results"
-    let checkedResults = map (checkResult pId lastHBlock) $ zip3 results keys logs
-    undefined
+    let checkedResults =
+            map (checkResult pId lastHBlock) $ zip3 results keys logs
+    let filteredResults =
+            catMaybes $ map filterCheckedResults $ zip [0 ..] checkedResults
+    mts <- use mintettes
+    let blockTransactions = mergeTransactions mts filteredResults
+    startNewPeriodFinally sk filteredResults
+        (mkHBlock blockTransactions lastHBlock)
+  where
+    filterCheckedResults (idx, mres) = (idx, ) <$> mres
 
 startNewPeriodFinally :: SecretKey
-                      -> [Int]
+                      -> [(MintetteId, PeriodResult)]
                       -> (SecretKey -> Dpk -> HBlock)
                       -> ExceptUpdate ()
 startNewPeriodFinally sk goodMintettes newBlockCtor = do
@@ -110,15 +124,40 @@ checkResult expectedPid lastHBlock (r, key, storedLog) = do
     mapM_ (guard . checkLBlock key (hbHash lastHBlock) actionLog) lBlocks
     r
 
-updateMintettes :: SecretKey -> [Int] -> ExceptUpdate ()
+mergeTransactions :: Mintettes -> [(MintetteId, PeriodResult)] -> [Transaction]
+mergeTransactions mts goodResults = M.foldrWithKey appendTxChecked [] txMap
+  where
+    txMap :: M.HashMap Transaction (S.HashSet MintetteId)
+    txMap = foldr insertResult M.empty goodResults
+    insertResult (mintId, (_, blks, _)) m = foldr (insertBlock mintId) m blks
+    insertBlock mintId blk m = foldr (insertTx mintId) m (lbTransactions blk)
+    insertTx mintId tx m = M.insertWith (S.union) tx (S.singleton mintId) m
+    appendTxChecked :: Transaction
+                    -> S.HashSet MintetteId
+                    -> [Transaction]
+                    -> [Transaction]
+    appendTxChecked tx committedMintettes
+      | checkMajority tx committedMintettes = (tx :)
+      | otherwise = id
+    checkMajority :: Transaction -> S.HashSet MintetteId -> Bool
+    checkMajority tx committedMintettes =
+        let ownersSet = S.fromList $ owners mts (hash tx)
+        in S.size (ownersSet `S.intersection` committedMintettes) >
+           (S.size ownersSet `div` 2)
+
+updateMintettes :: SecretKey -> [(MintetteId, PeriodResult)] -> ExceptUpdate ()
 updateMintettes sk goodMintettes = do
+    let (goodIndices, goodResults) = unzip goodMintettes
     existing <- use mintettes
     pending <- use pendingMintettes
-    mintettes .= map (existing !!) goodMintettes ++ map fst pending
+    mintettes .= map (existing !!) goodIndices ++ map fst pending
+    pendingMintettes .= []
     currentDpk <- use dpk
-    dpk .= map (currentDpk !!) goodMintettes ++ map doSign pending
+    dpk .= map (currentDpk !!) goodIndices ++ map doSign pending
     currentLogs <- use actionLogs
-    actionLogs .= map (currentLogs !!) goodMintettes ++
+    actionLogs .= map (appendNewLog currentLogs) (zip goodIndices goodResults) ++
         replicate (length pending) []
   where
-    doSign (_,mpk) = (mpk, sign sk mpk)
+    doSign (_, mpk) = (mpk, sign sk mpk)
+    appendNewLog :: [ActionLog] -> (MintetteId, PeriodResult) -> ActionLog
+    appendNewLog currentLogs (i, (_, _, newLog)) = newLog ++ currentLogs !! i

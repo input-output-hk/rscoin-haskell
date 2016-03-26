@@ -98,6 +98,7 @@ executable rscoin-user
   other-modules:       AcidState
                      , Actions
                      , UserOptions
+                     , UserError
                      , Wallet
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
@@ -126,9 +127,9 @@ test-suite rscoin-test
                      , Spec
   type:                exitcode-stdio-1.0
   build-depends:       base >=4.8 && <4.9
-                     , QuickCheck >= 2.8.1
-                     , hspec >= 2.1.10
                      , bytestring >= 0.10.6.0
+                     , hspec >= 2.1.10
+                     , QuickCheck >= 2.8.1
                      , rscoin
   hs-source-dirs:      test
   default-language:    Haskell2010

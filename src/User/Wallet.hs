@@ -10,6 +10,7 @@ module Wallet
        ( UserAddress
        , publicAddress
        , privateAddress
+       , WalletStorageError (..)
        , WalletStorage
        , emptyWalletStorage
        , getAllAddresses
@@ -31,7 +32,6 @@ import           Control.Monad.State.Class  (MonadState)
 import           Data.List                  (find)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
-import           Data.Monoid                (mconcat, (<>))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Text.Lazy.Builder     (fromString)
@@ -64,7 +64,7 @@ instance Buildable UserAddress where
         hideLast n str =
             if n > length str
                 then str ++ "***"
-                else (take ((length str) - n) str) ++ (replicate n '*')
+                else take (length str - n) str ++ replicate n '*'
 
 -- | Wallet, that holdls all information needed for the user to 'own'
 -- bitcoins. Plus some meta-information that's crucially needed for
@@ -164,7 +164,7 @@ withBlockchainUpdate newHeight transactions = do
         head $ filter (not . C.validateSum) transactions
     knownAddresses <- L.use userAddresses
     knownPublicAddresses <- L.uses userAddresses (map _publicAddress)
-    let hasFilter out = any (== out) knownPublicAddresses
+    let hasFilter out = out `elem` knownPublicAddresses
         outputs = getAddress . fst
         hasSomePublicAddress Transaction{..} =
             any hasFilter $ map outputs txOutputs

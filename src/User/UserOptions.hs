@@ -6,18 +6,29 @@ module UserOptions
        , getUserOptions
        ) where
 
+import           Data.Int            (Int64)
 import           Data.Monoid         ((<>))
-import           Options.Applicative (Parser, auto, command, execParser,
+import           Options.Applicative (Parser, ReadM, auto, command, execParser,
                                       fullDesc, help, helper, info, long,
                                       option, progDesc, some, strOption,
                                       subparser, value)
 
 -- | Input user command that's contained in every program call
 data UserCommand
-    = ListWallets
-    | UpdateBlockchain
-    | FormTransaction [Int]
-                      (String, Int)
+    = ListAddresses                 -- ^ List all addresses in wallet,
+                                    -- starting with 1
+    | UpdateBlockchain              -- ^ Query bank to update wallet
+                                    -- state according to blockchain
+                                    -- status
+    | FormTransaction [(Int, Int64)]
+                      (String, Int) -- ^ First argument represents
+                                    -- inputs -- pairs (a,b), where a
+                                    -- is index (starting from 1) of
+                                    -- address in wallet, b is
+                                    -- positive integer representing
+                                    -- value to send.  Second argument
+                                    -- represents the address to send,
+                                    -- and amount
     deriving (Show)
 
 -- | Datatype describing user command line options
@@ -30,11 +41,12 @@ userCommandParser :: Parser UserCommand
 userCommandParser =
     subparser
         (command
-             "list-wallets"
+             "list-addresses"
              (info
-                  (pure ListWallets)
+                  (pure ListAddresses)
                   (progDesc
-                       "List all available wallets and information about them.")) <>
+                       ("List all available addresses from wallet " <>
+                        "and information about them."))) <>
          command
              "update-blockchain"
              (info
@@ -48,9 +60,11 @@ userCommandParser =
         FormTransaction <$>
         (some $
          option
-             auto
-             (long "addrid" <>
-              help "Id of address as numbered in list-wallets output.")) <*>
+             (auto :: ReadM (Int, Int64))
+             (long "addrfrom" <>
+              help
+                  ("Pairs (a,b) where 'a' is id of address as numbered in list-wallets " <>
+                   "output, 'b' is integer -- amount of value to send."))) <*>
         ((,) <$> strOption (long "addrout" <> help "Address to send coins to.") <*>
          option auto (long "value" <> help "Value to send."))
 

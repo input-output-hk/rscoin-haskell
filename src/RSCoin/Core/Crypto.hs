@@ -23,6 +23,8 @@ module RSCoin.Core.Crypto
        ) where
 
 import qualified Crypto.Hash.SHA256        as SHA256
+import           Data.Aeson                (FromJSON (parseJSON), ToJSON (toJSON),
+                                            (.=), (.:), object, Value (Object))
 import           Data.Binary               (Binary (get, put), decodeOrFail,
                                             encode)
 import           Data.ByteString           (ByteString)
@@ -34,6 +36,7 @@ import           Data.SafeCopy             (Contained,
                                             safePut)
 import           Data.Serialize            (Get, Put)
 import           Data.Text.Buildable       (Buildable (build))
+import           Data.Text.Encoding        (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format          as F
 
 import           Test.QuickCheck.Arbitrary (arbitrary)
@@ -53,6 +56,15 @@ $(deriveSafeCopy 0 'base ''Hash)
 
 instance Buildable Hash where
     build = build . F.Shown
+
+instance FromJSON Hash where
+    parseJSON (Object v) =
+        Hash <$> 
+        fmap encodeUtf8 (v .: "hash")
+    parseJSON _ = fail "Hash should be an object"
+
+instance ToJSON Hash where
+    toJSON (getHash -> hash) = object ["hash" .= decodeUtf8 hash]
 
 newtype Signature =
     Signature { getSignature :: Sig }
@@ -77,6 +89,16 @@ instance SafeCopy Signature where
 instance Buildable Signature where
     build = build . F.Shown
 
+instance FromJSON Signature where
+    parseJSON (Object v) =
+        Signature <$> 
+        fmap read (v .: "signature")
+    parseJSON _ = fail "Signature should be an object"
+
+instance ToJSON Signature where
+    toJSON (getSignature -> sig) =
+        object ["signature" .= show sig]
+
 instance Binary Signature where
     get = do -- NOTE: we can implement Binary with Show/Read
         mSig <- importSig <$> get
@@ -93,6 +115,16 @@ instance Ord SecretKey where
 newtype PublicKey =
     PublicKey { getPublicKey :: PubKey }
     deriving (Eq, Show, Read)
+
+instance FromJSON PublicKey where
+    parseJSON (Object v) =
+        PublicKey <$> 
+        fmap read (v .: "publicKey")
+    parseJSON _ = fail "PublicKey should be an object"
+
+instance ToJSON PublicKey where
+    toJSON (getPublicKey -> pubKey) =
+        object ["publicKey" .= show pubKey]
 
 instance Ord PublicKey where
     compare = comparing (show . getPublicKey)

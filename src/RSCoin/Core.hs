@@ -11,3 +11,5 @@ import           RSCoin.Core.HBlock     as Exports
 import           RSCoin.Core.Owners     as Exports
 import           RSCoin.Core.Primitives as Exports
 import           RSCoin.Core.Types      as Exports
+import           RSCoin.Core.Protocol   as Exports
+import           RSCoin.Core.Aeson      as Exports

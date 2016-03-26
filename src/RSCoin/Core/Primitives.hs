@@ -47,7 +47,7 @@ type AddrId = (TransactionId, Int, Coin)
 data Transaction = Transaction
     { txInputs  :: [AddrId]
     , txOutputs :: [(Address, Coin)]
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 instance Binary Transaction where
     put Transaction{..} = put (txInputs, txOutputs)

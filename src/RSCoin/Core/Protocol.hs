@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module RSCoin.Core.Protocol
-       (
+       ( BankReq (..)
+       , BankRes (..)
        ) where
 
 import           Network.JsonRpc   (FromRequest (parseParams), ToRequest (..),

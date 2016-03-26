@@ -2,27 +2,27 @@
 
 -- | Worker that handles end of period.
 
-module Worker
+module RSCoin.Bank.Worker
        ( runWorker
        ) where
 
-import           Control.Concurrent (forkFinally, threadDelay)
-import           Control.Exception  (SomeException, try)
-import           Control.Monad      (void)
-import           Data.Acid          (query, update)
-import           Data.Time.Units    (toMicroseconds)
+import           Control.Concurrent    (forkFinally, threadDelay)
+import           Control.Exception     (SomeException, try)
+import           Control.Monad         (void)
+import           Data.Acid             (createCheckpoint, query, update)
+import           Data.Time.Units       (toMicroseconds)
 
-import           RSCoin.Core        (Mintette, PeriodId, PeriodResult,
-                                     periodDelta)
+import           RSCoin.Core           (Mintette, PeriodId, PeriodResult,
+                                        SecretKey, periodDelta)
 
-import           AcidState          (GetMintettes (..), GetPeriodId (..),
-                                     StartNewPeriod (..), State)
+import           RSCoin.Bank.AcidState (GetMintettes (..), GetPeriodId (..),
+                                        StartNewPeriod (..), State)
 
 -- | Start worker which runs appropriate action when a period finishes
-runWorker :: State -> IO ()
-runWorker st =
+runWorker :: SecretKey -> State -> IO ()
+runWorker sk st =
     foreverE $
-    do onPeriodFinished st
+    do onPeriodFinished sk st
        threadDelay (fromIntegral $ toMicroseconds periodDelta)
   where
     foreverE f = void $ forkFinally f $ handler $ foreverE f
@@ -34,14 +34,15 @@ runWorker st =
         f
     handler f (Right _) = f
 
-onPeriodFinished :: State -> IO ()
-onPeriodFinished st = do
+onPeriodFinished :: SecretKey -> State -> IO ()
+onPeriodFinished sk st = do
     mintettes <- query st GetMintettes
     pId <- query st GetPeriodId
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     periodResults <- mapM (handleError . flip sendPeriodFinished pId) mintettes
-    update st $ StartNewPeriod periodResults
+    update st $ StartNewPeriod sk periodResults
+    createCheckpoint st
   where
     handleError action = do
         either onError (return . Just) =<< try action

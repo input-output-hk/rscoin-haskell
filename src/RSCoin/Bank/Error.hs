@@ -1,6 +1,6 @@
 -- | All possible runtime error in Bank
 
-module Error
+module RSCoin.Bank.Error
        ( BankError (..)
        ) where
 

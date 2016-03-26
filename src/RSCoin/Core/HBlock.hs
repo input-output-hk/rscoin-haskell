@@ -15,8 +15,8 @@ initialHash = hash ()
 
 -- | Construct higher-level block from txset, Bank's secret key, DPK
 -- and previous block.
-mkHBlock :: [Transaction] -> SecretKey -> Dpk -> HBlock -> HBlock
-mkHBlock txset sk dpk prevBlock = mkHBlockDo txset sk dpk (hbHash prevBlock)
+mkHBlock :: [Transaction] -> HBlock -> SecretKey -> Dpk -> HBlock
+mkHBlock txset prevBlock sk dpk = mkHBlockDo txset sk dpk (hbHash prevBlock)
 
 -- | Construct genesis higher-level block using Bank's secret key and DPK.
 mkGenesisHBlock :: SecretKey -> Dpk -> HBlock

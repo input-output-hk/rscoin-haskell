@@ -1,22 +1,20 @@
 import           Control.Exception (bracket)
 import           Data.Acid         (update)
 
+import qualified RSCoin.Bank       as B
 import           RSCoin.Core       (Mintette (Mintette), readPublicKey)
 
-import qualified AcidState         as AS
-import           Options           (Command (..), Options (..), getOptions)
-import           Server            (serve)
-import           Worker            (runWorker)
+import qualified Options           as Opts
 
 main :: IO ()
 main = do
-    Options{..} <- getOptions
-    bracket (AS.openState cloPath) AS.closeState $ run cloCommand
+    Opts.Options{..} <- Opts.getOptions
+    bracket (B.openState cloPath) B.closeState $ run cloCommand
   where
-    run (Serve port) st = do
-        runWorker st
-        serve port st
-    run (AddMintette name port keyPath) st = do
+    run (Opts.Serve port) st = do
+        B.runWorker undefined st
+        B.serve port st
+    run (Opts.AddMintette name port keyPath) st = do
         k <- readPublicKey keyPath
         let m = Mintette name port
-        update st $ AS.AddMintette m k
+        update st $ B.AddMintette m k

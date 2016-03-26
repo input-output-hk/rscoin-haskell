@@ -112,6 +112,10 @@ newtype SecretKey =
 instance Ord SecretKey where
     compare = comparing (show . getSecretKey)
 
+instance SafeCopy SecretKey where
+    putCopy = undefined
+    getCopy = undefined
+
 newtype PublicKey =
     PublicKey { getPublicKey :: PubKey }
     deriving (Eq, Show, Read)

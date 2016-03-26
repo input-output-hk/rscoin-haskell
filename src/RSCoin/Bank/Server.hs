@@ -1,10 +1,10 @@
 -- | Server implementation for Bank
 
-module Server
+module RSCoin.Bank.Server
        ( serve
        ) where
 
-import           AcidState (State)
+import           RSCoin.Bank.AcidState (State)
 
 serve :: Int -> State -> IO ()
 serve = undefined

@@ -16,23 +16,35 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     RSCoin.Core
+  exposed-modules:     RSCoin.Bank
+                     , RSCoin.Core
+                     , RSCoin.Core.ActionLog
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Crypto
                      , RSCoin.Core.HBlock
+                     , RSCoin.Core.LBlock
                      , RSCoin.Core.Owners
                      , RSCoin.Core.Primitives
                      , RSCoin.Core.Types
+  other-modules:       RSCoin.Bank.AcidState
+                     , RSCoin.Bank.Error
+                     , RSCoin.Bank.Server
+                     , RSCoin.Bank.Storage
+                     , RSCoin.Bank.Worker
                      , RSCoin.Core.Protocol
                      , RSCoin.Core.Aeson
-  build-depends:       base >=4.8 && <4.9
+  build-depends:       acid-state
+                     , base >=4.8 && <4.9
                      , bytestring >= 0.10.6.0
                      , binary >= 0.7.5.0
                      , cereal
                      , cryptohash >= 0.11.6
                      , containers
                      , base64-bytestring >= 1.0.0.1
+                     , lens
+                     , mtl
                      , QuickCheck >= 2.8.1
+                     , safe
                      , safecopy
                      , secp256k1 >= 0.4.5
                      , serokell-core
@@ -52,25 +64,11 @@ library
 
 executable rscoin-bank
   main-is:             Main.hs
-  other-modules:       AcidState
-                     , Error
-                     , Options
-                     , Server
-                     , Storage
-                     , Worker
+  other-modules:       Options
   build-depends:       acid-state
                      , base >= 4.8 && < 4.9
-                     , containers
-                     , lens
-                     , mtl
                      , optparse-applicative
                      , rscoin
-                     , safecopy
-                     , serokell-core
-                     , text
-                     , text-format
-                     , time-units >= 1.0.0
-                     , transformers
   hs-source-dirs:      src/Bank
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
@@ -96,9 +94,20 @@ executable rscoin-user
   main-is:             Main.hs
   other-modules:       UserOptions
                        Wallet
+                       AcidState
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
+                     , containers >= 0.5.6.2
+                     , exceptions >= 0.8.2.1
+                     , lens >= 4.13
+                     , mtl >= 2.2.1
                      , optparse-applicative >= 0.12.0.0
+                     , rscoin
+                     , safecopy >= 0.9.0.1
+                     , serokell-core
+                     , text >= 1.2.2.0
+                     , text-format >= 0.3.1.1
+                     , transformers >= 0.4.2.0
   hs-source-dirs:      src/User
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans

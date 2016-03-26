@@ -8,27 +8,27 @@ module UserOptions
 
 import           Data.Int            (Int64)
 import           Data.Monoid         ((<>))
-import           Options.Applicative (Parser, ReadM, auto, command, execParser,
+import           Options.Applicative (Parser, auto, command, execParser,
                                       fullDesc, help, helper, info, long,
                                       option, progDesc, some, strOption,
                                       subparser, value)
 
 -- | Input user command that's contained in every program call
 data UserCommand
-    = ListAddresses                 -- ^ List all addresses in wallet,
-                                    -- starting with 1
-    | UpdateBlockchain              -- ^ Query bank to update wallet
-                                    -- state according to blockchain
-                                    -- status
+    = ListAddresses                   -- ^ List all addresses in wallet,
+                                      -- starting with 1
+    | UpdateBlockchain                -- ^ Query bank to update wallet
+                                      -- state according to blockchain
+                                      -- status
     | FormTransaction [(Int, Int64)]
-                      (String, Int) -- ^ First argument represents
-                                    -- inputs -- pairs (a,b), where a
-                                    -- is index (starting from 1) of
-                                    -- address in wallet, b is
-                                    -- positive integer representing
-                                    -- value to send.  Second argument
-                                    -- represents the address to send,
-                                    -- and amount
+                      (String, Int64) -- ^ First argument represents
+                                      -- inputs -- pairs (a,b), where a
+                                      -- is index (starting from 1) of
+                                      -- address in wallet, b is
+                                      -- positive integer representing
+                                      -- value to send.  Second argument
+                                      -- represents the address to send,
+                                      -- and amount
     deriving (Show)
 
 -- | Datatype describing user command line options
@@ -60,7 +60,7 @@ userCommandParser =
         FormTransaction <$>
         (some $
          option
-             (auto :: ReadM (Int, Int64))
+             auto
              (long "addrfrom" <>
               help
                   ("Pairs (a,b) where 'a' is id of address as numbered in list-wallets " <>

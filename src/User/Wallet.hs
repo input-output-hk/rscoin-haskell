@@ -10,6 +10,7 @@ module Wallet
        ( UserAddress
        , publicAddress
        , privateAddress
+       , userAddressToAddress
        , WalletStorageError (..)
        , WalletStorage
        , emptyWalletStorage
@@ -65,6 +66,9 @@ instance Buildable UserAddress where
             if n > length str
                 then str ++ "***"
                 else take (length str - n) str ++ replicate n '*'
+
+userAddressToAddress :: UserAddress -> Address
+userAddressToAddress userAddress = C.Address $ userAddress ^. publicAddress
 
 -- | Wallet, that holdls all information needed for the user to 'own'
 -- bitcoins. Plus some meta-information that's crucially needed for

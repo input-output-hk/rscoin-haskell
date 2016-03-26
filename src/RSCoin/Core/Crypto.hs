@@ -23,8 +23,9 @@ module RSCoin.Core.Crypto
        ) where
 
 import qualified Crypto.Hash.SHA256        as SHA256
-import           Data.Aeson                (FromJSON (parseJSON), ToJSON (toJSON),
-                                            (.=), (.:), object, Value (Object))
+import           Data.Aeson                (FromJSON (parseJSON),
+                                            ToJSON (toJSON), Value (Object),
+                                            object, (.:), (.=))
 import           Data.Binary               (Binary (get, put), decodeOrFail,
                                             encode)
 import           Data.ByteString           (ByteString)
@@ -59,7 +60,7 @@ instance Buildable Hash where
 
 instance FromJSON Hash where
     parseJSON (Object v) =
-        Hash <$> 
+        Hash <$>
         fmap encodeUtf8 (v .: "hash")
     parseJSON _ = fail "Hash should be an object"
 
@@ -91,7 +92,7 @@ instance Buildable Signature where
 
 instance FromJSON Signature where
     parseJSON (Object v) =
-        Signature <$> 
+        Signature <$>
         fmap read (v .: "signature")
     parseJSON _ = fail "Signature should be an object"
 
@@ -116,13 +117,16 @@ instance SafeCopy SecretKey where
     putCopy = contain . safePut . show
     getCopy = contain $ read <$> safeGet
 
+instance Buildable SecretKey where
+    build = build . F.Shown . getSecretKey
+
 newtype PublicKey =
     PublicKey { getPublicKey :: PubKey }
     deriving (Eq, Show, Read)
 
 instance FromJSON PublicKey where
     parseJSON (Object v) =
-        PublicKey <$> 
+        PublicKey <$>
         fmap read (v .: "publicKey")
     parseJSON _ = fail "PublicKey should be an object"
 
@@ -138,7 +142,7 @@ instance SafeCopy PublicKey where
     getCopy = getCopyBinary
 
 instance Buildable PublicKey where
-    build = build . F.Shown
+    build = build . F.Shown . getPublicKey
 
 instance Binary PublicKey where
     get = do -- NOTE: we can implement Binary with Show/Read

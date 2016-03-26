@@ -52,10 +52,6 @@ data UserAddress = UserAddress
 
 $(L.makeLenses ''UserAddress)
 
--- TODO FIXME REMOVE THIS MOCK
-instance Buildable SecretKey where
-    build = fromString . show
-
 instance Buildable UserAddress where
     build addr =
         mconcat

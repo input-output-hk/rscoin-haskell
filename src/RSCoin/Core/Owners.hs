@@ -6,9 +6,9 @@ module RSCoin.Core.Owners
        ) where
 
 import           RSCoin.Core.Primitives (TransactionId)
-import           RSCoin.Core.Types      (Mintettes)
+import           RSCoin.Core.Types      (MintetteId, Mintettes)
 
 -- | Takes list of mintettes which is active and stable over current period
 -- and index of transaction and returns list of mintettes responsible for it.
-owners :: Mintettes -> TransactionId -> Mintettes
+owners :: Mintettes -> TransactionId -> [MintetteId]
 owners = undefined

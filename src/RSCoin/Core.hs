@@ -6,7 +6,7 @@ module RSCoin.Core
        ) where
 
 import           RSCoin.Core.ActionLog   as Exports
-import           RSCoin.Core.Aeson       as Exports
+import           RSCoin.Core.Aeson       ()
 import           RSCoin.Core.Constants   as Exports
 import           RSCoin.Core.Crypto      as Exports
 import           RSCoin.Core.HBlock      as Exports

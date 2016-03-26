@@ -113,8 +113,8 @@ instance Ord SecretKey where
     compare = comparing (show . getSecretKey)
 
 instance SafeCopy SecretKey where
-    putCopy = undefined
-    getCopy = undefined
+    putCopy = contain . safePut . show
+    getCopy = contain $ read <$> safeGet
 
 newtype PublicKey =
     PublicKey { getPublicKey :: PubKey }

@@ -18,6 +18,8 @@ nix:
 extra-deps:
 - secp256k1-0.4.5
 - json-rpc-0.7.1.1
+- OneTuple-0.2.1
+- tuple-0.3.0.2
 
 # Override default flag values for local packages and extra-deps
 flags: {}

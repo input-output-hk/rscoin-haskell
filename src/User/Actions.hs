@@ -13,6 +13,7 @@ import           Data.Monoid        ((<>))
 import           Data.Ord           (comparing)
 import qualified Data.Text          as T
 import qualified Data.Text.IO       as TIO
+import           Data.Tuple.Select  (sel1)
 
 import           Serokell.Util.Text (format', formatSingle')
 
@@ -73,8 +74,7 @@ proceedCommand st (O.FormTransaction inputs output) =
                 then "At least the"
                 else "The") <>
            formatSingle' " following account doesn't have enough coins: {}"
-                         ((\(a,_,_) -> a) $
-                          head overSpentAccounts)
+                         (sel1 $ head overSpentAccounts)
        inputsAccs <- mapM (\(_,a,c) -> (a, , c) <$> query st (A.GetTransactions a)) accInputs
        putStrLn "Not implemented"
   where

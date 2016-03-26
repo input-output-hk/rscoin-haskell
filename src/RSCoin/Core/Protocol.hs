@@ -41,3 +41,7 @@ instance FromResponse BankRes where
         Just $ fmap ResPeriodFinished . parseJSON
     parseResult "getMintettes" =
         Just $ fmap ResGetMintettes . parseJSON
+
+instance ToJSON BankRes where
+    toJSON (ResPeriodFinished pr) = toJSON pr
+    toJSON (ResGetMintettes ms) = toJSON ms

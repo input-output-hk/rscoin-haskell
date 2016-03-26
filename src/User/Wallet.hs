@@ -3,10 +3,13 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
+
 -- | This module describes user wallet state & actions
 
 module Wallet
        ( UserAddress
+       , publicAddress
+       , privateAddress
        , WalletStorage
        , emptyWalletStorage
        , getAllAddresses
@@ -28,12 +31,14 @@ import           Control.Monad.State.Class  (MonadState)
 import           Data.List                  (find)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
-import           Data.Monoid                ((<>))
+import           Data.Monoid                (mconcat, (<>))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
+import           Data.Text.Lazy.Builder     (fromString)
 
 import           Serokell.Util.Text         (format', formatSingle', show')
 
+import qualified RSCoin.Core                as C
 import           RSCoin.Core.Crypto         (PublicKey (..), SecretKey (..),
                                              keyGen)
 import           RSCoin.Core.Primitives     (Address (..), Transaction (..))
@@ -43,31 +48,27 @@ data UserAddress = UserAddress
     { _privateAddress :: SecretKey -- ^ Secret key of the address
     , _publicAddress  :: PublicKey -- ^ Public key aka 'address' as
                                    -- visible the outside
-    } deriving (Eq,Ord)
+    } deriving (Show,Eq,Ord)
 
 $(L.makeLenses ''UserAddress)
 
--- TODO REMOVE THIS MOCK
+-- TODO FIXME REMOVE THIS MOCK
 instance Buildable SecretKey where
-    build = undefined
+    build = fromString . show
 
 instance Buildable UserAddress where
     build addr =
-        "UserAddress { pk: " <> build (addr ^. privateAddress) <> ", sk: " <>
-        build (addr ^. publicAddress) <>
-        " }"
-
-instance Show UserAddress where
-    show ud =
-        "UserAddress with PK: " ++
-        (T.unpack $ show' $ ud ^. publicAddress) ++
-        "; SK: " ++ hideLast 10 (T.unpack $ show' $ ud ^. privateAddress)
+        mconcat
+            [ "UserAddress with PK: "
+            , build $ addr ^. publicAddress
+            , "; SK: "
+            , fromString $
+              hideLast 10 (T.unpack $ show' $ addr ^. privateAddress)]
       where
         hideLast n str =
             if n > length str
                 then str ++ "***"
                 else (take ((length str) - n) str) ++ (replicate n '*')
-
 
 -- | Wallet, that holdls all information needed for the user to 'own'
 -- bitcoins. Plus some meta-information that's crucially needed for
@@ -159,6 +160,12 @@ withBlockchainUpdate newHeight transactions = do
         format'
             "New blockchain height {} is less or equal to the old one: {}"
             (newHeight, currentHeight)
+    unless (all C.validateSum transactions) $
+        throwM $
+        BadRequest $
+        formatSingle'
+            "Tried to update with invalid transactions -- at least this one: {} " $
+        head $ filter (not . C.validateSum) transactions
     knownAddresses <- L.use userAddresses
     knownPublicAddresses <- L.uses userAddresses (map _publicAddress)
     let hasFilter out = any (== out) knownPublicAddresses

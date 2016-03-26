@@ -34,7 +34,7 @@ instance Buildable Coin where
 -- It is simply a public key.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show, Buildable, Binary)
+    } deriving (Show, Buildable, Binary, Eq)
 
 -- | AddrId identifies usage of address as output of transaction.
 -- Basically, it is tuple of transaction identifier, index in list of outputs

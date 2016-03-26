@@ -3,18 +3,19 @@
 {-# LANGUAGE TypeFamilies      #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 module AcidState
-       ( openState
+       ( RSCoinUserState
+       , openState
        , closeState
 
        -- Queries
-       , GetAllAddresses
-       , GetPublicAddresses
-       , GetTransactions
-       , GetLastBlockId
+       , GetAllAddresses (..)
+       , GetPublicAddresses (..)
+       , GetTransactions (..)
+       , GetLastBlockId (..)
 
          -- Updates
-       , WithBlockchainUpdate
-       , GenerateAddresses
+       , WithBlockchainUpdate (..)
+       , GenerateAddresses (..)
        ) where
 
 import qualified RSCoin.Core         as C
@@ -25,7 +26,7 @@ import           Control.Exception   (throw)
 import           Control.Monad.Catch (MonadThrow, throwM)
 import           Data.Acid           (makeAcidic)
 import qualified Data.Acid           as A
-import           Data.SafeCopy       (SafeCopy (..), base, deriveSafeCopy)
+import           Data.SafeCopy       (base, deriveSafeCopy)
 
 $(deriveSafeCopy 0 'base ''UserAddress)
 $(deriveSafeCopy 0 'base ''WalletStorage)
@@ -59,6 +60,7 @@ generateAddresses :: Int -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate
 --generateAddresses = W.generateAddresses -- no instance of MonadIO obviously
+-- TODO FIXME
 generateAddresses = undefined
 
 $(makeAcidic

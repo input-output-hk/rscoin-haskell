@@ -25,6 +25,7 @@ library
                      , RSCoin.Core.LBlock
                      , RSCoin.Core.Owners
                      , RSCoin.Core.Primitives
+                     , RSCoin.Core.Transaction
                      , RSCoin.Core.Types
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Error
@@ -92,9 +93,10 @@ executable rscoin-keygen
 
 executable rscoin-user
   main-is:             Main.hs
-  other-modules:       UserOptions
-                       Wallet
-                       AcidState
+  other-modules:       AcidState
+                     , Actions
+                     , UserOptions
+                     , Wallet
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
                      , containers >= 0.5.6.2

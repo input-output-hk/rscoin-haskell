@@ -11,6 +11,7 @@ module RSCoin.Core.Primitives
        ) where
 
 import           Data.Binary         (Binary (get, put))
+import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.Int            (Int64)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 import           Data.Text.Buildable (Buildable (build))
@@ -25,7 +26,7 @@ import           RSCoin.Core.Crypto  (Hash, PublicKey)
 -- We use very simple model at this point.
 newtype Coin = Coin
     { getCoin :: Int64
-    } deriving (Show, Binary, Num, Eq, Ord)
+    } deriving (Show, Binary, Num, Eq, Ord, Hashable)
 
 instance Buildable Coin where
     build (Coin c) = mconcat [build c, " coin(s)"]
@@ -34,7 +35,7 @@ instance Buildable Coin where
 -- It is simply a public key.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show, Buildable, Binary, Eq)
+    } deriving (Show, Buildable, Binary, Eq, Hashable)
 
 -- | AddrId identifies usage of address as output of transaction.
 -- Basically, it is tuple of transaction identifier, index in list of outputs
@@ -51,6 +52,9 @@ data Transaction = Transaction
 instance Binary Transaction where
     put Transaction{..} = put (txInputs, txOutputs)
     get = uncurry Transaction <$> get
+
+instance Hashable Transaction where
+    hashWithSalt s Transaction{..} = hashWithSalt s (txInputs, txOutputs)
 
 instance Buildable Transaction where
     build Transaction{..} =

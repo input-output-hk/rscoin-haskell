@@ -30,6 +30,7 @@ import           Data.Binary               (Binary (get, put), decodeOrFail,
                                             encode)
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Base64    as B64
+import           Data.Hashable             (Hashable (hashWithSalt))
 import           Data.Ord                  (comparing)
 import           Data.SafeCopy             (Contained,
                                             SafeCopy (getCopy, putCopy), base,
@@ -51,7 +52,7 @@ import           Crypto.Secp256k1          (Msg, PubKey, SecKey, Sig,
 -- | Hash is just a base64 encoded ByteString.
 newtype Hash =
     Hash { getHash :: ByteString }
-    deriving (Eq, Show, Binary, Ord)
+    deriving (Eq, Show, Binary, Ord, Hashable)
 
 $(deriveSafeCopy 0 'base ''Hash)
 
@@ -143,6 +144,9 @@ instance SafeCopy PublicKey where
 
 instance Buildable PublicKey where
     build = build . F.Shown . getPublicKey
+
+instance Hashable PublicKey where
+    hashWithSalt s pk = hashWithSalt s (encode pk)
 
 instance Binary PublicKey where
     get = do -- NOTE: we can implement Binary with Show/Read

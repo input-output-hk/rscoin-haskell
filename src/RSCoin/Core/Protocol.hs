@@ -4,6 +4,8 @@ module RSCoin.Core.Protocol
        , BankRes (..)
        , Handler
        , serve
+       , call
+       , callBatch
        ) where
 
 import           Network.JsonRpc      (FromRequest (parseParams), ToRequest (..),
@@ -11,14 +13,16 @@ import           Network.JsonRpc      (FromRequest (parseParams), ToRequest (..)
                                        Respond, JsonRpcT, jsonRpcTcpServer,
                                        receiveBatchRequest, BatchRequest (..),
                                        sendResponse, buildResponse,
-                                       BatchResponse (..), sendBatchResponse)
+                                       BatchResponse (..), sendBatchResponse,
+                                       jsonRpcTcpClient, ErrorObj, fromError,
+                                       sendRequest, sendBatchRequest)
 
 import           Control.Monad        (forM, liftM)
 import           Control.Monad.Trans  (lift)
 import           Control.Monad.Logger (logDebug, MonadLoggerIO, runStderrLoggingT, LoggingT)
 import           Data.Aeson           (FromJSON (parseJSON), ToJSON (toJSON))
 import           Data.Aeson.Types     (emptyArray)
-import           Data.Conduit.Network (serverSettings)
+import           Data.Conduit.Network (serverSettings, clientSettings)
 import           Data.Foldable        (forM_)
 import           Data.Maybe           (catMaybes)
 
@@ -85,3 +89,26 @@ srv handler = do
             rs <- lift $ catMaybes `liftM` forM qs (buildResponse handler)
             sendBatchResponse $ BatchResponse rs
             srv handler
+
+-- FIXME: fix error handling
+handleResponse :: Maybe (Either ErrorObj r) -> r
+handleResponse t =
+    case t of
+        Nothing -> error "could not receive or parse response"
+        Just (Left e) -> error $ fromError e
+        Just (Right r) -> r
+
+-- TODO: improve logging
+call :: (ToRequest a, ToJSON a, FromResponse b) => Int -> a -> IO b
+call port req = initCall port $ do
+	$(logDebug) "send a request"
+	handleResponse <$> sendRequest req
+
+callBatch :: (ToRequest a, ToJSON a, FromResponse b) => Int -> [a] -> IO [b]
+callBatch port reqs = initCall port $ do
+	$(logDebug) "send a batch request"
+	map handleResponse <$> sendBatchRequest reqs
+
+initCall :: Int -> JsonRpcT (LoggingT IO) a -> IO a
+initCall port action = runStderrLoggingT $
+    jsonRpcTcpClient V2 True (clientSettings port "::1") action

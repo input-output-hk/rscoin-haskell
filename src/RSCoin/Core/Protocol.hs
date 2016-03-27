@@ -4,23 +4,24 @@ module RSCoin.Core.Protocol
        , BankRes (..)
        ) where
 
-import           Network.JsonRpc   (FromRequest (parseParams), ToRequest (..),
-                                    FromResponse (parseResult), Ver (V2),
-                                    Respond, JsonRpcT, jsonRpcTcpServer,
-                                    receiveBatchRequest, BatchRequest (..),
-                                    sendResponse, buildResponse,
-                                    BatchResponse (..), sendBatchResponse)
+import           Network.JsonRpc      (FromRequest (parseParams), ToRequest (..),
+                                       FromResponse (parseResult), Ver (V2),
+                                       Respond, JsonRpcT, jsonRpcTcpServer,
+                                       receiveBatchRequest, BatchRequest (..),
+                                       sendResponse, buildResponse,
+                                       BatchResponse (..), sendBatchResponse)
 
-import           Control.Monad      (forM, liftM)
-import           Control.Monad.Logger (logDebug, MonadLoggerIO, runStderrLoggingT)
-import           Data.Aeson        (FromJSON (parseJSON), ToJSON (toJSON))
-import           Data.Aeson.Types  (emptyArray)
+import           Control.Monad        (forM, liftM)
+import           Control.Monad.Trans  (lift)
+import           Control.Monad.Logger (logDebug, MonadLoggerIO, runStderrLoggingT, LoggingT)
+import           Data.Aeson           (FromJSON (parseJSON), ToJSON (toJSON))
+import           Data.Aeson.Types     (emptyArray)
 import           Data.Conduit.Network (serverSettings)
-import           Data.Foldable     (forM_)
-import           Data.Maybe        (catMaybes)
+import           Data.Foldable        (forM_)
+import           Data.Maybe           (catMaybes)
 
-import           RSCoin.Core.Types (PeriodId, PeriodResult, Mintettes)
-import           RSCoin.Core.Aeson ()
+import           RSCoin.Core.Types    (PeriodId, PeriodResult, Mintettes)
+import           RSCoin.Core.Aeson    ()
 
 data BankReq
     = ReqPeriodFinished PeriodId
@@ -57,16 +58,16 @@ instance ToJSON BankRes where
     toJSON (ResPeriodFinished pr) = toJSON pr
     toJSON (ResGetMintettes ms) = toJSON ms
 
-respond :: MonadLoggerIO m => Respond BankReq m BankRes
+respond :: Respond BankReq (LoggingT IO) BankRes
 respond = undefined
 
-serve :: Int -> IO ()
-serve port = runStderrLoggingT $ do
+serve :: Int -> Respond BankReq (LoggingT IO) BankRes -> IO ()
+serve port handler = runStderrLoggingT $ do
     let ss = serverSettings port "::1"
-    jsonRpcTcpServer V2 False ss srv
+    jsonRpcTcpServer V2 False ss $ srv handler
 
-srv :: MonadLoggerIO m => JsonRpcT m ()
-srv = do
+srv :: MonadLoggerIO m => Respond BankReq m BankRes -> JsonRpcT m ()
+srv handler = do
     $(logDebug) "listening for new request"
     qM <- receiveBatchRequest
     case qM of
@@ -75,11 +76,11 @@ srv = do
             return ()
         Just (SingleRequest q) -> do
             $(logDebug) "got request"
-            rM <- buildResponse respond q
+            rM <- lift $ buildResponse handler q
             forM_ rM sendResponse
-            srv
+            srv handler
         Just (BatchRequest qs) -> do
             $(logDebug) "got request batch"
-            rs <- catMaybes `liftM` forM qs (buildResponse respond)
+            rs <- lift $ catMaybes `liftM` forM qs (buildResponse handler)
             sendBatchResponse $ BatchResponse rs
-            srv
+            srv handler

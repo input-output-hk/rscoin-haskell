@@ -24,13 +24,15 @@ import           Data.Maybe                 (catMaybes)
 import           Data.Typeable              (Typeable)
 import           Safe                       (headMay)
 
-import           RSCoin.Core                (ActionLog, Dpk, HBlock (..),
-                                             Mintette, MintetteId, Mintettes,
-                                             NewPeriodData (..), PeriodId,
-                                             PeriodResult, PublicKey, SecretKey,
-                                             Transaction, checkActionLog,
-                                             checkLBlock, hash, lbTransactions,
-                                             mkGenesisHBlock, mkHBlock, owners,
+import           RSCoin.Core                (ActionLog, Address (..), Dpk,
+                                             HBlock (..), Mintette, MintetteId,
+                                             Mintettes, NewPeriodData (..),
+                                             PeriodId, PeriodResult, PublicKey,
+                                             SecretKey, Transaction,
+                                             checkActionLog, checkLBlock,
+                                             derivePublicKey, hash,
+                                             lbTransactions, mkGenesisHBlock,
+                                             mkHBlock, owners, periodReward,
                                              sign)
 
 import           RSCoin.Bank.Error          (BankError (BEInternal))
@@ -101,11 +103,16 @@ startNewPeriodDo sk pId results = do
     let filteredResults =
             catMaybes $ map filterCheckedResults $ zip [0 ..] checkedResults
     mts <- use mintettes
-    let blockTransactions = mergeTransactions mts filteredResults
-    startNewPeriodFinally sk filteredResults
+    let pk = derivePublicKey sk
+    let blockTransactions =
+            allocateCoins pk keys filteredResults :
+            mergeTransactions mts filteredResults
+    startNewPeriodFinally
+        sk
+        filteredResults
         (mkHBlock blockTransactions lastHBlock)
   where
-    filterCheckedResults (idx, mres) = (idx, ) <$> mres
+    filterCheckedResults (idx,mres) = (idx, ) <$> mres
 
 startNewPeriodFinally :: SecretKey
                       -> [(MintetteId, PeriodResult)]
@@ -127,6 +134,31 @@ checkResult expectedPid lastHBlock (r, key, storedLog) = do
     guard $ checkActionLog (headMay storedLog) actionLog
     mapM_ (guard . checkLBlock key (hbHash lastHBlock) actionLog) lBlocks
     r
+
+allocateCoins :: PublicKey
+              -> [PublicKey]
+              -> [(MintetteId, PeriodResult)]
+              -> Transaction
+allocateCoins pk mintetteKeys goodResults =
+    Transaction
+    { txInputs = []
+    , ..
+    }
+  where
+    bankAddress = Address pk
+    awarded = map fst $ filter checkParticipation goodResults
+    checkParticipation (_,blocks,_) = checkParticipationBlocks blocks
+    checkParticipationBlocks [] = False
+    checkParticipationBlocks (block:blocks) =
+        (not $ null $ lbTransactions block) || checkParticipationBlocks blocks
+    awardedCnt = length awarded
+    mintetteReward = periodReward `div` (awardedCnt + 1)
+    bankReward = periodReward - awardedCnt * mintetteReward
+    mintetteOutputs =
+        map
+            (\idx -> (Address $ mintetteKeys idx, mintetteReward))
+            awarded
+    txOutputs = (bankAddress, bankReward) : mintetteOutputs
 
 mergeTransactions :: Mintettes -> [(MintetteId, PeriodResult)] -> [Transaction]
 mergeTransactions mts goodResults = M.foldrWithKey appendTxChecked [] txMap

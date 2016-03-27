@@ -5,4 +5,5 @@ module RSCoin.Mintette
          module Exports
        ) where
 
-import           RSCoin.Mintette.Error as Exports
+import           RSCoin.Mintette.AcidState as Exports
+import           RSCoin.Mintette.Error     as Exports

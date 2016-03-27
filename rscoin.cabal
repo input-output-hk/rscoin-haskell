@@ -35,7 +35,9 @@ library
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Protocol
                      , RSCoin.Core.Aeson
+                     , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Error
+                     , RSCoin.Mintette.Storage
   build-depends:       acid-state
                      , aeson >= 0.9.0.1
                      , base >=4.8 && <4.9
@@ -45,6 +47,7 @@ library
                      , cereal
                      , cryptohash >= 0.11.6
                      , containers
+                     , exceptions
                      , hashable
                      , json-rpc >= 0.7.1.1
                      , lens

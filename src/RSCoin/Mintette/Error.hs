@@ -5,10 +5,11 @@ module RSCoin.Mintette.Error
        ) where
 
 import           Control.Exception (Exception)
+import           Data.Text         (Text)
 import           Data.Typeable     (Typeable)
 
 data MintetteError =
-    MEInternal
+    MEInternal Text
     deriving (Show, Typeable)
 
 instance Exception MintetteError

@@ -4,6 +4,8 @@ module RSCoin.Core.Protocol
        , BankRes (..)
        , MintetteReq (..)
        , MintetteRes (..)
+       , UserReq (..)
+       , UserRes (..)
        , Handler
        , serve
        , call
@@ -32,6 +34,8 @@ import           Data.Maybe            (catMaybes)
 import           RSCoin.Core.Types     (PeriodId, PeriodResult, Mintettes)
 import           RSCoin.Core.Aeson     ()
 
+---- BANK data ----
+
 data BankReq
     = ReqGetMintettes
 
@@ -58,6 +62,10 @@ instance FromResponse BankRes where
 instance ToJSON BankRes where
     toJSON (ResGetMintettes ms) = toJSON ms
 
+---- BANK data ----
+
+---- MINTETTE data ----
+
 data MintetteReq
     = ReqPeriodFinished PeriodId
 
@@ -83,6 +91,38 @@ instance FromResponse MintetteRes where
 
 instance ToJSON MintetteRes where
     toJSON (ResPeriodFinished pid) = toJSON pid
+
+---- MINTETTE data ----
+
+---- USER data ----
+
+data UserReq
+    = ReqDummy
+
+instance FromRequest UserReq where
+    parseParams "dummy" =
+        Just $ const $ return ReqDummy
+    parseParams _ =
+        Nothing
+
+instance ToRequest UserReq where
+    requestMethod ReqDummy = "dummy"
+    requestIsNotif = const False
+
+instance ToJSON UserReq where
+    toJSON ReqDummy = emptyArray
+
+data UserRes
+    = ResDummy
+
+instance FromResponse UserRes where
+    parseResult "dummy" =
+        Just $ const $ return ResDummy
+
+instance ToJSON UserRes where
+    toJSON ResDummy = emptyArray
+
+---- USER data ----
 
 type Handler a b = Respond a (LoggingT IO) b
 

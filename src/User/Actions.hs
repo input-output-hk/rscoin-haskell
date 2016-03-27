@@ -9,9 +9,10 @@ import           Control.Monad      (filterM, unless, when)
 import           Data.Acid          (query)
 import           Data.Int           (Int64)
 import           Data.List          (nubBy)
-import           Data.Maybe         (isJust)
+import           Data.Maybe         (fromJust, isJust)
 import           Data.Monoid        ((<>))
 import           Data.Ord           (comparing)
+import qualified Data.Text          as T
 import qualified Data.Text.IO       as TIO
 import           Data.Tuple.Select  (sel1)
 
@@ -23,6 +24,9 @@ import           RSCoin.Core        as C
 import           UserError          (UserError (..), eWrap)
 import qualified UserOptions        as O
 import qualified Wallet             as W
+
+commitError :: T.Text -> IO ()
+commitError = throwIO . InputProcessingError
 
 getAmount :: A.RSCoinUserState -> W.UserAddress -> IO C.Coin
 getAmount st userAddress =
@@ -47,7 +51,12 @@ proceedCommand st O.ListAddresses =
            uncurry (zip3 [(1 :: Integer) ..]) $ unzip wallets
 proceedCommand st (O.FormTransaction inputs (outputAddrStr,outputCoinInt)) =
     eWrap $
-    formTransaction st inputs (undefined outputAddrStr) $ C.Coin outputCoinInt
+    do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr
+       unless (isJust pubKey) $
+           commitError $
+           "Provided key can't be exported: " <> outputAddrStr
+       formTransaction st inputs (fromJust pubKey) $
+           C.Coin outputCoinInt
 proceedCommand _ _ = putStrLn "Not implemented."
 
 formTransaction :: A.RSCoinUserState -> [(Int, Int64)] -> Address -> Coin -> IO ()
@@ -97,4 +106,3 @@ formTransaction st inputs outputAddr outputCoin =
                 (if leftCoin == 0
                  then []
                  else [(W.userAddressToAddress a, leftCoin)])
-    commitError = throwIO . InputProcessingError

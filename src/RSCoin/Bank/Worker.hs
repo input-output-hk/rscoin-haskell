@@ -12,8 +12,9 @@ import           Control.Monad         (void)
 import           Data.Acid             (createCheckpoint, query, update)
 import           Data.Time.Units       (toMicroseconds)
 
-import           RSCoin.Core           (Mintette, NewPeriodData, PeriodId,
-                                        PeriodResult, SecretKey, periodDelta)
+import           RSCoin.Core           (Mintette (..), NewPeriodData, PeriodId,
+                                        PeriodResult, SecretKey, periodDelta,
+                                        call, MintetteReq (..), MintetteRes (..))
 
 import           RSCoin.Bank.AcidState (GetMintettes (..), GetPeriodId (..),
                                         StartNewPeriod (..), State)
@@ -55,7 +56,9 @@ onPeriodFinished sk st = do
     handlerAnnouncePeriod = id  -- TODO
 
 sendPeriodFinished :: Mintette -> PeriodId -> IO PeriodResult
-sendPeriodFinished = undefined  -- it depends on protocol
+sendPeriodFinished Mintette {..} =
+    fmap fromResponse . call mintettePort mintetteHost . ReqPeriodFinished
+    where fromResponse (ResPeriodFinished pr) = pr
 
 announceNewPeriod :: Mintette -> NewPeriodData -> IO ()
 announceNewPeriod = undefined   -- it depends on protocol

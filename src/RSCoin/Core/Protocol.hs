@@ -10,26 +10,27 @@ module RSCoin.Core.Protocol
        , callBatch
        ) where
 
-import           Network.JsonRpc      (FromRequest (parseParams), ToRequest (..),
-                                       FromResponse (parseResult), Ver (V2),
-                                       Respond, JsonRpcT, jsonRpcTcpServer,
-                                       receiveBatchRequest, BatchRequest (..),
-                                       sendResponse, buildResponse,
-                                       BatchResponse (..), sendBatchResponse,
-                                       jsonRpcTcpClient, ErrorObj, fromError,
-                                       sendRequest, sendBatchRequest)
+import           Network.JsonRpc       (FromRequest (parseParams), ToRequest (..),
+                                        FromResponse (parseResult), Ver (V2),
+                                        Respond, JsonRpcT, jsonRpcTcpServer,
+                                        receiveBatchRequest, BatchRequest (..),
+                                        sendResponse, buildResponse,
+                                        BatchResponse (..), sendBatchResponse,
+                                        jsonRpcTcpClient, ErrorObj, fromError,
+                                        sendRequest, sendBatchRequest)
 
-import           Control.Monad        (forM, liftM)
-import           Control.Monad.Trans  (lift)
-import           Control.Monad.Logger (logDebug, MonadLoggerIO, runStderrLoggingT, LoggingT)
-import           Data.Aeson           (FromJSON (parseJSON), ToJSON (toJSON))
-import           Data.Aeson.Types     (emptyArray)
-import           Data.Conduit.Network (serverSettings, clientSettings)
-import           Data.Foldable        (forM_)
-import           Data.Maybe           (catMaybes)
+import           Control.Monad         (forM, liftM)
+import           Control.Monad.Trans   (lift)
+import           Control.Monad.Logger  (logDebug, MonadLoggerIO, runStderrLoggingT, LoggingT)
+import           Data.Aeson            (FromJSON (parseJSON), ToJSON (toJSON))
+import           Data.Aeson.Types      (emptyArray)
+import qualified Data.ByteString.Char8 as BS
+import           Data.Conduit.Network  (serverSettings, clientSettings)
+import           Data.Foldable         (forM_)
+import           Data.Maybe            (catMaybes)
 
-import           RSCoin.Core.Types    (PeriodId, PeriodResult, Mintettes)
-import           RSCoin.Core.Aeson    ()
+import           RSCoin.Core.Types     (PeriodId, PeriodResult, Mintettes)
+import           RSCoin.Core.Aeson     ()
 
 data BankReq
     = ReqGetMintettes
@@ -118,16 +119,16 @@ handleResponse t =
         Just (Right r) -> r
 
 -- TODO: improve logging
-call :: (ToRequest a, ToJSON a, FromResponse b) => Int -> a -> IO b
-call port req = initCall port $ do
+call :: (ToRequest a, ToJSON a, FromResponse b) => Int -> String -> a -> IO b
+call port host req = initCall port host $ do
 	$(logDebug) "send a request"
 	handleResponse <$> sendRequest req
 
-callBatch :: (ToRequest a, ToJSON a, FromResponse b) => Int -> [a] -> IO [b]
-callBatch port reqs = initCall port $ do
+callBatch :: (ToRequest a, ToJSON a, FromResponse b) => Int -> String -> [a] -> IO [b]
+callBatch port host reqs = initCall port host $ do
 	$(logDebug) "send a batch request"
 	map handleResponse <$> sendBatchRequest reqs
 
-initCall :: Int -> JsonRpcT (LoggingT IO) a -> IO a
-initCall port action = runStderrLoggingT $
-    jsonRpcTcpClient V2 True (clientSettings port "::1") action
+initCall :: Int -> String -> JsonRpcT (LoggingT IO) a -> IO a
+initCall port host action = runStderrLoggingT $
+    jsonRpcTcpClient V2 True (clientSettings port $ BS.pack host) action

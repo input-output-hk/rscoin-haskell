@@ -27,6 +27,7 @@ library
                      , RSCoin.Core.Primitives
                      , RSCoin.Core.Transaction
                      , RSCoin.Core.Types
+                     , RSCoin.Mintette
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Error
                      , RSCoin.Bank.Server
@@ -34,6 +35,7 @@ library
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Protocol
                      , RSCoin.Core.Aeson
+                     , RSCoin.Mintette.Error
   build-depends:       acid-state
                      , aeson >= 0.9.0.1
                      , base >=4.8 && <4.9

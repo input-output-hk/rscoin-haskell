@@ -1,4 +1,4 @@
--- | All possible runtime error in Bank
+-- | All possible runtime errors in Bank
 
 module RSCoin.Bank.Error
        ( BankError (..)

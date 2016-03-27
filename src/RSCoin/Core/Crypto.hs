@@ -42,7 +42,7 @@ import           Data.Text                 (Text)
 import           Data.Text.Buildable       (Buildable (build))
 import           Data.Text.Encoding        (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format          as F
-
+import qualified Data.Text.IO              as TIO
 import           Test.QuickCheck.Arbitrary (arbitrary)
 import           Test.QuickCheck.Gen       (generate)
 
@@ -50,6 +50,9 @@ import           Crypto.Secp256k1          (Msg, PubKey, SecKey, Sig,
                                             derivePubKey, exportPubKey,
                                             exportSig, importPubKey, importSig,
                                             msg, signMsg, verifySig)
+
+import           Serokell.Util.Exceptions  (throwText)
+import           Serokell.Util.Text        (show')
 
 -- | Hash is just a base64 encoded ByteString.
 newtype Hash =
@@ -68,7 +71,7 @@ instance FromJSON Hash where
     parseJSON _ = fail "Hash should be an object"
 
 instance ToJSON Hash where
-    toJSON (getHash -> hash) = object ["hash" .= decodeUtf8 hash]
+    toJSON (getHash -> h) = object ["hash" .= decodeUtf8 h]
 
 newtype Signature =
     Signature { getSignature :: Sig }
@@ -145,7 +148,7 @@ instance SafeCopy PublicKey where
     getCopy = getCopyBinary
 
 instance Buildable PublicKey where
-    build = build . F.Shown . getPublicKey
+    build = build . decodeUtf8 . B64.encode . exportPubKey True . getPublicKey
 
 instance Hashable PublicKey where
     hashWithSalt s pk = hashWithSalt s (encode pk)
@@ -163,14 +166,12 @@ hash = Hash . B64.encode . SHA256.hashlazy . encode
 -- | Generate a signature from a binary data.
 sign :: Binary t => SecretKey -> t -> Signature
 sign (getSecretKey -> secKey) =
-    withBinaryHashedMsg $
-        Signature . signMsg secKey
+    withBinaryHashedMsg $ Signature . signMsg secKey
 
 -- | Verify signature from a binary message data.
 verify :: Binary t => PublicKey -> Signature -> t -> Bool
 verify (getPublicKey -> pubKey) (getSignature -> sig) =
-    withBinaryHashedMsg $
-        verifySig pubKey sig
+    withBinaryHashedMsg $ verifySig pubKey sig
 
 -- | Generate arbitrary (secret key, public key) key pairs.
 keyGen :: IO (SecretKey, PublicKey)
@@ -180,23 +181,27 @@ keyGen = do
 
 -- | Constructs public key from utf-8 encoded text
 constructPublicKey :: Text -> Maybe PublicKey
-constructPublicKey = fmap PublicKey . importPubKey . encodeUtf8
+constructPublicKey t =
+    either (const Nothing) (fmap PublicKey . importPubKey) $
+    B64.decode $ encodeUtf8 t
 
 -- | Writes PublicKey to a file
 writePublicKey :: FilePath -> PublicKey -> IO ()
-writePublicKey fp = writeFile fp . show
+writePublicKey fp = TIO.writeFile fp . show'
 
 -- | Reads PublicKey from a file
 readPublicKey :: FilePath -> IO PublicKey
-readPublicKey = fmap read . readFile
+readPublicKey fp =
+    maybe (throwText "Failed to parse public key") return =<<
+    (constructPublicKey <$> TIO.readFile fp)
 
 -- | Writes SecretKey to a file
 writeSecretKey :: FilePath -> SecretKey -> IO ()
-writeSecretKey fp = writeFile fp . show
+writeSecretKey fp = writeFile fp . show . getSecretKey
 
 -- | Reads SecretKey from a file
 readSecretKey :: FilePath -> IO SecretKey
-readSecretKey = fmap read . readFile
+readSecretKey = fmap (SecretKey . read) . readFile
 
 withBinaryHashedMsg :: Binary t => (Msg -> a) -> t -> a
 withBinaryHashedMsg action =

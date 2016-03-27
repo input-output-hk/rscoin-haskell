@@ -4,6 +4,7 @@
 
 module RSCoin.Core.Transaction
        ( validateSum
+       , validateSignature
        , getAmountByAddress
        , getAddrIdByAddress
        , chooseAddresses
@@ -15,8 +16,8 @@ import           Data.Monoid            ((<>))
 import           Data.Ord               (comparing)
 import           Data.Tuple.Select      (sel3)
 
-import           RSCoin.Core.Crypto     (hash)
-import           RSCoin.Core.Primitives (AddrId, Address, Coin,
+import           RSCoin.Core.Crypto     (Signature, hash, verify)
+import           RSCoin.Core.Primitives (AddrId, Address (..), Coin,
                                          Transaction (..))
 
 -- I dunno if we need it, maybe it will be useful at some point (I've
@@ -32,6 +33,11 @@ validateSum Transaction{..} =
     let inputSum = sum $ map sel3 txInputs
         outputSum = sum $ map snd txOutputs in
     inputSum >= outputSum
+
+-- | Validates that signature is issued by public key associated with given
+-- address for the transaction.
+validateSignature :: Signature -> Address -> Transaction -> Bool
+validateSignature signature (Address pk) tx = verify pk signature tx
 
 -- | Given address and transaction returns total amount of money
 -- transaction transfers to address.

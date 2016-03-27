@@ -10,7 +10,7 @@ module Wallet
        ( UserAddress
        , publicAddress
        , privateAddress
-       , userAddressToAddress
+       , toAddress
        , WalletStorageError (..)
        , WalletStorage
        , emptyWalletStorage
@@ -33,6 +33,7 @@ import           Control.Monad.State.Class  (MonadState)
 import           Data.List                  (find)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
+import           Data.Monoid                ((<>))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Text.Lazy.Builder     (fromString)
@@ -67,8 +68,8 @@ instance Buildable UserAddress where
                 then str ++ "***"
                 else take (length str - n) str ++ replicate n '*'
 
-userAddressToAddress :: UserAddress -> Address
-userAddressToAddress userAddress = C.Address $ userAddress ^. publicAddress
+toAddress :: UserAddress -> Address
+toAddress userAddress = C.Address $ userAddress ^. publicAddress
 
 -- | Wallet, that holdls all information needed for the user to 'own'
 -- bitcoins. Plus some meta-information that's crucially needed for
@@ -155,14 +156,18 @@ withBlockchainUpdate
 withBlockchainUpdate newHeight transactions = do
     currentHeight <- L.use lastBlockId
     unless (currentHeight < newHeight) $
-        throwM $
-        BadRequest $
+        reportBadRequest $
         format'
             "New blockchain height {} is less or equal to the old one: {}"
             (newHeight, currentHeight)
+    unless (currentHeight + 1 == newHeight) $
+        reportBadRequest $
+        format'
+            ("New blockchain height {} should be exactly {} + 1. " <>
+             "Only incremental updates are available.")
+            (newHeight, currentHeight)
     unless (all C.validateSum transactions) $
-        throwM $
-        BadRequest $
+        reportBadRequest $
         formatSingle'
             "Tried to update with invalid transactions -- at least this one: {} " $
         head $ filter (not . C.validateSum) transactions
@@ -173,8 +178,7 @@ withBlockchainUpdate newHeight transactions = do
         hasSomePublicAddress Transaction{..} =
             any hasFilter $ map outputs txOutputs
     unless (all hasSomePublicAddress transactions) $
-        throwM $
-        BadRequest $
+        reportBadRequest $
         T.pack $
         "Failed to verify that any transaction has at least one output " ++
         "address that we own. Transactions: " ++ show transactions
@@ -205,6 +209,8 @@ withBlockchainUpdate newHeight transactions = do
                         M.insertWith (++) a [b] c)
                   mp
                   flattenedTxs)
+  where
+    reportBadRequest = throwM . BadRequest
 
 generateAddresses
     :: (MonadState WalletStorage m, MonadThrow m, MonadIO m)

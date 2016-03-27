@@ -5,10 +5,10 @@ module Actions (proceedCommand) where
 
 import           Control.Exception  (throwIO)
 import           Control.Lens       ((^.))
-import           Control.Monad      (filterM, unless, when)
-import           Data.Acid          (query)
+import           Control.Monad      (filterM, forM_, unless, when)
+import           Data.Acid          (query, update)
 import           Data.Int           (Int64)
-import           Data.List          (nubBy)
+import           Data.List          (nub, nubBy)
 import           Data.Maybe         (fromJust, isJust)
 import           Data.Monoid        ((<>))
 import           Data.Ord           (comparing)
@@ -25,6 +25,13 @@ import           UserError          (UserError (..), eWrap)
 import qualified UserOptions        as O
 import qualified Wallet             as W
 
+-- Bunch of mocks
+getBlockchainHeight :: IO Int
+getBlockchainHeight = undefined -- That's a mock TODO
+getBlockByHeight :: Int -> IO C.HBlock
+getBlockByHeight = undefined    -- That's a mock TODO
+-- Ends here
+
 commitError :: T.Text -> IO ()
 commitError = throwIO . InputProcessingError
 
@@ -33,7 +40,7 @@ getAmount st userAddress =
     sum . map getValue <$> query st (A.GetTransactions userAddress)
   where
     getValue =
-        C.getAmountByAddress $ W.userAddressToAddress userAddress
+        C.getAmountByAddress $ W.toAddress userAddress
 
 -- | Given the state of program and command, makes correspondent
 -- actions.
@@ -57,8 +64,34 @@ proceedCommand st (O.FormTransaction inputs (outputAddrStr,outputCoinInt)) =
            "Provided key can't be exported: " <> outputAddrStr
        formTransaction st inputs (fromJust pubKey) $
            C.Coin outputCoinInt
-proceedCommand _ _ = putStrLn "Not implemented."
+proceedCommand st O.UpdateBlockchain =
+    eWrap $
+    do height <- getBlockchainHeight -- request to get blockchain height
+       walletHeight <- query st A.GetLastBlockId
+       when (walletHeight < height) $
+           throwIO $
+           StorageError $
+           W.InternalError
+               "Blockchain height in wallet is greater than in bank. Critical error."
+       if height == walletHeight
+           then putStrLn "Blockchain is updated already."
+           else forM_ [walletHeight, height] (updateToBlockHeight st)
 
+-- | Updates wallet to given blockchain height assuming that it's in
+-- previous height state already.
+updateToBlockHeight :: A.RSCoinUserState -> Int -> IO ()
+updateToBlockHeight st newHeight = do
+    C.HBlock{..} <- getBlockByHeight newHeight
+    -- TODO validate this block
+    relatedTransactions <-
+        nub . concatMap (toTrs hbTransactions) <$> query st GetAllAddresses
+    update st $ A.WithBlockchainUpdate newHeight relatedTransactions
+  where
+    toTrs :: [C.Transaction] -> W.UserAddress -> [C.Transaction]
+    toTrs trs userAddr =
+        filter (not . null . C.getAddrIdByAddress (W.toAddress userAddr)) trs
+
+-- | Forms transaction out of user input and sends it to the net.
 formTransaction :: A.RSCoinUserState -> [(Int, Int64)] -> Address -> Coin -> IO ()
 formTransaction st inputs outputAddr outputCoin =
     do when (nubBy (\a -> (== EQ) . comparing fst a) inputs /= inputs) $
@@ -97,7 +130,7 @@ formTransaction st inputs outputAddr outputCoin =
     formTransactionMapper :: (Int, W.UserAddress, Coin) -> IO Transaction
     formTransactionMapper (_, a, c) = do
         (addrids :: [C.AddrId]) <-
-            concatMap (getAddrIdByAddress $ W.userAddressToAddress a) <$>
+            concatMap (getAddrIdByAddress $ W.toAddress a) <$>
                 query st (A.GetTransactions a)
         let (chosen, leftCoin) =
                 chooseAddresses addrids c
@@ -105,4 +138,4 @@ formTransaction st inputs outputAddr outputCoin =
             (outputAddr, outputCoin) :
                 (if leftCoin == 0
                  then []
-                 else [(W.userAddressToAddress a, leftCoin)])
+                 else [(W.toAddress a, leftCoin)])

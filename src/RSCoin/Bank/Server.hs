@@ -6,5 +6,12 @@ module RSCoin.Bank.Server
 
 import           RSCoin.Bank.AcidState (State)
 
+import qualified RSCoin.Core as C
+import           RSCoin.Core (Handler, BankReq (..), BankRes (..))
+
 serve :: Int -> State -> IO ()
-serve = undefined
+serve port state = C.serve port $ handler state
+
+handler :: State -> Handler BankReq BankRes
+handler state (ReqPeriodFinished pid) = return . Right $ ResPeriodFinished undefined
+handler state ReqGetMintettes = return . Right $ ResGetMintettes undefined

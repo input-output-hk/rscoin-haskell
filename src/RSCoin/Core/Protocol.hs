@@ -2,6 +2,8 @@
 module RSCoin.Core.Protocol
        ( BankReq (..)
        , BankRes (..)
+       , Handler
+       , serve
        ) where
 
 import           Network.JsonRpc      (FromRequest (parseParams), ToRequest (..),
@@ -58,15 +60,14 @@ instance ToJSON BankRes where
     toJSON (ResPeriodFinished pr) = toJSON pr
     toJSON (ResGetMintettes ms) = toJSON ms
 
-respond :: Respond BankReq (LoggingT IO) BankRes
-respond = undefined
+type Handler a b = Respond a (LoggingT IO) b
 
-serve :: Int -> Respond BankReq (LoggingT IO) BankRes -> IO ()
+serve :: (FromRequest a, ToJSON b) => Int -> Handler a b -> IO ()
 serve port handler = runStderrLoggingT $ do
     let ss = serverSettings port "::1"
     jsonRpcTcpServer V2 False ss $ srv handler
 
-srv :: MonadLoggerIO m => Respond BankReq m BankRes -> JsonRpcT m ()
+srv :: (MonadLoggerIO m, FromRequest a, ToJSON b) => Respond a m b -> JsonRpcT m ()
 srv handler = do
     $(logDebug) "listening for new request"
     qM <- receiveBatchRequest

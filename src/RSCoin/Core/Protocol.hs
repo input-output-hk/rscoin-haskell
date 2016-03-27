@@ -31,7 +31,8 @@ import           Data.Conduit.Network  (serverSettings, clientSettings)
 import           Data.Foldable         (forM_)
 import           Data.Maybe            (catMaybes)
 
-import           RSCoin.Core.Types     (PeriodId, PeriodResult, Mintettes)
+import           RSCoin.Core.Types     (PeriodId, PeriodResult, Mintettes,
+                                        NewPeriodData)
 import           RSCoin.Core.Aeson     ()
 
 ---- BANK data ----
@@ -73,32 +74,41 @@ instance ToJSON BankRes where
 -- | Request handled by Mintette (probably sent by User or Bank)
 data MintetteReq
     = ReqPeriodFinished PeriodId
+    | ReqAnnounceNewPeriod NewPeriodData
 
 instance FromRequest MintetteReq where
     parseParams "periodFinished" =
         Just $ fmap ReqPeriodFinished . parseJSON
+    parseParams "announceNewPeriod" =
+        Just $ fmap ReqAnnounceNewPeriod . parseJSON
     parseParams _ =
         Nothing
 
 instance ToRequest MintetteReq where
     requestMethod (ReqPeriodFinished _) = "periodFinished"
+    requestMethod (ReqAnnounceNewPeriod _) = "announceNewPeriod"
     requestIsNotif = const False
 
 instance ToJSON MintetteReq where
     toJSON (ReqPeriodFinished pid) = toJSON pid
+    toJSON (ReqAnnounceNewPeriod npd) = toJSON npd
 
 -- | Responses to Mintette requests (probably sent by User or Bank)
 data MintetteRes
     = ResPeriodFinished PeriodResult
+    | ResAnnounceNewPeriod
 
 instance FromResponse MintetteRes where
     parseResult "periodFinished" =
         Just $ fmap ResPeriodFinished . parseJSON
+    parseResult "announceNewPeriod" =
+        Just $ const $ return ResAnnounceNewPeriod
     parseResult _ =
         Nothing
 
 instance ToJSON MintetteRes where
     toJSON (ResPeriodFinished pid) = toJSON pid
+    toJSON ResAnnounceNewPeriod = emptyArray
 
 ---- MINTETTE data ----
 

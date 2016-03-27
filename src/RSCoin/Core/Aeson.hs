@@ -11,7 +11,7 @@ import           Data.Map               (Map, fromList, toList)
 import           RSCoin.Core.Crypto     ()
 import           RSCoin.Core.Primitives (Address, Coin, Transaction)
 import           RSCoin.Core.Types      (ActionLogEntry, CheckConfirmation,
-                                         LBlock, Mintette)
+                                         LBlock, Mintette, NewPeriodData)
 
 instance (FromJSON a, Ord a, FromJSON b) => FromJSON (Map a b) where
     parseJSON (Object v) =
@@ -22,6 +22,7 @@ instance (FromJSON a, Ord a, FromJSON b) => FromJSON (Map a b) where
 instance (ToJSON a, ToJSON b) => ToJSON (Map a b) where
     toJSON m = object ["map" .= toList m]
 
+$(deriveJSON defaultOptions ''NewPeriodData)
 $(deriveJSON defaultOptions ''LBlock)
 $(deriveJSON defaultOptions ''Coin)
 $(deriveJSON defaultOptions ''Address)

@@ -41,8 +41,7 @@ import           Data.Text.Lazy.Builder     (fromString)
 import           Serokell.Util.Text         (format', formatSingle', show')
 
 import qualified RSCoin.Core                as C
-import           RSCoin.Core.Crypto         (PublicKey (..), SecretKey (..),
-                                             keyGen)
+import           RSCoin.Core.Crypto         (PublicKey, SecretKey, keyGen)
 import           RSCoin.Core.Primitives     (Address (..), Transaction (..))
 
 -- | User address as stored and seen by wallet owner.

@@ -19,6 +19,8 @@ module RSCoin.Core.Crypto
        , readPublicKey
        , writeSecretKey
        , readSecretKey
+       , derivePublicKey
+       , checkKeyPair
        ) where
 
 import qualified Crypto.Hash.SHA256        as SHA256
@@ -209,3 +211,9 @@ withBinaryHashedMsg action =
                                       -- messages in 32 bytes
         action
         . msg . SHA256.hashlazy . encode
+
+derivePublicKey :: SecretKey -> PublicKey
+derivePublicKey (getSecretKey -> sk) = PublicKey $ derivePubKey sk
+
+checkKeyPair :: (SecretKey, PublicKey) -> Bool
+checkKeyPair (sk, pk) = pk == derivePublicKey sk

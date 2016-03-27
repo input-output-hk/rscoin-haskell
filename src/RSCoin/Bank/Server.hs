@@ -13,5 +13,4 @@ serve :: Int -> State -> IO ()
 serve port state = C.serve port $ handler state
 
 handler :: State -> Handler BankReq BankRes
-handler state (ReqPeriodFinished pid) = return . Right $ ResPeriodFinished undefined
 handler state ReqGetMintettes = return . Right $ ResGetMintettes undefined

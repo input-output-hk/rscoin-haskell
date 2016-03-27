@@ -18,4 +18,7 @@ epochDelta = 5
 
 -- | Special address used as output in genesis transaction
 genesisAddress :: Address
-genesisAddress = Address $ fromJust $ constructPublicKey undefined
+genesisAddress =
+    Address $
+    fromJust $
+    constructPublicKey "AtRoNkuSjCkIPdUz+He0xKqmcH0I0OTLal+4vIRitm4/"

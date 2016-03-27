@@ -6,12 +6,20 @@ module RSCoin.Core.HBlock
        , checkHBlock
        ) where
 
+import           RSCoin.Core.Constants  (genesisAddress)
 import           RSCoin.Core.Crypto     (Hash, PublicKey, SecretKey, hash, sign)
-import           RSCoin.Core.Primitives (Transaction)
+import           RSCoin.Core.Primitives (Transaction (..))
 import           RSCoin.Core.Types      (Dpk, HBlock (..))
 
 initialHash :: Hash
 initialHash = hash ()
+
+initialTx :: Transaction
+initialTx =
+    Transaction
+    { txInputs = []
+    , txOutputs = [(genesisAddress, 1000000)]
+    }
 
 -- | Construct higher-level block from txset, Bank's secret key, DPK
 -- and previous block.
@@ -20,7 +28,7 @@ mkHBlock txset prevBlock sk dpk = mkHBlockDo txset sk dpk (hbHash prevBlock)
 
 -- | Construct genesis higher-level block using Bank's secret key and DPK.
 mkGenesisHBlock :: SecretKey -> Dpk -> HBlock
-mkGenesisHBlock sk dpk = mkHBlockDo [] sk dpk initialHash
+mkGenesisHBlock sk dpk = mkHBlockDo [initialTx] sk dpk initialHash
 
 mkHBlockDo :: [Transaction] -> SecretKey -> Dpk -> Hash -> HBlock
 mkHBlockDo hbTransactions sk hbDpk hbHash =

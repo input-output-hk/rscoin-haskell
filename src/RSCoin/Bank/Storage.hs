@@ -24,13 +24,13 @@ import           Data.Maybe                 (catMaybes)
 import           Data.Typeable              (Typeable)
 import           Safe                       (headMay)
 
-import           RSCoin.Core                (ActionLog, Address (..), Dpk,
-                                             HBlock (..), Mintette, MintetteId,
-                                             Mintettes, NewPeriodData (..),
-                                             PeriodId, PeriodResult, PublicKey,
-                                             SecretKey, Transaction,
-                                             checkActionLog, checkLBlock,
-                                             derivePublicKey, hash,
+import           RSCoin.Core                (ActionLog, Address (..), Coin (..),
+                                             Dpk, HBlock (..), Mintette,
+                                             MintetteId, Mintettes,
+                                             NewPeriodData (..), PeriodId,
+                                             PeriodResult, PublicKey, SecretKey,
+                                             Transaction (..), checkActionLog,
+                                             checkLBlock, derivePublicKey, hash,
                                              lbTransactions, mkGenesisHBlock,
                                              mkHBlock, owners, periodReward,
                                              sign)
@@ -147,18 +147,18 @@ allocateCoins pk mintetteKeys goodResults =
   where
     bankAddress = Address pk
     awarded = map fst $ filter checkParticipation goodResults
-    checkParticipation (_,blocks,_) = checkParticipationBlocks blocks
+    checkParticipation (_, (_, blks, _)) = checkParticipationBlocks blks
     checkParticipationBlocks [] = False
-    checkParticipationBlocks (block:blocks) =
-        (not $ null $ lbTransactions block) || checkParticipationBlocks blocks
-    awardedCnt = length awarded
-    mintetteReward = periodReward `div` (awardedCnt + 1)
-    bankReward = periodReward - awardedCnt * mintetteReward
+    checkParticipationBlocks (block:blks) =
+        (not $ null $ lbTransactions block) || checkParticipationBlocks blks
+    awardedCnt = fromIntegral $ length awarded
+    mintetteReward = (getCoin periodReward) `div` (awardedCnt + 1)
+    bankReward = (getCoin periodReward) - awardedCnt * mintetteReward
     mintetteOutputs =
         map
-            (\idx -> (Address $ mintetteKeys idx, mintetteReward))
+            (\idx -> (Address (mintetteKeys !! idx), Coin mintetteReward))
             awarded
-    txOutputs = (bankAddress, bankReward) : mintetteOutputs
+    txOutputs = (bankAddress, Coin bankReward) : mintetteOutputs
 
 mergeTransactions :: Mintettes -> [(MintetteId, PeriodResult)] -> [Transaction]
 mergeTransactions mts goodResults = M.foldrWithKey appendTxChecked [] txMap

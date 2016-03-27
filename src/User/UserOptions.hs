@@ -13,7 +13,7 @@ import           Data.Text           (Text)
 import           Options.Applicative (Parser, auto, command, execParser,
                                       fullDesc, help, helper, info, long,
                                       option, progDesc, some, strOption,
-                                      subparser, value)
+                                      subparser, switch, value)
 
 -- | Input user command that's contained in every program call
 data UserCommand
@@ -36,6 +36,7 @@ data UserCommand
 -- | Datatype describing user command line options
 data UserOptions = UserOptions
     { userCommand :: UserCommand
+    , isBankMode  :: Bool
     , walletPath  :: FilePath
     } deriving (Show)
 
@@ -74,6 +75,12 @@ userCommandParser =
 userOptionsParser :: Parser UserOptions
 userOptionsParser =
     UserOptions <$> userCommandParser <*>
+    switch
+        (long "bank-mode" <>
+         help
+             ("Start the client in bank-mode. " <>
+              "Private bank key should exist at ~/.rscoin/bankKey. " <>
+              "Is needed only on wallet initialization.")) <*>
     strOption
         (long "wallet-path" <> help "Path to wallet database." <>
          value "wallet-db")

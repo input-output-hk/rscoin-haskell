@@ -10,6 +10,7 @@ module Wallet
        ( UserAddress
        , publicAddress
        , privateAddress
+       , makeUserAddress
        , toAddress
        , WalletStorageError (..)
        , WalletStorage
@@ -32,7 +33,7 @@ import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import           Data.List                  (find)
 import qualified Data.Map                   as M
-import           Data.Maybe                 (fromJust)
+import           Data.Maybe                 (fromJust, maybeToList)
 import           Data.Monoid                ((<>))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
@@ -67,6 +68,9 @@ instance Buildable UserAddress where
                 then str ++ "***"
                 else take (length str - n) str ++ replicate n '*'
 
+makeUserAddress :: SecretKey -> PublicKey -> UserAddress
+makeUserAddress = UserAddress
+
 toAddress :: UserAddress -> Address
 toAddress userAddress = C.Address $ userAddress ^. publicAddress
 
@@ -95,16 +99,18 @@ instance Exception WalletStorageError
 _MOCK_getBlockchainLength :: IO Int
 _MOCK_getBlockchainLength = return 0
 
-emptyWalletStorage :: Int -> IO WalletStorage
-emptyWalletStorage addrNum
+emptyWalletStorage :: Int -> Maybe UserAddress -> IO WalletStorage
+emptyWalletStorage addrNum _
   | addrNum <= 0 =
       throw $
       BadRequest $
       formatSingle'
           "Attempt to create wallet with negative number of addresses: {}"
           addrNum
-emptyWalletStorage addrNum = do
-    _userAddresses <- map (uncurry UserAddress) <$> replicateM addrNum keyGen
+emptyWalletStorage addrNum bankAddr = do
+    _userAddresses <- (++ maybeToList bankAddr) .
+                      map (uncurry UserAddress) <$>
+                      replicateM addrNum keyGen
     let _inputAddressesTxs = foldr (\addr -> M.insert addr []) M.empty _userAddresses
     _lastBlockId <- _MOCK_getBlockchainLength
     return WalletStorage {..}

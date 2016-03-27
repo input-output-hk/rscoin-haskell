@@ -39,8 +39,13 @@ instance MonadThrow (A.Query WalletStorage) where
 instance MonadThrow (A.Update WalletStorage) where
     throwM = throw
 
-openState :: FilePath -> Int -> IO RSCoinUserState
-openState path n = A.openLocalStateFrom path =<< W.emptyWalletStorage n
+openState :: FilePath -> Int -> Bool -> IO RSCoinUserState
+openState path n True = do
+    sk <- C.readSecretKey "~/.rscoin/bankPrivateKey" -- not windows-compatible (a feature)
+    let bankKeyPair = W.makeUserAddress sk $ C.getAddress C.genesisAddress
+    A.openLocalStateFrom path =<< W.emptyWalletStorage n (Just bankKeyPair)
+openState path n False =
+    A.openLocalStateFrom path =<< W.emptyWalletStorage n Nothing
 
 closeState :: RSCoinUserState -> IO ()
 closeState = A.closeAcidState

@@ -7,7 +7,7 @@ import           Control.Exception (bracket)
 main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
-    bracket (A.openState walletPath 10) A.closeState $
+    bracket (A.openState walletPath 10 isBankMode) A.closeState $
         \st ->
              do putStrLn $ "Called with options: " ++ show opts
                 proceedCommand st userCommand

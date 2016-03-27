@@ -58,6 +58,8 @@ data BankRes
 instance FromResponse BankRes where
     parseResult "getMintettes" =
         Just $ fmap ResGetMintettes . parseJSON
+    parseResult _ =
+        Nothing
 
 instance ToJSON BankRes where
     toJSON (ResGetMintettes ms) = toJSON ms
@@ -88,6 +90,8 @@ data MintetteRes
 instance FromResponse MintetteRes where
     parseResult "periodFinished" =
         Just $ fmap ResPeriodFinished . parseJSON
+    parseResult _ =
+        Nothing
 
 instance ToJSON MintetteRes where
     toJSON (ResPeriodFinished pid) = toJSON pid
@@ -118,6 +122,8 @@ data UserRes
 instance FromResponse UserRes where
     parseResult "dummy" =
         Just $ const $ return ResDummy
+    parseResult _ =
+        Nothing
 
 instance ToJSON UserRes where
     toJSON ResDummy = emptyArray
@@ -161,13 +167,13 @@ handleResponse t =
 -- TODO: improve logging
 call :: (ToRequest a, ToJSON a, FromResponse b) => Int -> String -> a -> IO b
 call port host req = initCall port host $ do
-	$(logDebug) "send a request"
-	handleResponse <$> sendRequest req
+    $(logDebug) "send a request"
+    handleResponse <$> sendRequest req
 
 callBatch :: (ToRequest a, ToJSON a, FromResponse b) => Int -> String -> [a] -> IO [b]
 callBatch port host reqs = initCall port host $ do
-	$(logDebug) "send a batch request"
-	map handleResponse <$> sendBatchRequest reqs
+    $(logDebug) "send a batch request"
+    map handleResponse <$> sendBatchRequest reqs
 
 initCall :: Int -> String -> JsonRpcT (LoggingT IO) a -> IO a
 initCall port host action = runStderrLoggingT $

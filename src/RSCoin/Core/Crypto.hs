@@ -16,6 +16,7 @@ module RSCoin.Core.Crypto
        , sign
        , verify
        , keyGen
+       , constructPublicKey
        , writePublicKey
        , readPublicKey
        , writeSecretKey
@@ -37,6 +38,7 @@ import           Data.SafeCopy             (Contained,
                                             contain, deriveSafeCopy, safeGet,
                                             safePut)
 import           Data.Serialize            (Get, Put)
+import           Data.Text                 (Text)
 import           Data.Text.Buildable       (Buildable (build))
 import           Data.Text.Encoding        (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format          as F
@@ -175,6 +177,10 @@ keyGen :: IO (SecretKey, PublicKey)
 keyGen = do
     sKey <- generate arbitrary
     return (SecretKey sKey, PublicKey $ derivePubKey sKey)
+
+-- | Constructs public key from utf-8 encoded text
+constructPublicKey :: Text -> Maybe PublicKey
+constructPublicKey = fmap PublicKey . importPubKey . encodeUtf8
 
 -- | Writes PublicKey to a file
 writePublicKey :: FilePath -> PublicKey -> IO ()

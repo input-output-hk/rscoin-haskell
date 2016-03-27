@@ -36,6 +36,7 @@ import           RSCoin.Core.Aeson     ()
 
 ---- BANK data ----
 
+-- | Request handled by Bank (probably sent by User or Mintette)
 data BankReq
     = ReqGetMintettes
 
@@ -52,6 +53,7 @@ instance ToRequest BankReq where
 instance ToJSON BankReq where
     toJSON ReqGetMintettes = emptyArray
 
+-- | Responses to Bank requests (probably sent by User or Mintette)
 data BankRes
     = ResGetMintettes Mintettes
 
@@ -68,6 +70,7 @@ instance ToJSON BankRes where
 
 ---- MINTETTE data ----
 
+-- | Request handled by Mintette (probably sent by User or Bank)
 data MintetteReq
     = ReqPeriodFinished PeriodId
 
@@ -84,6 +87,7 @@ instance ToRequest MintetteReq where
 instance ToJSON MintetteReq where
     toJSON (ReqPeriodFinished pid) = toJSON pid
 
+-- | Responses to Mintette requests (probably sent by User or Bank)
 data MintetteRes
     = ResPeriodFinished PeriodResult
 
@@ -100,6 +104,7 @@ instance ToJSON MintetteRes where
 
 ---- USER data ----
 
+-- | Request handled by User (probably sent by Mintette or Bank)
 data UserReq
     = ReqDummy
 
@@ -116,6 +121,7 @@ instance ToRequest UserReq where
 instance ToJSON UserReq where
     toJSON ReqDummy = emptyArray
 
+-- | Responses to User requests (probably sent by Mintette or Bank)
 data UserRes
     = ResDummy
 
@@ -130,8 +136,11 @@ instance ToJSON UserRes where
 
 ---- USER data ----
 
+-- | Handler is a function that takes request (ie BankReq) and returns
+-- a response (ie BankRes). Ment to be used in servers. 
 type Handler a b = Respond a (LoggingT IO) b
 
+-- | Runs a TCP server transport for JSON-RPC.
 serve :: (FromRequest a, ToJSON b) => Int -> Handler a b -> IO ()
 serve port handler = runStderrLoggingT $ do
     let ss = serverSettings port "::1"
@@ -156,7 +165,7 @@ srv handler = do
             sendBatchResponse $ BatchResponse rs
             srv handler
 
--- FIXME: fix error handling
+-- TODO: fix error handling
 handleResponse :: Maybe (Either ErrorObj r) -> r
 handleResponse t =
     case t of
@@ -165,16 +174,19 @@ handleResponse t =
         Just (Right r) -> r
 
 -- TODO: improve logging
+-- | Send a request.
 call :: (ToRequest a, ToJSON a, FromResponse b) => Int -> String -> a -> IO b
 call port host req = initCall port host $ do
     $(logDebug) "send a request"
     handleResponse <$> sendRequest req
 
+-- | Send multiple requests in a batch.
 callBatch :: (ToRequest a, ToJSON a, FromResponse b) => Int -> String -> [a] -> IO [b]
 callBatch port host reqs = initCall port host $ do
     $(logDebug) "send a batch request"
     map handleResponse <$> sendBatchRequest reqs
 
+-- | Runs a TCP client transport for JSON-RPC.
 initCall :: Int -> String -> JsonRpcT (LoggingT IO) a -> IO a
 initCall port host action = runStderrLoggingT $
     jsonRpcTcpClient V2 True (clientSettings port $ BS.pack host) action

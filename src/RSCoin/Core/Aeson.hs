@@ -3,16 +3,15 @@ module RSCoin.Core.Aeson
        (
        ) where
 
-import           Data.Aeson         (FromJSON (parseJSON), ToJSON (toJSON),
-                                     (.=), (.:), object, Value (Object))
-import           Data.Aeson.TH      (deriveJSON, defaultOptions)
-import           Data.Map           (Map, toList, fromList)
+import           Data.Aeson             (FromJSON (parseJSON), ToJSON (toJSON),
+                                         Value (Object), object, (.:), (.=))
+import           Data.Aeson.TH          (defaultOptions, deriveJSON)
+import           Data.Map               (Map, fromList, toList)
 
 import           RSCoin.Core.Crypto     ()
-import           RSCoin.Core.Primitives (Transaction, Address, Coin)
-import           RSCoin.Core.Types      (Mintette, ActionLogEntry,
-                                         CheckConfirmation, LogChainHeads,
-                                         LBlock)
+import           RSCoin.Core.Primitives (Address, Coin, Transaction)
+import           RSCoin.Core.Types      (ActionLogEntry, CheckConfirmation,
+                                         LBlock, Mintette)
 
 instance (FromJSON a, Ord a, FromJSON b) => FromJSON (Map a b) where
     parseJSON (Object v) =
@@ -22,7 +21,7 @@ instance (FromJSON a, Ord a, FromJSON b) => FromJSON (Map a b) where
 
 instance (ToJSON a, ToJSON b) => ToJSON (Map a b) where
     toJSON m = object ["map" .= toList m]
-    
+
 $(deriveJSON defaultOptions ''LBlock)
 $(deriveJSON defaultOptions ''Coin)
 $(deriveJSON defaultOptions ''Address)

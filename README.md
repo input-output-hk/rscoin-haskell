@@ -38,3 +38,13 @@ trade-offs were made:
    conjunction with acid-state, which gives us resilience to model changes, as
    our data is versioned against the history of data types we used to represent
    a certain concept.
+
+ + RSCoin is a library, daemons and convenience-cli programs are binaries which
+   use this library  In accord with the library-oriented development philosophy,
+   which suggests putting as much logic in libraries as possible, so that an
+   application is a composition of those libraries with, maybe, some
+   configuration and/or command line argument parsing facilities, we are putting
+   most of the logic in `rscoin` package, which is a library (as specified in the
+   cabal file of the project) with `rscoin-bank`, `rscoin-keygen`, `rscoin-user`,
+   and `rscoin-mintette` being relatively thin layers which make use of this
+   package.

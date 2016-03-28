@@ -12,7 +12,7 @@ import           RSCoin.Core.Crypto     (Hash, PublicKey, SecretKey, hash, sign,
 import           RSCoin.Core.Primitives (Transaction)
 import           RSCoin.Core.Types      (ActionLog,
                                          ActionLogEntry (CloseEpochEntry),
-                                         LBlock (..), LogChainHeads)
+                                         ActionLogHeads, LBlock (..))
 
 -- | Construct lower-level block from txset, mintette's secret key,
 -- hash of previous higher-level block, heads of known log chains
@@ -20,7 +20,7 @@ import           RSCoin.Core.Types      (ActionLog,
 mkLBlock :: [Transaction]
          -> SecretKey
          -> Hash
-         -> LogChainHeads
+         -> ActionLogHeads
          -> ActionLog
          -> LBlock
 mkLBlock lbTransactions sk prevHBlockHash lbHeads actionLog =

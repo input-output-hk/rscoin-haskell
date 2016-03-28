@@ -7,8 +7,8 @@ module RSCoin.Core.Types
        , Mintette (..)
        , Mintettes
        , MintetteId
-       , LogChainHead
-       , LogChainHeads
+       , ActionLogHead
+       , ActionLogHeads
        , CheckConfirmation (..)
        , CheckConfirmations
        , CommitConfirmation
@@ -38,6 +38,12 @@ data Mintette = Mintette
     , mintettePort :: !Int
     } deriving (Show, Eq, Ord)
 
+instance Binary Mintette where
+    put Mintette {..} = do
+        put mintetteHost
+        put mintettePort
+    get = Mintette <$> get <*> get
+
 $(deriveSafeCopy 0 'base ''Mintette)
 
 -- | Mintettes list is stored by Bank and doesn't change over period.
@@ -48,19 +54,19 @@ type Mintettes = [Mintette]
 type MintetteId = Int
 
 -- | Each mintette has a log of actions along with hash which is chained.
--- Head of this chain is represented by pair of hash and sequence number.
-type LogChainHead = (Hash, Int)
+-- Head of this log is represented by pair of hash and sequence number.
+type ActionLogHead = (Hash, Int)
 
--- | ChainHeads is a map containing head for each mintette with whom
+-- | ActionLogHeads is a map containing head for each mintette with whom
 -- the particular mintette has indirectly interacted.
-type LogChainHeads = M.Map MintetteId LogChainHead
+type ActionLogHeads = M.Map Mintette ActionLogHead
 
 -- | CheckConfirmation is a confirmation received by user from mintette as
 -- a result of CheckNotDoubleSpent action.
 data CheckConfirmation = CheckConfirmation
-    { ccMintetteKey       :: !PublicKey     -- ^ key of corresponding mintette
-    , ccMintetteSignature :: !Signature     -- ^ signature for (tx, addrid, head)
-    , ccHead              :: !LogChainHead  -- ^ head of log
+    { ccMintetteKey       :: !PublicKey      -- ^ key of corresponding mintette
+    , ccMintetteSignature :: !Signature      -- ^ signature for (tx, addrid, head)
+    , ccHead              :: !ActionLogHead  -- ^ head of log
     } deriving (Show)
 
 instance Binary CheckConfirmation where
@@ -78,14 +84,14 @@ type CheckConfirmations = M.Map (MintetteId, AddrId) CheckConfirmation
 
 -- | CommitConfirmation is sent by mintette to user as an evidence
 -- that mintette has included it into lower-level block.
-type CommitConfirmation = (PublicKey, Signature, LogChainHead)
+type CommitConfirmation = (PublicKey, Signature, ActionLogHead)
 
 -- | Each mintette mantains a high-integrity action log, consisting of entries.
 data ActionLogEntry
     = QueryEntry !Transaction
     | CommitEntry !Transaction
                   !CheckConfirmations
-    | CloseEpochEntry !LogChainHeads
+    | CloseEpochEntry !ActionLogHeads
     deriving (Show)
 
 putByte :: Word8 -> Put
@@ -113,11 +119,11 @@ type ActionLog = [(ActionLogEntry, Hash)]
 -- formed throughout the epoch and the hashes it has received from other
 -- mintettes.
 data LBlock = LBlock
-    { lbHash         :: !Hash          -- ^ hash of
-                                       -- (h^(i-1)_bank, h^m_(j-1), hashes, transactions)
-    , lbTransactions :: [Transaction]  -- ^ txset
-    , lbSignature    :: !Signature     -- ^ signature given by mintette for hash
-    , lbHeads        :: LogChainHeads  -- ^ heads received from other mintettes
+    { lbHash         :: !Hash           -- ^ hash of
+                                        -- (h^(i-1)_bank, h^m_(j-1), hashes, transactions)
+    , lbTransactions :: [Transaction]   -- ^ txset
+    , lbSignature    :: !Signature      -- ^ signature given by mintette for hash
+    , lbHeads        :: ActionLogHeads  -- ^ heads received from other mintettes
     } deriving (Show)
 
 $(deriveSafeCopy 0 'base ''LBlock)

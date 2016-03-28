@@ -6,12 +6,12 @@ module RSCoin.Core.CheckConfirmation
 
 import           RSCoin.Core.Crypto     (SecretKey, derivePublicKey, sign)
 import           RSCoin.Core.Primitives (AddrId, Transaction)
-import           RSCoin.Core.Types      (CheckConfirmation (..), LogChainHead)
+import           RSCoin.Core.Types      (ActionLogHead, CheckConfirmation (..))
 
 mkCheckConfirmation :: SecretKey
                     -> Transaction
                     -> AddrId
-                    -> LogChainHead
+                    -> ActionLogHead
                     -> CheckConfirmation
 mkCheckConfirmation sk tx addrId ccHead =
     CheckConfirmation

@@ -4,72 +4,115 @@
 module RSCoin.Core.Communication
        ( getBlockchainHeight
        , getBlockByHeight
-       , getOwners
+--       , getOwners
        , checkTx
        , commitTx
        , sendPeriodFinished
        , announceNewPeriod
+       , getOwnersByAddrid
+       , getOwnersByTx
+       , checkNotDoubleSpent
+       , commitTransaction
+       , SignedPair
+       , NotDoubleSpentProof
+       , BundleOfEvidence
        ) where
 
-import           RSCoin.Core.Crypto     (Signature)
-import           RSCoin.Core.Owners     (owners)
-import qualified RSCoin.Core.Primitives as T
-import qualified RSCoin.Core.Protocol   as P
-import qualified RSCoin.Core.Types      as T
+import           Data.Tuple.Select      (sel1)
 
-getBlockchainHeight :: IO Int
+import           RSCoin.Core.Crypto     (PublicKey, Signature, hash)
+import           RSCoin.Core.Primitives (AddrId, Transaction, TransactionId)
+import qualified RSCoin.Core.Protocol   as P
+import           RSCoin.Core.Types      (CheckConfirmation, CheckConfirmations,
+                                         CommitConfirmation, HBlock, Mintette,
+                                         MintetteId, NewPeriodData, PeriodId,
+                                         PeriodResult)
+
+-- | Retrieves blockchainHeight from the server
+getBlockchainHeight :: IO PeriodId
 getBlockchainHeight =
     fromResponse <$> P.callBank P.ReqGetBlockchainHeight
     where fromResponse (P.ResGetBlockchainHeight h) = h
           fromResponse _ = error "GetBlockchainHeight got unexpected result"
 
-getBlockByHeight :: T.PeriodId -> IO (Maybe T.HBlock)
+-- | Given the height/perioud id, retreives block if it's present
+getBlockByHeight :: PeriodId -> IO (Maybe HBlock)
 getBlockByHeight =
     fmap fromResponse . P.callBank . P.ReqGetHBlock
     where fromResponse (P.ResGetHBlock hb) = hb
           fromResponse _ = error "GetBlockByHeight got unexpected result"
 
-getOwners :: T.AddrId -> IO T.Mintettes
-getOwners (tId, _, _) = do
-    mts <- fromResponse <$> P.callBank P.ReqGetMintettes
-    return $ map (mts !!) $ owners mts tId
-  where
-    fromResponse (P.ResGetMintettes m) = m
-    fromResponse _ = error "GetMintettes got unexpected result"
+getOwnersByHash :: TransactionId -> IO [(Mintette, MintetteId)]
+getOwnersByHash tId = undefined tId
+--    mts <- fromResponse <$> P.callBank P.ReqGetMintettes
+--    return $ map (mts !!) $ owners mts tId
+--  where
+--    fromResponse (P.ResGetMintettes m) = m
+--    fromResponse _ = error "GetMintettes got unexpected result"
+
+-- | Gets owners from Transaction
+getOwnersByTx :: Transaction -> IO [(Mintette, MintetteId)]
+getOwnersByTx = getOwnersByHash . hash
+
+-- | Gets owners from Addrid
+getOwnersByAddrid :: AddrId -> IO [(Mintette, MintetteId)]
+getOwnersByAddrid = getOwnersByHash . sel1
 
 checkTx
-    :: T.Mintette
-    -> T.Transaction
-    -> T.AddrId
+    :: Mintette
+    -> Transaction
+    -> AddrId
     -> Signature
-    -> IO (Maybe T.CheckConfirmation)
+    -> IO (Maybe CheckConfirmation)
 checkTx m tx a s = fromResponse <$> P.callMintette m (P.ReqCheckTx tx a s)
   where
     fromResponse (P.ResCheckTx cc) = cc
     fromResponse _ = error "CheckTx got unexpected result"
 
 commitTx
-    :: T.Mintette
-    -> T.Transaction
-    -> T.PeriodId
-    -> T.CheckConfirmations
-    -> IO (Maybe T.CommitConfirmation)
+    :: Mintette
+    -> Transaction
+    -> PeriodId
+    -> CheckConfirmations
+    -> IO (Maybe CommitConfirmation)
 commitTx m tx pId cc =
     fromResponse <$> P.callMintette m (P.ReqCommitTx tx pId cc)
   where
     fromResponse (P.ResCommitTx res) = res
     fromResponse _ = error "CommitTx got unexpected result"
 
-sendPeriodFinished :: T.Mintette -> T.PeriodId -> IO T.PeriodResult
+sendPeriodFinished :: Mintette -> PeriodId -> IO PeriodResult
 sendPeriodFinished mintette =
     fmap fromResponse . P.callMintette mintette . P.ReqPeriodFinished
   where
     fromResponse (P.ResPeriodFinished pr) = pr
     fromResponse _ = error "SendPeriodFinished got unexpected result"
 
-announceNewPeriod :: T.Mintette -> T.NewPeriodData -> IO ()
+announceNewPeriod :: Mintette -> NewPeriodData -> IO ()
 announceNewPeriod mintette =
     fmap fromResponse . P.callMintette mintette . P.ReqAnnounceNewPeriod
   where
     fromResponse P.ResAnnounceNewPeriod = ()
     fromResponse _ = error "AnnounceNewPeriod got unexpected result"
+
+type SignedPair = (PublicKey, Signature, (Transaction, AddrId))
+type NotDoubleSpentProof = ((MintetteId, AddrId), SignedPair)
+type BundleOfEvidence = [NotDoubleSpentProof]
+
+-- | Basically sends a request for mintette to perform
+-- CheckNotDoubleSpent algorithm.
+checkNotDoubleSpent :: Transaction
+                    -> AddrId
+                    -> Mintette
+                    -> MintetteId
+                    -> IO (Maybe SignedPair)
+checkNotDoubleSpent = undefined -- TODO
+
+commitTransaction
+    :: Transaction
+    -> PeriodId
+    -> BundleOfEvidence
+    -> Mintette
+    -> MintetteId
+    -> IO (Maybe (PublicKey, Signature, Transaction))
+commitTransaction = undefined

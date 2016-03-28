@@ -84,7 +84,7 @@ data WalletStorage = WalletStorage
                                                             -- of and that reference user
                                                             -- addresses
                                                             -- (as input or output)
-    , _lastBlockId       :: Int                             -- ^ Last blochain height known
+    , _lastBlockId       :: PeriodId                        -- ^ Last blochain height known
                                                             -- to user
     } deriving (Show)
 
@@ -159,7 +159,7 @@ getLastBlockId = L.view lastBlockId
 -- users public addresses in outputs.
 withBlockchainUpdate
     :: (MonadState WalletStorage m, MonadThrow m)
-    => Int -> [Transaction] -> m ()
+    => PeriodId -> [Transaction] -> m ()
 withBlockchainUpdate newHeight transactions = do
     currentHeight <- L.use lastBlockId
     unless (currentHeight < newHeight) $

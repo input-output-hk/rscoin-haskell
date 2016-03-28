@@ -76,7 +76,7 @@ proceedCommand st O.UpdateBlockchain =
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.
-updateToBlockHeight :: A.RSCoinUserState -> Int -> IO ()
+updateToBlockHeight :: A.RSCoinUserState -> PeriodId -> IO ()
 updateToBlockHeight st newHeight = do
     C.HBlock{..} <- fromJust <$> getBlockByHeight newHeight -- FIXME: handle maybe
     -- TODO validate this block

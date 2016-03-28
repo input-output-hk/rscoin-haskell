@@ -10,6 +10,7 @@ module RSCoin.Bank.AcidState
        , closeState
        , GetMintettes (..)
        , GetPeriodId (..)
+       , GetHBlock (..)
        , AddMintette (..)
        , StartNewPeriod (..)
        ) where
@@ -21,7 +22,7 @@ import           Data.SafeCopy           (base, deriveSafeCopy)
 
 import           Serokell.Util.AcidState (exceptStateToUpdate, stateToUpdate)
 
-import           RSCoin.Core             (Mintettes, PeriodId)
+import           RSCoin.Core             (HBlock, Mintettes, PeriodId)
 
 import qualified RSCoin.Bank.Storage     as BS
 
@@ -36,9 +37,11 @@ closeState :: State -> IO ()
 closeState = closeAcidState
 
 getMintettes :: Query BS.Storage Mintettes
-getMintettes = view BS.getMintettes
 getPeriodId :: Query BS.Storage PeriodId
+getHBlock :: PeriodId -> Query BS.Storage (Maybe HBlock)
+getMintettes = view BS.getMintettes
 getPeriodId = view BS.getPeriodId
+getHBlock = view . BS.getHBlock
 
 addMintette a = stateToUpdate . BS.addMintette a
 startNewPeriod a = exceptStateToUpdate . BS.startNewPeriod a
@@ -46,6 +49,7 @@ startNewPeriod a = exceptStateToUpdate . BS.startNewPeriod a
 $(makeAcidic ''BS.Storage
              [ 'getMintettes
              , 'getPeriodId
+             , 'getHBlock
              , 'addMintette
              , 'startNewPeriod
              ])

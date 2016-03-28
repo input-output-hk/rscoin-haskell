@@ -9,11 +9,12 @@ module RSCoin.Bank.Storage
        , mkStorage
        , getMintettes
        , getPeriodId
+       , getHBlock
        , addMintette
        , startNewPeriod
        ) where
 
-import           Control.Lens               (Getter, makeLenses, use, (%=),
+import           Control.Lens               (Getter, makeLenses, to, use, (%=),
                                              (+=), (.=))
 import           Control.Monad              (guard, unless)
 import           Control.Monad.State        (State)
@@ -22,7 +23,7 @@ import qualified Data.HashMap.Lazy          as M
 import qualified Data.HashSet               as S
 import           Data.Maybe                 (catMaybes)
 import           Data.Typeable              (Typeable)
-import           Safe                       (headMay)
+import           Safe                       (atMay, headMay)
 
 import           RSCoin.Core                (ActionLog, Address (..), Coin (..),
                                              Dpk, HBlock (..), Mintette,
@@ -60,6 +61,9 @@ getMintettes = mintettes
 
 getPeriodId :: Query PeriodId
 getPeriodId = periodId
+
+getHBlock :: PeriodId -> Query (Maybe HBlock)
+getHBlock pId = blocks . to (flip atMay pId)
 
 type Update = State Storage
 type ExceptUpdate = ExceptT BankError (State Storage)

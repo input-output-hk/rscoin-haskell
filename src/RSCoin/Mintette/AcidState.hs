@@ -1,6 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
-{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 -- | Wrap Storage into AcidState.
 
@@ -9,6 +8,8 @@ module RSCoin.Mintette.AcidState
        , openState
        , closeState
        , CheckNotDoubleSpent (..)
+       , FinishPeriod (..)
+       , StartPeriod (..)
        ) where
 
 import           Control.Exception       (throw)
@@ -17,7 +18,8 @@ import           Data.Acid               (AcidState, Update, closeAcidState,
                                           makeAcidic, openLocalStateFrom)
 import           Data.SafeCopy           (base, deriveSafeCopy)
 
-import           RSCoin.Core             (AddrId, Signature, Transaction)
+import           RSCoin.Core             (AddrId, NewPeriodData, PeriodId,
+                                          PeriodResult, Signature, Transaction)
 
 import qualified RSCoin.Mintette.Storage as MS
 
@@ -41,6 +43,14 @@ checkNotDoubleSpent :: Transaction
                     -> Update MS.Storage Bool
 checkNotDoubleSpent = MS.checkNotDoubleSpent
 
+finishPeriod :: PeriodId -> Update MS.Storage PeriodResult
+finishPeriod = MS.finishPeriod
+
+startPeriod :: NewPeriodData -> Update MS.Storage ()
+startPeriod = MS.startPeriod
+
 $(makeAcidic ''MS.Storage
              [ 'checkNotDoubleSpent
+             , 'finishPeriod
+             , 'startPeriod
              ])

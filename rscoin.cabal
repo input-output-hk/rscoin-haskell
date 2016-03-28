@@ -37,6 +37,7 @@ library
                      , RSCoin.Core.Aeson
                      , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Error
+                     , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
   build-depends:       acid-state
                      , aeson >= 0.9.0.1

@@ -9,6 +9,8 @@ module RSCoin.Mintette.Storage
        ( Storage
        , mkStorage
        , checkNotDoubleSpent
+       , finishPeriod
+       , startPeriod
        ) where
 
 import           Control.Applicative       ((<|>))
@@ -21,7 +23,8 @@ import           Safe                      (headMay)
 
 import           RSCoin.Core               (ActionLog,
                                             ActionLogEntry (QueryEntry), AddrId,
-                                            Address, Dpk, Signature,
+                                            Address, Dpk, NewPeriodData,
+                                            PeriodId, PeriodResult, Signature,
                                             Transaction (txInputs),
                                             actionLogNext, validateSignature,
                                             validateSum)
@@ -40,7 +43,7 @@ $(makeLenses ''Storage)
 mkStorage :: Storage
 mkStorage = Storage M.empty M.empty [] []
 
--- type Update a = forall m . MonadState Storage m => m a
+type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
 -- | Validate structure of transaction, check input AddrId for
@@ -64,6 +67,15 @@ checkNotDoubleSpent tx addrid sg = do
   where
     signatureValid =
         maybe False (\a -> validateSignature sg a tx)
+
+-- | Finish ongoing period, returning its result.
+-- Do nothing if period id is not an expected one.
+finishPeriod :: PeriodId -> Update PeriodResult
+finishPeriod = undefined
+
+-- | Start new period.
+startPeriod :: NewPeriodData -> Update ()
+startPeriod = undefined
 
 pushLogEntry :: ActionLogEntry -> ExceptUpdate ()
 pushLogEntry entry = do

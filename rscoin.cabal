@@ -19,6 +19,7 @@ library
   exposed-modules:     RSCoin.Bank
                      , RSCoin.Core
                      , RSCoin.Core.ActionLog
+                     , RSCoin.Core.CheckConfirmation
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Crypto
                      , RSCoin.Core.HBlock

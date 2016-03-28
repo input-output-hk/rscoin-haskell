@@ -11,6 +11,7 @@ module RSCoin.Core.Types
        , LogChainHeads
        , CheckConfirmation (..)
        , CheckConfirmations
+       , CommitConfirmation
        , ActionLogEntry (..)
        , ActionLog
        , LBlock (..)
@@ -74,6 +75,10 @@ $(deriveSafeCopy 0 'base ''CheckConfirmation)
 -- | CheckConfirmations is a bundle of evidence collected by user and
 -- sent to mintette as payload for Commit action.
 type CheckConfirmations = M.Map (MintetteId, AddrId) CheckConfirmation
+
+-- | CommitConfirmation is sent by mintette to user as an evidence
+-- that mintette has included it into lower-level block.
+type CommitConfirmation = (PublicKey, Signature, LogChainHead)
 
 -- | Each mintette mantains a high-integrity action log, consisting of entries.
 data ActionLogEntry

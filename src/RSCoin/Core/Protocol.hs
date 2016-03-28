@@ -15,32 +15,36 @@ module RSCoin.Core.Protocol
        , callBatch
        ) where
 
-import           Network.JsonRpc       (BatchRequest (..), BatchResponse (..),
-                                        ErrorObj, FromRequest (parseParams),
-                                        FromResponse (parseResult), JsonRpcT,
-                                        Respond, ToRequest (..), Ver (V2),
-                                        buildResponse, fromError,
-                                        jsonRpcTcpClient, jsonRpcTcpServer,
-                                        receiveBatchRequest, sendBatchRequest,
-                                        sendBatchResponse, sendRequest,
-                                        sendResponse)
+import           Network.JsonRpc        (BatchRequest (..), BatchResponse (..),
+                                         ErrorObj, FromRequest (parseParams),
+                                         FromResponse (parseResult), JsonRpcT,
+                                         Respond, ToRequest (..), Ver (V2),
+                                         buildResponse, fromError,
+                                         jsonRpcTcpClient, jsonRpcTcpServer,
+                                         receiveBatchRequest, sendBatchRequest,
+                                         sendBatchResponse, sendRequest,
+                                         sendResponse)
 
-import           Control.Monad         (forM, liftM)
-import           Control.Monad.Logger  (LoggingT, MonadLoggerIO, logDebug,
-                                        runStderrLoggingT)
-import           Control.Monad.Trans   (lift)
-import           Data.Aeson            (FromJSON (parseJSON), ToJSON (toJSON))
-import           Data.Aeson.Types      (Value (Array), emptyArray)
-import qualified Data.ByteString.Char8 as BS
-import           Data.Conduit.Network  (clientSettings, serverSettings)
-import           Data.Foldable         (forM_)
-import           Data.Maybe            (catMaybes)
-import           Data.Vector           ((!?))
+import           Control.Monad          (forM, liftM)
+import           Control.Monad.Logger   (LoggingT, MonadLoggerIO, logDebug,
+                                         runStderrLoggingT)
+import           Control.Monad.Trans    (lift)
+import           Data.Aeson             (FromJSON (parseJSON), ToJSON (toJSON))
+import           Data.Aeson.Types       (Value (Array), emptyArray)
+import qualified Data.ByteString.Char8  as BS
+import           Data.Conduit.Network   (clientSettings, serverSettings)
+import           Data.Foldable          (forM_)
+import           Data.Maybe             (catMaybes)
+import           Data.Vector            ((!?))
 
-import           RSCoin.Core.Aeson     ()
-import           RSCoin.Core.Constants (bankHost, bankPort)
-import           RSCoin.Core.Types     (HBlock, Mintette (..), Mintettes,
-                                        NewPeriodData, PeriodId, PeriodResult)
+import           RSCoin.Core.Aeson      ()
+import           RSCoin.Core.Constants  (bankHost, bankPort)
+import           RSCoin.Core.Crypto     (Signature)
+import           RSCoin.Core.Primitives (AddrId, Transaction)
+import           RSCoin.Core.Types      (CheckConfirmation, CheckConfirmations,
+                                         CommitConfirmation, HBlock,
+                                         Mintette (..), Mintettes,
+                                         NewPeriodData, PeriodId, PeriodResult)
 
 ---- BANK data ----
 
@@ -102,40 +106,68 @@ instance ToJSON BankRes where
 data MintetteReq
     = ReqPeriodFinished PeriodId
     | ReqAnnounceNewPeriod NewPeriodData
+    | ReqCheckTx Transaction AddrId Signature
+    | ReqCommitTx Transaction PeriodId CheckConfirmations
 
 instance FromRequest MintetteReq where
     parseParams "periodFinished" =
         Just $ fmap ReqPeriodFinished . parseJSON
     parseParams "announceNewPeriod" =
         Just $ fmap ReqAnnounceNewPeriod . parseJSON
+    parseParams "checkTx" =
+        Just $ \v -> do
+            Array a <- parseJSON v
+            tx <- maybe (fail "tx not found") parseJSON $ a !? 0
+            addrId <- maybe (fail "addrid not found") parseJSON $ a !? 1
+            signature <- maybe (fail "signature not found") parseJSON $ a !? 2
+            return $ ReqCheckTx tx addrId signature
+    parseParams "commitTx" =
+        Just $ \v -> do
+            Array a <- parseJSON v
+            tx <- maybe (fail "tx not found") parseJSON $ a !? 0
+            pId <- maybe (fail "period id not found") parseJSON $ a !? 1
+            cc <- maybe (fail "bundle of evidence not found") parseJSON $ a !? 2
+            return $ ReqCommitTx tx pId cc
     parseParams _ =
         Nothing
 
 instance ToRequest MintetteReq where
     requestMethod (ReqPeriodFinished _) = "periodFinished"
     requestMethod (ReqAnnounceNewPeriod _) = "announceNewPeriod"
+    requestMethod (ReqCheckTx _ _ _) = "checkTx"
+    requestMethod (ReqCommitTx _ _ _) = "commitTx"
     requestIsNotif = const False
 
 instance ToJSON MintetteReq where
     toJSON (ReqPeriodFinished pid) = toJSON pid
     toJSON (ReqAnnounceNewPeriod npd) = toJSON npd
+    toJSON (ReqCheckTx tx a sg) = toJSON (tx, a, sg)
+    toJSON (ReqCommitTx tx pId cc) = toJSON (tx, pId, cc)
 
 -- | Responses to Mintette requests (probably sent by User or Bank)
 data MintetteRes
     = ResPeriodFinished PeriodResult
-    | ResAnnounceNewPeriod
+    | ResAnnounceNewPeriod  -- FIXME: we want it to be notification!
+    | ResCheckTx (Maybe CheckConfirmation)
+    | ResCommitTx (Maybe CommitConfirmation)
 
 instance FromResponse MintetteRes where
     parseResult "periodFinished" =
         Just $ fmap ResPeriodFinished . parseJSON
     parseResult "announceNewPeriod" =
         Just $ const $ return ResAnnounceNewPeriod
+    parseResult "checkTx" =
+        Just $ fmap ResCheckTx . parseJSON
+    parseResult "commitTx" =
+        Just $ fmap ResCommitTx . parseJSON
     parseResult _ =
         Nothing
 
 instance ToJSON MintetteRes where
     toJSON (ResPeriodFinished pid) = toJSON pid
     toJSON ResAnnounceNewPeriod = emptyArray
+    toJSON (ResCheckTx cc) = toJSON cc
+    toJSON (ResCommitTx cc) = toJSON cc
 
 ---- MINTETTE data ----
 

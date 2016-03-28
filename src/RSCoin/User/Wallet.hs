@@ -44,6 +44,7 @@ import           Serokell.Util.Text         (format', formatSingle', show')
 import qualified RSCoin.Core                as C
 import           RSCoin.Core.Crypto         (PublicKey, SecretKey, keyGen)
 import           RSCoin.Core.Primitives     (Address (..), Transaction (..))
+import           RSCoin.Core.Types          (PeriodId)
 import           RSCoin.User.Logic          (getBlockchainHeight)
 
 -- | User address as stored and seen by wallet owner.

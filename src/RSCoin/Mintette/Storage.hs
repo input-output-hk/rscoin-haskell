@@ -16,20 +16,23 @@ module RSCoin.Mintette.Storage
        ) where
 
 import           Control.Applicative       ((<|>))
-import           Control.Lens              (makeLenses, use, (%=))
+import           Control.Lens              (Getter, makeLenses, to, use, (%=),
+                                            (+=))
 import           Control.Monad             (when)
 import           Control.Monad.Catch       (MonadThrow (throwM))
 import           Control.Monad.State.Class (MonadState)
 import qualified Data.Map                  as M
+import           Data.Maybe                (fromJust)
 import           Safe                      (headMay)
 
 import           RSCoin.Core               (ActionLog,
                                             ActionLogEntry (QueryEntry), AddrId,
                                             Address, CheckConfirmation,
                                             CheckConfirmations,
-                                            CommitConfirmation, NewPeriodData,
-                                            PeriodId, PeriodResult, SecretKey,
-                                            Signature, Transaction (txInputs),
+                                            CommitConfirmation, Hash,
+                                            NewPeriodData, PeriodId,
+                                            PeriodResult, SecretKey, Signature,
+                                            Transaction (txInputs),
                                             actionLogNext, mkCheckConfirmation,
                                             validateSignature, validateSum)
 import           RSCoin.Mintette.Error     (MintetteError (MEInternal))
@@ -38,13 +41,20 @@ data Storage = Storage
     { _utxo       :: M.Map AddrId Address
     , _pset       :: M.Map AddrId Transaction
     , _actionLogs :: [ActionLog]
+    , _logSize    :: Int
     }
 
 $(makeLenses ''Storage)
 
 -- | Make empty storage
 mkStorage :: Storage
-mkStorage = Storage M.empty M.empty []
+mkStorage = Storage M.empty M.empty [] 0
+
+logHead :: Getter Storage (Maybe (ActionLogEntry, Hash))
+logHead = actionLogs . to f
+  where
+    f [] = Nothing
+    f (x:xs) = headMay x <|> f xs
 
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
@@ -75,7 +85,9 @@ checkNotDoubleSpent sk tx addrId sg = do
         pushLogEntry $ QueryEntry tx
         utxo %= M.delete addrId
         pset %= M.insert addrId tx
-        return $ Just $ mkCheckConfirmation sk tx addrId undefined
+        hsh <- snd . fromJust <$> use logHead
+        logSz <- use logSize
+        return $ Just $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
 
 commitTx :: SecretKey
          -> Transaction
@@ -104,5 +116,6 @@ pushLogEntry entry = do
     let topLog = head lgs
     let newTopLog = actionLogNext (prevHead lgs) entry : topLog
     actionLogs %= (\l -> newTopLog : tail l)
+    logSize += 1
   where prevHead [] = Nothing
         prevHead (x:xs) = headMay x <|> prevHead xs

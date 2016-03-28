@@ -10,7 +10,6 @@ module RSCoin.Core.Protocol
        , MintetteRes (..)
        , UserReq (..)
        , UserRes (..)
-       , Handler
        , serve
        , callMintette
        , callBank
@@ -176,15 +175,11 @@ instance ToJSON UserRes where
 
 ---- USER data ----
 
--- | Handler is a function that takes request (ie BankReq) and returns
--- a response (ie BankRes). Ment to be used in servers.
-type Handler a b = Respond a (LoggingT IO) b
-
 -- | Runs a TCP server transport for JSON-RPC.
-serve :: (FromRequest a, ToJSON b) => Int -> Handler a b -> IO ()
+serve :: (FromRequest a, ToJSON b) => Int -> (a -> IO b) -> IO ()
 serve port handler = runStderrLoggingT $ do
     let ss = serverSettings port "::1"
-    jsonRpcTcpServer V2 False ss $ srv handler
+    jsonRpcTcpServer V2 False ss . srv $ lift . liftM Right . handler
 
 srv :: (MonadLoggerIO m, FromRequest a, ToJSON b) => Respond a m b -> JsonRpcT m ()
 srv handler = do

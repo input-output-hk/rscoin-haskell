@@ -1,5 +1,6 @@
 module RSCoin.Core.Constants
-       ( defaultPort
+       ( defaultSecretKeyPath
+       , defaultPort
        , bankHost
        , bankPort
        , periodDelta
@@ -15,6 +16,11 @@ import           Data.Time.Units        (Second)
 
 import           RSCoin.Core.Crypto     (constructPublicKey)
 import           RSCoin.Core.Primitives (Address (Address), Coin)
+
+-- | Path used by default to read/write secret key.
+-- It's not cross-platform because we don't have time. :(
+defaultSecretKeyPath :: IsString s => s
+defaultSecretKeyPath = "~/.rscoin/key"
 
 -- | Default port used by applications.
 defaultPort :: Num a => a

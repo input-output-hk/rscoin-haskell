@@ -2,10 +2,14 @@ import           Options.Applicative (Parser, execParser, fullDesc, help,
                                       helper, info, metavar, progDesc,
                                       strArgument, value, (<>))
 
-import           RSCoin.Core.Crypto  (keyGen, writePublicKey, writeSecretKey)
+import           RSCoin.Core         (defaultSecretKeyPath, keyGen,
+                                      writePublicKey, writeSecretKey)
 
 parser :: Parser FilePath
-parser = strArgument (metavar "PATH" <> help "Path to store private key" <> value "rscoin-key")
+parser =
+    strArgument
+        (metavar "PATH" <> help "Path to store private key" <>
+         value defaultSecretKeyPath)
 
 main :: IO ()
 main = do

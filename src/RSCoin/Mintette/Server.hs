@@ -4,23 +4,25 @@ module RSCoin.Mintette.Server
        ( serve
        ) where
 
+import           Control.Exception         (bracket)
 import           Control.Monad.IO.Class    (MonadIO)
 import           Data.Acid.Advanced        (update')
 
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.AcidState (FinishPeriod (..), StartPeriod (..),
-                                            State)
+                                            State, closeState, openState)
 
-serve :: Int -> State -> IO ()
-serve port = C.serve port . handler
+serve :: Int -> FilePath -> C.SecretKey -> IO ()
+serve port dbPath sk =
+    bracket (openState dbPath) closeState $ C.serve port . handler sk
 
-handler :: State -> C.MintetteReq -> IO C.MintetteRes
-handler st (C.ReqPeriodFinished pId) =
+handler :: C.SecretKey -> State -> C.MintetteReq -> IO C.MintetteRes
+handler _ st (C.ReqPeriodFinished pId) =
     C.ResPeriodFinished <$> handlePeriodFinished st pId
-handler st (C.ReqAnnounceNewPeriod d) =
+handler _ st (C.ReqAnnounceNewPeriod d) =
     (const C.ResAnnounceNewPeriod) <$> handleNewPeriod st d
-handler st (C.ReqCheckTx tx a sg) = C.ResCheckTx <$> handleCheckTx st tx a sg
-handler st (C.ReqCommitTx tx pId cc) =
+handler _ st (C.ReqCheckTx tx a sg) = C.ResCheckTx <$> handleCheckTx st tx a sg
+handler _ st (C.ReqCommitTx tx pId cc) =
     C.ResCommitTx <$> handleCommitTx st tx pId cc
 
 handlePeriodFinished :: MonadIO m => State -> C.PeriodId -> m C.PeriodResult

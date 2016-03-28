@@ -1,5 +1,6 @@
 module RSCoin.Core.Constants
-       ( bankHost
+       ( defaultPort
+       , bankHost
        , bankPort
        , periodDelta
        , epochDelta
@@ -9,16 +10,21 @@ module RSCoin.Core.Constants
        ) where
 
 import           Data.Maybe             (fromJust)
+import           Data.String            (IsString)
 import           Data.Time.Units        (Second)
 
 import           RSCoin.Core.Crypto     (constructPublicKey)
 import           RSCoin.Core.Primitives (Address (Address), Coin)
 
-bankHost :: String
-bankHost = undefined
+-- | Default port used by applications.
+defaultPort :: Num a => a
+defaultPort = 3000
 
-bankPort :: Int
-bankPort = undefined
+bankHost :: IsString s => s
+bankHost = "127.0.0.1"
+
+bankPort :: Num a => a
+bankPort = defaultPort
 
 periodDelta :: Second
 periodDelta = 50

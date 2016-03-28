@@ -9,8 +9,10 @@ module RSCoin.Mintette.Storage
        ( Storage
        , mkStorage
        , checkNotDoubleSpent
+       , commitTx
        , finishPeriod
        , startPeriod
+       , finishEpoch
        ) where
 
 import           Control.Applicative       ((<|>))
@@ -23,10 +25,11 @@ import           Safe                      (headMay)
 
 import           RSCoin.Core               (ActionLog,
                                             ActionLogEntry (QueryEntry), AddrId,
-                                            Address, CheckConfirmation, Dpk,
-                                            NewPeriodData, PeriodId,
-                                            PeriodResult, SecretKey, Signature,
-                                            Transaction (txInputs),
+                                            Address, CheckConfirmation,
+                                            CheckConfirmations,
+                                            CommitConfirmation, NewPeriodData,
+                                            PeriodId, PeriodResult, SecretKey,
+                                            Signature, Transaction (txInputs),
                                             actionLogNext, mkCheckConfirmation,
                                             validateSignature, validateSum)
 import           RSCoin.Mintette.Error     (MintetteError (MEInternal))
@@ -35,14 +38,13 @@ data Storage = Storage
     { _utxo       :: M.Map AddrId Address
     , _pset       :: M.Map AddrId Transaction
     , _actionLogs :: [ActionLog]
-    , _dpk        :: Dpk
     }
 
 $(makeLenses ''Storage)
 
 -- | Make empty storage
 mkStorage :: Storage
-mkStorage = Storage M.empty M.empty [] []
+mkStorage = Storage M.empty M.empty []
 
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
@@ -75,6 +77,13 @@ checkNotDoubleSpent sk tx addrId sg = do
         pset %= M.insert addrId tx
         return $ Just $ mkCheckConfirmation sk tx addrId undefined
 
+commitTx :: SecretKey
+         -> Transaction
+         -> PeriodId
+         -> CheckConfirmations
+         -> Update (Maybe CommitConfirmation)
+commitTx = undefined
+
 -- | Finish ongoing period, returning its result.
 -- Do nothing if period id is not an expected one.
 finishPeriod :: PeriodId -> Update PeriodResult
@@ -83,6 +92,10 @@ finishPeriod = undefined
 -- | Start new period.
 startPeriod :: NewPeriodData -> Update ()
 startPeriod = undefined
+
+-- | Finish current epoch and start a new one.
+finishEpoch :: SecretKey -> Update ()
+finishEpoch = undefined
 
 pushLogEntry :: ActionLogEntry -> ExceptUpdate ()
 pushLogEntry entry = do

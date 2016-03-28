@@ -8,8 +8,10 @@ module RSCoin.Mintette.AcidState
        , openState
        , closeState
        , CheckNotDoubleSpent (..)
+       , CommitTx (..)
        , FinishPeriod (..)
        , StartPeriod (..)
+       , FinishEpoch (..)
        ) where
 
 import           Control.Exception       (throw)
@@ -19,8 +21,10 @@ import           Data.Acid               (AcidState, Update, closeAcidState,
 import           Data.SafeCopy           (base, deriveSafeCopy)
 
 import           RSCoin.Core             (AddrId, CheckConfirmation,
-                                          NewPeriodData, PeriodId, PeriodResult,
-                                          SecretKey, Signature, Transaction)
+                                          CheckConfirmations,
+                                          CommitConfirmation, NewPeriodData,
+                                          PeriodId, PeriodResult, SecretKey,
+                                          Signature, Transaction)
 
 import qualified RSCoin.Mintette.Storage as MS
 
@@ -34,7 +38,6 @@ openState fp = openLocalStateFrom fp MS.mkStorage
 closeState :: State -> IO ()
 closeState = closeAcidState
 
-
 instance MonadThrow (Update s) where
     throwM = throw
 
@@ -46,14 +49,26 @@ checkNotDoubleSpent
     -> Update MS.Storage (Maybe CheckConfirmation)
 checkNotDoubleSpent = MS.checkNotDoubleSpent
 
+commitTx :: SecretKey
+         -> Transaction
+         -> PeriodId
+         -> CheckConfirmations
+         -> Update MS.Storage (Maybe CommitConfirmation)
+commitTx = MS.commitTx
+
 finishPeriod :: PeriodId -> Update MS.Storage PeriodResult
 finishPeriod = MS.finishPeriod
 
 startPeriod :: NewPeriodData -> Update MS.Storage ()
 startPeriod = MS.startPeriod
 
+finishEpoch :: SecretKey -> Update MS.Storage ()
+finishEpoch = MS.finishEpoch
+
 $(makeAcidic ''MS.Storage
              [ 'checkNotDoubleSpent
+             , 'commitTx
              , 'finishPeriod
              , 'startPeriod
+             , 'finishEpoch
              ])

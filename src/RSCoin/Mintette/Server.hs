@@ -10,12 +10,17 @@ import           Data.Acid.Advanced        (update')
 
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
-                                            FinishPeriod (..), StartPeriod (..),
-                                            State, closeState, openState)
+                                            CommitTx (..), FinishPeriod (..),
+                                            StartPeriod (..), State, closeState,
+                                            openState)
+import           RSCoin.Mintette.Worker    (runWorker)
 
 serve :: Int -> FilePath -> C.SecretKey -> IO ()
 serve port dbPath sk =
-    bracket (openState dbPath) closeState $ C.serve port . handler sk
+    bracket (openState dbPath) closeState $
+    \st ->
+         do runWorker sk st
+            C.serve port $ handler sk st
 
 handler :: C.SecretKey -> State -> C.MintetteReq -> IO C.MintetteRes
 handler _ st (C.ReqPeriodFinished pId) =
@@ -23,8 +28,8 @@ handler _ st (C.ReqPeriodFinished pId) =
 handler _ st (C.ReqAnnounceNewPeriod d) =
     (const C.ResAnnounceNewPeriod) <$> handleNewPeriod st d
 handler sk st (C.ReqCheckTx tx a sg) = C.ResCheckTx <$> handleCheckTx sk st tx a sg
-handler _ st (C.ReqCommitTx tx pId cc) =
-    C.ResCommitTx <$> handleCommitTx st tx pId cc
+handler sk st (C.ReqCommitTx tx pId cc) =
+    C.ResCommitTx <$> handleCommitTx sk st tx pId cc
 
 handlePeriodFinished :: MonadIO m => State -> C.PeriodId -> m C.PeriodResult
 handlePeriodFinished st pId = update' st $ FinishPeriod pId
@@ -45,9 +50,10 @@ handleCheckTx sk st tx addrId sg =
 
 handleCommitTx
     :: MonadIO m
-    => State
+    => C.SecretKey
+    -> State
     -> C.Transaction
     -> C.PeriodId
     -> C.CheckConfirmations
     -> m (Maybe C.CommitConfirmation)
-handleCommitTx = undefined
+handleCommitTx sk st tx pId cc = update' st $ CommitTx sk tx pId cc

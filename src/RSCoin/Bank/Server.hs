@@ -15,12 +15,12 @@ import           RSCoin.Core            (BankReq (..), BankRes (..), HBlock,
 import qualified RSCoin.Core            as C (serve)
 
 serve :: Int -> State -> IO ()
-serve port state = C.serve port $ handler state
+serve port = C.serve port . handler
 
 handler :: State -> (BankReq -> IO BankRes)
-handler _ ReqGetMintettes = return $ ResGetMintettes undefined
-handler _ ReqGetBlockchainHeight = undefined
-handler _ (ReqGetHBlock _) = undefined
+handler st ReqGetMintettes = ResGetMintettes <$> serveGetMintettes st
+handler st ReqGetBlockchainHeight = ResGetBlockchainHeight <$> serveGetHeight st
+handler st (ReqGetHBlock pid) = ResGetHBlock <$> serveGetHBlock st pid
 
 serveGetMintettes :: MonadIO m => State -> m Mintettes
 serveGetMintettes st = query' st GetMintettes

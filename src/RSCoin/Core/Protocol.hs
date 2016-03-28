@@ -73,7 +73,7 @@ instance ToJSON BankReq where
 data BankRes
     = ResGetMintettes Mintettes
     | ResGetBlockchainHeight Int
-    | ResGetHBlock HBlock
+    | ResGetHBlock (Maybe HBlock)
 
 instance FromResponse BankRes where
     parseResult "getMintettes" =

@@ -95,7 +95,7 @@ instance FromResponse BankRes where
 
 instance ToJSON BankRes where
     toJSON (ResGetMintettes ms) = toJSON ms
-    toJSON (ResGetBlockchainHeight h) = toJSON [h]
+    toJSON (ResGetBlockchainHeight h) = toJSON h
     toJSON (ResGetHBlock h) = toJSON h
 
 ---- BANK data ----
@@ -164,7 +164,7 @@ instance FromResponse MintetteRes where
         Nothing
 
 instance ToJSON MintetteRes where
-    toJSON (ResPeriodFinished pid) = toJSON [pid]
+    toJSON (ResPeriodFinished pid) = toJSON pid
     toJSON ResAnnounceNewPeriod = emptyArray
     toJSON (ResCheckTx cc) = toJSON cc
     toJSON (ResCommitTx cc) = toJSON cc

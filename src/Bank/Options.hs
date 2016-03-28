@@ -14,7 +14,7 @@ import           Options.Applicative    (Parser, auto, command, execParser,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (defaultPort, defaultSecretKeyPath)
+import           RSCoin.Core            (defaultSecretKeyPath)
 
 data Command
     = Serve FilePath

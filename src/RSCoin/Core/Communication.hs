@@ -5,8 +5,11 @@ module RSCoin.Core.Communication
        ( getBlockchainHeight
        , getBlockByHeight
        , getOwners
+       , checkTx
        ) where
 
+import           RSCoin.Core.Crypto     (Signature)
+import           RSCoin.Core.Owners     (owners)
 import qualified RSCoin.Core.Primitives as T
 import qualified RSCoin.Core.Protocol   as P
 import qualified RSCoin.Core.Types      as T
@@ -24,4 +27,20 @@ getBlockByHeight =
           fromResponse _ = error "GetBlockByHeight got unexpected result"
 
 getOwners :: T.AddrId -> IO T.Mintettes
-getOwners = undefined -- TODO
+getOwners (tId, _, _) = do
+    mts <- fromResponse <$> P.callBank P.ReqGetMintettes
+    return $ map (mts !!) $ owners mts tId
+  where
+    fromResponse (P.ResGetMintettes m) = m
+    fromResponse _ = error "GetMintettes got unexpected result"
+
+checkTx
+    :: T.Mintette
+    -> T.Transaction
+    -> T.AddrId
+    -> Signature
+    -> IO (Maybe T.CheckConfirmation)
+checkTx m tx a s = fromResponse <$> P.callMintette m (P.ReqCheckTx tx a s)
+  where
+    fromResponse (P.ResCheckTx cc) = cc
+    fromResponse _ = error "CheckTx got unexpected result"

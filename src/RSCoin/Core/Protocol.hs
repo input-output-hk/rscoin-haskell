@@ -8,8 +8,6 @@ module RSCoin.Core.Protocol
        , BankRes (..)
        , MintetteReq (..)
        , MintetteRes (..)
-       , UserReq (..)
-       , UserRes (..)
        , serve
        , callMintette
        , callBank
@@ -41,8 +39,8 @@ import           Data.Vector           ((!?))
 
 import           RSCoin.Core.Aeson     ()
 import           RSCoin.Core.Constants (bankHost, bankPort)
-import           RSCoin.Core.Types     (HBlock, Mintettes, NewPeriodData,
-                                        PeriodId, PeriodResult, Mintette (..))
+import           RSCoin.Core.Types     (HBlock, Mintette (..), Mintettes,
+                                        NewPeriodData, PeriodId, PeriodResult)
 
 ---- BANK data ----
 
@@ -140,40 +138,6 @@ instance ToJSON MintetteRes where
     toJSON ResAnnounceNewPeriod = emptyArray
 
 ---- MINTETTE data ----
-
----- USER data ----
-
--- | Request handled by User (probably sent by Mintette or Bank)
-data UserReq
-    = ReqDummy
-
-instance FromRequest UserReq where
-    parseParams "dummy" =
-        Just $ const $ return ReqDummy
-    parseParams _ =
-        Nothing
-
-instance ToRequest UserReq where
-    requestMethod ReqDummy = "dummy"
-    requestIsNotif = const False
-
-instance ToJSON UserReq where
-    toJSON ReqDummy = emptyArray
-
--- | Responses to User requests (probably sent by Mintette or Bank)
-data UserRes
-    = ResDummy
-
-instance FromResponse UserRes where
-    parseResult "dummy" =
-        Just $ const $ return ResDummy
-    parseResult _ =
-        Nothing
-
-instance ToJSON UserRes where
-    toJSON ResDummy = emptyArray
-
----- USER data ----
 
 -- | Runs a TCP server transport for JSON-RPC.
 serve :: (FromRequest a, ToJSON b) => Int -> (a -> IO b) -> IO ()

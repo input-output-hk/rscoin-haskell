@@ -5,13 +5,13 @@
 -- part of rscoin and provides some related functions to work with
 -- them.
 
-module UserError
+module RSCoin.User.Error
        ( UserError (..)
        , UserErrorLike (..)
        , eWrap
        ) where
 
-import qualified Wallet              as W
+import qualified RSCoin.User.Wallet  as W
 
 import           Control.Exception   (Exception)
 import           Control.Monad.Catch (MonadCatch, catch, throwM)

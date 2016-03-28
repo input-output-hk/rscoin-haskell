@@ -6,7 +6,7 @@
 
 -- | This module describes user wallet state & actions
 
-module Wallet
+module RSCoin.User.Wallet
        ( UserAddress
        , publicAddress
        , privateAddress

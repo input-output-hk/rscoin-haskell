@@ -1,8 +1,8 @@
-import qualified AcidState         as A
-import           Actions           (proceedCommand)
-import qualified UserOptions       as O
+import           Actions               (proceedCommand)
+import qualified RSCoin.User.AcidState as A
+import qualified UserOptions           as O
 
-import           Control.Exception (bracket)
+import           Control.Exception     (bracket)
 
 main :: IO ()
 main = do

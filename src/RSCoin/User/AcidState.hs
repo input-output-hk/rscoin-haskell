@@ -2,25 +2,26 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
-module AcidState
+
+module RSCoin.User.AcidState
        ( RSCoinUserState
        , openState
        , closeState
 
-       -- Queries
+       -- * Queries
        , GetAllAddresses (..)
        , GetPublicAddresses (..)
        , GetTransactions (..)
        , GetLastBlockId (..)
 
-         -- Updates
+       -- * Updates
        , WithBlockchainUpdate (..)
        , GenerateAddresses (..)
        ) where
 
 import qualified RSCoin.Core         as C
-import           Wallet              (UserAddress, WalletStorage)
-import qualified Wallet              as W
+import           RSCoin.User.Wallet  (UserAddress, WalletStorage)
+import qualified RSCoin.User.Wallet  as W
 
 import           Control.Exception   (throw)
 import           Control.Monad.Catch (MonadThrow, throwM)

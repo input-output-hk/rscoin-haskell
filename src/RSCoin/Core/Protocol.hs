@@ -175,7 +175,7 @@ instance ToJSON MintetteRes where
 serve :: (FromRequest a, ToJSON b) => Int -> (a -> IO b) -> IO ()
 serve port handler = runStderrLoggingT $ do
     let ss = serverSettings port "::1"
-    jsonRpcTcpServer V2 False ss . srv $ lift . liftM Right . handler
+    jsonRpcTcpServer V2 False ss . srv $ lift . fmap Right . handler
 
 srv :: (MonadLoggerIO m, FromRequest a, ToJSON b) => Respond a m b -> JsonRpcT m ()
 srv handler = do

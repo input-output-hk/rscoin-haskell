@@ -3,27 +3,27 @@
 
 module Actions (proceedCommand) where
 
-import           Control.Exception  (throwIO)
-import           Control.Lens       ((^.))
-import           Control.Monad      (filterM, forM_, unless, when)
-import           Data.Acid          (query, update)
-import           Data.Int           (Int64)
-import           Data.List          (nub, nubBy)
-import           Data.Maybe         (fromJust, isJust)
-import           Data.Monoid        ((<>))
-import           Data.Ord           (comparing)
-import qualified Data.Text          as T
-import qualified Data.Text.IO       as TIO
-import           Data.Tuple.Select  (sel1)
+import           Control.Exception     (throwIO)
+import           Control.Lens          ((^.))
+import           Control.Monad         (filterM, forM_, unless, when)
+import           Data.Acid             (query, update)
+import           Data.Int              (Int64)
+import           Data.List             (nub, nubBy)
+import           Data.Maybe            (fromJust, isJust)
+import           Data.Monoid           ((<>))
+import           Data.Ord              (comparing)
+import qualified Data.Text             as T
+import qualified Data.Text.IO          as TIO
+import           Data.Tuple.Select     (sel1)
 
-import           Serokell.Util.Text (format', formatSingle')
+import           Serokell.Util.Text    (format', formatSingle')
 
-import           AcidState          (GetAllAddresses (..))
-import qualified AcidState          as A
-import           RSCoin.Core        as C
-import           UserError          (UserError (..), eWrap)
-import qualified UserOptions        as O
-import qualified Wallet             as W
+import           RSCoin.Core           as C
+import           RSCoin.User.AcidState (GetAllAddresses (..))
+import qualified RSCoin.User.AcidState as A
+import           RSCoin.User.Error     (UserError (..), eWrap)
+import qualified RSCoin.User.Wallet    as W
+import qualified UserOptions           as O
 
 -- Bunch of mocks
 getBlockchainHeight :: IO Int

@@ -28,6 +28,10 @@ library
                      , RSCoin.Core.Transaction
                      , RSCoin.Core.Types
                      , RSCoin.Mintette
+                     , RSCoin.User
+                     , RSCoin.User.AcidState
+                     , RSCoin.User.Error
+                     , RSCoin.User.Wallet
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Error
                      , RSCoin.Bank.Server
@@ -107,11 +111,8 @@ executable rscoin-keygen
 
 executable rscoin-user
   main-is:             Main.hs
-  other-modules:       AcidState
-                     , Actions
+  other-modules:       Actions
                      , UserOptions
-                     , UserError
-                     , Wallet
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
                      , containers >= 0.5.6.2

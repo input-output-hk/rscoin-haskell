@@ -27,9 +27,16 @@ import qualified Wallet             as W
 
 -- Bunch of mocks
 getBlockchainHeight :: IO Int
-getBlockchainHeight = undefined -- That's a mock TODO
-getBlockByHeight :: Int -> IO C.HBlock
-getBlockByHeight = undefined    -- That's a mock TODO
+getBlockchainHeight =
+    fromResponse <$> C.callBank C.ReqGetBlockchainHeight
+    where fromResponse (C.ResGetBlockchainHeight h) = h
+          fromResponse _ = error "GetBlockchainHeight got unexpected result"
+
+getBlockByHeight :: PeriodId -> IO (Maybe C.HBlock)
+getBlockByHeight =
+    fmap fromResponse . C.callBank . C.ReqGetHBlock
+    where fromResponse (C.ResGetHBlock hb) = hb
+          fromResponse _ = error "GetBlockByHeight got unexpected result"
 -- Ends here
 
 commitError :: T.Text -> IO ()
@@ -81,7 +88,7 @@ proceedCommand st O.UpdateBlockchain =
 -- previous height state already.
 updateToBlockHeight :: A.RSCoinUserState -> Int -> IO ()
 updateToBlockHeight st newHeight = do
-    C.HBlock{..} <- getBlockByHeight newHeight
+    C.HBlock{..} <- fromJust <$> getBlockByHeight newHeight -- FIXME: handle maybe
     -- TODO validate this block
     relatedTransactions <-
         nub . concatMap (toTrs hbTransactions) <$> query st GetAllAddresses

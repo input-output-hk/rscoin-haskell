@@ -11,11 +11,11 @@ import           RSCoin.Bank.AcidState  (GetHBlock (..), GetMintettes (..),
                                          GetPeriodId (..), State)
 
 import           RSCoin.Core            (BankReq (..), BankRes (..), HBlock,
-                                         Mintettes, PeriodId)
+                                         Mintettes, PeriodId, bankPort)
 import qualified RSCoin.Core            as C (serve)
 
-serve :: Int -> State -> IO ()
-serve port = C.serve port . handler
+serve :: State -> IO ()
+serve = C.serve bankPort . handler
 
 handler :: State -> (BankReq -> IO BankRes)
 handler st ReqGetMintettes = ResGetMintettes <$> serveGetMintettes st

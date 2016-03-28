@@ -17,7 +17,7 @@ import           Serokell.Util.OptParse (strOption)
 import           RSCoin.Core            (defaultPort, defaultSecretKeyPath)
 
 data Command
-    = Serve Int FilePath
+    = Serve FilePath
     | AddMintette String Int T.Text
 
 data Options = Options
@@ -38,7 +38,7 @@ commandParser =
              (info addMintetteOpts (progDesc "Add given mintette to database")))
   where
     serveOpts =
-        Serve <$> option auto (short 'p' <> long "port" <> value defaultPort) <*>
+        Serve <$>
         strOption
             (short 'k' <> long "secret-key" <> help "Path to secret key" <>
              value defaultSecretKeyPath <>

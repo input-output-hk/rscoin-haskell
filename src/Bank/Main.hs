@@ -14,12 +14,10 @@ main = do
     Opts.Options{..} <- Opts.getOptions
     bracket (B.openState cloPath) B.closeState $ run cloCommand
   where
-    run (Opts.Serve port skPath) st = do
+    run (Opts.Serve skPath) st = do
         sk <- readSecretKey skPath
         B.runWorker sk st
-        B.serve port st -- NOTE: bank host and bank port is hardcoded
-                        -- in Constants.hs so that User can grab it. They
-                        -- should match to work properly.
+        B.serve st
     run (Opts.AddMintette name port pk) st = do
         let m = Mintette name port
         k <- maybe (throwText "Invalid key format") return $ constructPublicKey pk

@@ -44,6 +44,7 @@ import           Serokell.Util.Text         (format', formatSingle', show')
 import qualified RSCoin.Core                as C
 import           RSCoin.Core.Crypto         (PublicKey, SecretKey, keyGen)
 import           RSCoin.Core.Primitives     (Address (..), Transaction (..))
+import           RSCoin.User.Logic          (getBlockchainHeight)
 
 -- | User address as stored and seen by wallet owner.
 data UserAddress = UserAddress
@@ -97,9 +98,6 @@ data WalletStorageError
 
 instance Exception WalletStorageError
 
-_MOCK_getBlockchainLength :: IO Int
-_MOCK_getBlockchainLength = return 0
-
 -- | Creates empty WalletStorage given the amount of addresses to
 -- generate initially and optional address to include also (needed if
 -- working in bank-mode).
@@ -116,7 +114,7 @@ emptyWalletStorage addrNum bankAddr = do
                       map (uncurry UserAddress) <$>
                       replicateM addrNum keyGen
     let _inputAddressesTxs = foldr (\addr -> M.insert addr []) M.empty _userAddresses
-    _lastBlockId <- _MOCK_getBlockchainLength
+    _lastBlockId <- getBlockchainHeight
     return WalletStorage {..}
 
 

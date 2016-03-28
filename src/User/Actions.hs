@@ -25,22 +25,9 @@ import           RSCoin.Core           as C
 import           RSCoin.User.AcidState (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState as A
 import           RSCoin.User.Error     (UserError (..), eWrap)
+import           RSCoin.User.Logic     (getBlockByHeight, getBlockchainHeight)
 import qualified RSCoin.User.Wallet    as W
 import qualified UserOptions           as O
-
--- Bunch of mocks
-getBlockchainHeight :: IO Int
-getBlockchainHeight =
-    fromResponse <$> C.callBank C.ReqGetBlockchainHeight
-    where fromResponse (C.ResGetBlockchainHeight h) = h
-          fromResponse _ = error "GetBlockchainHeight got unexpected result"
-
-getBlockByHeight :: PeriodId -> IO (Maybe C.HBlock)
-getBlockByHeight =
-    fmap fromResponse . C.callBank . C.ReqGetHBlock
-    where fromResponse (C.ResGetHBlock hb) = hb
-          fromResponse _ = error "GetBlockByHeight got unexpected result"
--- Ends here
 
 commitError :: T.Text -> IO ()
 commitError = throwIO . InputProcessingError

@@ -33,6 +33,7 @@ library
                      , RSCoin.User.AcidState
                      , RSCoin.User.Error
                      , RSCoin.User.Wallet
+                     , RSCoin.User.Logic
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Error
                      , RSCoin.Bank.Server

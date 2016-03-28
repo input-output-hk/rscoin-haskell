@@ -7,4 +7,5 @@ module RSCoin.User
 
 import           RSCoin.User.AcidState as Exports
 import           RSCoin.User.Error     as Exports
+import           RSCoin.User.Logic     as Exports
 import           RSCoin.User.Wallet    as Exports

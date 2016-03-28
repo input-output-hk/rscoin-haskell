@@ -50,7 +50,7 @@ instance MonadThrow (A.Update WalletStorage) where
 -- is hardcoded in RSCoin.Core.Constants).
 openState :: FilePath -> Int -> Bool -> IO RSCoinUserState
 openState path n True = do
-    sk <- C.readSecretKey "~/.rscoin/bankPrivateKey" -- not windows-compatible (a feature)
+    sk <- C.readSecretKey C.defaultSecretKeyPath  -- TODO: move to options
     let bankKeyPair = W.makeUserAddress sk $ C.getAddress C.genesisAddress
     A.openLocalStateFrom path =<< W.emptyWalletStorage n (Just bankKeyPair)
 openState path n False =

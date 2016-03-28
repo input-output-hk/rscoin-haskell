@@ -111,7 +111,9 @@ data MintetteReq
 
 instance FromRequest MintetteReq where
     parseParams "periodFinished" =
-        Just $ fmap ReqPeriodFinished . parseJSON
+        Just $ \v -> ReqPeriodFinished <$> do
+            Array a <- parseJSON v
+            maybe (fail "periodFinished: periodId not found") parseJSON $ a !? 0
     parseParams "announceNewPeriod" =
         Just $ fmap ReqAnnounceNewPeriod . parseJSON
     parseParams "checkTx" =

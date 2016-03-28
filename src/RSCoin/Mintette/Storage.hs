@@ -23,11 +23,12 @@ import           Safe                      (headMay)
 
 import           RSCoin.Core               (ActionLog,
                                             ActionLogEntry (QueryEntry), AddrId,
-                                            Address, Dpk, NewPeriodData,
-                                            PeriodId, PeriodResult, Signature,
+                                            Address, CheckConfirmation, Dpk,
+                                            NewPeriodData, PeriodId,
+                                            PeriodResult, SecretKey, Signature,
                                             Transaction (txInputs),
-                                            actionLogNext, validateSignature,
-                                            validateSum)
+                                            actionLogNext, mkCheckConfirmation,
+                                            validateSignature, validateSum)
 import           RSCoin.Mintette.Error     (MintetteError (MEInternal))
 
 data Storage = Storage
@@ -49,24 +50,30 @@ type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 -- | Validate structure of transaction, check input AddrId for
 -- double spent and signature, update state if everything is valid.
 -- Result is True iff everything is valid.
-checkNotDoubleSpent :: Transaction -> AddrId -> Signature -> ExceptUpdate Bool
-checkNotDoubleSpent tx addrid sg = do
-    inPset <- M.lookup addrid <$> use pset
-    let txContainsAddrId = elem addrid (txInputs tx)
-    addr <- M.lookup addrid <$> use utxo
-    let res =
+checkNotDoubleSpent :: SecretKey
+                    -> Transaction
+                    -> AddrId
+                    -> Signature
+                    -> ExceptUpdate (Maybe CheckConfirmation)
+checkNotDoubleSpent sk tx addrId sg = do
+    inPset <- M.lookup addrId <$> use pset
+    let txContainsAddrId = elem addrId (txInputs tx)
+    addr <- M.lookup addrId <$> use utxo
+    let isValid =
             maybe
                 (and [txContainsAddrId, signatureValid addr, validateSum tx])
                 (== tx)
                 inPset
-    when res $
-        do pushLogEntry $ QueryEntry tx
-           utxo %= M.delete addrid
-           pset %= M.insert addrid tx
-    return res
+    finishCheck isValid
   where
     signatureValid =
         maybe False (\a -> validateSignature sg a tx)
+    finishCheck False = return Nothing
+    finishCheck True = do
+        pushLogEntry $ QueryEntry tx
+        utxo %= M.delete addrId
+        pset %= M.insert addrId tx
+        return $ Just $ mkCheckConfirmation sk tx addrId undefined
 
 -- | Finish ongoing period, returning its result.
 -- Do nothing if period id is not an expected one.

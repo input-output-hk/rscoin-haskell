@@ -9,7 +9,8 @@ import           Control.Monad.IO.Class    (MonadIO)
 import           Data.Acid.Advanced        (update')
 
 import qualified RSCoin.Core               as C
-import           RSCoin.Mintette.AcidState (FinishPeriod (..), StartPeriod (..),
+import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
+                                            FinishPeriod (..), StartPeriod (..),
                                             State, closeState, openState)
 
 serve :: Int -> FilePath -> C.SecretKey -> IO ()
@@ -21,7 +22,7 @@ handler _ st (C.ReqPeriodFinished pId) =
     C.ResPeriodFinished <$> handlePeriodFinished st pId
 handler _ st (C.ReqAnnounceNewPeriod d) =
     (const C.ResAnnounceNewPeriod) <$> handleNewPeriod st d
-handler _ st (C.ReqCheckTx tx a sg) = C.ResCheckTx <$> handleCheckTx st tx a sg
+handler sk st (C.ReqCheckTx tx a sg) = C.ResCheckTx <$> handleCheckTx sk st tx a sg
 handler _ st (C.ReqCommitTx tx pId cc) =
     C.ResCommitTx <$> handleCommitTx st tx pId cc
 
@@ -33,12 +34,14 @@ handleNewPeriod st d = update' st $ StartPeriod d
 
 handleCheckTx
     :: MonadIO m
-    => State
+    => C.SecretKey
+    -> State
     -> C.Transaction
     -> C.AddrId
     -> C.Signature
     -> m (Maybe C.CheckConfirmation)
-handleCheckTx = undefined
+handleCheckTx sk st tx addrId sg =
+    update' st $ CheckNotDoubleSpent sk tx addrId sg
 
 handleCommitTx
     :: MonadIO m

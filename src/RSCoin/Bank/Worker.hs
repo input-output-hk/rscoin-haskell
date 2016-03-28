@@ -14,7 +14,8 @@ import           Data.Time.Units       (toMicroseconds)
 
 import           RSCoin.Core           (Mintette (..), NewPeriodData, PeriodId,
                                         PeriodResult, SecretKey, periodDelta,
-                                        call, MintetteReq (..), MintetteRes (..))
+                                        callMintette, MintetteReq (..),
+                                        MintetteRes (..))
 
 import           RSCoin.Bank.AcidState (GetMintettes (..), GetPeriodId (..),
                                         StartNewPeriod (..), State)
@@ -56,13 +57,13 @@ onPeriodFinished sk st = do
     handlerAnnouncePeriod = id  -- TODO
 
 sendPeriodFinished :: Mintette -> PeriodId -> IO PeriodResult
-sendPeriodFinished Mintette {..} =
-    fmap fromResponse . call mintettePort mintetteHost . ReqPeriodFinished
+sendPeriodFinished mintette =
+    fmap fromResponse . callMintette mintette . ReqPeriodFinished
     where fromResponse (ResPeriodFinished pr) = pr
           fromResponse _ = error "SendPeriodFinished got unexpected result"
 
 announceNewPeriod :: Mintette -> NewPeriodData -> IO ()
-announceNewPeriod Mintette {..} = 
-    fmap fromResponse . call mintettePort mintetteHost . ReqAnnounceNewPeriod
+announceNewPeriod mintette = 
+    fmap fromResponse . callMintette mintette . ReqAnnounceNewPeriod
     where fromResponse ResAnnounceNewPeriod = ()
           fromResponse _ = error "AnnounceNewPeriod got unexpected result"

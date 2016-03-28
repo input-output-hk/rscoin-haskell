@@ -1,4 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
+
+-- | Protocol implements all low level communication between
+-- entities (User, Bank, Mintette).
+
 module RSCoin.Core.Protocol
        ( BankReq (..)
        , BankRes (..)
@@ -8,6 +12,8 @@ module RSCoin.Core.Protocol
        , UserRes (..)
        , Handler
        , serve
+       , callMintette
+       , callBank
        , call
        , callBatch
        ) where
@@ -35,8 +41,9 @@ import           Data.Maybe            (catMaybes)
 import           Data.Vector           ((!?))
 
 import           RSCoin.Core.Aeson     ()
+import           RSCoin.Core.Constants (bankHost, bankPort)
 import           RSCoin.Core.Types     (HBlock, Mintettes, NewPeriodData,
-                                        PeriodId, PeriodResult)
+                                        PeriodId, PeriodResult, Mintette (..))
 
 ---- BANK data ----
 
@@ -205,6 +212,14 @@ handleResponse t =
         Nothing -> error "could not receive or parse response"
         Just (Left e) -> error $ fromError e
         Just (Right r) -> r
+
+-- | Send a request to a Mintette.
+callMintette :: (ToRequest a, ToJSON a, FromResponse b) => Mintette -> a -> IO b
+callMintette Mintette {..} = call mintettePort mintetteHost
+
+-- | Send a request to a Bank.
+callBank :: (ToRequest a, ToJSON a, FromResponse b) => a -> IO b
+callBank = call bankPort bankHost
 
 -- TODO: improve logging
 -- | Send a request.

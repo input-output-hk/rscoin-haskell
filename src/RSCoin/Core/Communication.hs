@@ -6,6 +6,9 @@ module RSCoin.Core.Communication
        , getBlockByHeight
        , getOwners
        , checkTx
+       , commitTx
+       , sendPeriodFinished
+       , announceNewPeriod
        ) where
 
 import           RSCoin.Core.Crypto     (Signature)
@@ -44,3 +47,29 @@ checkTx m tx a s = fromResponse <$> P.callMintette m (P.ReqCheckTx tx a s)
   where
     fromResponse (P.ResCheckTx cc) = cc
     fromResponse _ = error "CheckTx got unexpected result"
+
+commitTx
+    :: T.Mintette
+    -> T.Transaction
+    -> T.PeriodId
+    -> T.CheckConfirmations
+    -> IO (Maybe T.CommitConfirmation)
+commitTx m tx pId cc =
+    fromResponse <$> P.callMintette m (P.ReqCommitTx tx pId cc)
+  where
+    fromResponse (P.ResCommitTx res) = res
+    fromResponse _ = error "CommitTx got unexpected result"
+
+sendPeriodFinished :: T.Mintette -> T.PeriodId -> IO T.PeriodResult
+sendPeriodFinished mintette =
+    fmap fromResponse . P.callMintette mintette . P.ReqPeriodFinished
+  where
+    fromResponse (P.ResPeriodFinished pr) = pr
+    fromResponse _ = error "SendPeriodFinished got unexpected result"
+
+announceNewPeriod :: T.Mintette -> T.NewPeriodData -> IO ()
+announceNewPeriod mintette =
+    fmap fromResponse . P.callMintette mintette . P.ReqAnnounceNewPeriod
+  where
+    fromResponse P.ResAnnounceNewPeriod = ()
+    fromResponse _ = error "AnnounceNewPeriod got unexpected result"

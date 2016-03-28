@@ -39,8 +39,9 @@ library
                      , RSCoin.Bank.Server
                      , RSCoin.Bank.Storage
                      , RSCoin.Bank.Worker
-                     , RSCoin.Core.Protocol
                      , RSCoin.Core.Aeson
+                     , RSCoin.Core.Communication
+                     , RSCoin.Core.Protocol
                      , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Error
                      , RSCoin.Mintette.Server

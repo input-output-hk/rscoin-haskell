@@ -59,6 +59,10 @@ sendPeriodFinished :: Mintette -> PeriodId -> IO PeriodResult
 sendPeriodFinished Mintette {..} =
     fmap fromResponse . call mintettePort mintetteHost . ReqPeriodFinished
     where fromResponse (ResPeriodFinished pr) = pr
+          fromResponse _ = error "SendPeriodFinished got unexpected result"
 
 announceNewPeriod :: Mintette -> NewPeriodData -> IO ()
-announceNewPeriod = undefined   -- it depends on protocol
+announceNewPeriod Mintette {..} = 
+    fmap fromResponse . call mintettePort mintetteHost . ReqAnnounceNewPeriod
+    where fromResponse ResAnnounceNewPeriod = ()
+          fromResponse _ = error "AnnounceNewPeriod got unexpected result"

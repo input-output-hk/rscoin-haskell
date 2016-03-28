@@ -1,6 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
+-- | Module that provides some functions that transform
+-- UserOptions.UserCommand s to IO actions.
+
 module Actions (proceedCommand) where
 
 import           Control.Exception     (throwIO)

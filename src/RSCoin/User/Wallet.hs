@@ -89,6 +89,7 @@ data WalletStorage = WalletStorage
 
 $(L.makeLenses ''WalletStorage)
 
+-- | The error describing possible wrong behaviour of wallet storage.
 data WalletStorageError
     = BadRequest T.Text
     | InternalError T.Text
@@ -99,6 +100,9 @@ instance Exception WalletStorageError
 _MOCK_getBlockchainLength :: IO Int
 _MOCK_getBlockchainLength = return 0
 
+-- | Creates empty WalletStorage given the amount of addresses to
+-- generate initially and optional address to include also (needed if
+-- working in bank-mode).
 emptyWalletStorage :: Int -> Maybe UserAddress -> IO WalletStorage
 emptyWalletStorage addrNum _
   | addrNum <= 0 =
@@ -217,6 +221,7 @@ withBlockchainUpdate newHeight transactions = do
   where
     reportBadRequest = throwM . BadRequest
 
+-- | Generates n addresses and puts them into wallet.
 generateAddresses
     :: (MonadState WalletStorage m, MonadThrow m, MonadIO m)
     => Int -> m ()

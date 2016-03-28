@@ -3,6 +3,8 @@
 {-# LANGUAGE TypeFamilies      #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
+-- | This module wraps RSCoin.User.Wallet into ACID state.
+
 module RSCoin.User.AcidState
        ( RSCoinUserState
        , openState
@@ -40,6 +42,12 @@ instance MonadThrow (A.Query WalletStorage) where
 instance MonadThrow (A.Update WalletStorage) where
     throwM = throw
 
+-- | this function opens the ACID state wallet from the given path, or
+-- creates it if it's not there. When creating, it generates 'n' new
+-- addresses ((pk,sk) pairs essentially), and if the boolean flag
+-- 'is-bank-mode' is set, it also loads secret bank key from
+-- ~/.rscoin/bankPrivateKey and adds it to known addresses (public key
+-- is hardcoded in RSCoin.Core.Constants).
 openState :: FilePath -> Int -> Bool -> IO RSCoinUserState
 openState path n True = do
     sk <- C.readSecretKey "~/.rscoin/bankPrivateKey" -- not windows-compatible (a feature)
@@ -48,6 +56,7 @@ openState path n True = do
 openState path n False =
     A.openLocalStateFrom path =<< W.emptyWalletStorage n Nothing
 
+-- | Closes the ACID state.
 closeState :: RSCoinUserState -> IO ()
 closeState = A.closeAcidState
 

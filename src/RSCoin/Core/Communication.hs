@@ -21,6 +21,7 @@ module RSCoin.Core.Communication
 import           Data.Tuple.Select      (sel1)
 
 import           RSCoin.Core.Crypto     (PublicKey, Signature, hash)
+import           RSCoin.Core.Owners     (owners)
 import           RSCoin.Core.Primitives (AddrId, Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol   as P
 import           RSCoin.Core.Types      (CheckConfirmation, CheckConfirmations,
@@ -43,12 +44,12 @@ getBlockByHeight =
           fromResponse _ = error "GetBlockByHeight got unexpected result"
 
 getOwnersByHash :: TransactionId -> IO [(Mintette, MintetteId)]
-getOwnersByHash tId = undefined tId
---    mts <- fromResponse <$> P.callBank P.ReqGetMintettes
---    return $ map (mts !!) $ owners mts tId
---  where
---    fromResponse (P.ResGetMintettes m) = m
---    fromResponse _ = error "GetMintettes got unexpected result"
+getOwnersByHash tId = do
+    mts <- fromResponse <$> P.callBank P.ReqGetMintettes
+    return $ map (\i -> (mts !! i, i)) $ owners mts tId
+  where
+    fromResponse (P.ResGetMintettes m) = m
+    fromResponse _ = error "GetMintettes got unexpected result"
 
 -- | Gets owners from Transaction
 getOwnersByTx :: Transaction -> IO [(Mintette, MintetteId)]

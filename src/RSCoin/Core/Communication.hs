@@ -1,4 +1,4 @@
--- | This module provide high-abstraction functions to exchange data
+-- | This module provides high-abstraction functions to exchange data
 -- within user/mintette/bank.
 
 module RSCoin.Core.Communication

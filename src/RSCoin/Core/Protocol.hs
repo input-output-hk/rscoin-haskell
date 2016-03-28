@@ -207,11 +207,11 @@ handleResponse t =
         Just (Right r) -> r
 
 -- | Send a request to a Mintette.
-callMintette :: (ToRequest a, ToJSON a, FromResponse b) => Mintette -> a -> IO b
+callMintette :: Mintette -> MintetteReq -> IO MintetteRes
 callMintette Mintette {..} = call mintettePort mintetteHost
 
 -- | Send a request to a Bank.
-callBank :: (ToRequest a, ToJSON a, FromResponse b) => a -> IO b
+callBank :: BankReq -> IO BankRes
 callBank = call bankPort bankHost
 
 -- TODO: improve logging

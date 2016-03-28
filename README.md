@@ -48,3 +48,52 @@ trade-offs were made:
    cabal file of the project) with `rscoin-bank`, `rscoin-keygen`, `rscoin-user`,
    and `rscoin-mintette` being relatively thin layers which make use of this
    package.
+
+Some details about commonly used type classes and instances
+===
+
+### SafeCopy
+
+As we're using acid-state and heavily for prototyping, and
+rely on raw Haskell data types to aid us in handling the data,
+we use SafeCopy to mitigate possible migration issues.
+
+For more information, see [this link](https://hackage.haskell.org/package/safecopy-0.9.0.1/docs/Data-SafeCopy.html).
+
+### Contained Put / Get monads
+
+Put is a special Writer, Get is a special State monad. We're using Contained
+version of those (Contained `a` means that we can put `a` into the container,
+but can't get it out of it). We need it as SafeCopy machinery is responsible
+for producing results of the serialization.
+
+### Buildable
+
+To be able to lazily construct Text values via Data.Text.Lazy.Builder,
+we want our types to have an instance of Buildable.
+
+For more, see [Builder type](https://hackage.haskell.org/package/text-0.11.2.3/docs/Data-Text-Lazy-Builder.html#t:Builder)
+and [Buildable typeclass](https://hackage.haskell.org/package/text-format-0.3.1.1/docs/Data-Text-Buildable.html).
+
+Some details about implementation choices
+===
+
+### Newtype wrappers
+
+For mission-critical stuff (which is most of the stuff), in vast majority of
+cases, instead of type aliases, we use newtype wrappers.  The reason we're
+doing it is threefold:
+
+ 1. Make the compiler check semantics of function calls;
+ 2. Be able to provide custom instances for wrapped types (a great example of
+    this benefit is Signature newtype in RSCoin.Core.Crypto, or, say, we need
+    another version of Monoid for Int, multiplicative one);
+ 3. Be explicit about extraneous types we “touched”, and part those from types
+    we use as is.
+
+### Cryptography
+
+We are using the following systems:
+
+ + ECDSA with Secp256k1, using [Bitcoin's implementation of Secp256k1](https://github.com/bitcoin/secp256k1)
+ + SHA256 for hashing, using [Crypto.Hash.SHA256](https://hackage.haskell.org/package/cryptohash-0.7.1/docs/Crypto-Hash-SHA256.html)

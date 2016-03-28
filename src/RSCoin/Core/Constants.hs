@@ -1,5 +1,7 @@
 module RSCoin.Core.Constants
-       ( periodDelta
+       ( bankAddress
+       , bankPort
+       , periodDelta
        , epochDelta
        , genesisAddress
        , genesisValue
@@ -11,6 +13,12 @@ import           Data.Time.Units        (Second)
 
 import           RSCoin.Core.Crypto     (constructPublicKey)
 import           RSCoin.Core.Primitives (Address (Address), Coin)
+
+bankAddress :: String
+bankAddress = undefined
+
+bankPort :: Int
+bankPort = undefined
 
 periodDelta :: Second
 periodDelta = 50

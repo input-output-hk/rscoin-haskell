@@ -12,60 +12,83 @@ module RSCoin.Core.Protocol
        , callBatch
        ) where
 
-import           Network.JsonRpc       (FromRequest (parseParams), ToRequest (..),
-                                        FromResponse (parseResult), Ver (V2),
-                                        Respond, JsonRpcT, jsonRpcTcpServer,
-                                        receiveBatchRequest, BatchRequest (..),
-                                        sendResponse, buildResponse,
-                                        BatchResponse (..), sendBatchResponse,
-                                        jsonRpcTcpClient, ErrorObj, fromError,
-                                        sendRequest, sendBatchRequest)
+import           Network.JsonRpc       (BatchRequest (..), BatchResponse (..),
+                                        ErrorObj, FromRequest (parseParams),
+                                        FromResponse (parseResult), JsonRpcT,
+                                        Respond, ToRequest (..), Ver (V2),
+                                        buildResponse, fromError,
+                                        jsonRpcTcpClient, jsonRpcTcpServer,
+                                        receiveBatchRequest, sendBatchRequest,
+                                        sendBatchResponse, sendRequest,
+                                        sendResponse)
 
 import           Control.Monad         (forM, liftM)
+import           Control.Monad.Logger  (LoggingT, MonadLoggerIO, logDebug,
+                                        runStderrLoggingT)
 import           Control.Monad.Trans   (lift)
-import           Control.Monad.Logger  (logDebug, MonadLoggerIO, runStderrLoggingT, LoggingT)
 import           Data.Aeson            (FromJSON (parseJSON), ToJSON (toJSON))
-import           Data.Aeson.Types      (emptyArray)
+import           Data.Aeson.Types      (Value (Array), emptyArray)
 import qualified Data.ByteString.Char8 as BS
-import           Data.Conduit.Network  (serverSettings, clientSettings)
+import           Data.Conduit.Network  (clientSettings, serverSettings)
 import           Data.Foldable         (forM_)
 import           Data.Maybe            (catMaybes)
+import           Data.Vector           ((!?))
 
-import           RSCoin.Core.Types     (PeriodId, PeriodResult, Mintettes,
-                                        NewPeriodData)
 import           RSCoin.Core.Aeson     ()
+import           RSCoin.Core.Types     (HBlock, Mintettes, NewPeriodData,
+                                        PeriodId, PeriodResult)
 
 ---- BANK data ----
 
 -- | Request handled by Bank (probably sent by User or Mintette)
 data BankReq
     = ReqGetMintettes
+    | ReqGetBlockchainHeight
+    | ReqGetHBlock PeriodId
 
 instance FromRequest BankReq where
     parseParams "getMintettes" =
         Just $ const $ return ReqGetMintettes
+    parseParams "getBlockchainHeight" =
+        Just $ const $ return ReqGetBlockchainHeight
+    parseParams "getHBlock" =
+        Just $ \v -> ReqGetHBlock <$> do
+            Array a <- parseJSON v
+            maybe (fail "getHBLock: periodId not found") parseJSON $ a !? 0
     parseParams _ =
         Nothing
 
 instance ToRequest BankReq where
     requestMethod ReqGetMintettes = "getMintettes"
+    requestMethod ReqGetBlockchainHeight = "getBlockchainHeight"
+    requestMethod (ReqGetHBlock _) = "getHBlock"
     requestIsNotif = const False
 
 instance ToJSON BankReq where
     toJSON ReqGetMintettes = emptyArray
+    toJSON ReqGetBlockchainHeight = emptyArray
+    toJSON (ReqGetHBlock i) = toJSON [i]
 
 -- | Responses to Bank requests (probably sent by User or Mintette)
 data BankRes
     = ResGetMintettes Mintettes
+    | ResGetBlockchainHeight Int
+    | ResGetHBlock HBlock
 
 instance FromResponse BankRes where
     parseResult "getMintettes" =
         Just $ fmap ResGetMintettes . parseJSON
+    parseResult "getBlockchainHeight" =
+        Just $ fmap ResGetBlockchainHeight . parseJSON
+    parseResult "getHBlock" =
+        Just $ fmap ResGetHBlock . parseJSON
     parseResult _ =
         Nothing
 
 instance ToJSON BankRes where
     toJSON (ResGetMintettes ms) = toJSON ms
+    toJSON (ResGetBlockchainHeight h) = toJSON h
+    toJSON (ResGetHBlock h) = toJSON h
 
 ---- BANK data ----
 
@@ -147,7 +170,7 @@ instance ToJSON UserRes where
 ---- USER data ----
 
 -- | Handler is a function that takes request (ie BankReq) and returns
--- a response (ie BankRes). Ment to be used in servers. 
+-- a response (ie BankRes). Ment to be used in servers.
 type Handler a b = Respond a (LoggingT IO) b
 
 -- | Runs a TCP server transport for JSON-RPC.

@@ -18,7 +18,7 @@ module RSCoin.User.AcidState
 
        -- * Updates
        , WithBlockchainUpdate (..)
-       , GenerateAddresses (..)
+       , AddAddresses (..)
        ) where
 
 import qualified RSCoin.Core         as C
@@ -49,13 +49,13 @@ instance MonadThrow (A.Update WalletStorage) where
 -- 'is-bank-mode' is set, it also loads secret bank key from
 -- ~/.rscoin/bankPrivateKey and adds it to known addresses (public key
 -- is hardcoded in RSCoin.Core.Constants).
-openState :: FilePath -> Int -> (Maybe FilePath) -> IO RSCoinUserState
+openState :: FilePath -> Int -> Maybe FilePath -> IO RSCoinUserState
 openState path n (Just skPath) = do
     sk <- C.readSecretKey skPath  -- TODO: move to options
-    let bankKeyPair = W.makeUserAddress sk $ C.getAddress C.genesisAddress
-    unless (C.checkKeyPair (sk, C.getAddress C.genesisAddress)) $
+    let bankAddress = W.makeUserAddress sk $ C.getAddress C.genesisAddress
+    unless (W.validateUserAddress bankAddress) $
         throwIO $ W.BadRequest "Imported bank's secret key doesn't belong to bank."
-    A.openLocalStateFrom path =<< W.emptyWalletStorage n (Just bankKeyPair)
+    A.openLocalStateFrom path =<< W.emptyWalletStorage n (Just bankAddress)
 openState path n Nothing =
     A.openLocalStateFrom path =<< W.emptyWalletStorage n Nothing
 
@@ -74,12 +74,10 @@ getTransactions = W.getTransactions
 getLastBlockId = W.getLastBlockId
 
 withBlockchainUpdate :: Int -> [C.Transaction] -> A.Update WalletStorage ()
-generateAddresses :: Int -> A.Update WalletStorage ()
+addAddresses :: UserAddress -> [C.Transaction] -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate
---generateAddresses = W.generateAddresses -- no instance of MonadIO obviously
--- TODO FIXME
-generateAddresses = undefined
+addAddresses = W.addAddresses
 
 $(makeAcidic
       ''WalletStorage
@@ -88,4 +86,4 @@ $(makeAcidic
       , 'getTransactions
       , 'getLastBlockId
       , 'withBlockchainUpdate
-      , 'generateAddresses])
+      , 'addAddresses])

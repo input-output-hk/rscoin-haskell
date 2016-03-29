@@ -9,22 +9,23 @@ module RSCoin.User.Logic
        , validateTransaction
        ) where
 
-import qualified RSCoin.Core.Communication as CC
-import           RSCoin.Core.Crypto        (Signature, verify)
-import           RSCoin.Core.Primitives    (AddrId, Transaction (..))
-import           RSCoin.Core.Types         (CheckConfirmation (..),
-                                            CheckConfirmations,
-                                            CommitConfirmation, Mintette,
-                                            MintetteId, PeriodId)
+import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
+import qualified RSCoin.Core.Communication     as CC
+import           RSCoin.Core.Crypto            (Signature, verify)
+import           RSCoin.Core.Primitives        (AddrId, Transaction (..))
+import           RSCoin.Core.Types             (CheckConfirmation (..),
+                                                CheckConfirmations,
+                                                CommitConfirmation, Mintette,
+                                                MintetteId, PeriodId)
 
-import           Serokell.Util.Text        (format')
+import           Serokell.Util.Text            (format')
 
-import           Control.Exception         (Exception, throwIO)
-import           Control.Monad             (unless, when)
-import qualified Data.Map                  as M
-import           Data.Maybe                (catMaybes)
-import           Data.Monoid               ((<>))
-import qualified Data.Text                 as T
+import           Control.Exception             (Exception, throwIO)
+import           Control.Monad                 (unless, when)
+import qualified Data.Map                      as M
+import           Data.Maybe                    (catMaybes)
+import           Data.Monoid                   ((<>))
+import qualified Data.Text                     as T
 
 data UserLogicError
     = MintetteSignatureFailed Mintette
@@ -66,14 +67,9 @@ validateTransaction tx@Transaction{..} sig height = do
         signedPairMb <- CC.checkNotDoubleSpent mintette tx addrid sig
         maybe
             (return Nothing)
-            (\proof@CheckConfirmation{..} ->
-                  do unless
-                         (verify
-                              ccMintetteKey
-                              ccMintetteSignature
-                              (tx, addrid, ccHead)) $
-                         throwIO $ MintetteSignatureFailed mintette
-                     return $ Just $ M.singleton (mid, addrid) proof)
+            (\proof -> do unless (verifyCheckConfirmation proof tx addrid) $
+                              throwIO $ MintetteSignatureFailed mintette
+                          return $ Just $ M.singleton (mid, addrid) proof)
             signedPairMb
     commitBundle :: CheckConfirmations -> IO ()
     commitBundle bundle = do

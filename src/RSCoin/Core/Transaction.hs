@@ -8,6 +8,7 @@ module RSCoin.Core.Transaction
        , getAmountByAddress
        , getAddrIdByAddress
        , chooseAddresses
+       , computeOutputAddrids
        ) where
 
 import           Control.Exception      (assert)
@@ -26,6 +27,9 @@ instance Monoid Transaction where
     mempty = Transaction [] []
     a `mappend` b =
         Transaction (txInputs a <> txInputs b) (txOutputs a <> txOutputs b)
+
+instance Ord Transaction where
+    compare = comparing hash
 
 -- | Validates that sum of inputs isn't greater than sum of outputs.
 validateSum :: Transaction -> Bool
@@ -73,3 +77,9 @@ chooseAddresses addrids value =
                      then Just $ newAccum - value
                      else Nothing)
     in (chosenAIds, whatsLeft)
+
+-- | ?? TODO
+computeOutputAddrids :: Transaction -> [(AddrId, Address)]
+computeOutputAddrids tx@Transaction{..} =
+    let h = hash tx in
+    map (\((addr, coin), i) -> ((h, i, coin), addr)) $ txOutputs `zip` [0..]

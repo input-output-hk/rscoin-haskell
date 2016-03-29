@@ -42,6 +42,7 @@ import           RSCoin.Core               (ActionLog, ActionLogEntry (CommitEnt
                                             owners, sign, validateSignature,
                                             validateSum,
                                             verifyCheckConfirmation)
+import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.Error     (MintetteError (..))
 
 data Storage = Storage
@@ -125,14 +126,14 @@ commitTx :: SecretKey
 commitTx sk tx@Transaction{..} pId bundle = do
     checkIsActive
     checkPeriodId pId
+    checkTxSum tx
     mts <- use mintettes
-    mId <- use mintetteId
+    mId <- fromJust <$> use mintetteId
+    unless (C.isOwner mts (C.hash tx) mId) $
+        throwM $ MEInconsistentRequest "I'm not an owner!"
     curDpk <- use dpk
-    let isOwner = maybe False (`elem` owners mts (hash tx)) mId
-    let isValid = and [validateSum tx, isOwner]
-    let isConfirmed =
-            and $ map (checkInputConfirmed mts curDpk) txInputs
-    commitTxChecked (isValid && isConfirmed) sk tx bundle
+    let isConfirmed = and $ map (checkInputConfirmed mts curDpk) txInputs
+    commitTxChecked isConfirmed sk tx bundle
   where
     checkInputConfirmed mts curDpk addrid =
         let addridOwners = owners mts (hash $ sel1 addrid)

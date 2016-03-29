@@ -3,12 +3,18 @@
 
 module RSCoin.Core.Owners
        ( owners
+       , isOwner
        ) where
 
 import           RSCoin.Core.Primitives (TransactionId)
 import           RSCoin.Core.Types      (MintetteId, Mintettes)
 
 -- | Takes list of mintettes which is active and stable over current period
--- and index of transaction and returns list of mintettes responsible for it.
+-- and hash of transaction and returns list of mintettes responsible for it.
 owners :: Mintettes -> TransactionId -> [MintetteId]
 owners = undefined
+
+-- | This function checks whether given mintette is owner of given transaction.
+-- TODO: most likely it will be possible to implement it more efficiently
+isOwner :: Mintettes -> TransactionId -> MintetteId -> Bool
+isOwner mts tx mId = mId `elem` owners mts tx

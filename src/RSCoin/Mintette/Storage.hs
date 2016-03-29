@@ -19,7 +19,7 @@ module RSCoin.Mintette.Storage
 import           Control.Applicative       ((<|>))
 import           Control.Lens              (Getter, makeLenses, to, use, uses,
                                             (%=), (+=), (.=), (<>=))
-import           Control.Monad             (unless)
+import           Control.Monad             (unless, when)
 import           Control.Monad.Catch       (MonadThrow (throwM))
 import           Control.Monad.State.Class (MonadState)
 import qualified Data.Map                  as M
@@ -28,15 +28,14 @@ import qualified Data.Set                  as S
 import           Data.Tuple.Select         (sel1)
 import           Safe                      (atMay, headMay)
 
-import           RSCoin.Core               (ActionLog, ActionLogEntry (CommitEntry, QueryEntry, CloseEpochEntry),
-                                            ActionLogHeads, AddrId, Address,
-                                            CheckConfirmation (..),
+import           RSCoin.Core               (ActionLog, ActionLogHeads, AddrId,
+                                            Address, CheckConfirmation (..),
                                             CheckConfirmations,
                                             CommitConfirmation, Dpk, Hash,
                                             LBlock, MintetteId, Mintettes,
-                                            NewPeriodData, PeriodId, SecretKey,
-                                            Signature, Transaction (..),
-                                            actionLogNext, computeOutputAddrids,
+                                            PeriodId, SecretKey, Signature,
+                                            Transaction (..), actionLogNext,
+                                            computeOutputAddrids,
                                             derivePublicKey, hash,
                                             mkCheckConfirmation, mkLBlock,
                                             owners, sign, validateSignature,
@@ -65,7 +64,7 @@ mkStorage = Storage M.empty M.empty S.empty [[]] [[]] 0 [] Nothing [] M.empty
 
 type Query a = Getter Storage a
 
-logHead :: Query (Maybe (ActionLogEntry, Hash))
+logHead :: Query (Maybe (C.ActionLogEntry, Hash))
 logHead = actionLogs . to f
   where
     f [] = Nothing
@@ -106,7 +105,7 @@ checkNotDoubleSpent sk tx addrId sg = do
       | validateSignature sg a tx = finishCheck
       | otherwise = throwM MEInvalidSignature
     finishCheck = do
-        pushLogEntry $ QueryEntry tx
+        pushLogEntry $ C.QueryEntry tx
         utxo %= M.delete addrId
         pset %= M.insert addrId tx
         hsh <- uses logHead (snd . fromJust)
@@ -160,7 +159,7 @@ commitTxChecked
     -> ExceptUpdate (Maybe CommitConfirmation)
 commitTxChecked False _ _ _ = throwM MENotConfirmed
 commitTxChecked True sk tx bundle = do
-    pushLogEntry $ CommitEntry tx bundle
+    pushLogEntry $ C.CommitEntry tx bundle
     utxo <>= M.fromList (computeOutputAddrids tx)
     txset %= S.insert tx
     let pk = derivePublicKey sk
@@ -180,8 +179,22 @@ finishPeriod sk pId = do
     (pId, , ) <$> use (lBlocks . to head) <*> use (actionLogs . to head)
 
 -- | Start new period.
-startPeriod :: NewPeriodData -> Update ()
-startPeriod = undefined
+startPeriod :: C.NewPeriodData -> ExceptUpdate ()
+startPeriod C.NewPeriodData{..} = do
+    checkIsInactive
+    lastPeriodId <- use periodId
+    when (lastPeriodId >= npdPeriodId) $
+        throwM $ MEPeriodMismatch lastPeriodId npdPeriodId
+    lBlocks <>= replicate (npdPeriodId - lastPeriodId) []
+    actionLogs <>= replicate (npdPeriodId - lastPeriodId) []
+    mintettes .= npdMintettes
+    mintetteId .= Just undefined  -- TODO
+    dpk .= npdDpk
+    -- TODO: update utxo and pset somehow! :(
+  where
+    checkIsInactive = do
+        v <- use isActive
+        when v $ throwM MEAlreadyActive
 
 -- | This function creates new LBlock with transactions from txset
 -- and adds CloseEpochEntry to log.
@@ -201,9 +214,9 @@ finishEpochList sk txList = do
     topBlocks <- head <$> use lBlocks
     let newTopBlocks = lBlock : topBlocks
     lBlocks %= (\l -> newTopBlocks : tail l)
-    pushLogEntry $ CloseEpochEntry heads
+    pushLogEntry $ C.CloseEpochEntry heads
 
-pushLogEntry :: ActionLogEntry -> Update ()
+pushLogEntry :: C.ActionLogEntry -> Update ()
 pushLogEntry entry = do
     prev <- use logHead
     topLog <- head <$> use actionLogs

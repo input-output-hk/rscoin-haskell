@@ -156,6 +156,7 @@ executable rscoin-mintette
 test-suite rscoin-test
   main-is:             Test.hs
   other-modules:       RSCoin.Bank.StorageSpec
+                     , RSCoin.Core.Arbitrary
                      , RSCoin.Core.CryptoSpec
                      , Spec
   type:                exitcode-stdio-1.0

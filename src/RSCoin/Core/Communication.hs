@@ -10,6 +10,7 @@ module RSCoin.Core.Communication
        , announceNewPeriod
        , getOwnersByAddrid
        , getOwnersByTx
+       , P.unCps
        ) where
 
 import           Data.Tuple.Select      (sel1)

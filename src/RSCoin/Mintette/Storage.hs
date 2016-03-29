@@ -30,25 +30,29 @@ import           RSCoin.Core               (ActionLog,
                                             Address, CheckConfirmation,
                                             CheckConfirmations,
                                             CommitConfirmation, Hash,
+                                            MintetteId, Mintettes,
                                             NewPeriodData, PeriodId,
                                             PeriodResult, SecretKey, Signature,
                                             Transaction (txInputs),
-                                            actionLogNext, mkCheckConfirmation,
+                                            actionLogNext, hash,
+                                            mkCheckConfirmation, owners,
                                             validateSignature, validateSum)
 import           RSCoin.Mintette.Error     (MintetteError (MEInternal))
 
 data Storage = Storage
-    { _utxo       :: M.Map AddrId Address
-    , _pset       :: M.Map AddrId Transaction
-    , _actionLogs :: [ActionLog]
-    , _logSize    :: Int
+    { _utxo       :: M.Map AddrId Address      -- ^ Unspent transaction outputs
+    , _pset       :: M.Map AddrId Transaction  -- ^ Set of checked transactions
+    , _actionLogs :: [ActionLog]               -- ^ Logs are stored per period
+    , _logSize    :: Int                       -- ^ Total size of actionLogs
+    , _mintettes  :: Mintettes                 -- ^ Mintettes for current period
+    , _mintetteId :: Maybe MintetteId          -- ^ Id for current period
     }
 
 $(makeLenses ''Storage)
 
 -- | Make empty storage
 mkStorage :: Storage
-mkStorage = Storage M.empty M.empty [] 0
+mkStorage = Storage M.empty M.empty [] 0 [] Nothing
 
 logHead :: Getter Storage (Maybe (ActionLogEntry, Hash))
 logHead = actionLogs . to f
@@ -89,12 +93,25 @@ checkNotDoubleSpent sk tx addrId sg = do
         logSz <- use logSize
         return $ Just $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
 
+-- | Check that transaction is valid and whether it falls within
+-- mintette's remit.
+-- If it's true, add transaction to storage and return signed confirmation.
 commitTx :: SecretKey
          -> Transaction
          -> PeriodId
          -> CheckConfirmations
          -> Update (Maybe CommitConfirmation)
-commitTx = undefined
+commitTx sk tx _ _ = do
+    mts <- use mintettes
+    mId <- use mintetteId
+    let isOwner = maybe False (`elem` owners mts (hash tx)) mId
+    let isValid = and [validateSum tx, isOwner]
+    isConfirmed <- undefined
+    commitTxChecked (isValid && isConfirmed) sk tx
+
+commitTxChecked :: Bool -> SecretKey -> Transaction -> Update (Maybe CommitConfirmation)
+commitTxChecked False _ _ = return Nothing
+commitTxChecked True _ _ = undefined
 
 -- | Finish ongoing period, returning its result.
 -- Do nothing if period id is not an expected one.

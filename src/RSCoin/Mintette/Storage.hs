@@ -222,9 +222,9 @@ startPeriod (mid,C.NewPeriodData{..}) = do
 -- It does nothing if txset is empty.
 finishEpoch :: SecretKey -> ExceptUpdate ()
 finishEpoch sk = do
-  checkIsActive
-  txList <- S.toList <$> use txset
-  finishEpochList sk txList
+    checkIsActive
+    txList <- S.toList <$> use txset
+    finishEpochList sk txList
 
 finishEpochList :: SecretKey -> [Transaction] -> Update ()
 finishEpochList _ [] = return ()

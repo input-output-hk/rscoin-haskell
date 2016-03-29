@@ -6,6 +6,7 @@ module RSCoin.Mintette.Server
 
 import           Control.Exception         (bracket)
 import           Control.Monad.IO.Class    (MonadIO)
+import           Control.Monad.Trans       (lift)
 import           Data.Acid.Advanced        (update')
 
 import qualified RSCoin.Core               as C
@@ -21,7 +22,7 @@ serve port dbPath sk =
     \st ->
          do runWorker sk st
             C.serve port
-                [ C.method (C.RSCMintette C.PeriodFinished) $ handlePeriodFinished sk st
+                [ C.method (C.RSCMintette C.PeriodFinished) $ fmap C.AsMessagePack . handlePeriodFinished sk st
                 , C.method (C.RSCMintette C.AnnounceNewPeriod) $ handleNewPeriod st
                 , C.method (C.RSCMintette C.CheckTx) $ handleCheckTx sk st
                 , C.method (C.RSCMintette C.CommitTx) $ handleCommitTx sk st

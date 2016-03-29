@@ -64,8 +64,8 @@ validateTransaction tx@Transaction{..} sig height = do
                     -> IO (Maybe CheckConfirmations)
     processMintette addrid (mintette,mid) = do
         signedPairMb <- CC.unCps $ CC.checkNotDoubleSpent mintette tx addrid sig
-        maybe
-            (return Nothing)
+        either
+            (const $ return Nothing)
             (\proof -> do unless (verifyCheckConfirmation proof tx addrid) $
                               throwIO $ MintetteSignatureFailed mintette
                           return $ Just $ M.singleton (mid, addrid) proof)

@@ -4,11 +4,13 @@ module RSCoin.Mintette.Error
        ( MintetteError (..)
        ) where
 
-import           Control.Exception (Exception)
-import           Data.Text         (Text)
-import           Data.Typeable     (Typeable)
+import           Control.Exception   (Exception)
+import           Data.Monoid         ((<>))
+import           Data.Text           (Text)
+import           Data.Text.Buildable (Buildable (build))
+import           Data.Typeable       (Typeable)
 
-import           RSCoin.Core       (PeriodId)
+import           RSCoin.Core         (PeriodId)
 
 data MintetteError
     = MEInternal Text                     -- ^ Should not happen.
@@ -25,3 +27,7 @@ data MintetteError
     deriving (Show,Typeable)
 
 instance Exception MintetteError
+
+instance Buildable MintetteError where
+    build (MEInternal m) = "InternalError: " <> build m
+    build e = build $ show e  -- TODO

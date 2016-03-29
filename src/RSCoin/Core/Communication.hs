@@ -13,6 +13,7 @@ module RSCoin.Core.Communication
        , P.unCps
        ) where
 
+import           Data.Text              (Text)
 import           Data.Tuple.Select      (sel1)
 
 import           RSCoin.Core.Crypto     (Signature, hash)
@@ -58,7 +59,7 @@ checkNotDoubleSpent
     -> Transaction
     -> AddrId
     -> Signature
-    -> P.WithResult (Maybe CheckConfirmation)
+    -> P.WithResult (Either Text CheckConfirmation)
 checkNotDoubleSpent m tx a s =
     P.execMintette m $
         P.call (P.RSCMintette P.CheckTx)
@@ -87,5 +88,5 @@ sendPeriodFinished mintette pId =
 announceNewPeriod :: Mintette -> MintetteId -> NewPeriodData -> IO ()
 announceNewPeriod mintette mId npd =
     P.execMintette mintette
-        (P.call (P.RSCMintette P.AnnounceNewPeriod) (P.AsMessagePack (mId, npd)))
+        (P.call (P.RSCMintette P.AnnounceNewPeriod) (P.AsMessagePack mId)  (P.AsMessagePack npd))
         return

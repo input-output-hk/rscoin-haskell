@@ -10,6 +10,9 @@ module RSCoin.Mintette.Server
 import           Control.Exception         (bracket, try)
 import           Control.Monad.Trans       (lift)
 import           Data.Acid.Advanced        (update')
+import           Data.Text                 (Text)
+
+import           Serokell.Util.Text        (show')
 
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
@@ -36,10 +39,11 @@ handlePeriodFinished
 handlePeriodFinished sk st pId = fmap C.AsMessagePack . update' st $ FinishPeriod sk pId
 
 handleNewPeriod :: State
-                -> C.AsMessagePack (C.MintetteId, C.NewPeriodData)
+                -> C.AsMessagePack C.MintetteId
+                -> C.AsMessagePack C.NewPeriodData
                 -> C.Server ()
-handleNewPeriod st (C.getAsMessagePack -> d) =
-    fmap C.AsMessagePack . update' st $ StartPeriod d
+handleNewPeriod st (C.getAsMessagePack -> mId) (C.getAsMessagePack -> npd) =
+    fmap C.AsMessagePack . update' st $ StartPeriod (mId, npd)
 
 handleCheckTx
     :: C.SecretKey
@@ -47,11 +51,12 @@ handleCheckTx
     -> C.AsMessagePack C.Transaction
     -> C.AsMessagePack C.AddrId
     -> C.AsMessagePack C.Signature
-    -> C.Server (Maybe C.CheckConfirmation)
-handleCheckTx sk st (C.getAsMessagePack -> tx) (C.getAsMessagePack -> addrId) (C.getAsMessagePack -> sg) = lift . fmap C.AsMessagePack $ do
-    (res :: Either MintetteError C.CheckConfirmation) <-
-        try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
-    either (const $ return Nothing) (return . Just) res
+    -> C.Server (Either Text C.CheckConfirmation)
+handleCheckTx sk st (C.getAsMessagePack -> tx) (C.getAsMessagePack -> addrId) (C.getAsMessagePack -> sg) =
+    lift . fmap C.AsMessagePack $
+    do (res :: Either MintetteError C.CheckConfirmation) <-
+           try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
+       either (return . Left . show') (return . Right) res
 
 handleCommitTx
     :: C.SecretKey
@@ -59,8 +64,9 @@ handleCommitTx
     -> C.AsMessagePack C.Transaction
     -> C.PeriodId
     -> C.AsMessagePack C.CheckConfirmations
-    -> C.Server (Maybe C.CommitConfirmation)
-handleCommitTx sk st (C.getAsMessagePack -> tx) pId (C.getAsMessagePack -> cc) = lift . fmap C.AsMessagePack $ do
-    (res :: Either MintetteError C.CommitConfirmation) <-
-        try $ update' st $ CommitTx sk tx pId cc
-    either (const $ return Nothing) (return . Just) res
+    -> C.Server (Either Text C.CommitConfirmation)
+handleCommitTx sk st (C.getAsMessagePack -> tx) pId (C.getAsMessagePack -> cc) =
+    lift . fmap C.AsMessagePack $
+    do (res :: Either MintetteError C.CommitConfirmation) <-
+           try $ update' st $ CommitTx sk tx pId cc
+       either (return . Left . show') (return . Right) res

@@ -128,7 +128,7 @@ instance Buildable SecretKey where
 
 newtype PublicKey =
     PublicKey { getPublicKey :: PubKey }
-    deriving (Eq, Show, Read)
+    deriving (Eq, Show, Read, Arbitrary)
 
 instance FromJSON PublicKey where
     parseJSON (Object v) =

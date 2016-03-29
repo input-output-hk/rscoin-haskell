@@ -9,6 +9,7 @@ module RSCoin.Core.Constants
        , genesisAddress
        , genesisValue
        , periodReward
+       , shardSizeScaled
        ) where
 
 import           Data.Maybe             (fromJust)
@@ -60,3 +61,8 @@ genesisValue = 1000000
 -- Ideally it should change over time, but let's make it simple.
 periodReward :: Coin
 periodReward = 10000
+
+shardSizeScaled :: Int -> Int
+shardSizeScaled i | i <= 0 = error "Shouldn't have the empty list of mintettes."
+shardSizeScaled i | i < 2 = 1
+shardSizeScaled i = max 2 (i `div` 3)

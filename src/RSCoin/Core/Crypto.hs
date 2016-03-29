@@ -43,7 +43,7 @@ import           Data.Text.Buildable       (Buildable (build))
 import           Data.Text.Encoding        (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format          as F
 import qualified Data.Text.IO              as TIO
-import           Test.QuickCheck.Arbitrary (arbitrary)
+import           Test.QuickCheck.Arbitrary (Arbitrary (arbitrary))
 import           Test.QuickCheck.Gen       (generate)
 
 import           Crypto.Secp256k1          (Msg, PubKey, SecKey, Sig,
@@ -114,7 +114,7 @@ instance Binary Signature where
 
 newtype SecretKey =
     SecretKey { getSecretKey :: SecKey }
-    deriving (Eq, Show, Read)
+    deriving (Eq, Show, Read, Arbitrary)
 
 instance Ord SecretKey where
     compare = comparing (show . getSecretKey)

@@ -17,7 +17,9 @@ nix:
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
 - secp256k1-0.4.5
-- json-rpc-0.7.1.1
+- msgpack-1.0.0
+- msgpack-rpc-1.0.0
+- msgpack-aeson-0.1.0.0
 - OneTuple-0.2.1
 - tuple-0.3.0.2
 

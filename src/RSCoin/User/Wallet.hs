@@ -119,7 +119,7 @@ emptyWalletStorage addrNum bankAddr = do
                       map (uncurry UserAddress) <$>
                       replicateM addrNum keyGen
     let _inputAddressesTxs = foldr (\addr -> M.insert addr []) M.empty _userAddresses
-    _lastBlockId <- getBlockchainHeight
+    _lastBlockId <- C.unCps getBlockchainHeight
     return WalletStorage {..}
 
 

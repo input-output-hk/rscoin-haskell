@@ -61,9 +61,7 @@ library
                      , exceptions
                      , hashable
                      , hslogger
-                     , json-rpc >= 0.7.1.1
                      , lens
-                     , monad-logger >= 0.3.18
                      , mtl
                      , QuickCheck >= 2.8.1
                      , safe
@@ -77,6 +75,9 @@ library
                      , tuple >= 0.3.0.2
                      , unordered-containers
                      , vector
+                     , msgpack >= 1.0.0
+                     , msgpack-rpc >= 1.0.0
+                     , msgpack-aeson >= 0.1.0.0
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans

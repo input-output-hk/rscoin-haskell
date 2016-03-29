@@ -42,7 +42,7 @@ validateTransaction tx@Transaction{..} sig height = do
   where
     processInput :: AddrId -> IO CheckConfirmations
     processInput addrid = do
-        owns <- CC.getOwnersByAddrid addrid
+        owns <- CC.unCps $ CC.getOwnersByAddrid addrid
         unless (length owns >= 2) $
             throwIO $
             MajorityRejected $
@@ -63,7 +63,7 @@ validateTransaction tx@Transaction{..} sig height = do
                     -> (Mintette, MintetteId)
                     -> IO (Maybe CheckConfirmations)
     processMintette addrid (mintette,mid) = do
-        signedPairMb <- CC.checkNotDoubleSpent mintette tx addrid sig
+        signedPairMb <- CC.unCps $ CC.checkNotDoubleSpent mintette tx addrid sig
         maybe
             (return Nothing)
             (\proof -> do unless (verifyCheckConfirmation proof tx addrid) $
@@ -72,8 +72,8 @@ validateTransaction tx@Transaction{..} sig height = do
             signedPairMb
     commitBundle :: CheckConfirmations -> IO ()
     commitBundle bundle = do
-        owns <- CC.getOwnersByTx tx
+        owns <- CC.unCps $ CC.getOwnersByTx tx
         (succeededCommits :: [CommitConfirmation]) <-
             filter (\(pk, sign, lch) -> verify pk sign (tx, lch)) . catMaybes <$>
-            mapM ((\mintette -> CC.commitTx mintette tx height bundle) . fst) owns
+            mapM ((\mintette -> CC.unCps $ CC.commitTx mintette tx height bundle) . fst) owns
         unless (null succeededCommits) $ throwIO FailedToCommit

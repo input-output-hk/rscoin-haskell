@@ -25,7 +25,6 @@ import           RSCoin.Core           as C
 import           RSCoin.User.AcidState (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState as A
 import           RSCoin.User.Error     (UserError (..), eWrap)
-import           RSCoin.User.Logic     (getBlockByHeight, getBlockchainHeight)
 import qualified RSCoin.User.Wallet    as W
 import qualified UserOptions           as O
 
@@ -63,7 +62,7 @@ proceedCommand st (O.FormTransaction inputs (outputAddrStr,outputCoinInt)) =
            C.Coin outputCoinInt
 proceedCommand st O.UpdateBlockchain =
     eWrap $
-    do height <- getBlockchainHeight -- request to get blockchain height
+    do height <- C.unCps getBlockchainHeight -- request to get blockchain height
        walletHeight <- query st A.GetLastBlockId
        when (walletHeight < height) $
            throwIO $
@@ -78,7 +77,7 @@ proceedCommand st O.UpdateBlockchain =
 -- previous height state already.
 updateToBlockHeight :: A.RSCoinUserState -> PeriodId -> IO ()
 updateToBlockHeight st newHeight = do
-    C.HBlock{..} <- fromJust <$> getBlockByHeight newHeight -- FIXME: handle maybe
+    C.HBlock{..} <- fmap fromJust . C.unCps $ getBlockByHeight newHeight -- FIXME: handle maybe
     -- TODO validate this block
     relatedTransactions <-
         nub . concatMap (toTrs hbTransactions) <$> query st GetAllAddresses

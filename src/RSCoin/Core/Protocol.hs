@@ -1,234 +1,113 @@
-{-# LANGUAGE TemplateHaskell #-}
-
+{-# LANGUAGE FlexibleContexts #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 -- | Protocol implements all low level communication between
 -- entities (User, Bank, Mintette).
 
 module RSCoin.Core.Protocol
-       ( BankReq (..)
-       , BankRes (..)
-       , MintetteReq (..)
-       , MintetteRes (..)
-       , serve
-       , callMintette
-       , callBank
+       ( BankMethod (..)
+       , MintetteMethod (..)
+       , RSCoinMethod (..)
+       , WithResult
+       , AsMessagePack (..)
+       , Server
+       , C.Client
+       , method
+       , S.serve
        , call
-       , callBatch
+       , execBank
+       , execMintette
+       , callBank
+       , callMintette
+       , unCps
        ) where
 
-import           Network.JsonRpc        (BatchRequest (..), BatchResponse (..),
-                                         ErrorObj, FromRequest (parseParams),
-                                         FromResponse (parseResult), JsonRpcT,
-                                         Respond, ToRequest (..), Ver (V2),
-                                         buildResponse, fromError,
-                                         jsonRpcTcpClient, jsonRpcTcpServer,
-                                         receiveBatchRequest, sendBatchRequest,
-                                         sendBatchResponse, sendRequest,
-                                         sendResponse)
+import           Control.Monad.IO.Class     (liftIO)
 
-import           Control.Monad          (forM, liftM)
-import           Control.Monad.Logger   (LoggingT, MonadLoggerIO, logDebug,
-                                         runStderrLoggingT)
-import           Control.Monad.Trans    (lift)
-import           Data.Aeson             (FromJSON (parseJSON), ToJSON (toJSON))
-import           Data.Aeson.Types       (Value (Array), emptyArray)
-import qualified Data.ByteString.Char8  as BS
-import           Data.Conduit.Network   (clientSettings, serverSettings)
-import           Data.Foldable          (forM_)
-import           Data.Maybe             (catMaybes)
-import           Data.Vector            ((!?))
+import           Data.IORef                 (newIORef, writeIORef, readIORef)
+import qualified Data.ByteString.Char8      as BS
+import           Data.MessagePack.Aeson     (AsMessagePack (..))
+import           Data.Maybe                 (fromJust)
 
-import           RSCoin.Core.Aeson      ()
-import           RSCoin.Core.Constants  (bankHost, bankPort)
-import           RSCoin.Core.Crypto     (Signature)
-import           RSCoin.Core.Primitives (AddrId, Transaction)
-import           RSCoin.Core.Types      (CheckConfirmation, CheckConfirmations,
-                                         CommitConfirmation, HBlock,
-                                         Mintette (..), MintetteId, Mintettes,
-                                         NewPeriodData, PeriodId, PeriodResult)
+import qualified Network.MessagePack.Server as S
+import qualified Network.MessagePack.Client as C
 
----- BANK data ----
+import           RSCoin.Core.Constants      (bankHost, bankPort)
+import           RSCoin.Core.Types          (Mintette (..))
+import           RSCoin.Core.Crypto         ()
+import           RSCoin.Core.Aeson          ()
 
--- | Request handled by Bank (probably sent by User or Mintette)
-data BankReq
-    = ReqGetMintettes
-    | ReqGetBlockchainHeight
-    | ReqGetHBlock PeriodId
+-- TODO: this module should provide more safety and expose better api
 
-instance FromRequest BankReq where
-    parseParams "getMintettes" =
-        Just $ const $ return ReqGetMintettes
-    parseParams "getBlockchainHeight" =
-        Just $ const $ return ReqGetBlockchainHeight
-    parseParams "getHBlock" =
-        Just $ \v -> ReqGetHBlock <$> do
-            Array a <- parseJSON v
-            maybe (fail "getHBLock: periodId not found") parseJSON $ a !? 0
-    parseParams _ =
-        Nothing
+data RSCoinMethod
+    = RSCBank BankMethod
+    | RSCMintette MintetteMethod
+    deriving (Show)
 
-instance ToRequest BankReq where
-    requestMethod ReqGetMintettes = "getMintettes"
-    requestMethod ReqGetBlockchainHeight = "getBlockchainHeight"
-    requestMethod (ReqGetHBlock _) = "getHBlock"
-    requestIsNotif = const False
+data BankMethod
+    = GetMintettes
+    | GetBlockchainHeight
+    | GetHBlock
+    deriving (Show)
 
-instance ToJSON BankReq where
-    toJSON ReqGetMintettes = emptyArray
-    toJSON ReqGetBlockchainHeight = emptyArray
-    toJSON (ReqGetHBlock i) = toJSON [i]
+data MintetteMethod
+    = PeriodFinished
+    | AnnounceNewPeriod
+    | CheckTx
+    | CommitTx
+    deriving (Show)
 
--- | Responses to Bank requests (probably sent by User or Mintette)
-data BankRes
-    = ResGetMintettes Mintettes
-    | ResGetBlockchainHeight Int
-    | ResGetHBlock (Maybe HBlock)
+type Server a = S.Server (AsMessagePack a)
 
-instance FromResponse BankRes where
-    parseResult "getMintettes" =
-        Just $ fmap ResGetMintettes . parseJSON
-    parseResult "getBlockchainHeight" =
-        Just $ fmap ResGetBlockchainHeight . parseJSON
-    parseResult "getHBlock" =
-        Just $ fmap ResGetHBlock . parseJSON
-    parseResult _ =
-        Nothing
+method :: S.MethodType m f => RSCoinMethod -> f -> S.Method m
+method m = S.method (show m)
 
-instance ToJSON BankRes where
-    toJSON (ResGetMintettes ms) = toJSON ms
-    toJSON (ResGetBlockchainHeight h) = toJSON h
-    toJSON (ResGetHBlock h) = toJSON h
+--call :: RpcType a => RSCoinMethod -> a
+-- FIXME: RpcType isn't exported so my idea of using Show RSCoinMethod for method name
+-- doesn't hold any more
+call m = C.call (show m)
 
----- BANK data ----
+-- TODO: this can be modeled with Cont monad
+-- https://en.wikibooks.org/wiki/Haskell/Continuation_passing_style
+type WithResult a = (a -> IO ()) -> IO ()
 
----- MINTETTE data ----
+execBank :: C.Client (AsMessagePack a) -> WithResult a
+execBank action withResult =
+    C.execClient (BS.pack bankHost) bankPort $ do
+        ret <- getAsMessagePack <$> action
+        liftIO $ withResult ret
 
--- | Request handled by Mintette (probably sent by User or Bank)
-data MintetteReq
-    = ReqPeriodFinished PeriodId
-    | ReqAnnounceNewPeriod MintetteId NewPeriodData
-    | ReqCheckTx Transaction AddrId Signature
-    | ReqCommitTx Transaction PeriodId CheckConfirmations
+execMintette :: Mintette -> C.Client (AsMessagePack a) -> WithResult a
+execMintette Mintette {..} action withResult =
+    C.execClient (BS.pack mintetteHost) mintettePort $ do
+        ret <- getAsMessagePack <$> action
+        liftIO $ withResult ret
 
-instance FromRequest MintetteReq where
-    parseParams "periodFinished" =
-        Just $ \v -> ReqPeriodFinished <$> do
-            Array a <- parseJSON v
-            maybe (fail "periodFinished: periodId not found") parseJSON $ a !? 0
-    parseParams "announceNewPeriod" =
---        Just $ fmap ReqAnnounceNewPeriod . parseJSON
-        undefined -- TODO, make something of it when refactoring/merging with msgpack!!!
-    parseParams "checkTx" =
-        Just $ \v -> do
-            Array a <- parseJSON v
-            tx <- maybe (fail "tx not found") parseJSON $ a !? 0
-            addrId <- maybe (fail "addrid not found") parseJSON $ a !? 1
-            signature <- maybe (fail "signature not found") parseJSON $ a !? 2
-            return $ ReqCheckTx tx addrId signature
-    parseParams "commitTx" =
-        Just $ \v -> do
-            Array a <- parseJSON v
-            tx <- maybe (fail "tx not found") parseJSON $ a !? 0
-            pId <- maybe (fail "period id not found") parseJSON $ a !? 1
-            cc <- maybe (fail "bundle of evidence not found") parseJSON $ a !? 2
-            return $ ReqCommitTx tx pId cc
-    parseParams _ =
-        Nothing
+callBank :: C.Client (AsMessagePack a) -> IO a
+callBank = unCps . execBank
 
-instance ToRequest MintetteReq where
-    requestMethod (ReqPeriodFinished _) = "periodFinished"
-    requestMethod (ReqAnnounceNewPeriod _ _) = "announceNewPeriod"
-    requestMethod (ReqCheckTx _ _ _) = "checkTx"
-    requestMethod (ReqCommitTx _ _ _) = "commitTx"
-    requestIsNotif = const False
+callMintette :: Mintette -> C.Client (AsMessagePack a) -> IO a
+callMintette m = unCps . execMintette m
 
-instance ToJSON MintetteReq where
-    toJSON (ReqPeriodFinished pid) = toJSON [pid]
-    toJSON (ReqAnnounceNewPeriod mid npd) = toJSON (mid, npd)
-    toJSON (ReqCheckTx tx a sg) = toJSON (tx, a, sg)
-    toJSON (ReqCommitTx tx pId cc) = toJSON (tx, pId, cc)
+unCps :: WithResult a -> IO a
+unCps withResult = do
+    ref <- newIORef Nothing
+    withResult $ writeIORef ref . Just
+    fromJust <$> readIORef ref
 
--- | Responses to Mintette requests (probably sent by User or Bank)
-data MintetteRes
-    = ResPeriodFinished PeriodResult
-    | ResAnnounceNewPeriod  -- FIXME: we want it to be notification!
-    | ResCheckTx (Maybe CheckConfirmation)
-    | ResCommitTx (Maybe CommitConfirmation)
+-- example bellow
 
-instance FromResponse MintetteRes where
-    parseResult "periodFinished" =
-        Just $ fmap ResPeriodFinished . parseJSON
-    parseResult "announceNewPeriod" =
-        Just $ const $ return ResAnnounceNewPeriod
-    parseResult "checkTx" =
-        Just $ fmap ResCheckTx . parseJSON
-    parseResult "commitTx" =
-        Just $ fmap ResCommitTx . parseJSON
-    parseResult _ =
-        Nothing
+{-
+start' :: IO ()
+start' = S.serve 3000 [S.method "add" add]
 
-instance ToJSON MintetteRes where
-    toJSON (ResPeriodFinished pid) = toJSON pid
-    toJSON ResAnnounceNewPeriod = emptyArray
-    toJSON (ResCheckTx cc) = toJSON cc
-    toJSON (ResCommitTx cc) = toJSON cc
+call' :: IO ()
+call' = C.execClient "127.0.0.1" 3000 $ do
+    ret <- add' 1 2
+    liftIO $ print ret
 
----- MINTETTE data ----
+add :: Int -> Int -> S.Server Int
+add x y = return $ x + y
 
--- | Runs a TCP server transport for JSON-RPC.
-serve :: (FromRequest a, ToJSON b) => Int -> (a -> IO b) -> IO ()
-serve port handler = runStderrLoggingT $ do
-    let ss = serverSettings port "::1"
-    jsonRpcTcpServer V2 False ss . srv $ lift . fmap Right . handler
-
-srv :: (MonadLoggerIO m, FromRequest a, ToJSON b) => Respond a m b -> JsonRpcT m ()
-srv handler = do
-    $(logDebug) "listening for new request"
-    qM <- receiveBatchRequest
-    case qM of
-        Nothing -> do
-            $(logDebug) "closed request channel, exting"
-            return ()
-        Just (SingleRequest q) -> do
-            $(logDebug) "got request"
-            rM <- lift $ buildResponse handler q
-            forM_ rM sendResponse
-            srv handler
-        Just (BatchRequest qs) -> do
-            $(logDebug) "got request batch"
-            rs <- lift $ catMaybes `liftM` forM qs (buildResponse handler)
-            sendBatchResponse $ BatchResponse rs
-            srv handler
-
--- TODO: fix error handling
-handleResponse :: Maybe (Either ErrorObj r) -> r
-handleResponse t =
-    case t of
-        Nothing -> error "could not receive or parse response"
-        Just (Left e) -> error $ fromError e
-        Just (Right r) -> r
-
--- | Send a request to a Mintette.
-callMintette :: Mintette -> MintetteReq -> IO MintetteRes
-callMintette Mintette {..} = call mintettePort mintetteHost
-
--- | Send a request to a Bank.
-callBank :: BankReq -> IO BankRes
-callBank = call bankPort bankHost
-
--- TODO: improve logging
--- | Send a request.
-call :: (ToRequest a, ToJSON a, FromResponse b) => Int -> String -> a -> IO b
-call port host req = initCall port host $ do
-    $(logDebug) "send a request"
-    handleResponse <$> sendRequest req
-
--- | Send multiple requests in a batch.
-callBatch :: (ToRequest a, ToJSON a, FromResponse b) => Int -> String -> [a] -> IO [b]
-callBatch port host reqs = initCall port host $ do
-    $(logDebug) "send a batch request"
-    map handleResponse <$> sendBatchRequest reqs
-
--- | Runs a TCP client transport for JSON-RPC.
-initCall :: Int -> String -> JsonRpcT (LoggingT IO) a -> IO a
-initCall port host action = runStderrLoggingT $
-    jsonRpcTcpClient V2 True (clientSettings port $ BS.pack host) action
+add' :: Int -> Int -> C.Client Int
+add' = C.call "add"
+-}

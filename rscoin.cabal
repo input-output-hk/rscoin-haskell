@@ -41,6 +41,7 @@ library
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Aeson
                      , RSCoin.Core.Communication
+                     , RSCoin.Core.Logging
                      , RSCoin.Core.Protocol
                      , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Error
@@ -59,6 +60,7 @@ library
                      , containers
                      , exceptions
                      , hashable
+                     , hslogger
                      , json-rpc >= 0.7.1.1
                      , lens
                      , monad-logger >= 0.3.18

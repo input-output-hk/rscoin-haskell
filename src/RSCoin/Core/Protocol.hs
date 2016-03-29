@@ -15,22 +15,27 @@ module RSCoin.Core.Protocol
        , call
        , execBank
        , execMintette
+       , callBank
+       , callMintette
+       , unCps
        ) where
 
-import           Control.Monad.Trans     (lift)
-import           Control.Monad.IO.Class  (liftIO)
-import qualified Data.ByteString.Char8   as BS
+import           Control.Monad.Trans        (lift)
+import           Control.Monad.IO.Class     (liftIO)
 
-import           Data.MessagePack.Object (Object (ObjectBin))
-import           Data.MessagePack.Aeson  (AsMessagePack (..))
+import           Data.IORef                 (newIORef, writeIORef, readIORef)
+import qualified Data.ByteString.Char8      as BS
+import           Data.MessagePack.Object    (Object (ObjectBin))
+import           Data.MessagePack.Aeson     (AsMessagePack (..))
+import           Data.Maybe                 (fromJust)
 
 import qualified Network.MessagePack.Server as S
 import qualified Network.MessagePack.Client as C
 
-import           RSCoin.Core.Constants  (bankHost, bankPort)
-import           RSCoin.Core.Types      (Mintette (..))
-import           RSCoin.Core.Crypto     ()
-import           RSCoin.Core.Aeson      ()
+import           RSCoin.Core.Constants      (bankHost, bankPort)
+import           RSCoin.Core.Types          (Mintette (..))
+import           RSCoin.Core.Crypto         ()
+import           RSCoin.Core.Aeson          ()
 
 data RSCoinMethod
     = RSCBank BankMethod
@@ -75,6 +80,18 @@ execMintette Mintette {..} action withResult =
     C.execClient (BS.pack mintetteHost) mintettePort $ do
         ret <- getAsMessagePack <$> action
         liftIO $ withResult ret
+
+callBank :: C.Client (AsMessagePack a) -> IO a
+callBank = unCps . execBank
+
+callMintette :: Mintette -> C.Client (AsMessagePack a) -> IO a
+callMintette m = unCps . execMintette m
+
+unCps :: WithResult a -> IO a
+unCps withResult = do
+    ref <- newIORef Nothing
+    withResult $ writeIORef ref . Just
+    fromJust <$> readIORef ref
 
 -- example bellow
  

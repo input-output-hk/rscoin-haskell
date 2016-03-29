@@ -1,32 +1,31 @@
+{-# LANGUAGE ViewPatterns #-}
 -- | Server implementation for Bank
 
 module RSCoin.Bank.Server
        ( serve
        ) where
 
-import           Control.Monad.IO.Class (MonadIO)
 import           Data.Acid.Advanced     (query')
 
 import           RSCoin.Bank.AcidState  (GetHBlock (..), GetMintettes (..),
                                          GetPeriodId (..), State)
 
-import           RSCoin.Core            (RSCoinMethod (..), BankMethod (..), HBlock,
-                                         Mintettes, PeriodId, bankPort)
-import qualified RSCoin.Core            as C (serve, method)
+import           RSCoin.Core            (HBlock, Mintettes, PeriodId, bankPort)
+import qualified RSCoin.Core.Protocol   as C
 
 serve :: State -> IO ()
 serve st =
     C.serve bankPort
-        [ C.method (RSCBank GetMintettes) $ serveGetMintettes st
-        , C.method (RSCBank GetBlockchainHeight) $ serveGetHeight st
-        , C.method (RSCBank GetHBlock) $ serveGetHBlock st
+        [ C.method (C.RSCBank C.GetMintettes) $ serveGetMintettes st
+        , C.method (C.RSCBank C.GetBlockchainHeight) $ serveGetHeight st
+        , C.method (C.RSCBank C.GetHBlock) $ serveGetHBlock st
         ]
 
-serveGetMintettes :: MonadIO m => State -> m Mintettes
-serveGetMintettes st = query' st GetMintettes
+serveGetMintettes :: State -> C.Server Mintettes
+serveGetMintettes st = C.AsMessagePack <$> query' st GetMintettes
 
-serveGetHeight :: MonadIO m => State -> m Int
-serveGetHeight st = query' st GetPeriodId
+serveGetHeight :: State -> C.Server Int
+serveGetHeight st = C.AsMessagePack <$> query' st GetPeriodId
 
-serveGetHBlock :: MonadIO m => State -> PeriodId -> m (Maybe HBlock)
-serveGetHBlock st pId = query' st $ GetHBlock pId
+serveGetHBlock :: State -> C.AsMessagePack PeriodId -> C.Server (Maybe HBlock)
+serveGetHBlock st (C.getAsMessagePack -> pId) = fmap C.AsMessagePack . query' st $ GetHBlock pId

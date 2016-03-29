@@ -17,14 +17,14 @@ module RSCoin.Bank.Storage
        , startNewPeriod
        ) where
 
-import           Control.Lens               (Getter, makeLenses, to, use, (%=),
-                                             (+=), (.=))
+import           Control.Lens               (Getter, makeLenses, to, use, uses,
+                                             (%=), (+=), (.=))
 import           Control.Monad              (guard, unless)
 import           Control.Monad.State        (State)
 import           Control.Monad.Trans.Except (ExceptT, throwE)
 import qualified Data.HashMap.Lazy          as M
 import qualified Data.HashSet               as S
-import           Data.Maybe                 (catMaybes)
+import           Data.Maybe                 (mapMaybe)
 import           Data.Typeable              (Typeable)
 import           Safe                       (atMay, headMay)
 
@@ -66,7 +66,7 @@ getPeriodId :: Query PeriodId
 getPeriodId = periodId
 
 getHBlock :: PeriodId -> Query (Maybe HBlock)
-getHBlock pId = blocks . to (flip atMay pId)
+getHBlock pId = blocks . to (`atMay` pId)
 
 type Update = State Storage
 type ExceptUpdate = ExceptT BankError (State Storage)
@@ -89,7 +89,10 @@ startNewPeriod sk results = do
             "Length of results is different from the length of mintettes"
     pId <- use periodId
     startNewPeriodDo sk pId results
-    NewPeriodData <$> use periodId <*> use mintettes <*> use dpk
+    NewPeriodData <$> use periodId
+                  <*> use mintettes
+                  <*> uses blocks head
+                  <*> use dpk
 
 startNewPeriodDo :: SecretKey
                  -> PeriodId
@@ -108,7 +111,7 @@ startNewPeriodDo sk pId results = do
     let checkedResults =
             map (checkResult pId lastHBlock) $ zip3 results keys logs
     let filteredResults =
-            catMaybes $ map filterCheckedResults $ zip [0 ..] checkedResults
+            mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
     mts <- use mintettes
     let pk = derivePublicKey sk
     let blockTransactions =
@@ -159,8 +162,8 @@ allocateCoins pk mintetteKeys goodResults =
     checkParticipationBlocks (block:blks) =
         (not $ null $ lbTransactions block) || checkParticipationBlocks blks
     awardedCnt = fromIntegral $ length awarded
-    mintetteReward = (getCoin periodReward) `div` (awardedCnt + 1)
-    bankReward = (getCoin periodReward) - awardedCnt * mintetteReward
+    mintetteReward = getCoin periodReward `div` (awardedCnt + 1)
+    bankReward = getCoin periodReward - awardedCnt * mintetteReward
     mintetteOutputs =
         map
             (\idx -> (Address (mintetteKeys !! idx), Coin mintetteReward))
@@ -174,7 +177,7 @@ mergeTransactions mts goodResults = M.foldrWithKey appendTxChecked [] txMap
     txMap = foldr insertResult M.empty goodResults
     insertResult (mintId, (_, blks, _)) m = foldr (insertBlock mintId) m blks
     insertBlock mintId blk m = foldr (insertTx mintId) m (lbTransactions blk)
-    insertTx mintId tx m = M.insertWith (S.union) tx (S.singleton mintId) m
+    insertTx mintId tx m = M.insertWith S.union tx (S.singleton mintId) m
     appendTxChecked :: Transaction
                     -> S.HashSet MintetteId
                     -> [Transaction]

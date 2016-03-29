@@ -1,11 +1,14 @@
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Server implementation for mintette
 
 module RSCoin.Mintette.Server
        ( serve
        ) where
 
-import           Control.Exception         (bracket)
+import           Control.Exception         (bracket, try)
+import           Control.Monad.Trans       (lift)
 import           Data.Acid.Advanced        (update')
 
 import qualified RSCoin.Core               as C
@@ -13,6 +16,7 @@ import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
                                             StartPeriod (..), State, closeState,
                                             openState)
+import           RSCoin.Mintette.Error     (MintetteError)
 import           RSCoin.Mintette.Worker    (runWorker)
 
 serve :: Int -> FilePath -> C.SecretKey -> IO ()
@@ -41,8 +45,10 @@ handleCheckTx
     -> C.AsMessagePack C.AddrId
     -> C.AsMessagePack C.Signature
     -> C.Server (Maybe C.CheckConfirmation)
-handleCheckTx sk st (C.getAsMessagePack -> tx) (C.getAsMessagePack -> addrId) (C.getAsMessagePack -> sg) =
-    fmap C.AsMessagePack . update' st $ CheckNotDoubleSpent sk tx addrId sg
+handleCheckTx sk st (C.getAsMessagePack -> tx) (C.getAsMessagePack -> addrId) (C.getAsMessagePack -> sg) = lift . fmap C.AsMessagePack $ do
+    (res :: Either MintetteError C.CheckConfirmation) <-
+        try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
+    either (const $ return Nothing) (return . Just) res
 
 handleCommitTx
     :: C.SecretKey
@@ -51,5 +57,7 @@ handleCommitTx
     -> C.PeriodId
     -> C.AsMessagePack C.CheckConfirmations
     -> C.Server (Maybe C.CommitConfirmation)
-handleCommitTx sk st (C.getAsMessagePack -> tx) pId (C.getAsMessagePack -> cc) =
-    fmap C.AsMessagePack . update' st $ CommitTx sk tx pId cc
+handleCommitTx sk st (C.getAsMessagePack -> tx) pId (C.getAsMessagePack -> cc) = lift . fmap C.AsMessagePack $ do
+    (res :: Either MintetteError C.CommitConfirmation) <-
+        try $ update' st $ CommitTx sk tx pId cc
+    either (const $ return Nothing) (return . Just) res

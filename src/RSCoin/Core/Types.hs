@@ -146,10 +146,13 @@ data HBlock = HBlock
 
 $(deriveSafeCopy 0 'base ''HBlock)
 
+-- | Data sent by server on new period start.
 data NewPeriodData = NewPeriodData
-    { npdPeriodId  :: PeriodId
-    , npdMintettes :: Mintettes
-    , npdDpk       :: Dpk
+    { npdPeriodId  :: PeriodId   -- ^ Id of a new period
+    , npdMintettes :: Mintettes  -- ^ Mintettes list
+    , npdHBlock    :: HBlock     -- ^ Last processed HBlock (needed to
+                                 -- update local mintette's utxo)
+    , npdDpk       :: Dpk        -- ^ Dpk
     } deriving (Show)
 
 $(deriveSafeCopy 0 'base ''NewPeriodData)

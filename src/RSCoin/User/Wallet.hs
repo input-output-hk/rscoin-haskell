@@ -12,6 +12,7 @@ module RSCoin.User.Wallet
        , privateAddress
        , makeUserAddress
        , toAddress
+       , validateUserAddress
        , WalletStorageError (..)
        , WalletStorage
        , emptyWalletStorage
@@ -20,7 +21,7 @@ module RSCoin.User.Wallet
        , getTransactions
        , getLastBlockId
        , withBlockchainUpdate
-       , generateAddresses
+       , addAddresses
        ) where
 
 import           Control.Exception          (Exception, throw)
@@ -28,7 +29,6 @@ import           Control.Lens               ((%=), (<>=), (^.))
 import qualified Control.Lens               as L
 import           Control.Monad              (replicateM, unless)
 import           Control.Monad.Catch        (MonadThrow, throwM)
-import           Control.Monad.IO.Class     (MonadIO, liftIO)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import           Data.List                  (find)
@@ -75,6 +75,10 @@ makeUserAddress = UserAddress
 
 toAddress :: UserAddress -> Address
 toAddress userAddress = C.Address $ userAddress ^. publicAddress
+
+validateUserAddress :: UserAddress -> Bool
+validateUserAddress uaddr =
+    C.checkKeyPair (uaddr ^. privateAddress, uaddr ^. publicAddress)
 
 -- | Wallet, that holdls all information needed for the user to 'own'
 -- bitcoins. Plus some meta-information that's crucially needed for
@@ -220,17 +224,28 @@ withBlockchainUpdate newHeight transactions = do
   where
     reportBadRequest = throwM . BadRequest
 
--- | Generates n addresses and puts them into wallet.
-generateAddresses
-    :: (MonadState WalletStorage m, MonadThrow m, MonadIO m)
-    => Int -> m ()
-generateAddresses addrNum = do
-    unless (addrNum > 0) $
+-- | Puts given address and it's related transactions (that contain it
+-- as output S_{out}) into wallet. Blockchain won't be queried.
+addAddresses
+    :: (MonadState WalletStorage m, MonadThrow m)
+    => UserAddress -> [Transaction] -> m ()
+addAddresses userAddress txs = do
+    unless (validateUserAddress userAddress) $
         throwM $
         BadRequest $
         formatSingle'
-            "Failed on attempt to generate negative number of addresses: {}"
-            addrNum
-    newAddrs <-
-        liftIO $ map (uncurry UserAddress) <$> replicateM addrNum keyGen
-    userAddresses <>= newAddrs
+            ("Tried to add invalid address into storage {}. " <>
+             "SecretKey doesn't match with PublicKey.")
+            userAddress
+    let mappedTxs :: [Transaction]
+        mappedTxs =
+            filter (null . C.getAddrIdByAddress (toAddress userAddress)) txs
+    unless (null mappedTxs) $
+        throwM $
+        BadRequest $
+        format'
+            ("Error while adding address {} to storage: {} transactions dosn't " <>
+             "contain it (address) as output. First bad transaction: {}")
+            (userAddress, length mappedTxs, head mappedTxs)
+    userAddresses <>= [userAddress]
+    inputAddressesTxs <>= M.singleton userAddress txs

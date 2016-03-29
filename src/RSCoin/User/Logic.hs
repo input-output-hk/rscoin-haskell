@@ -35,7 +35,7 @@ data UserLogicError
 
 instance Exception UserLogicError
 
--- | Implements V.1 from the paper (without actionlog though TODO)
+-- | Implements V.1 from the paper
 validateTransaction :: Transaction -> Signature -> PeriodId -> IO ()
 validateTransaction tx@Transaction{..} sig height = do
     (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs

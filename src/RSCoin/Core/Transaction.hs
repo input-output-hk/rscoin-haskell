@@ -78,7 +78,9 @@ chooseAddresses addrids value =
                      else Nothing)
     in (chosenAIds, whatsLeft)
 
--- | ?? TODO
+-- | This function creates for every address ∈ S_{out} a pair
+-- (addr,addrid), where addrid is exactly a usage of this address in
+-- this transasction
 computeOutputAddrids :: Transaction -> [(AddrId, Address)]
 computeOutputAddrids tx@Transaction{..} =
     let h = hash tx in

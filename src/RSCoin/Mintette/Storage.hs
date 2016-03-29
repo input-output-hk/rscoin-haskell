@@ -215,6 +215,7 @@ finishEpochList sk txList = do
     let newTopBlocks = lBlock : topBlocks
     lBlocks %= (\l -> newTopBlocks : tail l)
     pushLogEntry $ C.CloseEpochEntry heads
+    txset .= S.empty
 
 pushLogEntry :: C.ActionLogEntry -> Update ()
 pushLogEntry entry = do

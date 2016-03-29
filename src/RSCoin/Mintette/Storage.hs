@@ -45,25 +45,41 @@ import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.Error     (MintetteError (..))
 
 data Storage = Storage
-    { _utxo        :: M.Map AddrId Address      -- ^ Unspent transaction outputs
-    , _utxoDeleted :: M.Map AddrId Address      -- ^ Entries, deleted from utxo
-    , _utxoAdded   :: M.Map AddrId Address      -- ^ Entries, added to utxo
-    , _pset        :: M.Map AddrId Transaction  -- ^ Set of checked transactions
-    , _txset       :: S.Set Transaction         -- ^ List of transaction sealing into ledger
-    , _lBlocks     :: [[LBlock]]                -- ^ Blocks are stored per period
-    , _actionLogs  :: [ActionLog]               -- ^ Logs are stored per period
-    , _logSize     :: Int                       -- ^ Total size of actionLogs
-    , _mintettes   :: Mintettes                 -- ^ Mintettes for current period
-    , _mintetteId  :: Maybe MintetteId          -- ^ Id for current period
-    , _dpk         :: Dpk                       -- ^ DPK for current period
-    , _logHeads    :: ActionLogHeads            -- ^ All known heads of logs
+    { _utxo         :: M.Map AddrId Address      -- ^ Unspent transaction outputs
+    , _utxoDeleted  :: M.Map AddrId Address      -- ^ Entries, deleted from utxo
+    , _utxoAdded    :: M.Map AddrId Address      -- ^ Entries, added to utxo
+    , _pset         :: M.Map AddrId Transaction  -- ^ Set of checked transactions
+    , _txset        :: S.Set Transaction         -- ^ List of transaction sealing into ledger
+    , _lBlocks      :: [[LBlock]]                -- ^ Blocks are stored per period
+    , _actionLogs   :: [ActionLog]               -- ^ Logs are stored per period
+    , _logSize      :: Int                       -- ^ Total size of actionLogs
+    , _mintettes    :: Mintettes                 -- ^ Mintettes for current period
+    , _mintetteId   :: Maybe MintetteId          -- ^ Id for current period
+    , _dpk          :: Dpk                       -- ^ DPK for current period
+    , _logHeads     :: ActionLogHeads            -- ^ All known heads of logs
+    , _lastBankHash :: Maybe Hash                -- ^ Hash of the last HBlock
     }
 
 $(makeLenses ''Storage)
 
 -- | Make storage for the 0-th period.
 mkStorage :: Storage
-mkStorage = Storage M.empty M.empty M.empty M.empty S.empty [[]] [[]] 0 [] Nothing [] M.empty
+mkStorage =
+    Storage
+    { _utxo = M.empty
+    , _utxoDeleted = M.empty
+    , _utxoAdded = M.empty
+    , _pset = M.empty
+    , _txset = S.empty
+    , _lBlocks = [[]]
+    , _actionLogs = [[]]
+    , _logSize = 0
+    , _mintettes = []
+    , _mintetteId = Nothing
+    , _dpk = []
+    , _logHeads = M.empty
+    , _lastBankHash = Nothing
+    }
 
 type Query a = Getter Storage a
 
@@ -203,15 +219,16 @@ startPeriod (mid,C.NewPeriodData{..}) = do
     -- those are transactions that we approved, but that didn't go
     -- into blockchain, so they should still be in utxo
     deletedNotInBlockchain <-
-       uses utxoDeleted (filter (not . (`elem` txOutsPaired)) . M.assocs)
+        uses utxoDeleted (filter (not . (`elem` txOutsPaired)) . M.assocs)
     -- those are transactions that were commited but for some
     -- reason bank rejected LBlock and they didn't got into blockchain
     addedNotInBlockchain <-
-       uses utxoAdded (filter (not . (`elem` txOutsPaired)) . M.assocs)
+        uses utxoAdded (filter (not . (`elem` txOutsPaired)) . M.assocs)
     utxo %= M.union (M.fromList deletedNotInBlockchain)
     utxo %= M.difference (M.fromList addedNotInBlockchain)
     utxoDeleted .= M.empty
     utxoAdded .= M.empty
+    lastBankHash .= Just (C.hbHash npdHBlock)
   where
     checkIsInactive = do
         v <- use isActive
@@ -231,7 +248,8 @@ finishEpochList _ [] = return ()
 finishEpochList sk txList = do
     heads <- use logHeads
     prevRecord <- fromJust <$> use logHead
-    let lBlock = mkLBlock txList sk undefined heads prevRecord
+    prevHBlockHash <- fromJust <$> use lastBankHash
+    let lBlock = mkLBlock txList sk prevHBlockHash heads prevRecord
     topBlocks <- head <$> use lBlocks
     let newTopBlocks = lBlock : topBlocks
     lBlocks %= (\l -> newTopBlocks : tail l)

@@ -33,7 +33,6 @@ runWorker sk st =
        threadDelay (fromIntegral $ toMicroseconds periodDelta)
   where
     foreverE f = void $ forkFinally f $ handler $ foreverE f
-    -- TODO: use logging system once we have one
     handler f (Left (e :: SomeException)) = do
         logError $
             formatSingle'

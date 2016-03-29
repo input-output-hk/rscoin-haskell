@@ -43,7 +43,7 @@ import           Data.Text.Buildable       (Buildable (build))
 import           Data.Text.Encoding        (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format          as F
 import qualified Data.Text.IO              as TIO
-import           Test.QuickCheck.Arbitrary (arbitrary)
+import           Test.QuickCheck.Arbitrary (Arbitrary (arbitrary))
 import           Test.QuickCheck.Gen       (generate)
 
 import           Crypto.Secp256k1          (Msg, PubKey, SecKey, Sig,
@@ -114,7 +114,7 @@ instance Binary Signature where
 
 newtype SecretKey =
     SecretKey { getSecretKey :: SecKey }
-    deriving (Eq, Show, Read)
+    deriving (Eq, Show, Read, Arbitrary)
 
 instance Ord SecretKey where
     compare = comparing (show . getSecretKey)
@@ -128,7 +128,7 @@ instance Buildable SecretKey where
 
 newtype PublicKey =
     PublicKey { getPublicKey :: PubKey }
-    deriving (Eq, Show, Read)
+    deriving (Eq, Show, Read, Arbitrary)
 
 instance FromJSON PublicKey where
     parseJSON (Object v) =
@@ -212,8 +212,10 @@ withBinaryHashedMsg action =
         action
         . msg . SHA256.hashlazy . encode
 
+-- | Derives public key from the secret key
 derivePublicKey :: SecretKey -> PublicKey
 derivePublicKey (getSecretKey -> sk) = PublicKey $ derivePubKey sk
 
+-- | Validates the sk to be the secret key of pk
 checkKeyPair :: (SecretKey, PublicKey) -> Bool
 checkKeyPair (sk, pk) = pk == derivePublicKey sk

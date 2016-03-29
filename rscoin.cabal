@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     RSCoin.Bank
+                     , RSCoin.Bank.Storage
                      , RSCoin.Core
                      , RSCoin.Core.ActionLog
                      , RSCoin.Core.CheckConfirmation
@@ -37,7 +38,6 @@ library
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Error
                      , RSCoin.Bank.Server
-                     , RSCoin.Bank.Storage
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Aeson
                      , RSCoin.Core.Communication
@@ -157,12 +157,15 @@ executable rscoin-mintette
 
 test-suite rscoin-test
   main-is:             Test.hs
-  other-modules:       RSCoin.Core.CryptoSpec
+  other-modules:       RSCoin.Bank.StorageSpec
+                     , RSCoin.Core.Arbitrary
+                     , RSCoin.Core.CryptoSpec
                      , Spec
   type:                exitcode-stdio-1.0
   build-depends:       base >=4.8 && <4.9
                      , bytestring >= 0.10.6.0
                      , hspec >= 2.1.10
+                     , mtl
                      , QuickCheck >= 2.8.1
                      , rscoin
   hs-source-dirs:      test

@@ -6,14 +6,17 @@ module UserOptions
        , getUserOptions
        ) where
 
+import           RSCoin.Core         (defaultAccountsNumber,
+                                      defaultSecretKeyPath)
+
 import           Data.Int            (Int64)
 import           Data.Monoid         ((<>))
 import           Data.Text           (Text)
 
 import           Options.Applicative (Parser, auto, command, execParser,
                                       fullDesc, help, helper, info, long,
-                                      option, progDesc, some, strOption,
-                                      subparser, switch, value)
+                                      option, progDesc, showDefault, some,
+                                      strOption, subparser, switch, value)
 
 -- | Input user command that's contained in every program call
 data UserCommand
@@ -35,9 +38,11 @@ data UserCommand
 
 -- | Datatype describing user command line options
 data UserOptions = UserOptions
-    { userCommand :: UserCommand
-    , isBankMode  :: Bool
-    , walletPath  :: FilePath
+    { userCommand  :: UserCommand -- ^ Command for the program to process
+    , isBankMode   :: Bool        -- ^ If creating wallet in bank-mode,
+    , bankModePath :: FilePath    -- ^ Path to bank's secret key
+    , addressesNum :: Int         -- ^ Number of addresses to create initially
+    , walletPath   :: FilePath    -- ^ Path to the wallet
     } deriving (Show)
 
 userCommandParser :: Parser UserCommand
@@ -79,11 +84,22 @@ userOptionsParser =
         (long "bank-mode" <>
          help
              ("Start the client in bank-mode. " <>
-              "Private bank key should exist at ~/.rscoin/bankKey. " <>
-              "Is needed only on wallet initialization.")) <*>
+              "Is needed only on wallet initialization. " <>
+              "Will load bank's secret key.")) <*>
+    option
+        auto
+        (long "bank-sk-path" <> help "Path to bank's secret key." <>
+         value defaultSecretKeyPath <> showDefault) <*>
+    option
+        auto
+        (long "addresses-num" <>
+         help
+             ("The number of addresses to create " <>
+              "initially with the wallet") <>
+         value defaultAccountsNumber <> showDefault) <*>
     strOption
         (long "wallet-path" <> help "Path to wallet database." <>
-         value "wallet-db")
+         value "wallet-db" <> showDefault)
 
 -- | IO call that retrieves command line options
 getUserOptions :: IO UserOptions

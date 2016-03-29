@@ -4,31 +4,25 @@ module RSCoin.Core.CryptoSpec
        ( spec
        ) where
 
-import           RSCoin.Core.Crypto (sign, verify, keyGen)
+import           Test.Hspec            (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
 
-import           Data.ByteString    (ByteString)
-
-import           Test.Hspec         (Spec, describe, it,
-                                     shouldSatisfy, shouldNotSatisfy)
+import           RSCoin.Core.Crypto    (PublicKey, SecretKey, checkKeyPair,
+                                        derivePublicKey, sign, verify)
 
 spec :: Spec
 spec = do
     describe "Crypto" $ do
-        let msg1 = "First predefined message"  :: ByteString
-            msg2 = "Second predefined message" :: ByteString
-        it "Signing and verifying signature" $ do
-            (sKey1, pKey1) <- keyGen
-            sign sKey1 msg1
-                `shouldSatisfy`
-                    \sig -> verify pKey1 sig msg1
-            sign sKey1 msg1
-                `shouldNotSatisfy`
-                    \sig -> verify pKey1 sig msg2
+        prop
+            "Signature generated using secret key may be verified using derived public key"
+            signThenVerify
+        prop
+            "Signature generated using secret key may be verified only by public key `pk` for which `checkKeyPair (sk, pk)`"
+            signThenVerifyArbitraryPK
 
-            (sKey2, pKey2) <- keyGen
-            sign sKey2 msg1
-                `shouldNotSatisfy`
-                    \sig -> verify pKey1 sig msg1
-            sign sKey1 msg1
-                `shouldNotSatisfy`
-                    \sig -> verify pKey2 sig msg1
+signThenVerify :: Int -> SecretKey -> Bool
+signThenVerify v sk = verify (derivePublicKey sk) (sign sk v) v
+
+signThenVerifyArbitraryPK :: Int -> SecretKey -> PublicKey -> Bool
+signThenVerifyArbitraryPK v sk pk =
+    verify pk (sign sk v) v == checkKeyPair (sk, pk)

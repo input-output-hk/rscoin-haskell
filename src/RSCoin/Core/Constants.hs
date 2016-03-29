@@ -1,5 +1,6 @@
 module RSCoin.Core.Constants
        ( defaultSecretKeyPath
+       , defaultAccountsNumber
        , defaultPort
        , bankHost
        , bankPort
@@ -21,6 +22,11 @@ import           RSCoin.Core.Primitives (Address (Address), Coin)
 -- It's not cross-platform because we don't have time. :(
 defaultSecretKeyPath :: IsString s => s
 defaultSecretKeyPath = "~/.rscoin/key"
+
+-- | The default number of accounts (sk-pk pairs) generated with the
+-- wallet (user part)
+defaultAccountsNumber :: Int
+defaultAccountsNumber = 5
 
 -- | Default port used by applications.
 defaultPort :: Num a => a

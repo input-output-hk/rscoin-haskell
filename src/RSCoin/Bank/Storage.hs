@@ -7,6 +7,9 @@
 module RSCoin.Bank.Storage
        ( Storage
        , mkStorage
+       , Query
+       , Update
+       , ExceptUpdate
        , getMintettes
        , getPeriodId
        , getHBlock

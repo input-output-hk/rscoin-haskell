@@ -20,6 +20,8 @@ data MintetteError
     | MEDoubleSpending                    -- ^ Double spending detected.
     | MEInvalidSignature                  -- ^ Signature check failed.
     | MENotConfirmed                      -- ^ Can't deduce that transaction was confirmed.
+    | MEAlreadyActive                     -- ^ Can't start new period because mintette
+                                          -- is already active.
     deriving (Show,Typeable)
 
 instance Exception MintetteError

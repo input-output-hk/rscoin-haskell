@@ -10,17 +10,17 @@ import           Data.Acid.Advanced     (query')
 import           RSCoin.Bank.AcidState  (GetHBlock (..), GetMintettes (..),
                                          GetPeriodId (..), State)
 
-import           RSCoin.Core            (BankReq (..), BankRes (..), HBlock,
+import           RSCoin.Core            (RSCoinMethod (..), BankMethod (..), HBlock,
                                          Mintettes, PeriodId, bankPort)
-import qualified RSCoin.Core            as C (serve)
+import qualified RSCoin.Core            as C (serve, method)
 
 serve :: State -> IO ()
-serve = C.serve bankPort . handler
-
-handler :: State -> (BankReq -> IO BankRes)
-handler st ReqGetMintettes = ResGetMintettes <$> serveGetMintettes st
-handler st ReqGetBlockchainHeight = ResGetBlockchainHeight <$> serveGetHeight st
-handler st (ReqGetHBlock pid) = ResGetHBlock <$> serveGetHBlock st pid
+serve st =
+    C.serve bankPort
+        [ C.method (RSCBank GetMintettes) $ serveGetMintettes st
+        , C.method (RSCBank GetBlockchainHeight) $ serveGetHeight st
+        , C.method (RSCBank GetHBlock) $ serveGetHBlock st
+        ]
 
 serveGetMintettes :: MonadIO m => State -> m Mintettes
 serveGetMintettes st = query' st GetMintettes

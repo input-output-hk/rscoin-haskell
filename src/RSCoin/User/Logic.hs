@@ -10,14 +10,18 @@ module RSCoin.User.Logic
        ) where
 
 import qualified RSCoin.Core.Communication as CC
-import           RSCoin.Core.Crypto        (PublicKey, Signature, verify)
+import           RSCoin.Core.Crypto        (Signature, verify)
 import           RSCoin.Core.Primitives    (AddrId, Transaction (..))
-import           RSCoin.Core.Types         (Mintette, MintetteId, PeriodId)
+import           RSCoin.Core.Types         (CheckConfirmation (..),
+                                            CheckConfirmations,
+                                            CommitConfirmation, Mintette,
+                                            MintetteId, PeriodId)
 
 import           Serokell.Util.Text        (format')
 
 import           Control.Exception         (Exception, throwIO)
 import           Control.Monad             (unless, when)
+import qualified Data.Map                  as M
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid               ((<>))
 import qualified Data.Text                 as T
@@ -31,12 +35,12 @@ data UserLogicError
 instance Exception UserLogicError
 
 -- | Implements V.1 from the paper (without actionlog though TODO)
-validateTransaction :: Transaction -> PeriodId -> IO ()
-validateTransaction tx@Transaction{..} height = do
-    (bundle :: CC.BundleOfEvidence) <- concat <$> mapM processInput txInputs
+validateTransaction :: Transaction -> Signature -> PeriodId -> IO ()
+validateTransaction tx@Transaction{..} sig height = do
+    (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
     commitBundle bundle
   where
-    processInput :: AddrId -> IO CC.BundleOfEvidence
+    processInput :: AddrId -> IO CheckConfirmations
     processInput addrid = do
         owns <- CC.getOwnersByAddrid addrid
         unless (length owns >= 2) $
@@ -46,7 +50,7 @@ validateTransaction tx@Transaction{..} height = do
                 "Got only {} owners of addrid {} -- that's not enough to pass majority test."
                 (length owns, addrid)
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
-        subBundle <- catMaybes <$> mapM (processMintette addrid) owns
+        subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid) owns
         when (length subBundle < length owns `div` 2) $
             throwIO $
             MajorityRejected $
@@ -57,21 +61,24 @@ validateTransaction tx@Transaction{..} height = do
         return subBundle
     processMintette :: AddrId
                     -> (Mintette, MintetteId)
-                    -> IO (Maybe CC.NotDoubleSpentProof)
+                    -> IO (Maybe CheckConfirmations)
     processMintette addrid (mintette,mid) = do
-        signedPairMb <- CC.checkNotDoubleSpent tx addrid mintette mid
+        signedPairMb <- CC.checkNotDoubleSpent mintette tx addrid sig
         maybe
             (return Nothing)
-            (\proof@(pk,sg,d) ->
-                  do unless (verify pk sg d) $
+            (\proof@CheckConfirmation{..} ->
+                  do unless
+                         (verify
+                              ccMintetteKey
+                              ccMintetteSignature
+                              (tx, addrid, ccHead)) $
                          throwIO $ MintetteSignatureFailed mintette
-                     return $ Just ((mid, addrid), proof))
+                     return $ Just $ M.singleton (mid, addrid) proof)
             signedPairMb
-    commitBundle :: CC.BundleOfEvidence -> IO ()
+    commitBundle :: CheckConfirmations -> IO ()
     commitBundle bundle = do
         owns <- CC.getOwnersByTx tx
-        (succeededCommits :: [(PublicKey, Signature, Transaction)]) <-
-            filter (uncurry3 verify) . catMaybes <$>
-            mapM (uncurry $ CC.commitTransaction tx height bundle) owns
+        (succeededCommits :: [CommitConfirmation]) <-
+            filter (\(pk, sign, lch) -> verify pk sign (tx, lch)) . catMaybes <$>
+            mapM ((\mintette -> CC.commitTx mintette tx height bundle) . fst) owns
         unless (null succeededCommits) $ throwIO FailedToCommit
-    uncurry3 f (a,b,c) = f a b c

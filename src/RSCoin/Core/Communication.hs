@@ -4,23 +4,17 @@
 module RSCoin.Core.Communication
        ( getBlockchainHeight
        , getBlockByHeight
---       , getOwners
-       , checkTx
+       , checkNotDoubleSpent
        , commitTx
        , sendPeriodFinished
        , announceNewPeriod
        , getOwnersByAddrid
        , getOwnersByTx
-       , checkNotDoubleSpent
-       , commitTransaction
-       , SignedPair
-       , NotDoubleSpentProof
-       , BundleOfEvidence
        ) where
 
 import           Data.Tuple.Select      (sel1)
 
-import           RSCoin.Core.Crypto     (PublicKey, Signature, hash)
+import           RSCoin.Core.Crypto     (Signature, hash)
 import           RSCoin.Core.Owners     (owners)
 import           RSCoin.Core.Primitives (AddrId, Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol   as P
@@ -59,13 +53,13 @@ getOwnersByTx = getOwnersByHash . hash
 getOwnersByAddrid :: AddrId -> IO [(Mintette, MintetteId)]
 getOwnersByAddrid = getOwnersByHash . sel1
 
-checkTx
+checkNotDoubleSpent
     :: Mintette
     -> Transaction
     -> AddrId
     -> Signature
     -> IO (Maybe CheckConfirmation)
-checkTx m tx a s = fromResponse <$> P.callMintette m (P.ReqCheckTx tx a s)
+checkNotDoubleSpent m tx a s = fromResponse <$> P.callMintette m (P.ReqCheckTx tx a s)
   where
     fromResponse (P.ResCheckTx cc) = cc
     fromResponse _ = error "CheckTx got unexpected result"
@@ -95,25 +89,3 @@ announceNewPeriod mintette =
   where
     fromResponse P.ResAnnounceNewPeriod = ()
     fromResponse _ = error "AnnounceNewPeriod got unexpected result"
-
-type SignedPair = (PublicKey, Signature, (Transaction, AddrId))
-type NotDoubleSpentProof = ((MintetteId, AddrId), SignedPair)
-type BundleOfEvidence = [NotDoubleSpentProof]
-
--- | Basically sends a request for mintette to perform
--- CheckNotDoubleSpent algorithm.
-checkNotDoubleSpent :: Transaction
-                    -> AddrId
-                    -> Mintette
-                    -> MintetteId
-                    -> IO (Maybe SignedPair)
-checkNotDoubleSpent = undefined -- TODO
-
-commitTransaction
-    :: Transaction
-    -> PeriodId
-    -> BundleOfEvidence
-    -> Mintette
-    -> MintetteId
-    -> IO (Maybe (PublicKey, Signature, Transaction))
-commitTransaction = undefined

@@ -37,7 +37,7 @@ validateSum Transaction{..} =
 -- | Validates that signature is issued by public key associated with given
 -- address for the transaction.
 validateSignature :: Signature -> Address -> Transaction -> Bool
-validateSignature signature (Address pk) tx = verify pk signature tx
+validateSignature signature (Address pk) = verify pk signature
 
 -- | Given address and transaction returns total amount of money
 -- transaction transfers to address.

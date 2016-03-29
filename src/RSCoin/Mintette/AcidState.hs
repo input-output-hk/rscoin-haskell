@@ -46,14 +46,14 @@ checkNotDoubleSpent
     -> Transaction
     -> AddrId
     -> Signature
-    -> Update MS.Storage (Maybe CheckConfirmation)
+    -> Update MS.Storage CheckConfirmation
 checkNotDoubleSpent = MS.checkNotDoubleSpent
 
 commitTx :: SecretKey
          -> Transaction
          -> PeriodId
          -> CheckConfirmations
-         -> Update MS.Storage (Maybe CommitConfirmation)
+         -> Update MS.Storage CommitConfirmation
 commitTx = MS.commitTx
 
 finishPeriod :: SecretKey -> PeriodId -> Update MS.Storage PeriodResult

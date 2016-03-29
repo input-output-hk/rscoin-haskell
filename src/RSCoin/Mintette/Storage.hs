@@ -86,7 +86,7 @@ checkNotDoubleSpent :: SecretKey
                     -> Transaction
                     -> AddrId
                     -> Signature
-                    -> ExceptUpdate (Maybe CheckConfirmation)
+                    -> ExceptUpdate CheckConfirmation
 checkNotDoubleSpent sk tx addrId sg = do
     checkIsActive
     checkTxSum tx
@@ -110,7 +110,7 @@ checkNotDoubleSpent sk tx addrId sg = do
         pset %= M.insert addrId tx
         hsh <- uses logHead (snd . fromJust)
         logSz <- use logSize
-        return $ Just $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
+        return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
 
 -- | Check that transaction is valid and whether it falls within
 -- mintette's remit.
@@ -120,7 +120,7 @@ commitTx :: SecretKey
          -> Transaction
          -> PeriodId
          -> CheckConfirmations
-         -> ExceptUpdate (Maybe CommitConfirmation)
+         -> ExceptUpdate CommitConfirmation
 commitTx sk tx@Transaction{..} pId bundle = do
     checkIsActive
     checkPeriodId pId
@@ -156,7 +156,7 @@ commitTxChecked
     -> SecretKey
     -> Transaction
     -> CheckConfirmations
-    -> ExceptUpdate (Maybe CommitConfirmation)
+    -> ExceptUpdate CommitConfirmation
 commitTxChecked False _ _ _ = throwM MENotConfirmed
 commitTxChecked True sk tx bundle = do
     pushLogEntry $ C.CommitEntry tx bundle
@@ -166,7 +166,7 @@ commitTxChecked True sk tx bundle = do
     hsh <- uses logHead (snd . fromJust)
     logSz <- use logSize
     let logChainHead = (hsh, logSz)
-    return $ Just (pk, sign sk (tx, logChainHead), logChainHead)
+    return (pk, sign sk (tx, logChainHead), logChainHead)
 
 -- | Finish ongoing period, returning its result.
 -- Do nothing if period id is not an expected one.

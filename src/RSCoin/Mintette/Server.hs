@@ -1,10 +1,12 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Server implementation for mintette
 
 module RSCoin.Mintette.Server
        ( serve
        ) where
 
-import           Control.Exception         (bracket)
+import           Control.Exception         (bracket, try)
 import           Control.Monad.IO.Class    (MonadIO)
 import           Data.Acid.Advanced        (update')
 
@@ -13,6 +15,7 @@ import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
                                             StartPeriod (..), State, closeState,
                                             openState)
+import           RSCoin.Mintette.Error     (MintetteError)
 import           RSCoin.Mintette.Worker    (runWorker)
 
 serve :: Int -> FilePath -> C.SecretKey -> IO ()
@@ -40,22 +43,25 @@ handleNewPeriod :: MonadIO m => State -> C.NewPeriodData -> m ()
 handleNewPeriod st d = update' st $ StartPeriod d
 
 handleCheckTx
-    :: MonadIO m
-    => C.SecretKey
+    :: C.SecretKey
     -> State
     -> C.Transaction
     -> C.AddrId
     -> C.Signature
-    -> m (Maybe C.CheckConfirmation)
-handleCheckTx sk st tx addrId sg =
-    update' st $ CheckNotDoubleSpent sk tx addrId sg
+    -> IO (Maybe C.CheckConfirmation)
+handleCheckTx sk st tx addrId sg = do
+    (res :: Either MintetteError C.CheckConfirmation) <-
+        try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
+    either (const $ return Nothing) (return . Just) res
 
 handleCommitTx
-    :: MonadIO m
-    => C.SecretKey
+    :: C.SecretKey
     -> State
     -> C.Transaction
     -> C.PeriodId
     -> C.CheckConfirmations
-    -> m (Maybe C.CommitConfirmation)
-handleCommitTx sk st tx pId cc = update' st $ CommitTx sk tx pId cc
+    -> IO (Maybe C.CommitConfirmation)
+handleCommitTx sk st tx pId cc = do
+    (res :: Either MintetteError C.CommitConfirmation) <-
+        try $ update' st $ CommitTx sk tx pId cc
+    either (const $ return Nothing) (return . Just) res

@@ -13,8 +13,7 @@ import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
 import           RSCoin.Core.Primitives        (AddrId, Transaction (..))
-import           RSCoin.Core.Types             (CheckConfirmation (..),
-                                                CheckConfirmations,
+import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitConfirmation, Mintette,
                                                 MintetteId, PeriodId)
 

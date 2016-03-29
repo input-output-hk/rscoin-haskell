@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 -- | Protocol implements all low level communication between
 -- entities (User, Bank, Mintette).
 
@@ -20,12 +21,10 @@ module RSCoin.Core.Protocol
        , unCps
        ) where
 
-import           Control.Monad.Trans        (lift)
 import           Control.Monad.IO.Class     (liftIO)
 
 import           Data.IORef                 (newIORef, writeIORef, readIORef)
 import qualified Data.ByteString.Char8      as BS
-import           Data.MessagePack.Object    (Object (ObjectBin))
 import           Data.MessagePack.Aeson     (AsMessagePack (..))
 import           Data.Maybe                 (fromJust)
 
@@ -94,7 +93,8 @@ unCps withResult = do
     fromJust <$> readIORef ref
 
 -- example bellow
- 
+
+{-
 start' :: IO () 
 start' = S.serve 3000 [S.method "add" add]
 
@@ -108,3 +108,4 @@ add x y = return $ x + y
 
 add' :: Int -> Int -> C.Client Int
 add' = C.call "add"
+-}

@@ -6,8 +6,6 @@ module RSCoin.Mintette.Server
        ) where
 
 import           Control.Exception         (bracket)
-import           Control.Monad.IO.Class    (MonadIO)
-import           Control.Monad.Trans       (lift)
 import           Data.Acid.Advanced        (update')
 
 import qualified RSCoin.Core               as C

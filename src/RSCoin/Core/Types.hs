@@ -24,6 +24,8 @@ module RSCoin.Core.Types
 import           Data.Binary            (Binary (get, put), Get, Put)
 import qualified Data.Map               as M
 import           Data.SafeCopy          (base, deriveSafeCopy)
+import           Data.Text.Buildable    (Buildable (build))
+import qualified Data.Text.Format       as F
 import           Data.Word              (Word8)
 
 import           RSCoin.Core.Crypto     (Hash, PublicKey, Signature)
@@ -45,6 +47,11 @@ instance Binary Mintette where
     get = Mintette <$> get <*> get
 
 $(deriveSafeCopy 0 'base ''Mintette)
+
+instance Buildable Mintette where
+    build Mintette{..} = F.build template $ (mintetteHost, mintettePort)
+      where
+        template = "Mintette { {} : {} }"
 
 -- | Mintettes list is stored by Bank and doesn't change over period.
 type Mintettes = [Mintette]

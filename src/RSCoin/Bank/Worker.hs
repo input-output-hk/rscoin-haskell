@@ -15,12 +15,12 @@ import           Data.IORef               (modifyIORef, newIORef, readIORef)
 import           Data.Time.Units          (toMicroseconds)
 
 import           Serokell.Util.Exceptions ()
-import           Serokell.Util.Text       (formatSingle')
+import           Serokell.Util.Text       (formatSingle', listBuilderJSON)
 
 import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            SecretKey, announceNewPeriod,
-                                           logError, logWarning, periodDelta,
-                                           sendPeriodFinished)
+                                           logError, logInfo, logWarning,
+                                           periodDelta, sendPeriodFinished)
 
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
                                            StartNewPeriod (..), State)
@@ -46,6 +46,7 @@ onPeriodFinished :: SecretKey -> State -> IO ()
 onPeriodFinished sk st = do
     mintettes <- query st GetMintettes
     pId <- query st GetPeriodId
+    logInfo $ formatSingle' "Period {} has just finished!" pId
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     periodResults <- getPeriodResults mintettes pId
@@ -53,10 +54,13 @@ onPeriodFinished sk st = do
     createCheckpoint st
     newMintettes <- query st GetMintettes
     mapM_
-        (\(m, mId) ->
+        (\(m,mId) ->
               announceNewPeriod m mId newPeriodData `catch`
               handlerAnnouncePeriod)
         (zip newMintettes [0 ..])
+    logInfo $
+        formatSingle' "Starting new period with the following mintettes: {}" $
+        listBuilderJSON newMintettes
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)

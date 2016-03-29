@@ -8,6 +8,7 @@ module RSCoin.Core.Transaction
        , getAmountByAddress
        , getAddrIdByAddress
        , chooseAddresses
+       , computeOutputAddrids
        ) where
 
 import           Control.Exception      (assert)
@@ -27,6 +28,9 @@ instance Monoid Transaction where
     a `mappend` b =
         Transaction (txInputs a <> txInputs b) (txOutputs a <> txOutputs b)
 
+instance Ord Transaction where
+    compare = comparing hash
+
 -- | Validates that sum of inputs isn't greater than sum of outputs.
 validateSum :: Transaction -> Bool
 validateSum Transaction{..} =
@@ -37,7 +41,7 @@ validateSum Transaction{..} =
 -- | Validates that signature is issued by public key associated with given
 -- address for the transaction.
 validateSignature :: Signature -> Address -> Transaction -> Bool
-validateSignature signature (Address pk) tx = verify pk signature tx
+validateSignature signature (Address pk) = verify pk signature
 
 -- | Given address and transaction returns total amount of money
 -- transaction transfers to address.
@@ -73,3 +77,9 @@ chooseAddresses addrids value =
                      then Just $ newAccum - value
                      else Nothing)
     in (chosenAIds, whatsLeft)
+
+-- | ?? TODO
+computeOutputAddrids :: Transaction -> [(AddrId, Address)]
+computeOutputAddrids tx@Transaction{..} =
+    let h = hash tx in
+    map (\((addr, coin), i) -> ((h, i, coin), addr)) $ txOutputs `zip` [0..]

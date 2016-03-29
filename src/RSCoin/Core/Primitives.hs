@@ -1,4 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 -- | The most basic primitives from the paper.
 
@@ -41,6 +42,17 @@ newtype Address = Address
 -- Basically, it is tuple of transaction identifier, index in list of outputs
 -- and associated value.
 type AddrId = (TransactionId, Int, Coin)
+
+instance Buildable (TransactionId, Int, Coin) where
+    build (t,i,c) =
+        mconcat
+            [ "Addrid { transactionId="
+            , build t
+            , ", index="
+            , build i
+            , ", coins="
+            , build c
+            , " }"]
 
 -- | Transaction represents act of transfering units of currency from
 -- set of inputs to set of outputs.

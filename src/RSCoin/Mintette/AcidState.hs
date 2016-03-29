@@ -56,7 +56,7 @@ commitTx :: SecretKey
          -> Update MS.Storage (Maybe CommitConfirmation)
 commitTx = MS.commitTx
 
-finishPeriod :: PeriodId -> Update MS.Storage PeriodResult
+finishPeriod :: SecretKey -> PeriodId -> Update MS.Storage PeriodResult
 finishPeriod = MS.finishPeriod
 
 startPeriod :: NewPeriodData -> Update MS.Storage ()

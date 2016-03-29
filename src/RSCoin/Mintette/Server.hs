@@ -21,14 +21,16 @@ serve port dbPath sk =
     \st ->
          do runWorker sk st
             C.serve port
-                [ C.method (C.RSCMintette C.PeriodFinished) $ handlePeriodFinished st
+                [ C.method (C.RSCMintette C.PeriodFinished) $ handlePeriodFinished sk st
                 , C.method (C.RSCMintette C.AnnounceNewPeriod) $ handleNewPeriod st
                 , C.method (C.RSCMintette C.CheckTx) $ handleCheckTx sk st
                 , C.method (C.RSCMintette C.CommitTx) $ handleCommitTx sk st
                 ]
 
-handlePeriodFinished :: MonadIO m => State -> C.PeriodId -> m C.PeriodResult
-handlePeriodFinished st pId = update' st $ FinishPeriod pId
+handlePeriodFinished
+    :: MonadIO m
+    => C.SecretKey -> State -> C.PeriodId -> m C.PeriodResult
+handlePeriodFinished sk st pId = update' st $ FinishPeriod sk pId
 
 handleNewPeriod :: MonadIO m => State -> C.NewPeriodData -> m ()
 handleNewPeriod st d = update' st $ StartPeriod d

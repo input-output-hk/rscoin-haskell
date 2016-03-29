@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 -- | Server implementation for mintette
 
 module RSCoin.Mintette.Server
@@ -22,37 +23,35 @@ serve port dbPath sk =
     \st ->
          do runWorker sk st
             C.serve port
-                [ C.method (C.RSCMintette C.PeriodFinished) $ fmap C.AsMessagePack . handlePeriodFinished sk st
+                [ C.method (C.RSCMintette C.PeriodFinished) $ handlePeriodFinished sk st
                 , C.method (C.RSCMintette C.AnnounceNewPeriod) $ handleNewPeriod st
                 , C.method (C.RSCMintette C.CheckTx) $ handleCheckTx sk st
                 , C.method (C.RSCMintette C.CommitTx) $ handleCommitTx sk st
                 ]
 
 handlePeriodFinished
-    :: MonadIO m
-    => C.SecretKey -> State -> C.PeriodId -> m C.PeriodResult
-handlePeriodFinished sk st pId = update' st $ FinishPeriod sk pId
+    :: C.SecretKey -> State -> C.PeriodId -> C.Server C.PeriodResult
+handlePeriodFinished sk st pId = fmap C.AsMessagePack . update' st $ FinishPeriod sk pId
 
-handleNewPeriod :: MonadIO m => State -> C.NewPeriodData -> m ()
-handleNewPeriod st d = update' st $ StartPeriod d
+handleNewPeriod :: State -> C.AsMessagePack C.NewPeriodData -> C.Server ()
+handleNewPeriod st (C.getAsMessagePack -> d) = fmap C.AsMessagePack . update' st $ StartPeriod d
 
 handleCheckTx
-    :: MonadIO m
-    => C.SecretKey
+    :: C.SecretKey
     -> State
-    -> C.Transaction
-    -> C.AddrId
-    -> C.Signature
-    -> m (Maybe C.CheckConfirmation)
-handleCheckTx sk st tx addrId sg =
-    update' st $ CheckNotDoubleSpent sk tx addrId sg
+    -> C.AsMessagePack C.Transaction
+    -> C.AsMessagePack C.AddrId
+    -> C.AsMessagePack C.Signature
+    -> C.Server (Maybe C.CheckConfirmation)
+handleCheckTx sk st (C.getAsMessagePack -> tx) (C.getAsMessagePack -> addrId) (C.getAsMessagePack -> sg) =
+    fmap C.AsMessagePack . update' st $ CheckNotDoubleSpent sk tx addrId sg
 
 handleCommitTx
-    :: MonadIO m
-    => C.SecretKey
+    :: C.SecretKey
     -> State
-    -> C.Transaction
+    -> C.AsMessagePack C.Transaction
     -> C.PeriodId
-    -> C.CheckConfirmations
-    -> m (Maybe C.CommitConfirmation)
-handleCommitTx sk st tx pId cc = update' st $ CommitTx sk tx pId cc
+    -> C.AsMessagePack C.CheckConfirmations
+    -> C.Server (Maybe C.CommitConfirmation)
+handleCommitTx sk st (C.getAsMessagePack -> tx) pId (C.getAsMessagePack -> cc) =
+    fmap C.AsMessagePack . update' st $ CommitTx sk tx pId cc

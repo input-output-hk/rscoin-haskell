@@ -8,7 +8,7 @@ module RSCoin.Core.Protocol
        , RSCoinMethod (..)
        , WithResult
        , AsMessagePack (..)
-       , S.Server
+       , Server
        , C.Client
        , method
        , S.serve
@@ -49,6 +49,8 @@ data MintetteMethod
     | CheckTx
     | CommitTx
     deriving (Show)
+
+type Server a = S.Server (AsMessagePack a)
 
 method :: S.MethodType m f => RSCoinMethod -> f -> S.Method m
 method m = S.method (show m)

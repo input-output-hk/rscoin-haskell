@@ -25,7 +25,8 @@ import qualified RSCoin.Core         as C
 import           RSCoin.User.Wallet  (UserAddress, WalletStorage)
 import qualified RSCoin.User.Wallet  as W
 
-import           Control.Exception   (throw)
+import           Control.Exception   (throw, throwIO)
+import           Control.Monad       (unless)
 import           Control.Monad.Catch (MonadThrow, throwM)
 import           Data.Acid           (makeAcidic)
 import qualified Data.Acid           as A
@@ -48,12 +49,14 @@ instance MonadThrow (A.Update WalletStorage) where
 -- 'is-bank-mode' is set, it also loads secret bank key from
 -- ~/.rscoin/bankPrivateKey and adds it to known addresses (public key
 -- is hardcoded in RSCoin.Core.Constants).
-openState :: FilePath -> Int -> Bool -> IO RSCoinUserState
-openState path n True = do
-    sk <- C.readSecretKey C.defaultSecretKeyPath  -- TODO: move to options
+openState :: FilePath -> Int -> (Maybe FilePath) -> IO RSCoinUserState
+openState path n (Just skPath) = do
+    sk <- C.readSecretKey skPath  -- TODO: move to options
     let bankKeyPair = W.makeUserAddress sk $ C.getAddress C.genesisAddress
+    unless (C.checkKeyPair (sk, C.getAddress C.genesisAddress)) $
+        throwIO $ W.BadRequest "Imported bank's secret key doesn't belong to bank."
     A.openLocalStateFrom path =<< W.emptyWalletStorage n (Just bankKeyPair)
-openState path n False =
+openState path n Nothing =
     A.openLocalStateFrom path =<< W.emptyWalletStorage n Nothing
 
 -- | Closes the ACID state.

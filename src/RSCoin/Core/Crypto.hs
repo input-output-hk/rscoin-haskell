@@ -212,8 +212,10 @@ withBinaryHashedMsg action =
         action
         . msg . SHA256.hashlazy . encode
 
+-- | Derives public key from the secret key
 derivePublicKey :: SecretKey -> PublicKey
 derivePublicKey (getSecretKey -> sk) = PublicKey $ derivePubKey sk
 
+-- | Validates the sk to be the secret key of pk
 checkKeyPair :: (SecretKey, PublicKey) -> Bool
 checkKeyPair (sk, pk) = pk == derivePublicKey sk

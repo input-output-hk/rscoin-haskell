@@ -25,17 +25,19 @@ import qualified Data.Map                  as M
 import           Data.Maybe                (fromJust)
 import qualified Data.Set                  as S
 import           Data.Tuple.Select         (sel1)
-import           Safe                      (headMay)
+import           Safe                      (atMay, headMay)
 
 import           RSCoin.Core               (ActionLog, ActionLogEntry (CommitEntry, QueryEntry),
-                                            AddrId, Address, CheckConfirmation,
+                                            AddrId, Address,
+                                            CheckConfirmation (..),
                                             CheckConfirmations,
-                                            CommitConfirmation, Hash,
+                                            CommitConfirmation, Dpk, Hash,
                                             MintetteId, Mintettes,
                                             NewPeriodData, PeriodId,
                                             PeriodResult, SecretKey, Signature,
                                             Transaction (..), actionLogNext,
-                                            computeOutputAddrids, hash,
+                                            computeOutputAddrids,
+                                            derivePublicKey, hash,
                                             mkCheckConfirmation, owners, sign,
                                             validateSignature, validateSum,
                                             verifyCheckConfirmation)
@@ -49,13 +51,14 @@ data Storage = Storage
     , _logSize    :: Int                       -- ^ Total size of actionLogs
     , _mintettes  :: Mintettes                 -- ^ Mintettes for current period
     , _mintetteId :: Maybe MintetteId          -- ^ Id for current period
+    , _dpk        :: Dpk                       -- ^ DPK for current period
     }
 
 $(makeLenses ''Storage)
 
 -- | Make empty storage
 mkStorage :: Storage
-mkStorage = Storage M.empty M.empty S.empty [] 0 [] Nothing
+mkStorage = Storage M.empty M.empty S.empty [] 0 [] Nothing []
 
 logHead :: Getter Storage (Maybe (ActionLogEntry, Hash))
 logHead = actionLogs . to f
@@ -107,21 +110,30 @@ commitTx :: SecretKey
 commitTx sk tx@Transaction{..} _ bundle = do
     mts <- use mintettes
     mId <- use mintetteId
+    curDpk <- use dpk
     let isOwner = maybe False (`elem` owners mts (hash tx)) mId
     let isValid = and [validateSum tx, isOwner]
     let isConfirmed =
-            and $
-            flip map txInputs $
-            \addrid ->
-                 let addridOwners = owners mts (hash $ sel1 addrid)
-                     ownerConfirmed owner =
-                         maybe False
-                               -- FIXME There's should be '∈ DPK' check, but I don't see it in state
-                               (\proof -> verifyCheckConfirmation proof tx addrid && True) $
-                         M.lookup (owner, addrid) bundle
-                     filtered = filter ownerConfirmed addridOwners
-                 in length filtered > length addridOwners `div` 2
+            and $ map (checkInputConfirmed mts curDpk) txInputs
     commitTxChecked (isValid && isConfirmed) sk tx bundle
+  where
+    checkInputConfirmed mts curDpk addrid =
+        let addridOwners = owners mts (hash $ sel1 addrid)
+            ownerConfirmed owner =
+                maybe
+                    False
+                    (\proof ->
+                          verifyCheckConfirmation proof tx addrid &&
+                          verifyDpk curDpk owner proof) $
+                M.lookup (owner, addrid) bundle
+            filtered = filter ownerConfirmed addridOwners
+        in length filtered > length addridOwners `div` 2
+    verifyDpk curDpk ownerId CheckConfirmation{..} =
+        maybe
+            False
+            (\(k,_) ->
+                  ccMintetteKey == k) $
+        curDpk `atMay` ownerId
 
 commitTxChecked
     :: Bool
@@ -134,7 +146,7 @@ commitTxChecked True sk tx bundle = do
     pushLogEntry $ CommitEntry tx bundle
     utxo <>= M.fromList (computeOutputAddrids tx)
     txset %= S.insert tx
-    let pk = undefined -- FIXME How do I get it?
+    let pk = derivePublicKey sk
     hsh <- uses logHead (snd . fromJust)
     logSz <- use logSize
     let logChainHead = (hsh, logSz)

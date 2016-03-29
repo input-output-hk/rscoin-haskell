@@ -36,6 +36,8 @@ import           RSCoin.Core.Types          (Mintette (..))
 import           RSCoin.Core.Crypto         ()
 import           RSCoin.Core.Aeson          ()
 
+-- TODO: this module should provide more safety and expose better api
+
 data RSCoinMethod
     = RSCBank BankMethod
     | RSCMintette MintetteMethod

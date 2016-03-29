@@ -18,8 +18,7 @@ module RSCoin.Mintette.Storage
 import           Control.Applicative       ((<|>))
 import           Control.Lens              (Getter, makeLenses, to, use, uses,
                                             (%=), (+=), (<>=))
-import           Control.Monad             (when)
-import           Control.Monad.Catch       (MonadThrow (throwM))
+-- import           Control.Monad.Catch       (MonadThrow (throwM))
 import           Control.Monad.State.Class (MonadState)
 import qualified Data.Map                  as M
 import           Data.Maybe                (fromJust)
@@ -27,38 +26,41 @@ import qualified Data.Set                  as S
 import           Data.Tuple.Select         (sel1)
 import           Safe                      (atMay, headMay)
 
-import           RSCoin.Core               (ActionLog, ActionLogEntry (CommitEntry, QueryEntry),
-                                            AddrId, Address,
+import           RSCoin.Core               (ActionLog, ActionLogEntry (CommitEntry, QueryEntry, CloseEpochEntry),
+                                            ActionLogHeads, AddrId, Address,
                                             CheckConfirmation (..),
                                             CheckConfirmations,
                                             CommitConfirmation, Dpk, Hash,
-                                            MintetteId, Mintettes,
+                                            LBlock, MintetteId, Mintettes,
                                             NewPeriodData, PeriodId,
                                             PeriodResult, SecretKey, Signature,
                                             Transaction (..), actionLogNext,
                                             computeOutputAddrids,
                                             derivePublicKey, hash,
-                                            mkCheckConfirmation, owners, sign,
-                                            validateSignature, validateSum,
+                                            mkCheckConfirmation, mkLBlock,
+                                            owners, sign, validateSignature,
+                                            validateSum,
                                             verifyCheckConfirmation)
-import           RSCoin.Mintette.Error     (MintetteError (MEInternal))
+-- import           RSCoin.Mintette.Error     (MintetteError (MEInternal))
 
 data Storage = Storage
     { _utxo       :: M.Map AddrId Address      -- ^ Unspent transaction outputs
     , _pset       :: M.Map AddrId Transaction  -- ^ Set of checked transactions
     , _txset      :: S.Set Transaction         -- ^ List of transaction sealing into ledger
+    , _lBlocks    :: [[LBlock]]                -- ^ Blocks are stored per period
     , _actionLogs :: [ActionLog]               -- ^ Logs are stored per period
     , _logSize    :: Int                       -- ^ Total size of actionLogs
     , _mintettes  :: Mintettes                 -- ^ Mintettes for current period
     , _mintetteId :: Maybe MintetteId          -- ^ Id for current period
     , _dpk        :: Dpk                       -- ^ DPK for current period
+    , _logHeads   :: ActionLogHeads            -- ^ All known heads of logs
     }
 
 $(makeLenses ''Storage)
 
--- | Make empty storage
+-- | Make storage for the 0-th period.
 mkStorage :: Storage
-mkStorage = Storage M.empty M.empty S.empty [] 0 [] Nothing []
+mkStorage = Storage M.empty M.empty S.empty [[]] [[]] 0 [] Nothing [] M.empty
 
 logHead :: Getter Storage (Maybe (ActionLogEntry, Hash))
 logHead = actionLogs . to f
@@ -67,7 +69,7 @@ logHead = actionLogs . to f
     f (x:xs) = headMay x <|> f xs
 
 type Update a = forall m . MonadState Storage m => m a
-type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
+-- type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
 -- | Validate structure of transaction, check input AddrId for
 -- double spent and signature, update state if everything is valid.
@@ -76,7 +78,7 @@ checkNotDoubleSpent :: SecretKey
                     -> Transaction
                     -> AddrId
                     -> Signature
-                    -> ExceptUpdate (Maybe CheckConfirmation)
+                    -> Update (Maybe CheckConfirmation)
 checkNotDoubleSpent sk tx addrId sg = do
     inPset <- M.lookup addrId <$> use pset
     let txContainsAddrId = addrId `elem` txInputs tx
@@ -106,7 +108,7 @@ commitTx :: SecretKey
          -> Transaction
          -> PeriodId
          -> CheckConfirmations
-         -> ExceptUpdate (Maybe CommitConfirmation)
+         -> Update (Maybe CommitConfirmation)
 commitTx sk tx@Transaction{..} _ bundle = do
     mts <- use mintettes
     mId <- use mintetteId
@@ -140,7 +142,7 @@ commitTxChecked
     -> SecretKey
     -> Transaction
     -> CheckConfirmations
-    -> ExceptUpdate (Maybe CommitConfirmation)
+    -> Update (Maybe CommitConfirmation)
 commitTxChecked False _ _ _ = return Nothing
 commitTxChecked True sk tx bundle = do
     pushLogEntry $ CommitEntry tx bundle
@@ -161,17 +163,29 @@ finishPeriod = undefined
 startPeriod :: NewPeriodData -> Update ()
 startPeriod = undefined
 
--- | Finish current epoch and start a new one.
+-- | This function creates new LBlock with transactions from txset
+-- and adds CloseEpochEntry to log.
+-- It does nothing if txset is empty.
 finishEpoch :: SecretKey -> Update ()
-finishEpoch = undefined
+finishEpoch sk = do
+  txList <- S.toList <$> use txset
+  finishEpochList sk txList
 
-pushLogEntry :: ActionLogEntry -> ExceptUpdate ()
+finishEpochList :: SecretKey -> [Transaction] -> Update ()
+finishEpochList _ [] = return ()
+finishEpochList sk txList = do
+    heads <- use logHeads
+    prevRecord <- fromJust <$> use logHead
+    let lBlock = mkLBlock txList sk undefined heads prevRecord
+    topBlocks <- head <$> use lBlocks
+    let newTopBlocks = lBlock : topBlocks
+    lBlocks %= (\l -> newTopBlocks : tail l)
+    pushLogEntry $ CloseEpochEntry heads
+
+pushLogEntry :: ActionLogEntry -> Update ()
 pushLogEntry entry = do
-    lgs <- use actionLogs
-    when (null lgs) $ throwM $ MEInternal "Empty actionLogs"
-    let topLog = head lgs
-    let newTopLog = actionLogNext (prevHead lgs) entry : topLog
+    prev <- use logHead
+    topLog <- head <$> use actionLogs
+    let newTopLog = actionLogNext prev entry : topLog
     actionLogs %= (\l -> newTopLog : tail l)
     logSize += 1
-  where prevHead [] = Nothing
-        prevHead (x:xs) = headMay x <|> prevHead xs

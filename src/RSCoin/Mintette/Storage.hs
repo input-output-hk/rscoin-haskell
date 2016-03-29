@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TupleSections         #-}
 
 -- | Storage for mintette's data.
 
@@ -17,7 +18,7 @@ module RSCoin.Mintette.Storage
 
 import           Control.Applicative       ((<|>))
 import           Control.Lens              (Getter, makeLenses, to, use, uses,
-                                            (%=), (+=), (<>=))
+                                            (%=), (+=), (.=), (<>=))
 import           Control.Monad             (unless)
 import           Control.Monad.Catch       (MonadThrow (throwM))
 import           Control.Monad.State.Class (MonadState)
@@ -33,14 +34,12 @@ import           RSCoin.Core               (ActionLog, ActionLogEntry (CommitEnt
                                             CheckConfirmations,
                                             CommitConfirmation, Dpk, Hash,
                                             LBlock, MintetteId, Mintettes,
-                                            NewPeriodData, PeriodId,
-                                            PeriodResult, SecretKey, Signature,
-                                            Transaction (..), actionLogNext,
-                                            computeOutputAddrids,
+                                            NewPeriodData, PeriodId, SecretKey,
+                                            Signature, Transaction (..),
+                                            actionLogNext, computeOutputAddrids,
                                             derivePublicKey, hash,
                                             mkCheckConfirmation, mkLBlock,
                                             owners, sign, validateSignature,
-                                            validateSum,
                                             verifyCheckConfirmation)
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.Error     (MintetteError (..))
@@ -158,8 +157,8 @@ commitTxChecked
     -> SecretKey
     -> Transaction
     -> CheckConfirmations
-    -> Update (Maybe CommitConfirmation)
-commitTxChecked False _ _ _ = return Nothing
+    -> ExceptUpdate (Maybe CommitConfirmation)
+commitTxChecked False _ _ _ = throwM MENotConfirmed
 commitTxChecked True sk tx bundle = do
     pushLogEntry $ CommitEntry tx bundle
     utxo <>= M.fromList (computeOutputAddrids tx)
@@ -172,8 +171,13 @@ commitTxChecked True sk tx bundle = do
 
 -- | Finish ongoing period, returning its result.
 -- Do nothing if period id is not an expected one.
-finishPeriod :: PeriodId -> Update PeriodResult
-finishPeriod = undefined
+finishPeriod :: C.SecretKey -> C.PeriodId -> ExceptUpdate C.PeriodResult
+finishPeriod sk pId = do
+    checkIsActive
+    checkPeriodId pId
+    finishEpoch sk
+    mintetteId .= Nothing
+    (pId, , ) <$> use (lBlocks . to head) <*> use (actionLogs . to head)
 
 -- | Start new period.
 startPeriod :: NewPeriodData -> Update ()
@@ -182,8 +186,9 @@ startPeriod = undefined
 -- | This function creates new LBlock with transactions from txset
 -- and adds CloseEpochEntry to log.
 -- It does nothing if txset is empty.
-finishEpoch :: SecretKey -> Update ()
+finishEpoch :: SecretKey -> ExceptUpdate ()
 finishEpoch sk = do
+  checkIsActive
   txList <- S.toList <$> use txset
   finishEpochList sk txList
 
@@ -212,7 +217,7 @@ checkIsActive = do
     unless v $ throwM MEInactive
 
 checkTxSum :: Transaction -> ExceptUpdate ()
-checkTxSum tx = unless (validateSum tx) $ throwM MEInvalidTxSums
+checkTxSum tx = unless (C.validateSum tx) $ throwM MEInvalidTxSums
 
 checkPeriodId :: PeriodId -> ExceptUpdate ()
 checkPeriodId received = do

@@ -23,16 +23,18 @@ serve port dbPath sk =
             C.serve port $ handler sk st
 
 handler :: C.SecretKey -> State -> C.MintetteReq -> IO C.MintetteRes
-handler _ st (C.ReqPeriodFinished pId) =
-    C.ResPeriodFinished <$> handlePeriodFinished st pId
+handler sk st (C.ReqPeriodFinished pId) =
+    C.ResPeriodFinished <$> handlePeriodFinished sk st pId
 handler _ st (C.ReqAnnounceNewPeriod d) =
     (const C.ResAnnounceNewPeriod) <$> handleNewPeriod st d
 handler sk st (C.ReqCheckTx tx a sg) = C.ResCheckTx <$> handleCheckTx sk st tx a sg
 handler sk st (C.ReqCommitTx tx pId cc) =
     C.ResCommitTx <$> handleCommitTx sk st tx pId cc
 
-handlePeriodFinished :: MonadIO m => State -> C.PeriodId -> m C.PeriodResult
-handlePeriodFinished st pId = update' st $ FinishPeriod pId
+handlePeriodFinished
+    :: MonadIO m
+    => C.SecretKey -> State -> C.PeriodId -> m C.PeriodResult
+handlePeriodFinished sk st pId = update' st $ FinishPeriod sk pId
 
 handleNewPeriod :: MonadIO m => State -> C.NewPeriodData -> m ()
 handleNewPeriod st d = update' st $ StartPeriod d

@@ -22,9 +22,9 @@ import           Data.SafeCopy           (base, deriveSafeCopy)
 
 import           RSCoin.Core             (AddrId, CheckConfirmation,
                                           CheckConfirmations,
-                                          CommitConfirmation, NewPeriodData,
-                                          PeriodId, PeriodResult, SecretKey,
-                                          Signature, Transaction)
+                                          CommitConfirmation, MintetteId,
+                                          NewPeriodData, PeriodId, PeriodResult,
+                                          SecretKey, Signature, Transaction)
 
 import qualified RSCoin.Mintette.Storage as MS
 
@@ -59,7 +59,7 @@ commitTx = MS.commitTx
 finishPeriod :: SecretKey -> PeriodId -> Update MS.Storage PeriodResult
 finishPeriod = MS.finishPeriod
 
-startPeriod :: NewPeriodData -> Update MS.Storage ()
+startPeriod :: (MintetteId, NewPeriodData) -> Update MS.Storage ()
 startPeriod = MS.startPeriod
 
 finishEpoch :: SecretKey -> Update MS.Storage ()

@@ -46,11 +46,15 @@ onPeriodFinished sk st = do
     pId <- query st GetPeriodId
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
-    periodResults <- mapM (handlerPeriodFinished . flip sendPeriodFinished pId) mintettes
+    periodResults <-
+        mapM (handlerPeriodFinished . flip sendPeriodFinished pId) mintettes
     newPeriodData <- update st $ StartNewPeriod sk periodResults
     createCheckpoint st
     newMintettes <- query st GetMintettes
-    mapM_ (handlerAnnouncePeriod . flip announceNewPeriod newPeriodData) newMintettes
+    mapM_
+        (\(m,mid) ->
+              handlerAnnouncePeriod $ announceNewPeriod m mid newPeriodData)
+        (newMintettes `zip` [0 ..])
   where
     handlerPeriodFinished action = do
         either onPeriodFinishedError (return . Just) =<< try action

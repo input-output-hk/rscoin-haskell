@@ -37,30 +37,33 @@ import           RSCoin.Core               (ActionLog, ActionLogHeads, AddrId,
                                             Transaction (..), actionLogNext,
                                             computeOutputAddrids,
                                             derivePublicKey, hash,
-                                            mkCheckConfirmation, mkLBlock,
-                                            owners, sign, validateSignature,
+                                            hbTransactions, mkCheckConfirmation,
+                                            mkLBlock, owners, sign,
+                                            validateSignature,
                                             verifyCheckConfirmation)
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.Error     (MintetteError (..))
 
 data Storage = Storage
-    { _utxo       :: M.Map AddrId Address      -- ^ Unspent transaction outputs
-    , _pset       :: M.Map AddrId Transaction  -- ^ Set of checked transactions
-    , _txset      :: S.Set Transaction         -- ^ List of transaction sealing into ledger
-    , _lBlocks    :: [[LBlock]]                -- ^ Blocks are stored per period
-    , _actionLogs :: [ActionLog]               -- ^ Logs are stored per period
-    , _logSize    :: Int                       -- ^ Total size of actionLogs
-    , _mintettes  :: Mintettes                 -- ^ Mintettes for current period
-    , _mintetteId :: Maybe MintetteId          -- ^ Id for current period
-    , _dpk        :: Dpk                       -- ^ DPK for current period
-    , _logHeads   :: ActionLogHeads            -- ^ All known heads of logs
+    { _utxo        :: M.Map AddrId Address      -- ^ Unspent transaction outputs
+    , _utxoDeleted :: M.Map AddrId Address      -- ^ Entries, deleted from utxo
+    , _utxoAdded   :: M.Map AddrId Address      -- ^ Entries, added to utxo
+    , _pset        :: M.Map AddrId Transaction  -- ^ Set of checked transactions
+    , _txset       :: S.Set Transaction         -- ^ List of transaction sealing into ledger
+    , _lBlocks     :: [[LBlock]]                -- ^ Blocks are stored per period
+    , _actionLogs  :: [ActionLog]               -- ^ Logs are stored per period
+    , _logSize     :: Int                       -- ^ Total size of actionLogs
+    , _mintettes   :: Mintettes                 -- ^ Mintettes for current period
+    , _mintetteId  :: Maybe MintetteId          -- ^ Id for current period
+    , _dpk         :: Dpk                       -- ^ DPK for current period
+    , _logHeads    :: ActionLogHeads            -- ^ All known heads of logs
     }
 
 $(makeLenses ''Storage)
 
 -- | Make storage for the 0-th period.
 mkStorage :: Storage
-mkStorage = Storage M.empty M.empty S.empty [[]] [[]] 0 [] Nothing [] M.empty
+mkStorage = Storage M.empty M.empty M.empty M.empty S.empty [[]] [[]] 0 [] Nothing [] M.empty
 
 type Query a = Getter Storage a
 
@@ -100,13 +103,16 @@ checkNotDoubleSpent sk tx addrId sg = do
       | otherwise = throwM MEDoubleSpending
     notInPsetCase = do
         addr <- M.lookup addrId <$> use utxo
-        maybe (throwM MEDoubleSpending) (checkSignatureAndFinish) addr
+        maybe (throwM MEDoubleSpending) checkSignatureAndFinish addr
     checkSignatureAndFinish a
       | validateSignature sg a tx = finishCheck
       | otherwise = throwM MEInvalidSignature
     finishCheck = do
         pushLogEntry $ C.QueryEntry tx
+        utxoEntry <- uses utxo (M.lookup addrId)
         utxo %= M.delete addrId
+        when (isJust utxoEntry)
+             (utxoDeleted %= M.insert addrId (fromJust utxoEntry))
         pset %= M.insert addrId tx
         hsh <- uses logHead (snd . fromJust)
         logSz <- use logSize
@@ -130,7 +136,7 @@ commitTx sk tx@Transaction{..} pId bundle = do
     unless (C.isOwner mts (C.hash tx) mId) $
         throwM $ MEInconsistentRequest "I'm not an owner!"
     curDpk <- use dpk
-    let isConfirmed = and $ map (checkInputConfirmed mts curDpk) txInputs
+    let isConfirmed = all (checkInputConfirmed mts curDpk) txInputs
     commitTxChecked isConfirmed sk tx bundle
   where
     checkInputConfirmed mts curDpk addrid =
@@ -161,6 +167,7 @@ commitTxChecked False _ _ _ = throwM MENotConfirmed
 commitTxChecked True sk tx bundle = do
     pushLogEntry $ C.CommitEntry tx bundle
     utxo <>= M.fromList (computeOutputAddrids tx)
+    utxoAdded <>= M.fromList (computeOutputAddrids tx)
     txset %= S.insert tx
     let pk = derivePublicKey sk
     hsh <- uses logHead (snd . fromJust)
@@ -179,8 +186,8 @@ finishPeriod sk pId = do
     (pId, , ) <$> use (lBlocks . to head) <*> use (actionLogs . to head)
 
 -- | Start new period.
-startPeriod :: C.NewPeriodData -> ExceptUpdate ()
-startPeriod C.NewPeriodData{..} = do
+startPeriod :: (MintetteId, C.NewPeriodData) -> ExceptUpdate ()
+startPeriod (mid,C.NewPeriodData{..}) = do
     checkIsInactive
     lastPeriodId <- use periodId
     when (lastPeriodId >= npdPeriodId) $
@@ -188,9 +195,23 @@ startPeriod C.NewPeriodData{..} = do
     lBlocks <>= replicate (npdPeriodId - lastPeriodId) []
     actionLogs <>= replicate (npdPeriodId - lastPeriodId) []
     mintettes .= npdMintettes
-    mintetteId .= Just undefined  -- TODO
+    mintetteId .= Just mid
     dpk .= npdDpk
-    -- TODO: update utxo and pset somehow! :(
+    pset .= M.empty
+    let txOutsPaired =
+            concatMap computeOutputAddrids $ hbTransactions npdHBlock
+    -- those are transactions that we approved, but that didn't go
+    -- into blockchain, so they should still be in utxo
+    deletedNotInBlockchain <-
+       uses utxoDeleted (filter (not . (`elem` txOutsPaired)) . M.assocs)
+    -- those are transactions that were commited but for some
+    -- reason bank rejected LBlock and they didn't got into blockchain
+    addedNotInBlockchain <-
+       uses utxoAdded (filter (not . (`elem` txOutsPaired)) . M.assocs)
+    utxo %= M.union (M.fromList deletedNotInBlockchain)
+    utxo %= M.difference (M.fromList addedNotInBlockchain)
+    utxoDeleted .= M.empty
+    utxoAdded .= M.empty
   where
     checkIsInactive = do
         v <- use isActive

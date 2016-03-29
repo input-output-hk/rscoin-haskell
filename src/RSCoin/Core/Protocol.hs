@@ -43,7 +43,7 @@ import           RSCoin.Core.Crypto     (Signature)
 import           RSCoin.Core.Primitives (AddrId, Transaction)
 import           RSCoin.Core.Types      (CheckConfirmation, CheckConfirmations,
                                          CommitConfirmation, HBlock,
-                                         Mintette (..), Mintettes,
+                                         Mintette (..), MintetteId, Mintettes,
                                          NewPeriodData, PeriodId, PeriodResult)
 
 ---- BANK data ----
@@ -105,7 +105,7 @@ instance ToJSON BankRes where
 -- | Request handled by Mintette (probably sent by User or Bank)
 data MintetteReq
     = ReqPeriodFinished PeriodId
-    | ReqAnnounceNewPeriod NewPeriodData
+    | ReqAnnounceNewPeriod MintetteId NewPeriodData
     | ReqCheckTx Transaction AddrId Signature
     | ReqCommitTx Transaction PeriodId CheckConfirmations
 
@@ -115,7 +115,8 @@ instance FromRequest MintetteReq where
             Array a <- parseJSON v
             maybe (fail "periodFinished: periodId not found") parseJSON $ a !? 0
     parseParams "announceNewPeriod" =
-        Just $ fmap ReqAnnounceNewPeriod . parseJSON
+--        Just $ fmap ReqAnnounceNewPeriod . parseJSON
+        undefined -- TODO, make something of it when refactoring/merging with msgpack!!!
     parseParams "checkTx" =
         Just $ \v -> do
             Array a <- parseJSON v
@@ -135,14 +136,14 @@ instance FromRequest MintetteReq where
 
 instance ToRequest MintetteReq where
     requestMethod (ReqPeriodFinished _) = "periodFinished"
-    requestMethod (ReqAnnounceNewPeriod _) = "announceNewPeriod"
+    requestMethod (ReqAnnounceNewPeriod _ _) = "announceNewPeriod"
     requestMethod (ReqCheckTx _ _ _) = "checkTx"
     requestMethod (ReqCommitTx _ _ _) = "commitTx"
     requestIsNotif = const False
 
 instance ToJSON MintetteReq where
     toJSON (ReqPeriodFinished pid) = toJSON [pid]
-    toJSON (ReqAnnounceNewPeriod npd) = toJSON npd
+    toJSON (ReqAnnounceNewPeriod mid npd) = toJSON (mid, npd)
     toJSON (ReqCheckTx tx a sg) = toJSON (tx, a, sg)
     toJSON (ReqCommitTx tx pId cc) = toJSON (tx, pId, cc)
 

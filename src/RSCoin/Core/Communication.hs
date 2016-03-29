@@ -83,9 +83,9 @@ sendPeriodFinished mintette =
     fromResponse (P.ResPeriodFinished pr) = pr
     fromResponse _ = error "SendPeriodFinished got unexpected result"
 
-announceNewPeriod :: Mintette -> NewPeriodData -> IO ()
-announceNewPeriod mintette =
-    fmap fromResponse . P.callMintette mintette . P.ReqAnnounceNewPeriod
+announceNewPeriod :: Mintette -> MintetteId -> NewPeriodData -> IO ()
+announceNewPeriod mintette mintetteId =
+    fmap fromResponse . P.callMintette mintette . P.ReqAnnounceNewPeriod mintetteId
   where
     fromResponse P.ResAnnounceNewPeriod = ()
     fromResponse _ = error "AnnounceNewPeriod got unexpected result"

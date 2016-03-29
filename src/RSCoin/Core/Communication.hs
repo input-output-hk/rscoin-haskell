@@ -38,8 +38,8 @@ getBlockByHeight pId =
 getOwnersByHash :: TransactionId -> P.WithResult [(Mintette, MintetteId)]
 getOwnersByHash tId =
     P.execBank $
-        fmap toOwners 
-            <$> P.call 
+        fmap toOwners
+            <$> P.call
                     (P.RSCBank P.GetMintettes)
                     (P.AsMessagePack tId)
     where toOwners mts = map (\i -> (mts !! i, i)) $ owners mts tId
@@ -60,7 +60,7 @@ checkNotDoubleSpent
     -> P.WithResult (Maybe CheckConfirmation)
 checkNotDoubleSpent m tx a s =
     P.execMintette m $
-        P.call (P.RSCMintette P.CheckTx) 
+        P.call (P.RSCMintette P.CheckTx)
             (P.AsMessagePack tx)
             (P.AsMessagePack a)
             (P.AsMessagePack s)

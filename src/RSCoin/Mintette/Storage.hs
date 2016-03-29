@@ -18,10 +18,11 @@ module RSCoin.Mintette.Storage
 import           Control.Applicative       ((<|>))
 import           Control.Lens              (Getter, makeLenses, to, use, uses,
                                             (%=), (+=), (<>=))
--- import           Control.Monad.Catch       (MonadThrow (throwM))
+import           Control.Monad             (unless)
+import           Control.Monad.Catch       (MonadThrow (throwM))
 import           Control.Monad.State.Class (MonadState)
 import qualified Data.Map                  as M
-import           Data.Maybe                (fromJust)
+import           Data.Maybe                (fromJust, isJust)
 import qualified Data.Set                  as S
 import           Data.Tuple.Select         (sel1)
 import           Safe                      (atMay, headMay)
@@ -41,7 +42,7 @@ import           RSCoin.Core               (ActionLog, ActionLogEntry (CommitEnt
                                             owners, sign, validateSignature,
                                             validateSum,
                                             verifyCheckConfirmation)
--- import           RSCoin.Mintette.Error     (MintetteError (MEInternal))
+import           RSCoin.Mintette.Error     (MintetteError (..))
 
 data Storage = Storage
     { _utxo       :: M.Map AddrId Address      -- ^ Unspent transaction outputs
@@ -62,14 +63,22 @@ $(makeLenses ''Storage)
 mkStorage :: Storage
 mkStorage = Storage M.empty M.empty S.empty [[]] [[]] 0 [] Nothing [] M.empty
 
-logHead :: Getter Storage (Maybe (ActionLogEntry, Hash))
+type Query a = Getter Storage a
+
+logHead :: Query (Maybe (ActionLogEntry, Hash))
 logHead = actionLogs . to f
   where
     f [] = Nothing
     f (x:xs) = headMay x <|> f xs
 
+periodId :: Query PeriodId
+periodId = lBlocks . to ((\l -> l - 1) . length)
+
+isActive :: Query Bool
+isActive = mintetteId . to isJust
+
 type Update a = forall m . MonadState Storage m => m a
--- type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
+type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
 -- | Validate structure of transaction, check input AddrId for
 -- double spent and signature, update state if everything is valid.
@@ -78,22 +87,25 @@ checkNotDoubleSpent :: SecretKey
                     -> Transaction
                     -> AddrId
                     -> Signature
-                    -> Update (Maybe CheckConfirmation)
+                    -> ExceptUpdate (Maybe CheckConfirmation)
 checkNotDoubleSpent sk tx addrId sg = do
+    checkIsActive
+    checkTxSum tx
+    unless (addrId `elem` txInputs tx) $
+        throwM $ MEInconsistentRequest "AddrId is not part of inputs"
     inPset <- M.lookup addrId <$> use pset
-    let txContainsAddrId = addrId `elem` txInputs tx
-    addr <- M.lookup addrId <$> use utxo
-    let isValid =
-            maybe
-                (and [txContainsAddrId, signatureValid addr, validateSum tx])
-                (== tx)
-                inPset
-    finishCheck isValid
+    maybe notInPsetCase inPsetCase inPset
   where
-    signatureValid =
-        maybe False (\a -> validateSignature sg a tx)
-    finishCheck False = return Nothing
-    finishCheck True = do
+    inPsetCase storedTx
+      | storedTx == tx = finishCheck
+      | otherwise = throwM MEDoubleSpending
+    notInPsetCase = do
+        addr <- M.lookup addrId <$> use utxo
+        maybe (throwM MEDoubleSpending) (checkSignatureAndFinish) addr
+    checkSignatureAndFinish a
+      | validateSignature sg a tx = finishCheck
+      | otherwise = throwM MEInvalidSignature
+    finishCheck = do
         pushLogEntry $ QueryEntry tx
         utxo %= M.delete addrId
         pset %= M.insert addrId tx
@@ -104,12 +116,15 @@ checkNotDoubleSpent sk tx addrId sg = do
 -- | Check that transaction is valid and whether it falls within
 -- mintette's remit.
 -- If it's true, add transaction to storage and return signed confirmation.
+-- TODO: update logHeads
 commitTx :: SecretKey
          -> Transaction
          -> PeriodId
          -> CheckConfirmations
-         -> Update (Maybe CommitConfirmation)
-commitTx sk tx@Transaction{..} _ bundle = do
+         -> ExceptUpdate (Maybe CommitConfirmation)
+commitTx sk tx@Transaction{..} pId bundle = do
+    checkIsActive
+    checkPeriodId pId
     mts <- use mintettes
     mId <- use mintetteId
     curDpk <- use dpk
@@ -189,3 +204,16 @@ pushLogEntry entry = do
     let newTopLog = actionLogNext prev entry : topLog
     actionLogs %= (\l -> newTopLog : tail l)
     logSize += 1
+
+checkIsActive :: ExceptUpdate ()
+checkIsActive = do
+    v <- use isActive
+    unless v $ throwM MEInactive
+
+checkTxSum :: Transaction -> ExceptUpdate ()
+checkTxSum tx = unless (validateSum tx) $ throwM MEInvalidTxSums
+
+checkPeriodId :: PeriodId -> ExceptUpdate ()
+checkPeriodId received = do
+    expected <- use periodId
+    unless (expected == received) $ throwM $ MEPeriodMismatch expected received

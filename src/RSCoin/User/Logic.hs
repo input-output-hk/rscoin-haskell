@@ -22,7 +22,7 @@ import           Serokell.Util.Text            (format')
 import           Control.Exception             (Exception, throwIO)
 import           Control.Monad                 (unless, when)
 import qualified Data.Map                      as M
-import           Data.Maybe                    (catMaybes)
+import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
 import qualified Data.Text                     as T
 
@@ -34,9 +34,11 @@ data UserLogicError
 
 instance Exception UserLogicError
 
--- | Implements V.1 from the paper
-validateTransaction :: Transaction -> Signature -> PeriodId -> IO ()
-validateTransaction tx@Transaction{..} sig height = do
+-- | Implements V.1 from the paper. For all addrids that are inputs of
+-- transaction 'signatures' should contain signature of transaction
+-- given.
+validateTransaction :: Transaction -> M.Map AddrId Signature -> PeriodId -> IO ()
+validateTransaction tx@Transaction{..} signatures height = do
     (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
     commitBundle bundle
   where
@@ -63,17 +65,28 @@ validateTransaction tx@Transaction{..} sig height = do
                     -> (Mintette, MintetteId)
                     -> IO (Maybe CheckConfirmations)
     processMintette addrid (mintette,mid) = do
-        signedPairMb <- CC.unCps $ CC.checkNotDoubleSpent mintette tx addrid sig
+        signedPairMb <-
+            CC.unCps $
+            CC.checkNotDoubleSpent mintette tx addrid $
+            fromJust $ M.lookup addrid signatures
         either
             (const $ return Nothing)
-            (\proof -> do unless (verifyCheckConfirmation proof tx addrid) $
-                              throwIO $ MintetteSignatureFailed mintette
-                          return $ Just $ M.singleton (mid, addrid) proof)
+            (\proof ->
+                  do unless (verifyCheckConfirmation proof tx addrid) $
+                         throwIO $ MintetteSignatureFailed mintette
+                     return $ Just $ M.singleton (mid, addrid) proof)
             signedPairMb
     commitBundle :: CheckConfirmations -> IO ()
     commitBundle bundle = do
         owns <- CC.unCps $ CC.getOwnersByTx tx
         (succeededCommits :: [CommitConfirmation]) <-
-            filter (\(pk, sign, lch) -> verify pk sign (tx, lch)) . catMaybes <$>
-            mapM ((\mintette -> CC.unCps $ CC.commitTx mintette tx height bundle) . fst) owns
+            filter
+                (\(pk,sign,lch) ->
+                      verify pk sign (tx, lch)) .
+            catMaybes <$>
+            mapM
+                ((\mintette ->
+                       CC.unCps $ CC.commitTx mintette tx height bundle) .
+                 fst)
+                owns
         unless (null succeededCommits) $ throwIO FailedToCommit

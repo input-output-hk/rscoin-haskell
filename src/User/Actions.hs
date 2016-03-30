@@ -86,8 +86,10 @@ proceedCommand st O.UpdateBlockchain =
 updateToBlockHeight :: A.RSCoinUserState -> PeriodId -> IO ()
 updateToBlockHeight st newHeight = do
     TIO.putStrLn $ formatSingle' "Updating to height {}" newHeight
-    C.HBlock{..} <- fmap (\(Right a) -> a) . C.unCps $ getBlockByHeight newHeight -- FIXME: handle Left
-    -- TODO validate this block
+    C.HBlock{..} <-
+        fmap (\(Right a) -> a) . C.unCps $
+            getBlockByHeight newHeight -- FIXME: handle Left
+    -- TODO validate this block with integrity check that we don't have
     relatedTransactions <-
         nub . concatMap (toTrs hbTransactions) <$> query st GetAllAddresses
     update st $ A.WithBlockchainUpdate newHeight relatedTransactions
@@ -101,11 +103,7 @@ updateToBlockHeight st newHeight = do
 formTransaction :: A.RSCoinUserState -> [(Int, Int64)] -> Address -> Coin -> IO ()
 formTransaction st inputs outputAddr outputCoin = do
     when
-        (nubBy
-             (\a ->
-                   (== EQ) . comparing fst a)
-             inputs /=
-         inputs) $
+        (nubBy (\a -> (== EQ) . comparing fst a) inputs /= inputs) $
         commitError "All input addresses should have distinct IDs."
     unless (all (> 0) $ map snd inputs) $
         commitError $
@@ -114,21 +112,14 @@ formTransaction st inputs outputAddr outputCoin = do
         head $ filter (<= 0) $ map snd inputs
     accounts <- query st GetAllAddresses
     when
-        (any
-             (\i ->
-                   i <= 0 || i > length accounts) $
-         map fst inputs) $
+        (any (\i -> i <= 0 || i > length accounts) $ map fst inputs) $
         commitError $
         format'
             "Found an account id ({}) that's not in [1..{}]"
             ( head $ filter (>= length accounts) $ map fst inputs
             , length accounts)
     let accInputs :: [(Int, W.UserAddress, Coin)]
-        accInputs =
-            map
-                (\(i,c) ->
-                      (i, accounts !! (i - 1), C.Coin c))
-                inputs
+        accInputs = map (\(i,c) -> (i, accounts !! (i - 1), C.Coin c)) inputs
         hasEnoughFunds (i,acc,c) = do
             amount <- getAmount st acc
             return $
@@ -136,10 +127,7 @@ formTransaction st inputs outputAddr outputCoin = do
                     then Nothing
                     else Just i
     overSpentAccounts <-
-        filterM
-            (\a ->
-                  isJust <$> hasEnoughFunds a)
-            accInputs
+        filterM (\a -> isJust <$> hasEnoughFunds a) accInputs
     unless (null overSpentAccounts) $
         commitError $
         (if length overSpentAccounts > 1

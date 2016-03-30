@@ -195,17 +195,11 @@ withBlockchainUpdate newHeight transactions = do
         "address that we own. Transactions: " ++ show transactions
     let mappedTransactions :: [([UserAddress], Transaction)]
         mappedTransactions =
-            map
-                (\tr ->
-                      ( map
-                            (\out ->
-                                  fromJust $
-                                  find
-                                      (\x ->
-                                            x ^. publicAddress == out)
-                                      knownAddresses) $
-                        filter hasFilter (map outputs $ txOutputs tr)
-                      , tr))
+            map (\tr -> (map (\out ->
+                               fromJust $ find (\x -> x ^. publicAddress == out)
+                                               knownAddresses) $
+                             filter hasFilter (map outputs $ txOutputs tr)
+                        , tr))
                 transactions
         flattenedTxs :: [(UserAddress, Transaction)]
         flattenedTxs =
@@ -215,11 +209,7 @@ withBlockchainUpdate newHeight transactions = do
                 mappedTransactions
     inputAddressesTxs %=
         (\(mp :: M.Map UserAddress [Transaction]) ->
-              foldr
-                  (\(a,b) c ->
-                        M.insertWith (++) a [b] c)
-                  mp
-                  flattenedTxs)
+              foldr (\(a,b) c -> M.insertWith (++) a [b] c) mp flattenedTxs)
     lastBlockId .= newHeight
   where
     reportBadRequest = throwM . BadRequest

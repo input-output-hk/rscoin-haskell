@@ -1,8 +1,9 @@
+{-# LANGUAGE ViewPatterns #-}
+
 -- | Logging functionality.
 
 module RSCoin.Core.Logging
        ( Severity (..)
-       , LoggingOptions (..)
        , initLogging
        , logDebug
        , logInfo
@@ -32,13 +33,9 @@ convertSeverity Info = INFO
 convertSeverity Warning = WARNING
 convertSeverity Error = ERROR
 
-data LoggingOptions = LoggingOptions
-    { loSeverity :: Severity
-    } deriving (Show)
-
-initLogging :: LoggingOptions -> IO ()
-initLogging LoggingOptions{..} = do
-    updateGlobalLogger rootLoggerName $ setLevel $ convertSeverity loSeverity
+initLogging :: Severity -> IO ()
+initLogging (convertSeverity -> s) =
+    updateGlobalLogger rootLoggerName $ setLevel s
 
 logDebug :: MonadIO m
          => T.Text -> m ()

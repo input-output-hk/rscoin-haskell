@@ -3,7 +3,8 @@ import           Data.Acid                (update)
 
 import qualified RSCoin.Bank              as B
 import           RSCoin.Core              (Mintette (Mintette),
-                                           constructPublicKey, readSecretKey)
+                                           constructPublicKey, initLogging,
+                                           readSecretKey)
 
 import           Serokell.Util.Exceptions (throwText)
 
@@ -12,6 +13,7 @@ import qualified Options                  as Opts
 main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
+    initLogging cloLogSeverity
     bracket (B.openState cloPath) B.closeState $ run cloCommand
   where
     run (Opts.Serve skPath) st = do

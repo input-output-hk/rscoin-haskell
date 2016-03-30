@@ -10,12 +10,14 @@ import           Options.Applicative (Parser, auto, execParser, fullDesc, help,
                                       progDesc, short, showDefault, strOption,
                                       value, (<>))
 
-import           RSCoin.Core         (defaultPort, defaultSecretKeyPath)
+import           RSCoin.Core         (Severity (Info), defaultPort,
+                                      defaultSecretKeyPath)
 
 data Options = Options
     { cloPort          :: Int
     , cloPath          :: FilePath
     , cloSecretKeyPath :: FilePath
+    , cloLogSeverity   :: Severity
     }
 
 optionsParser :: FilePath -> Parser Options
@@ -26,7 +28,8 @@ optionsParser defaultSKPath =
         (long "path" <> value "mintette-db" <> showDefault <>
          help "Path to database") <*>
     strOption
-        (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault)
+        (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault) <*>
+    option auto (long "log-severity" <> value Info <> showDefault)
 
 getOptions :: IO Options
 getOptions = do

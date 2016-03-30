@@ -14,15 +14,16 @@ import           Options.Applicative    (Parser, auto, command, execParser,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (defaultSecretKeyPath)
+import           RSCoin.Core            (Severity (Info), defaultSecretKeyPath)
 
 data Command
     = Serve FilePath
     | AddMintette String Int T.Text
 
 data Options = Options
-    { cloCommand :: Command
-    , cloPath    :: FilePath
+    { cloCommand     :: Command
+    , cloPath        :: FilePath
+    , cloLogSeverity :: Severity
     }
 
 commandParser :: FilePath -> Parser Command
@@ -52,7 +53,9 @@ optionsParser :: FilePath -> Parser Options
 optionsParser defaultSKPath =
     Options <$> commandParser defaultSKPath <*>
     strOption
-        (long "path" <> value "bank-db" <> showDefault <> help "Path to database")
+        (long "path" <> value "bank-db" <> showDefault <>
+         help "Path to database") <*>
+    option auto (long "log-severity" <> value Info <> showDefault)
 
 getOptions :: IO Options
 getOptions = do

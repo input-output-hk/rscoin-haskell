@@ -6,7 +6,7 @@ module UserOptions
        , getUserOptions
        ) where
 
-import           RSCoin.Core            (defaultAccountsNumber,
+import           RSCoin.Core            (Severity (Info), defaultAccountsNumber,
                                          defaultSecretKeyPath)
 
 import           Data.Int               (Int64)
@@ -44,6 +44,7 @@ data UserOptions = UserOptions
     , bankModePath :: FilePath    -- ^ Path to bank's secret key
     , addressesNum :: Int         -- ^ Number of addresses to create initially
     , walletPath   :: FilePath    -- ^ Path to the wallet
+    , logSeverity  :: Severity    -- ^ Logging severity
     } deriving (Show)
 
 userCommandParser :: Parser UserCommand
@@ -101,7 +102,8 @@ userOptionsParser dskp =
     strOption
         (long "wallet-path" <> help "Path to wallet database." <>
          value "wallet-db" <>
-         showDefault)
+         showDefault) <*>
+    option auto (long "log-severity" <> value Info <> showDefault)
 
 -- | IO call that retrieves command line options
 getUserOptions :: IO UserOptions

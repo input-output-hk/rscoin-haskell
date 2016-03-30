@@ -62,8 +62,9 @@ proceedCommand st (O.FormTransaction inputs (outputAddrStr,outputCoinInt)) =
            C.Coin outputCoinInt
 proceedCommand st O.UpdateBlockchain =
     eWrap $
-    do height <- C.unCps getBlockchainHeight -- request to get blockchain height
-       walletHeight <- query st A.GetLastBlockId
+    do walletHeight <- query st A.GetLastBlockId
+       TIO.putStrLn $ formatSingle' "Current blockchain height is {}." walletHeight
+       height <- C.unCps getBlockchainHeight -- request to get blockchain height
        when (walletHeight < height) $
            throwIO $
            StorageError $
@@ -71,12 +72,14 @@ proceedCommand st O.UpdateBlockchain =
                "Blockchain height in wallet is greater than in bank. Critical error."
        if height == walletHeight
            then putStrLn "Blockchain is updated already."
-           else forM_ [walletHeight, height] (updateToBlockHeight st)
+           else do forM_ [walletHeight, height] (updateToBlockHeight st)
+                   TIO.putStrLn "Successfully updated blockchain!"
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.
 updateToBlockHeight :: A.RSCoinUserState -> PeriodId -> IO ()
 updateToBlockHeight st newHeight = do
+    TIO.putStrLn $ formatSingle' "Updating to height {}" newHeight
     C.HBlock{..} <- fmap fromJust . C.unCps $ getBlockByHeight newHeight -- FIXME: handle maybe
     -- TODO validate this block
     relatedTransactions <-

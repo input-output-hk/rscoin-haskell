@@ -84,7 +84,7 @@ proceedCommand st O.UpdateBlockchain =
 updateToBlockHeight :: A.RSCoinUserState -> PeriodId -> IO ()
 updateToBlockHeight st newHeight = do
     TIO.putStrLn $ formatSingle' "Updating to height {}" newHeight
-    C.HBlock{..} <- fmap fromJust . C.unCps $ getBlockByHeight newHeight -- FIXME: handle maybe
+    C.HBlock{..} <- fmap (\(Right a) -> a) . C.unCps $ getBlockByHeight newHeight -- FIXME: handle Left
     -- TODO validate this block
     relatedTransactions <-
         nub . concatMap (toTrs hbTransactions) <$> query st GetAllAddresses

@@ -33,12 +33,12 @@ getBlockchainHeight =
         P.call (P.RSCBank P.GetBlockchainHeight)
 
 -- | Given the height/perioud id, retreives block if it's present
-getBlockByHeight :: PeriodId -> P.WithResult (Maybe HBlock)
+getBlockByHeight :: PeriodId -> P.WithResult (Either String HBlock)
 getBlockByHeight pId =
     P.execBank $
         P.call (P.RSCBank P.GetHBlock) pId
 
-getGenesisBlock :: P.WithResult (Maybe HBlock)
+getGenesisBlock :: P.WithResult (Either String HBlock)
 getGenesisBlock = getBlockByHeight 0
 
 getOwnersByHash :: TransactionId -> P.WithResult [(Mintette, MintetteId)]

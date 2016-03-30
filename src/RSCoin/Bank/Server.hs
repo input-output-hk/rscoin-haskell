@@ -27,5 +27,6 @@ serveGetMintettes st = query' st GetMintettes
 serveGetHeight :: State -> C.Server PeriodId
 serveGetHeight st = query' st GetPeriodId
 
-serveGetHBlock :: State -> PeriodId -> C.Server (Maybe HBlock)
-serveGetHBlock st pId = query' st $ GetHBlock pId
+serveGetHBlock :: State -> PeriodId -> C.Server (Either String HBlock)
+serveGetHBlock st pId =
+    maybe (Left "BAD, AWFUL, TERRIBLE") Right <$> query' st (GetHBlock pId)

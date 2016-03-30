@@ -1,16 +1,26 @@
-import           Actions               (proceedCommand)
-import           RSCoin.Core           (initLogging)
-import qualified RSCoin.User.AcidState as A
-import qualified UserOptions           as O
-
 import           Control.Exception     (bracket)
+import qualified Data.Text             as T
+
+import           RSCoin.Core           (initLogging, logDebug)
+import qualified RSCoin.User.AcidState as A
+
+import           Actions               (proceedCommand)
+import qualified UserOptions           as O
 
 main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     initLogging logSeverity
-    let ifBankMode = if isBankMode then Just bankModePath else Nothing
-    bracket (A.openState walletPath addressesNum ifBankMode) A.closeState $
+    bracket
+        (A.openState
+             walletPath
+             addressesNum
+             (bankKeyPath isBankMode bankModePath))
+        A.closeState $
         \st ->
-             do putStrLn $ "Called with options: " ++ show opts
+             do logDebug $
+                    mconcat ["Called with options: ", (T.pack . show) opts]
                 proceedCommand st userCommand
+  where
+    bankKeyPath True p = Just p
+    bankKeyPath False _ = Nothing

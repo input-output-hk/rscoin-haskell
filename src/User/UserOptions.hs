@@ -6,17 +6,18 @@ module UserOptions
        , getUserOptions
        ) where
 
-import           RSCoin.Core         (defaultAccountsNumber,
-                                      defaultSecretKeyPath)
+import           RSCoin.Core            (defaultAccountsNumber,
+                                         defaultSecretKeyPath)
 
-import           Data.Int            (Int64)
-import           Data.Monoid         ((<>))
-import           Data.Text           (Text)
+import           Data.Int               (Int64)
+import           Data.Monoid            ((<>))
+import           Data.Text              (Text)
+import           Options.Applicative    (Parser, auto, command, execParser,
+                                         fullDesc, help, helper, info, long,
+                                         option, progDesc, showDefault, some,
+                                         subparser, switch, value)
 
-import           Options.Applicative (Parser, auto, command, execParser,
-                                      fullDesc, help, helper, info, long,
-                                      option, progDesc, showDefault, some,
-                                      strOption, subparser, switch, value)
+import           Serokell.Util.OptParse (strOption)
 
 -- | Input user command that's contained in every program call
 data UserCommand
@@ -73,7 +74,7 @@ userCommandParser =
               help
                   ("Pairs (a,b) where 'a' is id of address as numbered in list-wallets " <>
                    "output, 'b' is integer -- amount of value to send."))) <*>
-        ((,) <$> option auto
+        ((,) <$> strOption
                  (long "addrout" <> help "Address to send coins to.") <*>
          option auto (long "value" <> help "Value to send."))
 

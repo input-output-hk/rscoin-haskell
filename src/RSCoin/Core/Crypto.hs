@@ -43,6 +43,8 @@ import           Data.Text.Buildable       (Buildable (build))
 import           Data.Text.Encoding        (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format          as F
 import qualified Data.Text.IO              as TIO
+import           System.Directory          (createDirectoryIfMissing)
+import           System.FilePath           (takeDirectory)
 import           Test.QuickCheck.Arbitrary (Arbitrary (arbitrary))
 import           Test.QuickCheck.Gen       (generate)
 
@@ -187,7 +189,9 @@ constructPublicKey t =
 
 -- | Writes PublicKey to a file
 writePublicKey :: FilePath -> PublicKey -> IO ()
-writePublicKey fp = TIO.writeFile fp . show'
+writePublicKey fp k = do
+    ensureDirectoryExists fp
+    TIO.writeFile fp $ show' k
 
 -- | Reads PublicKey from a file
 readPublicKey :: FilePath -> IO PublicKey
@@ -197,11 +201,17 @@ readPublicKey fp =
 
 -- | Writes SecretKey to a file
 writeSecretKey :: FilePath -> SecretKey -> IO ()
-writeSecretKey fp = writeFile fp . show . getSecretKey
+writeSecretKey fp (getSecretKey -> k) = do
+    ensureDirectoryExists fp
+    writeFile fp $ show k
 
 -- | Reads SecretKey from a file
 readSecretKey :: FilePath -> IO SecretKey
 readSecretKey = fmap (SecretKey . read) . readFile
+
+ensureDirectoryExists :: FilePath -> IO ()
+ensureDirectoryExists (takeDirectory -> d) = do
+    createDirectoryIfMissing True d
 
 withBinaryHashedMsg :: Binary t => (Msg -> a) -> t -> a
 withBinaryHashedMsg action =

@@ -8,6 +8,7 @@ import           Control.Exception   (Exception)
 import           Data.Monoid         ((<>))
 import           Data.Text           (Text)
 import           Data.Text.Buildable (Buildable (build))
+import qualified Data.Text.Format    as F
 import           Data.Typeable       (Typeable)
 
 import           RSCoin.Core         (PeriodId)
@@ -29,5 +30,15 @@ data MintetteError
 instance Exception MintetteError
 
 instance Buildable MintetteError where
-    build (MEInternal m) = "InternalError: " <> build m
-    build e = build $ show e  -- TODO
+    build (MEInternal m) = "internal error: " <> build m
+    build MEInactive = "mintette is not active right now"
+    build (MEPeriodMismatch expected received) =
+        F.build
+            "received strange PeriodId: {} (expected {})"
+            (expected, received)
+    build MEInvalidTxSums = "sum of outputs is greater that some of inputs"
+    build (MEInconsistentRequest msg) = build msg
+    build MEDoubleSpending = "most likely double spending takes place"
+    build MEInvalidSignature = "failed to verify signature"
+    build MENotConfirmed = "transaction doesn't have enough confirmations"
+    build MEAlreadyActive = "can't start new period when period is active"

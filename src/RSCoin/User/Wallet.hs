@@ -121,7 +121,7 @@ emptyWalletStorage addrNum bankAddr = do
     let _inputAddressesTxs = foldr (\addr -> M.insert addr []) M.empty _userAddresses
     _lastBlockId <- if isJust bankAddr
                     then return (-1) -- if you're bank, you should query all the blockchain
-                    else C.unCps getBlockchainHeight
+                    else pred <$> C.unCps getBlockchainHeight
     return WalletStorage {..}
 
 

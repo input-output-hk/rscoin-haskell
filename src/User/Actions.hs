@@ -46,9 +46,7 @@ proceedCommand :: A.RSCoinUserState -> O.UserCommand -> IO ()
 proceedCommand st O.ListAddresses =
     eWrap $
     do (wallets :: [(C.PublicKey, C.Coin)]) <-
-           mapM
-               (\w ->
-                     (w ^. W.publicAddress, ) <$> getAmount st w) =<<
+           mapM (\w -> (w ^. W.publicAddress, ) <$> getAmount st w) =<<
            query st GetAllAddresses
        TIO.putStrLn "Here's the list of transactions:"
        TIO.putStrLn "Num | Public ID | Amount"

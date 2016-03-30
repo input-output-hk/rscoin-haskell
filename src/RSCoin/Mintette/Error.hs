@@ -35,7 +35,7 @@ instance Buildable MintetteError where
     build (MEPeriodMismatch expected received) =
         F.build
             "received strange PeriodId: {} (expected {})"
-            (expected, received)
+            (received, expected)
     build MEInvalidTxSums = "sum of outputs is greater that some of inputs"
     build (MEInconsistentRequest msg) = build msg
     build MEDoubleSpending = "most likely double spending takes place"

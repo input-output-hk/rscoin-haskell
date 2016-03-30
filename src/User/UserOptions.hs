@@ -87,20 +87,21 @@ userOptionsParser dskp =
              ("Start the client in bank-mode. " <>
               "Is needed only on wallet initialization. " <>
               "Will load bank's secret key.")) <*>
-    option
-        auto
-        (long "bank-sk-path" <> help "Path to bank's secret key." <>
-         value dskp <> showDefault) <*>
+    strOption
+        (long "bank-sk-path" <> help "Path to bank's secret key." <> value dskp <>
+         showDefault) <*>
     option
         auto
         (long "addresses-num" <>
          help
              ("The number of addresses to create " <>
               "initially with the wallet") <>
-         value defaultAccountsNumber <> showDefault) <*>
+         value defaultAccountsNumber <>
+         showDefault) <*>
     strOption
         (long "wallet-path" <> help "Path to wallet database." <>
-         value "wallet-db" <> showDefault)
+         value "wallet-db" <>
+         showDefault)
 
 -- | IO call that retrieves command line options
 getUserOptions :: IO UserOptions

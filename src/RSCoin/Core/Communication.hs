@@ -29,7 +29,7 @@ import           RSCoin.Core.Types      (CheckConfirmation, CheckConfirmations,
 getBlockchainHeight :: P.WithResult PeriodId
 getBlockchainHeight =
     P.execBank $
-        P.call (P.RSCBank P.GetMintettes)
+        P.call (P.RSCBank P.GetBlockchainHeight)
 
 -- | Given the height/perioud id, retreives block if it's present
 getBlockByHeight :: PeriodId -> P.WithResult (Maybe HBlock)

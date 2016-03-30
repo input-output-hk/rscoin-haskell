@@ -25,7 +25,7 @@ module RSCoin.User.Wallet
        ) where
 
 import           Control.Exception          (Exception, throw)
-import           Control.Lens               ((%=), (<>=), (^.))
+import           Control.Lens               ((%=), (.=), (<>=), (^.))
 import qualified Control.Lens               as L
 import           Control.Monad              (replicateM, unless)
 import           Control.Monad.Catch        (MonadThrow, throwM)
@@ -33,7 +33,7 @@ import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import           Data.List                  (find)
 import qualified Data.Map                   as M
-import           Data.Maybe                 (fromJust, maybeToList)
+import           Data.Maybe                 (fromJust, isJust, maybeToList)
 import           Data.Monoid                ((<>))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
@@ -119,7 +119,9 @@ emptyWalletStorage addrNum bankAddr = do
                       map (uncurry UserAddress) <$>
                       replicateM addrNum keyGen
     let _inputAddressesTxs = foldr (\addr -> M.insert addr []) M.empty _userAddresses
-    _lastBlockId <- C.unCps getBlockchainHeight
+    _lastBlockId <- if isJust bankAddr
+                    then return (-1) -- if you're bank, you should query all the blockchain
+                    else C.unCps getBlockchainHeight
     return WalletStorage {..}
 
 
@@ -161,7 +163,9 @@ getLastBlockId = L.view lastBlockId
 
 -- | Update state with bunch of transactions from new unobserved
 -- blockchain blocks. Each transaction should contain at least one of
--- users public addresses in outputs.
+-- users public addresses in outputs.  Sum validation for transactions
+-- is disabled, because HBlocks contain generative transactions for
+-- fee allocation. Make sure no bad transactions are added here.
 withBlockchainUpdate
     :: (MonadState WalletStorage m, MonadThrow m)
     => PeriodId -> [Transaction] -> m ()
@@ -178,11 +182,6 @@ withBlockchainUpdate newHeight transactions = do
             ("New blockchain height {} should be exactly {} + 1. " <>
              "Only incremental updates are available.")
             (newHeight, currentHeight)
-    unless (all C.validateSum transactions) $
-        reportBadRequest $
-        formatSingle'
-            "Tried to update with invalid transactions -- at least this one: {} " $
-        head $ filter (not . C.validateSum) transactions
     knownAddresses <- L.use userAddresses
     knownPublicAddresses <- L.uses userAddresses (map _publicAddress)
     let hasFilter out = out `elem` knownPublicAddresses
@@ -221,6 +220,7 @@ withBlockchainUpdate newHeight transactions = do
                         M.insertWith (++) a [b] c)
                   mp
                   flattenedTxs)
+    lastBlockId .= newHeight
   where
     reportBadRequest = throwM . BadRequest
 

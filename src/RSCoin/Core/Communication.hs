@@ -4,6 +4,7 @@
 module RSCoin.Core.Communication
        ( getBlockchainHeight
        , getBlockByHeight
+       , getGenesisBlock
        , checkNotDoubleSpent
        , commitTx
        , sendPeriodFinished
@@ -36,6 +37,9 @@ getBlockByHeight :: PeriodId -> P.WithResult (Maybe HBlock)
 getBlockByHeight pId =
     P.execBank $
         P.call (P.RSCBank P.GetHBlock) pId
+
+getGenesisBlock :: P.WithResult (Maybe HBlock)
+getGenesisBlock = getBlockByHeight 0
 
 getOwnersByHash :: TransactionId -> P.WithResult [(Mintette, MintetteId)]
 getOwnersByHash tId =

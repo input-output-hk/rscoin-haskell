@@ -63,17 +63,21 @@ proceedCommand st (O.FormTransaction inputs (outputAddrStr,outputCoinInt)) =
 proceedCommand st O.UpdateBlockchain =
     eWrap $
     do walletHeight <- query st A.GetLastBlockId
-       TIO.putStrLn $ formatSingle' "Current blockchain height is {}." walletHeight
-       height <- C.unCps getBlockchainHeight -- request to get blockchain height
-       when (walletHeight < height) $
+       TIO.putStrLn $
+           formatSingle' "Current blockchain height is {}." walletHeight
+       height <- pred <$> C.unCps getBlockchainHeight -- request to get blockchain height
+       when (walletHeight > height) $
            throwIO $
            StorageError $
-           W.InternalError
-               "Blockchain height in wallet is greater than in bank. Critical error."
+           W.InternalError $
+           format'
+               "Blockchain height in wallet ({}) is greater than in bank ({}). Critical error."
+               (walletHeight, height)
        if height == walletHeight
            then putStrLn "Blockchain is updated already."
-           else do forM_ [walletHeight, height] (updateToBlockHeight st)
-                   TIO.putStrLn "Successfully updated blockchain!"
+           else do
+               forM_ [walletHeight+1..height] (updateToBlockHeight st)
+               TIO.putStrLn "Successfully updated blockchain!"
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.
@@ -85,6 +89,7 @@ updateToBlockHeight st newHeight = do
     relatedTransactions <-
         nub . concatMap (toTrs hbTransactions) <$> query st GetAllAddresses
     update st $ A.WithBlockchainUpdate newHeight relatedTransactions
+    TIO.putStrLn $ formatSingle' "Updated to height {}" newHeight
   where
     toTrs :: [C.Transaction] -> W.UserAddress -> [C.Transaction]
     toTrs trs userAddr =

@@ -55,9 +55,11 @@ openState path n (Just skPath) = do
     let bankAddress = W.makeUserAddress sk $ C.getAddress C.genesisAddress
     unless (W.validateUserAddress bankAddress) $
         throwIO $ W.BadRequest "Imported bank's secret key doesn't belong to bank."
-    A.openLocalStateFrom path =<< W.emptyWalletStorage n (Just bankAddress)
-openState path n Nothing =
-    A.openLocalStateFrom path =<< W.emptyWalletStorage n Nothing
+    st <- A.openLocalStateFrom path =<< W.emptyWalletStorage n (Just bankAddress)
+    A.createCheckpoint st >> return st
+openState path n Nothing = do
+    st <- A.openLocalStateFrom path =<< W.emptyWalletStorage n Nothing
+    A.createCheckpoint st >> return st
 
 -- | Closes the ACID state.
 closeState :: RSCoinUserState -> IO ()

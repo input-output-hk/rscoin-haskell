@@ -39,12 +39,12 @@ getBlockByHeight pId =
 
 getOwnersByHash :: TransactionId -> P.WithResult [(Mintette, MintetteId)]
 getOwnersByHash tId =
-    P.execBank $
-        fmap toOwners
-            <$> P.call
-                    (P.RSCBank P.GetMintettes)
-                    (P.AsMessagePack tId)
-    where toOwners mts = map (\i -> (mts !! i, i)) $ owners mts tId
+    P.execBank $ toOwners <$> P.call (P.RSCBank P.GetMintettes) tId
+  where
+    toOwners mts =
+        map
+            (\i -> (mts !! i, i)) $
+        owners mts tId
 
 -- | Gets owners from Transaction
 getOwnersByTx :: Transaction -> P.WithResult [(Mintette, MintetteId)]
@@ -61,11 +61,7 @@ checkNotDoubleSpent
     -> Signature
     -> P.WithResult (Either Text CheckConfirmation)
 checkNotDoubleSpent m tx a s =
-    P.execMintette m $
-        P.call (P.RSCMintette P.CheckTx)
-            (P.AsMessagePack tx)
-            (P.AsMessagePack a)
-            (P.AsMessagePack s)
+    P.execMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
 
 commitTx
     :: Mintette
@@ -74,19 +70,15 @@ commitTx
     -> CheckConfirmations
     -> P.WithResult (Maybe CommitConfirmation)
 commitTx m tx pId cc =
-    P.execMintette m $
-        P.call (P.RSCMintette P.CommitTx)
-            (P.AsMessagePack tx)
-            pId
-            (P.AsMessagePack cc)
+    P.execMintette m $ P.call (P.RSCMintette P.CommitTx) tx pId cc
 
 sendPeriodFinished :: Mintette -> PeriodId -> P.WithResult PeriodResult
 sendPeriodFinished mintette pId =
-    P.execMintette mintette $
-        P.call (P.RSCMintette P.PeriodFinished) pId
+    P.execMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
 
 announceNewPeriod :: Mintette -> MintetteId -> NewPeriodData -> IO ()
 announceNewPeriod mintette mId npd =
-    P.execMintette mintette
-        (P.call (P.RSCMintette P.AnnounceNewPeriod) (P.AsMessagePack mId)  (P.AsMessagePack npd))
+    P.execMintette
+        mintette
+        (P.call (P.RSCMintette P.AnnounceNewPeriod) mId npd)
         return

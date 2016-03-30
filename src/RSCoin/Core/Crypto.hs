@@ -32,6 +32,7 @@ import           Data.Binary               (Binary (get, put), decodeOrFail,
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Base64    as B64
 import           Data.Hashable             (Hashable (hashWithSalt))
+import           Data.MessagePack          (MessagePack (toObject, fromObject))
 import           Data.Ord                  (comparing)
 import           Data.SafeCopy             (Contained,
                                             SafeCopy (getCopy, putCopy), base,
@@ -59,7 +60,7 @@ import           Serokell.Util.Text        (show')
 -- | Hash is just a base64 encoded ByteString.
 newtype Hash =
     Hash { getHash :: ByteString }
-    deriving (Eq, Show, Binary, Ord, Hashable)
+    deriving (Eq, Show, Binary, Ord, Hashable, MessagePack)
 
 $(deriveSafeCopy 0 'base ''Hash)
 
@@ -108,8 +109,12 @@ instance ToJSON Signature where
     toJSON (getSignature -> sig) =
         object ["signature" .= show sig]
 
+instance MessagePack Signature where
+    toObject = toObject . exportSig . getSignature
+    fromObject obj = Signature <$> (importSig =<< fromObject obj)
+
 instance Binary Signature where
-    get = do -- NOTE: we can implement Binary with Show/Read
+    get = do
         mSig <- importSig <$> get
         maybe (fail "Signature import failed") (return . Signature) mSig
     put = put . exportSig . getSignature
@@ -142,6 +147,10 @@ instance ToJSON PublicKey where
     toJSON (getPublicKey -> pubKey) =
         object ["publicKey" .= show pubKey]
 
+instance MessagePack PublicKey where
+    toObject = toObject . show'
+    fromObject obj = constructPublicKey =<< fromObject obj
+
 instance Ord PublicKey where
     compare = comparing (show . getPublicKey)
 
@@ -156,7 +165,7 @@ instance Hashable PublicKey where
     hashWithSalt s pk = hashWithSalt s (encode pk)
 
 instance Binary PublicKey where
-    get = do -- NOTE: we can implement Binary with Show/Read
+    get = do
         mKey <- importPubKey <$> get
         maybe (fail "Public key import failed") (return . PublicKey) mKey
     put = put . exportPubKey True . getPublicKey

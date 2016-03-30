@@ -22,10 +22,10 @@ serve st =
         ]
 
 serveGetMintettes :: State -> C.Server Mintettes
-serveGetMintettes st = C.AsMessagePack <$> query' st GetMintettes
+serveGetMintettes st = query' st GetMintettes
 
 serveGetHeight :: State -> C.Server PeriodId
-serveGetHeight st = C.AsMessagePack <$> query' st GetPeriodId
+serveGetHeight st = query' st GetPeriodId
 
 serveGetHBlock :: State -> PeriodId -> C.Server (Maybe HBlock)
-serveGetHBlock st pId = fmap C.AsMessagePack . query' st $ GetHBlock pId
+serveGetHBlock st pId = query' st $ GetHBlock pId

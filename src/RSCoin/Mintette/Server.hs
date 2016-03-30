@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns        #-}
 
 -- | Server implementation for mintette
 
@@ -36,37 +35,35 @@ serve port dbPath sk =
 
 handlePeriodFinished
     :: C.SecretKey -> State -> C.PeriodId -> C.Server C.PeriodResult
-handlePeriodFinished sk st pId = fmap C.AsMessagePack . update' st $ FinishPeriod sk pId
+handlePeriodFinished sk st pId = update' st $ FinishPeriod sk pId
 
 handleNewPeriod :: State
-                -> C.AsMessagePack C.MintetteId
-                -> C.AsMessagePack C.NewPeriodData
+                -> C.MintetteId
+                -> C.NewPeriodData
                 -> C.Server ()
-handleNewPeriod st (C.getAsMessagePack -> mId) (C.getAsMessagePack -> npd) =
-    fmap C.AsMessagePack . update' st $ StartPeriod (mId, npd)
+handleNewPeriod st mId npd = update' st $ StartPeriod (mId, npd)
 
 handleCheckTx
     :: C.SecretKey
     -> State
-    -> C.AsMessagePack C.Transaction
-    -> C.AsMessagePack C.AddrId
-    -> C.AsMessagePack C.Signature
+    -> C.Transaction
+    -> C.AddrId
+    -> C.Signature
     -> C.Server (Either Text C.CheckConfirmation)
-handleCheckTx sk st (C.getAsMessagePack -> tx) (C.getAsMessagePack -> addrId) (C.getAsMessagePack -> sg) =
-    lift . fmap C.AsMessagePack $
-    do (res :: Either MintetteError C.CheckConfirmation) <-
-           try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
-       either (return . Left . show') (return . Right) res
+handleCheckTx sk st tx addrId sg = lift $ do
+    (res :: Either MintetteError C.CheckConfirmation) <-
+        try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
+    either (return . Left . show') (return . Right) res
 
 handleCommitTx
     :: C.SecretKey
     -> State
-    -> C.AsMessagePack C.Transaction
+    -> C.Transaction
     -> C.PeriodId
-    -> C.AsMessagePack C.CheckConfirmations
+    -> C.CheckConfirmations
     -> C.Server (Either Text C.CommitConfirmation)
-handleCommitTx sk st (C.getAsMessagePack -> tx) pId (C.getAsMessagePack -> cc) =
-    lift . fmap C.AsMessagePack $
+handleCommitTx sk st tx pId cc =
+    lift $
     do (res :: Either MintetteError C.CommitConfirmation) <-
            try $ update' st $ CommitTx sk tx pId cc
        either (return . Left . show') (return . Right) res

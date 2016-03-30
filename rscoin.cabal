@@ -42,6 +42,7 @@ library
                      , RSCoin.Core.Aeson
                      , RSCoin.Core.Communication
                      , RSCoin.Core.Logging
+                     , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
                      , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Error

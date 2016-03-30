@@ -8,7 +8,6 @@ module RSCoin.Core.Protocol
        , MintetteMethod (..)
        , RSCoinMethod (..)
        , WithResult
-       , AsMessagePack (..)
        , Server
        , C.Client
        , method
@@ -25,7 +24,6 @@ import           Control.Monad.IO.Class     (liftIO)
 
 import           Data.IORef                 (newIORef, writeIORef, readIORef)
 import qualified Data.ByteString.Char8      as BS
-import           Data.MessagePack.Aeson     (AsMessagePack (..))
 import           Data.Maybe                 (fromJust)
 
 import qualified Network.MessagePack.Server as S
@@ -34,7 +32,7 @@ import qualified Network.MessagePack.Client as C
 import           RSCoin.Core.Constants      (bankHost, bankPort)
 import           RSCoin.Core.Types          (Mintette (..))
 import           RSCoin.Core.Crypto         ()
-import           RSCoin.Core.Aeson          ()
+import           RSCoin.Core.MessagePack          ()
 
 -- TODO: this module should provide more safety and expose better api
 
@@ -59,7 +57,7 @@ data MintetteMethod
     | CommitTx
     deriving (Show)
 
-type Server a = S.Server (AsMessagePack a)
+type Server a = S.Server a
 
 -- | Create server method.
 method :: S.MethodType m f => RSCoinMethod -> f -> S.Method m
@@ -77,25 +75,25 @@ call m = C.call (show m)
 type WithResult a = (a -> IO ()) -> IO ()
 
 -- | Send a request to a Bank using Continuation passing style (CPS).
-execBank :: C.Client (AsMessagePack a) -> WithResult a
+execBank :: C.Client a -> WithResult a
 execBank action withResult =
     C.execClient (BS.pack bankHost) bankPort $ do
-        ret <- getAsMessagePack <$> action
+        ret <- action
         liftIO $ withResult ret
 
 -- | Send a request to a Mintette using Continuation passing style (CPS).
-execMintette :: Mintette -> C.Client (AsMessagePack a) -> WithResult a
+execMintette :: Mintette -> C.Client a -> WithResult a
 execMintette Mintette {..} action withResult =
     C.execClient (BS.pack mintetteHost) mintettePort $ do
-        ret <- getAsMessagePack <$> action
+        ret <- action
         liftIO $ withResult ret
 
 -- | Send a request to a Bank.
-callBank :: C.Client (AsMessagePack a) -> IO a
+callBank :: C.Client a -> IO a
 callBank = unCps . execBank
 
 -- | Send a request to a Mintette.
-callMintette :: Mintette -> C.Client (AsMessagePack a) -> IO a
+callMintette :: Mintette -> C.Client a -> IO a
 callMintette m = unCps . execMintette m
 
 -- | Reverse Continuation passing style (CPS) transformation

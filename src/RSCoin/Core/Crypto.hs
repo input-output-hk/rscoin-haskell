@@ -65,7 +65,7 @@ newtype Hash =
 $(deriveSafeCopy 0 'base ''Hash)
 
 instance Buildable Hash where
-    build = build . F.Shown
+    build = build . F.Shown . getHash
 
 instance FromJSON Hash where
     parseJSON (Object v) =

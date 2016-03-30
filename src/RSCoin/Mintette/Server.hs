@@ -74,9 +74,19 @@ handleCheckTx
     -> C.Server (Either Text C.CheckConfirmation)
 handleCheckTx sk st tx addrId sg =
     toServer $
-    do (res :: Either MintetteError C.CheckConfirmation) <-
-           try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
-       either (return . Left . show') (return . Right) res
+    do C.logDebug $
+           format' "Checking addrid ({}) from transaction: {}" (addrId, tx)
+       res <- try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
+       either onError onSuccess res
+  where
+    onError (e :: MintetteError) = do
+        C.logWarning $ formatSingle' "CheckTx failed: {}" e
+        return $ Left $ show' e
+    onSuccess res = do
+        C.logInfo $
+            format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
+        C.logInfo $ formatSingle' "Confirmation: {}" res
+        return $ Right $ res
 
 handleCommitTx
     :: C.SecretKey

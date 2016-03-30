@@ -93,21 +93,3 @@ unCps withResult = do
     ref <- newIORef Nothing
     withResult $ writeIORef ref . Just
     fromJust <$> readIORef ref
-
--- example bellow
-
-{-
-start' :: IO ()
-start' = S.serve 3000 [S.method "add" add]
-
-call' :: IO ()
-call' = C.execClient "127.0.0.1" 3000 $ do
-    ret <- add' 1 2
-    liftIO $ print ret
-
-add :: Int -> Int -> S.Server Int
-add x y = return $ x + y
-
-add' :: Int -> Int -> C.Client Int
-add' = C.call "add"
--}

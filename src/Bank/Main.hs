@@ -8,8 +8,6 @@ import           RSCoin.Core              (Mintette (Mintette),
                                            readSecretKey, readPublicKey,
                                            logWarning)
 
-import           Serokell.Util.Exceptions (throwText)
-
 import qualified Options                  as Opts
 
 main :: IO ()

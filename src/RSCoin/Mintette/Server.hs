@@ -87,6 +87,17 @@ handleCommitTx
     -> C.Server (Either Text C.CommitConfirmation)
 handleCommitTx sk st tx pId cc =
     toServer $
-    do (res :: Either MintetteError C.CommitConfirmation) <-
-           try $ update' st $ CommitTx sk tx pId cc
-       either (return . Left . show') (return . Right) res
+    do C.logDebug $
+           format'
+               "There is an attempt to commit transaction ({}), provided periodId is {}."
+               (tx, pId)
+       C.logDebug $ formatSingle' "Here are confirmations: {}" cc
+       res <- try $ update' st $ CommitTx sk tx pId cc
+       either onError onSuccess res
+  where
+    onError (e :: MintetteError) = do
+        C.logWarning $ formatSingle' "CommitTx failed: {}" e
+        return $ Left $ show' e
+    onSuccess res = do
+        C.logInfo $ formatSingle' "Successfully committed transaction {}" tx
+        return $ Right res

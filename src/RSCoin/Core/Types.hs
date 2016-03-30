@@ -103,6 +103,9 @@ $(deriveSafeCopy 0 'base ''CheckConfirmation)
 -- sent to mintette as payload for Commit action.
 type CheckConfirmations = M.Map (MintetteId, AddrId) CheckConfirmation
 
+instance Buildable CheckConfirmations where
+    build = mapBuilder . map (\(k, v) -> (pairBuilder k, v)) . M.assocs
+
 -- | CommitConfirmation is sent by mintette to user as an evidence
 -- that mintette has included it into lower-level block.
 type CommitConfirmation = (PublicKey, Signature, ActionLogHead)
@@ -135,11 +138,7 @@ instance Buildable ActionLogEntry where
     build (CommitEntry tx cc) =
         F.build templateCommit $
         ( tx
-        , mapBuilder $
-          map
-              (\(k,v) ->
-                    (pairBuilder k, v)) $
-          M.assocs cc)
+        , cc)
       where
         templateCommit = "Commit (tx = {}, confirmations = {})"
     build (CloseEpochEntry heads) =

@@ -5,13 +5,13 @@ module RSCoin.Bank.Server
        ( serve
        ) where
 
-import           Data.Acid.Advanced     (query')
+import           Data.Acid.Advanced    (query')
 
-import           RSCoin.Bank.AcidState  (GetHBlock (..), GetMintettes (..),
-                                         GetPeriodId (..), State)
+import           RSCoin.Bank.AcidState (GetHBlock (..), GetMintettes (..),
+                                        GetPeriodId (..), State)
 
-import           RSCoin.Core            (HBlock, Mintettes, PeriodId, bankPort)
-import qualified RSCoin.Core.Protocol   as C
+import           RSCoin.Core           (HBlock, Mintettes, PeriodId, bankPort)
+import qualified RSCoin.Core.Protocol  as C
 
 serve :: State -> IO ()
 serve st =

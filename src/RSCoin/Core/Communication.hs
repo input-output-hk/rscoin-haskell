@@ -43,7 +43,7 @@ getGenesisBlock = getBlockByHeight 0
 
 getOwnersByHash :: TransactionId -> P.WithResult [(Mintette, MintetteId)]
 getOwnersByHash tId =
-    P.execBank $ toOwners <$> P.call (P.RSCBank P.GetMintettes) tId
+    P.execBank $ toOwners <$> P.call (P.RSCBank P.GetMintettes)
   where
     toOwners mts =
         map

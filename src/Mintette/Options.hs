@@ -5,9 +5,10 @@ module Options
        , getOptions
        ) where
 
-import           Options.Applicative (Parser, auto, execParser, fullDesc,
+import           Options.Applicative (Parser, auto, execParser, fullDesc, help,
                                       helper, info, long, metavar, option,
-                                      progDesc, short, strOption, value, (<>))
+                                      progDesc, short, showDefault, strOption,
+                                      value, (<>))
 
 import           RSCoin.Core         (defaultPort, defaultSecretKeyPath)
 
@@ -19,9 +20,13 @@ data Options = Options
 
 optionsParser :: Parser Options
 optionsParser =
-    Options <$> option auto (short 'p' <> long "port" <> value defaultPort) <*>
-    strOption (long "path" <> value "db") <*>
-    strOption (long "sk" <> value defaultSecretKeyPath <> metavar "FILEPATH")
+    Options <$>
+    option auto (short 'p' <> long "port" <> value defaultPort <> showDefault) <*>
+    strOption
+        (long "path" <> value "db" <> showDefault <> help "Path to database") <*>
+    strOption
+        (long "sk" <> value defaultSecretKeyPath <> metavar "FILEPATH" <>
+         showDefault)
 
 getOptions :: IO Options
 getOptions =

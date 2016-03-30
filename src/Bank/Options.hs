@@ -10,7 +10,7 @@ import qualified Data.Text              as T
 import           Options.Applicative    (Parser, auto, command, execParser,
                                          fullDesc, help, helper, info, long,
                                          metavar, option, progDesc, short,
-                                         subparser, value, (<>))
+                                         showDefault, subparser, value, (<>))
 
 import           Serokell.Util.OptParse (strOption)
 
@@ -41,7 +41,7 @@ commandParser =
         Serve <$>
         strOption
             (short 'k' <> long "secret-key" <> help "Path to secret key" <>
-             value defaultSecretKeyPath <>
+             value defaultSecretKeyPath <> showDefault <>
              metavar "PATH TO KEY")
     addMintetteOpts =
         AddMintette <$> strOption (long "host") <*> option auto (long "port") <*>
@@ -51,7 +51,8 @@ commandParser =
 optionsParser :: Parser Options
 optionsParser =
     Options <$> commandParser <*>
-    strOption (long "path" <> value "db")
+    strOption
+        (long "path" <> value "db" <> showDefault <> help "Path to database")
 
 getOptions :: IO Options
 getOptions =

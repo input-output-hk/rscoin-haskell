@@ -42,12 +42,15 @@ commandParser defaultSKPath =
         Serve <$>
         strOption
             (short 'k' <> long "secret-key" <> help "Path to secret key" <>
-             value defaultSKPath <> showDefault <>
+             value defaultSKPath <>
+             showDefault <>
              metavar "PATH TO KEY")
     addMintetteOpts =
         AddMintette <$> strOption (long "host") <*> option auto (long "port") <*>
         strOption
-            (long "key" <> help "Mintette's public key" <> metavar "PUBLIC KEY")
+            (long "key" <>
+             help "Mintette's public key (directly, not from file)" <>
+             metavar "PUBLIC KEY")
 
 optionsParser :: FilePath -> Parser Options
 optionsParser defaultSKPath =

@@ -23,7 +23,8 @@ optionsParser defaultSKPath =
     Options <$>
     option auto (short 'p' <> long "port" <> value defaultPort <> showDefault) <*>
     strOption
-        (long "path" <> value "db" <> showDefault <> help "Path to database") <*>
+        (long "path" <> value "mintette-db" <> showDefault <>
+         help "Path to database") <*>
     strOption
         (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault)
 

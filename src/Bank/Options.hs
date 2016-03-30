@@ -52,7 +52,7 @@ optionsParser :: FilePath -> Parser Options
 optionsParser defaultSKPath =
     Options <$> commandParser defaultSKPath <*>
     strOption
-        (long "path" <> value "db" <> showDefault <> help "Path to database")
+        (long "path" <> value "bank-db" <> showDefault <> help "Path to database")
 
 getOptions :: IO Options
 getOptions = do

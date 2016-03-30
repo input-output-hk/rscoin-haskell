@@ -51,7 +51,7 @@ instance MonadThrow (A.Update WalletStorage) where
 -- is hardcoded in RSCoin.Core.Constants).
 openState :: FilePath -> Int -> Maybe FilePath -> IO RSCoinUserState
 openState path n (Just skPath) = do
-    sk <- C.readSecretKey skPath  -- TODO: move to options
+    sk <- C.readSecretKey skPath
     let bankAddress = W.makeUserAddress sk $ C.getAddress C.genesisAddress
     unless (W.validateUserAddress bankAddress) $
         throwIO $ W.BadRequest "Imported bank's secret key doesn't belong to bank."

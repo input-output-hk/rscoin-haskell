@@ -15,7 +15,7 @@ import           Data.IORef               (modifyIORef, newIORef, readIORef)
 import           Data.Time.Units          (toMicroseconds)
 
 import           Serokell.Util.Exceptions ()
-import           Serokell.Util.Text       (formatSingle', listBuilderJSON)
+import           Serokell.Util.Text       (formatSingle')
 
 import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            SecretKey, announceNewPeriod,
@@ -59,8 +59,9 @@ onPeriodFinished sk st = do
               handlerAnnouncePeriod)
         (zip newMintettes [0 ..])
     logInfo $
-        formatSingle' "Starting new period with the following mintettes: {}" $
-        listBuilderJSON newMintettes
+        formatSingle'
+            "Announced new period with the following data:\n{}"
+            newPeriodData
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)

@@ -73,7 +73,9 @@ type ExceptUpdate = ExceptT BankError (State Storage)
 
 -- | Add given mintette to storage and associate given key with it.
 addMintette :: Mintette -> PublicKey -> Update ()
-addMintette m k = pendingMintettes %= ((m, k):)
+addMintette m k = do
+    banksDpk <- use dpk
+    unless (k `elem` map fst banksDpk) $ pendingMintettes %= ((m, k) :)
 
 -- | When period finishes, Bank receives period results from mintettes,
 -- updates storage and starts new period with potentially different set

@@ -21,13 +21,6 @@ import           RSCoin.Core.Crypto     (Signature, hash, verify)
 import           RSCoin.Core.Primitives (AddrId, Address (..), Coin,
                                          Transaction (..))
 
--- I dunno if we need it, maybe it will be useful at some point (I've
--- got some feeling it will).
-instance Monoid Transaction where
-    mempty = Transaction [] []
-    a `mappend` b =
-        Transaction (txInputs a <> txInputs b) (txOutputs a <> txOutputs b)
-
 instance Ord Transaction where
     compare = comparing hash
 

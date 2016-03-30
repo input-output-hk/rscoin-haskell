@@ -106,10 +106,10 @@ formTransaction st inputs outputAddr outputCoin =
                "All input values should be positive, but encountered {}, that's not." $
            head $ filter (<= 0) $ map snd inputs
        accounts <- query st GetAllAddresses
-       when (any (>= length accounts) $ map fst inputs) $
+       when (any (\i -> i <= 0 || i > length accounts) $ map fst inputs) $
            commitError $
            format'
-               "Found an account id ({}) greater than total number of accounts in wallet ({})"
+               "Found an account id ({}) that's not in [1..{}]"
                ( head $ filter (>= length accounts) $ map fst inputs
                , length accounts)
        let accInputs :: [(Int, W.UserAddress, Coin)]
@@ -127,7 +127,7 @@ formTransaction st inputs outputAddr outputCoin =
                 else "The") <>
            formatSingle' " following account doesn't have enough coins: {}"
                          (sel1 $ head overSpentAccounts)
-       outTr <- mconcat <$> mapM formTransactionMapper accInputs
+       outTr <- foldl1 mergeTransactions <$> mapM formTransactionMapper accInputs
        TIO.putStrLn $ formatSingle' "Please check your transaction: {}" outTr
        -- Here should be call to push this transaction to mintettes
   where
@@ -143,3 +143,7 @@ formTransaction st inputs outputAddr outputCoin =
                 (if leftCoin == 0
                  then []
                  else [(W.toAddress a, leftCoin)])
+    mergeTransactions :: Transaction -> Transaction -> Transaction
+    mergeTransactions a b =
+        Transaction (txInputs a <> txInputs b)
+                    (nub $ txOutputs a <> txOutputs b)

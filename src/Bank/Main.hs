@@ -1,11 +1,9 @@
 import           Control.Exception        (bracket)
 import           Data.Acid                (update)
-import           Data.Text                as T
 
 import qualified RSCoin.Bank              as B
 import           RSCoin.Core              (Mintette (Mintette),
-                                           constructPublicKey, readSecretKey,
-                                           readPublicKey)
+                                           constructPublicKey, readSecretKey)
 
 import           Serokell.Util.Exceptions (throwText)
 
@@ -22,6 +20,5 @@ main = do
         B.serve st
     run (Opts.AddMintette name port pk) st = do
         let m = Mintette name port
-        k <- maybe (readPublicKey $ T.unpack pk) return $ constructPublicKey pk
-
+        k <- maybe (throwText "Invalid key format") return $ constructPublicKey pk
         update st $ B.AddMintette m k

@@ -15,14 +15,15 @@ module RSCoin.Core.Constants
 import           Data.Maybe             (fromJust)
 import           Data.String            (IsString)
 import           Data.Time.Units        (Second)
+import           System.Directory       (getHomeDirectory)
+import           System.FilePath        ((</>))
 
 import           RSCoin.Core.Crypto     (constructPublicKey)
 import           RSCoin.Core.Primitives (Address (Address), Coin)
 
 -- | Path used by default to read/write secret key.
--- It's not cross-platform because we don't have time. :(
-defaultSecretKeyPath :: IsString s => s
-defaultSecretKeyPath = "~/.rscoin/key"
+defaultSecretKeyPath :: IO FilePath
+defaultSecretKeyPath = (\h -> h </> ".rscoin" </> "key") <$> getHomeDirectory
 
 -- | The default number of accounts (sk-pk pairs) generated with the
 -- wallet (user part)

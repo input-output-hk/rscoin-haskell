@@ -77,8 +77,8 @@ userCommandParser =
                  (long "addrout" <> help "Address to send coins to.") <*>
          option auto (long "value" <> help "Value to send."))
 
-userOptionsParser :: Parser UserOptions
-userOptionsParser =
+userOptionsParser :: FilePath -> Parser UserOptions
+userOptionsParser dskp =
     UserOptions <$> userCommandParser <*>
     switch
         (long "bank-mode" <>
@@ -89,7 +89,7 @@ userOptionsParser =
     option
         auto
         (long "bank-sk-path" <> help "Path to bank's secret key." <>
-         value defaultSecretKeyPath <> showDefault) <*>
+         value dskp <> showDefault) <*>
     option
         auto
         (long "addresses-num" <>
@@ -103,6 +103,9 @@ userOptionsParser =
 
 -- | IO call that retrieves command line options
 getUserOptions :: IO UserOptions
-getUserOptions =
+getUserOptions = do
+    defaultSKPath <- defaultSecretKeyPath
     execParser $
-    info (helper <*> userOptionsParser) (fullDesc <> progDesc "RSCoin user client")
+        info
+            (helper <*> userOptionsParser defaultSKPath)
+            (fullDesc <> progDesc "RSCoin user client")

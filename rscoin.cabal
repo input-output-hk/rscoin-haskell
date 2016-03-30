@@ -58,7 +58,9 @@ library
                      , cryptohash >= 0.11.6
                      , conduit-extra >= 1.1.11
                      , containers
+                     , directory
                      , exceptions
+                     , filepath
                      , hashable
                      , hslogger
                      , lens

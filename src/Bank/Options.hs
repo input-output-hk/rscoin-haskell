@@ -25,8 +25,8 @@ data Options = Options
     , cloPath    :: FilePath
     }
 
-commandParser :: Parser Command
-commandParser =
+commandParser :: FilePath -> Parser Command
+commandParser defaultSKPath =
     subparser
         (command
              "serve"
@@ -41,20 +41,23 @@ commandParser =
         Serve <$>
         strOption
             (short 'k' <> long "secret-key" <> help "Path to secret key" <>
-             value defaultSecretKeyPath <> showDefault <>
+             value defaultSKPath <> showDefault <>
              metavar "PATH TO KEY")
     addMintetteOpts =
         AddMintette <$> strOption (long "host") <*> option auto (long "port") <*>
         strOption
             (long "key" <> help "Mintette's public key" <> metavar "PUBLIC KEY")
 
-optionsParser :: Parser Options
-optionsParser =
-    Options <$> commandParser <*>
+optionsParser :: FilePath -> Parser Options
+optionsParser defaultSKPath =
+    Options <$> commandParser defaultSKPath <*>
     strOption
         (long "path" <> value "db" <> showDefault <> help "Path to database")
 
 getOptions :: IO Options
-getOptions =
+getOptions = do
+    defaultSKPath <- defaultSecretKeyPath
     execParser $
-    info (helper <*> optionsParser) (fullDesc <> progDesc "RSCoin's Bank")
+        info
+            (helper <*> optionsParser defaultSKPath)
+            (fullDesc <> progDesc "RSCoin's Bank")

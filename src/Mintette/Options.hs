@@ -18,17 +18,19 @@ data Options = Options
     , cloSecretKeyPath :: FilePath
     }
 
-optionsParser :: Parser Options
-optionsParser =
+optionsParser :: FilePath -> Parser Options
+optionsParser defaultSKPath =
     Options <$>
     option auto (short 'p' <> long "port" <> value defaultPort <> showDefault) <*>
     strOption
         (long "path" <> value "db" <> showDefault <> help "Path to database") <*>
     strOption
-        (long "sk" <> value defaultSecretKeyPath <> metavar "FILEPATH" <>
-         showDefault)
+        (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault)
 
 getOptions :: IO Options
-getOptions =
+getOptions = do
+    defaultSKPath <- defaultSecretKeyPath
     execParser $
-    info (helper <*> optionsParser) (fullDesc <> progDesc "RSCoin's Bank")
+        info
+            (helper <*> optionsParser defaultSKPath)
+            (fullDesc <> progDesc "RSCoin's Mintette")

@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
@@ -22,30 +23,32 @@ module RSCoin.User.Wallet
        , getLastBlockId
        , withBlockchainUpdate
        , addAddresses
+       , initWallet
        ) where
 
-import           Control.Exception          (Exception, throw)
+import           Control.Applicative
+import           Control.Exception          (Exception)
 import           Control.Lens               ((%=), (.=), (<>=), (^.))
 import qualified Control.Lens               as L
-import           Control.Monad              (replicateM, unless)
+import           Control.Monad              (forM_, unless)
 import           Control.Monad.Catch        (MonadThrow, throwM)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import           Data.List                  (find)
 import qualified Data.Map                   as M
-import           Data.Maybe                 (fromJust, isJust, maybeToList)
+import           Data.Maybe                 (fromJust, isJust)
 import           Data.Monoid                ((<>))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Text.Lazy.Builder     (fromString)
+import           Debug.Trace                (trace)
 
 import           Serokell.Util.Text         (format', formatSingle', show')
 
 import qualified RSCoin.Core                as C
-import           RSCoin.Core.Crypto         (PublicKey, SecretKey, keyGen)
+import           RSCoin.Core.Crypto         (PublicKey, SecretKey)
 import           RSCoin.Core.Primitives     (Address (..), Transaction (..))
 import           RSCoin.Core.Types          (PeriodId)
-import           RSCoin.User.Logic          (getBlockchainHeight)
 
 -- | User address as stored and seen by wallet owner.
 data UserAddress = UserAddress
@@ -89,8 +92,8 @@ data WalletStorage = WalletStorage
                                                             -- of and that reference user
                                                             -- addresses
                                                             -- (as input or output)
-    , _lastBlockId       :: PeriodId                        -- ^ Last blochain height known
-                                                            -- to user
+    , _lastBlockId       :: Maybe PeriodId                  -- ^ Last blochain height known
+                                                            -- to user (if known)
     } deriving (Show)
 
 $(L.makeLenses ''WalletStorage)
@@ -99,46 +102,40 @@ $(L.makeLenses ''WalletStorage)
 data WalletStorageError
     = BadRequest T.Text
     | InternalError T.Text
-      deriving (Show)
+    | NotInitialized
+    deriving (Show)
 
 instance Exception WalletStorageError
 
--- | Creates empty WalletStorage given the amount of addresses to
--- generate initially and optional address to include also (needed if
--- working in bank-mode).
-emptyWalletStorage :: Int -> Maybe UserAddress -> IO WalletStorage
-emptyWalletStorage addrNum _
-  | addrNum <= 0 =
-      throw $
-      BadRequest $
-      formatSingle'
-          "Attempt to create wallet with negative number of addresses: {}"
-          addrNum
-emptyWalletStorage addrNum bankAddr = do
-    _userAddresses <- (++ maybeToList bankAddr) .
-                      map (uncurry UserAddress) <$>
-                      replicateM addrNum keyGen
-    let _inputAddressesTxs = foldr (\addr -> M.insert addr []) M.empty _userAddresses
-    _lastBlockId <- if isJust bankAddr
-                    then return (-1) -- if you're bank, you should query all the blockchain
-                    else pred <$> C.unCps getBlockchainHeight
-    return WalletStorage {..}
-
+-- | Creates empty WalletStorage. Uninitialized.
+emptyWalletStorage :: WalletStorage
+emptyWalletStorage = WalletStorage [] M.empty Nothing
 
 -- Queries
 
+type ExceptQuery a = forall m. (MonadReader WalletStorage m, MonadThrow m) => m a
+
+checkInitR :: (MonadReader WalletStorage m, MonadThrow m) => m a -> m a
+checkInitR action = do
+    a <- L.views userAddresses (not . null)
+    b <- L.views lastBlockId isJust
+    trace ("when check: " ++ show a ++ " " ++ show b) $ return ()
+    if a && b
+        then action
+        else throwM NotInitialized
+
 -- | Get all available user addresses with private keys
-getAllAddresses :: (MonadReader WalletStorage m) => m [UserAddress]
-getAllAddresses = L.view userAddresses
+getAllAddresses :: ExceptQuery [UserAddress]
+getAllAddresses = checkInitR $ L.view userAddresses
 
 -- | Get all available user addresses w/o private keys
-getPublicAddresses :: (MonadReader WalletStorage m) => m [PublicKey]
-getPublicAddresses = L.views userAddresses (map _publicAddress)
+getPublicAddresses :: ExceptQuery [PublicKey]
+getPublicAddresses = checkInitR $ L.views userAddresses (map _publicAddress)
 
 -- | Gets transaction that are somehow affect specified
 -- address. Address should be owned by wallet in MonadReader.
-getTransactions :: (MonadReader WalletStorage m, MonadThrow m) => UserAddress -> m [Transaction]
-getTransactions addr = do
+getTransactions :: UserAddress -> ExceptQuery [Transaction]
+getTransactions addr = checkInitR $ do
     addrOurs <- L.views userAddresses (elem addr)
     unless addrOurs $
         throwM $
@@ -155,22 +152,31 @@ getTransactions addr = do
         txs
 
 -- | Get last blockchain height saved in wallet state
-getLastBlockId :: (MonadReader WalletStorage m) => m Int
-getLastBlockId = L.view lastBlockId
+getLastBlockId :: ExceptQuery Int
+getLastBlockId = checkInitR $ L.views lastBlockId fromJust
 
 
 -- Updates
+
+type ExceptUpdate a = forall m. (MonadState WalletStorage m, MonadThrow m) => m a
+
+checkInitS :: (MonadState WalletStorage m, MonadThrow m) => m a -> m a
+checkInitS action = do
+    a <- L.uses userAddresses (not . null)
+    b <- L.uses lastBlockId isJust
+    trace ("when check: " ++ show a ++ " " ++ show b) $ return ()
+    if a && b
+        then action
+        else throwM NotInitialized
 
 -- | Update state with bunch of transactions from new unobserved
 -- blockchain blocks. Each transaction should contain at least one of
 -- users public addresses in outputs.  Sum validation for transactions
 -- is disabled, because HBlocks contain generative transactions for
 -- fee allocation. Make sure no bad transactions are added here.
-withBlockchainUpdate
-    :: (MonadState WalletStorage m, MonadThrow m)
-    => PeriodId -> [Transaction] -> m ()
-withBlockchainUpdate newHeight transactions = do
-    currentHeight <- L.use lastBlockId
+withBlockchainUpdate :: PeriodId -> [Transaction] -> ExceptUpdate ()
+withBlockchainUpdate newHeight transactions = checkInitS $ do
+    currentHeight <- L.uses lastBlockId fromJust
     unless (currentHeight < newHeight) $
         reportBadRequest $
         format'
@@ -210,15 +216,13 @@ withBlockchainUpdate newHeight transactions = do
     inputAddressesTxs %=
         (\(mp :: M.Map UserAddress [Transaction]) ->
               foldr (\(a,b) c -> M.insertWith (++) a [b] c) mp flattenedTxs)
-    lastBlockId .= newHeight
+    lastBlockId .= (Just newHeight)
   where
     reportBadRequest = throwM . BadRequest
 
 -- | Puts given address and it's related transactions (that contain it
 -- as output S_{out}) into wallet. Blockchain won't be queried.
-addAddresses
-    :: (MonadState WalletStorage m, MonadThrow m)
-    => UserAddress -> [Transaction] -> m ()
+addAddresses :: UserAddress -> [Transaction] -> ExceptUpdate ()
 addAddresses userAddress txs = do
     unless (validateUserAddress userAddress) $
         throwM $
@@ -239,3 +243,11 @@ addAddresses userAddress txs = do
             (userAddress, length mappedTxs, head mappedTxs)
     userAddresses <>= [userAddress]
     inputAddressesTxs <>= M.singleton userAddress txs
+
+-- | Initialize wallet with list of addresses to hold and
+-- mode-specific parameter startHeight: if it's (Just i), then the
+-- height is set to i, if Nothing, then to -1 (bank-mode).
+initWallet :: [UserAddress] -> Maybe Int -> ExceptUpdate ()
+initWallet addrs startHeight = do
+    lastBlockId .= (startHeight <|> Just (-1))
+    forM_ addrs $ flip addAddresses []

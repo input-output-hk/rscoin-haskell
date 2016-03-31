@@ -9,6 +9,7 @@ module RSCoin.User.AcidState
        ( RSCoinUserState
        , openState
        , closeState
+       , initState
 
        -- * Queries
        , GetAllAddresses (..)
@@ -19,14 +20,17 @@ module RSCoin.User.AcidState
        -- * Updates
        , WithBlockchainUpdate (..)
        , AddAddresses (..)
+       , InitWallet (..)
        ) where
 
 import qualified RSCoin.Core         as C
+import           RSCoin.Core.Crypto  (keyGen)
+import           RSCoin.User.Logic   (getBlockchainHeight)
 import           RSCoin.User.Wallet  (UserAddress, WalletStorage)
 import qualified RSCoin.User.Wallet  as W
 
 import           Control.Exception   (throw, throwIO)
-import           Control.Monad       (unless)
+import           Control.Monad       (replicateM, unless)
 import           Control.Monad.Catch (MonadThrow, throwM)
 import           Data.Acid           (makeAcidic)
 import qualified Data.Acid           as A
@@ -43,22 +47,11 @@ instance MonadThrow (A.Query WalletStorage) where
 instance MonadThrow (A.Update WalletStorage) where
     throwM = throw
 
--- | this function opens the ACID state wallet from the given path, or
--- creates it if it's not there. When creating, it generates 'n' new
--- addresses ((pk,sk) pairs essentially), and if the boolean flag
--- 'is-bank-mode' is set, it also loads secret bank key from
--- ~/.rscoin/bankPrivateKey and adds it to known addresses (public key
--- is hardcoded in RSCoin.Core.Constants).
-openState :: FilePath -> Int -> Maybe FilePath -> IO RSCoinUserState
-openState path n (Just skPath) = do
-    sk <- C.readSecretKey skPath
-    let bankAddress = W.makeUserAddress sk $ C.getAddress C.genesisAddress
-    unless (W.validateUserAddress bankAddress) $
-        throwIO $ W.BadRequest "Imported bank's secret key doesn't belong to bank."
-    st <- A.openLocalStateFrom path =<< W.emptyWalletStorage n (Just bankAddress)
-    A.createCheckpoint st >> return st
-openState path n Nothing = do
-    st <- A.openLocalStateFrom path =<< W.emptyWalletStorage n Nothing
+-- | Opens ACID state. If not there, it returns unitialized
+-- unoperatable storage.
+openState :: FilePath -> IO RSCoinUserState
+openState path = do
+    st <- A.openLocalStateFrom path W.emptyWalletStorage
     A.createCheckpoint st >> return st
 
 -- | Closes the ACID state.
@@ -77,9 +70,11 @@ getLastBlockId = W.getLastBlockId
 
 withBlockchainUpdate :: Int -> [C.Transaction] -> A.Update WalletStorage ()
 addAddresses :: UserAddress -> [C.Transaction] -> A.Update WalletStorage ()
+initWallet :: [UserAddress] -> Maybe Int -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate
 addAddresses = W.addAddresses
+initWallet = W.initWallet
 
 $(makeAcidic
       ''WalletStorage
@@ -88,4 +83,25 @@ $(makeAcidic
       , 'getTransactions
       , 'getLastBlockId
       , 'withBlockchainUpdate
-      , 'addAddresses])
+      , 'addAddresses
+      , 'initWallet])
+
+-- | This function generates 'n' new addresses ((pk,sk) pairs
+-- essentially), and if the boolean flag 'is-bank-mode' is set, it
+-- also loads secret bank key from ~/.rscoin/bankPrivateKey and adds
+-- it to known addresses (public key is hardcoded in
+-- RSCoin.Core.Constants).
+initState :: RSCoinUserState -> Int -> Maybe FilePath -> IO ()
+initState st n (Just skPath) = do
+    sk <- C.readSecretKey skPath
+    let bankAddress = W.makeUserAddress sk $ C.getAddress C.genesisAddress
+    unless (W.validateUserAddress bankAddress) $
+        throwIO $ W.BadRequest "Imported bank's secret key doesn't belong to bank."
+    addresses <- map (uncurry W.makeUserAddress) <$> replicateM n keyGen
+    A.update st $ InitWallet (bankAddress : addresses) Nothing
+    A.createCheckpoint st
+initState st n Nothing = do
+    height <- pred <$> C.unCps getBlockchainHeight
+    addresses <- map (uncurry W.makeUserAddress) <$> replicateM n keyGen
+    A.update st $ InitWallet addresses (Just height)
+    A.createCheckpoint st

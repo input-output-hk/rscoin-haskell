@@ -48,7 +48,7 @@ proceedCommand st O.ListAddresses =
     do (wallets :: [(C.PublicKey, C.Coin)]) <-
            mapM (\w -> (w ^. W.publicAddress, ) <$> getAmount st w) =<<
            query st GetAllAddresses
-       TIO.putStrLn "Here's the list of transactions:"
+       TIO.putStrLn "Here's the list of your accounts:"
        TIO.putStrLn "Num | Public ID | Amount"
        mapM_ (TIO.putStrLn . format' "{}. {} : {}") $
            uncurry (zip3 [(1 :: Integer) ..]) $ unzip wallets

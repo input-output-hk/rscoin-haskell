@@ -50,4 +50,7 @@ instance Exception UserErrorWithClass
 -- | Runs the monadic computation replacing any error that has
 -- UserErrorLike instance with UserError.
 eWrap :: (MonadCatch m) => m a -> m a
-eWrap action = action `catch` (\(UserErrorWithClass e) -> throwM $ toUserError e)
+eWrap action =
+    action `catch` localHandler -- FIXME it doesn't work :(
+  where
+    localHandler (UserErrorWithClass e) = throwM $ toUserError e

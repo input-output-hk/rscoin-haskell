@@ -42,6 +42,7 @@ data UserCommand
 data DumpCommand
     = DumpHBlocks PeriodId PeriodId
     | DumpHBlock PeriodId
+    | DumpMintettes
     deriving (Show)
 
 -- | Datatype describing user command line options
@@ -108,7 +109,13 @@ dumpCommandParser =
                   (DumpHBlock
                       <$> option auto (long "id" <> help "Dump block with specific periodId")
                   )
-                  (progDesc ("Dump Bank high level block."))))
+                  (progDesc ("Dump Bank high level block."))) <>
+         command
+             "mintettes"
+             (info
+                  (pure DumpMintettes)
+                  (progDesc ("Dump list of mintettes."))))
+
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

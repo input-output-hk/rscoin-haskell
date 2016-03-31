@@ -16,6 +16,7 @@ module RSCoin.Core.Communication
        , getOwnersByTx
        , P.unCps
        , getBlocks
+       , getMintettes
        ) where
 
 import           Control.Exception          (Exception, catch, throwIO)
@@ -39,7 +40,7 @@ import           RSCoin.Core.Types          (CheckConfirmation,
                                              CommitConfirmation, HBlock,
                                              Mintette, MintetteId,
                                              NewPeriodData, PeriodId,
-                                             PeriodResult)
+                                             PeriodResult, Mintettes)
 
 -- | Errors which may happen during remote call.
 data CommunicationError
@@ -216,3 +217,10 @@ getBlocks from to =
         logInfo $
             format' "Got higher-level blocks between {} {}: {}"
             (from, to, listBuilderJSONIndent 2 res)
+
+getMintettes :: P.WithResult Mintettes
+getMintettes =
+    withResult
+        (logInfo "Getting list of mintettes")
+        (logInfo . formatSingle' "Successfully got list of mintettes {}")
+        $ execBank $ P.call (P.RSCBank P.GetMintettes)

@@ -70,6 +70,7 @@ serveGetHBlock st pId =
         return $ Right block
 
 -- Dumping Bank state
+
 serveGetHBlocks :: State -> PeriodId -> PeriodId -> C.Server [HBlock]
 serveGetHBlocks st from to =
     toServer $

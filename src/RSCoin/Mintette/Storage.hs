@@ -42,10 +42,10 @@ import           RSCoin.Core                (ActionLog, ActionLogHeads, AddrId,
                                              Signature, Transaction (..), Utxo,
                                              actionLogNext,
                                              computeOutputAddrids,
-                                             derivePublicKey, hash,
-                                             hbTransactions, isOwner,
-                                             mkCheckConfirmation, mkLBlock,
-                                             owners, sign, validateSignature,
+                                             derivePublicKey, hbTransactions,
+                                             isOwner, mkCheckConfirmation,
+                                             mkLBlock, owners, sign,
+                                             validateSignature,
                                              verifyCheckConfirmation)
 import qualified RSCoin.Core                as C
 import           RSCoin.Mintette.Error      (MintetteError (..))
@@ -170,7 +170,7 @@ commitTx sk tx@Transaction{..} pId bundle = do
     commitTxChecked isConfirmed sk tx bundle
   where
     checkInputConfirmed mts curDpk addrid = do
-        let addridOwners = owners mts (hash $ sel1 addrid)
+        let addridOwners = owners mts (sel1 addrid)
             ownerConfirmed owner =
                 maybe
                     False

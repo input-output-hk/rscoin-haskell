@@ -38,7 +38,7 @@ import           RSCoin.Core                (ActionLog, AddrId, Address (..),
                                              PeriodResult, PublicKey, SecretKey,
                                              Transaction (..), Utxo,
                                              checkActionLog, checkLBlock,
-                                             computeOutputAddrids,
+                                             computeOutputAddrids, emissionHash,
                                              derivePublicKey, hash,
                                              lbTransactions, mkGenesisHBlock,
                                              mkHBlock, owners, periodReward,
@@ -178,10 +178,7 @@ allocateCoins :: PublicKey
               -> [(MintetteId, PeriodResult)]
               -> Transaction
 allocateCoins pk mintetteKeys goodResults =
-    Transaction
-    { txInputs = []
-    , ..
-    }
+    Transaction{..}
   where
     bankAddress = Address pk
     awarded = map fst $ filter checkParticipation goodResults
@@ -197,6 +194,7 @@ allocateCoins pk mintetteKeys goodResults =
             (\idx -> (Address (mintetteKeys !! idx), Coin mintetteReward))
             awarded
     txOutputs = (bankAddress, Coin bankReward) : mintetteOutputs
+    txInputs = [(emissionHash, 0, Coin bankReward)]
 
 mergeTransactions :: Mintettes -> [(MintetteId, PeriodResult)] -> [Transaction]
 mergeTransactions mts goodResults = M.foldrWithKey appendTxChecked [] txMap

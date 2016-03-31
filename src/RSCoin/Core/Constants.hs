@@ -6,6 +6,7 @@ module RSCoin.Core.Constants
        , bankPort
        , periodDelta
        , epochDelta
+       , emissionHash
        , genesisAddress
        , genesisValue
        , periodReward
@@ -18,7 +19,7 @@ import           Data.Time.Units        (Second)
 import           System.Directory       (getHomeDirectory)
 import           System.FilePath        ((</>))
 
-import           RSCoin.Core.Crypto     (constructPublicKey)
+import           RSCoin.Core.Crypto     (Hash, constructPublicKey, hash)
 import           RSCoin.Core.Primitives (Address (Address), Coin)
 
 -- | Path used by default to read/write secret key.
@@ -45,6 +46,11 @@ periodDelta = 50
 
 epochDelta :: Second
 epochDelta = 5
+
+emissionHash :: Hash
+emissionHash =
+    hash ("This emission hash is needed for all generative" ++
+          "transactions to be different" :: String)
 
 -- | Special address used as output in genesis transaction
 genesisAddress :: Address

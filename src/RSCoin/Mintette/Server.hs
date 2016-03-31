@@ -59,11 +59,11 @@ handlePeriodFinished sk st pId =
            format'
                "Here is PeriodResult:\n Blocks: {}\n Logs: {}\n"
                (listBuilderJSONIndent 2 blks, lgs)
-       (curUtxo,curPset) <- query' st GetUtxoPset
+       (curUtxo', curPset') <- query' st GetUtxoPset
        C.logDebug $
            format'
                "After period end utxo is: {}\nCurrent pset is: {}"
-               (curUtxo, curPset)
+               (curUtxo', curPset')
        return res
 
 handleNewPeriod :: State

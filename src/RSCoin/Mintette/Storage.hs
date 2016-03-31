@@ -28,7 +28,7 @@ import           Control.Monad.Catch        (MonadThrow (throwM))
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import qualified Data.Map                   as M
-import           Data.Maybe                 (fromJust, isJust)
+import           Data.Maybe                 (fromJust, isJust, isNothing)
 import qualified Data.Set                   as S
 import           Data.Tuple.Select          (sel1)
 import           Safe                       (atMay, headMay)
@@ -229,6 +229,10 @@ startPeriod C.NewPeriodData{..} = do
     when
         (isJust npdNewIdPayload) $
         uncurry onMintetteIdChanged $ fromJust npdNewIdPayload
+    invMId <- use invMintetteId
+    when (isNothing npdNewIdPayload && invMId == Nothing) $
+        throwM $
+        MEInternal "Bank didn't send us utxo, but we're waiting for it."
     lBlocks <>= replicate (npdPeriodId - lastPeriodId) []
     actionLogs <>= replicate (npdPeriodId - lastPeriodId) []
     mintettes .= npdMintettes

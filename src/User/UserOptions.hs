@@ -76,7 +76,7 @@ userCommandParser =
                   ("Pairs (a,b) where 'a' is id of address as numbered in list-wallets " <>
                    "output, 'b' is integer -- amount of value to send."))) <*>
         ((,) <$> strOption
-                 (long "addrout" <> help "Address to send coins to.") <*>
+                 (long "addrto" <> help "Address to send coins to.") <*>
          option auto (long "value" <> help "Value to send."))
 
 userOptionsParser :: FilePath -> Parser UserOptions

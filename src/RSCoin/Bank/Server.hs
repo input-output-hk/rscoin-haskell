@@ -28,6 +28,7 @@ serve st =
         [ C.method (C.RSCBank C.GetMintettes) $ serveGetMintettes st
         , C.method (C.RSCBank C.GetBlockchainHeight) $ serveGetHeight st
         , C.method (C.RSCBank C.GetHBlock) $ serveGetHBlock st
+        , C.method (C.RSCDump C.GetHBlocks) $ serveGetHBlocks st
         ]
 
 toServer :: IO a -> C.Server a

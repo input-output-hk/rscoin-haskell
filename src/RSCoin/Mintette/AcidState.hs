@@ -7,6 +7,7 @@ module RSCoin.Mintette.AcidState
        ( State
        , openState
        , closeState
+       , GetUtxoPset (..)
        , PreviousMintetteId (..)
        , CheckNotDoubleSpent (..)
        , CommitTx (..)
@@ -26,7 +27,8 @@ import           RSCoin.Core             (AddrId, CheckConfirmation,
                                           CheckConfirmations,
                                           CommitConfirmation, MintetteId,
                                           NewPeriodData, PeriodId, PeriodResult,
-                                          SecretKey, Signature, Transaction)
+                                          Pset, SecretKey, Signature,
+                                          Transaction, Utxo)
 
 import qualified RSCoin.Mintette.Storage as MS
 
@@ -42,6 +44,9 @@ closeState = closeAcidState
 
 instance MonadThrow (Update s) where
     throwM = throw
+
+getUtxoPset :: Query MS.Storage (Utxo,Pset)
+getUtxoPset = MS.getUtxoPset
 
 previousMintetteId :: Query MS.Storage (Maybe MintetteId)
 previousMintetteId = MS.previousMintetteId
@@ -71,7 +76,8 @@ finishEpoch :: SecretKey -> Update MS.Storage ()
 finishEpoch = MS.finishEpoch
 
 $(makeAcidic ''MS.Storage
-             [ 'previousMintetteId
+             [ 'getUtxoPset
+             , 'previousMintetteId
              , 'checkNotDoubleSpent
              , 'commitTx
              , 'finishPeriod

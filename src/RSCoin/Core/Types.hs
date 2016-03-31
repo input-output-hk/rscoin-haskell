@@ -254,7 +254,13 @@ data NewPeriodData = NewPeriodData
 instance Buildable (AddrId, Address) where
     build = pairBuilder
 
+instance Buildable (AddrId, Transaction) where
+    build = pairBuilder
+
 instance Buildable Utxo where
+    build mapping = listBuilderJSON $ M.toList mapping
+
+instance Buildable Pset where
     build mapping = listBuilderJSON $ M.toList mapping
 
 instance Buildable [NewPeriodData] where

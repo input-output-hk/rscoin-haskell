@@ -18,6 +18,7 @@ import           Serokell.Util.Text        (format', formatSingle',
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
+                                            GetUtxoPset (..),
                                             PreviousMintetteId (..),
                                             StartPeriod (..), State, closeState,
                                             openState)
@@ -79,6 +80,11 @@ handleCheckTx sk st tx addrId sg =
     toServer $
     do C.logDebug $
            format' "Checking addrid ({}) from transaction: {}" (addrId, tx)
+       (curUtxo,curPset) <- query' st GetUtxoPset
+       C.logDebug $
+           format'
+               "My current utxo is: {}\nCurrent pset is: {}"
+               (curUtxo, curPset)
        res <- try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
        either onError onSuccess res
   where

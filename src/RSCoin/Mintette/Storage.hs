@@ -16,6 +16,7 @@ module RSCoin.Mintette.Storage
        , startPeriod
        , finishEpoch
        , previousMintetteId
+       , getUtxoPset
        ) where
 
 import           Control.Applicative        ((<|>))
@@ -101,6 +102,9 @@ periodId = lBlocks . to (pred . length)
 
 isActive :: Query Bool
 isActive = mintetteId . to isJust
+
+getUtxoPset :: (MonadReader Storage m) => m (Utxo, Pset)
+getUtxoPset = (,) <$> view utxo <*> view pset
 
 previousMintetteId :: (MonadReader Storage m) => m (Maybe MintetteId)
 previousMintetteId = view invMintetteId
@@ -258,7 +262,7 @@ onMintetteIdChanged newMid newUtxo = do
     utxoDeleted .= M.empty
     utxoAdded .= M.empty
     utxo .= newUtxo
-    mintetteId .= Just newMid
+    invMintetteId .= Just newMid
 
 -- | This function creates new LBlock with transactions from txset
 -- and adds CloseEpochEntry to log.

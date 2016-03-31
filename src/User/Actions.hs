@@ -83,7 +83,7 @@ proceedCommand st O.UpdateBlockchain =
                    [walletHeight + 1 .. lastBlockHeight]
                    (updateToBlockHeight st)
                TIO.putStrLn "Successfully updated blockchain!"
-proceedCommand st (O.Dump command) = dumpCommand command
+proceedCommand _ (O.Dump command) = dumpCommand command
 
 dumpCommand :: O.DumpCommand -> IO ()
 dumpCommand (O.DumpHBlocks from to) =

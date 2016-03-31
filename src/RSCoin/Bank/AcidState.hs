@@ -53,7 +53,10 @@ getHBlock = view . BS.getHBlock
 addMintette :: Mintette -> PublicKey -> Update BS.Storage ()
 addMintette = BS.addMintette
 
-startNewPeriod :: SecretKey -> [Maybe PeriodResult] -> Update BS.Storage [NewPeriodData]
+startNewPeriod
+    :: SecretKey
+    -> [Maybe PeriodResult]
+    -> Update BS.Storage ([NewPeriodData], NewPeriodData)
 startNewPeriod = BS.startNewPeriod
 
 $(makeAcidic ''BS.Storage

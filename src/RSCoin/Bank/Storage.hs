@@ -83,12 +83,15 @@ addMintette m k = do
     banksDpk <- use dpk
     unless (k `elem` map fst banksDpk) $ pendingMintettes %= ((m, k) :)
 
--- | When period finishes, Bank receives period results from mintettes,
--- updates storage and starts new period with potentially different set
--- of mintettes.
+-- | When period finishes, Bank receives period results from
+-- mintettes, updates storage and starts new period with potentially
+-- different set of mintettes. Return value is a pair -- first is a
+-- list of size (length mintettes) of NewPeriodDatas that should be
+-- sent to mintettes. Second one is a fake NewPeriodData (shouldn't be
+-- sent!) with "Nothing" in npdNewIdPayload field, just for logging.
 startNewPeriod :: SecretKey
                -> [Maybe PeriodResult]
-               -> ExceptUpdate [NewPeriodData]
+               -> ExceptUpdate ([NewPeriodData], NewPeriodData)
 startNewPeriod sk results = do
     mts <- use mintettes
     unless (length mts == length results) $
@@ -98,14 +101,17 @@ startNewPeriod sk results = do
     pId <- use periodId
     changedMintetteIx <- startNewPeriodDo sk pId results
     currentMintettes <- use mintettes
-    payload <- formPayload currentMintettes changedMintetteIx
-    (\a b c d ->
-          map (\i -> NewPeriodData a b c ((i,) <$> (i `MP.lookup` payload)) d)
-              [0 .. length currentMintettes - 1]) <$>
-        use periodId <*>
-        use mintettes <*>
-        uses blocks head <*>
-        use dpk
+    payload' <- formPayload currentMintettes changedMintetteIx
+    periodId' <- use periodId
+    mintettes' <- use mintettes
+    hblock' <- uses blocks head
+    dpk' <- use dpk
+    let npdPattern pl = NewPeriodData periodId' mintettes' hblock' pl dpk'
+        usersNPDs =
+          map (\i -> npdPattern ((i,) <$> (i `MP.lookup` payload')))
+              [0 .. length currentMintettes - 1]
+        fakeNPD = npdPattern Nothing
+    return (usersNPDs, fakeNPD)
 
 startNewPeriodDo :: SecretKey
                  -> PeriodId

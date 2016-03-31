@@ -13,6 +13,7 @@ import           Control.Exception        (SomeException, catch)
 import           Control.Monad            (void)
 import           Data.Acid                (createCheckpoint, query, update)
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
+import           Data.Monoid              ((<>))
 import           Data.Time.Units          (toMicroseconds)
 
 import           Serokell.Util.Exceptions ()
@@ -20,8 +21,9 @@ import           Serokell.Util.Text       (formatSingle')
 
 import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            SecretKey, announceNewPeriod,
-                                           logError, logInfo, logWarning,
-                                           periodDelta, sendPeriodFinished)
+                                           logDebug, logError, logInfo,
+                                           logWarning, periodDelta,
+                                           sendPeriodFinished)
 
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
                                            StartNewPeriod (..), State)
@@ -51,7 +53,8 @@ onPeriodFinished sk st = do
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     periodResults <- getPeriodResults mintettes pId
-    newPeriodData <- update st $ StartNewPeriod sk periodResults
+    (newPeriodData, newPeriodDataFake) <-
+        update st $ StartNewPeriod sk periodResults
     createCheckpoint st
     newMintettes <- query st GetMintettes
     mapM_
@@ -61,7 +64,12 @@ onPeriodFinished sk st = do
         (zip newMintettes [0 ..])
     logInfo $
         formatSingle'
-            "Announced new period with the following data:\n{}"
+            ("Announced new period with this NewPeriodData " <>
+             "(payload is Nothing -- omitted (only in Debug)):\n{}")
+            newPeriodDataFake
+    logDebug $
+        formatSingle'
+            "Announced new period, sent these newPeriodData's:\n{}"
             newPeriodData
   where
     -- TODO: catch appropriate exception according to protocol

@@ -7,8 +7,9 @@ module UserOptions
        , getUserOptions
        ) where
 
-import           RSCoin.Core            (Severity (Info), defaultAccountsNumber,
-                                         defaultSecretKeyPath, PeriodId)
+import           RSCoin.Core            (PeriodId, Severity (Info),
+                                         defaultAccountsNumber,
+                                         defaultSecretKeyPath)
 
 import           Data.Int               (Int64)
 import           Data.Monoid            ((<>))
@@ -28,7 +29,7 @@ data UserCommand
                                     -- state according to blockchain
                                     -- status
     | FormTransaction [(Int, Int64)]
-                      (Text, Int64) -- ^ First argument represents
+                      Text          -- ^ First argument represents
                                     -- inputs -- pairs (a,b), where a
                                     -- is index (starting from 1) of
                                     -- address in wallet, b is
@@ -89,9 +90,8 @@ userCommandParser =
               help
                   ("Pairs (a,b) where 'a' is id of address as numbered in list-wallets " <>
                    "output, 'b' is integer -- amount of value to send."))) <*>
-        ((,) <$> strOption
-                 (long "addrto" <> help "Address to send coins to.") <*>
-         option auto (long "value" <> help "Value to send."))
+        (strOption
+                 (long "addrto" <> help "Address to send coins to."))
 
 dumpCommandParser :: Parser DumpCommand
 dumpCommandParser =

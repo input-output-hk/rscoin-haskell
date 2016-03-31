@@ -8,7 +8,7 @@ module Actions (proceedCommand) where
 
 import           Control.Exception     (throwIO)
 import           Control.Lens          ((^.))
-import           Control.Monad         (filterM, forM_, unless, when, void)
+import           Control.Monad         (filterM, forM_, unless, void, when)
 import           Data.Acid             (query, update)
 import           Data.Int              (Int64)
 import           Data.List             (nub, nubBy)
@@ -52,14 +52,14 @@ proceedCommand st O.ListAddresses =
        TIO.putStrLn "Num | Public ID | Amount"
        mapM_ (TIO.putStrLn . format' "{}. {} : {}") $
            uncurry (zip3 [(1 :: Integer) ..]) $ unzip wallets
-proceedCommand st (O.FormTransaction inputs (outputAddrStr,outputCoinInt)) =
+proceedCommand st (O.FormTransaction inputs outputAddrStr) =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr
        unless (isJust pubKey) $
            commitError $
            "Provided key can't be exported: " <> outputAddrStr
        formTransaction st inputs (fromJust pubKey) $
-           C.Coin outputCoinInt
+           C.Coin (sum $ map snd inputs)
 proceedCommand st O.UpdateBlockchain =
     eWrap $
     do walletHeight <- query st A.GetLastBlockId

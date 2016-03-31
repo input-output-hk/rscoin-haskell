@@ -90,7 +90,7 @@ dumpCommand (O.DumpHBlocks from to) =
     eWrap . void . C.unCps $ C.getBlocks from to
 dumpCommand (O.DumpHBlock pId) =
     eWrap . void $ C.getBlockByHeight pId
-dumpCommand (O.DumpHBlock pId) =
+dumpCommand O.DumpMintettes =
     eWrap . void $ C.unCps C.getMintettes
 
 -- | Updates wallet to given blockchain height assuming that it's in

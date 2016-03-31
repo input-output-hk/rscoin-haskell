@@ -250,7 +250,7 @@ data NewPeriodData = NewPeriodData
 
 instance Buildable NewPeriodData where
     build NewPeriodData{..} =
-        F.build template (npdPeriodId, listBuilderJSON npdMintettes, npdHBlock)
+        F.build template (npdPeriodId, listBuilderJSON npdMintettes, npdNewIdPayload, npdHBlock)
       where
         template =
             mconcat

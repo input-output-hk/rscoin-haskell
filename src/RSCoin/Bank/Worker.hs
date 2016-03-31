@@ -19,7 +19,7 @@ import           Data.Text.Buildable      (Buildable (build))
 import           Data.Time.Units          (toMicroseconds)
 
 import           Serokell.Util.Exceptions ()
-import           Serokell.Util.Text       (formatSingle')
+import           Serokell.Util.Text       (formatSingle', listBuilderJSONIndent)
 
 import           RSCoin.Core              (Mintettes, NewPeriodData, PeriodId,
                                            PeriodResult, SecretKey,
@@ -48,7 +48,7 @@ runWorker sk st =
     handler f (Right _) = f
 
 instance Buildable [NewPeriodData] where
-    build xs = "[" <> mconcat (intersperse "," $ map build xs) <> "]"
+    build = listBuilderJSONIndent 1
 
 onPeriodFinished :: SecretKey -> State -> IO ()
 onPeriodFinished sk st = do

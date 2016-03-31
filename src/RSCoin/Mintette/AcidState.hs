@@ -40,9 +40,6 @@ openState fp = openLocalStateFrom fp MS.mkStorage
 closeState :: State -> IO ()
 closeState = closeAcidState
 
-instance MonadThrow (Query s) where
-    throwM = throw
-
 instance MonadThrow (Update s) where
     throwM = throw
 

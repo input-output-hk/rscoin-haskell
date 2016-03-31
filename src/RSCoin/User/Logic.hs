@@ -17,7 +17,7 @@ import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitConfirmation, Mintette,
                                                 MintetteId, PeriodId)
 
-import           Serokell.Util.Text            (format')
+import           Serokell.Util.Text            (format', formatSingle')
 
 import           Control.Exception             (Exception, throwIO)
 import           Control.Monad                 (unless, when)
@@ -48,9 +48,7 @@ validateTransaction tx@Transaction{..} signatures height = do
         unless (length owns >= 1) $
             throwIO $
             MajorityRejected $
-            format'
-                "Got only {} owners of addrid {} -- that's not enough to pass majority test."
-                (length owns, addrid)
+            formatSingle' "Addrid {} doesn't have owners" addrid
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
         subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid) owns
         when (length subBundle < length owns `div` 2) $

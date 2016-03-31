@@ -248,6 +248,18 @@ data NewPeriodData = NewPeriodData
     , npdDpk          :: Dpk                      -- ^ Dpk
     } deriving (Show)
 
+instance Buildable (AddrId, Address) where
+    build = pairBuilder
+
+instance Buildable Utxo where
+    build mapping = listBuilderJSON $ M.toList mapping
+
+instance Buildable [NewPeriodData] where
+    build = listBuilderJSONIndent 2
+
+instance Buildable (MintetteId, Utxo) where
+    build = pairBuilder
+
 instance Buildable NewPeriodData where
     build NewPeriodData{..} =
         F.build template (npdPeriodId, listBuilderJSON npdMintettes, npdNewIdPayload, npdHBlock)

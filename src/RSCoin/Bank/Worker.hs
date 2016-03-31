@@ -13,19 +13,15 @@ import           Control.Exception        (SomeException, catch)
 import           Control.Monad            (void)
 import           Data.Acid                (createCheckpoint, query, update)
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
-import           Data.List                (intersperse)
-import           Data.Monoid              ((<>))
-import           Data.Text.Buildable      (Buildable (build))
 import           Data.Time.Units          (toMicroseconds)
 
 import           Serokell.Util.Exceptions ()
-import           Serokell.Util.Text       (formatSingle', listBuilderJSONIndent)
+import           Serokell.Util.Text       (formatSingle')
 
-import           RSCoin.Core              (Mintettes, NewPeriodData, PeriodId,
-                                           PeriodResult, SecretKey,
-                                           announceNewPeriod, logError, logInfo,
-                                           logWarning, periodDelta,
-                                           sendPeriodFinished)
+import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
+                                           SecretKey, announceNewPeriod,
+                                           logError, logInfo, logWarning,
+                                           periodDelta, sendPeriodFinished)
 
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
                                            StartNewPeriod (..), State)
@@ -46,9 +42,6 @@ runWorker sk st =
         threadDelay $ 1 * 60 * 1000 * 1000
         f
     handler f (Right _) = f
-
-instance Buildable [NewPeriodData] where
-    build = listBuilderJSONIndent 1
 
 onPeriodFinished :: SecretKey -> State -> IO ()
 onPeriodFinished sk st = do

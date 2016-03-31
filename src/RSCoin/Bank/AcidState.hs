@@ -15,21 +15,18 @@ module RSCoin.Bank.AcidState
        , StartNewPeriod (..)
        ) where
 
-import           Control.Exception       (throw)
-import           Control.Lens            (view)
-import           Control.Monad.Catch     (MonadThrow (throwM))
-import           Data.Acid               (AcidState, Update, Query,
-                                          closeAcidState, makeAcidic,
-                                          openLocalStateFrom)
-import           Data.SafeCopy           (base, deriveSafeCopy)
+import           Control.Exception   (throw)
+import           Control.Lens        (view)
+import           Control.Monad.Catch (MonadThrow (throwM))
+import           Data.Acid           (AcidState, Query, Update, closeAcidState,
+                                      makeAcidic, openLocalStateFrom)
+import           Data.SafeCopy       (base, deriveSafeCopy)
 
-import           Serokell.Util.AcidState (exceptStateToUpdate, stateToUpdate)
+import           RSCoin.Core         (HBlock, Mintette, Mintettes,
+                                      NewPeriodData, PeriodId, PeriodResult,
+                                      PublicKey, SecretKey)
 
-import           RSCoin.Core             (HBlock, Mintettes, PeriodId,
-                                          SecretKey, PeriodResult,
-                                          NewPeriodData, Mintette, PublicKey)
-
-import qualified RSCoin.Bank.Storage     as BS
+import qualified RSCoin.Bank.Storage as BS
 
 type State = AcidState BS.Storage
 

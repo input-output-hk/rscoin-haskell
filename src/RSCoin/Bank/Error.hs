@@ -4,11 +4,10 @@ module RSCoin.Bank.Error
        ( BankError (..)
        ) where
 
-import           Control.Exception (Exception)
+import           Control.Exception   (Exception)
 import           Data.Monoid         ((<>))
 import           Data.Text           (Text)
 import           Data.Text.Buildable (Buildable (build))
-import qualified Data.Text.Format    as F
 import           Data.Typeable       (Typeable)
 
 data BankError

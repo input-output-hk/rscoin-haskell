@@ -67,15 +67,38 @@ execBank cl f = P.execBank cl f `catch` rpcErrorHandler
 execMintette :: Mintette -> P.Client a -> P.WithResult a
 execMintette m cl f = P.execMintette m cl f `catch` rpcErrorHandler
 
+beforeResult :: IO () -> P.WithResult a -> P.WithResult a
+beforeResult before action f = action (\a -> before >> f a)
+
+afterResult :: (a -> IO ()) -> P.WithResult a -> P.WithResult a
+afterResult after action f = action (\a -> after a >> f a)
+
+withResult :: IO () -> (a -> IO ()) -> P.WithResult a -> P.WithResult a
+withResult before after action f = action (\a -> before >> f a >> after a)
+
 -- | Retrieves blockchainHeight from the server
 getBlockchainHeight :: P.WithResult PeriodId
-getBlockchainHeight = execBank $ P.call (P.RSCBank P.GetBlockchainHeight)
+getBlockchainHeight =
+    withResult
+        (logInfo "Getting blockchain height")
+        (logInfo . formatSingle' "Blockchain height is {}")
+        $ execBank $ P.call (P.RSCBank P.GetBlockchainHeight)
 
 -- | Given the height/perioud id, retreives block if it's present
 getBlockByHeight :: PeriodId -> IO HBlock
 getBlockByHeight pId = do
+    logInfo $ formatSingle' "Getting block with height {}" pId
     res <- P.unCps $ execBank $ P.call (P.RSCBank P.GetHBlock) pId
-    either (throwIO . MethodError) return res
+    either onError onSuccess res
+  where
+    onError e = do
+        logWarning $
+            format' "Getting block with height {} failed with: {}" (pId, e)
+        throwIO $ MethodError e
+    onSuccess res = do
+        logInfo $
+            format' "Successfully got block with height {}: {}" (pId, res)
+        return res
 
 getGenesisBlock :: IO HBlock
 getGenesisBlock = getBlockByHeight 0

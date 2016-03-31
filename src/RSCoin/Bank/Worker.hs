@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Worker that handles end of period.
@@ -12,15 +13,19 @@ import           Control.Exception        (SomeException, catch)
 import           Control.Monad            (void)
 import           Data.Acid                (createCheckpoint, query, update)
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
+import           Data.List                (intersperse)
+import           Data.Monoid              ((<>))
+import           Data.Text.Buildable      (Buildable (build))
 import           Data.Time.Units          (toMicroseconds)
 
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text       (formatSingle')
 
-import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
-                                           SecretKey, announceNewPeriod,
-                                           logError, logInfo, logWarning,
-                                           periodDelta, sendPeriodFinished)
+import           RSCoin.Core              (Mintettes, NewPeriodData, PeriodId,
+                                           PeriodResult, SecretKey,
+                                           announceNewPeriod, logError, logInfo,
+                                           logWarning, periodDelta,
+                                           sendPeriodFinished)
 
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
                                            StartNewPeriod (..), State)
@@ -42,6 +47,9 @@ runWorker sk st =
         f
     handler f (Right _) = f
 
+instance Buildable [NewPeriodData] where
+    build xs = "[" <> mconcat (intersperse "," $ map build xs) <> "]"
+
 onPeriodFinished :: SecretKey -> State -> IO ()
 onPeriodFinished sk st = do
     mintettes <- query st GetMintettes
@@ -55,7 +63,7 @@ onPeriodFinished sk st = do
     newMintettes <- query st GetMintettes
     mapM_
         (\(m,mId) ->
-              announceNewPeriod m mId newPeriodData `catch`
+              announceNewPeriod m (newPeriodData !! mId) `catch`
               handlerAnnouncePeriod)
         (zip newMintettes [0 ..])
     logInfo $
@@ -65,7 +73,7 @@ onPeriodFinished sk st = do
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)
-    handlerAnnouncePeriod (e :: SomeException) = do
+    handlerAnnouncePeriod (e :: SomeException) =
         logWarning $
             formatSingle' "Error occurred in communicating with mintette {}" e
 

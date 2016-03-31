@@ -1,10 +1,10 @@
 import           Control.Exception     (bracket)
+import qualified Data.Acid             as ACID
 import qualified Data.Text             as T
 
+import           Actions               (proceedCommand)
 import           RSCoin.Core           (initLogging, logDebug)
 import qualified RSCoin.User.AcidState as A
-
-import           Actions               (proceedCommand)
 import qualified UserOptions           as O
 
 main :: IO ()
@@ -16,7 +16,7 @@ main = do
              walletPath
              addressesNum
              (bankKeyPath isBankMode bankModePath))
-        A.closeState $
+        (\st -> ACID.createCheckpoint st >> A.closeState st) $
         \st ->
              do logDebug $
                     mconcat ["Called with options: ", (T.pack . show) opts]

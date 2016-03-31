@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 
@@ -14,50 +15,55 @@ module RSCoin.Mintette.Storage
        , finishPeriod
        , startPeriod
        , finishEpoch
+       , previousMintetteId
        ) where
 
-import           Control.Applicative       ((<|>))
-import           Control.Lens              (Getter, makeLenses, to, use, uses,
-                                            (%=), (+=), (.=), (<>=))
-import           Control.Monad             (unless, when)
-import           Control.Monad.Catch       (MonadThrow (throwM))
-import           Control.Monad.State.Class (MonadState)
-import qualified Data.Map                  as M
-import           Data.Maybe                (fromJust, isJust)
-import qualified Data.Set                  as S
-import           Data.Tuple.Select         (sel1)
-import           Safe                      (atMay, headMay)
+import           Control.Applicative        ((<|>))
+import           Control.Lens               (Getter, makeLenses, to, use, uses,
+                                             view, (%=), (+=), (.=), (<>=),
+                                             (<~))
+import           Control.Monad              (unless, when)
+import           Control.Monad.Catch        (MonadThrow (throwM))
+import           Control.Monad.Reader.Class (MonadReader)
+import           Control.Monad.State.Class  (MonadState)
+import qualified Data.Map                   as M
+import           Data.Maybe                 (fromJust, isJust)
+import qualified Data.Set                   as S
+import           Data.Tuple.Select          (sel1)
+import           Safe                       (atMay, headMay)
 
-import           RSCoin.Core               (ActionLog, ActionLogHeads, AddrId,
-                                            Address, CheckConfirmation (..),
-                                            CheckConfirmations,
-                                            CommitConfirmation, Dpk, Hash,
-                                            LBlock, MintetteId, Mintettes,
-                                            PeriodId, SecretKey, Signature,
-                                            Transaction (..), actionLogNext,
-                                            computeOutputAddrids,
-                                            derivePublicKey, hash,
-                                            hbTransactions, mkCheckConfirmation,
-                                            mkLBlock, owners, sign,
-                                            validateSignature,
-                                            verifyCheckConfirmation)
-import qualified RSCoin.Core               as C
-import           RSCoin.Mintette.Error     (MintetteError (..))
+import           RSCoin.Core                (ActionLog, ActionLogHeads, AddrId,
+                                             CheckConfirmation (..),
+                                             CheckConfirmations,
+                                             CommitConfirmation, Dpk, Hash,
+                                             LBlock, MintetteId, Mintettes,
+                                             PeriodId, Pset, SecretKey,
+                                             Signature, Transaction (..), Utxo,
+                                             actionLogNext,
+                                             computeOutputAddrids,
+                                             derivePublicKey, hash,
+                                             hbTransactions,
+                                             mkCheckConfirmation, mkLBlock,
+                                             owners, sign, validateSignature,
+                                             verifyCheckConfirmation)
+import qualified RSCoin.Core                as C
+import           RSCoin.Mintette.Error      (MintetteError (..))
 
 data Storage = Storage
-    { _utxo         :: M.Map AddrId Address      -- ^ Unspent transaction outputs
-    , _utxoDeleted  :: M.Map AddrId Address      -- ^ Entries, deleted from utxo
-    , _utxoAdded    :: M.Map AddrId Address      -- ^ Entries, added to utxo
-    , _pset         :: M.Map AddrId Transaction  -- ^ Set of checked transactions
-    , _txset        :: S.Set Transaction         -- ^ List of transaction sealing into ledger
-    , _lBlocks      :: [[LBlock]]                -- ^ Blocks are stored per period
-    , _actionLogs   :: [ActionLog]               -- ^ Logs are stored per period
-    , _logSize      :: Int                       -- ^ Total size of actionLogs
-    , _mintettes    :: Mintettes                 -- ^ Mintettes for current period
-    , _mintetteId   :: Maybe MintetteId          -- ^ Id for current period
-    , _dpk          :: Dpk                       -- ^ DPK for current period
-    , _logHeads     :: ActionLogHeads            -- ^ All known heads of logs
-    , _lastBankHash :: Maybe Hash                -- ^ Hash of the last HBlock
+    { _utxo          :: Utxo               -- ^ Unspent transaction outputs
+    , _utxoDeleted   :: Utxo               -- ^ Entries, deleted from utxo
+    , _utxoAdded     :: Utxo               -- ^ Entries, added to utxo
+    , _pset          :: Pset               -- ^ Set of checked transactions
+    , _txset         :: S.Set Transaction  -- ^ List of transaction sealing into ledger
+    , _lBlocks       :: [[LBlock]]         -- ^ Blocks are stored per period
+    , _actionLogs    :: [ActionLog]        -- ^ Logs are stored per period
+    , _logSize       :: Int                -- ^ Total size of actionLogs
+    , _mintettes     :: Mintettes          -- ^ Mintettes for current period
+    , _mintetteId    :: Maybe MintetteId   -- ^ Id for current period
+    , _invMintetteId :: Maybe MintetteId   -- ^ Invariant for mintetteId
+    , _dpk           :: Dpk                -- ^ DPK for current period
+    , _logHeads      :: ActionLogHeads     -- ^ All known heads of logs
+    , _lastBankHash  :: Maybe Hash         -- ^ Hash of the last HBlock
     }
 
 $(makeLenses ''Storage)
@@ -76,6 +82,7 @@ mkStorage =
     , _logSize = 0
     , _mintettes = []
     , _mintetteId = Nothing
+    , _invMintetteId = Nothing
     , _dpk = []
     , _logHeads = M.empty
     , _lastBankHash = Nothing
@@ -90,10 +97,13 @@ logHead = actionLogs . to f
     f (x:xs) = headMay x <|> f xs
 
 periodId :: Query PeriodId
-periodId = lBlocks . to ((\l -> l - 1) . length)
+periodId = lBlocks . to (pred . length)
 
 isActive :: Query Bool
 isActive = mintetteId . to isJust
+
+previousMintetteId :: (MonadReader Storage m) => m (Maybe MintetteId)
+previousMintetteId = view invMintetteId
 
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
@@ -152,10 +162,10 @@ commitTx sk tx@Transaction{..} pId bundle = do
     unless (C.isOwner mts (C.hash tx) mId) $
         throwM $ MEInconsistentRequest "I'm not an owner!"
     curDpk <- use dpk
-    let isConfirmed = all (checkInputConfirmed mts curDpk) txInputs
+    isConfirmed <- and <$> mapM (checkInputConfirmed mts curDpk) txInputs
     commitTxChecked isConfirmed sk tx bundle
   where
-    checkInputConfirmed mts curDpk addrid =
+    checkInputConfirmed mts curDpk addrid = do
         let addridOwners = owners mts (hash $ sel1 addrid)
             ownerConfirmed owner =
                 maybe
@@ -165,7 +175,7 @@ commitTx sk tx@Transaction{..} pId bundle = do
                           verifyDpk curDpk owner proof) $
                 M.lookup (owner, addrid) bundle
             filtered = filter ownerConfirmed addridOwners
-        in length filtered > length addridOwners `div` 2
+        return (length filtered > length addridOwners `div` 2)
     verifyDpk curDpk ownerId CheckConfirmation{..} =
         maybe
             False
@@ -201,17 +211,22 @@ finishPeriod sk pId = do
     mintetteId .= Nothing
     (pId, , ) <$> use (lBlocks . to head) <*> use (actionLogs . to head)
 
--- | Start new period.
-startPeriod :: (MintetteId, C.NewPeriodData) -> ExceptUpdate ()
-startPeriod (mid,C.NewPeriodData{..}) = do
+-- | Start new period. False return value indicates that mintette
+-- didn't start the period because it received some other index, so
+-- `setNewIndex` should be called and then `startPeriod` again.
+startPeriod :: C.NewPeriodData -> ExceptUpdate ()
+startPeriod C.NewPeriodData{..} = do
     checkIsInactive
     lastPeriodId <- use periodId
     when (lastPeriodId >= npdPeriodId) $
         throwM $ MEPeriodMismatch lastPeriodId npdPeriodId
+    when (isJust npdNewIdPayload) $ do
+        mIdChanged <- uses invMintetteId $ (/=) (fst <$> npdNewIdPayload)
+        when mIdChanged $ uncurry onMintetteIdChanged $ fromJust npdNewIdPayload
     lBlocks <>= replicate (npdPeriodId - lastPeriodId) []
     actionLogs <>= replicate (npdPeriodId - lastPeriodId) []
     mintettes .= npdMintettes
-    mintetteId .= Just mid
+    mintetteId <~ use invMintetteId
     dpk .= npdDpk
     pset .= M.empty
     let txOutsPaired =
@@ -233,6 +248,17 @@ startPeriod (mid,C.NewPeriodData{..}) = do
     checkIsInactive = do
         v <- use isActive
         when v $ throwM MEAlreadyActive
+
+-- | Update mintette id, set new utxo. Utxo should be correct. No
+-- correct checks are made here, so the server should make his best.
+-- It also doesn't set the mintetteId field, only invMintetteId, so
+-- startPeriod should be called after.
+onMintetteIdChanged :: MintetteId -> Utxo -> Update ()
+onMintetteIdChanged newMid newUtxo = do
+    utxoDeleted .= M.empty
+    utxoAdded .= M.empty
+    utxo .= newUtxo
+    mintetteId .= Just newMid
 
 -- | This function creates new LBlock with transactions from txset
 -- and adds CloseEpochEntry to log.

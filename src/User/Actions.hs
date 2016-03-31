@@ -83,13 +83,13 @@ proceedCommand st O.UpdateBlockchain =
 -- previous height state already.
 updateToBlockHeight :: A.RSCoinUserState -> PeriodId -> IO ()
 updateToBlockHeight st newHeight = do
-    TIO.putStrLn $ formatSingle' "Updating to height {}" newHeight
+    TIO.putStr $ formatSingle' "Updating to height {} ... " newHeight
     C.HBlock{..} <- getBlockByHeight newHeight
     -- TODO validate this block with integrity check that we don't have
     relatedTransactions <-
         nub . concatMap (toTrs hbTransactions) <$> query st GetAllAddresses
     update st $ A.WithBlockchainUpdate newHeight relatedTransactions
-    TIO.putStrLn $ formatSingle' "Updated to height {}" newHeight
+    TIO.putStrLn $ formatSingle' " updated to height {}" newHeight
   where
     toTrs :: [C.Transaction] -> W.UserAddress -> [C.Transaction]
     toTrs trs userAddr =

@@ -7,6 +7,7 @@ module RSCoin.Mintette.AcidState
        ( State
        , openState
        , closeState
+       , PreviousMintetteId (..)
        , CheckNotDoubleSpent (..)
        , CommitTx (..)
        , FinishPeriod (..)
@@ -16,8 +17,9 @@ module RSCoin.Mintette.AcidState
 
 import           Control.Exception       (throw)
 import           Control.Monad.Catch     (MonadThrow (throwM))
-import           Data.Acid               (AcidState, Update, closeAcidState,
-                                          makeAcidic, openLocalStateFrom)
+import           Data.Acid               (AcidState, Query, Update,
+                                          closeAcidState, makeAcidic,
+                                          openLocalStateFrom)
 import           Data.SafeCopy           (base, deriveSafeCopy)
 
 import           RSCoin.Core             (AddrId, CheckConfirmation,
@@ -38,8 +40,14 @@ openState fp = openLocalStateFrom fp MS.mkStorage
 closeState :: State -> IO ()
 closeState = closeAcidState
 
+instance MonadThrow (Query s) where
+    throwM = throw
+
 instance MonadThrow (Update s) where
     throwM = throw
+
+previousMintetteId :: Query MS.Storage (Maybe MintetteId)
+previousMintetteId = MS.previousMintetteId
 
 checkNotDoubleSpent
     :: SecretKey
@@ -59,14 +67,15 @@ commitTx = MS.commitTx
 finishPeriod :: SecretKey -> PeriodId -> Update MS.Storage PeriodResult
 finishPeriod = MS.finishPeriod
 
-startPeriod :: (MintetteId, NewPeriodData) -> Update MS.Storage ()
+startPeriod :: NewPeriodData -> Update MS.Storage ()
 startPeriod = MS.startPeriod
 
 finishEpoch :: SecretKey -> Update MS.Storage ()
 finishEpoch = MS.finishEpoch
 
 $(makeAcidic ''MS.Storage
-             [ 'checkNotDoubleSpent
+             [ 'previousMintetteId
+             , 'checkNotDoubleSpent
              , 'commitTx
              , 'finishPeriod
              , 'startPeriod

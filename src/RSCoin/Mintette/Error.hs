@@ -36,7 +36,7 @@ instance Buildable MintetteError where
         F.build
             "received strange PeriodId: {} (expected {})"
             (received, expected)
-    build MEInvalidTxSums = "sum of outputs is greater that some of inputs"
+    build MEInvalidTxSums = "sum of transaction outputs is greater that some of inputs"
     build (MEInconsistentRequest msg) = build msg
     build MEDoubleSpending = "most likely double spending takes place"
     build MEInvalidSignature = "failed to verify signature"

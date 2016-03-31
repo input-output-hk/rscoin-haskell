@@ -19,6 +19,8 @@ module RSCoin.Core.Types
        , LBlock (..)
        , PeriodResult
        , Dpk
+       , Utxo
+       , Pset
        , HBlock (..)
        , NewPeriodData (..)
        ) where
@@ -34,7 +36,7 @@ import           Serokell.Util.Text     (listBuilderJSON, listBuilderJSONIndent,
                                          mapBuilder, pairBuilder)
 
 import           RSCoin.Core.Crypto     (Hash, PublicKey, Signature)
-import           RSCoin.Core.Primitives (AddrId, Transaction)
+import           RSCoin.Core.Primitives (AddrId, Address, Transaction)
 
 -- | Periods are indexed by sequence of numbers starting from 0.
 type PeriodId = Int
@@ -193,6 +195,16 @@ type PeriodResult = (PeriodId, [LBlock], ActionLog)
 -- | DPK is a list of signatures which authorizies mintettes for one period
 type Dpk = [(PublicKey, Signature)]
 
+-- | Utxo is a type used by mintettes. (addrid -> addr) ∈ utxo means
+-- that there was an act of money transfer to address, but since then
+-- it wasn't used.
+type Utxo = M.Map AddrId Address
+
+-- | Pset is a type used by mintettes. (addrid -> transaction) ∈ pset
+-- means that mintette confirmed this transaction isn't double-spent
+-- for the given period.
+type Pset = M.Map AddrId Transaction
+
 instance Buildable Dpk where
     build = listBuilderJSON . map pairBuilder
 
@@ -224,13 +236,16 @@ instance Buildable HBlock where
                 , "}\n"
                 ]
 
--- | Data sent by server on new period start.
+-- | Data sent by server on new period start. If mintette id changes,
+-- bank *must* include npdNewIdPayload.
 data NewPeriodData = NewPeriodData
-    { npdPeriodId  :: PeriodId   -- ^ Id of a new period
-    , npdMintettes :: Mintettes  -- ^ Mintettes list
-    , npdHBlock    :: HBlock     -- ^ Last processed HBlock (needed to
-                                 -- update local mintette's utxo)
-    , npdDpk       :: Dpk        -- ^ Dpk
+    { npdPeriodId     :: PeriodId                 -- ^ Id of a new period
+    , npdMintettes    :: Mintettes                -- ^ Mintettes list
+    , npdHBlock       :: HBlock                   -- ^ Last processed HBlock (needed to
+                                                  -- update local mintette's utxo)
+    , npdNewIdPayload :: Maybe (MintetteId, Utxo) -- ^ Data needed for mintette to
+                                                  -- restore state if it's Id changes
+    , npdDpk          :: Dpk                      -- ^ Dpk
     } deriving (Show)
 
 instance Buildable NewPeriodData where
@@ -242,6 +257,7 @@ instance Buildable NewPeriodData where
                 [ "NewPeriodData {\n"
                 , "  periodId: {}\n"
                 , "  mintettes: {}\n"
+                , "  newIdPayload: {}\n"
                 , "  HBlock: {}\n"
                 , "}\n"
                 ]

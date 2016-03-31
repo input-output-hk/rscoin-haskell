@@ -8,7 +8,8 @@ module RSCoin.Mintette.Server
 
 import           Control.Exception         (bracket, catch, throwIO, try)
 import           Control.Monad.IO.Class    (liftIO)
-import           Data.Acid.Advanced        (update')
+import           Data.Acid.Advanced        (query', update')
+import           Data.Monoid               ((<>))
 import           Data.Text                 (Text)
 
 import           Serokell.Util.Text        (format', formatSingle',
@@ -17,6 +18,7 @@ import           Serokell.Util.Text        (format', formatSingle',
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
+                                            PreviousMintetteId (..),
                                             StartPeriod (..), State, closeState,
                                             openState)
 import           RSCoin.Mintette.Error     (MintetteError)
@@ -54,16 +56,17 @@ handlePeriodFinished sk st pId =
        return res
 
 handleNewPeriod :: State
-                -> C.MintetteId
                 -> C.NewPeriodData
                 -> C.Server ()
-handleNewPeriod st mId npd =
+handleNewPeriod st npd =
     toServer $
-    do C.logInfo $
+    do prevMid <- query' st PreviousMintetteId
+       C.logInfo $
            format'
-               "New period has just started, I am mintette {}. Here is new period data:\n {}"
-               (mId, npd)
-       update' st $ StartPeriod (mId, npd)
+               ("New period has just started, I am mintette #{} (prevId).\n" <>
+                "Here is new period data:\n {}")
+               (prevMid, npd)
+       update' st $ StartPeriod npd
 
 handleCheckTx
     :: C.SecretKey

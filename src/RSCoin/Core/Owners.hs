@@ -24,9 +24,9 @@ shardSizeScaled i = max 2 (i `div` shardDivider)
 
 -- | Takes list of mintettes which is active and stable over current period
 -- and hash of transaction and returns list of mintettes responsible for it.
-owners :: Mintettes -> TransactionId -> [MintetteId]
+owners :: [a] -> TransactionId -> [MintetteId]
 owners [] _ = []
-owners (_:[]) _ = [0]
+owners [_] _ = [0]
 owners mintettes h =
     let shardSize = shardSizeScaled l
     in take shardSize $ nub $ map (\i -> hash i `mod` l) $ iterate hashProduce h

@@ -102,9 +102,9 @@ sendPeriodFinished :: Mintette -> PeriodId -> P.WithResult PeriodResult
 sendPeriodFinished mintette pId =
     execMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
 
-announceNewPeriod :: Mintette -> MintetteId -> NewPeriodData -> IO ()
-announceNewPeriod mintette mId npd =
+announceNewPeriod :: Mintette -> NewPeriodData -> IO ()
+announceNewPeriod mintette npd =
     execMintette
         mintette
-        (P.call (P.RSCMintette P.AnnounceNewPeriod) mId npd)
+        (P.call (P.RSCMintette P.AnnounceNewPeriod) npd)
         return

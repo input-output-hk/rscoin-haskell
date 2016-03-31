@@ -17,24 +17,28 @@ module RSCoin.Bank.Storage
        , startNewPeriod
        ) where
 
-import           Control.Lens               (Getter, makeLenses, to, use, uses,
-                                             (%=), (+=), (.=))
-import           Control.Monad              (guard, unless)
+import           Control.Lens               (Getter, ix, makeLenses, to, use,
+                                             uses, (%=), (&), (+=), (.=), (.~))
+import           Control.Monad              (forM_, guard, unless)
 import           Control.Monad.State        (State)
 import           Control.Monad.Trans.Except (ExceptT, throwE)
 import qualified Data.HashMap.Lazy          as M
 import qualified Data.HashSet               as S
+import           Data.List                  ((\\))
+import qualified Data.Map                   as MP
 import           Data.Maybe                 (mapMaybe)
 import           Data.Typeable              (Typeable)
 import           Safe                       (atMay, headMay)
 
-import           RSCoin.Core                (ActionLog, Address (..), Coin (..),
-                                             Dpk, HBlock (..), Mintette,
-                                             MintetteId, Mintettes,
+import           RSCoin.Core                (ActionLog, AddrId, Address (..),
+                                             Coin (..), Dpk, HBlock (..),
+                                             Mintette, MintetteId, Mintettes,
                                              NewPeriodData (..), PeriodId,
                                              PeriodResult, PublicKey, SecretKey,
-                                             Transaction (..), checkActionLog,
-                                             checkLBlock, derivePublicKey, hash,
+                                             Transaction (..), Utxo,
+                                             checkActionLog, checkLBlock,
+                                             computeOutputAddrids,
+                                             derivePublicKey, hash,
                                              lbTransactions, mkGenesisHBlock,
                                              mkHBlock, owners, periodReward,
                                              sign)
@@ -47,6 +51,7 @@ data Storage = Storage
     , _pendingMintettes :: [(Mintette, PublicKey)]
     , _periodId         :: PeriodId
     , _blocks           :: [HBlock]
+    , _utxo             :: Utxo
     , _dpk              :: Dpk
     , _actionLogs       :: [ActionLog]
     } deriving (Typeable)
@@ -55,7 +60,7 @@ $(makeLenses ''Storage)
 
 -- | Make empty storage
 mkStorage :: Storage
-mkStorage = Storage [] [] 0 [] [] []
+mkStorage = Storage [] [] 0 [] MP.empty [] []
 
 type Query a = Getter Storage a
 
@@ -82,7 +87,7 @@ addMintette m k = do
 -- of mintettes.
 startNewPeriod :: SecretKey
                -> [Maybe PeriodResult]
-               -> ExceptUpdate NewPeriodData
+               -> ExceptUpdate [NewPeriodData]
 startNewPeriod sk results = do
     mts <- use mintettes
     unless (length mts == length results) $
@@ -90,17 +95,22 @@ startNewPeriod sk results = do
         BEInternal
             "Length of results is different from the length of mintettes"
     pId <- use periodId
-    startNewPeriodDo sk pId results
-    NewPeriodData <$> use periodId
-                  <*> use mintettes
-                  <*> uses blocks head
-                  <*> use dpk
+    changedMintetteIx <- startNewPeriodDo sk pId results
+    currentMintettes <- use mintettes
+    payload <- formPayload currentMintettes changedMintetteIx
+    (\a b c d ->
+          map (\i -> NewPeriodData a b c ((i,) <$> (i `MP.lookup` payload)) d)
+              [0 .. length currentMintettes - 1]) <$>
+        use periodId <*>
+        use mintettes <*>
+        uses blocks head <*>
+        use dpk
 
 startNewPeriodDo :: SecretKey
                  -> PeriodId
                  -> [Maybe PeriodResult]
-                 -> ExceptUpdate ()
-startNewPeriodDo sk 0 _ = do
+                 -> ExceptUpdate [MintetteId]
+startNewPeriodDo sk 0 _ =
     startNewPeriodFinally sk [] mkGenesisHBlock
 startNewPeriodDo sk pId results = do
     lastHBlock <- head <$> use blocks
@@ -129,12 +139,21 @@ startNewPeriodDo sk pId results = do
 startNewPeriodFinally :: SecretKey
                       -> [(MintetteId, PeriodResult)]
                       -> (SecretKey -> Dpk -> HBlock)
-                      -> ExceptUpdate ()
+                      -> ExceptUpdate [MintetteId]
 startNewPeriodFinally sk goodMintettes newBlockCtor = do
     periodId += 1
-    updateMintettes sk goodMintettes
+    updateIds <- updateMintettes sk goodMintettes
     newBlock <- newBlockCtor sk <$> use dpk
+    updateUtxo $ hbTransactions newBlock
     blocks %= (newBlock:)
+    return updateIds
+
+updateUtxo :: [Transaction] -> ExceptUpdate ()
+updateUtxo newTxs = do
+    let shouldBeAdded = concatMap computeOutputAddrids newTxs
+        shouldBeDeleted = concatMap txInputs newTxs
+    utxo %= MP.union (MP.fromList shouldBeAdded)
+    forM_ shouldBeDeleted (\d -> utxo %= MP.delete d)
 
 checkResult :: PeriodId
             -> HBlock
@@ -193,19 +212,65 @@ mergeTransactions mts goodResults = M.foldrWithKey appendTxChecked [] txMap
         in S.size (ownersSet `S.intersection` committedMintettes) >
            (S.size ownersSet `div` 2)
 
-updateMintettes :: SecretKey -> [(MintetteId, PeriodResult)] -> ExceptUpdate ()
+formPayload :: [a] -> [MintetteId] -> ExceptUpdate (MP.Map MintetteId Utxo)
+formPayload mintettes' changedId = do
+    curUtxo <- use utxo
+    let payload = MP.foldlWithKey' gatherPayload MP.empty curUtxo
+        gatherPayload :: MP.Map MintetteId Utxo
+                      -> AddrId
+                      -> Address
+                      -> MP.Map MintetteId Utxo
+        gatherPayload prev addrid@(txhash,_,_) address =
+            MP.unionWith
+                MP.union
+                prev
+                (MP.fromListWith MP.union $
+                 mapMaybe
+                     (\changed ->
+                           if changed `elem` owners mintettes' txhash
+                               then Just (changed, MP.singleton addrid address)
+                               else Nothing)
+                     changedId)
+    return payload
+
+-- Given the list of bad indeces, new list to append, data list, and
+-- generator (use []), this function returns datalist with appended
+-- data and removed bad indeces so that number of elements that change
+-- their place is minimized.
+replaceWithCare :: [Int] -> [a] -> [a] -> [Int] -> ([a], [Int])
+replaceWithCare [] [] list acc = (list, acc)
+replaceWithCare [] pending list acc =
+    (list ++ pending, acc ++ [length list .. length list + length pending - 1])
+replaceWithCare (bad:bads) [] list acc =
+    replaceWithCare
+        bads
+        []
+        ((take (length list - 1) list) & ix bad .~ last list)
+        (bad : acc)
+replaceWithCare (bad:bads) (pendh:pends) list acc =
+    replaceWithCare
+        bads
+        pends
+        (list & ix bad .~ pendh)
+        (bad : acc)
+
+updateMintettes :: SecretKey -> [(MintetteId, PeriodResult)] -> ExceptUpdate [MintetteId]
 updateMintettes sk goodMintettes = do
-    let (goodIndices, goodResults) = unzip goodMintettes
+    let (goodIndices,goodResults) = unzip goodMintettes
     existing <- use mintettes
     pending <- use pendingMintettes
-    mintettes .= map (existing !!) goodIndices ++ map fst pending
+    let badIndices = [0 .. length existing - 1] \\ goodIndices
+        (newMintettes,updatedIndices) =
+            replaceWithCare badIndices (map fst pending) existing []
+    mintettes .= newMintettes
     pendingMintettes .= []
     currentDpk <- use dpk
     dpk .= map (currentDpk !!) goodIndices ++ map doSign pending
     currentLogs <- use actionLogs
     actionLogs .= map (appendNewLog currentLogs) (zip goodIndices goodResults) ++
         replicate (length pending) []
+    return updatedIndices
   where
-    doSign (_, mpk) = (mpk, sign sk mpk)
+    doSign (_,mpk) = (mpk, sign sk mpk)
     appendNewLog :: [ActionLog] -> (MintetteId, PeriodResult) -> ActionLog
-    appendNewLog currentLogs (i, (_, _, newLog)) = newLog ++ currentLogs !! i
+    appendNewLog currentLogs (i,(_,_,newLog)) = newLog ++ currentLogs !! i

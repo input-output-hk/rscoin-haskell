@@ -13,7 +13,6 @@ module RSCoin.Core.Transaction
 
 import           Control.Exception      (assert)
 import           Data.List              (sortBy)
-import           Data.Monoid            ((<>))
 import           Data.Ord               (comparing)
 import           Data.Tuple.Select      (sel3)
 

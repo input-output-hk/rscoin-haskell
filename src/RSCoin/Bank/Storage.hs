@@ -14,6 +14,7 @@ module RSCoin.Bank.Storage
        , getMintettes
        , getPeriodId
        , getHBlock
+       , getHBlocks
        , addMintette
        , startNewPeriod
        ) where
@@ -73,6 +74,14 @@ getPeriodId = periodId
 
 getHBlock :: PeriodId -> Query (Maybe HBlock)
 getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
+
+-- Dumping Bank state
+
+getHBlocks :: PeriodId -> PeriodId -> Query [HBlock]
+getHBlocks left right = blocks . to (take (end - start + 1) . drop start)
+    where (start, end) = (min left right, max left right)
+
+-- Dumping Bank state
 
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a

@@ -11,10 +11,11 @@ import           Control.Monad.IO.Class (liftIO)
 import           Data.Acid.Advanced     (query')
 import           Data.Text              (unpack)
 
-import           Serokell.Util.Text     (formatSingle', show')
+import           Serokell.Util.Text     (formatSingle', show', format')
 
 import           RSCoin.Bank.AcidState  (GetHBlock (..), GetMintettes (..),
-                                         GetPeriodId (..), State)
+                                         GetPeriodId (..), State,
+                                         GetHBlocks (..))
 import           RSCoin.Bank.Error      (BankError)
 
 import           RSCoin.Core            (HBlock, Mintettes, PeriodId, bankPort,
@@ -66,3 +67,13 @@ serveGetHBlock st pId =
     onJust block = do
         logDebug $ formatSingle' "High-level block: {}" block
         return $ Right block
+
+-- Dumping Bank state
+serveGetHBlocks :: State -> PeriodId -> PeriodId -> C.Server [HBlock]
+serveGetHBlocks st from to =
+    toServer $
+    do blocks <- query' st $ GetHBlocks from to
+       logDebug $
+           format' "Getting higher-level blocks between {} and {}"
+           (from, to)
+       return blocks

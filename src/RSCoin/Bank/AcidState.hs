@@ -11,6 +11,7 @@ module RSCoin.Bank.AcidState
        , GetMintettes (..)
        , GetPeriodId (..)
        , GetHBlock (..)
+       , GetHBlocks (..)
        , AddMintette (..)
        , StartNewPeriod (..)
        ) where
@@ -50,6 +51,13 @@ getPeriodId = view BS.getPeriodId
 getHBlock :: PeriodId -> Query BS.Storage (Maybe HBlock)
 getHBlock = view . BS.getHBlock
 
+-- Dumping Bank state
+
+getHBlocks :: PeriodId -> PeriodId -> Query BS.Storage [HBlock]
+getHBlocks from to = view $ BS.getHBlocks from to
+
+-- Dumping Bank state
+
 addMintette :: Mintette -> PublicKey -> Update BS.Storage ()
 addMintette = BS.addMintette
 
@@ -63,6 +71,7 @@ $(makeAcidic ''BS.Storage
              [ 'getMintettes
              , 'getPeriodId
              , 'getHBlock
+             , 'getHBlocks
              , 'addMintette
              , 'startNewPeriod
              ])

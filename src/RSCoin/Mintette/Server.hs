@@ -135,3 +135,13 @@ handleCommitTx sk st tx pId cc =
     onSuccess res = do
         C.logInfo $ formatSingle' "Successfully committed transaction {}" tx
         return $ Right res
+
+-- Dumping Mintette state
+
+getUtxo :: State -> C.Server C.Utxo
+getUtxo st =
+    toServer $
+    do C.logInfo "Getting utxo"
+       (curUtxo, _) <- query' st GetUtxoPset
+       C.logDebug $ formatSingle' "Corrent utxo is: {}" curUtxo
+       return curUtxo

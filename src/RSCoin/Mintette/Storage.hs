@@ -220,10 +220,11 @@ finishPeriod sk pId = do
 -- `setNewIndex` should be called and then `startPeriod` again.
 startPeriod :: C.NewPeriodData -> ExceptUpdate ()
 startPeriod C.NewPeriodData{..} = do
-    checkIsInactive
     lastPeriodId <- use periodId
     when (lastPeriodId >= npdPeriodId) $
-        throwM $ MEPeriodMismatch lastPeriodId npdPeriodId
+        throwM $ MEPeriodMismatch (lastPeriodId + 1) npdPeriodId
+    alreadyActive <- use isActive
+    when alreadyActive $ discardCurrentPeriod
     -- we don't check if new mid /= old one, because there is
     -- Nothing == Nothing situation at the very start
     when
@@ -267,10 +268,6 @@ startPeriod C.NewPeriodData{..} = do
     utxoDeleted .= M.empty
     utxoAdded .= M.empty
     lastBankHash .= Just (C.hbHash npdHBlock)
-  where
-    checkIsInactive = do
-        v <- use isActive
-        when v $ throwM MEAlreadyActive
 
 -- | Update mintette id, set new utxo. Utxo should be correct. No
 -- correct checks are made here, so the server should make his best.
@@ -325,3 +322,10 @@ checkPeriodId :: PeriodId -> ExceptUpdate ()
 checkPeriodId received = do
     expected <- use periodId
     unless (expected == received) $ throwM $ MEPeriodMismatch expected received
+
+discardCurrentPeriod :: Update ()
+discardCurrentPeriod = do
+    mintettes .= []
+    invMintetteId .= Nothing
+    mintetteId .= Nothing
+    dpk .= []

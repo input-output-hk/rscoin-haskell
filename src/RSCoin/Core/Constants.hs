@@ -13,6 +13,7 @@ module RSCoin.Core.Constants
        , shardDivider
        ) where
 
+import           Data.Binary            (Binary)
 import           Data.Maybe             (fromJust)
 import           Data.String            (IsString)
 import           Data.Time.Units        (Second)
@@ -47,10 +48,10 @@ periodDelta = 50
 epochDelta :: Second
 epochDelta = 5
 
-emissionHash :: Hash
-emissionHash =
+emissionHash :: Binary t => t -> Hash
+emissionHash a =
     hash ("This emission hash is needed for all generative" ++
-          "transactions to be different" :: String)
+          "transactions to be different" :: String, a)
 
 -- | Special address used as output in genesis transaction
 genesisAddress :: Address

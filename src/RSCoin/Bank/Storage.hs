@@ -134,7 +134,7 @@ startNewPeriodDo sk pId results = do
     mts <- use mintettes
     let pk = derivePublicKey sk
     let blockTransactions =
-            allocateCoins pk keys filteredResults :
+            allocateCoins pk keys filteredResults pId :
             mergeTransactions mts filteredResults
     startNewPeriodFinally
         sk
@@ -176,8 +176,9 @@ checkResult expectedPid lastHBlock (r, key, storedLog) = do
 allocateCoins :: PublicKey
               -> [PublicKey]
               -> [(MintetteId, PeriodResult)]
+              -> PeriodId
               -> Transaction
-allocateCoins pk mintetteKeys goodResults =
+allocateCoins pk mintetteKeys goodResults pId =
     Transaction{..}
   where
     bankAddress = Address pk
@@ -194,7 +195,7 @@ allocateCoins pk mintetteKeys goodResults =
             (\idx -> (Address (mintetteKeys !! idx), Coin mintetteReward))
             awarded
     txOutputs = (bankAddress, Coin bankReward) : mintetteOutputs
-    txInputs = [(emissionHash, 0, Coin bankReward)]
+    txInputs = [(emissionHash pId, 0, Coin bankReward)]
 
 mergeTransactions :: Mintettes -> [(MintetteId, PeriodResult)] -> [Transaction]
 mergeTransactions mts goodResults = M.foldrWithKey appendTxChecked [] txMap

@@ -5,11 +5,17 @@ module RSCoin.Bank.Error
        ) where
 
 import           Control.Exception (Exception)
-import           Data.Text         (Text)
-import           Data.Typeable     (Typeable)
+import           Data.Monoid         ((<>))
+import           Data.Text           (Text)
+import           Data.Text.Buildable (Buildable (build))
+import qualified Data.Text.Format    as F
+import           Data.Typeable       (Typeable)
 
 data BankError =
     BEInternal Text
-    deriving (Show, Typeable)
+    deriving (Show, Typeable, Eq)
 
 instance Exception BankError
+
+instance Buildable BankError where
+    build (BEInternal m) = "internal error: " <> build m

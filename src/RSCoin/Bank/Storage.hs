@@ -1,6 +1,7 @@
-{-# LANGUAGE Rank2Types      #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE Rank2Types       #-}
+{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE TupleSections    #-}
 
 -- | Storage for Bank data
 
@@ -20,8 +21,8 @@ module RSCoin.Bank.Storage
 import           Control.Lens               (Getter, ix, makeLenses, to, use,
                                              uses, (%=), (&), (+=), (.=), (.~))
 import           Control.Monad              (forM_, guard, unless)
-import           Control.Monad.State        (State)
-import           Control.Monad.Trans.Except (ExceptT, throwE)
+import           Control.Monad.Catch        (MonadThrow (throwM))
+import           Control.Monad.State.Class  (MonadState)
 import qualified Data.HashMap.Lazy          as M
 import qualified Data.HashSet               as S
 import           Data.List                  ((\\))
@@ -73,8 +74,8 @@ getPeriodId = periodId
 getHBlock :: PeriodId -> Query (Maybe HBlock)
 getHBlock pId = blocks . to (`atMay` pId)
 
-type Update = State Storage
-type ExceptUpdate = ExceptT BankError (State Storage)
+type Update a = forall m . MonadState Storage m => m a
+type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
 -- | Add given mintette to storage and associate given key with it.
 addMintette :: Mintette -> PublicKey -> Update ()
@@ -91,7 +92,7 @@ startNewPeriod :: SecretKey
 startNewPeriod sk results = do
     mts <- use mintettes
     unless (length mts == length results) $
-        throwE $
+        throwM $
         BEInternal
             "Length of results is different from the length of mintettes"
     pId <- use periodId
@@ -118,7 +119,7 @@ startNewPeriodDo sk pId results = do
     logs <- use actionLogs
     let keys = map fst curDpk
     unless (length keys == length results) $
-        throwE $
+        throwM $
         BEInternal "Length of keys is different from the length of results"
     let checkedResults =
             map (checkResult pId lastHBlock) $ zip3 results keys logs

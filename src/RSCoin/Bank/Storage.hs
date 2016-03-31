@@ -81,7 +81,7 @@ getHBlocks :: PeriodId -> PeriodId -> Query [HBlock]
 getHBlocks left right = blocks . to fromTo
     where (small, big) = (min left right, max left right)
           fromTo xs = let l = length xs
-                      in  drop small $ take (l - big) xs
+                      in  drop (l - big) $ take (l - small) xs
 
 -- Dumping Bank state
 

@@ -3,11 +3,12 @@
 module UserOptions
        ( UserOptions (..)
        , UserCommand (..)
+       , DumpCommand (..)
        , getUserOptions
        ) where
 
 import           RSCoin.Core            (Severity (Info), defaultAccountsNumber,
-                                         defaultSecretKeyPath)
+                                         defaultSecretKeyPath, PeriodId)
 
 import           Data.Int               (Int64)
 import           Data.Monoid            ((<>))
@@ -35,6 +36,11 @@ data UserCommand
                                     -- value to send.  Second argument
                                     -- represents the address to send,
                                     -- and amount
+    | Dump DumpCommand
+    deriving (Show)
+
+data DumpCommand
+    = DumpHBlocks PeriodId PeriodId
     deriving (Show)
 
 -- | Datatype describing user command line options
@@ -64,7 +70,12 @@ userCommandParser =
                   (progDesc "Query bank to sync local state with blockchain.")) <>
          command
              "form-transaction"
-             (info formTransactionOpts (progDesc "Form and send transaction.")))
+             (info formTransactionOpts (progDesc "Form and send transaction.")) <>
+         command
+             "dump"
+             (info
+                  (Dump <$> dumpCommandParser)
+                  (progDesc "Dump Bank data")))
   where
     formTransactionOpts =
         FormTransaction <$>
@@ -78,6 +89,18 @@ userCommandParser =
         ((,) <$> strOption
                  (long "addrto" <> help "Address to send coins to.") <*>
          option auto (long "value" <> help "Value to send."))
+
+dumpCommandParser :: Parser DumpCommand
+dumpCommandParser =
+    subparser
+        (command
+             "blocks"
+             (info
+                  (DumpHBlocks
+                      <$> option auto (long "from" <> help "Dump from which block")
+                      <*> option auto (long "to" <> help "Dump to which block")
+                  )
+                  (progDesc ("Dump Bank high level blocks."))))
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

@@ -8,7 +8,7 @@ module Actions (proceedCommand) where
 
 import           Control.Exception     (throwIO)
 import           Control.Lens          ((^.))
-import           Control.Monad         (filterM, forM_, unless, when)
+import           Control.Monad         (filterM, forM_, unless, when, void)
 import           Data.Acid             (query, update)
 import           Data.Int              (Int64)
 import           Data.List             (nub, nubBy)
@@ -83,6 +83,11 @@ proceedCommand st O.UpdateBlockchain =
                    [walletHeight + 1 .. lastBlockHeight]
                    (updateToBlockHeight st)
                TIO.putStrLn "Successfully updated blockchain!"
+proceedCommand st (O.Dump command) = dumpCommand command
+
+dumpCommand :: O.DumpCommand -> IO ()
+dumpCommand (O.DumpHBlocks from to) =
+    eWrap . void . C.unCps $ C.getBlocks from to
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.

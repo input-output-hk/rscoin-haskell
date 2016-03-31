@@ -15,6 +15,7 @@ module RSCoin.Core.Communication
        , getOwnersByAddrid
        , getOwnersByTx
        , P.unCps
+       , getBlocks
        ) where
 
 import           Control.Exception          (Exception, catch, throwIO)
@@ -197,3 +198,21 @@ announceNewPeriod mintette npd = do
         mintette
         (P.call (P.RSCMintette P.AnnounceNewPeriod) npd)
         return
+
+-- Dumping Bank state
+
+getBlocks :: PeriodId -> PeriodId -> P.WithResult [HBlock]
+getBlocks from to =
+    withResult
+        infoMessage
+        successMessage
+        $ execBank $ P.call (P.RSCDump P.GetHBlocks) from to
+  where
+    infoMessage =
+        logInfo $
+            format' "Getting higher-level blocks between {} and {}"
+            (from, to)
+    successMessage res =
+        logInfo $
+            format' "Got higher-level blocks between {} {}: {}"
+            (from, to, listBuilderJSONIndent 2 res)

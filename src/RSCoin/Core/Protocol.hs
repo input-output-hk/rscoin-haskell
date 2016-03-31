@@ -6,6 +6,7 @@
 module RSCoin.Core.Protocol
        ( BankMethod (..)
        , MintetteMethod (..)
+       , DumpMethod (..)
        , RSCoinMethod (..)
        , WithResult
        , Server
@@ -40,6 +41,7 @@ import           RSCoin.Core.MessagePack          ()
 data RSCoinMethod
     = RSCBank BankMethod
     | RSCMintette MintetteMethod
+    | RSCDump DumpMethod
     deriving (Show)
 
 -- | Requests processed by a Bank.
@@ -55,6 +57,11 @@ data MintetteMethod
     | AnnounceNewPeriod
     | CheckTx
     | CommitTx
+    deriving (Show)
+
+-- Requests for dumping Bank state
+data DumpMethod
+    = GetHBlocks
     deriving (Show)
 
 type Server a = S.Server a

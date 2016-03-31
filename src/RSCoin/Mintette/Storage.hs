@@ -234,8 +234,8 @@ startPeriod C.NewPeriodData{..} = do
     when (isNothing npdNewIdPayload && invMId == Nothing) $
         throwM $
         MEInternal "Bank didn't send us utxo, but we're waiting for it."
-    lBlocks <>= replicate (npdPeriodId - lastPeriodId) []
-    actionLogs <>= replicate (npdPeriodId - lastPeriodId) []
+    lBlocks %= (replicate (npdPeriodId - lastPeriodId) [] ++)
+    actionLogs %= (replicate (npdPeriodId - lastPeriodId) [] ++)
     mintettes .= npdMintettes
     mintetteId <~ use invMintetteId
     mId <- use invMintetteId

@@ -220,7 +220,7 @@ allocateCoins pk mintetteKeys goodResults pId =
             (\idx -> (Address (mintetteKeys !! idx), Coin mintetteReward))
             awarded
     txOutputs = (bankAddress, Coin bankReward) : mintetteOutputs
-    txInputs = [(emissionHash pId, 0, Coin bankReward)]
+    txInputs = [(emissionHash pId, 0, periodReward)]
 
 mergeTransactions :: Mintettes -> [(MintetteId, PeriodResult)] -> [Transaction]
 mergeTransactions mts goodResults =

@@ -41,6 +41,7 @@ data UserCommand
 
 data DumpCommand
     = DumpHBlocks PeriodId PeriodId
+    | DumpHBlock PeriodId
     deriving (Show)
 
 -- | Datatype describing user command line options
@@ -100,7 +101,14 @@ dumpCommandParser =
                       <$> option auto (long "from" <> help "Dump from which block")
                       <*> option auto (long "to" <> help "Dump to which block")
                   )
-                  (progDesc ("Dump Bank high level blocks."))))
+                  (progDesc ("Dump Bank high level blocks."))) <>
+         command
+             "block"
+             (info
+                  (DumpHBlock
+                      <$> option auto (long "id" <> help "Dump block with specific periodId")
+                  )
+                  (progDesc ("Dump Bank high level block."))))
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

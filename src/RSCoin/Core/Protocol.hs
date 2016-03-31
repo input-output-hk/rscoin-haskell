@@ -62,6 +62,7 @@ data MintetteMethod
 -- Requests for dumping Bank state
 data DumpMethod
     = GetHBlocks
+    | GetLogs
     deriving (Show)
 
 type Server a = S.Server a

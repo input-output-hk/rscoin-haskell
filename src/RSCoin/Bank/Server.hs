@@ -15,11 +15,12 @@ import           Serokell.Util.Text     (formatSingle', show', format')
 
 import           RSCoin.Bank.AcidState  (GetHBlock (..), GetMintettes (..),
                                          GetPeriodId (..), State,
-                                         GetHBlocks (..))
+                                         GetHBlocks (..), GetLogs (..))
 import           RSCoin.Bank.Error      (BankError)
 
 import           RSCoin.Core            (HBlock, Mintettes, PeriodId, bankPort,
-                                         logError, logDebug, logWarning)
+                                         logError, logDebug, logWarning,
+                                         ActionLog, MintetteId)
 import qualified RSCoin.Core.Protocol   as C
 
 serve :: State -> IO ()
@@ -29,6 +30,7 @@ serve st =
         , C.method (C.RSCBank C.GetBlockchainHeight) $ serveGetHeight st
         , C.method (C.RSCBank C.GetHBlock) $ serveGetHBlock st
         , C.method (C.RSCDump C.GetHBlocks) $ serveGetHBlocks st
+        , C.method (C.RSCDump C.GetHBlocks) $ serveGetLogs st
         ]
 
 toServer :: IO a -> C.Server a
@@ -79,3 +81,18 @@ serveGetHBlocks st from to =
            format' "Getting higher-level blocks between {} and {}"
            (from, to)
        return blocks
+
+serveGetLogs :: State -> MintetteId -> Int -> Int -> C.Server (Either String ActionLog)
+serveGetLogs st m from to =
+    toServer $
+    do logDebug $
+           format' "Getting action logs of mintette {} with range of entries {} to {}" (m, from, to)
+       maybe onNothing onJust =<< query' st (GetLogs m from to)
+  where
+    onNothing = do
+        let e = formatSingle' "Action logs of mintette {} don't exists" m
+        logWarning e
+        return . Left $ unpack e
+    onJust aLog = do
+        logDebug $ format' "Action logs of mintette {} (range {} - {}): {}" (m, from, to, aLog)
+        return $ Right aLog

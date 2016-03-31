@@ -15,6 +15,7 @@ module RSCoin.Bank.Storage
        , getPeriodId
        , getHBlock
        , getHBlocks
+       , getLogs
        , addMintette
        , startNewPeriod
        ) where
@@ -78,11 +79,17 @@ getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
 
 -- Dumping Bank state
 
+reverseFromTo :: Int -> Int -> [a] -> [a]
+reverseFromTo from to xs = drop (l - big) $ take (l - small) xs
+    where (small, big) = (min from to, max from to)
+          l = length xs
+
 getHBlocks :: PeriodId -> PeriodId -> Query [HBlock]
-getHBlocks left right = blocks . to fromTo
-    where (small, big) = (min left right, max left right)
-          fromTo xs = let l = length xs
-                      in  drop (l - big) $ take (l - small) xs
+getHBlocks left right = blocks . to (reverseFromTo left right)
+
+getLogs :: MintetteId -> Int -> Int -> Query (Maybe ActionLog)
+getLogs m left right = 
+    actionLogs . to (fmap (reverseFromTo left right) . (`atMay` m))
 
 -- Dumping Bank state
 

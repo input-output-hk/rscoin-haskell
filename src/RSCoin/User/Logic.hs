@@ -87,4 +87,4 @@ validateTransaction tx@Transaction{..} signatures height = do
                        CC.commitTx mintette tx height bundle) .
                  fst)
                 owns
-        unless (null succeededCommits) $ throwIO FailedToCommit
+        when (null succeededCommits) $ throwIO FailedToCommit

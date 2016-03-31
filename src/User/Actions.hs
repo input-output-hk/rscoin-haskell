@@ -64,19 +64,24 @@ proceedCommand st O.UpdateBlockchain =
     eWrap $
     do walletHeight <- query st A.GetLastBlockId
        TIO.putStrLn $
-           formatSingle' "Current blockchain height is {}." walletHeight
-       height <- pred <$> C.unCps getBlockchainHeight -- request to get blockchain height
-       when (walletHeight > height) $
+           formatSingle'
+               "Current known blockchain's height (last HBLock's id) is {}."
+               walletHeight
+       lastBlockHeight <- pred <$> C.unCps getBlockchainHeight
+       when (walletHeight > lastBlockHeight) $
            throwIO $
            StorageError $
            W.InternalError $
            format'
-               "Blockchain height in wallet ({}) is greater than in bank ({}). Critical error."
-               (walletHeight, height)
-       if height == walletHeight
+               ("Last block height in wallet ({}) is greater than last " <>
+                "block's height in bank ({}). Critical error.")
+               (walletHeight, lastBlockHeight)
+       if lastBlockHeight == walletHeight
            then putStrLn "Blockchain is updated already."
            else do
-               forM_ [walletHeight+1..height] (updateToBlockHeight st)
+               forM_
+                   [walletHeight + 1 .. lastBlockHeight]
+                   (updateToBlockHeight st)
                TIO.putStrLn "Successfully updated blockchain!"
 
 -- | Updates wallet to given blockchain height assuming that it's in
@@ -107,12 +112,13 @@ formTransaction st inputs outputAddr outputCoin = do
             "All input values should be positive, but encountered {}, that's not." $
         head $ filter (<= 0) $ map snd inputs
     accounts <- query st GetAllAddresses
+    let notInRange i = i <= 0 || i > length accounts
     when
-        (any (\i -> i <= 0 || i > length accounts) $ map fst inputs) $
+        (any notInRange $ map fst inputs) $
         commitError $
         format'
             "Found an account id ({}) that's not in [1..{}]"
-            ( head $ filter (>= length accounts) $ map fst inputs
+            ( head $ filter notInRange $ map fst inputs
             , length accounts)
     let accInputs :: [(Int, W.UserAddress, Coin)]
         accInputs = map (\(i,c) -> (i, accounts !! (i - 1), C.Coin c)) inputs
@@ -136,19 +142,19 @@ formTransaction st inputs outputAddr outputCoin = do
         foldl1 mergeTransactions <$> mapM formTransactionMapper accInputs
     TIO.putStrLn $ formatSingle' "Please check your transaction: {}" outTr
     walletHeight <- query st A.GetLastBlockId
-    height <- pred <$> C.unCps getBlockchainHeight -- request to get blockchain height
-    when (walletHeight /= height) $
+    lastBlockHeight <- pred <$> C.unCps getBlockchainHeight
+    when (walletHeight /= lastBlockHeight) $
         commitError $
         format'
-            ("Wallet isn't updated (height {} when blockchaine is {}). " <>
+            ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}). " <>
              "Please synchonize it with blockchain. The transaction wouldn't be sent.")
-            (walletHeight, height)
+            (walletHeight, lastBlockHeight)
     let signatures =
             M.fromList $
             map (\(addrid',address') ->
                       (addrid', sign (address' ^. W.privateAddress) outTr))
                 addrPairList
-    validateTransaction outTr signatures height
+    validateTransaction outTr signatures $ lastBlockHeight + 1
   where
     formTransactionMapper :: (Int, W.UserAddress, Coin)
                           -> IO ([(AddrId, W.UserAddress)], Transaction)

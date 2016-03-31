@@ -63,6 +63,9 @@ instance Buildable Mintette where
 -- | Mintettes list is stored by Bank and doesn't change over period.
 type Mintettes = [Mintette]
 
+instance Buildable Mintettes where
+    build = listBuilderJSON
+
 -- | Mintette is identified by it's index in mintettes list stored by Bank.
 -- This id doesn't change over period, but may change between periods.
 type MintetteId = Int

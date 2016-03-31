@@ -124,10 +124,14 @@ dumpCommandParser =
                   (pure DumpPeriod)
                   (progDesc ("Dump last period."))) <>
          command
-             "period"
+             "logs"
              (info
-                  (pure DumpPeriod)
-                  (progDesc ("Dump last period."))))
+                  (DumpLogs
+                      <$> argument auto (metavar "MINTETTE_ID" <> help "Dump logs of mintette with this id.")
+                      <*> argument auto (metavar "FROM" <> help "Dump from which entry.")
+                      <*> argument auto (metavar "TO" <> help "Dump to which entry.")
+                  )
+                  (progDesc ("Dump action logs of corresponding mintette, range or entries."))))
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

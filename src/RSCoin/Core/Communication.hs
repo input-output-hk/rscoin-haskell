@@ -17,6 +17,7 @@ module RSCoin.Core.Communication
        , P.unCps
        , getBlocks
        , getMintettes
+       , getLogs
        ) where
 
 import           Control.Exception          (Exception, catch, throwIO)

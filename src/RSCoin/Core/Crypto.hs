@@ -39,6 +39,7 @@ import           Data.SafeCopy             (Contained,
                                             contain, deriveSafeCopy, safeGet,
                                             safePut)
 import           Data.Serialize            (Get, Put)
+import           Data.String               (IsString)
 import           Data.Text                 (Text)
 import           Data.Text.Buildable       (Buildable (build))
 import           Data.Text.Encoding        (decodeUtf8, encodeUtf8)
@@ -60,7 +61,7 @@ import           Serokell.Util.Text        (show')
 -- | Hash is just a base64 encoded ByteString.
 newtype Hash =
     Hash { getHash :: ByteString }
-    deriving (Eq, Show, Binary, Ord, Hashable, MessagePack)
+    deriving (Eq, Show, Binary, Ord, Hashable, MessagePack, IsString)
 
 $(deriveSafeCopy 0 'base ''Hash)
 
@@ -78,7 +79,7 @@ instance ToJSON Hash where
 
 newtype Signature =
     Signature { getSignature :: Sig }
-    deriving (Eq, Show)
+    deriving (Eq, Show, IsString)
 
 putCopyBinary :: Binary a => a -> Contained Put
 putCopyBinary = contain . safePut . encode

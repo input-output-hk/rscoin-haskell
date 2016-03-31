@@ -44,7 +44,7 @@ import           RSCoin.Core                (ActionLog, AddrId, Address (..),
                                              mkHBlock, owners, periodReward,
                                              sign)
 
-import           RSCoin.Bank.Error          (BankError (BEInternal))
+import           RSCoin.Bank.Error          (BankError (..))
 
 -- | Storage contains all the data used by Bank
 data Storage = Storage
@@ -93,7 +93,7 @@ startNewPeriod sk results = do
     mts <- use mintettes
     unless (length mts == length results) $
         throwM $
-        BEInternal
+        BEInconsistentResponse
             "Length of results is different from the length of mintettes"
     pId <- use periodId
     changedMintetteIx <- startNewPeriodDo sk pId results
@@ -120,7 +120,7 @@ startNewPeriodDo sk pId results = do
     let keys = map fst curDpk
     unless (length keys == length results) $
         throwM $
-        BEInternal "Length of keys is different from the length of results"
+        BEInconsistentResponse "Length of keys is different from the length of results"
     let checkedResults =
             map (checkResult pId lastHBlock) $ zip3 results keys logs
     let filteredResults =

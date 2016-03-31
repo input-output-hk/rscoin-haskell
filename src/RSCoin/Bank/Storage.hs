@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE Rank2Types       #-}
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TupleSections         #-}
 
 -- | Storage for Bank data
 
@@ -20,34 +21,34 @@ module RSCoin.Bank.Storage
        , startNewPeriod
        ) where
 
-import           Control.Lens               (Getter, ix, makeLenses, to, use,
-                                             uses, (%=), (&), (+=), (.=), (.~))
-import           Control.Monad              (forM_, guard, unless)
-import           Control.Monad.Catch        (MonadThrow (throwM))
-import           Control.Monad.State.Class  (MonadState)
-import qualified Data.HashMap.Lazy          as M
-import qualified Data.HashSet               as S
-import Debug.Trace (trace)
-import           Data.List                  ((\\))
-import qualified Data.Map                   as MP
-import           Data.Maybe                 (mapMaybe)
-import           Data.Typeable              (Typeable)
-import           Safe                       (atMay, headMay)
+import           Control.Lens              (Getter, ix, makeLenses, to, use,
+                                            uses, (%=), (&), (+=), (.=), (.~))
+import           Control.Monad             (forM_, guard, unless)
+import           Control.Monad.Catch       (MonadThrow (throwM))
+import           Control.Monad.State.Class (MonadState)
+import qualified Data.HashMap.Lazy         as M
+import qualified Data.HashSet              as S
+import           Data.List                 ((\\))
+import qualified Data.Map                  as MP
+import           Data.Maybe                (mapMaybe)
+import           Data.Typeable             (Typeable)
+import           Debug.Trace               (trace)
+import           Safe                      (atMay, headMay)
 
-import           RSCoin.Core                (ActionLog, AddrId, Address (..),
-                                             Coin (..), Dpk, HBlock (..),
-                                             Mintette, MintetteId, Mintettes,
-                                             NewPeriodData (..), PeriodId,
-                                             PeriodResult, PublicKey, SecretKey,
-                                             Transaction (..), Utxo,
-                                             checkActionLog, checkLBlock,
-                                             computeOutputAddrids, emissionHash,
-                                             derivePublicKey, hash,
-                                             lbTransactions, mkGenesisHBlock,
-                                             mkHBlock, owners, periodReward,
-                                             sign)
+import           RSCoin.Core               (ActionLog, AddrId, Address (..),
+                                            Coin (..), Dpk, HBlock (..),
+                                            Mintette, MintetteId, Mintettes,
+                                            NewPeriodData (..), PeriodId,
+                                            PeriodResult, PublicKey, SecretKey,
+                                            Transaction (..), Utxo,
+                                            checkActionLog, checkLBlock,
+                                            computeOutputAddrids,
+                                            derivePublicKey, emissionHash, hash,
+                                            lbTransactions, mkGenesisHBlock,
+                                            mkHBlock, owners, periodReward,
+                                            sign)
 
-import           RSCoin.Bank.Error          (BankError (..))
+import           RSCoin.Bank.Error         (BankError (..))
 
 -- | Storage contains all the data used by Bank
 data Storage = Storage
@@ -88,7 +89,7 @@ getHBlocks :: PeriodId -> PeriodId -> Query [HBlock]
 getHBlocks left right = blocks . to (reverseFromTo left right)
 
 getLogs :: MintetteId -> Int -> Int -> Query (Maybe ActionLog)
-getLogs m left right = 
+getLogs m left right =
     actionLogs . to (fmap (reverseFromTo left right) . (`atMay` m))
 
 -- Dumping Bank state

@@ -82,7 +82,7 @@ getPeriodResults :: Mintettes -> PeriodId -> IO [Maybe PeriodResult]
 getPeriodResults mts pId = do
     res <- newIORef []
     mapM_ (f res) mts
-    readIORef res
+    reverse <$> readIORef res
   where
     f res mintette =
         sendPeriodFinished

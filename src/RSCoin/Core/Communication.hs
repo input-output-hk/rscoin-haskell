@@ -40,7 +40,7 @@ import           RSCoin.Core.Types          (CheckConfirmation,
                                              CommitConfirmation, HBlock,
                                              Mintette, MintetteId,
                                              NewPeriodData, PeriodId,
-                                             PeriodResult, Mintettes)
+                                             PeriodResult, Mintettes, ActionLog)
 
 -- | Errors which may happen during remote call.
 data CommunicationError
@@ -224,3 +224,21 @@ getMintettes =
         (logInfo "Getting list of mintettes")
         (logInfo . formatSingle' "Successfully got list of mintettes {}")
         $ execBank $ P.call (P.RSCBank P.GetMintettes)
+
+getLogs :: MintetteId -> Int -> Int -> IO (Maybe ActionLog)
+getLogs m from to = do
+    logInfo $
+        format' "Getting action logs of mintette {} with range of entries {} to {}" (m, from, to)
+    res <- P.unCps $ execBank $ P.call (P.RSCDump P.GetLogs) m from to
+    either onError onSuccess res
+  where
+    onError (e :: Text) = do
+        logWarning $
+            formatSingle' "Action logs of mintette {} don't exists" m
+        return Nothing
+    onSuccess aLog = do
+        logInfo $
+            format'
+                "Action logs of mintette {} (range {} - {}): {}"
+                (m, from, to, aLog)
+        return $ Just aLog

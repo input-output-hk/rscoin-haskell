@@ -9,7 +9,7 @@ module RSCoin.Bank.Server
 import           Control.Exception      (catch, throwIO)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Acid.Advanced     (query')
-import           Data.Text              (unpack)
+import           Data.Text              (Text)
 
 import           Serokell.Util.Text     (formatSingle', show', format')
 
@@ -54,7 +54,7 @@ serveGetHeight st =
        logDebug $ formatSingle' ("Getting blockchain height: {}") pId
        return pId
 
-serveGetHBlock :: State -> PeriodId -> C.Server (Either String HBlock)
+serveGetHBlock :: State -> PeriodId -> C.Server (Either Text HBlock)
 serveGetHBlock st pId =
     toServer $
     do logDebug $
@@ -66,7 +66,7 @@ serveGetHBlock st pId =
                     "Higher-level block with periodId {} doesn't exist"
                     pId
         logWarning e
-        return . Left $ unpack e
+        return $ Left e
     onJust block = do
         logDebug $ formatSingle' "High-level block: {}" block
         return $ Right block
@@ -82,7 +82,7 @@ serveGetHBlocks st from to =
            (from, to)
        return blocks
 
-serveGetLogs :: State -> MintetteId -> Int -> Int -> C.Server (Either String ActionLog)
+serveGetLogs :: State -> MintetteId -> Int -> Int -> C.Server (Either Text ActionLog)
 serveGetLogs st m from to =
     toServer $
     do logDebug $
@@ -92,7 +92,10 @@ serveGetLogs st m from to =
     onNothing = do
         let e = formatSingle' "Action logs of mintette {} don't exists" m
         logWarning e
-        return . Left $ unpack e
+        return $ Left e
     onJust aLog = do
-        logDebug $ format' "Action logs of mintette {} (range {} - {}): {}" (m, from, to, aLog)
+        logDebug $
+            format' 
+                "Action logs of mintette {} (range {} - {}): {}"
+                (m, from, to, aLog)
         return $ Right aLog

@@ -72,7 +72,7 @@ getPeriodId :: Query PeriodId
 getPeriodId = periodId
 
 getHBlock :: PeriodId -> Query (Maybe HBlock)
-getHBlock pId = blocks . to (`atMay` pId)
+getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
 
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a

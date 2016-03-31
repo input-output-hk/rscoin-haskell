@@ -48,12 +48,22 @@ handlePeriodFinished
     :: C.SecretKey -> State -> C.PeriodId -> C.Server C.PeriodResult
 handlePeriodFinished sk st pId =
     toServer $
-    do C.logInfo $ formatSingle' "Period {} has just finished!" pId
+    do (curUtxo,curPset) <- query' st GetUtxoPset
+       C.logDebug $
+           format'
+               "Before period end utxo is: {}\nCurrent pset is: {}"
+               (curUtxo, curPset)
+       C.logInfo $ formatSingle' "Period {} has just finished!" pId
        res@(_,blks,lgs) <- update' st $ FinishPeriod sk pId
        C.logInfo $
            format'
                "Here is PeriodResult:\n Blocks: {}\n Logs: {}\n"
                (listBuilderJSONIndent 2 blks, lgs)
+       (curUtxo,curPset) <- query' st GetUtxoPset
+       C.logDebug $
+           format'
+               "After period end utxo is: {}\nCurrent pset is: {}"
+               (curUtxo, curPset)
        return res
 
 handleNewPeriod :: State
@@ -68,6 +78,11 @@ handleNewPeriod st npd =
                 "Here is new period data:\n {}")
                (prevMid, npd)
        update' st $ StartPeriod npd
+       (curUtxo,curPset) <- query' st GetUtxoPset
+       C.logDebug $
+           format'
+               "After start of new period, my utxo: {}\nCurrent pset is: {}"
+               (curUtxo, curPset)
 
 handleCheckTx
     :: C.SecretKey

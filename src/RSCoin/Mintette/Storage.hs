@@ -43,7 +43,7 @@ import           RSCoin.Core                (ActionLog, ActionLogHeads, AddrId,
                                              actionLogNext,
                                              computeOutputAddrids,
                                              derivePublicKey, hash,
-                                             hbTransactions,
+                                             hbTransactions, isOwner,
                                              mkCheckConfirmation, mkLBlock,
                                              owners, sign, validateSignature,
                                              verifyCheckConfirmation)
@@ -224,27 +224,42 @@ startPeriod C.NewPeriodData{..} = do
     lastPeriodId <- use periodId
     when (lastPeriodId >= npdPeriodId) $
         throwM $ MEPeriodMismatch lastPeriodId npdPeriodId
-    when (isJust npdNewIdPayload) $ do
-        mIdChanged <- uses invMintetteId $ (/=) (fst <$> npdNewIdPayload)
-        when mIdChanged $ uncurry onMintetteIdChanged $ fromJust npdNewIdPayload
+    -- we don't check if new mid /= old one, because there is
+    -- Nothing == Nothing situation at the very start
+    when
+        (isJust npdNewIdPayload) $
+        uncurry onMintetteIdChanged $ fromJust npdNewIdPayload
     lBlocks <>= replicate (npdPeriodId - lastPeriodId) []
     actionLogs <>= replicate (npdPeriodId - lastPeriodId) []
     mintettes .= npdMintettes
     mintetteId <~ use invMintetteId
+    mId <- use invMintetteId
     dpk .= npdDpk
     pset .= M.empty
-    let txOutsPaired =
-            concatMap computeOutputAddrids $ hbTransactions npdHBlock
-    -- those are transactions that we approved, but that didn't go
-    -- into blockchain, so they should still be in utxo
-    deletedNotInBlockchain <-
-        uses utxoDeleted (filter (not . (`elem` txOutsPaired)) . M.assocs)
-    -- those are transactions that were commited but for some
-    -- reason bank rejected LBlock and they didn't got into blockchain
-    addedNotInBlockchain <-
-        uses utxoAdded (filter (not . (`elem` txOutsPaired)) . M.assocs)
-    utxo %= M.union (M.fromList deletedNotInBlockchain)
-    utxo %= M.difference (M.fromList addedNotInBlockchain)
+    unless (isJust npdNewIdPayload) $
+        do let txOutsPaired =
+                   concatMap computeOutputAddrids $ hbTransactions npdHBlock
+           -- those are transactions that we approved, but that didn't
+           -- go into blockchain, so they should still be in utxo
+           deletedNotInBlockchain <-
+               uses
+                   utxoDeleted
+                   (filter (not . (`elem` txOutsPaired)) . M.assocs)
+           -- those are transactions that were commited but for some
+           -- reason bank rejected LBlock and they didn't got into
+           -- blockchain
+           addedNotInBlockchain <-
+               uses utxoAdded (filter (not . (`elem` txOutsPaired)) . M.assocs)
+           -- bank can (and in fact it does) insert in HBlock transactions
+           -- that didn't pass through mintette (like fee allocation).
+           let miscTransactions =
+                   filter
+                       (\x ->
+                             isOwner npdMintettes (sel1 $ fst x) (fromJust mId))
+                       txOutsPaired -- just for verbosity
+           utxo %= M.union (M.fromList deletedNotInBlockchain)
+           utxo %= (`M.difference` M.fromList addedNotInBlockchain)
+           utxo %= M.union (M.fromList miscTransactions)
     utxoDeleted .= M.empty
     utxoAdded .= M.empty
     lastBankHash .= Just (C.hbHash npdHBlock)

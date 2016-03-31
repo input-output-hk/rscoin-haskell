@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | This module provides high-abstraction functions to exchange data
 -- within user/mintette/bank.
@@ -24,7 +25,8 @@ import           Data.Tuple.Select          (sel1)
 import           Data.Typeable              (Typeable)
 import qualified Network.MessagePack.Client as MP (RpcError (..))
 
-import           Serokell.Util.Text        (format', formatSingle', show')
+import           Serokell.Util.Text        (format', formatSingle', show',
+                                            mapBuilder, listBuilderJSONIndent)
 
 import           RSCoin.Core.Crypto         (Signature, hash)
 import           RSCoin.Core.Owners         (owners)
@@ -101,10 +103,18 @@ getBlockByHeight pId = do
         return res
 
 getGenesisBlock :: IO HBlock
-getGenesisBlock = getBlockByHeight 0
+getGenesisBlock = do
+    logInfo "Getting genesis block"
+    block <- getBlockByHeight 0
+    logInfo "Successfully got genesis block"
+    return block
 
 getOwnersByHash :: TransactionId -> P.WithResult [(Mintette, MintetteId)]
-getOwnersByHash tId = execBank $ toOwners <$> P.call (P.RSCBank P.GetMintettes)
+getOwnersByHash tId =
+    withResult
+        (logInfo $ formatSingle' "Getting owners by transaction id {}" tId)
+        (logInfo . format' "Successfully got owners by hash {}: {}" . (tId,) . mapBuilder)
+        $ execBank $ toOwners <$> P.call (P.RSCBank P.GetMintettes)
   where
     toOwners mts =
         map
@@ -113,11 +123,19 @@ getOwnersByHash tId = execBank $ toOwners <$> P.call (P.RSCBank P.GetMintettes)
 
 -- | Gets owners from Transaction
 getOwnersByTx :: Transaction -> P.WithResult [(Mintette, MintetteId)]
-getOwnersByTx = getOwnersByHash . hash
+getOwnersByTx tx =
+    withResult
+        (logInfo $ formatSingle' "Getting owners by transaction {}" tx)
+        (const $ logInfo "Successfully got owners by transaction")
+        $ getOwnersByHash $ hash tx
 
 -- | Gets owners from Addrid
 getOwnersByAddrid :: AddrId -> P.WithResult [(Mintette, MintetteId)]
-getOwnersByAddrid = getOwnersByHash . sel1
+getOwnersByAddrid aId =
+    withResult
+        (logInfo $ formatSingle' "Getting owners by addrid {}" aId)
+        (const $ logInfo "Successfully got owners by addrid")
+        $ getOwnersByHash $ sel1 aId
 
 checkNotDoubleSpent
     :: Mintette
@@ -126,23 +144,62 @@ checkNotDoubleSpent
     -> Signature
     -> P.WithResult (Either Text CheckConfirmation)
 checkNotDoubleSpent m tx a s =
-    execMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
+    withResult
+        infoMessage
+        (either onError onSuccess)
+        $ execMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
+  where 
+    infoMessage =
+        logInfo $
+            format' "Checking addrid ({}) from transaction: {}" (a, tx)
+    onError e = do
+        logWarning $
+            formatSingle' "Checking double spending failed with: {}" e
+    onSuccess res = do
+        logInfo $
+            format' "Confirmed addrid ({}) from transaction: {}" (a, tx)
+        logInfo $ formatSingle' "Confirmation: {}" res
 
 commitTx
     :: Mintette
     -> Transaction
     -> PeriodId
     -> CheckConfirmations
-    -> P.WithResult (Maybe CommitConfirmation)
-commitTx m tx pId cc =
-    execMintette m $ P.call (P.RSCMintette P.CommitTx) tx pId cc
+    -> IO (Maybe CommitConfirmation)
+commitTx m tx pId cc = do
+    logInfo $
+        format' "Commit transaction {}, provided periodId is {}" (tx, pId)
+    res <- P.unCps $ execMintette m $ P.call (P.RSCMintette P.CommitTx) tx pId cc
+    either onError onSuccess res
+  where
+    onError (e :: Text) = do
+        logWarning $
+            formatSingle' "CommitTx failed: {}" e
+        return Nothing
+    onSuccess res = do
+        logInfo $
+            formatSingle' "Successfully committed transaction {}" tx
+        return $ Just res
 
 sendPeriodFinished :: Mintette -> PeriodId -> P.WithResult PeriodResult
 sendPeriodFinished mintette pId =
-    execMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
+    withResult
+        infoMessage
+        successMessage
+        $ execMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
+  where
+    infoMessage =
+        logInfo $
+            format' "Send period {} finished to mintette {}" (pId, mintette)
+    successMessage (_,blks,lgs) =
+        logInfo $
+            format' "Received period result from mintette {}: \n Blocks: {}\n Logs: {}\n"
+            (mintette, listBuilderJSONIndent 2 blks, lgs)
 
 announceNewPeriod :: Mintette -> NewPeriodData -> IO ()
-announceNewPeriod mintette npd =
+announceNewPeriod mintette npd = do
+    logInfo $
+        format' "Announce new period to mintette {}, new period data {}" (mintette, npd)
     execMintette
         mintette
         (P.call (P.RSCMintette P.AnnounceNewPeriod) npd)

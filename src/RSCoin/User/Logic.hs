@@ -86,7 +86,7 @@ validateTransaction tx@Transaction{..} signatures height = do
             catMaybes <$>
             mapM
                 ((\mintette ->
-                       CC.unCps $ CC.commitTx mintette tx height bundle) .
+                       CC.commitTx mintette tx height bundle) .
                  fst)
                 owns
         unless (null succeededCommits) $ throwIO FailedToCommit

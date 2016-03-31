@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | This module provides high-abstraction functions to exchange data
 -- within user/mintette/bank.
 
@@ -16,15 +17,21 @@ module RSCoin.Core.Communication
        ) where
 
 import           Control.Exception          (Exception, catch, throwIO)
+import           Data.Monoid                ((<>))
 import           Data.Text                  (Text, pack)
+import           Data.Text.Buildable        (Buildable (build))
 import           Data.Tuple.Select          (sel1)
 import           Data.Typeable              (Typeable)
 import qualified Network.MessagePack.Client as MP (RpcError (..))
+
+import           Serokell.Util.Text        (format', formatSingle', show')
 
 import           RSCoin.Core.Crypto         (Signature, hash)
 import           RSCoin.Core.Owners         (owners)
 import           RSCoin.Core.Primitives     (AddrId, Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
+import           RSCoin.Core.Logging        (logInfo, logDebug, logWarning,
+                                             logError)
 import           RSCoin.Core.Types          (CheckConfirmation,
                                              CheckConfirmations,
                                              CommitConfirmation, HBlock,
@@ -40,10 +47,19 @@ data CommunicationError
 
 instance Exception CommunicationError
 
+instance Buildable CommunicationError where
+    build (ProtocolError t) = "internal error: " <> build t
+    build (MethodError t) = "method error: " <> build t
+
 rpcErrorHandler :: MP.RpcError -> IO ()
-rpcErrorHandler (MP.ProtocolError s) = throwIO $ ProtocolError $ pack s
-rpcErrorHandler (MP.ResultTypeError s) = throwIO $ ProtocolError $ pack s
-rpcErrorHandler (MP.ServerError obj) = throwIO $ MethodError $ pack $ show obj
+rpcErrorHandler = log . fromError
+  where
+    log (e :: CommunicationError) = do
+        logError $ show' e
+        throwIO e
+    fromError (MP.ProtocolError s) = ProtocolError $ pack s
+    fromError (MP.ResultTypeError s) = ProtocolError $ pack s
+    fromError (MP.ServerError obj) = MethodError $ pack $ show obj
 
 execBank :: P.Client a -> P.WithResult a
 execBank cl f = P.execBank cl f `catch` rpcErrorHandler

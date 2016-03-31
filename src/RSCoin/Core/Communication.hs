@@ -32,8 +32,7 @@ import           RSCoin.Core.Crypto         (Signature, hash)
 import           RSCoin.Core.Owners         (owners)
 import           RSCoin.Core.Primitives     (AddrId, Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
-import           RSCoin.Core.Logging        (logInfo, logDebug, logWarning,
-                                             logError)
+import           RSCoin.Core.Logging        (logInfo, logWarning, logError)
 import           RSCoin.Core.Types          (CheckConfirmation,
                                              CheckConfirmations,
                                              CommitConfirmation, HBlock,
@@ -54,9 +53,9 @@ instance Buildable CommunicationError where
     build (MethodError t) = "method error: " <> build t
 
 rpcErrorHandler :: MP.RpcError -> IO ()
-rpcErrorHandler = log . fromError
+rpcErrorHandler = log' . fromError
   where
-    log (e :: CommunicationError) = do
+    log' (e :: CommunicationError) = do
         logError $ show' e
         throwIO e
     fromError (MP.ProtocolError s) = ProtocolError $ pack s
@@ -68,12 +67,6 @@ execBank cl f = P.execBank cl f `catch` rpcErrorHandler
 
 execMintette :: Mintette -> P.Client a -> P.WithResult a
 execMintette m cl f = P.execMintette m cl f `catch` rpcErrorHandler
-
-beforeResult :: IO () -> P.WithResult a -> P.WithResult a
-beforeResult before action f = action (\a -> before >> f a)
-
-afterResult :: (a -> IO ()) -> P.WithResult a -> P.WithResult a
-afterResult after action f = action (\a -> after a >> f a)
 
 withResult :: IO () -> (a -> IO ()) -> P.WithResult a -> P.WithResult a
 withResult before after action f = action (\a -> before >> f a >> after a)

@@ -6,21 +6,19 @@ module RSCoin.Bank.Server
        ( serve
        ) where
 
-import           Control.Exception      (bracket, catch, throwIO, try)
+import           Control.Exception      (catch, throwIO)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Acid.Advanced     (query')
-import           Data.Monoid            ((<>))
-import           Data.Text              (Text, unpack)
+import           Data.Text              (unpack)
 
-import           Serokell.Util.Text     (format', formatSingle',
-                                         listBuilderJSONIndent, show')
+import           Serokell.Util.Text     (formatSingle', show')
 
 import           RSCoin.Bank.AcidState  (GetHBlock (..), GetMintettes (..),
                                          GetPeriodId (..), State)
 import           RSCoin.Bank.Error      (BankError)
 
 import           RSCoin.Core            (HBlock, Mintettes, PeriodId, bankPort,
-                                         logError, logDebug, logWarning, logInfo)
+                                         logError, logDebug, logWarning)
 import qualified RSCoin.Core.Protocol   as C
 
 serve :: State -> IO ()

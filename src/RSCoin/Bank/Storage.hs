@@ -26,6 +26,7 @@ import           Control.Monad.Catch        (MonadThrow (throwM))
 import           Control.Monad.State.Class  (MonadState)
 import qualified Data.HashMap.Lazy          as M
 import qualified Data.HashSet               as S
+import Debug.Trace (trace)
 import           Data.List                  ((\\))
 import qualified Data.Map                   as MP
 import           Data.Maybe                 (mapMaybe)
@@ -137,7 +138,8 @@ startNewPeriodDo sk pId results = do
     let keys = map fst curDpk
     unless (length keys == length results) $
         throwM $
-        BEInconsistentResponse "Length of keys is different from the length of results"
+        BEInconsistentResponse
+            "Length of keys is different from the length of results"
     let checkedResults =
             map (checkResult pId lastHBlock) $ zip3 results keys logs
     let filteredResults =
@@ -148,9 +150,9 @@ startNewPeriodDo sk pId results = do
             allocateCoins pk keys filteredResults pId :
             mergeTransactions mts filteredResults
     startNewPeriodFinally
-        sk
-        filteredResults
-        (mkHBlock blockTransactions lastHBlock)
+            sk
+            filteredResults
+            (mkHBlock blockTransactions lastHBlock)
   where
     filterCheckedResults (idx,mres) = (idx, ) <$> mres
 
@@ -179,9 +181,14 @@ checkResult :: PeriodId
             -> Maybe PeriodResult
 checkResult expectedPid lastHBlock (r, key, storedLog) = do
     (pId, lBlocks, actionLog) <- r
-    guard $ pId == expectedPid
-    guard $ checkActionLog (headMay storedLog) actionLog
+    let g1 = guard $ pId == expectedPid
+    let g2 = guard $ checkActionLog (headMay storedLog) actionLog
+    trace ("Guard 1 is " ++ show (pId == expectedPid)) $ return ()
+    trace ("Guard 2 is " ++ show (checkActionLog (headMay storedLog) actionLog)) $ return ()
+    g1
+    g2
     mapM_ (guard . checkLBlock key (hbHash lastHBlock) actionLog) lBlocks
+    trace "Passed guards 1-3" $ return ()
     r
 
 allocateCoins :: PublicKey
@@ -209,7 +216,8 @@ allocateCoins pk mintetteKeys goodResults pId =
     txInputs = [(emissionHash pId, 0, Coin bankReward)]
 
 mergeTransactions :: Mintettes -> [(MintetteId, PeriodResult)] -> [Transaction]
-mergeTransactions mts goodResults = M.foldrWithKey appendTxChecked [] txMap
+mergeTransactions mts goodResults =
+    M.foldrWithKey appendTxChecked [] txMap
   where
     txMap :: M.HashMap Transaction (S.HashSet MintetteId)
     txMap = foldr insertResult M.empty goodResults
@@ -246,7 +254,7 @@ formPayload mintettes' changedId = do
                      (\changed ->
                            if changed `elem` owners mintettes' txhash
                                then Just (changed, MP.singleton addrid address)
-                               else Nothing)
+                               else Just (changed, MP.empty))
                      changedId)
     return payload
 
@@ -286,7 +294,7 @@ updateMintettes sk goodMintettes = do
     currentLogs <- use actionLogs
     actionLogs .= map (appendNewLog currentLogs) (zip goodIndices goodResults) ++
         replicate (length pending) []
-    return updatedIndices
+    trace ("UpdatedIndices are: " ++ show updatedIndices) $ return updatedIndices
   where
     doSign (_,mpk) = (mpk, sign sk mpk)
     appendNewLog :: [ActionLog] -> (MintetteId, PeriodResult) -> ActionLog

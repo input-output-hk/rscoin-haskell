@@ -164,6 +164,7 @@ test-suite rscoin-test
   other-modules:       RSCoin.Bank.StorageSpec
                      , RSCoin.Core.Arbitrary
                      , RSCoin.Core.CryptoSpec
+                     , RSCoin.Core.OwnersSpec
                      , Spec
   type:                exitcode-stdio-1.0
   build-depends:       base >=4.8 && <4.9

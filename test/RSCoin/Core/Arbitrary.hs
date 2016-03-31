@@ -13,3 +13,6 @@ instance Arbitrary C.Coin where
 
 instance Arbitrary C.Mintette where
     arbitrary = C.Mintette <$> arbitrary <*> arbitrary
+
+instance Arbitrary C.Hash where
+  arbitrary = (C.hash :: C.Mintette -> C.Hash) <$> arbitrary

@@ -43,6 +43,7 @@ data DumpCommand
     = DumpHBlocks PeriodId PeriodId
     | DumpHBlock PeriodId
     | DumpMintettes
+    | DumpPeriod
     deriving (Show)
 
 -- | Datatype describing user command line options
@@ -114,7 +115,12 @@ dumpCommandParser =
              "mintettes"
              (info
                   (pure DumpMintettes)
-                  (progDesc ("Dump list of mintettes."))))
+                  (progDesc ("Dump list of mintettes."))) <>
+         command
+             "period"
+             (info
+                  (pure DumpPeriod)
+                  (progDesc ("Dump last period."))))
 
 
 userOptionsParser :: FilePath -> Parser UserOptions

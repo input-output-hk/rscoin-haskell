@@ -92,6 +92,8 @@ dumpCommand (O.DumpHBlock pId) =
     eWrap . void $ C.getBlockByHeight pId
 dumpCommand O.DumpMintettes =
     eWrap . void $ C.unCps C.getMintettes
+dumpCommand O.DumpPeriod =
+    eWrap . void $ C.unCps C.getBlockchainHeight
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.

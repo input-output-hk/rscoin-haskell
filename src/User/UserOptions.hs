@@ -9,7 +9,7 @@ module UserOptions
 
 import           RSCoin.Core            (PeriodId, Severity (Info),
                                          defaultAccountsNumber,
-                                         defaultSecretKeyPath)
+                                         defaultSecretKeyPath, MintetteId)
 
 import           Data.Int               (Int64)
 import           Data.Monoid            ((<>))
@@ -17,7 +17,8 @@ import           Data.Text              (Text)
 import           Options.Applicative    (Parser, auto, command, execParser,
                                          fullDesc, help, helper, info, long,
                                          option, progDesc, showDefault, some,
-                                         subparser, switch, value)
+                                         subparser, switch, value, argument,
+                                         metavar)
 
 import           Serokell.Util.OptParse (strOption)
 
@@ -45,6 +46,7 @@ data DumpCommand
     | DumpHBlock PeriodId
     | DumpMintettes
     | DumpPeriod
+    | DumpLogs MintetteId Int Int
     deriving (Show)
 
 -- | Datatype describing user command line options
@@ -100,15 +102,15 @@ dumpCommandParser =
              "blocks"
              (info
                   (DumpHBlocks
-                      <$> option auto (long "from" <> help "Dump from which block")
-                      <*> option auto (long "to" <> help "Dump to which block")
+                      <$> argument auto (metavar "FROM" <> help "Dump from which block")
+                      <*> argument auto (metavar "TO" <> help "Dump to which block")
                   )
                   (progDesc ("Dump Bank high level blocks."))) <>
          command
              "block"
              (info
                   (DumpHBlock
-                      <$> option auto (long "id" <> help "Dump block with specific periodId")
+                      <$> argument auto (metavar "ID" <> help "Dump block with specific periodId")
                   )
                   (progDesc ("Dump Bank high level block."))) <>
          command
@@ -120,8 +122,12 @@ dumpCommandParser =
              "period"
              (info
                   (pure DumpPeriod)
+                  (progDesc ("Dump last period."))) <>
+         command
+             "period"
+             (info
+                  (pure DumpPeriod)
                   (progDesc ("Dump last period."))))
-
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

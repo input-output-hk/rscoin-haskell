@@ -114,7 +114,7 @@ handleCheckTx sk st tx addrId sg =
         C.logInfo $
             format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
         C.logInfo $ formatSingle' "Confirmation: {}" res
-        return $ Right $ res
+        return $ Right res
 
 handleCommitTx
     :: C.SecretKey
@@ -153,7 +153,7 @@ handleGetUtxo st =
 handleGetBlocks :: State -> C.PeriodId -> C.Server (Either Text [C.LBlock])
 handleGetBlocks st pId =
     toServer $
-    do C.logInfo $ 
+    do C.logInfo $
             formatSingle' "Getting blocks for periodId: {}" pId
        res <- query' st $ GetBlocks pId
        maybe onNothing onJust res
@@ -173,7 +173,7 @@ handleGetBlocks st pId =
 handleGetLogs :: State -> C.PeriodId -> C.Server (Either Text C.ActionLog)
 handleGetLogs st pId =
     toServer $
-    do C.logInfo $ 
+    do C.logInfo $
             formatSingle' "Getting logs for periodId: {}" pId
        res <- query' st $ GetLogs pId
        maybe onNothing onJust res

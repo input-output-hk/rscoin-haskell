@@ -150,13 +150,13 @@ checkNotDoubleSpent m tx a s =
         infoMessage
         (either onError onSuccess)
         $ execMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
-  where 
+  where
     infoMessage =
         logInfo $
             format' "Checking addrid ({}) from transaction: {}" (a, tx)
-    onError e = do
+    onError e =
         logWarning $
-            formatSingle' "Checking double spending failed with: {}" e
+        formatSingle' "Checking double spending failed with: {}" e
     onSuccess res = do
         logInfo $
             format' "Confirmed addrid ({}) from transaction: {}" (a, tx)

@@ -25,10 +25,10 @@ import           Test.Hspec (Spec, describe)
 -- import           RSCoin.Core.Arbitrary ()
 
 spec :: Spec
-spec = do
+spec =
     describe "Storage" $ do
-        describe "startNewPeriod" $ do
-            return ()
+    describe "startNewPeriod" $ do
+        return ()
             -- prop "Increments periodId" startNewPeriodIncrementsPeriodId
 
 -- type Update = S.ExceptUpdate

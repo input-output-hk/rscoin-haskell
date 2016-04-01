@@ -220,7 +220,7 @@ readSecretKey :: FilePath -> IO SecretKey
 readSecretKey = fmap (SecretKey . read) . readFile
 
 ensureDirectoryExists :: FilePath -> IO ()
-ensureDirectoryExists (takeDirectory -> d) = do
+ensureDirectoryExists (takeDirectory -> d) =
     createDirectoryIfMissing True d
 
 withBinaryHashedMsg :: Binary t => (Msg -> a) -> t -> a

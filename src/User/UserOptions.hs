@@ -134,7 +134,7 @@ userCommandParser =
                       <$> argument auto (metavar "MINTETTE_ID" <> help "Dump blocks of mintette with this id.")
                       <*> argument auto (metavar "PERIOD_ID" <> help "Dump blocks with this period id.")
                   )
-                  (progDesc ("Dump blocks of corresponding mintette and periodId."))) <>
+                  (progDesc "Dump blocks of corresponding mintette and periodId.")) <>
          command
              "dump-mintette-logs"
              (info
@@ -142,19 +142,19 @@ userCommandParser =
                       <$> argument auto (metavar "MINTETTE_ID" <> help "Dump logs of mintette with this id.")
                       <*> argument auto (metavar "PERIOD_ID" <> help "Dump logs with this period id.")
                   )
-                  (progDesc ("Dump logs of corresponding mintette and periodId."))))
+                  (progDesc "Dump logs of corresponding mintette and periodId.")))
   where
     formTransactionOpts =
         FormTransaction <$>
-        (some $
+        some (
          option
              auto
              (long "from" <>
               help
                   ("Pairs (a,b) where 'a' is id of address as numbered in list-wallets " <>
                    "output, 'b' is integer -- amount of coins to send."))) <*>
-        (strOption
-                 (long "to" <> help "Address to send coins to."))
+        strOption
+                 (long "to" <> help "Address to send coins to.")
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

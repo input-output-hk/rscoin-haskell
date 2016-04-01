@@ -11,14 +11,14 @@ import           RSCoin.Core.Crypto    (PublicKey, SecretKey, checkKeyPair,
                                         derivePublicKey, sign, verify)
 
 spec :: Spec
-spec = do
+spec =
     describe "Crypto" $ do
-        prop
-            "Signature generated using secret key may be verified using derived public key"
-            signThenVerify
-        prop
-            "Signature generated using secret key may be verified only by public key `pk` for which `checkKeyPair (sk, pk)`"
-            signThenVerifyArbitraryPK
+    prop
+        "Signature generated using secret key may be verified using derived public key"
+        signThenVerify
+    prop
+        "Signature generated using secret key may be verified only by public key `pk` for which `checkKeyPair (sk, pk)`"
+        signThenVerifyArbitraryPK
 
 signThenVerify :: Int -> SecretKey -> Bool
 signThenVerify v sk = verify (derivePublicKey sk) (sign sk v) v

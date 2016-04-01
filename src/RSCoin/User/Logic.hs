@@ -46,7 +46,7 @@ validateTransaction tx@Transaction{..} signatures height = do
     processInput :: AddrId -> IO CheckConfirmations
     processInput addrid = do
         owns <- CC.unCps $ CC.getOwnersByAddrid addrid
-        unless (length owns >= 1) $
+        unless (not (null owns)) $
             throwIO $
             MajorityRejected $
             formatSingle' "Addrid {} doesn't have owners" addrid

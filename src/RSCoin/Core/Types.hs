@@ -25,6 +25,7 @@ module RSCoin.Core.Types
        , NewPeriodData (..)
        ) where
 
+import           Control.Arrow          (first)
 import           Data.Binary            (Binary (get, put), Get, Put)
 import qualified Data.Map               as M
 import           Data.SafeCopy          (base, deriveSafeCopy)
@@ -56,7 +57,7 @@ instance Binary Mintette where
 $(deriveSafeCopy 0 'base ''Mintette)
 
 instance Buildable Mintette where
-    build Mintette{..} = F.build template $ (mintetteHost, mintettePort)
+    build Mintette{..} = F.build template (mintetteHost, mintettePort)
       where
         template = "Mintette ({}:{})"
 
@@ -98,7 +99,7 @@ instance Binary CheckConfirmation where
 
 instance Buildable CheckConfirmation where
     build CheckConfirmation{..} =
-        F.build template $ (ccMintetteKey, ccMintetteSignature, ccHead)
+        F.build template (ccMintetteKey, ccMintetteSignature, ccHead)
       where
         template = "CheckConfirmation (key = {}, sugnature = {}, head = {})"
 
@@ -109,7 +110,7 @@ $(deriveSafeCopy 0 'base ''CheckConfirmation)
 type CheckConfirmations = M.Map (MintetteId, AddrId) CheckConfirmation
 
 instance Buildable CheckConfirmations where
-    build = mapBuilder . map (\(k, v) -> (pairBuilder k, v)) . M.assocs
+    build = mapBuilder . map (first pairBuilder) . M.assocs
 
 -- | CommitConfirmation is sent by mintette to user as an evidence
 -- that mintette has included it into lower-level block.
@@ -141,7 +142,7 @@ instance Binary ActionLogEntry where
 instance Buildable ActionLogEntry where
     build (QueryEntry tx) = F.build "Query ({})" $ F.Only tx
     build (CommitEntry tx cc) =
-        F.build templateCommit $
+        F.build templateCommit
         ( tx
         , cc)
       where

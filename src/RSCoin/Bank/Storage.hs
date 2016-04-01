@@ -294,7 +294,7 @@ replaceWithCare (bad:bads) [] list acc =
     replaceWithCare
         bads
         []
-        ((take (length list - 1) list) & ix bad .~ last list)
+        (take (length list - 1) list & ix bad .~ last list)
         (bad : acc)
 replaceWithCare (bad:bads) (pendh:pends) list acc =
     replaceWithCare

@@ -29,6 +29,7 @@ import           Control.Monad              (unless, when)
 import           Control.Monad.Catch        (MonadThrow (throwM))
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
+import           Data.Foldable              (forM_)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust, isJust, isNothing)
 import qualified Data.Set                   as S
@@ -96,8 +97,7 @@ type Query a = Getter Storage a
 logHead :: Query (Maybe (C.ActionLogEntry, Hash))
 logHead = actionLogs . to f
   where
-    f [] = Nothing
-    f (x:xs) = headMay x <|> f xs
+    f = foldr ((<|>) . headMay) Nothing
 
 periodId :: Query PeriodId
 periodId = lBlocks . to (pred . length)
@@ -237,14 +237,12 @@ startPeriod C.NewPeriodData{..} = do
     when (lastPeriodId >= npdPeriodId) $
         throwM $ MEPeriodMismatch (lastPeriodId + 1) npdPeriodId
     alreadyActive <- use isActive
-    when alreadyActive $ discardCurrentPeriod
+    when alreadyActive discardCurrentPeriod
     -- we don't check if new mid /= old one, because there is
     -- Nothing == Nothing situation at the very start
-    when
-        (isJust npdNewIdPayload) $
-        uncurry onMintetteIdChanged $ fromJust npdNewIdPayload
+    forM_ npdNewIdPayload (uncurry onMintetteIdChanged)
     invMId <- use invMintetteId
-    when (isNothing npdNewIdPayload && invMId == Nothing) $
+    when (isNothing npdNewIdPayload && isNothing invMId) $
         throwM $
         MEInternal "Bank didn't send us utxo, but we're waiting for it."
     lBlocks %= (replicate (npdPeriodId - lastPeriodId) [] ++)

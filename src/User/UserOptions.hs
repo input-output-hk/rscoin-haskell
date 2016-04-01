@@ -136,7 +136,7 @@ userCommandParser =
                   )
                   (progDesc ("Dump blocks of corresponding mintette and periodId."))) <>
          command
-             "dump-mintette-blocks"
+             "dump-mintette-logs"
              (info
                   (fmap Dump . DumpMintetteLogs
                       <$> argument auto (metavar "MINTETTE_ID" <> help "Dump logs of mintette with this id.")

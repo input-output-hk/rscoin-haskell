@@ -13,11 +13,7 @@ trade-offs were made:
    optimizations mentioned in the paper, or other ones.
 
  + Human-readability over performance  
-   We have picked JSONRPC 2.0 as the application-level protocol, which means
-   that we don't have to write Wireshark dissector to observe packet flow, and
-   also we can easily hand-craft messages and send those via cURL. If we are to
-   release a production version of RSCoin framework, we — for sure — will swap
-   JSONRPC for Msgpack.
+   We have picked MSGPACK as the application-level protocol.
 
  + Correctness of persistence layer over scalability and performance of
    persistence layer  

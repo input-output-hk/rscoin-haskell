@@ -32,7 +32,6 @@ import           Data.List                 (unfoldr, (\\))
 import qualified Data.Map                  as MP
 import           Data.Maybe                (mapMaybe)
 import           Data.Typeable             (Typeable)
-import           Debug.Trace               (trace)
 import           Safe                      (atMay, headMay)
 
 import           RSCoin.Core               (ActionLog,
@@ -192,20 +191,14 @@ checkResult expectedPid lastHBlock (r,key,storedLog) = do
     (pId,lBlocks,actionLog) <- r
     let g1 = guard $ pId == expectedPid
     let g2 = guard $ checkActionLog (headMay storedLog) actionLog
-    trace ("Guard 1 is " ++ show (pId == expectedPid)) $ return ()
-    trace
-        ("Guard 2 is " ++ show (checkActionLog (headMay storedLog) actionLog)) $
-        return ()
     g1
     g2
     let logsToCheck = formLogsToCheck actionLog
     let g3 = length logsToCheck == length lBlocks
-    trace ("Guard 3 is " ++ show g3) $ guard g3
     mapM_
         (\(blk,lg) ->
               guard $ checkLBlock key (hbHash lastHBlock) lg blk) $
         zip lBlocks (formLogsToCheck actionLog)
-    trace "Passed guards 1-3" $ return ()
     r
   where
     formLogsToCheck = unfoldr step
@@ -318,7 +311,7 @@ updateMintettes sk goodMintettes = do
     currentLogs <- use actionLogs
     actionLogs .= map (appendNewLog currentLogs) (zip goodIndices goodResults) ++
         replicate (length pending) []
-    trace ("UpdatedIndices are: " ++ show updatedIndices) $ return updatedIndices
+    return updatedIndices
   where
     doSign (_,mpk) = (mpk, sign sk mpk)
     appendNewLog :: [ActionLog] -> (MintetteId, PeriodResult) -> ActionLog

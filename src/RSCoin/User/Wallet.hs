@@ -14,6 +14,7 @@ module RSCoin.User.Wallet
        , makeUserAddress
        , toAddress
        , validateUserAddress
+       , dumpAllTransactions
        , WalletStorageError (..)
        , WalletStorage
        , emptyWalletStorage
@@ -42,7 +43,6 @@ import           Data.Monoid                ((<>))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Text.Lazy.Builder     (fromString)
-import           Debug.Trace                (trace)
 
 import           Serokell.Util.Text         (format', formatSingle', show')
 
@@ -124,7 +124,6 @@ checkInitR :: (MonadReader WalletStorage m, MonadThrow m) => m a -> m a
 checkInitR action = do
     a <- L.views userAddresses (not . null)
     b <- L.views lastBlockId isJust
-    trace ("when check: " ++ show a ++ " " ++ show b) $ return ()
     if a && b
         then action
         else throwM NotInitialized
@@ -160,6 +159,12 @@ getTransactions addr = checkInitR $ do
 getLastBlockId :: ExceptQuery Int
 getLastBlockId = checkInitR $ L.views lastBlockId fromJust
 
+dumpAllTransactions :: ExceptQuery [(UserAddress, TrAddrId)]
+dumpAllTransactions =
+    concatMap
+        (\(a,b) ->
+              map (a, ) b) <$>
+    L.views inputAddressesTxs M.assocs
 
 -- Updates
 
@@ -169,7 +174,6 @@ checkInitS :: (MonadState WalletStorage m, MonadThrow m) => m a -> m a
 checkInitS action = do
     a <- L.uses userAddresses (not . null)
     b <- L.uses lastBlockId isJust
-    trace ("when check: " ++ show a ++ " " ++ show b) $ return ()
     if a && b
         then action
         else throwM NotInitialized
@@ -209,7 +213,6 @@ addTemporaryTransaction tx@Transaction{..} = do
                    M.insertWith (++) userAddr [(tx, addrid)]
                periodAdded <>= [(userAddr, (tx,addrid))]
 
-
 -- | Update state with bunch of transactions from new unobserved
 -- blockchain blocks. Sum validation for transactions
 -- is disabled, because HBlocks contain generative transactions for
@@ -232,13 +235,25 @@ withBlockchainUpdate newHeight transactions =
        restoreTransactions
        ownedAddressesRaw <- L.use userAddresses
        ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
-       (savedTransactions :: [(UserAddress, (Transaction, AddrId))]) <-
-           concatMap
-               (\(addr,txs) ->
-                     map (addr, ) txs) <$>
-           L.uses inputAddressesTxs M.assocs
-       let transactionMapper tx@Transaction{..} = do
-               -- first remove transactions that are used as input of this tx
+       let addSomeTransactions tx@Transaction{..} = do
+               -- first! add transactions that have output with address that we own
+               forM_ (C.computeOutputAddrids tx) $
+                     \(addrid',address) ->
+                         when (address `elem` ownedAddresses) $
+                              inputAddressesTxs %= M.insertWith
+                                                    (++)
+                                                    (getByAddress address)
+                                                    [(tx, addrid')]
+           getByAddress address =
+               fromJust $
+               find ((==) address . Address . _publicAddress) ownedAddressesRaw
+           removeSomeTransactions tx@Transaction{..} = do
+               (savedTransactions :: [(UserAddress, (Transaction, AddrId))]) <-
+                   concatMap
+                       (\(addr,txs) ->
+                             map (addr, ) txs) <$>
+                   L.uses inputAddressesTxs M.assocs
+               -- second! remove transactions that are used as input of this tx
                let toRemove :: [(UserAddress, (Transaction, AddrId))]
                    toRemove =
                        nub $
@@ -250,20 +265,10 @@ withBlockchainUpdate newHeight transactions =
                                      savedTransactions)
                            txInputs
                forM_ toRemove $
-                   \(useraddr,pair') ->
-                        inputAddressesTxs %= M.adjust (delete pair') useraddr
-               -- then add transactions that have output with address that we own
-               forM_ (C.computeOutputAddrids tx) $
-                     \(addrid',address) ->
-                         when (address `elem` ownedAddresses)
-                              (inputAddressesTxs %= M.insertWith
-                                                    (++)
-                                                    (getByAddress address)
-                                                    [(tx, addrid')])
-           getByAddress address =
-               fromJust $
-               find ((==) address . Address . _publicAddress) ownedAddressesRaw
-       forM_ transactions transactionMapper
+                   \d@(useraddr,pair') ->
+                            inputAddressesTxs %= M.adjust (delete pair') useraddr
+       forM_ transactions addSomeTransactions
+       forM_ transactions removeSomeTransactions
        lastBlockId .= Just newHeight
   where
     reportBadRequest = throwM . BadRequest

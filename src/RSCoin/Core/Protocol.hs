@@ -59,7 +59,7 @@ data MintetteMethod
     | CommitTx
     deriving (Show)
 
--- Requests for dumping Bank state
+-- Requests for dumping state
 data DumpMethod
     = GetHBlocks
     | GetLogs

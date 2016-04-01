@@ -7,18 +7,18 @@ module UserOptions
        , getUserOptions
        ) where
 
-import           RSCoin.Core            (PeriodId, Severity (Info),
+import           RSCoin.Core            (MintetteId, PeriodId, Severity (Info),
                                          defaultAccountsNumber,
-                                         defaultSecretKeyPath, MintetteId)
+                                         defaultSecretKeyPath)
 
 import           Data.Int               (Int64)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
-import           Options.Applicative    (Parser, auto, command, execParser,
-                                         fullDesc, help, helper, info, long,
-                                         option, progDesc, showDefault, some,
-                                         subparser, switch, value, argument,
-                                         metavar)
+import           Options.Applicative    (Parser, argument, auto, command,
+                                         execParser, fullDesc, help, helper,
+                                         info, long, metavar, option, progDesc,
+                                         showDefault, some, subparser, switch,
+                                         value)
 
 import           Serokell.Util.OptParse (strOption)
 
@@ -89,12 +89,12 @@ userCommandParser =
         (some $
          option
              auto
-             (long "addrfrom" <>
+             (long "from" <>
               help
                   ("Pairs (a,b) where 'a' is id of address as numbered in list-wallets " <>
-                   "output, 'b' is integer -- amount of value to send."))) <*>
+                   "output, 'b' is integer -- amount of coins to send."))) <*>
         (strOption
-                 (long "addrto" <> help "Address to send coins to."))
+                 (long "to" <> help "Address to send coins to."))
 
 dumpCommandParser :: Parser DumpCommand
 dumpCommandParser =

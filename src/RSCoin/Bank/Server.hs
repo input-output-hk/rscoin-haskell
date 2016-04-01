@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns        #-}
 -- | Server implementation for Bank
 
 module RSCoin.Bank.Server
@@ -11,16 +10,16 @@ import           Control.Monad.IO.Class (liftIO)
 import           Data.Acid.Advanced     (query')
 import           Data.Text              (Text)
 
-import           Serokell.Util.Text     (formatSingle', show', format')
+import           Serokell.Util.Text     (format', formatSingle', show')
 
-import           RSCoin.Bank.AcidState  (GetHBlock (..), GetMintettes (..),
-                                         GetPeriodId (..), State,
-                                         GetHBlocks (..), GetLogs (..))
+import           RSCoin.Bank.AcidState  (GetHBlock (..), GetHBlocks (..),
+                                         GetLogs (..), GetMintettes (..),
+                                         GetPeriodId (..), State)
 import           RSCoin.Bank.Error      (BankError)
 
-import           RSCoin.Core            (HBlock, Mintettes, PeriodId, bankPort,
-                                         logError, logDebug, logWarning,
-                                         ActionLog, MintetteId)
+import           RSCoin.Core            (ActionLog, HBlock, MintetteId,
+                                         Mintettes, PeriodId, bankPort,
+                                         logDebug, logError, logWarning)
 import qualified RSCoin.Core.Protocol   as C
 
 serve :: State -> IO ()
@@ -41,17 +40,17 @@ toServer action = liftIO $ action `catch` handler
         throwIO e
 
 serveGetMintettes :: State -> C.Server Mintettes
-serveGetMintettes st = 
+serveGetMintettes st =
     toServer $
     do mts <- query' st GetMintettes
-       logDebug $ formatSingle' ("Getting list of mintettes: {}") mts
+       logDebug $ formatSingle' "Getting list of mintettes: {}" mts
        return mts
 
 serveGetHeight :: State -> C.Server PeriodId
 serveGetHeight st =
     toServer $
     do pId <- query' st GetPeriodId
-       logDebug $ formatSingle' ("Getting blockchain height: {}") pId
+       logDebug $ formatSingle' "Getting blockchain height: {}" pId
        return pId
 
 serveGetHBlock :: State -> PeriodId -> C.Server (Either Text HBlock)
@@ -95,7 +94,7 @@ serveGetLogs st m from to =
         return $ Left e
     onJust aLog = do
         logDebug $
-            format' 
+            format'
                 "Action logs of mintette {} (range {} - {}): {}"
                 (m, from, to, aLog)
         return $ Right aLog

@@ -108,12 +108,6 @@ updateToBlockHeight st newHeight = do
     -- TODO validate this block with integrity check that we don't have
     update st $ A.WithBlockchainUpdate newHeight hbTransactions
     TIO.putStrLn $ formatSingle' " updated to height {}" newHeight
---  where
---    toTrs :: [C.Transaction] -> W.UserAddress -> [C.Transaction]
---    toTrs trs userAddr =
---        let trhashes = map C.hash trs in
---        filter (\t -> (not $ null $ C.getAddrIdByAddress (W.toAddress userAddr) t)
---                     || (any (`elem` trhashes) $ map sel1 $ txInputs t)) trs
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction :: A.RSCoinUserState -> [(Int, Int64)] -> Address -> Coin -> IO ()

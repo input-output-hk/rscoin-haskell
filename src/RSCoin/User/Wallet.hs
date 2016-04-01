@@ -19,6 +19,7 @@ module RSCoin.User.Wallet
        , emptyWalletStorage
        , getAllAddresses
        , getPublicAddresses
+       , addTemporaryTransaction
        , getTransactions
        , getLastBlockId
        , withBlockchainUpdate
@@ -87,15 +88,18 @@ validateUserAddress uaddr =
 -- | Wallet, that holdls all information needed for the user to 'own'
 -- bitcoins. Plus some meta-information that's crucially needed for
 -- this implementation to work.
+
+type TrAddrId = (Transaction, AddrId)
 data WalletStorage = WalletStorage
-    { _userAddresses     :: [UserAddress]           -- ^ Addresses that user owns
-    , _inputAddressesTxs :: M.Map UserAddress
-                            [(Transaction, AddrId)] -- ^ Transactions that user is aware
-                                                    -- of and that reference user
-                                                    -- addresses, that were not spent
-    , _lastBlockId       :: Maybe PeriodId          -- ^ Last blochain height known
-                                                    -- to user (if known)
-    } deriving (Show)
+    { _userAddresses     :: [UserAddress]                -- ^ Addresses that user owns
+    , _inputAddressesTxs :: M.Map UserAddress [TrAddrId] -- ^ Transactions that user is aware
+                                                         -- of and that reference user
+                                                         -- addresses, that were not spent
+    , _periodDeleted     :: [(UserAddress, TrAddrId)]    -- ^ support list for deleted events
+    , _periodAdded       :: [(UserAddress, TrAddrId)]    -- ^ support list for added events
+    , _lastBlockId       :: Maybe PeriodId               -- ^ Last blochain height known
+                                                         -- to user (if known)
+    } deriving ((Show))
 
 $(L.makeLenses ''WalletStorage)
 
@@ -110,7 +114,7 @@ instance Exception WalletStorageError
 
 -- | Creates empty WalletStorage. Uninitialized.
 emptyWalletStorage :: WalletStorage
-emptyWalletStorage = WalletStorage [] M.empty Nothing
+emptyWalletStorage = WalletStorage [] M.empty [] [] Nothing
 
 -- Queries
 
@@ -170,6 +174,42 @@ checkInitS action = do
         then action
         else throwM NotInitialized
 
+restoreTransactions :: ExceptUpdate ()
+restoreTransactions = do
+    deleted <- L.use periodDeleted
+    forM_ deleted (\(uaddr,p) ->
+                        inputAddressesTxs %= M.insertWith (++) uaddr [p])
+    periodDeleted .= []
+    added <- L.use periodAdded
+    forM_ added (\(uaddr,p) ->
+                        inputAddressesTxs %= M.adjust (delete p) uaddr)
+    periodAdded .= []
+
+-- | Temporary adds transaction to wallet state. Should be used, when
+-- transaction is commited by mintette and "thought" to drop into
+-- blockchain eventually.
+addTemporaryTransaction :: Transaction -> ExceptUpdate ()
+addTemporaryTransaction tx@Transaction{..} = do
+    ownedAddressesRaw <- L.use userAddresses
+    ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
+    ownedTransactions <- L.uses inputAddressesTxs M.assocs
+    let getByAddress address =
+               fromJust $
+               find ((==) address . Address . _publicAddress) ownedAddressesRaw
+    forM_ ownedTransactions $ \(address,traddrids) ->
+        forM_ traddrids $ \p@(_,addrid) ->
+        forM_ txInputs $ \newaddrid ->
+        when (addrid == newaddrid) $ do
+            inputAddressesTxs %= M.adjust (delete p) address
+            periodDeleted <>= [(address, p)]
+    forM_ (C.computeOutputAddrids tx) $ \(addrid,address) ->
+        when (address `elem` ownedAddresses) $
+            do let userAddr = getByAddress address
+               inputAddressesTxs %=
+                   M.insertWith (++) userAddr [(tx, addrid)]
+               periodAdded <>= [(userAddr, (tx,addrid))]
+
+
 -- | Update state with bunch of transactions from new unobserved
 -- blockchain blocks. Sum validation for transactions
 -- is disabled, because HBlocks contain generative transactions for
@@ -189,6 +229,7 @@ withBlockchainUpdate newHeight transactions =
                ("New blockchain height {} should be exactly {} + 1. " <>
                 "Only incremental updates are available.")
                (newHeight, currentHeight)
+       restoreTransactions
        ownedAddressesRaw <- L.use userAddresses
        ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
        (savedTransactions :: [(UserAddress, (Transaction, AddrId))]) <-
@@ -212,16 +253,13 @@ withBlockchainUpdate newHeight transactions =
                    \(useraddr,pair') ->
                         inputAddressesTxs %= M.adjust (delete pair') useraddr
                -- then add transactions that have output with address that we own
-               forM_
-                   (C.computeOutputAddrids tx)
-                   (\(addrid',address) ->
-                         when
-                             (address `elem` ownedAddresses)
-                             (inputAddressesTxs %=
-                              M.insertWith
-                                  (++)
-                                  (getByAddress address)
-                                  [(tx, addrid')]))
+               forM_ (C.computeOutputAddrids tx) $
+                     \(addrid',address) ->
+                         when (address `elem` ownedAddresses)
+                              (inputAddressesTxs %= M.insertWith
+                                                    (++)
+                                                    (getByAddress address)
+                                                    [(tx, addrid')])
            getByAddress address =
                fromJust $
                find ((==) address . Address . _publicAddress) ownedAddressesRaw

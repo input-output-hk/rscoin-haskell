@@ -20,6 +20,7 @@ module RSCoin.User.AcidState
        -- * Updates
        , WithBlockchainUpdate (..)
        , AddAddresses (..)
+       , AddTemporaryTransaction (..)
        , InitWallet (..)
        ) where
 
@@ -69,10 +70,12 @@ getTransactions = W.getTransactions
 getLastBlockId = W.getLastBlockId
 
 withBlockchainUpdate :: Int -> [C.Transaction] -> A.Update WalletStorage ()
+addTemporaryTransaction :: C.Transaction -> A.Update WalletStorage ()
 addAddresses :: UserAddress -> [C.Transaction] -> A.Update WalletStorage ()
 initWallet :: [UserAddress] -> Maybe Int -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate
+addTemporaryTransaction = W.addTemporaryTransaction
 addAddresses = W.addAddresses
 initWallet = W.initWallet
 
@@ -83,6 +86,7 @@ $(makeAcidic
       , 'getTransactions
       , 'getLastBlockId
       , 'withBlockchainUpdate
+      , 'addTemporaryTransaction
       , 'addAddresses
       , 'initWallet])
 

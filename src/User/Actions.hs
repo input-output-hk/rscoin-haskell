@@ -49,8 +49,8 @@ proceedCommand st O.ListAddresses =
            mapM (\w -> (w ^. W.publicAddress, ) <$> getAmount st w) =<<
            query st GetAllAddresses
        TIO.putStrLn "Here's the list of your accounts:"
-       TIO.putStrLn "Num | Public ID | Amount"
-       mapM_ (TIO.putStrLn . format' "{}. {} : {}") $
+       TIO.putStrLn "# | Public ID                                    | Amount"
+       mapM_ (TIO.putStrLn . format' "{}.  {} : {}") $
            uncurry (zip3 [(1 :: Integer) ..]) $ unzip wallets
 proceedCommand st (O.FormTransaction inputs outputAddrStr) =
     eWrap $
@@ -106,14 +106,14 @@ updateToBlockHeight st newHeight = do
     TIO.putStr $ formatSingle' "Updating to height {} ... " newHeight
     C.HBlock{..} <- getBlockByHeight newHeight
     -- TODO validate this block with integrity check that we don't have
-    relatedTransactions <-
-        nub . concatMap (toTrs hbTransactions) <$> query st GetAllAddresses
-    update st $ A.WithBlockchainUpdate newHeight relatedTransactions
+    update st $ A.WithBlockchainUpdate newHeight hbTransactions
     TIO.putStrLn $ formatSingle' " updated to height {}" newHeight
-  where
-    toTrs :: [C.Transaction] -> W.UserAddress -> [C.Transaction]
-    toTrs trs userAddr =
-        filter (not . null . C.getAddrIdByAddress (W.toAddress userAddr)) trs
+--  where
+--    toTrs :: [C.Transaction] -> W.UserAddress -> [C.Transaction]
+--    toTrs trs userAddr =
+--        let trhashes = map C.hash trs in
+--        filter (\t -> (not $ null $ C.getAddrIdByAddress (W.toAddress userAddr) t)
+--                     || (any (`elem` trhashes) $ map sel1 $ txInputs t)) trs
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction :: A.RSCoinUserState -> [(Int, Int64)] -> Address -> Coin -> IO ()

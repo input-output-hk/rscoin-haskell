@@ -36,7 +36,8 @@ instance Exception UserLogicError
 
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction
--- given.
+-- given. If transaction is confirmed, just returns. If it's not
+-- confirmed, the FailedToCommit is thrown.
 validateTransaction :: Transaction -> M.Map AddrId Signature -> PeriodId -> IO ()
 validateTransaction tx@Transaction{..} signatures height = do
     (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs

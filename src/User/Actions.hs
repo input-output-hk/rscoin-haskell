@@ -168,6 +168,7 @@ formTransaction st inputs outputAddr outputCoin = do
                       (addrid', sign (address' ^. W.privateAddress) outTr))
                 addrPairList
     validateTransaction outTr signatures $ lastBlockHeight + 1
+    update st $ A.AddTemporaryTransaction outTr
   where
     formTransactionMapper :: (Int, W.UserAddress, Coin)
                           -> IO ([(AddrId, W.UserAddress)], Transaction)

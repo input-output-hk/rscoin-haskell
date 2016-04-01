@@ -81,10 +81,68 @@ userCommandParser =
              "form-transaction"
              (info formTransactionOpts (progDesc "Form and send transaction.")) <>
          command
-             "dump"
+             "dump-blocks"
              (info
-                  (Dump <$> dumpCommandParser)
-                  (progDesc "Dump Bank data")))
+                  (fmap Dump $ DumpHBlocks <$>
+                   argument
+                       auto
+                       (metavar "FROM" <> help "Dump from which block") <*>
+                   argument auto (metavar "TO" <> help "Dump to which block"))
+                  (progDesc "Dump Bank high level blocks.")) <>
+         command
+             "dump-block"
+             (info
+                  (fmap Dump $ DumpHBlock <$>
+                   argument
+                       auto
+                       (metavar "ID" <>
+                        help "Dump block with specific periodId"))
+                  (progDesc "Dump Bank high level block.")) <>
+         command
+             "dump-mintettes"
+             (info (pure $ Dump DumpMintettes) (progDesc "Dump list of mintettes.")) <>
+         command
+             "dump-period"
+             (info (pure $ Dump DumpPeriod) (progDesc "Dump last period.")) <>
+         command
+             "dump-logs"
+             (info
+                  (fmap Dump $ DumpLogs <$>
+                   argument
+                       auto
+                       (metavar "MINTETTE_ID" <>
+                        help "Dump logs of mintette with this id.") <*>
+                   argument
+                       auto
+                       (metavar "FROM" <> help "Dump from which entry.") <*>
+                   argument auto (metavar "TO" <> help "Dump to which entry."))
+                  (progDesc
+                       "Dump action logs of corresponding mintette, range or entries.")) <>
+         command
+             "dump-mintette-utxo"
+             (info
+                  (fmap Dump $ DumpMintetteUtxo <$>
+                   argument
+                       auto
+                       (metavar "MINTETTE_ID" <>
+                        help "Dump utxo of mintette with this id."))
+                  (progDesc "Dump utxo of corresponding mintette.")) <>
+         command
+             "dump-mintette-blocks"
+             (info
+                  (fmap Dump . DumpMintetteBlocks
+                      <$> argument auto (metavar "MINTETTE_ID" <> help "Dump blocks of mintette with this id.")
+                      <*> argument auto (metavar "PERIOD_ID" <> help "Dump blocks with this period id.")
+                  )
+                  (progDesc ("Dump blocks of corresponding mintette and periodId."))) <>
+         command
+             "dump-mintette-blocks"
+             (info
+                  (fmap Dump . DumpMintetteLogs
+                      <$> argument auto (metavar "MINTETTE_ID" <> help "Dump logs of mintette with this id.")
+                      <*> argument auto (metavar "PERIOD_ID" <> help "Dump logs with this period id.")
+                  )
+                  (progDesc ("Dump logs of corresponding mintette and periodId."))))
   where
     formTransactionOpts =
         FormTransaction <$>
@@ -97,73 +155,6 @@ userCommandParser =
                    "output, 'b' is integer -- amount of coins to send."))) <*>
         (strOption
                  (long "to" <> help "Address to send coins to."))
-
-dumpCommandParser :: Parser DumpCommand
-dumpCommandParser =
-    subparser
-        (command
-             "blocks"
-             (info
-                  (DumpHBlocks <$>
-                   argument
-                       auto
-                       (metavar "FROM" <> help "Dump from which block") <*>
-                   argument auto (metavar "TO" <> help "Dump to which block"))
-                  (progDesc "Dump Bank high level blocks.")) <>
-         command
-             "block"
-             (info
-                  (DumpHBlock <$>
-                   argument
-                       auto
-                       (metavar "ID" <>
-                        help "Dump block with specific periodId"))
-                  (progDesc "Dump Bank high level block.")) <>
-         command
-             "mintettes"
-             (info (pure DumpMintettes) (progDesc "Dump list of mintettes.")) <>
-         command
-             "period"
-             (info (pure DumpPeriod) (progDesc "Dump last period.")) <>
-         command
-             "logs"
-             (info
-                  (DumpLogs <$>
-                   argument
-                       auto
-                       (metavar "MINTETTE_ID" <>
-                        help "Dump logs of mintette with this id.") <*>
-                   argument
-                       auto
-                       (metavar "FROM" <> help "Dump from which entry.") <*>
-                   argument auto (metavar "TO" <> help "Dump to which entry."))
-                  (progDesc
-                       "Dump action logs of corresponding mintette, range or entries.")) <>
-         command
-             "mintette-utxo"
-             (info
-                  (DumpMintetteUtxo <$>
-                   argument
-                       auto
-                       (metavar "MINTETTE_ID" <>
-                        help "Dump utxo of mintette with this id."))
-                  (progDesc "Dump utxo of corresponding mintette.")) <>
-         command
-             "mintette-blocks"
-             (info
-                  (DumpMintetteBlocks
-                      <$> argument auto (metavar "MINTETTE_ID" <> help "Dump blocks of mintette with this id.")
-                      <*> argument auto (metavar "PERIOD_ID" <> help "Dump blocks with this period id.")
-                  )
-                  (progDesc ("Dump blocks of corresponding mintette and periodId."))) <>
-         command
-             "mintette-blocks"
-             (info
-                  (DumpMintetteLogs
-                      <$> argument auto (metavar "MINTETTE_ID" <> help "Dump logs of mintette with this id.")
-                      <*> argument auto (metavar "PERIOD_ID" <> help "Dump logs with this period id.")
-                  )
-                  (progDesc ("Dump logs of corresponding mintette and periodId."))))
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

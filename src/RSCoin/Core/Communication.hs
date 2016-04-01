@@ -237,8 +237,7 @@ getLogs m from to = do
     either onError onSuccess res
   where
     onError (e :: Text) = do
-        logWarning $
-            formatSingle' "Action logs of mintette {} don't exists" m
+        logWarning e
         return Nothing
     onSuccess aLog = do
         logInfo $

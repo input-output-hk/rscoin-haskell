@@ -35,6 +35,7 @@ serve port dbPath sk =
                 , C.method (C.RSCMintette C.AnnounceNewPeriod) $ handleNewPeriod st
                 , C.method (C.RSCMintette C.CheckTx) $ handleCheckTx sk st
                 , C.method (C.RSCMintette C.CommitTx) $ handleCommitTx sk st
+                , C.method (C.RSCDump C.GetUtxo) $ handleGetUtxo st
                 ]
 
 toServer :: IO a -> C.Server a
@@ -138,8 +139,8 @@ handleCommitTx sk st tx pId cc =
 
 -- Dumping Mintette state
 
-getUtxo :: State -> C.Server C.Utxo
-getUtxo st =
+handleGetUtxo :: State -> C.Server C.Utxo
+handleGetUtxo st =
     toServer $
     do C.logInfo "Getting utxo"
        (curUtxo, _) <- query' st GetUtxoPset

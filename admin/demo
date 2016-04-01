@@ -27,14 +27,12 @@ TMUX="$(tmux new-session -d -s "$_session" -n project)"
 tmux new-window -c "$_wd" -t "${_session}:1" -n build
 tmux new-window -c "$_wd" -t "${_session}:2" -n git
 tmux new-window -c "$_wd" -t "${_session}:3" -n mintette12
-tmux new-window -c "$_wd" -t "${_session}:4" -n mintette34 
-tmux new-window -c "$_wd" -t "${_session}:5" -n bank
+tmux new-window -c "$_wd" -t "${_session}:4" -n bank
 
-tmux send-keys -t "${_session}:0" "cd src/" C-m
-tmux send-keys -t "${_session}:0" "vim ." C-m
+tmux send-keys -t "${_session}:0" "cd src/; vim ." C-m
 tmux send-keys -t "${_session}:2" "git log --graph --decorate --all -n7 | grep ." C-m
 if [ ! -z "$_post_hook_maybe" ]; then
-  for x in {2..5}; do
+  for x in {2..4}; do
     tmux send-keys -t "${_session}:${x}" "$_post_hook_maybe" C-m
   done
 fi
@@ -43,13 +41,9 @@ tmux send-keys       -t "${_session}:3" "admin/runAsMintette.sh 1" C-m
 tmux split-window -h -t "${_session}:3"
 tmux send-keys       -t "${_session}:3" "sleep 1; admin/runAsMintette.sh 2" C-m
 
-tmux send-keys       -t "${_session}:4" "sleep 2; admin/runAsMintette.sh 3" C-m
+tmux send-keys       -t "${_session}:4" "sleep 3; admin/initBankUser.sh" C-m
 tmux split-window -h -t "${_session}:4"
-tmux send-keys       -t "${_session}:4" "sleep 3; admin/runAsMintette.sh 4" C-m
-
-tmux send-keys       -t "${_session}:5" "sleep 7; admin/initBankUser.sh" C-m
-tmux split-window -h -t "${_session}:5"
-tmux send-keys       -t "${_session}:5" "sleep 6; stack $NIX_STACK exec rscoin-bank serve" C-m
+tmux send-keys       -t "${_session}:4" "sleep 2; stack $NIX_STACK exec rscoin-bank serve" C-m
 
 tmux select-window -t 0
 

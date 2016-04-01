@@ -8,15 +8,15 @@ generation algorithm.
 During implementation of RSCoin the following design decisions and engineering
 trade-offs were made:
 
- + Overall correctness over overall performance  
+ + Overall correctness over overall performance
    We have picked synchronous protocol variant before applying any
    optimizations mentioned in the paper, or other ones.
 
- + Human-readability over performance  
-   We have picked MSGPACK as the application-level protocol.
+ + Ease of sending values of types over the wire
+   We have picked Msgpack as the application-level protocol.
 
  + Correctness of persistence layer over scalability and performance of
-   persistence layer  
+   persistence layer
    We are using acid-state, which stores serialized Haskell terms on disk. That
    is not as fast as modelling the data in relational algebra and then storing
    it in an SQL-system, this is not as scalable as using a clustered
@@ -28,7 +28,7 @@ trade-offs were made:
    worlds.
 
  + Forwards-compatibility and simplicity of migrations over simplicity of
-   persistence layer  
+   persistence layer
    Instead of just using serializable in conjunction with acid-state for
    persistence layer, we use serializable augmented with safe-copy in
    conjunction with acid-state, which gives us resilience to model changes, as

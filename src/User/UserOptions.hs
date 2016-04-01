@@ -66,19 +66,19 @@ userCommandParser :: Parser UserCommand
 userCommandParser =
     subparser
         (command
-             "list-addresses"
+             "list"
              (info
                   (pure ListAddresses)
                   (progDesc
                        ("List all available addresses from wallet " <>
                         "and information about them."))) <>
          command
-             "update-blockchain"
+             "update"
              (info
                   (pure UpdateBlockchain)
                   (progDesc "Query bank to sync local state with blockchain.")) <>
          command
-             "form-transaction"
+             "send"
              (info formTransactionOpts (progDesc "Form and send transaction.")) <>
          command
              "dump-blocks"

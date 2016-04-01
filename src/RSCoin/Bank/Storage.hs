@@ -81,9 +81,8 @@ getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
 -- Dumping Bank state
 
 reverseFromTo :: Int -> Int -> [a] -> [a]
-reverseFromTo from to' xs = drop (l - big) $ take (l - small) xs
+reverseFromTo from to' = drop small . take big . reverse
     where (small, big) = (min from to', max from to')
-          l = length xs
 
 getHBlocks :: PeriodId -> PeriodId -> Query [HBlock]
 getHBlocks left right = blocks . to (reverseFromTo left right)

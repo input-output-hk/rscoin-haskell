@@ -30,11 +30,11 @@ import           Control.Applicative
 import           Control.Exception          (Exception)
 import           Control.Lens               ((%=), (.=), (<>=), (^.))
 import qualified Control.Lens               as L
-import           Control.Monad              (forM_, unless)
+import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
-import           Data.List                  (find)
+import           Data.List                  (delete, find, nub)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust, isJust)
 import           Data.Monoid                ((<>))
@@ -47,7 +47,8 @@ import           Serokell.Util.Text         (format', formatSingle', show')
 
 import qualified RSCoin.Core                as C
 import           RSCoin.Core.Crypto         (PublicKey, SecretKey)
-import           RSCoin.Core.Primitives     (Address (..), Transaction (..))
+import           RSCoin.Core.Primitives     (AddrId, Address (..),
+                                             Transaction (..))
 import           RSCoin.Core.Types          (PeriodId)
 
 -- | User address as stored and seen by wallet owner.
@@ -87,13 +88,13 @@ validateUserAddress uaddr =
 -- bitcoins. Plus some meta-information that's crucially needed for
 -- this implementation to work.
 data WalletStorage = WalletStorage
-    { _userAddresses     :: [UserAddress]                   -- ^ Addresses that user owns
-    , _inputAddressesTxs :: M.Map UserAddress [Transaction] -- ^ Transactions that user is aware
-                                                            -- of and that reference user
-                                                            -- addresses
-                                                            -- (as input or output)
-    , _lastBlockId       :: Maybe PeriodId                  -- ^ Last blochain height known
-                                                            -- to user (if known)
+    { _userAddresses     :: [UserAddress]           -- ^ Addresses that user owns
+    , _inputAddressesTxs :: M.Map UserAddress
+                            [(Transaction, AddrId)] -- ^ Transactions that user is aware
+                                                    -- of and that reference user
+                                                    -- addresses, that were not spent
+    , _lastBlockId       :: Maybe PeriodId          -- ^ Last blochain height known
+                                                    -- to user (if known)
     } deriving (Show)
 
 $(L.makeLenses ''WalletStorage)
@@ -141,7 +142,7 @@ getTransactions addr = checkInitR $ do
         throwM $
         BadRequest $
         formatSingle' "Tried to getTransactions for addr we don't own: {}" addr
-    txs <- L.views inputAddressesTxs (M.lookup addr)
+    txs <- fmap (map fst) <$> L.views inputAddressesTxs (M.lookup addr)
     maybe
         (throwM $
          InternalError $
@@ -170,53 +171,62 @@ checkInitS action = do
         else throwM NotInitialized
 
 -- | Update state with bunch of transactions from new unobserved
--- blockchain blocks. Each transaction should contain at least one of
--- users public addresses in outputs.  Sum validation for transactions
+-- blockchain blocks. Sum validation for transactions
 -- is disabled, because HBlocks contain generative transactions for
--- fee allocation. Make sure no bad transactions are added here.
+-- fee allocation.
 withBlockchainUpdate :: PeriodId -> [Transaction] -> ExceptUpdate ()
-withBlockchainUpdate newHeight transactions = checkInitS $ do
-    currentHeight <- L.uses lastBlockId fromJust
-    unless (currentHeight < newHeight) $
-        reportBadRequest $
-        format'
-            "New blockchain height {} is less or equal to the old one: {}"
-            (newHeight, currentHeight)
-    unless (currentHeight + 1 == newHeight) $
-        reportBadRequest $
-        format'
-            ("New blockchain height {} should be exactly {} + 1. " <>
-             "Only incremental updates are available.")
-            (newHeight, currentHeight)
-    knownAddresses <- L.use userAddresses
-    knownPublicAddresses <- L.uses userAddresses (map _publicAddress)
-    let hasFilter out = out `elem` knownPublicAddresses
-        outputs = getAddress . fst
-        hasSomePublicAddress Transaction{..} =
-            any hasFilter $ map outputs txOutputs
-    unless (all hasSomePublicAddress transactions) $
-        reportBadRequest $
-        T.pack $
-        "Failed to verify that any transaction has at least one output " ++
-        "address that we own. Transactions: " ++ show transactions
-    let mappedTransactions :: [([UserAddress], Transaction)]
-        mappedTransactions =
-            map (\tr -> (map (\out ->
-                               fromJust $ find (\x -> x ^. publicAddress == out)
-                                               knownAddresses) $
-                             filter hasFilter (map outputs $ txOutputs tr)
-                        , tr))
-                transactions
-        flattenedTxs :: [(UserAddress, Transaction)]
-        flattenedTxs =
-            concatMap
-                (\(list,tx) ->
-                      map (, tx) list)
-                mappedTransactions
-    inputAddressesTxs %=
-        (\(mp :: M.Map UserAddress [Transaction]) ->
-              foldr (\(a,b) c -> M.insertWith (++) a [b] c) mp flattenedTxs)
-    lastBlockId .= (Just newHeight)
+withBlockchainUpdate newHeight transactions =
+    checkInitS $
+    do currentHeight <- L.uses lastBlockId fromJust
+       unless (currentHeight < newHeight) $
+           reportBadRequest $
+           format'
+               "New blockchain height {} is less or equal to the old one: {}"
+               (newHeight, currentHeight)
+       unless (currentHeight + 1 == newHeight) $
+           reportBadRequest $
+           format'
+               ("New blockchain height {} should be exactly {} + 1. " <>
+                "Only incremental updates are available.")
+               (newHeight, currentHeight)
+       ownedAddressesRaw <- L.use userAddresses
+       ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
+       (savedTransactions :: [(UserAddress, (Transaction, AddrId))]) <-
+           concatMap
+               (\(addr,txs) ->
+                     map (addr, ) txs) <$>
+           L.uses inputAddressesTxs M.assocs
+       let transactionMapper tx@Transaction{..} = do
+               -- first remove transactions that are used as input of this tx
+               let toRemove :: [(UserAddress, (Transaction, AddrId))]
+                   toRemove =
+                       nub $
+                       concatMap
+                           (\addrid ->
+                                 filter
+                                     (\(_,(_,addrid')) ->
+                                           addrid' == addrid)
+                                     savedTransactions)
+                           txInputs
+               forM_ toRemove $
+                   \(useraddr,pair') ->
+                        inputAddressesTxs %= M.adjust (delete pair') useraddr
+               -- then add transactions that have output with address that we own
+               forM_
+                   (C.computeOutputAddrids tx)
+                   (\(addrid',address) ->
+                         when
+                             (address `elem` ownedAddresses)
+                             (inputAddressesTxs %=
+                              M.insertWith
+                                  (++)
+                                  (getByAddress address)
+                                  [(tx, addrid')]))
+           getByAddress address =
+               fromJust $
+               find ((==) address . Address . _publicAddress) ownedAddressesRaw
+       forM_ transactions transactionMapper
+       lastBlockId .= Just newHeight
   where
     reportBadRequest = throwM . BadRequest
 
@@ -242,7 +252,13 @@ addAddresses userAddress txs = do
              "contain it (address) as output. First bad transaction: {}")
             (userAddress, length mappedTxs, head mappedTxs)
     userAddresses <>= [userAddress]
-    inputAddressesTxs <>= M.singleton userAddress txs
+    inputAddressesTxs <>=
+        M.singleton
+            userAddress
+            (concatMap
+                 (\t -> map (t, ) $
+                        C.getAddrIdByAddress (toAddress userAddress) t)
+                 txs)
 
 -- | Initialize wallet with list of addresses to hold and
 -- mode-specific parameter startHeight: if it's (Just i), then the

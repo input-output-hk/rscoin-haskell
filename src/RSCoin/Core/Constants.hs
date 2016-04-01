@@ -62,13 +62,13 @@ genesisAddress =
 
 -- | This value is sent to genesisAddress in genesis transaction
 genesisValue :: Coin
-genesisValue = 1000000
+genesisValue = 100000000
 
 -- | This value is allocated by Bank in the end of a period.
 -- It's then sent distributed accross participating mintettes and Bank.
 -- Ideally it should change over time, but let's make it simple.
 periodReward :: Coin
-periodReward = 10000
+periodReward = 1000
 
 -- | The amount of mintettes divided my shardDivider equals to shard
 -- size.

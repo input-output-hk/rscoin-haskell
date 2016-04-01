@@ -47,8 +47,9 @@ data DumpCommand
     | DumpMintettes
     | DumpPeriod
     | DumpLogs MintetteId Int Int
-    | DumpUtxo MintetteId
+    | DumpMintetteUtxo MintetteId
     | DumpMintetteBlocks MintetteId PeriodId
+    | DumpMintetteLogs MintetteId PeriodId
     deriving (Show)
 
 -- | Datatype describing user command line options
@@ -141,7 +142,7 @@ dumpCommandParser =
          command
              "mintette-utxo"
              (info
-                  (DumpUtxo <$>
+                  (DumpMintetteUtxo <$>
                    argument
                        auto
                        (metavar "MINTETTE_ID" <>
@@ -154,7 +155,15 @@ dumpCommandParser =
                       <$> argument auto (metavar "MINTETTE_ID" <> help "Dump blocks of mintette with this id.")
                       <*> argument auto (metavar "PERIOD_ID" <> help "Dump blocks with this period id.")
                   )
-                  (progDesc ("Dump blocks of corresponding mintette and periodId."))))
+                  (progDesc ("Dump blocks of corresponding mintette and periodId."))) <>
+         command
+             "mintette-blocks"
+             (info
+                  (DumpMintetteLogs
+                      <$> argument auto (metavar "MINTETTE_ID" <> help "Dump logs of mintette with this id.")
+                      <*> argument auto (metavar "PERIOD_ID" <> help "Dump logs with this period id.")
+                  )
+                  (progDesc ("Dump logs of corresponding mintette and periodId."))))
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

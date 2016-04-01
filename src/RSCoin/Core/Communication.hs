@@ -18,8 +18,9 @@ module RSCoin.Core.Communication
        , getBlocks
        , getMintettes
        , getLogs
-       , getUtxo
+       , getMintetteUtxo
        , getMintetteBlocks
+       , getMintetteLogs
        ) where
 
 import           Control.Exception          (Exception, catch, throwIO)
@@ -32,7 +33,8 @@ import qualified Network.MessagePack.Client as MP (RpcError (..))
 
 import           Safe                      (atMay)
 import           Serokell.Util.Text        (format', formatSingle', show',
-                                            mapBuilder, listBuilderJSONIndent)
+                                            mapBuilder, listBuilderJSONIndent,
+                                            pairBuilder)
 
 import           RSCoin.Core.Crypto         (Signature, hash)
 import           RSCoin.Core.Owners         (owners)
@@ -249,8 +251,8 @@ getLogs m from to = do
 
 -- Dumping Mintette state
 
-getUtxo :: MintetteId -> P.WithResult Utxo
-getUtxo mId f = do
+getMintetteUtxo :: MintetteId -> P.WithResult Utxo
+getMintetteUtxo mId f = do
     ms <- P.unCps getMintettes
     maybe onNothing onJust $ ms `atMay` mId
   where
@@ -262,7 +264,7 @@ getUtxo mId f = do
         withResult
             (logInfo "Getting utxo")
             (logInfo . formatSingle' "Corrent utxo is: {}")
-            (execMintette mintette $ P.call (P.RSCDump P.GetUtxo))
+            (execMintette mintette $ P.call (P.RSCDump P.GetMintetteUtxo))
             f
 
 getMintetteBlocks :: MintetteId -> PeriodId -> IO (Maybe [LBlock])
@@ -277,7 +279,7 @@ getMintetteBlocks mId pId = do
     onJust mintette = do
         logInfo $
             format' "Getting blocks of mintette {} with period id {}" (mId, pId)
-        res <- P.unCps . execMintette mintette $ P.call (P.RSCDump P.GetBlocks) pId
+        res <- P.unCps . execMintette mintette $ P.call (P.RSCDump P.GetMintetteBlocks) pId
         either onError onSuccess res
       where
         onError (e :: Text) = do
@@ -288,4 +290,30 @@ getMintetteBlocks mId pId = do
                 format'
                     "Successfully got blocks for period id {}: {}"
                     (pId, listBuilderJSONIndent 2 res)
+            return $ Just res
+
+-- TODO: code duplication as getMintetteBlocks, refactor!
+getMintetteLogs :: MintetteId -> PeriodId -> IO (Maybe ActionLog)
+getMintetteLogs mId pId = do
+    ms <- P.unCps getMintettes
+    maybe onNothing onJust $ ms `atMay` mId
+  where
+    onNothing = do
+        let e = formatSingle' "Mintette with this index {} doesn't exist" mId
+        logWarning e
+        throwIO $ MethodError e
+    onJust mintette = do
+        logInfo $
+            format' "Getting logs of mintette {} with period id {}" (mId, pId)
+        res <- P.unCps . execMintette mintette $ P.call (P.RSCDump P.GetMintetteLogs) pId
+        either onError onSuccess res
+      where
+        onError (e :: Text) = do
+            logWarning e
+            return Nothing
+        onSuccess res = do
+            logInfo $
+                format'
+                    "Successfully got logs for period id {}: {}"
+                    (pId, listBuilderJSONIndent 2 $ map pairBuilder res)
             return $ Just res

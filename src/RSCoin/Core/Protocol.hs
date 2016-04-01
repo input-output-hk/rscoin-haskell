@@ -63,8 +63,9 @@ data MintetteMethod
 data DumpMethod
     = GetHBlocks
     | GetLogs
-    | GetUtxo
-    | GetBlocks
+    | GetMintetteUtxo
+    | GetMintetteBlocks
+    | GetMintetteLogs
     deriving (Show)
 
 type Server a = S.Server a

@@ -13,7 +13,8 @@ import           Data.Monoid               ((<>))
 import           Data.Text                 (Text)
 
 import           Serokell.Util.Text        (format', formatSingle',
-                                            listBuilderJSONIndent, show')
+                                            listBuilderJSONIndent, show',
+                                            pairBuilder)
 
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
@@ -21,7 +22,7 @@ import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             GetUtxoPset (..), GetBlocks (..),
                                             PreviousMintetteId (..),
                                             StartPeriod (..), State, closeState,
-                                            openState)
+                                            openState, GetLogs (..))
 import           RSCoin.Mintette.Error     (MintetteError)
 import           RSCoin.Mintette.Worker    (runWorker)
 
@@ -35,8 +36,9 @@ serve port dbPath sk =
                 , C.method (C.RSCMintette C.AnnounceNewPeriod) $ handleNewPeriod st
                 , C.method (C.RSCMintette C.CheckTx) $ handleCheckTx sk st
                 , C.method (C.RSCMintette C.CommitTx) $ handleCommitTx sk st
-                , C.method (C.RSCDump C.GetUtxo) $ handleGetUtxo st
-                , C.method (C.RSCDump C.GetBlocks) $ handleGetBlocks st
+                , C.method (C.RSCDump C.GetMintetteUtxo) $ handleGetUtxo st
+                , C.method (C.RSCDump C.GetMintetteBlocks) $ handleGetBlocks st
+                , C.method (C.RSCDump C.GetMintetteLogs) $ handleGetLogs st
                 ]
 
 toServer :: IO a -> C.Server a
@@ -165,4 +167,24 @@ handleGetBlocks st pId =
             format'
                 "Successfully got blocks for period id {}: {}"
                 (pId, listBuilderJSONIndent 2 res)
+        return $ Right res
+
+-- TODO: code duplication, simiar as handleGetBlocks => refactor!
+handleGetLogs :: State -> C.PeriodId -> C.Server (Either Text C.ActionLog)
+handleGetLogs st pId =
+    toServer $
+    do C.logInfo $ 
+            formatSingle' "Getting logs for periodId: {}" pId
+       res <- query' st $ GetLogs pId
+       maybe onNothing onJust res
+  where
+    onNothing = do
+        let e = formatSingle' "Logs for period id {} don't exist" pId
+        C.logWarning e
+        return $ Left e
+    onJust res = do
+        C.logInfo $
+            format'
+                "Successfully got logs for period id {}: {}"
+                (pId, listBuilderJSONIndent 2 $ map pairBuilder res)
         return $ Right res

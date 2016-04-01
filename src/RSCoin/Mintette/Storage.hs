@@ -18,6 +18,7 @@ module RSCoin.Mintette.Storage
        , previousMintetteId
        , getUtxoPset
        , getBlocks
+       , getLogs
        ) where
 
 import           Control.Applicative        ((<|>))
@@ -106,8 +107,12 @@ isActive = mintetteId . to isJust
 
 -- Dumping Mintette state
 
-getBlocks ::(MonadReader Storage m) =>  PeriodId -> m (Maybe [LBlock])
+getBlocks :: (MonadReader Storage m) => PeriodId -> m (Maybe [LBlock])
 getBlocks pId = view $ lBlocks . to (\b -> b `atMay` (length b - pId - 1))
+
+getLogs :: (MonadReader Storage m) => PeriodId -> m (Maybe ActionLog)
+getLogs pId =
+    view $ actionLogs . to (\b -> b `atMay` (length b - pId - 1))
 
 -- Dumping Mintette state
 

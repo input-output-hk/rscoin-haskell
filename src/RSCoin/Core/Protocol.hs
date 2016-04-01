@@ -64,6 +64,7 @@ data DumpMethod
     = GetHBlocks
     | GetLogs
     | GetUtxo
+    | GetBlocks
     deriving (Show)
 
 type Server a = S.Server a

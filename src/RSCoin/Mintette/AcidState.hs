@@ -14,6 +14,7 @@ module RSCoin.Mintette.AcidState
        , FinishPeriod (..)
        , StartPeriod (..)
        , FinishEpoch (..)
+       , GetBlocks (..)
        ) where
 
 import           Control.Exception       (throw)
@@ -28,7 +29,7 @@ import           RSCoin.Core             (AddrId, CheckConfirmation,
                                           CommitConfirmation, MintetteId,
                                           NewPeriodData, PeriodId, PeriodResult,
                                           Pset, SecretKey, Signature,
-                                          Transaction, Utxo)
+                                          Transaction, Utxo, LBlock)
 
 import qualified RSCoin.Mintette.Storage as MS
 
@@ -47,6 +48,9 @@ instance MonadThrow (Update s) where
 
 getUtxoPset :: Query MS.Storage (Utxo,Pset)
 getUtxoPset = MS.getUtxoPset
+
+getBlocks :: PeriodId -> Query MS.Storage (Maybe [LBlock])
+getBlocks = MS.getBlocks
 
 previousMintetteId :: Query MS.Storage (Maybe MintetteId)
 previousMintetteId = MS.previousMintetteId
@@ -83,4 +87,5 @@ $(makeAcidic ''MS.Storage
              , 'finishPeriod
              , 'startPeriod
              , 'finishEpoch
+             , 'getBlocks
              ])

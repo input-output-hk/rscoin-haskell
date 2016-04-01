@@ -18,7 +18,7 @@ import           Serokell.Util.Text        (format', formatSingle',
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
-                                            GetUtxoPset (..),
+                                            GetUtxoPset (..), GetBlocks (..),
                                             PreviousMintetteId (..),
                                             StartPeriod (..), State, closeState,
                                             openState)
@@ -36,6 +36,7 @@ serve port dbPath sk =
                 , C.method (C.RSCMintette C.CheckTx) $ handleCheckTx sk st
                 , C.method (C.RSCMintette C.CommitTx) $ handleCommitTx sk st
                 , C.method (C.RSCDump C.GetUtxo) $ handleGetUtxo st
+                , C.method (C.RSCDump C.GetBlocks) $ handleGetBlocks st
                 ]
 
 toServer :: IO a -> C.Server a
@@ -146,3 +147,22 @@ handleGetUtxo st =
        (curUtxo, _) <- query' st GetUtxoPset
        C.logDebug $ formatSingle' "Corrent utxo is: {}" curUtxo
        return curUtxo
+
+handleGetBlocks :: State -> C.PeriodId -> C.Server (Either Text [C.LBlock])
+handleGetBlocks st pId =
+    toServer $
+    do C.logInfo $ 
+            formatSingle' "Getting blocks for periodId: {}" pId
+       res <- query' st $ GetBlocks pId
+       maybe onNothing onJust res
+  where
+    onNothing = do
+        let e = formatSingle' "Blocks for period id {} don't exist" pId
+        C.logWarning e
+        return $ Left e
+    onJust res = do
+        C.logInfo $
+            format'
+                "Successfully got blocks for period id {}: {}"
+                (pId, listBuilderJSONIndent 2 res)
+        return $ Right res

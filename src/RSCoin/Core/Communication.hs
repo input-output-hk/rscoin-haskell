@@ -19,6 +19,7 @@ module RSCoin.Core.Communication
        , getMintettes
        , getLogs
        , getUtxo
+       , getMintetteBlocks
        ) where
 
 import           Control.Exception          (Exception, catch, throwIO)
@@ -44,7 +45,7 @@ import           RSCoin.Core.Types          (CheckConfirmation,
                                              Mintette, MintetteId,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Mintettes,
-                                             ActionLog, Utxo)
+                                             ActionLog, Utxo, LBlock)
 
 -- | Errors which may happen during remote call.
 data CommunicationError
@@ -263,3 +264,28 @@ getUtxo mId f = do
             (logInfo . formatSingle' "Corrent utxo is: {}")
             (execMintette mintette $ P.call (P.RSCDump P.GetUtxo))
             f
+
+getMintetteBlocks :: MintetteId -> PeriodId -> IO (Maybe [LBlock])
+getMintetteBlocks mId pId = do
+    ms <- P.unCps getMintettes
+    maybe onNothing onJust $ ms `atMay` mId
+  where
+    onNothing = do
+        let e = formatSingle' "Mintette with this index {} doesn't exist" mId
+        logWarning e
+        throwIO $ MethodError e
+    onJust mintette = do
+        logInfo $
+            format' "Getting blocks of mintette {} with period id {}" (mId, pId)
+        res <- P.unCps . execMintette mintette $ P.call (P.RSCDump P.GetBlocks) pId
+        either onError onSuccess res
+      where
+        onError (e :: Text) = do
+            logWarning e
+            return Nothing
+        onSuccess res = do
+            logInfo $
+                format'
+                    "Successfully got blocks for period id {}: {}"
+                    (pId, listBuilderJSONIndent 2 res)
+            return $ Just res

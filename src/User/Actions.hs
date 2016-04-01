@@ -83,25 +83,25 @@ proceedCommand st O.UpdateBlockchain =
                    [walletHeight + 1 .. lastBlockHeight]
                    (updateToBlockHeight st)
                TIO.putStrLn "Successfully updated blockchain!"
-proceedCommand _ (O.Dump command) = dumpCommand command
+proceedCommand _ (O.Dump command) = eWrap $ dumpCommand command
 
 dumpCommand :: O.DumpCommand -> IO ()
 dumpCommand (O.DumpHBlocks from to) =
-    eWrap . void . C.unCps $ C.getBlocks from to
+    void . C.unCps $ C.getBlocks from to
 dumpCommand (O.DumpHBlock pId) =
-    eWrap . void $ C.getBlockByHeight pId
+    void $ C.getBlockByHeight pId
 dumpCommand O.DumpMintettes =
-    eWrap . void $ C.unCps C.getMintettes
+    void $ C.unCps C.getMintettes
 dumpCommand O.DumpPeriod =
-    eWrap . void $ C.unCps C.getBlockchainHeight
+    void $ C.unCps C.getBlockchainHeight
 dumpCommand (O.DumpLogs mId from to) =
-    eWrap . void $ C.getLogs mId from to
+    void $ C.getLogs mId from to
 dumpCommand (O.DumpMintetteUtxo mId) =
-    eWrap . void . C.unCps $ C.getMintetteUtxo mId
+    void . C.unCps $ C.getMintetteUtxo mId
 dumpCommand (O.DumpMintetteBlocks mId pId) =
-    eWrap . void $ C.getMintetteBlocks mId pId
+    void $ C.getMintetteBlocks mId pId
 dumpCommand (O.DumpMintetteLogs mId pId) =
-    eWrap . void $ C.getMintetteLogs mId pId
+    void $ C.getMintetteLogs mId pId
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.

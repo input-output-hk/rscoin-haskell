@@ -159,8 +159,8 @@ are basically aliases are wrapped in newtypes. See “Newtype wrappers” sectio
 
 ### [RSCoin.Core.Constants](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/Constants.hs)
 
-Constants are pretty self-descriptive. However, two notes on things that could be not very
-obvious should be made.
+Constants are pretty [self-descriptive](http://lab.serokell.io/rscoin/rscoin-0.1.0.0/RSCoin-Core-Constants.html).
+However, two notes on things that could be not very obvious should be made.
 
  1. `emissionHash` is used when a bank emits some coins to make all the transactions which
     emit coins have different (yet, predictable by an adversary, see issue number 7 in Serokell
@@ -170,3 +170,24 @@ obvious should be made.
     between the quotient and the total amount of mintettes. This constant is `3` in this
     version of RSCoin implementation. So, for two mintettes, shard size is 2, for three — 2,
     …, for eight — 2, for nine — 3, ….
+
+### [RSCoin.Core.LBlock](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/LBlock.hs) and [RSCoin.Core.HBlock](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/HBlock.hs)
+
+Operations on LBlock and HBlock, which are defined in `Types` module.
+
+### [RScoin.Core.Owners](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/Owners.hs)
+
+Defines `owners` function to determine mintettes responsible for a particular `addrid`.
+
+We have made the following algorithm for it —
+
+ 1. Divide hashspace in classes over set of currently trusted mintettes
+ 2. For given `txid`, find to which mintette's class does it belong
+ 3. While the list of owners is not of length `shardSize` (for more details on `shardSize`, see description of `shardDivider` above), with `acc` initially equal to `txid`:
+   1. Hash `acc || mintette`, where `mintette` is the unique identifier of the last seleced mintette (on the first iteration, it is the mintette to which class `txid` belongs)
+   2. See to which mintette's class `H(acc || mintette)` belongs and add it to the list of selected mintettes
+   3. Repeat
+
+This approach yields an equal distribution of owners for each `addrid` and
+doesn't require to keep mintettes in any particular order, to ensure that
+mintettes of the same commercial bank aren't selected for a particular `addrid`.

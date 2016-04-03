@@ -137,6 +137,36 @@ Given that you have an undestanding of the paper,
 [generated Haddoc documentation of this module](http://lab.serokell.io/rscoin/rscoin-0.1.0.0/RSCoin-Core-Types.html)
 is more than enough to understand the purpose of every type there.
 
+*TODO:* Explain the decisions behind strict fields. I though that finite or “compact” fields are strict, while
+“long” fields (such as `Mintettes`) are lazy, or as strict as the corresponding constructor is, but I'm
+obviously mistaken, as there are lazy fields that are pretty “compact”.
+
 ### [RSCoin.Core.Primitives](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/Primitives.hs)
 
+This module, again, mirrors the abstractions defined in the paper one-to-one, as
+we see from the
+[generated documentation](http://lab.serokell.io/rscoin/rscoin-0.1.0.0/RSCoin-Core-Primitives.html),
+one `Coin` is equivalent to one satoshi. A coin, in our terminology, is an atom of the currency.
+
+To provide more scalability and future-compatibility, we're considering storing a coefficient which
+will denote the size of an atom of a coin. Then `Coin` will become `Atom`, with coefficient constant
+showing how many atoms are there in one coin. Now if we want to respond to, say, deflation, by making
+the granularity of the currency higher, we can do that by increasing the coefficient in question.
+
+It is also worth noting, that while Id types in `Types` module are just type aliases
+(because, semantically, they represent indices in different lists), here all the types that
+are basically aliases are wrapped in newtypes. See “Newtype wrappers” section above.
+
 ### [RSCoin.Core.Constants](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/Constants.hs)
+
+Constants are pretty self-descriptive. However, two notes on things that could be not very
+obvious should be made.
+
+ 1. `emissionHash` is used when a bank emits some coins to make all the transactions which
+    emit coins have different (yet, predictable by an adversary, see issue number 7 in Serokell
+    issue tracker about it)
+ 2. `shardDivider` tells us how many owners will a particular `addrid` have. We take the
+    amount of currently approved mintettes and divide it by this constant, taking maximum
+    between the quotient and the total amount of mintettes. This constant is `3` in this
+    version of RSCoin implementation. So, for two mintettes, shard size is 2, for three — 2,
+    …, for eight — 2, for nine — 3, ….

@@ -188,6 +188,9 @@ We have made the following algorithm for it —
    2. See to which mintette's class `H(acc || mintette)` belongs and add it to the list of selected mintettes
    3. Repeat
 
+Obviously, all that, with slighly different semantics, but the same properties,
+is simply written as `take shardSize $ nub $ map (\i -> hash i `mod` l) $ iterate hashProduce h`.
+
 This approach yields an equal distribution of owners for each `addrid` and
 doesn't require to keep mintettes in any particular order, to ensure that
 mintettes of the same commercial bank aren't selected for a particular `addrid`.

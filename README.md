@@ -1,7 +1,7 @@
 Implementation of [RSCoin](http://www0.cs.ucl.ac.uk/staff/S.Meiklejohn/files/ndss16.pdf)
 ---
 
-*See generated documentation [here](http://new.memorici.de).*
+*See generated documentation [here](http://lab.serokell.io/rscoin).*
 
 Prototype implementation of RSCoin incorporate protocol implementation with
 three binaries to run as a Bank, Mintette and User. It also has a simple coin
@@ -132,6 +132,10 @@ family of modules.
 Let's go through the most fundamental modules of RSCoin.Core.
 
 ### [RSCoin.Core.Types](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/Types.hs)
+
+Given that you have an undestanding of the paper,
+[generated Haddoc documentation of this module](http://lab.serokell.io/rscoin/rscoin-0.1.0.0/RSCoin-Core-Types.html)
+is more than enough to understand the purpose of every type there.
 
 ### [RSCoin.Core.Primitives](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/Primitives.hs)
 

@@ -1,6 +1,8 @@
 Implementation of [RSCoin](http://www0.cs.ucl.ac.uk/staff/S.Meiklejohn/files/ndss16.pdf)
 ---
 
+*See generated documentation [here](http://new.memorici.de).*
+
 Prototype implementation of RSCoin incorporate protocol implementation with
 three binaries to run as a Bank, Mintette and User. It also has a simple coin
 generation algorithm.
@@ -71,6 +73,29 @@ we want our types to have an instance of Buildable.
 For more, see [Builder type](https://hackage.haskell.org/package/text-0.11.2.3/docs/Data-Text-Lazy-Builder.html#t:Builder)
 and [Buildable typeclass](https://hackage.haskell.org/package/text-format-0.3.1.1/docs/Data-Text-Buildable.html).
 
+Sadly, `text-format` library doesn't provide a typesafe text building utilities,
+so we have to be extremely careful about calls, not to cause runtime problems.
+Maybe, a better idea could be to use some variant of printf, sadly, facilities of
+statically checked printing aren't mature enough in Haskell for transparent use
+with logging.
+
+### Logging
+
+We are usnig MonadLogger to log messages about the system. Notice, that there is
+`ToLogStr` constraint in MonadLogger functions,
+[which is basically `Buildable`](http://hackage.haskell.org/package/fast-logger-0.3.1/docs/src/System-Log-FastLogger.html#LogStr).
+
+We never make direct calls to Control.Monad.Logger functions, instead using
+Template Haskell facilities
+[provided by the library](http://hackage.haskell.org/package/monad-logger-0.2.3.1/docs/src/Control-Monad-Logger.html#logDebug).
+
+### Exceptional State Handling
+
+We represent abnormal, but legal state using `Control.Exception` facilities.
+On top of things, we sometimes define type-safe coercion mechanisms instead
+of bidirectional knowledge propagation about the modules.
+[Example of such coercion](https://github.com/serokell/rscoin/blob/master/src/RSCoin/User/Error.hs#L37-L38).
+
 Some details about implementation choices
 ===
 
@@ -93,3 +118,21 @@ We are using the following systems:
 
  + ECDSA with Secp256k1, using [Bitcoin's implementation of Secp256k1](https://github.com/bitcoin/secp256k1)
  + SHA256 for hashing, using [Crypto.Hash.SHA256](https://hackage.haskell.org/package/cryptohash-0.7.1/docs/Crypto-Hash-SHA256.html)
+
+Tests for primitives doing what they are supposed to do are already there.
+There is a room for improvement, but without those we would feel very
+uncomfortable.
+
+The Programmer's Guide to the RSCoin Implementation
+===
+
+At the heart of the system is [RSCoin.Core](https://github.com/serokell/rscoin/tree/master/src/RSCoin/Core)
+family of modules.
+
+Let's go through the most fundamental modules of RSCoin.Core.
+
+### [RSCoin.Core.Types](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/Types.hs)
+
+### [RSCoin.Core.Primitives](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/Primitives.hs)
+
+### [RSCoin.Core.Constants](https://github.com/serokell/rscoin/blob/master/src/RSCoin/Core/Constants.hs)

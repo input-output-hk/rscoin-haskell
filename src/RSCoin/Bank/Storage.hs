@@ -195,6 +195,7 @@ checkResult expectedPid lastHBlock (r,key,storedLog) = do
     g2
     let logsToCheck = formLogsToCheck actionLog
     let g3 = length logsToCheck == length lBlocks
+    g3
     mapM_
         (\(blk,lg) ->
               guard $ checkLBlock key (hbHash lastHBlock) lg blk) $

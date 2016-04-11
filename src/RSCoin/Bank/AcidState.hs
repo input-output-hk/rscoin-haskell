@@ -24,10 +24,9 @@ import           Data.Acid           (AcidState, Query, Update, closeAcidState,
                                       makeAcidic, openLocalStateFrom)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 
-import           RSCoin.Core         (HBlock, Mintette, Mintettes,
-                                      NewPeriodData, PeriodId, PeriodResult,
-                                      PublicKey, SecretKey, MintetteId,
-                                      ActionLog)
+import           RSCoin.Core         (ActionLog, HBlock, Mintette, MintetteId,
+                                      Mintettes, NewPeriodData, PeriodId,
+                                      PeriodResult, PublicKey, SecretKey)
 
 import qualified RSCoin.Bank.Storage as BS
 
@@ -69,7 +68,7 @@ addMintette = BS.addMintette
 startNewPeriod
     :: SecretKey
     -> [Maybe PeriodResult]
-    -> Update BS.Storage ([NewPeriodData], NewPeriodData)
+    -> Update BS.Storage [NewPeriodData]
 startNewPeriod = BS.startNewPeriod
 
 $(makeAcidic ''BS.Storage

@@ -105,13 +105,11 @@ addMintette m k = do
 
 -- | When period finishes, Bank receives period results from
 -- mintettes, updates storage and starts new period with potentially
--- different set of mintettes. Return value is a pair -- first is a
--- list of size (length mintettes) of NewPeriodDatas that should be
--- sent to mintettes. Second one is a fake NewPeriodData (shouldn't be
--- sent!) with "Nothing" in npdNewIdPayload field, just for logging.
+-- different set of mintettes. Return value is a list of size (length
+-- mintettes) of NewPeriodDatas that should be sent to mintettes.
 startNewPeriod :: SecretKey
                -> [Maybe PeriodResult]
-               -> ExceptUpdate ([NewPeriodData], NewPeriodData)
+               -> ExceptUpdate [NewPeriodData]
 startNewPeriod sk results = do
     mts <- use mintettes
     unless (length mts == length results) $
@@ -130,8 +128,7 @@ startNewPeriod sk results = do
         usersNPDs =
           map (\i -> npdPattern ((i,) <$> (i `MP.lookup` payload')))
               [0 .. length currentMintettes - 1]
-        fakeNPD = npdPattern Nothing
-    return (usersNPDs, fakeNPD)
+    return usersNPDs
 
 startNewPeriodDo :: SecretKey
                  -> PeriodId

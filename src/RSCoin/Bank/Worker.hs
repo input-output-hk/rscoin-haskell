@@ -21,9 +21,9 @@ import           Serokell.Util.Text       (formatSingle')
 
 import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            SecretKey, announceNewPeriod,
-                                           logDebug, logError, logInfo,
-                                           logWarning, periodDelta,
-                                           sendPeriodFinished)
+                                           formatNewPeriodData, logDebug,
+                                           logError, logInfo, logWarning,
+                                           periodDelta, sendPeriodFinished)
 
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
                                            StartNewPeriod (..), State)
@@ -53,30 +53,32 @@ onPeriodFinished sk st = do
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     periodResults <- getPeriodResults mintettes pId
-    (newPeriodData, newPeriodDataFake) <-
-        update st $ StartNewPeriod sk periodResults
+    newPeriodData <- update st $ StartNewPeriod sk periodResults
     createCheckpoint st
     newMintettes <- query st GetMintettes
-    mapM_
-        (\(m,mId) ->
-              announceNewPeriod m (newPeriodData !! mId) `catch`
-              handlerAnnouncePeriod)
-        (zip newMintettes [0 ..])
-    logInfo $
-        formatSingle'
-            ("Announced new period with this NewPeriodData " <>
-             "(payload is Nothing -- omitted (only in Debug)):\n{}")
-            newPeriodDataFake
-    logDebug $
-        formatSingle'
-            "Announced new period, sent these newPeriodData's:\n{}"
-            newPeriodData
+    if null newMintettes
+        then logWarning "New mintettes list is empty!"
+        else do
+            mapM_
+                (\(m,mId) ->
+                      announceNewPeriod m (newPeriodData !! mId) `catch`
+                      handlerAnnouncePeriod)
+                (zip newMintettes [0 ..])
+            logInfo $
+                formatSingle'
+                    ("Announced new period with this NewPeriodData " <>
+                     "(payload is Nothing -- omitted (only in Debug)):\n{}")
+                    (formatNewPeriodData False $ head newPeriodData)
+            logDebug $
+                formatSingle'
+                    "Announced new period, sent these newPeriodData's:\n{}"
+                    newPeriodData
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)
     handlerAnnouncePeriod (e :: SomeException) =
         logWarning $
-            formatSingle' "Error occurred in communicating with mintette {}" e
+        formatSingle' "Error occurred in communicating with mintette {}" e
 
 getPeriodResults :: Mintettes -> PeriodId -> IO [Maybe PeriodResult]
 getPeriodResults mts pId = do

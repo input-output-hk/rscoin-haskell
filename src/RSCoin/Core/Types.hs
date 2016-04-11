@@ -23,14 +23,17 @@ module RSCoin.Core.Types
        , Pset
        , HBlock (..)
        , NewPeriodData (..)
+       , formatNewPeriodData
        ) where
 
 import           Control.Arrow          (first)
 import           Data.Binary            (Binary (get, put), Get, Put)
 import qualified Data.Map               as M
+import           Data.Maybe             (fromJust, isJust)
 import           Data.SafeCopy          (base, deriveSafeCopy)
 import           Data.Text.Buildable    (Buildable (build))
 import qualified Data.Text.Format       as F
+import           Data.Text.Lazy.Builder (Builder)
 import           Data.Word              (Word8)
 
 import           Serokell.Util.Text     (listBuilderJSON, listBuilderJSONIndent,
@@ -270,18 +273,32 @@ instance Buildable [NewPeriodData] where
 instance Buildable (MintetteId, Utxo) where
     build = pairBuilder
 
+formatNewPeriodData :: Bool -> NewPeriodData -> Builder
+formatNewPeriodData withPayload NewPeriodData{..}
+  | withPayload && isJust npdNewIdPayload =
+      F.build
+          templateWithPayload
+          (npdPeriodId, npdMintettes, fromJust npdNewIdPayload, npdHBlock)
+  | otherwise =
+      F.build templateWithoutPayload (npdPeriodId, npdMintettes, npdHBlock)
+  where
+    templateWithPayload =
+        mconcat
+            [ "NewPeriodData {\n"
+            , "  periodId: {}\n"
+            , "  mintettes: {}\n"
+            , "  newIdPayload: {}\n"
+            , "  HBlock: {}\n"
+            , "}\n"]
+    templateWithoutPayload =
+        mconcat
+            [ "NewPeriodData {\n"
+            , "  periodId: {}\n"
+            , "  mintettes: {}\n"
+            , "  HBlock: {}\n"
+            , "}\n"]
+
 instance Buildable NewPeriodData where
-    build NewPeriodData{..} =
-        F.build template (npdPeriodId, listBuilderJSON npdMintettes, npdNewIdPayload, npdHBlock)
-      where
-        template =
-            mconcat
-                [ "NewPeriodData {\n"
-                , "  periodId: {}\n"
-                , "  mintettes: {}\n"
-                , "  newIdPayload: {}\n"
-                , "  HBlock: {}\n"
-                , "}\n"
-                ]
+    build = formatNewPeriodData True
 
 $(deriveSafeCopy 0 'base ''NewPeriodData)

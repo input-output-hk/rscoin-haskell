@@ -83,7 +83,7 @@ instance Buildable ActionLogHead where
 
 -- | ActionLogHeads is a map containing head for each mintette with whom
 -- the particular mintette has indirectly interacted.
-type ActionLogHeads = M.Map Mintette ActionLogHead
+type ActionLogHeads = M.Map PublicKey ActionLogHead
 
 -- | CheckConfirmation is a confirmation received by user from mintette as
 -- a result of CheckNotDoubleSpent action.

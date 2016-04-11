@@ -22,9 +22,9 @@ module RSCoin.Mintette.Storage
        ) where
 
 import           Control.Applicative        ((<|>))
-import           Control.Lens               (Getter, makeLenses, to, use, uses,
-                                             view, (%=), (+=), (.=), (<>=),
-                                             (<~))
+import           Control.Lens               (Getter, at, makeLenses, to, use,
+                                             uses, view, (%=), (+=), (.=),
+                                             (<>=), (<~))
 import           Control.Monad              (unless, when)
 import           Control.Monad.Catch        (MonadThrow (throwM))
 import           Control.Monad.Reader.Class (MonadReader)
@@ -37,13 +37,10 @@ import           Data.Tuple.Select          (sel1)
 import           Safe                       (atMay, headMay)
 
 import           RSCoin.Core                (ActionLog, ActionLogHeads, AddrId,
-                                             CheckConfirmation (..),
-                                             CheckConfirmations,
-                                             CommitConfirmation, Dpk, Hash,
-                                             LBlock, MintetteId, Mintettes,
-                                             PeriodId, Pset, SecretKey,
-                                             Signature, Transaction (..), Utxo,
-                                             actionLogNext,
+                                             Hash, LBlock, MintetteId,
+                                             Mintettes, PeriodId, Pset,
+                                             SecretKey, Signature,
+                                             Transaction (..), Utxo,
                                              computeOutputAddrids,
                                              derivePublicKey, hbTransactions,
                                              isOwner, mkCheckConfirmation,
@@ -65,7 +62,7 @@ data Storage = Storage
     , _mintettes     :: Mintettes          -- ^ Mintettes for current period
     , _mintetteId    :: Maybe MintetteId   -- ^ Id for current period
     , _invMintetteId :: Maybe MintetteId   -- ^ Invariant for mintetteId
-    , _dpk           :: Dpk                -- ^ DPK for current period
+    , _dpk           :: C.Dpk              -- ^ DPK for current period
     , _logHeads      :: ActionLogHeads     -- ^ All known heads of logs
     , _lastBankHash  :: Maybe Hash         -- ^ Hash of the last HBlock
     }
@@ -132,7 +129,7 @@ checkNotDoubleSpent :: SecretKey
                     -> Transaction
                     -> AddrId
                     -> Signature
-                    -> ExceptUpdate CheckConfirmation
+                    -> ExceptUpdate C.CheckConfirmation
 checkNotDoubleSpent sk tx addrId sg = do
     checkIsActive
     checkTxSum tx
@@ -162,25 +159,26 @@ checkNotDoubleSpent sk tx addrId sg = do
         return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
 
 -- | Check that transaction is valid and whether it falls within
--- mintette's remit.
--- If it's true, add transaction to storage and return signed confirmation.
--- TODO: update logHeads
+-- mintette's remit.  If it's true, add transaction to storage and
+-- return signed confirmation.
 commitTx :: SecretKey
          -> Transaction
          -> PeriodId
-         -> CheckConfirmations
-         -> ExceptUpdate CommitConfirmation
+         -> C.CheckConfirmations
+         -> ExceptUpdate C.CommitConfirmation
 commitTx sk tx@Transaction{..} pId bundle = do
     checkIsActive
     checkPeriodId pId
     checkTxSum tx
     mts <- use mintettes
     mId <- fromJust <$> use mintetteId
-    unless (C.isOwner mts (C.hash tx) mId) $
-        throwM $ MEInconsistentRequest "I'm not an owner!"
+    unless (C.isOwner mts (C.hash tx) mId) $ throwM $
+        MEInconsistentRequest "I'm not an owner!"
     curDpk <- use dpk
     isConfirmed <- and <$> mapM (checkInputConfirmed mts curDpk) txInputs
-    commitTxChecked isConfirmed sk tx bundle
+    res <- commitTxChecked isConfirmed sk tx bundle
+    mapM_ (updateLogHeads curDpk) $ M.assocs bundle
+    return res
   where
     checkInputConfirmed mts curDpk addrid = do
         let addridOwners = owners mts (sel1 addrid)
@@ -193,19 +191,26 @@ commitTx sk tx@Transaction{..} pId bundle = do
                 M.lookup (owner, addrid) bundle
             filtered = filter ownerConfirmed addridOwners
         return (length filtered > length addridOwners `div` 2)
-    verifyDpk curDpk ownerId CheckConfirmation{..} =
+    verifyDpk curDpk ownerId C.CheckConfirmation{..} =
         maybe
             False
             (\(k,_) ->
                   ccMintetteKey == k) $
-        curDpk `atMay` ownerId
+        curDpk `atMay`
+        ownerId
+    updateLogHeads curDpk ((mId,_),C.CheckConfirmation{..}) =
+        maybe (return ()) (updateLogHeadsDo mId ccHead . fst) $ curDpk `atMay`
+        mId
+    updateLogHeadsDo mId lh pk = do
+        myId <- fromJust <$> use mintetteId
+        unless (mId == myId) $ logHeads . at pk .= Just lh
 
 commitTxChecked
     :: Bool
     -> SecretKey
     -> Transaction
-    -> CheckConfirmations
-    -> ExceptUpdate CommitConfirmation
+    -> C.CheckConfirmations
+    -> ExceptUpdate C.CommitConfirmation
 commitTxChecked False _ _ _ = throwM MENotConfirmed
 commitTxChecked True sk tx bundle = do
     pushLogEntry $ C.CommitEntry tx bundle
@@ -317,7 +322,7 @@ pushLogEntry :: C.ActionLogEntry -> Update ()
 pushLogEntry entry = do
     prev <- use logHead
     topLog <- head <$> use actionLogs
-    let newTopLog = actionLogNext prev entry : topLog
+    let newTopLog = C.actionLogNext prev entry : topLog
     actionLogs %= (\l -> newTopLog : tail l)
     logSize += 1
 

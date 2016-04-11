@@ -189,17 +189,16 @@ checkResult :: PeriodId
             -> Maybe PeriodResult
 checkResult expectedPid lastHBlock (r,key,storedLog) = do
     (pId,lBlocks,actionLog) <- r
-    let g1 = guard $ pId == expectedPid
-    let g2 = guard $ checkActionLog (headMay storedLog) actionLog
-    g1
-    g2
-    let logsToCheck = formLogsToCheck actionLog
+    guard $ pId == expectedPid
+    guard $ checkActionLog (headMay storedLog) actionLog
+    let logsToCheck =
+            formLogsToCheck $ dropWhile (not . isCloseEpoch) actionLog
     let g3 = length logsToCheck == length lBlocks
     guard g3
     mapM_
         (\(blk,lg) ->
               guard $ checkLBlock key (hbHash lastHBlock) lg blk) $
-        zip lBlocks (formLogsToCheck actionLog)
+        zip lBlocks logsToCheck
     r
   where
     formLogsToCheck = unfoldr step

@@ -247,7 +247,7 @@ withBlockchainUpdate newHeight transactions =
            getByAddress address =
                fromJust $
                find ((==) address . Address . _publicAddress) ownedAddressesRaw
-           removeSomeTransactions tx@Transaction{..} = do
+           removeSomeTransactions Transaction{..} = do
                (savedTransactions :: [(UserAddress, (Transaction, AddrId))]) <-
                    concatMap
                        (\(addr,txs) ->
@@ -265,7 +265,7 @@ withBlockchainUpdate newHeight transactions =
                                      savedTransactions)
                            txInputs
                forM_ toRemove $
-                   \d@(useraddr,pair') ->
+                   \(useraddr,pair') ->
                             inputAddressesTxs %= M.adjust (delete pair') useraddr
        forM_ transactions addSomeTransactions
        forM_ transactions removeSomeTransactions

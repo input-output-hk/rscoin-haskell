@@ -55,7 +55,7 @@ import           RSCoin.Bank.Error         (BankError (..))
 -- | DeadMintetteState represents state of mintette which was removed
 -- from storage. It's needed to restore data if mintette resurrects.
 data DeadMintetteState = DeadMintetteState
-    { _dmsActionLog :: ActionLog
+    { dmsActionLog :: ActionLog
     }
 
 type DeadMintetteMap = MP.Map PublicKey DeadMintetteState
@@ -349,27 +349,40 @@ replaceWithCare' (bad:bads) (pendh:pends) list acc =
         (list & ix bad .~ pendh)
         (bad : acc)
 
-updateMintettes :: SecretKey -> [(MintetteId, PeriodResult)] -> ExceptUpdate [MintetteId]
+-- type MintetteInfo = (Mintette, (PublicKey, Signature), ActionLog)
+updateMintettes :: SecretKey
+                -> [(MintetteId, PeriodResult)]
+                -> ExceptUpdate [MintetteId]
 updateMintettes sk goodMintettes = do
-    let (goodIndices,goodResults) = unzip goodMintettes
-    existing <- use mintettes
-    pending <- use pendingMintettes
-    let badIndices = [0 .. length existing - 1] \\ goodIndices
-        (newMintettes,updatedIndices) =
-            replaceWithCare badIndices (map fst pending) existing
+    pendingPairs <- use pendingMintettes
+    let pendingMts = map fst pendingPairs
+        pendingDpk = map doSign pendingPairs
+    pendingLogs <- formPendingLogs pendingPairs
+    existingMts <- use mintettes
+    existingDpk <- use dpk
+    appendNewLogs
+    existingLogs <- use actionLogs
+    let pendingMintetteInfo = zip3 pendingMts pendingDpk pendingLogs
+        existingMintetteInfo = zip3 existingMts existingDpk existingLogs
+        badIndices = [0 .. length existingMintetteInfo - 1] \\ goodIndices
+        (newMintetteInfo,updatedIndices) =
+            replaceWithCare badIndices pendingMintetteInfo existingMintetteInfo
+        (newMintettes,newDpk,newActionLogs) = unzip3 newMintetteInfo
     storeDeadState badIndices
-    mintettes .= newMintettes
     pendingMintettes .= []
-    currentDpk <- use dpk
-    dpk .= map (currentDpk !!) goodIndices ++ map doSign pending
-    currentLogs <- use actionLogs
-    actionLogs .= map (appendNewLog currentLogs) (zip goodIndices goodResults) ++
-        replicate (length pending) []
+    mintettes .= newMintettes
+    dpk .= newDpk
+    actionLogs .= newActionLogs
     return updatedIndices
   where
+    goodIndices = map fst goodMintettes
     doSign (_,mpk) = (mpk, sign sk mpk)
-    appendNewLog :: [ActionLog] -> (MintetteId, PeriodResult) -> ActionLog
-    appendNewLog currentLogs (i,(_,_,newLog)) = newLog ++ currentLogs !! i
+    formPendingLogs pendingPairs = do
+        dm <- use deadMintettes
+        return $
+            map (maybe [] dmsActionLog . flip MP.lookup dm . snd) pendingPairs
+    appendNewLogs = mapM_ appendNewLogDo goodMintettes
+    appendNewLogDo (idx,(_,_,newLog)) = actionLogs . ix idx %= (newLog ++)
 
 storeDeadState :: [MintetteId] -> ExceptUpdate ()
 storeDeadState badIndices = do

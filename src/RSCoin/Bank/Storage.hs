@@ -53,13 +53,44 @@ import           RSCoin.Bank.Error         (BankError (..))
 
 -- | Storage contains all the data used by Bank
 data Storage = Storage
-    { _mintettes        :: Mintettes
-    , _pendingMintettes :: [(Mintette, PublicKey)]
-    , _periodId         :: PeriodId
-    , _blocks           :: [HBlock]
-    , _utxo             :: Utxo
-    , _dpk              :: Dpk
-    , _actionLogs       :: [ActionLog]
+    { _mintettes        :: Mintettes                -- ^ List of
+                                                    -- active
+                                                    -- mintettes.
+    , _pendingMintettes :: [(Mintette, PublicKey)]  -- ^ List of
+                                                    -- mintettes which
+                                                    -- were added in
+                                                    -- current period
+                                                    -- and will become active for the next period.
+    , _periodId         :: PeriodId                 -- ^ Id of ongoing
+                                                    -- period. Doesn't
+                                                    -- mean anything
+                                                    -- if there is no
+                                                    -- active period.
+    , _blocks           :: [HBlock]                 -- ^ List of all
+                                                    -- blocks from the
+                                                    -- very
+                                                    -- beginning. Head
+                                                    -- of this list is
+                                                    -- the most recent
+                                                    -- block.
+    , _utxo             :: Utxo                     -- ^ Utxo for all
+                                                    -- the transaction
+                                                    -- ever made.
+    , _dpk              :: Dpk                      -- ^ DPK set for
+                                                    -- the ongoing
+                                                    -- period. Doesn't
+                                                    -- mean anything
+                                                    -- if there is no
+                                                    -- active period.
+    , _actionLogs       :: [ActionLog]              -- ^ Mintettes'
+                                                    -- action
+                                                    -- logs. actionLogs[i]
+                                                    -- stores action
+                                                    -- log for i-th
+                                                    -- mintette. Head
+                                                    -- of action log
+                                                    -- is the most
+                                                    -- recent entry.
     } deriving (Typeable)
 
 $(makeLenses ''Storage)

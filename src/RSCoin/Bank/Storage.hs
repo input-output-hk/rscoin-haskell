@@ -7,7 +7,8 @@
 -- | Storage for Bank data
 
 module RSCoin.Bank.Storage
-       ( Storage
+       ( DeadMintetteState
+       , Storage
        , mkStorage
        , Query
        , Update
@@ -51,6 +52,14 @@ import           RSCoin.Core               (ActionLog,
 
 import           RSCoin.Bank.Error         (BankError (..))
 
+-- | DeadMintetteState represents state of mintette which was removed
+-- from storage. It's needed to restore data if mintette resurrects.
+data DeadMintetteState = DeadMintetteState
+    { _dmsActionLog :: ActionLog
+    }
+
+type DeadMintetteMap = MP.Map PublicKey DeadMintetteState
+
 -- | Storage contains all the data used by Bank
 data Storage = Storage
     { _mintettes        :: Mintettes                -- ^ List of
@@ -91,13 +100,26 @@ data Storage = Storage
                                                     -- of action log
                                                     -- is the most
                                                     -- recent entry.
+    , _deadMintettes    :: DeadMintetteMap          -- ^ State of all
+                                                    -- known dead
+                                                    -- mintettes.
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
 
 -- | Make empty storage
 mkStorage :: Storage
-mkStorage = Storage [] [] 0 [] MP.empty [] []
+mkStorage =
+    Storage
+    { _mintettes = []
+    , _pendingMintettes = []
+    , _periodId = 0
+    , _blocks = []
+    , _utxo = MP.empty
+    , _dpk = []
+    , _actionLogs = []
+    , _deadMintettes = MP.empty
+    }
 
 type Query a = Getter Storage a
 
@@ -303,22 +325,25 @@ formPayload mintettes' changedId = do
                      changedId)
     return payload
 
--- Given the list of bad indeces, new list to append, data list, and
--- generator (use []), this function returns datalist with appended
--- data and removed bad indeces so that number of elements that change
--- their place is minimized.
-replaceWithCare :: [Int] -> [a] -> [a] -> [Int] -> ([a], [Int])
-replaceWithCare [] [] list acc = (list, acc)
-replaceWithCare [] pending list acc =
+-- Given the list of bad indices, new list to append and data list,
+-- this function returns datalist with appended data and removed bad
+-- indices so that number of elements that change their place is
+-- minimized.
+replaceWithCare :: [Int] -> [a] -> [a] -> ([a], [Int])
+replaceWithCare bad new old = replaceWithCare' bad new old []
+
+replaceWithCare' :: [Int] -> [a] -> [a] -> [Int] -> ([a], [Int])
+replaceWithCare' [] [] list acc = (list, acc)
+replaceWithCare' [] pending list acc =
     (list ++ pending, acc ++ [length list .. length list + length pending - 1])
-replaceWithCare (bad:bads) [] list acc =
-    replaceWithCare
+replaceWithCare' (bad:bads) [] list acc =
+    replaceWithCare'
         bads
         []
         (take (length list - 1) list & ix bad .~ last list)
         (bad : acc)
-replaceWithCare (bad:bads) (pendh:pends) list acc =
-    replaceWithCare
+replaceWithCare' (bad:bads) (pendh:pends) list acc =
+    replaceWithCare'
         bads
         pends
         (list & ix bad .~ pendh)
@@ -331,7 +356,8 @@ updateMintettes sk goodMintettes = do
     pending <- use pendingMintettes
     let badIndices = [0 .. length existing - 1] \\ goodIndices
         (newMintettes,updatedIndices) =
-            replaceWithCare badIndices (map fst pending) existing []
+            replaceWithCare badIndices (map fst pending) existing
+    storeDeadState badIndices
     mintettes .= newMintettes
     pendingMintettes .= []
     currentDpk <- use dpk
@@ -344,3 +370,13 @@ updateMintettes sk goodMintettes = do
     doSign (_,mpk) = (mpk, sign sk mpk)
     appendNewLog :: [ActionLog] -> (MintetteId, PeriodResult) -> ActionLog
     appendNewLog currentLogs (i,(_,_,newLog)) = newLog ++ currentLogs !! i
+
+storeDeadState :: [MintetteId] -> ExceptUpdate ()
+storeDeadState badIndices = do
+    pks <- map fst <$> use dpk
+    logs <- use actionLogs
+    mapM_
+        (\i ->
+              deadMintettes %=
+              MP.insert (pks !! i) (DeadMintetteState $ logs !! i))
+        badIndices

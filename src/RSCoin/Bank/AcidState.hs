@@ -32,6 +32,7 @@ import qualified RSCoin.Bank.Storage as BS
 
 type State = AcidState BS.Storage
 
+$(deriveSafeCopy 0 'base ''BS.DeadMintetteState)
 $(deriveSafeCopy 0 'base ''BS.Storage)
 
 openState :: FilePath -> IO State

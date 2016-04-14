@@ -12,16 +12,20 @@ module RSCoin.Bank.StorageSpec
        ( spec
        ) where
 
-import           Control.Exception     (throw)
-import           Control.Monad         (void)
-import           Control.Monad.Except  (runExceptT)
-import           Control.Monad.State   (runState)
-import           Control.Monad.Trans   (lift)
-import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary (arbitrary), Gen, frequency)
+import           Control.Exception          (throw)
+import           Control.Monad              (void)
+import           Control.Monad.Catch        (MonadThrow)
+import           Control.Monad.Except       (runExceptT)
+import           Control.Monad.State        (runState, State)
+import           Control.Monad.State.Class  (MonadState)
+import           Control.Monad.Trans        (lift)
+import           Control.Monad.Trans.Except (ExceptT)
+import           Test.Hspec                 (Spec, describe)
+import           Test.Hspec.QuickCheck      (prop)
+import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
 
 import qualified RSCoin.Bank.Storage   as S
+import qualified RSCoin.Bank.Error     as S
 import qualified RSCoin.Core           as C
 
 import           RSCoin.Core.Arbitrary ()
@@ -33,7 +37,10 @@ spec =
         return ()
             -- prop "Increments periodId" startNewPeriodIncrementsPeriodId
 
-type Update a = S.ExceptUpdate a
+newtype Update a =
+    Update { getUpdate :: ExceptT S.BankError (State S.Storage) a }
+    deriving (MonadState S.Storage, Monad, Applicative, Functor)
+
 type UpdateVoid = Update ()
 
 class CanUpdate a where
@@ -81,9 +88,9 @@ instance Show StorageAndKey where
 -- execUpdate u = snd . runUpdate u
 -- 
 -- runUpdate :: Update a -> S.Storage -> (a, S.Storage)
-runUpdate upd storage = either throw (, newStorage) res
-  where
-    (res, newStorage) = runState (runExceptT upd) storage
+--runUpdate upd storage = either throw (, newStorage) res
+--  where
+--    (res, newStorage) = runState (runExceptT upd) storage
 
 -- startNewPeriodIncrementsPeriodId :: StorageAndKey -> Bool
 -- startNewPeriodIncrementsPeriodId = const True

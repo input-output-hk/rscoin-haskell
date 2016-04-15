@@ -49,9 +49,9 @@ library
                      , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
                      , RSCoin.Mintette.Worker
-                     , RSCoin.Test.Timing
+                     , RSCoin.Test.MonadTimed
                      , RSCoin.Test.Emulation
-                     , RSCoin.Test.Rpc
+                     , RSCoin.Test.RpcMonad
   build-depends:       acid-state
                      , aeson >= 0.9.0.1
                      , base >=4.8 && <4.9

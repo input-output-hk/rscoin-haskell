@@ -27,30 +27,33 @@ import           Control.Lens              (Getter, ix, makeLenses, to, use,
 import           Control.Monad             (forM_, guard, unless)
 import           Control.Monad.Catch       (MonadThrow (throwM))
 import           Control.Monad.State.Class (MonadState)
+import           Data.Bifunctor            (first)
 import qualified Data.HashMap.Lazy         as M
 import qualified Data.HashSet              as S
 import           Data.List                 (unfoldr, (\\))
 import qualified Data.Map                  as MP
 import           Data.Maybe                (mapMaybe)
+import           Data.Tuple.Select         (sel3)
 import           Data.Typeable             (Typeable)
 import           Safe                      (atMay, headMay)
 
 import           RSCoin.Core               (ActionLog,
                                             ActionLogEntry (CloseEpochEntry),
-                                            AddrId, Address (..), Coin (..),
-                                            Dpk, HBlock (..), Mintette,
-                                            MintetteId, Mintettes,
-                                            NewPeriodData (..), PeriodId,
-                                            PeriodResult, PublicKey, SecretKey,
-                                            Transaction (..), Utxo,
+                                            AddrId, Address (..), Dpk,
+                                            HBlock (..), Mintette, MintetteId,
+                                            Mintettes, NewPeriodData (..),
+                                            PeriodId, PeriodResult, PublicKey,
+                                            SecretKey, Transaction (..), Utxo,
                                             checkActionLog, checkLBlock,
                                             computeOutputAddrids,
                                             derivePublicKey, emissionHash, hash,
                                             lbTransactions, mkGenesisHBlock,
-                                            mkHBlock, owners, periodReward,
-                                            sign)
+                                            mkHBlock, owners, sign)
+
+import           Serokell.Util             (enumerate)
 
 import           RSCoin.Bank.Error         (BankError (..))
+import qualified RSCoin.Bank.Strategies    as Strategies
 
 -- | DeadMintetteState represents state of mintette which was removed
 -- from storage. It's needed to restore data if mintette resurrects.
@@ -198,20 +201,20 @@ startNewPeriodDo sk pId results = do
         throwM $
         BEInconsistentResponse
             "Length of keys is different from the length of results"
+    mts <- use mintettes
     let checkedResults =
             map (checkResult pId lastHBlock) $ zip3 results keys logs
-    let filteredResults =
+        filteredResults =
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
-    mts <- use mintettes
-    let pk = derivePublicKey sk
-    let blockTransactions =
+        blockTransactions =
             allocateCoins pk keys filteredResults pId :
             mergeTransactions mts filteredResults
     startNewPeriodFinally
-            sk
-            filteredResults
-            (mkHBlock blockTransactions lastHBlock)
+        sk
+        filteredResults
+        (mkHBlock blockTransactions lastHBlock)
   where
+    pk = derivePublicKey sk
     filterCheckedResults (idx,mres) = (idx, ) <$> mres
 
 startNewPeriodFinally :: SecretKey
@@ -264,23 +267,22 @@ allocateCoins :: PublicKey
               -> PeriodId
               -> Transaction
 allocateCoins pk mintetteKeys goodResults pId =
-    Transaction{..}
+    Transaction
+    { txInputs = [(emissionHash pId, 0, inputValue)]
+    , txOutputs = (bankAddress, bankReward) : mintetteOutputs
+    }
   where
     bankAddress = Address pk
-    awarded = map fst $ filter checkParticipation goodResults
-    checkParticipation (_, (_, blks, _)) = checkParticipationBlocks blks
-    checkParticipationBlocks [] = False
-    checkParticipationBlocks (block:blks) =
-        (not $ null $ lbTransactions block) || checkParticipationBlocks blks
-    awardedCnt = fromIntegral $ length awarded
-    mintetteReward = getCoin periodReward `div` (awardedCnt + 1)
-    bankReward = getCoin periodReward - awardedCnt * mintetteReward
+    (bankReward,goodMintetteRewards) =
+        Strategies.allocateCoins
+            Strategies.AllocateCoinsDefault
+            pId
+            (map sel3 . map snd $ goodResults)
+    inputValue = sum (bankReward : goodMintetteRewards)
+    idxInGoodToGlobal idxInGood = fst $ goodResults !! idxInGood
     mintetteOutputs =
-        map
-            (\idx -> (Address (mintetteKeys !! idx), Coin mintetteReward))
-            awarded
-    txOutputs = (bankAddress, Coin bankReward) : mintetteOutputs
-    txInputs = [(emissionHash pId, 0, periodReward)]
+        map (first $ Address . (mintetteKeys !!) . idxInGoodToGlobal) $
+        enumerate goodMintetteRewards
 
 mergeTransactions :: Mintettes -> [(MintetteId, PeriodResult)] -> [Transaction]
 mergeTransactions mts goodResults =

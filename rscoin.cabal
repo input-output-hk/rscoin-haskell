@@ -38,6 +38,7 @@ library
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Error
                      , RSCoin.Bank.Server
+                     , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Aeson
                      , RSCoin.Core.Communication

@@ -27,7 +27,7 @@ import           RSCoin.Core.Crypto  (Hash, PublicKey)
 -- We use very simple model at this point.
 newtype Coin = Coin
     { getCoin :: Int64
-    } deriving (Show, Binary, Num, Eq, Ord, Hashable)
+    } deriving (Show, Binary, Num, Eq, Ord, Hashable, Integral, Enum, Real)
 
 instance Buildable Coin where
     build (Coin c) = mconcat [build c, " coin(s)"]

@@ -83,19 +83,19 @@ newtype StorageAndKey = StorageAndKey
 instance Show StorageAndKey where
   show = const "StorageAndKey"
 
--- instance Arbitrary StorageAndKey where
---     arbitrary = do
---         sk <- arbitrary
---         SomeUpdate upd <- arbitrary
---         return . StorageAndKey . (, sk) $ execUpdate (doUpdate upd) S.mkStorage
--- 
--- execUpdate :: Update a -> S.Storage -> S.Storage
--- execUpdate u = snd . runUpdate u
--- 
--- runUpdate :: Update a -> S.Storage -> (a, S.Storage)
---runUpdate upd storage = either throw (, newStorage) res
---  where
---    (res, newStorage) = runState (runExceptT upd) storage
+instance Arbitrary StorageAndKey where
+    arbitrary = do
+        sk <- arbitrary
+        SomeUpdate upd <- arbitrary
+        return . StorageAndKey . (, sk) $ execUpdate (doUpdate upd) S.mkStorage
 
--- startNewPeriodIncrementsPeriodId :: StorageAndKey -> Bool
--- startNewPeriodIncrementsPeriodId = const True
+execUpdate :: Update a -> S.Storage -> S.Storage
+execUpdate u = snd . runUpdate u
+
+runUpdate :: Update a -> S.Storage -> (a, S.Storage)
+runUpdate upd storage = either throw (, newStorage) res
+  where
+    (res, newStorage) = runState (runExceptT $ getUpdate upd) storage
+
+startNewPeriodIncrementsPeriodId :: StorageAndKey -> Bool
+startNewPeriodIncrementsPeriodId = const True

@@ -12,20 +12,20 @@ module RSCoin.Bank.StorageSpec
        ( spec
        ) where
 
-import           Control.Exception          (throw)
+import           Control.Exception          (throw, fromException)
 import           Control.Monad              (void)
-import           Control.Monad.Catch        (MonadThrow)
+import           Control.Monad.Catch        (MonadThrow (throwM), SomeException (..))
 import           Control.Monad.Except       (runExceptT)
 import           Control.Monad.State        (runState, State)
 import           Control.Monad.State.Class  (MonadState)
 import           Control.Monad.Trans        (lift)
-import           Control.Monad.Trans.Except (ExceptT)
+import           Control.Monad.Trans.Except (ExceptT, throwE)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
 
-import qualified RSCoin.Bank.Storage   as S
 import qualified RSCoin.Bank.Error     as S
+import qualified RSCoin.Bank.Storage   as S
 import qualified RSCoin.Core           as C
 
 import           RSCoin.Core.Arbitrary ()
@@ -40,6 +40,11 @@ spec =
 newtype Update a =
     Update { getUpdate :: ExceptT S.BankError (State S.Storage) a }
     deriving (MonadState S.Storage, Monad, Applicative, Functor)
+
+instance MonadThrow Update where
+    throwM e = Update . maybe (throw e') throwE $ fromException e'
+      where
+        e' = SomeException e
 
 type UpdateVoid = Update ()
 

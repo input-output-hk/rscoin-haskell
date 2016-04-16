@@ -50,8 +50,7 @@ library
                      , RSCoin.Mintette.Storage
                      , RSCoin.Mintette.Worker
                      , RSCoin.Test.MonadTimed
-                     , RSCoin.Test.Emulation
-                     , RSCoin.Test.RpcMonad
+                     , RSCoin.Test.MonadRpc
   build-depends:       acid-state
                      , aeson >= 0.9.0.1
                      , base >=4.8 && <4.9
@@ -71,6 +70,7 @@ library
                      , lens
                      , mtl
                      , MonadRandom
+                     , pqueue
                      , QuickCheck >= 2.8.1
                      , random
                      , safe

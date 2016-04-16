@@ -22,9 +22,8 @@ module RSCoin.Test.MonadTimed
 
 import           Control.Concurrent       (threadDelay, forkIO)
 import           Control.Monad            (void)
-import           Control.Monad.Trans      (liftIO, lift)
+import           Control.Monad.Trans      (liftIO, lift, MonadIO)
 import           Control.Monad.Reader     (ReaderT, runReaderT, ask)
-import           Control.Monad.State      (StateT, evalStateT, get)
 import           Data.Time.Clock.POSIX    (getPOSIXTime)
 
 -- Examples (wtf, they produce "not used" warnings, what should I do?)
@@ -63,35 +62,37 @@ class Monad m => MonadTimed m where
     invoke :: RelativeToNow -> m a -> m a
 
 -- FIXME: is that ok to store rounded value?
-type Timed a  =  ReaderT MicroSeconds IO a
+newtype Timed a  =  Timed 
+    { getTimed :: ReaderT MicroSeconds IO a
+    } deriving (Functor, Applicative, Monad, MonadIO)
 
-instance MonadTimed (ReaderT MicroSeconds IO) where
-    schedule timeMod action  =  do
+instance MonadTimed Timed where
+    schedule timeMod action  =  Timed $ do
         origin <- ask
         liftIO $ void $ forkIO $ do
             cur <- curTime
             threadDelay $ timeMod (cur - origin) - (cur - origin)
-            void $ runReaderT action origin
+            void $ runReaderT (getTimed action) origin
  
-    invoke timeMod  =  (>>) $ do
+    invoke timeMod action  =  Timed $ do
         origin <- ask
         liftIO $ do
             cur <- curTime
             threadDelay $ timeMod (cur - origin) - (cur - origin)
+        getTimed action
 
-instance MonadTimed t => MonadTimed (StateT s t) where
+instance MonadTimed m => MonadTimed (ReaderT r m) where
     -- In most cases we can just fork the state
     schedule timeMod action  =         
-        lift . schedule timeMod . evalStateT action =<< get
+        lift . schedule timeMod . runReaderT action =<< ask
 
     -- Lower monad will not affect state
     invoke timeMod action  =  
-        lift . invoke timeMod . evalStateT action =<< get
-        
-
+        lift . invoke timeMod . runReaderT action =<< ask
+ 
 -- | Launches this timed action
 start :: Timed a -> IO a
-start  =  (curTime >>= ) . runReaderT
+start  =  (curTime >>= ) . runReaderT . getTimed
 
 -- | Launches this timed action, ignoring the result
 start_ ::  Timed a -> IO ()

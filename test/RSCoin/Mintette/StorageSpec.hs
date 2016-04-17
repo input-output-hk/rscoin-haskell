@@ -30,19 +30,26 @@ import qualified RSCoin.Mintette.Storage   as S
 import qualified RSCoin.Core               as C
 
 import           RSCoin.Core.Arbitrary ()
+import qualified RSCoin.Core.Storage       as T
 
 spec :: Spec
 spec =
     describe "Mintette storage" $ do
         return ()
 
-newtype Update e s a =
-    Update { getUpdate :: ExceptT e (State s) a }
-    deriving (MonadState s, Monad, Applicative, Functor)
+type Update = T.Update S.MintetteError S.Storage
+type UpdateVoid = Update ()
 
-type Bla = Update S.MintetteError S.Storage
+class CanUpdate a where
+    doUpdate :: a -> UpdateVoid
 
-instance Exception e => MonadThrow (Update e s) where
-    throwM e = Update . maybe (throw e') throwE $ fromException e'
-      where
-        e' = SomeException e
+data SomeUpdate = forall a . CanUpdate a => SomeUpdate a
+
+data EmptyUpdate = EmptyUpdate
+    deriving Show
+
+instance Arbitrary EmptyUpdate where
+    arbitrary = pure EmptyUpdate
+
+instance CanUpdate EmptyUpdate where
+    doUpdate _ = return ()

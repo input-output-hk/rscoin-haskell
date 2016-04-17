@@ -163,6 +163,7 @@ test-suite rscoin-test
   main-is:             Test.hs
   other-modules:       RSCoin.Bank.StorageSpec
                      , RSCoin.Mintette.StorageSpec
+                     , RSCoin.StorageSpec
                      , RSCoin.Core.Storage
                      , RSCoin.Core.Arbitrary
                      , RSCoin.Core.CryptoSpec

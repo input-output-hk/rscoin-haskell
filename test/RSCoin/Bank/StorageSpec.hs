@@ -11,6 +11,8 @@
 
 module RSCoin.Bank.StorageSpec
        ( spec
+       , Update
+       , UpdateVoid
        ) where
 
 import           Control.Monad              (void)

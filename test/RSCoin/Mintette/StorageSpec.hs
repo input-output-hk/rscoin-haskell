@@ -11,8 +11,11 @@
 
 module RSCoin.Mintette.StorageSpec
        ( spec
+       , Update
+       , UpdateVoid
        ) where
 
+import           Control.Monad              (void)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
@@ -49,15 +52,31 @@ instance CanUpdate EmptyUpdate where
 data CheckNotDoubleSpent = CheckNotDoubleSpent C.SecretKey C.Transaction C.AddrId C.Signature
     deriving Show
 
+data FinishPeriod = FinishPeriod C.SecretKey C.PeriodId
+    deriving Show
+
+instance Arbitrary FinishPeriod where
+    arbitrary = FinishPeriod <$> arbitrary <*> arbitrary
+
+instance CanUpdate FinishPeriod where
+    doUpdate (FinishPeriod sk pId) = void $ S.finishPeriod sk pId
+
+-- data StartPeriod = StartPeriod C.NewPeriodData
+--     deriving Show
+-- 
+-- instance CanUpdate StartPeriod where
+--     doUpdate (StartPeriod pd) = void $ S.startPeriod pd
+-- 
 instance Arbitrary SomeUpdate where
     arbitrary =
         frequency
             [ (1, SomeUpdate <$> (arbitrary :: Gen EmptyUpdate))
-            --, (10, SomeUpdate <$> (arbitrary :: Gen CheckNotDoubleSpent))
+            , (10, SomeUpdate <$> (arbitrary :: Gen FinishPeriod))
+--            , (10, SomeUpdate <$> (arbitrary :: Gen StartPeriod))
             ]
 
 newtype StorageAndKey = StorageAndKey
-    { getStorageAndKey :: (S.Storage, C.SecretKey)
+    { getStorageAndKey :: (S.Storage, C.SecretKey) -- TODO: maybe we won't  need a key here
     }
 
 instance Show StorageAndKey where

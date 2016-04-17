@@ -1,10 +1,11 @@
 module Main where
 
+import          Prelude                 hiding (log)
 import          Control.Monad.Trans     (liftIO, MonadIO)
 
 import          RSCoin.Test.MonadTimed  (wait, invoke, schedule, now
                                         , at, after, for, till, sec, minute
-                                        , MonadTimed, startTimedIO_)
+                                        , MonadTimed, startTimedIO_, localTime)
 import          RSCoin.Test.Timed       (startTimedT)
 
 main :: IO ()
@@ -19,17 +20,21 @@ sayHelloPure  =  startTimedT sayHello
 
 sayHello :: (MonadIO m, MonadTimed m) => m ()
 sayHello  =  do
-    invoke    now          $ liftIO $ putStrLn "Hello"
-    invoke   (at    1 sec) $ liftIO $ putStrLn "1 second passed"
+    invoke    now          $ log "Hello"
+    invoke   (at    1 sec) $ log "It's 1 second now"
 
-    liftIO                          $ putStrLn "Fork point"
-    schedule (after 5 sec) $ liftIO $ putStrLn "5 more seconds passed, now 6"
-    invoke   (after 2 sec) $ liftIO $ putStrLn "2 more seconds passed, now 3"
+    log                          "Fork point"
+    schedule (after 5 sec) $ log "5 more seconds passed"
+    invoke   (after 2 sec) $ log "2 more seconds passed"
 
     wait     (for   5 sec) 
-    liftIO $ putStrLn "Waited for 5 sec, now 8"
+    log "Waited for 5 sec, now 8"
     wait     (till 10 sec) 
-    liftIO $ putStrLn "Waited till 10-sec point"
+    log "Waited till 10-sec point"
 
-    schedule (at    2 sec 1 minute) $ liftIO $ putStrLn "Aha!"
+    schedule (at    2 sec 1 minute) $ log "Aha!"
  
+log :: (MonadIO m, MonadTimed m) => String -> m ()
+log msg  =  do
+    seconds <- ( / 1000000) . fromIntegral <$> localTime
+    liftIO $ putStrLn $ mconcat $ ["[", show seconds, "s] ", msg]

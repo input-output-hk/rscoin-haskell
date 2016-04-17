@@ -4,6 +4,7 @@ module RSCoin.Test.PureRpc
 
 import           RSCoin.Test.Timed           (TimedT(..))
 import           System.Random               (StdGen, mkStdGen)
+import           Control.Monad.Random        (RandT, evalRandT)
 
 newtype Delays = Delays 
     { -- | Just delay if net packet delivered successfully

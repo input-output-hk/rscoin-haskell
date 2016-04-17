@@ -8,30 +8,26 @@
 module RSCoin.Test.Timed
        ( TimedT
        , startTimedT
-       , runTimedT
        ) where
 
-import           Control.Applicative         ((<$>))
 import           Control.Monad               (void)
-import           Control.Monad.Random        (RandT, evalRandT)
-import           Control.Monad.State
-import           Control.Monad.Trans         (lift, liftIO)
-import           Control.Monad.Trans.Maybe   (MaybeT(..), runMaybeT)
+import           Control.Monad.State         (StateT, evalStateT, gets)
+import           Control.Monad.Trans         (lift, liftIO, MonadTrans, MonadIO)
+-- import           Control.Monad.Trans.Maybe   (runMaybeT)
 import           Control.Monad.Cont          (ContT(..), runContT)
 import           Control.Monad.Loops         (whileM)
-import           Data.Default                (Default, def)
-import           Control.Lens                ((+~), (&), (%~), (?~), (^.), (%=)
-                                             , (.=), makeLenses, at, view, _3
-                                             , to, use)
+-- import           Data.Default                (def)
+import           Control.Lens                ((%=), (.=), (^.), to, use
+                                             , makeLenses, makeLensesFor)
 import           Data.Ord                    (comparing) 
 import           Data.Maybe                  (fromJust)
 import           Data.Function               (on)
-import           Data.MessagePack.Object     (Object(..), MessagePack, toObject, fromObject)
 
 import qualified Data.PQueue.Min             as PQ
  
-import           RSCoin.Test.MonadTimed
-import           RSCoin.Test.MonadRpc
+import           RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds
+                                             , fork, wait, localTime, now
+                                             , schedule)
 
 type Timestamp = MicroSeconds
 
@@ -40,7 +36,7 @@ data Event m  =  Event
     { _timestamp :: Timestamp
     , _action    :: m ()
     } 
-$(makeLenses ''Event)
+$(makeLensesFor [("_action", "action")] ''Event)
     
 instance Eq (Event m) where
     (==)  =  (==) `on` _timestamp 
@@ -71,36 +67,40 @@ instance MonadIO m => MonadIO (TimedT m) where
     liftIO  =  TimedT . liftIO
 
 -- | Unwraps TimedT
-runTimedT :: Monad m => TimedT m () -> m ()
-runTimedT (TimedT t) = evalStateT (runContT t (void . return)) scenario
+runTimedT :: Monad m => TimedT m a -> m ()
+runTimedT (TimedT t) = evalStateT (runContT t (void . return)) Scenario{..}
   where
-    scenario = Scenario 
-        { _events    = PQ.empty
-        , _curTime   = 0
-        }
+    _events  = PQ.empty
+    _curTime = 0    
 
 -- | Starts timed evaluation. Finishes when no more scheduled actions remain.
-startTimedT :: Monad m => TimedT m () -> m ()
-startTimedT timed  =  runTimedT . (timed >>) . void . whileM notDone $ do
+startTimedT :: (Monad m, MonadIO m) => TimedT m () -> m ()
+startTimedT timed  =  runTimedT . (schedule now timed >> ) . void . whileM notDone $ do
     nextEv <- TimedT . lift $ do
         (ev, evs') <- fromJust . PQ.minView <$> use events
         events .= evs'
         return ev
     TimedT $ lift $ curTime .= _timestamp nextEv
-    nextEv ^. action
+ 
+    -- We can't just invoke (nextEv ^. action) here, because it can put
+    -- further execution to event queue, but we want to successfully finish 
+    -- this action and go to next iteration rather than loose execution control
+    let (TimedT act) = nextEv ^. action
+    TimedT $ lift $ runContT act return
   where
-    notDone :: Monad m => TimedT m Bool
-    notDone  =  TimedT . lift . use $ events . to PQ.null
+    notDone :: MonadIO m => TimedT m Bool
+    notDone  =  TimedT . lift . use $ events . to (not . PQ.null)
 
-instance Monad m => MonadTimed (TimedT m) where
+instance (Monad m, MonadIO m) => MonadTimed (TimedT m) where
     localTime = TimedT . lift $ gets _curTime
     
     fork _action  =  do
-        _timestamp  <- localTime
+        _timestamp <- localTime
         TimedT $ lift $ events %= PQ.insert Event{..}
 
-    wait timeMod  =  do
-        _timestamp <- timeMod <$> localTime
+    wait relativeToNow  =  do 
+        cur            <- localTime
+        let _timestamp =  cur + relativeToNow cur 
         TimedT $ ContT $ \following ->
             let _action = TimedT $ lift $ following ()
             in  events %= PQ.insert Event{..} 

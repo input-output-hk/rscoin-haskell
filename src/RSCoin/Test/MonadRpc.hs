@@ -15,9 +15,10 @@ import           Control.Monad.Trans           (MonadIO, liftIO)
 
 import qualified Network.MessagePack.Client as C
 import qualified Network.MessagePack.Server as S
-import           Data.MessagePack
 
 import           RSCoin.Test.MonadTimed (TimedIO, MonadTimed, RelativeToNow)
+
+import           Data.MessagePack.Object     (Object(..), MessagePack, toObject, fromObject)
 
 type Port = Int
 

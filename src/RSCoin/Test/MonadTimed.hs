@@ -36,7 +36,7 @@ class Monad m => MonadTimed m where
     -- | Acquires time relative to origin point
     localTime :: m MicroSeconds
 
-    -- | Creates another thread of execution, with same point of origin.
+    -- | Creates another thread of execution, with same point of origin
     fork :: m () -> m ()
 
     -- | Waits till specified relative time
@@ -60,9 +60,9 @@ instance MonadTimed TimedIO where
 
     fork (TimedIO a)  =  TimedIO $ lift . void . forkIO . runReaderT a =<< ask
 
-    wait timeMod  =  do
+    wait relativeToNow  =  do
         cur <- localTime
-        liftIO $ threadDelay $ timeMod cur - cur
+        liftIO $ threadDelay $ relativeToNow cur 
 
 instance MonadTimed m => MonadTimed (ReaderT r m) where
     localTime  =  lift localTime 
@@ -119,8 +119,12 @@ class TimeAcc t where
     after' :: MicroSeconds -> t
 
 instance TimeAcc RelativeToNow where
-    at'     =  const  
-    after'  =  (+)
+    at'     =  (-)  
+    after'  =  const
+
+instance TimeAcc MicroSeconds where
+    at'     =  id
+    after'  =  id
 
 instance (a ~ b, TimeAcc t) => TimeAcc (a -> (b -> MicroSeconds) -> t) where
     at'    acc t f  =  at'    $ f t + acc

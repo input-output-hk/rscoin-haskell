@@ -1,4 +1,4 @@
-module TimedTest where
+module Main where
 
 import          Control.Monad.Trans     (liftIO, MonadIO)
 

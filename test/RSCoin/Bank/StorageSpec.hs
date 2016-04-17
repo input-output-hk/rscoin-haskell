@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
+{-# LANGUAGE ViewPatterns              #-}
 
 -- | HSpec specification of Bank's Storage.
 
@@ -29,23 +30,16 @@ import qualified RSCoin.Bank.Storage   as S
 import qualified RSCoin.Core           as C
 
 import           RSCoin.Core.Arbitrary ()
+import qualified RSCoin.Core.Storage   as T
 
 spec :: Spec
 spec =
-    describe "Storage" $ do
+    describe "Bank storage" $ do
     describe "startNewPeriod" $ do
         return ()
             -- prop "Increments periodId" startNewPeriodIncrementsPeriodId
 
-newtype Update a =
-    Update { getUpdate :: ExceptT S.BankError (State S.Storage) a }
-    deriving (MonadState S.Storage, Monad, Applicative, Functor)
-
-instance MonadThrow Update where
-    throwM e = Update . maybe (throw e') throwE $ fromException e'
-      where
-        e' = SomeException e
-
+type Update = T.Update S.BankError S.Storage
 type UpdateVoid = Update ()
 
 class CanUpdate a where
@@ -87,15 +81,8 @@ instance Arbitrary StorageAndKey where
     arbitrary = do
         sk <- arbitrary
         SomeUpdate upd <- arbitrary
-        return . StorageAndKey . (, sk) $ execUpdate (doUpdate upd) S.mkStorage
-
-execUpdate :: Update a -> S.Storage -> S.Storage
-execUpdate u = snd . runUpdate u
-
-runUpdate :: Update a -> S.Storage -> (a, S.Storage)
-runUpdate upd storage = either throw (, newStorage) res
-  where
-    (res, newStorage) = runState (runExceptT $ getUpdate upd) storage
+        return . StorageAndKey . (, sk) $ T.execUpdate (doUpdate upd) S.mkStorage
 
 startNewPeriodIncrementsPeriodId :: StorageAndKey -> Bool
-startNewPeriodIncrementsPeriodId = const True
+startNewPeriodIncrementsPeriodId (getStorageAndKey -> (st, sk)) =
+    undefined

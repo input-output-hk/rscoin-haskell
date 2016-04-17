@@ -7,7 +7,7 @@
 
 module RSCoin.Test.Timed
        ( TimedT
-       , startTimedT
+       , runTimedT
        ) where
 
 import           Control.Monad               (void)
@@ -67,15 +67,15 @@ instance MonadIO m => MonadIO (TimedT m) where
     liftIO  =  TimedT . liftIO
 
 -- | Unwraps TimedT
-runTimedT :: Monad m => TimedT m a -> m ()
-runTimedT (TimedT t) = evalStateT (runContT t (void . return)) Scenario{..}
+unwrapTimedT :: Monad m => TimedT m a -> m ()
+unwrapTimedT (TimedT t) = evalStateT (runContT t (void . return)) Scenario{..}
   where
     _events  = PQ.empty
     _curTime = 0    
 
 -- | Starts timed evaluation. Finishes when no more scheduled actions remain.
-startTimedT :: (Monad m, MonadIO m) => TimedT m () -> m ()
-startTimedT timed  =  runTimedT . (schedule now timed >> ) . void . whileM notDone $ do
+runTimedT :: (Monad m, MonadIO m) => TimedT m () -> m ()
+runTimedT timed  =  unwrapTimedT . (schedule now timed >> ) . void . whileM notDone $ do
     nextEv <- TimedT . lift $ do
         (ev, evs') <- fromJust . PQ.minView <$> use events
         events .= evs'

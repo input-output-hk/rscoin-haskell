@@ -8,7 +8,7 @@
 module RSCoin.Test.MonadTimed
     ( fork, wait, localTime, schedule, invoke
     , TimedIO
-    , startTimedIO, startTimedIO_
+    , runTimedIO, runTimedIO_
     , minute , sec , ms , mcs
     , minute', sec', ms', mcs'
     , at, after, for, till, now
@@ -70,12 +70,12 @@ instance MonadTimed m => MonadTimed (ReaderT r m) where
     wait  =  lift . wait
 
 -- | Launches this timed action
-startTimedIO :: TimedIO a -> IO a
-startTimedIO  =  (curTime >>= ) . runReaderT . getTimedIO
+runTimedIO :: TimedIO a -> IO a
+runTimedIO  =  (curTime >>= ) . runReaderT . getTimedIO
 
 -- | Launches this timed action, ignoring the result
-startTimedIO_ ::  TimedIO a -> IO ()
-startTimedIO_  =  void . startTimedIO
+runTimedIO_ ::  TimedIO a -> IO ()
+runTimedIO_  =  void . runTimedIO
 
 curTime :: IO MicroSeconds
 curTime  =  ( * 1000000) . round <$> getPOSIXTime

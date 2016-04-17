@@ -23,6 +23,7 @@ library
                      , RSCoin.Core.CheckConfirmation
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Crypto
+                     , RSCoin.Core.Error
                      , RSCoin.Core.HBlock
                      , RSCoin.Core.LBlock
                      , RSCoin.Core.Owners

@@ -11,6 +11,7 @@ import           RSCoin.Core.CheckConfirmation as Exports
 import           RSCoin.Core.Communication     as Exports
 import           RSCoin.Core.Constants         as Exports
 import           RSCoin.Core.Crypto            as Exports
+import           RSCoin.Core.Error             as Exports
 import           RSCoin.Core.HBlock            as Exports
 import           RSCoin.Core.LBlock            as Exports
 import           RSCoin.Core.Logging           as Exports

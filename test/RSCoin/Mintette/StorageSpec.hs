@@ -13,6 +13,7 @@ module RSCoin.Mintette.StorageSpec
        ( spec
        , Update
        , UpdateVoid
+       , StorageAndKey
        ) where
 
 import           Control.Monad              (void)

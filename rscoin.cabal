@@ -192,8 +192,8 @@ test-suite rscoin-test
 
 executable timed-launch
   main-is:             TimedTest.hs
-  other-modules:       MonadTimed
-                     , Timed
+  other-modules:       RSCoin.Test.MonadTimed
+                     , RSCoin.Test.Timed
   build-depends:       base >=4.8 && <4.9   
                      , rscoin
                      , acid-state

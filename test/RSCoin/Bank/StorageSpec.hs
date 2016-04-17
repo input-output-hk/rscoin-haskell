@@ -68,7 +68,7 @@ newtype StorageAndKey = StorageAndKey
     }
 
 instance Show StorageAndKey where
-  show = const "StorageAndKey"
+  show = const "Bank StorageAndKey"
 
 instance Arbitrary StorageAndKey where
     arbitrary = do

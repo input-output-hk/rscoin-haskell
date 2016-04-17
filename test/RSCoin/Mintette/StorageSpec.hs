@@ -45,3 +45,26 @@ instance Arbitrary EmptyUpdate where
 
 instance CanUpdate EmptyUpdate where
     doUpdate _ = return ()
+
+data CheckNotDoubleSpent = CheckNotDoubleSpent C.SecretKey C.Transaction C.AddrId C.Signature
+    deriving Show
+
+instance Arbitrary SomeUpdate where
+    arbitrary =
+        frequency
+            [ (1, SomeUpdate <$> (arbitrary :: Gen EmptyUpdate))
+            --, (10, SomeUpdate <$> (arbitrary :: Gen CheckNotDoubleSpent))
+            ]
+
+newtype StorageAndKey = StorageAndKey
+    { getStorageAndKey :: (S.Storage, C.SecretKey)
+    }
+
+instance Show StorageAndKey where
+  show = const "Mintette StorageAndKey"
+
+instance Arbitrary StorageAndKey where
+    arbitrary = do
+        sk <- arbitrary
+        SomeUpdate upd <- arbitrary
+        return . StorageAndKey . (, sk) $ T.execUpdate (doUpdate upd) S.mkStorage

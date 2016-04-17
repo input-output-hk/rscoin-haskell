@@ -5,7 +5,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | This module contains time management monad and it's implementation for IO.
-
 module RSCoin.Test.MonadTimed
     ( fork, wait, localTime, schedule, invoke
     , TimedIO
@@ -31,7 +30,6 @@ type RelativeToNow  =  MicroSeconds -> MicroSeconds
 
 -- | Allows time management. Time is specified in microseconds passed
 --   from start point (origin).
---   If scheduled time is already in past, action is executed immediatelly.
 class Monad m => MonadTimed m where
     -- | Acquires time relative to origin point
     localTime :: m MicroSeconds
@@ -50,7 +48,7 @@ schedule time action  =  fork $ wait time >> action
 invoke :: MonadTimed m => RelativeToNow -> m a -> m a
 invoke time action  =  wait time >> action
    
--- FIXME: is that ok to store rounded value?
+-- FIXME: is that ok to store time in microseconds?
 newtype TimedIO a  =  TimedIO 
     { getTimedIO :: ReaderT MicroSeconds IO a
     } deriving (Functor, Applicative, Monad, MonadIO)
@@ -72,7 +70,6 @@ instance MonadTimed m => MonadTimed (ReaderT r m) where
     wait  =  lift . wait
 
 -- | Launches this timed action
--- TODO: should be renamed to runTimedIO?
 startTimedIO :: TimedIO a -> IO a
 startTimedIO  =  (curTime >>= ) . runReaderT . getTimedIO
 
@@ -83,8 +80,7 @@ startTimedIO_  =  void . startTimedIO
 curTime :: IO MicroSeconds
 curTime  =  ( * 1000000) . round <$> getPOSIXTime
 
--- TODO: make header
--- | Some usefull functions below
+-- * Some usefull functions below
 
 -- | Defines measure for time periods
 mcs, ms, sec, minute :: Int -> MicroSeconds
@@ -109,7 +105,7 @@ after, for :: TimeAcc t => t
 after  =  after' 0
 for    =  after' 0
 
--- | Current time point. 
+-- | Current time point 
 now  :: RelativeToNow
 now  =  id
 
@@ -121,10 +117,6 @@ class TimeAcc t where
 instance TimeAcc RelativeToNow where
     at'     =  (-)  
     after'  =  const
-
-instance TimeAcc MicroSeconds where
-    at'     =  id
-    after'  =  id
 
 instance (a ~ b, TimeAcc t) => TimeAcc (a -> (b -> MicroSeconds) -> t) where
     at'    acc t f  =  at'    $ f t + acc

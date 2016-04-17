@@ -31,7 +31,7 @@ import           RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds
 
 type Timestamp = MicroSeconds
 
--- timestamped action
+-- | Timestamped action
 data Event m  =  Event 
     { _timestamp :: Timestamp
     , _action    :: m ()
@@ -44,7 +44,7 @@ instance Eq (Event m) where
 instance Ord (Event m) where
     compare  =  comparing _timestamp 
 
--- state for MonadTimed
+-- | State for MonadTimed
 data Scenario m = Scenario 
     { _events    :: PQ.MinQueue (Event m)
     , _curTime   :: MicroSeconds
@@ -83,7 +83,7 @@ startTimedT timed  =  runTimedT . (schedule now timed >> ) . void . whileM notDo
     TimedT $ lift $ curTime .= _timestamp nextEv
  
     -- We can't just invoke (nextEv ^. action) here, because it can put
-    -- further execution to event queue, but we want to successfully finish 
+    -- further execution to event queue, and we want to successfully finish 
     -- this action and go to next iteration rather than loose execution control
     let (TimedT act) = nextEv ^. action
     TimedT $ lift $ runContT act return

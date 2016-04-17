@@ -1,14 +1,14 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- This module contains RpcMonad providing RPC communication, 
 -- and it's implementation using MessagePack.
 
 module RSCoin.Test.MonadRpc
-    (
-    ) where
+    
+    where
 
 import qualified Data.ByteString            as BS 
 import           Control.Monad.Trans           (MonadIO, liftIO)
@@ -17,7 +17,7 @@ import qualified Network.MessagePack.Client as C
 import qualified Network.MessagePack.Server as S
 import           Data.MessagePack
 
-import           RSCoin.Test.MonadTimed (Timed, MonadTimed, RelativeToNow)
+import           RSCoin.Test.MonadTimed (TimedIO, MonadTimed, RelativeToNow)
 
 type Port = Int
 
@@ -26,7 +26,8 @@ type Hostname = BS.ByteString
 type Addr = (Hostname, Port)
 
 -- | Defines protocol of RPC layer
-class MonadRpc r c s | r -> c, r -> s where
+class MonadRpc r c s where
+
     execClient :: Addr -> c a -> r ()
     
     serve :: Port -> [S.Method r] -> r ()
@@ -45,10 +46,10 @@ class MonadRpc r c s | r -> c, r -> s where
 
 -- Implementation for MessagePack
 
-newtype MsgPackRpc a  =  MsgPackRpc (Timed a)
+newtype MsgPackRpc a  =  MsgPackRpc (TimedIO a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadTimed)
 
-instance MonadRpc MsgPackRpc C.Client S.Server where 
+instance MonadRpc MsgPackRpc C.Client (S.Server a) where 
     -- | Refers to MP.Client.execClient
     execClient (addr, port) cli  =  
         liftIO $ C.execClient addr port cli
@@ -85,5 +86,5 @@ instance (Monad m, MessagePack o) => S.MethodType m (ServerT m o) where
     toBody m []  =  toObject <$> runServerT m
     toBody _   _   =  error "To many arguments passed"
 
-method :: MethodType m f => String -> f- > Method m
-
+method :: S.MethodType m f => String -> f -> S.Method m
+method  =  undefined

@@ -35,6 +35,9 @@ library
                      , RSCoin.User.Error
                      , RSCoin.User.Wallet
                      , RSCoin.User.Logic
+                     , RSCoin.Test.MonadTimed
+                     , RSCoin.Test.MonadRpc
+                     , RSCoin.Test.Timed
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Error
                      , RSCoin.Bank.Server
@@ -49,8 +52,6 @@ library
                      , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
                      , RSCoin.Mintette.Worker
-                     , RSCoin.Test.MonadTimed
-                     , RSCoin.Test.MonadRpc
   build-depends:       acid-state
                      , aeson >= 0.9.0.1
                      , base >=4.8 && <4.9
@@ -70,6 +71,7 @@ library
                      , lens
                      , mtl
                      , MonadRandom
+                     , monad-loops
                      , pqueue
                      , QuickCheck >= 2.8.1
                      , random
@@ -187,3 +189,59 @@ test-suite rscoin-test
                      , RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
+
+executable timed-launch
+  main-is:             TimedTest.hs
+  other-modules:       MonadTimed
+                     , Timed
+  build-depends:       base >=4.8 && <4.9   
+                     , rscoin
+                     , acid-state
+                     , aeson >= 0.9.0.1
+                     , base64-bytestring >= 1.0.0.1
+                     , binary >= 0.7.5.0
+                     , bytestring >= 0.10.6.0
+                     , cereal
+                     , cryptohash >= 0.11.6
+                     , conduit-extra >= 1.1.11
+                     , containers
+                     , data-default
+                     , directory
+                     , exceptions
+                     , filepath
+                     , hashable
+                     , hslogger
+                     , lens
+                     , mtl
+                     , MonadRandom
+                     , monad-loops
+                     , pqueue
+                     , QuickCheck >= 2.8.1
+                     , random
+                     , safe
+                     , safecopy
+                     , secp256k1 >= 0.4.5
+                     , serokell-core
+                     , text >= 1.2.2.0
+                     , text-format
+                     , time
+                     , time-units >= 1.0.0
+                     , transformers >= 0.4.2.0
+                     , tuple >= 0.3.0.2
+                     , unordered-containers
+                     , vector
+                     , msgpack >= 1.0.0
+                     , msgpack-rpc >= 1.0.0
+                     , msgpack-aeson >= 0.1.0.0
+  hs-source-dirs:      src/RSCoin/Test
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+
+
+                      
+
+

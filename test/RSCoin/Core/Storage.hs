@@ -16,18 +16,11 @@ module RSCoin.Core.Storage
        ) where
 
 import           Control.Exception          (throw, fromException, Exception)
-import           Control.Monad              (void)
 import           Control.Monad.Catch        (MonadThrow (throwM), SomeException (..))
 import           Control.Monad.Except       (runExceptT)
 import           Control.Monad.State        (runState, State)
 import           Control.Monad.State.Class  (MonadState)
 import           Control.Monad.Trans.Except (ExceptT, throwE)
-import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
-
-import qualified RSCoin.Core           as C
-
-import           RSCoin.Core.Arbitrary ()
-
 
 newtype Update e s a =
     Update { getUpdate :: ExceptT e (State s) a }

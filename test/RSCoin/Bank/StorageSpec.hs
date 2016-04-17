@@ -13,14 +13,7 @@ module RSCoin.Bank.StorageSpec
        ( spec
        ) where
 
-import           Control.Exception          (throw, fromException)
 import           Control.Monad              (void)
-import           Control.Monad.Catch        (MonadThrow (throwM), SomeException (..))
-import           Control.Monad.Except       (runExceptT)
-import           Control.Monad.State        (runState, State)
-import           Control.Monad.State.Class  (MonadState)
-import           Control.Monad.Trans        (lift)
-import           Control.Monad.Trans.Except (ExceptT, throwE)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)

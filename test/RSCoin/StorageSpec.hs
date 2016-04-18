@@ -17,7 +17,7 @@ module RSCoin.StorageSpec
 import           Control.Lens              (Getter, ix, makeLenses, to, use,
                                             uses, (%=), (&), (+=), (.=), (.~), _1)
 
-import           Control.Monad             (forM_, guard, unless)
+import           Control.Monad              (forM_, guard, unless)
 import           Control.Exception          (Exception)
 import           Control.Monad              (void)
 import           Control.Monad.State.Lazy   (modify)
@@ -75,8 +75,8 @@ instance Arbitrary AddMintette where
     return $ AddMintette mintette (sk, C.derivePublicKey sk)
 
 liftUpdate :: T.Update B.BankError B.Storage () -> T.Update C.RSCoinError RSCoinState ()
-liftUpdate upd =
-    bankState . B.getStorageAndKey . _1 %= T.execUpdate upd
+liftUpdate upd = do
+    bankState . B.getStorageAndKey . _1 %= T.execUpdateSafe upd
 
 instance CanUpdate AddMintette where
     doUpdate (AddMintette m (sk, pk)) = do

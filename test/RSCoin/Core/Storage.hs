@@ -13,6 +13,8 @@ module RSCoin.Core.Storage
        ( Update (..)
        , execUpdate
        , runUpdate
+       , execUpdateSafe
+       , runUpdateSafe
        ) where
 
 import           Control.Exception          (throw, fromException, Exception)
@@ -36,5 +38,13 @@ execUpdate u = snd . runUpdate u
 
 runUpdate :: Exception e => Update e s a -> s -> (a, s)
 runUpdate upd storage = either throw (, newStorage) res
+  where
+    (res, newStorage) = runState (runExceptT $ getUpdate upd) storage
+
+execUpdateSafe :: (MonadThrow m, Exception e) => Update e s a -> s -> m s
+execUpdateSafe upd storage = snd <$> runUpdateSafe upd storage
+
+runUpdateSafe :: (MonadThrow m, Exception e) => Update e s a -> s -> m (a, s)
+runUpdateSafe upd storage= either throwM (return . (, newStorage)) res
   where
     (res, newStorage) = runState (runExceptT $ getUpdate upd) storage

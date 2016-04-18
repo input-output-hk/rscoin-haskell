@@ -45,6 +45,6 @@ execUpdateSafe :: (MonadThrow m, Exception e) => Update e s a -> s -> m s
 execUpdateSafe upd storage = snd <$> runUpdateSafe upd storage
 
 runUpdateSafe :: (MonadThrow m, Exception e) => Update e s a -> s -> m (a, s)
-runUpdateSafe upd storage= either throwM (return . (, newStorage)) res
+runUpdateSafe upd storage = either throwM (return . (, newStorage)) res
   where
     (res, newStorage) = runState (runExceptT $ getUpdate upd) storage

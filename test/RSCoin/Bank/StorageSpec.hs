@@ -13,7 +13,7 @@ module RSCoin.Bank.StorageSpec
        ( spec
        , Update
        , UpdateVoid
-       , StorageAndKey
+       , StorageAndKey (..)
        , getStorageAndKey
        ) where
 

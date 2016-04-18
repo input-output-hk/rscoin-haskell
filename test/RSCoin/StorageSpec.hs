@@ -20,7 +20,7 @@ import           Control.Lens              (Getter, ix, makeLenses, to, use,
 import           Control.Monad              (forM_, guard, unless)
 import           Control.Exception          (Exception)
 import           Control.Monad              (void)
-import           Control.Monad.State.Lazy   (modify)
+import           Control.Monad.State.Lazy   (modify, gets)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
@@ -76,7 +76,9 @@ instance Arbitrary AddMintette where
 
 liftUpdate :: T.Update B.BankError B.Storage () -> T.Update C.RSCoinError RSCoinState ()
 liftUpdate upd = do
-    bankState . B.getStorageAndKey . _1 %= T.execUpdateSafe upd
+    bank <- (fst . B._getStorageAndKey) <$> gets _bankState
+    newBank <- T.execUpdateSafe upd bank
+    bankState . B.getStorageAndKey . _1 .= newBank
 
 instance CanUpdate AddMintette where
     doUpdate (AddMintette m (sk, pk)) = do

@@ -3,9 +3,9 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
-{-# LANGUAGE ViewPatterns              #-}
 
 -- | HSpec specification of Bank's Storage.
 
@@ -14,7 +14,10 @@ module RSCoin.Bank.StorageSpec
        , Update
        , UpdateVoid
        , StorageAndKey
+       , getStorageAndKey
        ) where
+
+import           Control.Lens               (makeLenses)
 
 import           Control.Monad              (void)
 import           Test.Hspec                 (Spec, describe)
@@ -67,8 +70,10 @@ instance Arbitrary SomeUpdate where
             , (10, SomeUpdate <$> (arbitrary :: Gen AddMintette))]
 
 newtype StorageAndKey = StorageAndKey
-    { getStorageAndKey :: (S.Storage, C.SecretKey)
+    { _getStorageAndKey :: (S.Storage, C.SecretKey)
     }
+
+$(makeLenses ''StorageAndKey)
 
 instance Show StorageAndKey where
   show = const "Bank StorageAndKey"
@@ -80,5 +85,4 @@ instance Arbitrary StorageAndKey where
         return . StorageAndKey . (, sk) $ T.execUpdate (doUpdate upd) S.mkStorage
 
 startNewPeriodIncrementsPeriodId :: StorageAndKey -> Bool
-startNewPeriodIncrementsPeriodId (getStorageAndKey -> (st, sk)) =
-    undefined
+startNewPeriodIncrementsPeriodId = undefined

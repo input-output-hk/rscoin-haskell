@@ -26,7 +26,7 @@ data MintetteError
     | MENotConfirmed                      -- ^ Can't deduce that transaction was confirmed.
     | MEAlreadyActive                     -- ^ Can't start new period because mintette
                                           -- is already active.
-    deriving (Show,Typeable, Eq)
+    deriving (Show, Typeable, Eq)
 
 instance Exception MintetteError where
     toException = rscExceptionToException

@@ -66,24 +66,33 @@ instance Arbitrary EmptyUpdate where
 instance CanUpdate EmptyUpdate where
     doUpdate _ = return ()
 
-data AddMintette = AddMintette C.Mintette (C.SecretKey, C.PublicKey)
+data AddMintette = AddMintette C.Mintette (C.SecretKey, C.PublicKey) M.MintetteState
     deriving Show
 
 instance Arbitrary AddMintette where
   arbitrary = do
+    mId <- arbitrary
     mintette <- arbitrary
     sk <- arbitrary
-    return $ AddMintette mintette (sk, C.derivePublicKey sk)
+    return $ AddMintette mId (sk, C.derivePublicKey sk) mintette
 
 instance CanUpdate AddMintette where
-    doUpdate (AddMintette m (sk, pk)) = do
-        liftBankUpdate $ B.addMintette m pk
+    doUpdate (AddMintette mId (sk, pk) mintette) = do
+        liftBankUpdate $ B.addMintette mId pk
+        mintettesState . at mId .= Just mintette
 
--- instance Arbitrary RSCoinState where
---     arbitrary = do
---         bank <- arbitrary
---         SomeUpdate upd <- arbitrary
---         return . T.execUpdate (doUpdate upd) $ RSCoinState bank []
+instance Arbitrary SomeUpdate where
+    arbitrary = 
+        frequency
+            [ (1, SomeUpdate <$> (arbitrary :: Gen EmptyUpdate))
+            , (10, SomeUpdate <$> (arbitrary :: Gen AddMintette))
+            ]
+
+instance Arbitrary RSCoinState where
+    arbitrary = do
+        bank <- arbitrary
+        SomeUpdate upd <- arbitrary
+        return . T.execUpdate (doUpdate upd) $ RSCoinState bank M.empty
 
 liftBankUpdate :: T.Update B.BankError B.Storage () -> T.Update C.RSCoinError RSCoinState ()
 liftBankUpdate upd = do

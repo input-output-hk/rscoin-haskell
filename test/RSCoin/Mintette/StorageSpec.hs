@@ -3,9 +3,9 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
-{-# LANGUAGE ViewPatterns              #-}
 
 -- | HSpec specification of Mintette's Storage.
 
@@ -13,8 +13,11 @@ module RSCoin.Mintette.StorageSpec
        ( spec
        , Update
        , UpdateVoid
-       , StorageAndKey
+       , MintetteState (..)
+       , mintetteStorage
        ) where
+
+import           Control.Lens               (makeLenses)
 
 import           Control.Monad              (void)
 import           Test.Hspec                 (Spec, describe)
@@ -76,15 +79,18 @@ instance Arbitrary SomeUpdate where
 --            , (10, SomeUpdate <$> (arbitrary :: Gen StartPeriod))
             ]
 
-newtype StorageAndKey = StorageAndKey
-    { getStorageAndKey :: (S.Storage, C.SecretKey) -- TODO: maybe we won't  need a key here
+data MintetteState = MintetteState
+    { _mintetteStorage :: S.Storage
+    , _mintetteKey     :: C.SecretKey
     }
 
-instance Show StorageAndKey where
-  show = const "Mintette StorageAndKey"
+$(makeLenses ''MintetteState)
 
-instance Arbitrary StorageAndKey where
+instance Show MintetteState where
+  show = const "MintetteState"
+
+instance Arbitrary MintetteState where
     arbitrary = do
         sk <- arbitrary
         SomeUpdate upd <- arbitrary
-        return . StorageAndKey . (, sk) $ T.execUpdate (doUpdate upd) S.mkStorage
+        return . flip MintetteState sk $ T.execUpdate (doUpdate upd) S.mkStorage

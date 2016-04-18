@@ -13,8 +13,8 @@ module RSCoin.Bank.StorageSpec
        ( spec
        , Update
        , UpdateVoid
-       , StorageAndKey (..)
-       , getStorageAndKey
+       , BankState (..)
+       , bankStorage
        ) where
 
 import           Control.Lens               (makeLenses)
@@ -69,20 +69,21 @@ instance Arbitrary SomeUpdate where
             [ (1, SomeUpdate <$> (arbitrary :: Gen EmptyUpdate))
             , (10, SomeUpdate <$> (arbitrary :: Gen AddMintette))]
 
-newtype StorageAndKey = StorageAndKey
-    { _getStorageAndKey :: (S.Storage, C.SecretKey)
+data BankState = BankState
+    { _bankStorage :: S.Storage
+    , _bankKey     :: C.SecretKey
     }
 
-$(makeLenses ''StorageAndKey)
+$(makeLenses ''BankState)
 
-instance Show StorageAndKey where
-  show = const "Bank StorageAndKey"
+instance Show BankState where
+  show = const "BankState"
 
-instance Arbitrary StorageAndKey where
+instance Arbitrary BankState where
     arbitrary = do
         sk <- arbitrary
         SomeUpdate upd <- arbitrary
-        return . StorageAndKey . (, sk) $ T.execUpdate (doUpdate upd) S.mkStorage
+        return . flip BankState sk $ T.execUpdate (doUpdate upd) S.mkStorage
 
-startNewPeriodIncrementsPeriodId :: StorageAndKey -> Bool
+startNewPeriodIncrementsPeriodId :: BankState -> Bool
 startNewPeriodIncrementsPeriodId = undefined

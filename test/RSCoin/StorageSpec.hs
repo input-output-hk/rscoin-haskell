@@ -15,12 +15,13 @@ module RSCoin.StorageSpec
        ) where
 
 import           Control.Lens              (Getter, ix, makeLenses, to, use,
-                                            uses, (%=), (&), (+=), (.=), (.~), _1)
+                                            uses, (%=), (&), (+=), (.=), (.~), at)
 
-import           Control.Monad              (forM_, guard, unless)
+import           Control.Monad              (forM_, guard, unless, void)
+import           Control.Monad.Trans        (lift)
 import           Control.Exception          (Exception)
-import           Control.Monad              (void)
 import           Control.Monad.State.Lazy   (modify, gets)
+import qualified Data.Map                   as M
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
@@ -42,8 +43,8 @@ spec =
         return ()
 
 data RSCoinState =
-    RSCoinState { _bankState      :: B.StorageAndKey
-                , _mintettesState :: [M.StorageAndKey]
+    RSCoinState { _bankState      :: B.BankState
+                , _mintettesState :: M.Map C.Mintette M.MintetteState
                 }
 
 $(makeLenses ''RSCoinState)
@@ -74,18 +75,25 @@ instance Arbitrary AddMintette where
     sk <- arbitrary
     return $ AddMintette mintette (sk, C.derivePublicKey sk)
 
-liftUpdate :: T.Update B.BankError B.Storage () -> T.Update C.RSCoinError RSCoinState ()
-liftUpdate upd = do
-    bank <- gets (fst . B._getStorageAndKey . _bankState)
-    newBank <- T.execUpdateSafe upd bank
-    bankState . B.getStorageAndKey . _1 .= newBank
-
 instance CanUpdate AddMintette where
     doUpdate (AddMintette m (sk, pk)) = do
-        liftUpdate $ B.addMintette m pk
+        liftBankUpdate $ B.addMintette m pk
 
 -- instance Arbitrary RSCoinState where
 --     arbitrary = do
 --         bank <- arbitrary
 --         SomeUpdate upd <- arbitrary
 --         return . T.execUpdate (doUpdate upd) $ RSCoinState bank []
+
+liftBankUpdate :: T.Update B.BankError B.Storage () -> T.Update C.RSCoinError RSCoinState ()
+liftBankUpdate upd = do
+    bank <- gets $ B._bankStorage . _bankState
+    newBank <- T.execUpdateSafe upd bank
+    bankState . B.bankStorage .= newBank
+
+liftMintetteUpdate :: C.Mintette -> T.Update M.MintetteError M.Storage () -> T.Update C.RSCoinError RSCoinState ()
+liftMintetteUpdate mintette upd = do
+    mMintette <- gets (fmap M._mintetteStorage . M.lookup mintette . _mintettesState)
+    mNewStorage <- return $ mMintette >>= T.execUpdateSafe upd 
+    -- mintettesState . at mintette . M.mintetteStorage .= mNewStorage
+    return ()

@@ -95,5 +95,4 @@ liftMintetteUpdate :: C.Mintette -> T.Update M.MintetteError M.Storage () -> T.U
 liftMintetteUpdate mintette upd = do
     mMintette <- gets (fmap M._mintetteStorage . M.lookup mintette . _mintettesState)
     mNewStorage <- return $ mMintette >>= T.execUpdateSafe upd 
-    -- mintettesState . at mintette . M.mintetteStorage .= mNewStorage
-    return ()
+    maybe (return ()) (mintettesState . ix mintette . M.mintetteStorage .=) mNewStorage

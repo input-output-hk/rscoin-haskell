@@ -1,10 +1,26 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module RSCoin.Test.PureRpc
     (
     ) where
 
+import           Control.Monad.State         
 import           RSCoin.Test.Timed           (TimedT(..))
 import           System.Random               (StdGen, mkStdGen)
 import           Control.Monad.Random        (RandT, evalRandT)
+import           Data.Default                (Default, def)
+import           Data.Map                    as Map
+import           Control.Lens
+import           Data.Maybe                  (fromJust, isJust)
+import           Data.MessagePack            (Object)
+import           Data.Proxy                  (Proxy(..), asProxyTypeOf)
+
+import           RSCoin.Test.MonadRpc
+import           RSCoin.Test.MonadTimed
 
 newtype Delays = Delays 
     { -- | Just delay if net packet delivered successfully
@@ -30,17 +46,47 @@ instance Default Delays where
     -- | Descirbes reliable network
     def = Delays . const . const . return $ 0
 
-data NetInfo = NetInfo 
-    { _listeners  :: Map.Map FunCoord (Arguments -> Result)
+type FunName  =  String
+
+data NetInfo m = NetInfo 
+    { _listeners  :: Map.Map (Addr, FunName) ([Object] -> m Object)
     , _randSeed   :: StdGen
     , _delays     :: Delays 
     }
 $(makeLenses ''NetInfo)
 
-type LocalAddr = Addr
 
-newtype PureRpc m a = StateT LocalAddr (TimedT (StateT NetInfo m)) a
+newtype LocalAddr = LocalAddr { _localAddr :: Addr }
+$(makeLenses ''LocalAddr)
 
+newtype PureRpc m a = PureRpc 
+    { runPureRpc :: StateT LocalAddr (TimedT (StateT (NetInfo m) m)) a 
+    } deriving (Functor, Applicative, Monad)
+
+instance MonadState LocalAddr (PureRpc m) where
+    get  =  PureRpc $ get
+    put  =  PureRpc . put
+
+newtype PureClient a  =  PureClient (String, [Object], Proxy a)
+
+instance Monad m => MonadRpc (PureRpc m) where
+    type Cli (PureRpc m)  =  PureClient 
+
+    execClient addr (PureClient (name, args, proxy))  =  do  
+        listeners <- PureRpc $ lift $ lift $ gets _listeners
+        addr      <- use localAddr
+        let method = Map.lookup (addr, name) listeners 
+        if not $ isJust method  
+            then error $ mconcat ["Method ", name, " is not defined"]
+            else return ()
+    
+
+nextDelay :: PureRpc m Microseconds
+nextDelay  =  PureRpc $ do
+    seed   <- lift $ lift $ use randSeed
+    addr   <- get
+    delays <- lift $ lift $ use delays
+    let () runRandT (evalDelay delay) seed 
 
 
 {-

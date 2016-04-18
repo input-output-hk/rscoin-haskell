@@ -72,6 +72,7 @@ library
                      , mtl
                      , MonadRandom
                      , monad-loops
+                     , monad-control
                      , pqueue
                      , QuickCheck >= 2.8.1
                      , random
@@ -84,6 +85,7 @@ library
                      , time
                      , time-units >= 1.0.0
                      , transformers >= 0.4.2.0
+                     , transformers-base
                      , tuple >= 0.3.0.2
                      , unordered-containers
                      , vector
@@ -194,26 +196,43 @@ executable timed-launch
   main-is:             Main.hs
   other-modules:       RSCoin.Test.MonadTimed
                      , RSCoin.Test.Timed
-  build-depends:       base >=4.8 && <4.9   
+  build-depends:        acid-state
+                     , aeson >= 0.9.0.1
+                     , base >=4.8 && <4.9
                      , base64-bytestring >= 1.0.0.1
                      , binary >= 0.7.5.0
                      , bytestring >= 0.10.6.0
+                     , cereal
+                     , cryptohash >= 0.11.6
+                     , conduit-extra >= 1.1.11
                      , containers
                      , data-default
+                     , directory
+                     , exceptions
+                     , filepath
+                     , hashable
+                     , hslogger
                      , lens
                      , mtl
                      , MonadRandom
                      , monad-loops
+                     , monad-control
                      , pqueue
                      , QuickCheck >= 2.8.1
                      , random
+                     , safe
+                     , safecopy
+                     , secp256k1 >= 0.4.5
                      , serokell-core
                      , text >= 1.2.2.0
                      , text-format
                      , time
                      , time-units >= 1.0.0
                      , transformers >= 0.4.2.0
+                     , transformers-base
                      , tuple >= 0.3.0.2
+                     , unordered-containers
+                     , vector
                      , msgpack >= 1.0.0
                      , msgpack-rpc >= 1.0.0
                      , msgpack-aeson >= 0.1.0.0

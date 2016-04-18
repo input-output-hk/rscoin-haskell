@@ -17,11 +17,14 @@ module RSCoin.Test.MonadTimed
     , RelativeToNow
     ) where
 
-import           Control.Concurrent       (threadDelay, forkIO)
-import           Control.Monad            (void)
-import           Control.Monad.Trans      (liftIO, lift, MonadIO)
-import           Control.Monad.Reader     (ReaderT, runReaderT, ask)
-import           Data.Time.Clock.POSIX    (getPOSIXTime)
+import           Control.Concurrent          (threadDelay, forkIO)
+import           Control.Monad               (void)
+import           Control.Monad.Base          (MonadBase)
+import           Control.Monad.Catch         (MonadThrow, MonadCatch)
+import           Control.Monad.Trans         (liftIO, lift, MonadIO)
+import           Control.Monad.Trans.Control (MonadBaseControl, liftBaseWith, restoreM, StM)
+import           Control.Monad.Reader        (ReaderT, runReaderT, ask)
+import           Data.Time.Clock.POSIX       (getPOSIXTime)
 
 type MicroSeconds  =  Int
 
@@ -51,7 +54,16 @@ invoke time action  =  wait time >> action
 -- FIXME: is that ok to store time in microseconds?
 newtype TimedIO a  =  TimedIO 
     { getTimedIO :: ReaderT MicroSeconds IO a
-    } deriving (Functor, Applicative, Monad, MonadIO)
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch
+               , MonadBase IO)
+
+instance MonadBaseControl IO TimedIO where
+    type StM TimedIO a = a
+    
+    liftBaseWith f = undefined
+    restoreM = undefined
+
+    
 
 instance MonadTimed TimedIO where
     localTime  =  TimedIO $ (-) <$> lift curTime <*> ask

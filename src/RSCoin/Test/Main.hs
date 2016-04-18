@@ -3,19 +3,27 @@ module Main where
 import          Prelude                 hiding (log)
 import          Control.Monad.Trans     (liftIO, MonadIO)
 
-import          RSCoin.Test.MonadTimed  (wait, invoke, schedule, now
-                                        , at, after, for, till, sec, minute
-                                        , MonadTimed, startTimedIO_, localTime)
-import          RSCoin.Test.Timed       (startTimedT)
+import          RSCoin.Test.MonadTimed  (wait, invoke, schedule, now, fork
+                                        , at, after, for, till 
+                                        , sec, minute, sec'
+                                        , MonadTimed, runTimedIO_, localTime)
+import          RSCoin.Test.Timed       (runTimedT)
+import          RSCoin.Test.MonadRpc 
+import          RSCoin.Test.PureRpc
+
+import          Network.MessagePack.Server (Server)
+import          Network.MessagePack.Client (Client)
 
 main :: IO ()
 main  =  sayHelloIO
 
+-- * Timed
+
 sayHelloIO :: IO ()
-sayHelloIO  =  startTimedIO_ sayHello
+sayHelloIO  =  runTimedIO_ sayHello
 
 sayHelloPure :: IO ()
-sayHelloPure  =  startTimedT sayHello
+sayHelloPure  =  runTimedT sayHello
 
 
 sayHello :: (MonadIO m, MonadTimed m) => m ()
@@ -38,3 +46,22 @@ log :: (MonadIO m, MonadTimed m) => String -> m ()
 log msg  =  do
     seconds <- ( / 1000000) . fromIntegral <$> localTime
     liftIO $ putStrLn $ mconcat $ ["[", show seconds, "s] ", msg]
+
+-- * Rpc
+
+handshake :: IO ()
+handshake  =  runTimedIO_ . runMsgPackRpc $ do
+    fork $ do
+        serve 45678 [method "lol" response]
+
+    wait (for 0.1 sec')
+    execClient ("localhost", 45678) (request >>= liftIO . putStrLn)
+
+response :: String -> Server String
+response s  =  liftIO (putStrLn s) >> return ("Yes, " ++ s)
+
+request :: Client String
+request  =  call "lol" ("It works!" :: String)
+
+
+

@@ -76,7 +76,7 @@ instance Arbitrary AddMintette where
 
 liftUpdate :: T.Update B.BankError B.Storage () -> T.Update C.RSCoinError RSCoinState ()
 liftUpdate upd = do
-    bank <- (fst . B._getStorageAndKey) <$> gets _bankState
+    bank <- gets (fst . B._getStorageAndKey . _bankState)
     newBank <- T.execUpdateSafe upd bank
     bankState . B.getStorageAndKey . _1 .= newBank
 

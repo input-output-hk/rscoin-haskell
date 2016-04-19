@@ -1,7 +1,11 @@
 module Main where
 
 import          Prelude                 hiding (log)
+import          Control.Monad           (forM_)
 import          Control.Monad.Trans     (liftIO, MonadIO)
+import          Data.Default            (def)
+import          System.Random           (mkStdGen) 
+import          Control.Monad.Random.Class (getRandomR)
 
 import          RSCoin.Test.MonadTimed  (wait, invoke, schedule, now, fork
                                         , at, after, for, till 
@@ -10,9 +14,10 @@ import          RSCoin.Test.MonadTimed  (wait, invoke, schedule, now, fork
 import          RSCoin.Test.Timed       (runTimedT)
 import          RSCoin.Test.MonadRpc 
 import          RSCoin.Test.PureRpc
+import          RSCoin.Test.MonadRpc    
+
 
 import          Network.MessagePack.Server (Server)
-import          Network.MessagePack.Client (Client)
 
 main :: IO ()
 main  =  sayHelloIO
@@ -44,24 +49,46 @@ sayHello  =  do
  
 log :: (MonadIO m, MonadTimed m) => String -> m ()
 log msg  =  do
-    seconds <- ( / 1000000) . fromIntegral <$> localTime
+    seconds <- time
     liftIO $ putStrLn $ mconcat $ ["[", show seconds, "s] ", msg]
+  where
+    time :: MonadTimed m => m Double
+    time  =  ( / 1000000) . fromIntegral <$> localTime 
 
 -- * Rpc
 
-handshake :: IO ()
-handshake  =  runTimedIO_ . runMsgPackRpc $ do
-    fork $ do
-        serve 45678 [method "lol" response]
+rpcIO :: IO ()
+rpcIO  =  runTimedIO_ . runMsgPackRpc $ handshake
 
-    wait (for 0.1 sec')
-    execClient ("localhost", 45678) (request >>= liftIO . putStrLn)
+rpcPure :: IO ()
+rpcPure  =  rpcSeed 0
 
-response :: String -> Server String
-response s  =  liftIO (putStrLn s) >> return ("Yes, " ++ s)
+rpcSeed :: Int -> IO ()
+rpcSeed seed  =  runPureRpc (mkStdGen seed) delays $ handshake
 
-request :: Client String
-request  =  call "lol" ("It works!" :: String)
+handshake :: (MonadRpc m, MonadTimed m, MonadIO m) => m ()
+handshake  =  do
+    fork $ serve 2222 [method "lol" response]
 
+    forM_ [1..3] $ \i ->
+        schedule (at 1 sec) $ do
+            forM_ [1..3] $ \j -> 
+                schedule (at 2 sec) $ do
+                    let a = i * 3 + j
+                    log $ "Q" ++ show a
+                    res <- execClient ("localhost", 2222) $ request a
+                    log $ "A" ++ show a
 
+response :: Int -> Server Int
+response k  =  do
+    liftIO $ putStrLn $ "R" ++ show k
+    return k
+
+request :: Int -> Client Int
+request  =  call "lol" 
+
+delays :: Delays
+delays  =  Delays d
+  where
+    d _ _  =  Just <$> getRandomR (10, 1000)
 

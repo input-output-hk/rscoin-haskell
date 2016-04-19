@@ -23,6 +23,7 @@ library
                      , RSCoin.Core.CheckConfirmation
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Crypto
+                     , RSCoin.Core.Error
                      , RSCoin.Core.HBlock
                      , RSCoin.Core.LBlock
                      , RSCoin.Core.Owners
@@ -173,6 +174,9 @@ executable rscoin-mintette
 test-suite rscoin-test
   main-is:             Test.hs
   other-modules:       RSCoin.Bank.StorageSpec
+                     , RSCoin.Mintette.StorageSpec
+                     , RSCoin.StorageSpec
+                     , RSCoin.Core.Storage
                      , RSCoin.Core.Arbitrary
                      , RSCoin.Core.CryptoSpec
                      , RSCoin.Core.OwnersSpec
@@ -227,6 +231,7 @@ executable timed-launch
                      , text >= 1.2.2.0
                      , text-format
                      , time
+                     , hspec
                      , time-units >= 1.0.0
                      , transformers >= 0.4.2.0
                      , transformers-base
@@ -236,7 +241,7 @@ executable timed-launch
                      , msgpack >= 1.0.0
                      , msgpack-rpc >= 1.0.0
                      , msgpack-aeson >= 0.1.0.0
-  hs-source-dirs:      src/RSCoin/Test,src
+  hs-source-dirs:      src/RSCoin/Test,src, test
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
   default-extensions:  OverloadedStrings

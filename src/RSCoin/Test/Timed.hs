@@ -74,7 +74,7 @@ unwrapTimedT (TimedT t) = evalStateT (runContT t (void . return)) Scenario{..}
     _curTime = 0    
 
 -- | Starts timed evaluation. Finishes when no more scheduled actions remain.
-runTimedT :: (Monad m, MonadIO m) => TimedT m () -> m ()
+runTimedT :: Monad m => TimedT m () -> m ()
 runTimedT timed  =  unwrapTimedT . (schedule now timed >> ) . void . whileM notDone $ do
     nextEv <- TimedT . lift $ do
         (ev, evs') <- fromJust . PQ.minView <$> use events
@@ -88,10 +88,10 @@ runTimedT timed  =  unwrapTimedT . (schedule now timed >> ) . void . whileM notD
     let (TimedT act) = nextEv ^. action
     TimedT $ lift $ runContT act return
   where
-    notDone :: MonadIO m => TimedT m Bool
+    notDone :: Monad m => TimedT m Bool
     notDone  =  TimedT . lift . use $ events . to (not . PQ.null)
 
-instance (Monad m, MonadIO m) => MonadTimed (TimedT m) where
+instance Monad m => MonadTimed (TimedT m) where
     localTime = TimedT . lift $ gets _curTime
     
     fork _action  =  do

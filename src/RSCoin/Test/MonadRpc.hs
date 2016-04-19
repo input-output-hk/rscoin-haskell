@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GADTs #-}
 
 -- This module contains RpcMonad providing RPC communication, 
 -- and it's implementation using MessagePack.
@@ -12,33 +12,28 @@ module RSCoin.Test.MonadRpc
 
 import qualified Data.ByteString            as BS 
 import           Control.Monad.Catch           (MonadThrow, MonadCatch)
-import           Control.Monad.State           (State, execState, put)
-import           Control.Monad.Identity        (runIdentity)
+import           Control.Monad.State           (execState, put)
 import           Control.Monad.Trans           (MonadIO, liftIO)
+import           Control.Concurrent.MVar       (newEmptyMVar, putMVar, takeMVar)
 import           Data.Maybe                    (fromJust)
-import           Data.Proxy                    (Proxy(..))
-import           Control.Lens                  (Prism', prism, re
-                                               , (^.))
-
 
 import qualified Network.MessagePack.Client as C
 import qualified Network.MessagePack.Server as S
 
-import           RSCoin.Test.MonadTimed (TimedIO, MonadTimed, RelativeToNow)
+import           RSCoin.Test.MonadTimed        (TimedIO, MonadTimed)
 
-import           Data.MessagePack.Object       (Object(..), MessagePack, toObject, fromObject)
+import           Data.MessagePack.Object       (Object(..), MessagePack, 
+                                                toObject, fromObject)
 
 type Port = Int
 
-type Hostname = BS.ByteString
+type Host = BS.ByteString
 
-type Addr = (Hostname, Port)
+type Addr = (Host, Port)
 
 -- | Defines protocol of RPC layer
 class MonadRpc r where
-    type Cli r :: * -> *
-
-    execClient :: Addr -> Cli r a -> r ()
+    execClient :: MessagePack a => Addr -> Client a -> r a
     
     serve :: Port -> [Method IO] -> r ()
 
@@ -61,10 +56,17 @@ newtype MsgPackRpc a  =  MsgPackRpc { runMsgPackRpc :: (TimedIO a) }
               MonadThrow, MonadCatch, MonadTimed)
 
 instance MonadRpc MsgPackRpc where 
-    type Cli MsgPackRpc  =  C.Client
+    execClient (addr, port) cli  =  liftIO $ do
+        -- TODO: is IORef ok?
+        box <- newEmptyMVar
+        C.execClient addr port $ do
+            res <- mkClient cli
+            liftIO $ putMVar box res
+        takeMVar box
+      where
+        mkClient :: MessagePack a => Client a -> C.Client a
+        mkClient (Client name args) = C.call name args 
 
-    execClient (addr, port) cli  =  
-        liftIO $ C.execClient addr port cli
 
     serve port methods  =  liftIO $ S.serve port (modifyMethod <$> methods)
       where
@@ -79,17 +81,17 @@ instance MonadRpc MsgPackRpc where
 class RpcType t where
     rpcc :: String -> [Object] -> t
 
-instance MessagePack o => RpcType (C.Client o) where
-    rpcc name objs  =  C.call name objs
+instance MessagePack o => RpcType (Client o) where
+    rpcc name args  =  Client name (reverse args)
 
 instance (RpcType t, MessagePack p) => RpcType (p -> t) where
     rpcc name objs p  =  rpcc name $ toObject p : objs
 
-instance MessagePack r => RpcType (String, [Object], Proxy r) where
-    rpcc name objs  =  (name, objs, Proxy)
-
 call :: RpcType t => String -> t
 call name  =  rpcc name []
+
+data Client a where
+    Client :: MessagePack a => String -> [Object] -> Client a
 
 -- Server part
 
@@ -104,12 +106,12 @@ method name f  =  Method
     , methodBody = S.toBody f
     }
 
-newtype ServerT m a  =  ServerT { runServerT :: m a } 
-    deriving (Functor, Applicative, Monad, MonadIO)
+-- newtype ServerT m a  =  ServerT { runServerT :: m a } 
+--    deriving (Functor, Applicative, Monad, MonadIO)
 
-instance (Monad m, MessagePack o) => S.MethodType m (ServerT m o) where
-    toBody m []  =  toObject <$> runServerT m
-    toBody _ _   =  error "Too many arguments passed"
+-- instance (Monad m, MessagePack o) => S.MethodType m (ServerT m o) where
+--     toBody m []  =  toObject <$> runServerT m
+--    toBody _ _   =  error "Too many arguments passed"
 
 instance S.MethodType m f => S.MethodType m (m f) where
     toBody res args  =  res >>= \r -> S.toBody r args

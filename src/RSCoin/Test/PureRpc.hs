@@ -5,27 +5,38 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module RSCoin.Test.PureRpc
-    (
+    ( PureRpc
+    , runPureRpc
+    , Delays(..)
     ) where
 
 import           Control.Monad.State         
+import           Control.Monad.Reader        (ReaderT, runReaderT, ask)         
 import           RSCoin.Test.Timed           (TimedT(..))
 import           System.Random               (StdGen, mkStdGen)
-import           Control.Monad.Random        (RandT, evalRandT)
+import           Control.Monad.Random        (Rand, runRand)
 import           Data.Default                (Default, def)
 import           Data.Map                    as Map
 import           Control.Lens
-import           Data.Maybe                  (fromJust, isJust)
+import           Data.Maybe                  (fromMaybe)
 import           Data.MessagePack            (Object)
-import           Data.Proxy                  (Proxy(..), asProxyTypeOf)
+import           Data.ByteString             (ByteString)
 
-import           RSCoin.Test.MonadRpc
-import           RSCoin.Test.MonadTimed
+import           Data.MessagePack.Object     (fromObject, MessagePack)
+
+import           RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds, for
+                                             , wait, sec, mcs, localTime)
+import           RSCoin.Test.MonadRpc        (MonadRpc, execClient, serve
+                                             , Addr, Method(..), Client(..)
+                                             , methodName, methodBody, Host)
+import           RSCoin.Test.Timed           (TimedT, runTimedT)
+
 
 newtype Delays = Delays 
     { -- | Just delay if net packet delivered successfully
       --   Nothing otherwise
-      evalDelay :: Addr -> () -> RandT StdGen Maybe MicroSeconds
+      -- TODO: more parameters
+      evalDelay :: RpcStage -> MicroSeconds -> Rand StdGen (Maybe MicroSeconds)
       -- ^ I still think that this function is at right place
       --   We just need to find funny syntax for creating complex description
       --   of network nastinesses.
@@ -44,56 +55,73 @@ newtype Delays = Delays
 
 instance Default Delays where
     -- | Descirbes reliable network
-    def = Delays . const . const . return $ 0
+    def = Delays . const . const . return . Just $ 0
+
+data RpcStage  =  Request
+               |  Response
 
 type FunName  =  String
 
+type Listeners m  =  Map.Map (Addr, FunName) ([Object] -> m Object)
+
+-- | Keeps global network information
 data NetInfo m = NetInfo 
-    { _listeners  :: Map.Map (Addr, FunName) ([Object] -> m Object)
+    { _listeners  :: Listeners m
     , _randSeed   :: StdGen
     , _delays     :: Delays 
     }
 $(makeLenses ''NetInfo)
 
+-- | Pure implementation of RPC
+newtype PureRpc a = PureRpc 
+    { unwrapPureRpc :: StateT Host (TimedT (StateT (NetInfo IO) IO)) a 
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadTimed)
 
-newtype LocalAddr = LocalAddr { _localAddr :: Addr }
-$(makeLenses ''LocalAddr)
+-- | Launches rpc scenario
+runPureRpc :: StdGen -> Delays -> PureRpc () -> IO ()
+runPureRpc _randSeed _delays (PureRpc rpc)  =  do
+    evalStateT (runTimedT (evalStateT rpc "localhost")) net
+  where
+    net        = NetInfo{..}
+    _listeners = Map.empty
 
-newtype PureRpc m a = PureRpc 
-    { runPureRpc :: StateT LocalAddr (TimedT (StateT (NetInfo m) m)) a 
-    } deriving (Functor, Applicative, Monad)
+-- TODO: use normal exceptions here
+mkPureClient :: MessagePack a => Client a -> ReaderT (Listeners IO, Addr) IO a
+mkPureClient (Client name args) =  do
+    (listens', addr) <- ask
+    case Map.lookup (addr, name) listens' of
+        Nothing -> error $ mconcat 
+            ["Method ", name, " is not defined at ", show addr]
+        Just f  -> lift $ fromMaybe (error "Answer type mismatch")
+                 . fromObject <$> f args
 
-instance MonadState LocalAddr (PureRpc m) where
-    get  =  PureRpc $ get
-    put  =  PureRpc . put
+instance MonadRpc PureRpc where
+    execClient addr cli  =  PureRpc $ do  
+        curHost <- get
+        unwrapPureRpc $ waitDelay Request
 
-newtype PureClient a  =  PureClient (String, [Object], Proxy a)
-
-instance Monad m => MonadRpc (PureRpc m) where
-    type Cli (PureRpc m)  =  PureClient 
-
-    execClient addr (PureClient (name, args, proxy))  =  do  
-        listeners <- PureRpc $ lift $ lift $ gets _listeners
-        addr      <- use localAddr
-        let method = Map.lookup (addr, name) listeners 
-        if not $ isJust method  
-            then error $ mconcat ["Method ", name, " is not defined"]
-            else return ()
+        ls <- lift . lift $ use listeners
+        put $ fst addr
+        answer    <- liftIO $ runReaderT (mkPureClient cli) (ls, addr)
+        unwrapPureRpc $ waitDelay Response
+        
+        put curHost
+        return answer
     
+    serve port methods  =  PureRpc $ do
+        host <- get
+        lift . lift . forM_ methods $ \Method{..} -> listeners 
+            %= Map.insert ((host, port), methodName) methodBody
 
-nextDelay :: PureRpc m Microseconds
-nextDelay  =  PureRpc $ do
-    seed   <- lift $ lift $ use randSeed
-    addr   <- get
-    delays <- lift $ lift $ use delays
-    let () runRandT (evalDelay delay) seed 
+waitDelay :: RpcStage -> PureRpc () 
+waitDelay stage  =  PureRpc $ do
+    seed    <- lift . lift $ use randSeed
+    host    <- get
+    delays' <- lift . lift $ use delays
+    time    <- localTime
+    let (delay, nextSeed) = runRand (evalDelay delays' stage time) seed 
+    lift $ lift $ randSeed .= nextSeed
+    wait $ maybe (for 99999 sec) (flip for mcs) $ delay 
+        -- TODO: throw or eliminate
 
-
-{-
-addDelayedEvent :: Timestamp -> (Addr, Event) -> Emulation -> Emulation
-addDelayedEvent time event emu = 
-    let delayR = uncurry (evalDelay $ emu ^. delays) event
-        delayM = evalRandT delayR $ emu ^. randSeed
-    in  maybe emu (\delay -> addEvent (time + delay) event emu) delayM
--}
 

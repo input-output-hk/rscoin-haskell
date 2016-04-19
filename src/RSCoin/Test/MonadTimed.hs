@@ -24,6 +24,7 @@ import           Control.Monad.Catch         (MonadThrow, MonadCatch)
 import           Control.Monad.Trans         (liftIO, lift, MonadIO)
 import           Control.Monad.Trans.Control (MonadBaseControl, liftBaseWith, restoreM, StM)
 import           Control.Monad.Reader        (ReaderT, runReaderT, ask)
+import           Control.Monad.State         (StateT, evalStateT, get)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 
 type MicroSeconds  =  Int
@@ -50,7 +51,7 @@ schedule time action  =  fork $ wait time >> action
 -- | Executes an action at specified time in current thread
 invoke :: MonadTimed m => RelativeToNow -> m a -> m a
 invoke time action  =  wait time >> action
-   
+ 
 -- FIXME: is that ok to store time in microseconds?
 newtype TimedIO a  =  TimedIO 
     { getTimedIO :: ReaderT MicroSeconds IO a
@@ -62,8 +63,6 @@ instance MonadBaseControl IO TimedIO where
     
     liftBaseWith f = undefined
     restoreM = undefined
-
-    
 
 instance MonadTimed TimedIO where
     localTime  =  TimedIO $ (-) <$> lift curTime <*> ask
@@ -78,6 +77,13 @@ instance MonadTimed m => MonadTimed (ReaderT r m) where
     localTime  =  lift localTime 
     
     fork m  =  lift . fork . runReaderT m =<< ask
+
+    wait  =  lift . wait
+
+instance MonadTimed m => MonadTimed (StateT r m) where
+    localTime  =  lift localTime 
+    
+    fork m  =  lift . fork . evalStateT m =<< get
 
     wait  =  lift . wait
 
@@ -118,13 +124,13 @@ after  =  after' 0
 for    =  after' 0
 
 -- | Current time point 
-now  :: RelativeToNow
+now :: RelativeToNow
 now  =  id
 
 -- black magic 
 class TimeAcc t where
-    at'    :: MicroSeconds -> t
-    after' :: MicroSeconds -> t
+    at'       :: MicroSeconds -> t
+    after'    :: MicroSeconds -> t
 
 instance TimeAcc RelativeToNow where
     at'     =  (-)  

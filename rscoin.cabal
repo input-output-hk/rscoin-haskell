@@ -38,6 +38,7 @@ library
                      , RSCoin.User.Logic
                      , RSCoin.Test.MonadTimed
                      , RSCoin.Test.MonadRpc
+                     , RSCoin.Test.PureRpc
                      , RSCoin.Test.Timed
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Error

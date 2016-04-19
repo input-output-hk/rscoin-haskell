@@ -15,6 +15,7 @@ module RSCoin.Bank.StorageSpec
        , UpdateVoid
        , BankState (..)
        , bankStorage
+       , bankKey
        ) where
 
 import           Control.Lens               (makeLenses)

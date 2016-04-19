@@ -15,19 +15,22 @@ module RSCoin.StorageSpec
        ) where
 
 import           Control.Lens              (Getter, ix, makeLenses, to, use,
-                                            uses, (%=), (&), (+=), (.=), (.~), at)
+                                            uses, (%=), (&), (+=), (.=), (.~), at, preuse)
 
-import           Control.Monad              (forM_, guard, unless, void)
+import           Control.Monad              (forM, guard, unless, void, when)
+import           Control.Monad.Catch        (MonadThrow (throwM))
 import           Control.Monad.Trans        (lift)
-import           Control.Exception          (Exception)
+import           Control.Exception          (Exception, SomeException)
 import           Control.Monad.State.Lazy   (modify, gets)
 import qualified Data.Map                   as M
+import           Data.Text                  (Text)
+import           Data.Typeable              (Typeable)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
 
-import qualified RSCoin.Bank.Error     as B
-import qualified RSCoin.Mintette.Error as M
+import qualified RSCoin.Bank.Error       as B
+import qualified RSCoin.Mintette.Error   as M
 import qualified RSCoin.Bank.Storage     as B
 import qualified RSCoin.Mintette.Storage as M
 import qualified RSCoin.Core             as C
@@ -41,6 +44,12 @@ spec :: Spec
 spec =
     describe "Storage" $ do
         return ()
+
+data TestError
+    = TestError Text
+    deriving (Show, Typeable, Eq)
+
+instance Exception TestError
 
 data RSCoinState =
     RSCoinState { _bankState      :: B.BankState
@@ -66,35 +75,76 @@ instance Arbitrary EmptyUpdate where
 instance CanUpdate EmptyUpdate where
     doUpdate _ = return ()
 
-data AddMintette = AddMintette C.Mintette (C.SecretKey, C.PublicKey)
+data AddMintette = AddMintette C.Mintette (C.SecretKey, C.PublicKey) M.MintetteState
     deriving Show
 
 instance Arbitrary AddMintette where
   arbitrary = do
+    mId <- arbitrary
     mintette <- arbitrary
     sk <- arbitrary
-    return $ AddMintette mintette (sk, C.derivePublicKey sk)
+    return $ AddMintette mId (sk, C.derivePublicKey sk) mintette
 
 instance CanUpdate AddMintette where
-    doUpdate (AddMintette m (sk, pk)) = do
-        liftBankUpdate $ B.addMintette m pk
+    doUpdate (AddMintette mId (sk, pk) mintette) = do
+        liftBankUpdate $ B.addMintette mId pk
+        mintettesState . at mId .= Just mintette
 
--- instance Arbitrary RSCoinState where
---     arbitrary = do
---         bank <- arbitrary
---         SomeUpdate upd <- arbitrary
---         return . T.execUpdate (doUpdate upd) $ RSCoinState bank []
+data StartNewPeriod = StartNewPeriod
+    deriving Show
 
-liftBankUpdate :: T.Update B.BankError B.Storage () -> T.Update C.RSCoinError RSCoinState ()
+instance Arbitrary StartNewPeriod where
+    arbitrary = pure StartNewPeriod
+
+instance CanUpdate StartNewPeriod where
+    doUpdate _ = do
+        mintettes <- use $ bankState . B.bankStorage . B.getMintettes
+        pId <- use $ bankState . B.bankStorage . B.getPeriodId
+        bankSk <- use $ bankState . B.bankKey
+        periodResults <- forM mintettes $ 
+            \mId -> do
+                mSk <- preuse $ mintettesState . ix mId . M.mintetteKey
+                maybe 
+                    (throwM $ TestError "No mintettes secret key") 
+                    (liftMintetteUpdate mId . flip M.finishPeriod pId) 
+                    mSk
+        newPeriodData <- liftBankUpdate . B.startNewPeriod bankSk $ map Just periodResults
+        newMintettes <- use $ bankState . B.bankStorage . B.getMintettes
+        mapM_
+            (\(m,mId) -> do
+                    when (length newPeriodData < mId) $
+                        throwM $ TestError "No such mintette"
+                    liftMintetteUpdate m $ M.startPeriod (newPeriodData !! mId))
+            (zip newMintettes [0 ..])
+
+instance Arbitrary SomeUpdate where
+    arbitrary = 
+        frequency
+            [ (1, SomeUpdate <$> (arbitrary :: Gen EmptyUpdate))
+            , (10, SomeUpdate <$> (arbitrary :: Gen AddMintette))
+            , (10, SomeUpdate <$> (arbitrary :: Gen StartNewPeriod))
+            ]
+
+instance Arbitrary RSCoinState where
+    arbitrary = do
+        bank <- arbitrary
+        SomeUpdate upd <- arbitrary
+        return . T.execUpdate (doUpdate upd) $ RSCoinState bank M.empty
+
+liftBankUpdate :: T.Update B.BankError B.Storage a -> T.Update C.RSCoinError RSCoinState a
 liftBankUpdate upd = do
     bank <- gets $ B._bankStorage . _bankState
-    newBank <- T.execUpdateSafe upd bank
+    (res, newBank) <- T.runUpdateSafe upd bank
     bankState . B.bankStorage .= newBank
+    return res
 
-liftMintetteUpdate :: C.Mintette -> T.Update M.MintetteError M.Storage () -> T.Update C.RSCoinError RSCoinState ()
+liftMintetteUpdate :: C.Mintette -> T.Update M.MintetteError M.Storage a -> T.Update C.RSCoinError RSCoinState a
 liftMintetteUpdate mintette upd = do
     mMintette <- gets (fmap M._mintetteStorage . M.lookup mintette . _mintettesState)
-    mNewStorage <- return $ mMintette >>= T.execUpdateSafe upd 
-    mintettesState %= at mintette . M.mintetteStorage .~ mNewStorage
-    return ()
-
+    mRes <- return $ mMintette >>= T.runUpdateSafe upd 
+    maybe (throwM $ TestError "No mintette") updateMintette mRes
+    -- FIXME: return Maybe a instead of error ?
+  where
+    updateMintette (ret, newStorage) = do
+        mintettesState . ix mintette . M.mintetteStorage .= newStorage
+        return ret

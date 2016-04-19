@@ -15,6 +15,7 @@ module RSCoin.Mintette.StorageSpec
        , UpdateVoid
        , MintetteState (..)
        , mintetteStorage
+       , mintetteKey
        ) where
 
 import           Control.Lens               (makeLenses)

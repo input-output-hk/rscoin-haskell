@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     RSCoin.Bank
+                     , RSCoin.Bank.Error
                      , RSCoin.Bank.Storage
                      , RSCoin.Core
                      , RSCoin.Core.ActionLog
@@ -31,6 +32,8 @@ library
                      , RSCoin.Core.Transaction
                      , RSCoin.Core.Types
                      , RSCoin.Mintette
+                     , RSCoin.Mintette.Error
+                     , RSCoin.Mintette.Storage
                      , RSCoin.User
                      , RSCoin.User.AcidState
                      , RSCoin.User.Error
@@ -41,7 +44,6 @@ library
                      , RSCoin.Test.PureRpc
                      , RSCoin.Test.Timed
   other-modules:       RSCoin.Bank.AcidState
-                     , RSCoin.Bank.Error
                      , RSCoin.Bank.Server
                      , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
@@ -51,9 +53,7 @@ library
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
                      , RSCoin.Mintette.AcidState
-                     , RSCoin.Mintette.Error
                      , RSCoin.Mintette.Server
-                     , RSCoin.Mintette.Storage
                      , RSCoin.Mintette.Worker
   build-depends:       acid-state
                      , aeson >= 0.9.0.1

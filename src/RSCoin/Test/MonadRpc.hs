@@ -7,15 +7,27 @@
 -- and it's implementation using MessagePack.
 
 module RSCoin.Test.MonadRpc
-    
-    where
+    ( Port
+    , Host
+    , Addr
+    , MonadRpc
+    , MsgPackRpc
+    , runMsgPackRpc
+    , RpcType
+    , execClient
+    , serve
+    , Method(..)
+    , Client(..)
+    , method
+    , call
+    ) where
 
 import qualified Data.ByteString            as BS 
 import           Control.Monad.Catch           (MonadThrow, MonadCatch)
 import           Control.Monad.State           (execState, put)
 import           Control.Monad.Trans           (MonadIO, liftIO)
-import           Control.Concurrent.MVar       (newEmptyMVar, putMVar, takeMVar)
-import           Data.Maybe                    (fromJust)
+import           Data.IORef                    (newIORef, readIORef, writeIORef)
+import           Data.Maybe                    (fromMaybe)
 
 import qualified Network.MessagePack.Client as C
 import qualified Network.MessagePack.Server as S
@@ -23,7 +35,10 @@ import qualified Network.MessagePack.Server as S
 import           RSCoin.Test.MonadTimed        (TimedIO, MonadTimed)
 
 import           Data.MessagePack.Object       (Object(..), MessagePack, 
-                                                toObject, fromObject)
+                                                toObject)
+
+-- TODO: how to export Network.MessagePack.Server.Server and .MethodType?
+--       This would fully hide MessagePack library from user's code
 
 type Port = Int
 
@@ -56,66 +71,67 @@ newtype MsgPackRpc a  =  MsgPackRpc { runMsgPackRpc :: (TimedIO a) }
               MonadThrow, MonadCatch, MonadTimed)
 
 instance MonadRpc MsgPackRpc where 
-    execClient (addr, port) cli  =  liftIO $ do
-        -- TODO: is IORef ok?
-        box <- newEmptyMVar
+    execClient (addr, port) (Client name args)  =  liftIO $ do
+        box <- newIORef Nothing
         C.execClient addr port $ do
-            res <- mkClient cli
-            liftIO $ putMVar box res
-        takeMVar box
+            -- note, underlying rpc accepts a single argument - [Object]
+            res <- C.call name args
+            liftIO . writeIORef box $ Just res
+        fromMaybe (error "Aaa, execClient didn't return a value!") 
+            <$> readIORef box
       where
         mkClient :: MessagePack a => Client a -> C.Client a
         mkClient (Client name args) = C.call name args 
-
 
     serve port methods  =  liftIO $ S.serve port (modifyMethod <$> methods)
       where
         modifyMethod :: Method IO -> S.Method IO
         modifyMethod m = let Method{..} = m
                          in  S.method methodName methodBody
-    
--- Client part 
 
--- | Keeps function name and arguments 
+    
+-- * Client part 
+
+-- | Creates a function call. It accepts function name and arguments
+call :: RpcType t => String -> t
+call name  =  rpcc name []
+
+-- | Collects function name and arguments 
 -- (it's MessagePack implementation is hiden, need our own)
 class RpcType t where
     rpcc :: String -> [Object] -> t
 
-instance MessagePack o => RpcType (Client o) where
-    rpcc name args  =  Client name (reverse args)
-
 instance (RpcType t, MessagePack p) => RpcType (p -> t) where
     rpcc name objs p  =  rpcc name $ toObject p : objs
 
-call :: RpcType t => String -> t
-call name  =  rpcc name []
-
+-- | Keeps function name and arguments 
 data Client a where
     Client :: MessagePack a => String -> [Object] -> Client a
 
--- Server part
+instance MessagePack o => RpcType (Client o) where
+    rpcc name args  =  Client name (reverse args)
 
+
+-- * Server part
+
+-- | Keeps method definition
 data Method m  =  Method 
     { methodName :: String
     , methodBody :: [Object] -> m Object
     }
 
+-- | Creates method available for RPC-requests.
+--   It accepts method name (which would be refered by clients) 
+--   and it's arguments
 method :: S.MethodType m f => String -> f -> Method m
 method name f  =  Method
     { methodName = name
     , methodBody = S.toBody f
     }
 
--- newtype ServerT m a  =  ServerT { runServerT :: m a } 
---    deriving (Functor, Applicative, Monad, MonadIO)
-
--- instance (Monad m, MessagePack o) => S.MethodType m (ServerT m o) where
---     toBody m []  =  toObject <$> runServerT m
---    toBody _ _   =  error "Too many arguments passed"
-
 instance S.MethodType m f => S.MethodType m (m f) where
     toBody res args  =  res >>= \r -> S.toBody r args
 
 instance Monad m => S.MethodType m Object where
     toBody res []  =  return res
-    toBody _   _   =  error "!!"
+    toBody _   _   =  error "Too many arguments!"

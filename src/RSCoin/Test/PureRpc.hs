@@ -16,9 +16,9 @@ import           RSCoin.Test.Timed           (TimedT(..))
 import           System.Random               (StdGen, mkStdGen)
 import           Control.Monad.Random        (Rand, runRand)
 import           Data.Default                (Default, def)
+import           Data.Maybe                  (fromMaybe)
 import           Data.Map                    as Map
 import           Control.Lens
-import           Data.Maybe                  (fromMaybe)
 import           Data.MessagePack            (Object)
 import           Data.ByteString             (ByteString)
 
@@ -32,6 +32,7 @@ import           RSCoin.Test.MonadRpc        (MonadRpc, execClient, serve
 import           RSCoin.Test.Timed           (TimedT, runTimedT)
 
 
+-- | Describes network nastyness
 newtype Delays = Delays 
     { -- | Just delay if net packet delivered successfully
       --   Nothing otherwise
@@ -60,9 +61,8 @@ instance Default Delays where
 data RpcStage  =  Request
                |  Response
 
-type FunName  =  String
-
-type Listeners m  =  Map.Map (Addr, FunName) ([Object] -> m Object)
+-- | Keeps servers' methods
+type Listeners m  =  Map.Map (Addr, String) ([Object] -> m Object)
 
 -- | Keeps global network information
 data NetInfo m = NetInfo 
@@ -86,13 +86,12 @@ runPureRpc _randSeed _delays (PureRpc rpc)  =  do
     _listeners = Map.empty
 
 -- TODO: use normal exceptions here
-mkPureClient :: MessagePack a => Client a -> ReaderT (Listeners IO, Addr) IO a
-mkPureClient (Client name args) =  do
-    (listens', addr) <- ask
-    case Map.lookup (addr, name) listens' of
+request :: MessagePack a => Client a -> (Listeners IO, Addr) -> IO a
+request (Client name args) (listeners', addr)  =  do
+    case Map.lookup (addr, name) listeners' of
         Nothing -> error $ mconcat 
             ["Method ", name, " is not defined at ", show addr]
-        Just f  -> lift $ fromMaybe (error "Answer type mismatch")
+        Just f  -> fromMaybe (error "Answer type mismatch")
                  . fromObject <$> f args
 
 instance MonadRpc PureRpc where
@@ -102,7 +101,7 @@ instance MonadRpc PureRpc where
 
         ls <- lift . lift $ use listeners
         put $ fst addr
-        answer    <- liftIO $ runReaderT (mkPureClient cli) (ls, addr)
+        answer <- liftIO $ request cli (ls, addr)
         unwrapPureRpc $ waitDelay Response
         
         put curHost
@@ -110,8 +109,8 @@ instance MonadRpc PureRpc where
     
     serve port methods  =  PureRpc $ do
         host <- get
-        lift . lift . forM_ methods $ \Method{..} -> listeners 
-            %= Map.insert ((host, port), methodName) methodBody
+        lift . lift . forM_ methods $ \Method{..} -> 
+            listeners %= Map.insert ((host, port), methodName) methodBody
 
 waitDelay :: RpcStage -> PureRpc () 
 waitDelay stage  =  PureRpc $ do

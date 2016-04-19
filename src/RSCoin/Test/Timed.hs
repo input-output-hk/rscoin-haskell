@@ -83,7 +83,7 @@ runTimedT timed  =  unwrapTimedT . (schedule now timed >> ) . void . whileM notD
     TimedT $ lift $ curTime .= _timestamp nextEv
  
     -- We can't just invoke (nextEv ^. action) here, because it can put
-    -- further execution to event queue, and we want to successfully finish 
+    -- further execution to event queue. We want to successfully finish 
     -- this action and go to next iteration rather than loose execution control
     let (TimedT act) = nextEv ^. action
     TimedT $ lift $ runContT act return

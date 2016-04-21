@@ -17,7 +17,9 @@ import           Test.QuickCheck             (Arbitrary (arbitrary), Gen, oneof,
                                              Property, ioProperty, (.&&.))
 import           Test.QuickCheck.Poly        (A)
 
-import           RSCoin.Test.MonadTimed      (RelativeToNow, MicroSeconds, now, after, MonadTimed (..), runTimedIO, TimedIO, schedule, invoke)
+import           RSCoin.Test.MonadTimed      (RelativeToNow, MicroSeconds, now,
+                                              after, MonadTimed (..), runTimedIO,
+                                              TimedIO, schedule, invoke)
 
 spec :: Spec
 spec =
@@ -33,7 +35,7 @@ spec =
         describe "schedule" $ do
             prop "won't change semantics of an action, will execute action in the future" scheduleSemanticProp
         describe "invoke" $ do
-            prop "won't change semantics of an action, will execute action in the future" scheduleSemanticProp
+            prop "won't change semantics of an action, will execute action in the future" invokeSemanticProp
 
 instance Show (a -> a) where
     show = const "Dummy method show"

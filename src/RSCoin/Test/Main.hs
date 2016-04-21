@@ -16,7 +16,6 @@ import          RSCoin.Test.MonadRpc
 import          RSCoin.Test.PureRpc
 import          RSCoin.Test.MonadRpc    
 
-
 import          Network.MessagePack.Server (Server)
 
 main :: IO ()
@@ -29,7 +28,6 @@ sayHelloIO  =  runTimedIO_ sayHello
 
 sayHelloPure :: IO ()
 sayHelloPure  =  runTimedT sayHello
-
 
 sayHello :: (MonadIO m, MonadTimed m) => m ()
 sayHello  =  do
@@ -91,4 +89,3 @@ delays :: Delays
 delays  =  Delays d
   where
     d _ _  =  Just <$> getRandomR (10, 1000)
-

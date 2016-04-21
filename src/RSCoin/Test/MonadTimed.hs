@@ -139,6 +139,3 @@ instance TimeAcc RelativeToNow where
 instance (a ~ b, TimeAcc t) => TimeAcc (a -> (b -> MicroSeconds) -> t) where
     at'    acc t f  =  at'    $ f t + acc
     after' acc t f  =  after' $ f t + acc
-
-
-

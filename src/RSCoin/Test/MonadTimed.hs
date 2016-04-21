@@ -46,11 +46,11 @@ class Monad m => MonadTimed m where
 
 -- | Executes an action somewhere in future
 schedule :: MonadTimed m => RelativeToNow -> m () -> m ()
-schedule time action  =  fork $ wait time >> action
+schedule time action  = fork $ wait time >> action
  
 -- | Executes an action at specified time in current thread
 invoke :: MonadTimed m => RelativeToNow -> m a -> m a
-invoke time action  =  wait time >> action
+invoke time action  = wait time >> action
  
 -- FIXME: is that ok to store time in microseconds?
 newtype TimedIO a  =  TimedIO 

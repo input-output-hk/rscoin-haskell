@@ -20,6 +20,8 @@ module RSCoin.Test.MonadRpc
     , Client(..)
     , method
     , call
+    , S.Server
+    , S.MethodType
     ) where
 
 import qualified Data.ByteString            as BS 

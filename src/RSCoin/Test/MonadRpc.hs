@@ -39,9 +39,6 @@ import           RSCoin.Test.MonadTimed        (TimedIO, MonadTimed)
 import           Data.MessagePack.Object       (Object(..), MessagePack, 
                                                 toObject)
 
--- TODO: how to export Network.MessagePack.Server.Server and .MethodType?
---       This would fully hide MessagePack library from user's code
-
 type Port = Int
 
 type Host = BS.ByteString

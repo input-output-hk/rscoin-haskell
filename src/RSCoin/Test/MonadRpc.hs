@@ -2,8 +2,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 
--- This module contains RpcMonad providing RPC communication, 
+-- This module contains MonadRpc providing RPC communication, 
 -- and it's implementation using MessagePack.
 
 module RSCoin.Test.MonadRpc
@@ -23,9 +25,11 @@ module RSCoin.Test.MonadRpc
     ) where
 
 import qualified Data.ByteString            as BS 
+import           Control.Monad.Base            (MonadBase)
 import           Control.Monad.Catch           (MonadThrow, MonadCatch)
-import           Control.Monad.State           (execState, put)
 import           Control.Monad.Trans           (MonadIO, liftIO)
+import           Control.Monad.Trans.Control   (MonadBaseControl, StM
+                                               , liftBaseWith, restoreM)
 import           Data.IORef                    (newIORef, readIORef, writeIORef)
 import           Data.Maybe                    (fromMaybe)
 
@@ -47,10 +51,10 @@ type Host = BS.ByteString
 type Addr = (Host, Port)
 
 -- | Defines protocol of RPC layer
-class MonadRpc r where
+class MonadThrow r => MonadRpc r where
     execClient :: MessagePack a => Addr -> Client a -> r a
     
-    serve :: Port -> [Method IO] -> r ()
+    serve :: Port -> [Method r] -> r ()
 
 -- | Same as MonadRpc, but we can set delays on per call basis.
 --   MonadRpc also has specified delays, but only for whole network.
@@ -67,8 +71,15 @@ class MonadRpc r where
 -- Implementation for MessagePack
 
 newtype MsgPackRpc a  =  MsgPackRpc { runMsgPackRpc :: (TimedIO a) }
-    deriving (Functor, Applicative, Monad, MonadIO, 
+    deriving (Functor, Applicative, Monad, MonadIO, MonadBase IO,
               MonadThrow, MonadCatch, MonadTimed)
+
+instance MonadBaseControl IO MsgPackRpc where
+    type StM MsgPackRpc a  =  a
+    
+    liftBaseWith f  =  MsgPackRpc $ liftBaseWith $ \g -> f $ g . runMsgPackRpc
+
+    restoreM  =  MsgPackRpc . restoreM
 
 instance MonadRpc MsgPackRpc where 
     execClient (addr, port) (Client name args)  =  liftIO $ do
@@ -79,15 +90,11 @@ instance MonadRpc MsgPackRpc where
             liftIO . writeIORef box $ Just res
         fromMaybe (error "Aaa, execClient didn't return a value!") 
             <$> readIORef box
-      where
-        mkClient :: MessagePack a => Client a -> C.Client a
-        mkClient (Client name args) = C.call name args 
 
-    serve port methods  =  liftIO $ S.serve port (modifyMethod <$> methods)
+    serve port methods  =  S.serve port $ convertMethod <$> methods
       where
-        modifyMethod :: Method IO -> S.Method IO
-        modifyMethod m = let Method{..} = m
-                         in  S.method methodName methodBody
+        convertMethod :: Method MsgPackRpc -> S.Method MsgPackRpc
+        convertMethod Method{..} = S.method methodName methodBody
 
     
 -- * Client part 
@@ -122,16 +129,20 @@ data Method m  =  Method
 
 -- | Creates method available for RPC-requests.
 --   It accepts method name (which would be refered by clients) 
---   and it's arguments
+--   and it's body
 method :: S.MethodType m f => String -> f -> Method m
 method name f  =  Method
     { methodName = name
     , methodBody = S.toBody f
     }
 
-instance S.MethodType m f => S.MethodType m (m f) where
+instance S.MethodType MsgPackRpc f => S.MethodType MsgPackRpc (MsgPackRpc f)
+   where
     toBody res args  =  res >>= \r -> S.toBody r args
 
 instance Monad m => S.MethodType m Object where
     toBody res []  =  return res
     toBody _   _   =  error "Too many arguments!"
+
+
+

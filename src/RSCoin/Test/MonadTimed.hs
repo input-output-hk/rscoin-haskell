@@ -22,8 +22,9 @@ import           Control.Monad               (void)
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadThrow, MonadCatch)
 import           Control.Monad.Trans         (liftIO, lift, MonadIO)
-import           Control.Monad.Trans.Control (MonadBaseControl, liftBaseWith, restoreM, StM)
-import           Control.Monad.Reader        (ReaderT, runReaderT, ask)
+import           Control.Monad.Trans.Control (MonadBaseControl, liftBaseWith
+                                             , restoreM, StM)
+import           Control.Monad.Reader        (ReaderT(..), runReaderT, ask)
 import           Control.Monad.State         (StateT, evalStateT, get)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 
@@ -52,17 +53,17 @@ schedule time action  =  fork $ wait time >> action
 invoke :: MonadTimed m => RelativeToNow -> m a -> m a
 invoke time action  =  wait time >> action
  
--- FIXME: is that ok to store time in microseconds?
 newtype TimedIO a  =  TimedIO 
     { getTimedIO :: ReaderT MicroSeconds IO a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch
                , MonadBase IO)
 
 instance MonadBaseControl IO TimedIO where
-    type StM TimedIO a = a
-    
-    liftBaseWith f = undefined
-    restoreM = undefined
+    type StM TimedIO a  =  a
+ 
+    liftBaseWith f  =  TimedIO $ liftBaseWith $ \g -> f $ g . getTimedIO
+
+    restoreM  =  TimedIO . restoreM
 
 instance MonadTimed TimedIO where
     localTime  =  TimedIO $ (-) <$> lift curTime <*> ask

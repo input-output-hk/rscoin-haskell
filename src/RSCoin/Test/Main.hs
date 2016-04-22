@@ -1,8 +1,10 @@
+{-#LANGUAGE ScopedTypeVariables  #-}
+
 module Main where
 
 import          Prelude                 hiding (log)
 import          Control.Monad           (forM_)
-import          Control.Monad.Trans     (liftIO, MonadIO)
+import          Control.Monad.Trans     (lift, liftIO, MonadIO)
 import          Data.Default            (def)
 import          System.Random           (mkStdGen) 
 import          Control.Monad.Random.Class (getRandomR)
@@ -15,9 +17,9 @@ import          RSCoin.Test.Timed       (runTimedT)
 import          RSCoin.Test.MonadRpc 
 import          RSCoin.Test.PureRpc
 import          RSCoin.Test.MonadRpc    
+import          Control.Monad.Catch
 
-
-import          Network.MessagePack.Server (Server)
+import          Network.MessagePack.Server (ServerT)
 
 main :: IO ()
 main  =  sayHelloIO
@@ -68,7 +70,9 @@ rpcSeed seed  =  runPureRpc (mkStdGen seed) delays $ handshake
 
 handshake :: (MonadRpc m, MonadTimed m, MonadIO m) => m ()
 handshake  =  do
-    fork $ serve 2222 [method "lol" response]
+    let resp = response
+    restrict $ resp 5
+    fork $ serve 2222 [method "lol" resp]
 
     forM_ [1..3] $ \i ->
         schedule (at 1 sec) $ do
@@ -79,9 +83,13 @@ handshake  =  do
                     res <- execClient ("localhost", 2222) $ request a
                     log $ "A" ++ show a
 
-response :: Int -> Server Int
+restrict :: Monad m => ServerT m a -> m ()
+restrict _  =  return ()
+
+response :: (MonadRpc m, MonadTimed m, MonadIO m) => Int -> ServerT m Int
 response k  =  do
     liftIO $ putStrLn $ "R" ++ show k
+    lift $ wait $ for 0.4 sec'
     return k
 
 request :: Int -> Client Int

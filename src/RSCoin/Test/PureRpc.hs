@@ -10,18 +10,18 @@ module RSCoin.Test.PureRpc
     , Delays(..)
     ) where
 
-import           Control.Monad.State         
-import           Control.Monad.Reader        (ReaderT, runReaderT, ask)         
-import           RSCoin.Test.Timed           (TimedT(..))
-import           System.Random               (StdGen, mkStdGen)
+import           Control.Lens                (use, makeLenses, (.=), (%=))
+import           Control.Monad               (forM_)
+import           Control.Monad.Catch         (MonadThrow, MonadCatch)
+import           Control.Monad.State         (StateT, put, evalStateT, get)
+import           Control.Monad.Trans         (lift, MonadIO)
 import           Control.Monad.Random        (Rand, runRand)
 import           Data.Default                (Default, def)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Map                    as Map
-import           Control.Lens
-import           Data.MessagePack            (Object)
-import           Data.ByteString             (ByteString)
+import           System.Random               (StdGen)
 
+import           Data.MessagePack            (Object)
 import           Data.MessagePack.Object     (fromObject, MessagePack)
 
 import           RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds, for
@@ -29,7 +29,7 @@ import           RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds, for
 import           RSCoin.Test.MonadRpc        (MonadRpc, execClient, serve
                                              , Addr, Method(..), Client(..)
                                              , methodName, methodBody, Host)
-import           RSCoin.Test.Timed           (TimedT, runTimedT)
+import           RSCoin.Test.Timed           (runTimedT, TimedT)
 
 
 -- | Describes network nastyness
@@ -73,12 +73,13 @@ data NetInfo m = NetInfo
 $(makeLenses ''NetInfo)
 
 -- | Pure implementation of RPC
-newtype PureRpc a = PureRpc 
-    { unwrapPureRpc :: StateT Host (TimedT (StateT (NetInfo IO) IO)) a 
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadTimed)
+newtype PureRpc m a = PureRpc 
+    { unwrapPureRpc :: StateT Host (TimedT (StateT (NetInfo (PureRpc m)) m)) a 
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadTimed
+               , MonadThrow)
 
 -- | Launches rpc scenario
-runPureRpc :: StdGen -> Delays -> PureRpc () -> IO ()
+runPureRpc :: (Monad m, MonadCatch m) => StdGen -> Delays -> PureRpc m () -> m ()
 runPureRpc _randSeed _delays (PureRpc rpc)  =  do
     evalStateT (runTimedT (evalStateT rpc "localhost")) net
   where
@@ -86,7 +87,7 @@ runPureRpc _randSeed _delays (PureRpc rpc)  =  do
     _listeners = Map.empty
 
 -- TODO: use normal exceptions here
-request :: MessagePack a => Client a -> (Listeners IO, Addr) -> IO a
+request :: Monad m => MessagePack a => Client a -> (Listeners (PureRpc m), Addr) -> PureRpc m a
 request (Client name args) (listeners', addr)  =  do
     case Map.lookup (addr, name) listeners' of
         Nothing -> error $ mconcat 
@@ -94,14 +95,14 @@ request (Client name args) (listeners', addr)  =  do
         Just f  -> fromMaybe (error "Answer type mismatch")
                  . fromObject <$> f args
 
-instance MonadRpc PureRpc where
+instance (Monad m, MonadThrow m) => MonadRpc (PureRpc m) where
     execClient addr cli  =  PureRpc $ do  
         curHost <- get
         unwrapPureRpc $ waitDelay Request
 
         ls <- lift . lift $ use listeners
         put $ fst addr
-        answer <- liftIO $ request cli (ls, addr)
+        answer <- unwrapPureRpc $ request cli (ls, addr)
         unwrapPureRpc $ waitDelay Response
         
         put curHost
@@ -109,18 +110,17 @@ instance MonadRpc PureRpc where
     
     serve port methods  =  PureRpc $ do
         host <- get
-        lift . lift . forM_ methods $ \Method{..} -> 
+        lift $ lift $ forM_ methods $ \Method{..} -> 
             listeners %= Map.insert ((host, port), methodName) methodBody
 
-waitDelay :: RpcStage -> PureRpc () 
+waitDelay :: Monad m => RpcStage -> PureRpc m () 
 waitDelay stage  =  PureRpc $ do
     seed    <- lift . lift $ use randSeed
-    host    <- get
     delays' <- lift . lift $ use delays
     time    <- localTime
     let (delay, nextSeed) = runRand (evalDelay delays' stage time) seed 
     lift $ lift $ randSeed .= nextSeed
-    wait $ maybe (for 99999 sec) (flip for mcs) $ delay 
+    wait $ maybe (for 99999 sec) (\t -> for t mcs) $ delay 
         -- TODO: throw or eliminate
 
 

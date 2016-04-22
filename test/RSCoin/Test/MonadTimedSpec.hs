@@ -51,13 +51,10 @@ spec =
                 prop "won't change semantics of an action, will execute action in the future" $
                     \a b -> runTimedIOProp . invokeSemanticProp a b
 
-instance Show RelativeToNowNat where
-    show f = mconcat ["RelativeToNow: 0 -> ", show $ f 0, ", 1 -> ", show $ f 1, ", 2 -> ", show $ f 2]
-
-type RelativeToNowNat = Natural -> Natural
+type RelativeToNowNat = Natural
 
 fromIntegralRTN :: RelativeToNowNat -> RelativeToNow
-fromIntegralRTN f = fromIntegral . f . fromIntegral
+fromIntegralRTN = (+) . fromIntegral
 
 -- TODO: figure out how to test recursive functions like after/at
 
@@ -112,7 +109,7 @@ waitPassingProp relativeToNow =
 
 localTimePassingProp :: (MonadTimed m, MonadIO m) => PropertyM m ()
 localTimePassingProp =
-    timePassingProp id $ pure ()
+    timePassingProp 0 $ pure ()
 
 -- | Proves that at least relativeToNow has passed while executing an action
 timePassingProp

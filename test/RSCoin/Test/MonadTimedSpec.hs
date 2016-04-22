@@ -29,26 +29,33 @@ import           RSCoin.Test.Timed           (runTimedT, TimedT)
 
 spec :: Spec
 spec =
-    describe "MonadTimed" $ do
-        describe "TimedIO" $ do
-            describe "now" $ do
-                prop "should return the same time as specified" 
-                    nowProp
-            describe "localTime >> localTime" $ do
-                prop "first localTime will run before second localTime" $
-                    runTimedIOProp localTimePassingProp
-            describe "wait t" $ do
-                prop "will wait at least t" $
-                    runTimedIOProp . waitPassingProp
-            describe "fork" $ do
-                prop "won't change semantics of an action" $
-                    \a -> runTimedIOProp . forkSemanticProp a
-            describe "schedule" $ do
-                prop "won't change semantics of an action, will execute action in the future" $
-                    \a b -> runTimedIOProp . scheduleSemanticProp a b
-            describe "invoke" $ do
-                prop "won't change semantics of an action, will execute action in the future" $
-                    \a b -> runTimedIOProp . invokeSemanticProp a b
+    describe "MonadTimed" $ monadTimedSpec "TimedIO" runTimedIOProp
+
+monadTimedSpec
+    :: (MonadTimed m, MonadIO m)
+    => String
+    -> (PropertyM m () -> Property)
+    -> Spec
+monadTimedSpec description runProp =
+    describe description $ do
+        describe "now" $ do
+            prop "should return the same time as specified" 
+                nowProp
+        describe "localTime >> localTime" $ do
+            prop "first localTime will run before second localTime" $
+                runProp localTimePassingProp
+        describe "wait t" $ do
+            prop "will wait at least t" $
+                runProp . waitPassingProp
+        describe "fork" $ do
+            prop "won't change semantics of an action" $
+                \a -> runProp . forkSemanticProp a
+        describe "schedule" $ do
+            prop "won't change semantics of an action, will execute action in the future" $
+                \a b -> runProp . scheduleSemanticProp a b
+        describe "invoke" $ do
+            prop "won't change semantics of an action, will execute action in the future" $
+                \a b -> runProp . invokeSemanticProp a b
 
 type RelativeToNowNat = Natural
 

@@ -34,6 +34,7 @@ import           RSCoin.Core.Constants      (bankHost, bankPort)
 import           RSCoin.Core.Types          (Mintette (..))
 import           RSCoin.Core.Crypto         ()
 import           RSCoin.Core.MessagePack          ()
+import           RSCoin.Test                (WorkMode, serve, execClient)
 
 -- TODO: this module should provide more safety and expose better api
 

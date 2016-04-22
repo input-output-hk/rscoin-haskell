@@ -96,7 +96,7 @@ actionTimeSemanticProp
     -> PropertyM m ()
 actionTimeSemanticProp action relativeToNow init f = do
     actionSemanticProp action' init f  
-    timePassingProp relativeToNow . action' $ pure ()
+    timePassingProp relativeToNow action'
   where
     action' = action $ fromIntegralRTN relativeToNow
 
@@ -112,22 +112,25 @@ waitPassingProp
     => RelativeToNowNat
     -> PropertyM m ()
 waitPassingProp relativeToNow =
-    timePassingProp relativeToNow . wait $ fromIntegralRTN relativeToNow
+    timePassingProp relativeToNow (wait (fromIntegralRTN relativeToNow) >>)
 
 localTimePassingProp :: (MonadTimed m, MonadIO m) => PropertyM m ()
 localTimePassingProp =
-    timePassingProp 0 $ pure ()
+    timePassingProp 0 id
 
+-- TODO: instead of testing with Chan's we should create PropertyM an instance of MonadTimed.
+-- With that we could test inside forked/waited actions
 -- | Proves that at least relativeToNow has passed while executing an action
 timePassingProp
     :: (MonadTimed m, MonadIO m)
     => RelativeToNowNat
-    -> m ()
+    -> (m () -> m ())
     -> PropertyM m ()
 timePassingProp relativeToNow action = do
+    chan <- liftIO newChan
     t1 <- run localTime
-    run action
-    t2 <- run localTime
+    run . action $ localTime >>= liftIO . writeChan chan
+    t2 <- liftIO $ readChan chan
     monitor (counterexample $ mconcat 
         [ "t1: ", show t1
         , ", t2: ", show t2, ", "

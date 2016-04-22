@@ -12,14 +12,15 @@ module RSCoin.Test.MonadTimedSpec
 import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, modifyTVar)
 import           Control.Concurrent.STM      (atomically)
 import           Control.Monad.Trans         (liftIO, lift, MonadIO)
+import           Numeric.Natural             (Natural)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Arbitrary (arbitrary), Gen, oneof,
-                                             Property, ioProperty, (.&&.))
+import           Test.QuickCheck             (Arbitrary (arbitrary), 
+                                             Property, ioProperty)
 import           Test.QuickCheck.Monadic     (run, assert, PropertyM, monadic)
 import           Test.QuickCheck.Poly        (A)
 
-import           RSCoin.Test.MonadTimed      (RelativeToNow, MicroSeconds, now,
+import           RSCoin.Test.MonadTimed      (MicroSeconds, now, RelativeToNow,
                                               after, MonadTimed (..), runTimedIO,
                                               TimedIO, schedule, invoke)
 import           RSCoin.Test.Timed           (runTimedT, TimedT)
@@ -50,6 +51,11 @@ spec =
 instance Show (a -> a) where
     show = const "Dummy method show"
 
+type RelativeToNowNat = Natural -> Natural
+
+fromIntegralRTN :: RelativeToNowNat -> RelativeToNow
+fromIntegralRTN f = fromIntegral . f . fromIntegral
+
 -- TODO: figure out how to test recursive functions like after/at
 
 runTimedIOProp :: PropertyM TimedIO () -> Property
@@ -60,7 +66,7 @@ runTimedIOProp = monadic $ ioProperty . runTimedIO
 
 invokeSemanticProp
     :: (MonadTimed m, MonadIO m)
-    => RelativeToNow
+    => RelativeToNowNat
     -> A
     -> (A -> A)
     -> PropertyM m ()
@@ -68,7 +74,7 @@ invokeSemanticProp = actionTimeSemanticProp invoke
 
 scheduleSemanticProp
     :: (MonadTimed m, MonadIO m)
-    => RelativeToNow
+    => RelativeToNowNat
     -> A
     -> (A -> A)
     -> PropertyM m ()
@@ -77,7 +83,7 @@ scheduleSemanticProp = actionTimeSemanticProp schedule
 actionTimeSemanticProp
     :: (MonadTimed m, MonadIO m)
     => (RelativeToNow -> m () -> m ())
-    -> RelativeToNow
+    -> RelativeToNowNat
     -> A
     -> (A -> A)
     -> PropertyM m ()
@@ -85,7 +91,7 @@ actionTimeSemanticProp action relativeToNow init modify = do
     actionSemanticProp action' init modify  
     timePassingProp relativeToNow (action' $ pure ())
   where
-    action' = action relativeToNow
+    action' = action $ fromIntegralRTN relativeToNow
 
 forkSemanticProp
     :: (MonadTimed m, MonadIO m)
@@ -96,26 +102,26 @@ forkSemanticProp = actionSemanticProp $ fork
 
 waitPassingProp
     :: (MonadTimed m, MonadIO m)
-    => RelativeToNow
+    => RelativeToNowNat
     -> PropertyM m ()
 waitPassingProp relativeToNow =
-    timePassingProp relativeToNow $ wait relativeToNow
+    timePassingProp relativeToNow $ wait (fromIntegralRTN relativeToNow)
 
 localTimePassingProp :: (MonadTimed m, MonadIO m) => PropertyM m ()
 localTimePassingProp =
-    timePassingProp now $ pure ()
+    timePassingProp id $ pure ()
 
 -- | Proves that at least relativeToNow has passed while executing an action
 timePassingProp
     :: (MonadTimed m, MonadIO m)
-    => RelativeToNow
+    => RelativeToNowNat
     -> m ()
     -> PropertyM m ()
 timePassingProp relativeToNow action = do
     t1 <- run localTime
     run action
     t2 <- run localTime
-    assert $ relativeToNow t1 <= t2
+    assert $ fromIntegralRTN relativeToNow t1 <= t2
 
 -- | Proves that an action will be executed
 actionSemanticProp

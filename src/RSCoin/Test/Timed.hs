@@ -1,4 +1,4 @@
-{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -140,6 +140,5 @@ instance Monad m => MonadTimed (TimedT m) where
             let _action    = TimedT $ lift . lift $ following ()
                 _condition = cond
             in  events %= PQ.insert Event{..} 
-
 
 

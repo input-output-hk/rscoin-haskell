@@ -89,7 +89,7 @@ actionTimeSemanticProp
     -> PropertyM m ()
 actionTimeSemanticProp action relativeToNow init modify = do
     actionSemanticProp action' init modify  
-    timePassingProp relativeToNow (action' $ pure ())
+    timePassingProp relativeToNow . action' $ pure ()
   where
     action' = action $ fromIntegralRTN relativeToNow
 
@@ -98,14 +98,14 @@ forkSemanticProp
     => A
     -> (A -> A)
     -> PropertyM m ()
-forkSemanticProp = actionSemanticProp $ fork
+forkSemanticProp = actionSemanticProp fork
 
 waitPassingProp
     :: (MonadTimed m, MonadIO m)
     => RelativeToNowNat
     -> PropertyM m ()
 waitPassingProp relativeToNow =
-    timePassingProp relativeToNow $ wait (fromIntegralRTN relativeToNow)
+    timePassingProp relativeToNow . wait $ fromIntegralRTN relativeToNow
 
 localTimePassingProp :: (MonadTimed m, MonadIO m) => PropertyM m ()
 localTimePassingProp =

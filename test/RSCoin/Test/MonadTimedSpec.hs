@@ -16,8 +16,11 @@ import           Numeric.Natural             (Natural)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Arbitrary (arbitrary), 
-                                             Property, ioProperty)
-import           Test.QuickCheck.Monadic     (run, assert, PropertyM, monadic)
+                                             Property, ioProperty,
+                                             counterexample)
+import           Test.QuickCheck.Function    (Fun, apply) 
+import           Test.QuickCheck.Monadic     (run, assert, PropertyM, monadic,
+                                             monitor)
 import           Test.QuickCheck.Poly        (A)
 
 import           RSCoin.Test.MonadTimed      (MicroSeconds, now, RelativeToNow,
@@ -48,8 +51,8 @@ spec =
                 prop "won't change semantics of an action, will execute action in the future" $
                     \a b -> runTimedIOProp . invokeSemanticProp a b
 
-instance Show (a -> a) where
-    show = const "Dummy method show"
+instance Show RelativeToNowNat where
+    show f = mconcat ["RelativeToNow: 0 -> ", show $ f 0, ", 1 -> ", show $ f 1, ", 2 -> ", show $ f 2]
 
 type RelativeToNowNat = Natural -> Natural
 
@@ -68,7 +71,7 @@ invokeSemanticProp
     :: (MonadTimed m, MonadIO m)
     => RelativeToNowNat
     -> A
-    -> (A -> A)
+    -> Fun A A
     -> PropertyM m ()
 invokeSemanticProp = actionTimeSemanticProp invoke
 
@@ -76,7 +79,7 @@ scheduleSemanticProp
     :: (MonadTimed m, MonadIO m)
     => RelativeToNowNat
     -> A
-    -> (A -> A)
+    -> Fun A A
     -> PropertyM m ()
 scheduleSemanticProp = actionTimeSemanticProp schedule
 
@@ -85,10 +88,10 @@ actionTimeSemanticProp
     => (RelativeToNow -> m () -> m ())
     -> RelativeToNowNat
     -> A
-    -> (A -> A)
+    -> Fun A A
     -> PropertyM m ()
-actionTimeSemanticProp action relativeToNow init modify = do
-    actionSemanticProp action' init modify  
+actionTimeSemanticProp action relativeToNow init f = do
+    actionSemanticProp action' init f  
     timePassingProp relativeToNow . action' $ pure ()
   where
     action' = action $ fromIntegralRTN relativeToNow
@@ -96,7 +99,7 @@ actionTimeSemanticProp action relativeToNow init modify = do
 forkSemanticProp
     :: (MonadTimed m, MonadIO m)
     => A
-    -> (A -> A)
+    -> Fun A A
     -> PropertyM m ()
 forkSemanticProp = actionSemanticProp fork
 
@@ -121,6 +124,11 @@ timePassingProp relativeToNow action = do
     t1 <- run localTime
     run action
     t2 <- run localTime
+    monitor (counterexample $ mconcat 
+        [ "t1: ", show t1
+        , ", t2: ", show t2, ", "
+        , show $ fromIntegralRTN relativeToNow t1, " <= ", show t2
+        ])
     assert $ fromIntegralRTN relativeToNow t1 <= t2
 
 -- | Proves that an action will be executed
@@ -128,13 +136,13 @@ actionSemanticProp
     :: (MonadTimed m, MonadIO m)
     => (m () -> m ())
     -> A
-    -> (A -> A)
+    -> Fun A A
     -> PropertyM m ()
-actionSemanticProp action init modify = do
+actionSemanticProp action init f = do
     tvar <- liftIO $ newTVarIO init
-    run . action . liftIO . atomically $ modifyTVar tvar modify
+    run . action . liftIO . atomically . modifyTVar tvar $ apply f
     modvar <- liftIO $ readTVarIO tvar
-    assert $ modify init == modvar
+    assert $ apply f init == modvar
 
 nowProp :: MicroSeconds -> Bool
 nowProp ms = ms == now ms

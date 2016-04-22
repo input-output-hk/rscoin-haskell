@@ -1,7 +1,7 @@
-{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE FlexibleInstances         #-}
 
 -- | This module contains pure implementation of MonadTimed.
 
@@ -104,4 +104,3 @@ instance Monad m => MonadTimed (TimedT m) where
         TimedT $ ContT $ \following ->
             let _action = TimedT $ lift $ following ()
             in  events %= PQ.insert Event{..} 
-

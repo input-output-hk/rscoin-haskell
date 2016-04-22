@@ -9,8 +9,7 @@ module RSCoin.Test.MonadTimedSpec
        ( spec
        ) where
 
-import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, modifyTVar)
-import           Control.Concurrent.STM      (atomically)
+import           Control.Concurrent.Chan     (newChan, writeChan, readChan)
 import           Control.Monad.Trans         (liftIO, lift, MonadIO)
 import           Numeric.Natural             (Natural)
 import           Test.Hspec                  (Spec, describe)
@@ -136,10 +135,16 @@ actionSemanticProp
     -> Fun A A
     -> PropertyM m ()
 actionSemanticProp action init f = do
-    tvar <- liftIO $ newTVarIO init
-    run . action . liftIO . atomically . modifyTVar tvar $ apply f
-    modvar <- liftIO $ readTVarIO tvar
-    assert $ apply f init == modvar
+    chan <- liftIO newChan
+    run . action . liftIO . writeChan chan $ apply f init
+    result <- liftIO $ readChan chan
+    monitor (counterexample $ mconcat 
+        [ "f: ", show f
+        , ", init: ", show init
+        , ", f init: ", show $ apply f init
+        , ", should be: ", show result
+        ])
+    assert $ apply f init == result
 
 nowProp :: MicroSeconds -> Bool
 nowProp ms = ms == now ms

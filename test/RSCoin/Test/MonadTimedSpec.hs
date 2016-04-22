@@ -29,7 +29,8 @@ import           RSCoin.Test.Timed           (runTimedT, TimedT)
 
 spec :: Spec
 spec =
-    describe "MonadTimed" $ monadTimedSpec "TimedIO" runTimedIOProp
+    describe "MonadTimed" $ do
+        monadTimedSpec "TimedIO" runTimedIOProp
 
 monadTimedSpec
     :: (MonadTimed m, MonadIO m)

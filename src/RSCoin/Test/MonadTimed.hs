@@ -6,26 +6,29 @@
 
 -- | This module contains time management monad and it's implementation for IO.
 module RSCoin.Test.MonadTimed
-    ( fork, wait, localTime, schedule, invoke
+    ( fork, wait, localTime, workWhile, work, schedule, invoke
     , TimedIO
     , runTimedIO, runTimedIO_
     , minute , sec , ms , mcs
     , minute', sec', ms', mcs'
     , at, after, for, till, now
+    , during, upto
     , MicroSeconds
     , MonadTimed
     , RelativeToNow
     ) where
 
-import           Control.Concurrent          (threadDelay, forkIO)
+import           Control.Concurrent          (threadDelay, forkIO, killThread)
 import           Control.Monad               (void)
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadThrow, MonadCatch)
+import           Control.Monad.Loops         (whileM)
 import           Control.Monad.Trans         (liftIO, lift, MonadIO)
 import           Control.Monad.Trans.Control (MonadBaseControl, liftBaseWith
                                              , restoreM, StM)
 import           Control.Monad.Reader        (ReaderT(..), runReaderT, ask)
 import           Control.Monad.State         (StateT, evalStateT, get)
+import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 
 type MicroSeconds  =  Int
@@ -41,9 +44,14 @@ class Monad m => MonadTimed m where
 
     -- | Creates another thread of execution, with same point of origin
     fork :: m () -> m ()
+    fork  =  workWhile $ return True
 
     -- | Waits till specified relative time
     wait :: RelativeToNow -> m ()
+
+    -- | Forks a temporal thread, which exists 
+    --   until preficate evaluates to False
+    workWhile :: m Bool -> m () -> m ()
 
 -- | Executes an action somewhere in future
 schedule :: MonadTimed m => RelativeToNow -> m () -> m ()
@@ -53,6 +61,11 @@ schedule time action  = fork $ wait time >> action
 invoke :: MonadTimed m => RelativeToNow -> m a -> m a
 invoke time action  = wait time >> action
  
+-- | Like workWhile, unwraps first layer of monad immediatelly
+--   and then checks predicate periocially
+work :: MonadTimed m => m (m Bool) -> m () -> m ()
+work predicate action  =  predicate >>= \p -> workWhile p action
+
 newtype TimedIO a  =  TimedIO 
     { getTimedIO :: ReaderT MicroSeconds IO a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch
@@ -74,19 +87,39 @@ instance MonadTimed TimedIO where
         cur <- localTime
         liftIO $ threadDelay $ relativeToNow cur 
 
+    workWhile (TimedIO p) (TimedIO action)  =  TimedIO $ do
+        env     <- ask
+        working <- lift $ newIORef True
+        
+        tid  <- lift . forkIO $ do
+            runReaderT action env
+            writeIORef working False
+
+        lift . void . forkIO $ do
+            _ <- whileM ((&&) <$> runReaderT p env <*> readIORef working) $
+                threadDelay 100000 
+            killThread tid
+
 instance MonadTimed m => MonadTimed (ReaderT r m) where
     localTime  =  lift localTime 
+
+    wait  =  lift . wait
     
     fork m  =  lift . fork . runReaderT m =<< ask
 
-    wait  =  lift . wait
+    workWhile p m  = 
+        lift . (workWhile <$> runReaderT p <*> runReaderT m) =<< ask
 
 instance MonadTimed m => MonadTimed (StateT r m) where
     localTime  =  lift localTime 
-    
-    fork m  =  lift . fork . evalStateT m =<< get
 
     wait  =  lift . wait
+    
+    fork m  =  lift . fork . evalStateT m =<< get
+    
+    workWhile p m  =  
+        lift . (workWhile <$> evalStateT p <*> evalStateT m) =<< get
+
 
 -- | Launches this timed action
 runTimedIO :: TimedIO a -> IO a
@@ -97,7 +130,7 @@ runTimedIO_ ::  TimedIO a -> IO ()
 runTimedIO_  =  void . runTimedIO
 
 curTime :: IO MicroSeconds
-curTime  =  ( * 1000000) . round <$> getPOSIXTime
+curTime  =  round . ( * 1000000) <$> getPOSIXTime
 
 -- * Some usefull functions below
 
@@ -127,6 +160,17 @@ for    =  after' 0
 -- | Current time point 
 now :: RelativeToNow
 now  =  id
+
+-- | Returns whether specified delay has passed
+--   (timer starts when first monad layer is unwrapped)
+during :: MonadTimed m => MicroSeconds -> m (m Bool)
+during time  =  do
+    end <- (time + ) <$> localTime
+    return $ (end > ) <$> localTime 
+
+-- | Returns whether specified time point has passed
+upto :: MonadTimed m => MicroSeconds -> m (m Bool)
+upto time  =  return $ (time > ) <$> localTime
 
 -- black magic 
 class TimeAcc t where

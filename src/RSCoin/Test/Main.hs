@@ -10,7 +10,8 @@ import          System.Random           (mkStdGen)
 import          Control.Monad.Random.Class (getRandomR)
 
 import          RSCoin.Test.MonadTimed  (wait, invoke, schedule, now, fork
-                                        , at, after, for, till 
+                                        , work
+                                        , at, after, for, till, during 
                                         , sec, minute, sec'
                                         , MonadTimed, runTimedIO_, localTime)
 import          RSCoin.Test.Timed       (runTimedT)
@@ -56,6 +57,17 @@ log msg  =  do
     time :: MonadTimed m => m Double
     time  =  ( / 1000000) . fromIntegral <$> localTime 
 
+interruptedLol :: (MonadTimed m, MonadIO m) => m ()
+interruptedLol  =  do
+    work (during 5000000) tempLol
+
+tempLol :: (MonadIO m, MonadTimed m) => m ()
+tempLol  =  do
+    liftIO $ putStrLn "Lol!"
+    wait (for 2 sec)
+    tempLol
+    
+
 -- * Rpc
 
 rpcIO :: IO ()
@@ -71,7 +83,7 @@ handshake :: (MonadRpc m, MonadTimed m, MonadIO m) => m ()
 handshake  =  do
     let resp = response
     restrict $ resp 5
-    fork $ serve 2222 [method "lol" resp]
+    work (during 5000000) $ serve 2222 [method "lol" resp]
 
     forM_ [1..3] $ \i ->
         schedule (at 1 sec) $ do
@@ -98,3 +110,5 @@ delays :: Delays
 delays  =  Delays d
   where
     d _ _  =  Just <$> getRandomR (10, 1000)
+
+

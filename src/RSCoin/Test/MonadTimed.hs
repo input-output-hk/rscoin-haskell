@@ -47,11 +47,11 @@ class Monad m => MonadTimed m where
 
 -- | Executes an action somewhere in future
 schedule :: MonadTimed m => RelativeToNow -> m () -> m ()
-schedule time action  =  fork $ wait time >> action
+schedule time action  = fork $ wait time >> action
  
 -- | Executes an action at specified time in current thread
 invoke :: MonadTimed m => RelativeToNow -> m a -> m a
-invoke time action  =  wait time >> action
+invoke time action  = wait time >> action
  
 newtype TimedIO a  =  TimedIO 
     { getTimedIO :: ReaderT MicroSeconds IO a
@@ -140,6 +140,3 @@ instance TimeAcc RelativeToNow where
 instance (a ~ b, TimeAcc t) => TimeAcc (a -> (b -> MicroSeconds) -> t) where
     at'    acc t f  =  at'    $ f t + acc
     after' acc t f  =  after' $ f t + acc
-
-
-

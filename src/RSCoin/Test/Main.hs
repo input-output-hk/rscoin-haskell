@@ -32,7 +32,6 @@ sayHelloIO  =  runTimedIO_ sayHello
 sayHelloPure :: IO ()
 sayHelloPure  =  runTimedT sayHello
 
-
 sayHello :: (MonadIO m, MonadTimed m) => m ()
 sayHello  =  do
     invoke    now          $ log "Hello"
@@ -99,4 +98,3 @@ delays :: Delays
 delays  =  Delays d
   where
     d _ _  =  Just <$> getRandomR (10, 1000)
-

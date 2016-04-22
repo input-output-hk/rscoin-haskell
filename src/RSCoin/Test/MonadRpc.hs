@@ -22,6 +22,8 @@ module RSCoin.Test.MonadRpc
     , Client(..)
     , method
     , call
+    , S.Server
+    , S.MethodType
     ) where
 
 import qualified Data.ByteString            as BS 
@@ -40,9 +42,6 @@ import           RSCoin.Test.MonadTimed        (TimedIO, MonadTimed)
 
 import           Data.MessagePack.Object       (Object(..), MessagePack, 
                                                 toObject)
-
--- TODO: how to export Network.MessagePack.Server.Server and .MethodType?
---       This would fully hide MessagePack library from user's code
 
 type Port = Int
 

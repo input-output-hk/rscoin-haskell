@@ -122,5 +122,3 @@ waitDelay stage  =  PureRpc $ do
     lift $ lift $ randSeed .= nextSeed
     wait $ maybe (for 99999 sec) (\t -> for t mcs) $ delay 
         -- TODO: throw or eliminate
-
-

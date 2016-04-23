@@ -12,7 +12,7 @@ module RSCoin.Test.PureRpc
 
 import           Control.Lens                (use, makeLenses, (.=), (%=))
 import           Control.Monad               (forM_)
-import           Control.Monad.Catch         (MonadThrow, MonadCatch)
+import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask)
 import           Control.Monad.State         (StateT, put, evalStateT, get)
 import           Control.Monad.Trans         (lift, MonadIO)
 import           Control.Monad.Random        (Rand, runRand)
@@ -76,11 +76,11 @@ $(makeLenses ''NetInfo)
 newtype PureRpc m a = PureRpc 
     { unwrapPureRpc :: StateT Host (TimedT (StateT (NetInfo (PureRpc m)) m)) a 
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTimed
-               , MonadThrow)
+               , MonadThrow, MonadCatch, MonadMask)
 
 -- | Launches rpc scenario
-runPureRpc :: (Monad m, MonadCatch m) => StdGen -> Delays -> PureRpc m () -> m ()
-runPureRpc _randSeed _delays (PureRpc rpc)  =  do
+runPureRpc :: (Monad m, MonadCatch m) => PureRpc m () -> Delays -> StdGen -> m ()
+runPureRpc (PureRpc rpc) _delays _randSeed  =  do
     evalStateT (runTimedT (evalStateT rpc "localhost")) net
   where
     net        = NetInfo{..}

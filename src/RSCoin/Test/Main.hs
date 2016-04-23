@@ -75,7 +75,7 @@ rpcPure :: IO ()
 rpcPure  =  rpcSeed 0
 
 rpcSeed :: Int -> IO ()
-rpcSeed seed  =  runPureRpc (mkStdGen seed) delays $ handshake
+rpcSeed seed  =  runPureRpc handshake delays (mkStdGen seed) 
 
 handshake :: (MonadRpc m, MonadTimed m, MonadIO m) => m ()
 handshake  =  do

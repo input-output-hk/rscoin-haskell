@@ -128,6 +128,8 @@ runTimedT timed  =  launchTimedT $ do
 instance Monad m => MonadTimed (TimedT m) where
     localTime = TimedT . lift . lift $ gets _curTime
     
+    -- | Take note, created thread may be killed by timeout 
+    --   only when it calls "wait"
     workWhile _condition _action  =  do
         _timestamp <- localTime
         TimedT $ lift . lift $ events %= PQ.insert Event{..}

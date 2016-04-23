@@ -1,5 +1,6 @@
 import           RSCoin.Core     (initLogging, readSecretKey)
 import qualified RSCoin.Mintette as M
+import           RSCoin.Test     (runRealMode)
 
 import qualified Options         as Opts
 
@@ -8,4 +9,5 @@ main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
     sk <- readSecretKey cloSecretKeyPath
-    M.serve cloPort cloPath sk
+    runRealMode $
+        M.serve cloPort cloPath sk

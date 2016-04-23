@@ -20,18 +20,19 @@ import           RSCoin.Bank.Error      (BankError)
 import           RSCoin.Core            (ActionLog, HBlock, MintetteId,
                                          Mintettes, PeriodId, bankPort,
                                          logDebug, logError, logWarning)
+import           RSCoin.Test            (WorkMode)
 import qualified RSCoin.Core.Protocol   as C
 
-serve :: State -> IO ()
-serve st =
-    C.serve bankPort
+serve :: WorkMode m => State -> m ()
+serve st = return ()
+{-    C.serve bankPort
         [ C.method (C.RSCBank C.GetMintettes) $ serveGetMintettes st
         , C.method (C.RSCBank C.GetBlockchainHeight) $ serveGetHeight st
         , C.method (C.RSCBank C.GetHBlock) $ serveGetHBlock st
         , C.method (C.RSCDump C.GetHBlocks) $ serveGetHBlocks st
         , C.method (C.RSCDump C.GetHBlocks) $ serveGetLogs st
         ]
-
+-}
 toServer :: IO a -> C.Server a
 toServer action = liftIO $ action `catch` handler
   where

@@ -6,6 +6,7 @@ import qualified Data.Text             as T
 import           Actions               (proceedCommand)
 import           RSCoin.Core           (initLogging, logDebug)
 import qualified RSCoin.User.AcidState as A
+import           RSCoin.Test           (WorkMode, runRealMode)
 import qualified RSCoin.User.Wallet    as W
 import qualified UserOptions           as O
 
@@ -13,6 +14,9 @@ main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     initLogging logSeverity
+    runRealMode $ return ()
+
+{-
     bracket
         (A.openState walletPath)
         (\st ->
@@ -26,6 +30,8 @@ main = do
                          st
                          addressesNum
                          (bankKeyPath isBankMode bankModePath))
+
+-}
   where
     handleUninitialized :: IO () -> IO () -> IO ()
     handleUninitialized action initialize =

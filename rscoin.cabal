@@ -39,10 +39,12 @@ library
                      , RSCoin.User.Error
                      , RSCoin.User.Wallet
                      , RSCoin.User.Logic
+                     , RSCoin.Test
                      , RSCoin.Test.MonadTimed
                      , RSCoin.Test.MonadRpc
                      , RSCoin.Test.PureRpc
                      , RSCoin.Test.Timed
+                     , RSCoin.Test.Misc
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Server
                      , RSCoin.Bank.Strategies
@@ -109,6 +111,7 @@ executable rscoin-bank
   other-modules:       Options
   build-depends:       acid-state
                      , base >= 4.8 && < 4.9
+                     , mtl
                      , optparse-applicative
                      , rscoin
                      , serokell-core

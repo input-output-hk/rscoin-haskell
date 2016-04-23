@@ -20,8 +20,6 @@ import          RSCoin.Test.PureRpc
 import          RSCoin.Test.MonadRpc    
 import          Control.Monad.Catch
 
-import          Network.MessagePack.Server (ServerT)
-
 main :: IO ()
 main  =  sayHelloIO
 
@@ -82,8 +80,8 @@ rpcSeed seed  =  runPureRpc (mkStdGen seed) delays $ handshake
 handshake :: (MonadRpc m, MonadTimed m, MonadIO m) => m ()
 handshake  =  do
     let resp = response
-    restrict $ resp 5
-    work (during 5000000) $ serve 2222 [method "lol" resp]
+    restrict resp
+    work (during 5000000) $ serve 2222 [method "lol" $ resp]
 
     forM_ [1..3] $ \i ->
         schedule (at 1 sec) $ do
@@ -93,9 +91,9 @@ handshake  =  do
                     log $ "Q" ++ show a
                     res <- execClient ("localhost", 2222) $ request a
                     log $ "A" ++ show a
-
-restrict :: Monad m => ServerT m a -> m ()
-restrict _  =  return ()
+  where
+    restrict :: Monad m => (Int -> ServerT m a) -> m ()
+    restrict _  =  return ()
 
 response :: (MonadRpc m, MonadTimed m, MonadIO m) => Int -> ServerT m Int
 response k  =  do

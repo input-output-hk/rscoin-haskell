@@ -12,12 +12,12 @@ module RSCoin.Test.Timed
        ) where
 
 import           Control.Monad               (void, when)
-import           Control.Monad.Catch         (MonadThrow, throwM
-                                             , MonadCatch, catch)
+import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask
+                                             , catch)
 import           Control.Exception           (SomeException)
 import           Control.Monad.State         (StateT, evalStateT, gets)
 import           Control.Monad.Reader        (ReaderT(..), runReaderT, ask)
-import           Control.Monad.Trans         (lift, liftIO, MonadTrans, MonadIO)
+import           Control.Monad.Trans         (lift, MonadTrans, MonadIO)
 import           Control.Monad.Cont          (ContT(..), runContT)
 import           Control.Monad.Loops         (whileM)
 import           Control.Lens                ((%=), (.=), to, use
@@ -60,7 +60,7 @@ newtype TimedT m a  =  TimedT
     { unwrapTimedT :: ReaderT (TimedT m Bool) 
                      (ContT () 
                      (StateT (Scenario (TimedT m)) m)) a
-    } deriving (Functor, Applicative, Monad)
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow)
 
 -- | When stacking with other monads, take note of order of nesting.
 --   For example, StateT above TimedT will clone it's state on fork, thus
@@ -69,12 +69,6 @@ newtype TimedT m a  =  TimedT
 instance MonadTrans TimedT where
     lift  =  TimedT . lift . lift . lift
 
-instance MonadIO m => MonadIO (TimedT m) where
-    liftIO  =  TimedT . liftIO
-
-instance MonadThrow m => MonadThrow (TimedT m) where
-    throwM  =  TimedT . throwM
- 
 -- I don't understand why ConT monad is not an instance of MonadCatch
 -- by default   
 instance MonadCatch m => MonadCatch (TimedT m) where
@@ -86,6 +80,8 @@ instance MonadCatch m => MonadCatch (TimedT m) where
                     .  flip runReaderT r 
                     .  unwrapTimedT . handler
 
+-- instance MonadMask m => MonadMask (TimedT m) where
+        
 
 launchTimedT :: Monad m => TimedT m a -> m ()
 launchTimedT (TimedT t)  =  flip evalStateT Scenario{..}

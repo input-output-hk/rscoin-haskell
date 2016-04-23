@@ -8,13 +8,12 @@ module RSCoin.Bank.Worker
        ) where
 
 
-import           Control.Concurrent       (forkFinally, threadDelay)
-import           Control.Exception        (SomeException, catch)
-import           Control.Monad            (void)
+import           Control.Exception        (SomeException)
+import           Control.Monad.Catch      (catch)
+import           Control.Monad.Trans      (liftIO)
 import           Data.Acid                (createCheckpoint, query, update)
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
 import           Data.Monoid              ((<>))
-import           Data.Time.Units          (toMicroseconds)
 
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text       (formatSingle')
@@ -25,75 +24,79 @@ import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            logError, logInfo, logWarning,
                                            periodDelta, sendPeriodFinished)
 
+import           RSCoin.Test              (WorkMode, for, wait, minute
+                                          , fork, tu)
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
                                            StartNewPeriod (..), State)
 
 -- | Start worker which runs appropriate action when a period finishes
-runWorker :: SecretKey -> State -> IO ()
+runWorker :: WorkMode m => SecretKey -> State -> m ()
 runWorker sk st =
     foreverE $
     do onPeriodFinished sk st
-       threadDelay (fromIntegral $ toMicroseconds periodDelta)
+       wait $ for periodDelta tu
   where
-    foreverE f = void $ forkFinally f $ handler $ foreverE f
-    handler f (Left (e :: SomeException)) = do
+    -- TODO: is it safe like previous version?
+    foreverE f = let cont = foreverE f
+                 in  fork $ (f >> cont) `catch` handler cont
+
+--    foreverE f = void $ forkFinally f $ handler $ foreverE f
+    handler cont (e :: SomeException) = do
         logError $
             formatSingle'
                 "Error was caught by worker, restarting in 1 minute: {}"
                 e
-        threadDelay $ 1 * 60 * 1000 * 1000
-        f
-    handler f (Right _) = f
+        wait $ for 1 minute
+        cont
 
-onPeriodFinished :: SecretKey -> State -> IO ()
+onPeriodFinished :: WorkMode m => SecretKey -> State -> m ()
 onPeriodFinished sk st = do
-    mintettes <- query st GetMintettes
-    pId <- query st GetPeriodId
-    logInfo $ formatSingle' "Period {} has just finished!" pId
+    mintettes <- liftIO $ query st GetMintettes
+    pId <- liftIO $ query st GetPeriodId
+    liftIO $ logInfo $ formatSingle' "Period {} has just finished!" pId
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     periodResults <- getPeriodResults mintettes pId
-    newPeriodData <- update st $ StartNewPeriod sk periodResults
-    createCheckpoint st
-    newMintettes <- query st GetMintettes
+    newPeriodData <- liftIO $ update st $ StartNewPeriod sk periodResults
+    liftIO $ createCheckpoint st
+    newMintettes <- liftIO $ query st GetMintettes
     if null newMintettes
-        then logWarning "New mintettes list is empty!"
+        then liftIO $ logWarning "New mintettes list is empty!"
         else do
             mapM_
                 (\(m,mId) ->
                       announceNewPeriod m (newPeriodData !! mId) `catch`
                       handlerAnnouncePeriod)
                 (zip newMintettes [0 ..])
-            logInfo $
+            liftIO $ logInfo $
                 formatSingle'
                     ("Announced new period with this NewPeriodData " <>
                      "(payload is Nothing -- omitted (only in Debug)):\n{}")
                     (formatNewPeriodData False $ head newPeriodData)
-            logDebug $
+            liftIO $ logDebug $
                 formatSingle'
-                    "Announced new period, sent these newPeriodData's:\n{}"
-                    newPeriodData
+                   "Announced new period, sent these newPeriodData's:\n{}"
+                   newPeriodData
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)
     handlerAnnouncePeriod (e :: SomeException) =
+        liftIO $
         logWarning $
         formatSingle' "Error occurred in communicating with mintette {}" e
 
-getPeriodResults :: Mintettes -> PeriodId -> IO [Maybe PeriodResult]
+getPeriodResults :: WorkMode m => Mintettes -> PeriodId -> m [Maybe PeriodResult]
 getPeriodResults mts pId = do
-    res <- newIORef []
+    res <- liftIO $ newIORef []
     mapM_ (f res) mts
-    reverse <$> readIORef res
+    liftIO $ reverse <$> readIORef res
   where
     f res mintette =
-        sendPeriodFinished
-            mintette
-            pId
-            (\pr ->
-                  modifyIORef res (Just pr :)) `catch`
-        handler res
-    handler res (e :: SomeException) = do
+        (sendPeriodFinished mintette pId 
+            >>= liftIO . modifyIORef res . (:) . Just)  
+                `catch` handler res
+    handler res (e :: SomeException) = liftIO $ do
         logWarning $
             formatSingle' "Error occurred in communicating with mintette {}" e
         modifyIORef res (Nothing :)
+

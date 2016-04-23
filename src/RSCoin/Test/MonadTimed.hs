@@ -11,6 +11,7 @@ module RSCoin.Test.MonadTimed
     , runTimedIO, runTimedIO_
     , minute , sec , ms , mcs
     , minute', sec', ms', mcs'
+    , tu
     , at, after, for, till, now
     , during, upto
     , MicroSeconds
@@ -21,7 +22,7 @@ module RSCoin.Test.MonadTimed
 import           Control.Concurrent          (threadDelay, forkIO, killThread)
 import           Control.Monad               (void)
 import           Control.Monad.Base          (MonadBase)
-import           Control.Monad.Catch         (MonadThrow, MonadCatch)
+import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask)
 import           Control.Monad.Loops         (whileM)
 import           Control.Monad.Trans         (liftIO, lift, MonadIO)
 import           Control.Monad.Trans.Control (MonadBaseControl, liftBaseWith
@@ -29,6 +30,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl, liftBaseWith
 import           Control.Monad.Reader        (ReaderT(..), runReaderT, ask)
 import           Control.Monad.State         (StateT, evalStateT, get)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
+import           Data.Time.Units             (TimeUnit, toMicroseconds)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 
 type MicroSeconds  =  Int
@@ -68,8 +70,8 @@ work predicate action  =  predicate >>= \p -> workWhile p action
 
 newtype TimedIO a  =  TimedIO 
     { getTimedIO :: ReaderT MicroSeconds IO a
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch
-               , MonadBase IO)
+    } deriving (Functor, Applicative, Monad, MonadIO
+               , MonadThrow, MonadCatch, MonadMask, MonadBase IO)
 
 instance MonadBaseControl IO TimedIO where
     type StM TimedIO a  =  a
@@ -146,6 +148,9 @@ mcs'     =  round
 ms'      =  round . (*) 1000
 sec'     =  round . (*) 1000000
 minute'  =  round . (*) 60000000
+
+tu :: TimeUnit t => t -> MicroSeconds
+tu  =  fromIntegral . toMicroseconds
 
 -- | Time point by given absolute time (still relative to origin)
 at, till :: TimeAcc t => t

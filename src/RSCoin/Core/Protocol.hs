@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE Rank2Types#-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 -- | Protocol implements all low level communication between
 -- entities (User, Bank, Mintette).
@@ -10,9 +11,9 @@ module RSCoin.Core.Protocol
        , RSCoinMethod (..)
        , WithResult
        , Server
-       , C.Client
+       , T.Client
        , method
-       , S.serve
+       , T.serve
        , call
        , execBank
        , execMintette
@@ -21,20 +22,21 @@ module RSCoin.Core.Protocol
        , unCps
        ) where
 
-import           Control.Monad.IO.Class     (liftIO)
+import           Control.Monad.IO.Class     (liftIO, MonadIO)
 
 import           Data.IORef                 (newIORef, writeIORef, readIORef)
 import qualified Data.ByteString.Char8      as BS
 import           Data.Maybe                 (fromJust)
 
-import qualified Network.MessagePack.Server as S
-import qualified Network.MessagePack.Client as C
+import           Data.MessagePack           (MessagePack)
+-- import qualified Network.MessagePack.Server as S
+-- import qualified Network.MessagePack.Client as C
 
 import           RSCoin.Core.Constants      (bankHost, bankPort)
 import           RSCoin.Core.Types          (Mintette (..))
 import           RSCoin.Core.Crypto         ()
 import           RSCoin.Core.MessagePack          ()
-import           RSCoin.Test                (WorkMode, serve, execClient)
+import qualified RSCoin.Test                as T
 
 -- TODO: this module should provide more safety and expose better api
 
@@ -69,48 +71,46 @@ data DumpMethod
     | GetMintetteLogs
     deriving (Show)
 
-type Server a = S.Server a
+type Server a = T.Server a
 
 -- | Create server method.
-method :: S.MethodType m f => RSCoinMethod -> f -> S.Method m
-method m = S.method (show m)
+method :: T.MethodType m f => RSCoinMethod -> f -> T.Method m
+method m = T.method (show m)
 
 --call :: RpcType a => RSCoinMethod -> a
 -- FIXME: RpcType isn't exported so my idea of using Show RSCoinMethod for method name
 -- doesn't hold any more
 -- | Call RSCoinMethod.
-call m = C.call (show m)
+call m = T.call (show m)
 
 -- TODO: this can be modeled with Cont monad
 -- | Continuation passing style transformation.
 -- For more see: https://en.wikibooks.org/wiki/Haskell/Continuation_passing_style
-type WithResult a = (a -> IO ()) -> IO ()
+type WithResult a = forall m . T.WorkMode m => (a -> m ()) -> m ()
 
 -- | Send a request to a Bank using Continuation passing style (CPS).
-execBank :: C.Client a -> WithResult a
-execBank action withResult =
-    C.execClient (BS.pack bankHost) bankPort $ do
-        ret <- action
-        liftIO $ withResult ret
+execBank :: MessagePack a => T.Client a -> WithResult a
+execBank = (>>=) . callBank
 
 -- | Send a request to a Mintette using Continuation passing style (CPS).
-execMintette :: Mintette -> C.Client a -> WithResult a
-execMintette Mintette {..} action withResult =
-    C.execClient (BS.pack mintetteHost) mintettePort $ do
-        ret <- action
-        liftIO $ withResult ret
+execMintette :: MessagePack a => Mintette -> T.Client a -> WithResult a
+execMintette m = (>>=) . callMintette m
+            
 
 -- | Send a request to a Bank.
-callBank :: C.Client a -> IO a
-callBank = unCps . execBank
+callBank :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
+callBank action = 
+    T.execClient (BS.pack bankHost, bankPort) action 
 
 -- | Send a request to a Mintette.
-callMintette :: Mintette -> C.Client a -> IO a
-callMintette m = unCps . execMintette m
+callMintette :: (MessagePack a, T.WorkMode m) 
+             => Mintette -> T.Client a -> m a
+callMintette Mintette {..} action = 
+    T.execClient (BS.pack mintetteHost, mintettePort) action 
 
 -- | Reverse Continuation passing style (CPS) transformation
-unCps :: WithResult a -> IO a
+unCps :: forall a m . MonadIO m => ((a -> m ()) -> m ()) -> m a
 unCps withResult = do
-    ref <- newIORef Nothing
-    withResult $ writeIORef ref . Just
-    fromJust <$> readIORef ref
+    ref <- liftIO $ newIORef Nothing
+    withResult $ liftIO . writeIORef ref . Just
+    fromJust <$> liftIO (readIORef ref)

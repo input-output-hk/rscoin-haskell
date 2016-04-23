@@ -9,7 +9,7 @@ module RSCoin.Test.MonadTimedSpec
        ( spec
        ) where
 
-import           Control.Concurrent.Chan     (newChan, writeChan, readChan)
+import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar, putMVar)
 import           Control.Monad.Trans         (liftIO, lift, MonadIO)
 import           Numeric.Natural             (Natural)
 import           Test.Hspec                  (Spec, describe)
@@ -118,19 +118,19 @@ localTimePassingProp :: (MonadTimed m, MonadIO m) => PropertyM m ()
 localTimePassingProp =
     timePassingProp 0 id
 
--- TODO: instead of testing with Chan's we should create PropertyM an instance of MonadTimed.
+-- TODO: instead of testing with MVar's we should create PropertyM an instance of MonadTimed.
 -- With that we could test inside forked/waited actions
--- | Proves that at least relativeToNow has passed while executing an action
+-- | Tests that action will be exececuted after relativeToNow
 timePassingProp
     :: (MonadTimed m, MonadIO m)
     => RelativeToNowNat
     -> (m () -> m ())
     -> PropertyM m ()
 timePassingProp relativeToNow action = do
-    chan <- liftIO newChan
+    mvar <- liftIO newEmptyMVar
     t1 <- run localTime
-    run . action $ localTime >>= liftIO . writeChan chan
-    t2 <- liftIO $ readChan chan
+    run . action $ localTime >>= liftIO . putMVar mvar
+    t2 <- liftIO $ takeMVar mvar
     monitor (counterexample $ mconcat 
         [ "t1: ", show t1
         , ", t2: ", show t2, ", "
@@ -138,7 +138,7 @@ timePassingProp relativeToNow action = do
         ])
     assert $ fromIntegralRTN relativeToNow t1 <= t2
 
--- | Proves that an action will be executed
+-- | Tests that an action will be executed
 actionSemanticProp
     :: (MonadTimed m, MonadIO m)
     => (m () -> m ())
@@ -146,9 +146,9 @@ actionSemanticProp
     -> Fun A A
     -> PropertyM m ()
 actionSemanticProp action init f = do
-    chan <- liftIO newChan
-    run . action . liftIO . writeChan chan $ apply f init
-    result <- liftIO $ readChan chan
+    mvar <- liftIO newEmptyMVar
+    run . action . liftIO . putMVar mvar $ apply f init
+    result <- liftIO $ takeMVar mvar
     monitor (counterexample $ mconcat 
         [ "f: ", show f
         , ", init: ", show init

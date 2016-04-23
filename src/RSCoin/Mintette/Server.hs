@@ -6,11 +6,10 @@ module RSCoin.Mintette.Server
        ( serve
        ) where
 
-import           Control.Exception         (bracket, throwIO, try)
+import           Control.Exception         (throwIO, try)
 import           Control.Exception.Base    (SomeException)
 import           Control.Monad.IO.Class    (liftIO)
-import           Control.Monad.Catch       (MonadCatch, MonadMask, throwM
-                                           , mask, catch)
+import           Control.Monad.Catch       (catch)
 import           Data.Acid.Advanced        (query', update')
 import           Data.Monoid               ((<>))
 import           Data.Text                 (Text)
@@ -28,29 +27,41 @@ import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             openState, GetLogs (..))
 import           RSCoin.Mintette.Error     (MintetteError)
 import           RSCoin.Mintette.Worker    (runWorker)
-import           RSCoin.Test               (WorkMode, ServerT
-                                           , mtr0, mtr1, mtr3, bracket')
+import           RSCoin.Test               (WorkMode, ServerT, bracket'
+                                           , serverTypeRestriction0
+                                           , serverTypeRestriction1
+                                           , serverTypeRestriction3
+                                           )
 
 serve :: WorkMode m => Int -> FilePath -> C.SecretKey -> m ()
 serve port dbPath sk = 
     bracket' (liftIO $ openState dbPath) (liftIO . closeState) $
     \st ->
          do liftIO $ runWorker sk st
-            idr <- restrict
+            idr1 <- serverTypeRestriction1
+            idr2 <- serverTypeRestriction1
+            idr3 <- serverTypeRestriction3
+            idr4 <- serverTypeRestriction3
+            idr5 <- serverTypeRestriction0
+            idr6 <- serverTypeRestriction1
+            idr7 <- serverTypeRestriction1
             C.serve port
-                [ 
-                C.method (C.RSCMintette C.PeriodFinished) $ idr $ handlePeriodFinished sk st
---                , C.method (C.RSCMintette C.AnnounceNewPeriod) $ id1 $ handleNewPeriod st
---                , C.method (C.RSCMintette C.CheckTx) $ id3 $ handleCheckTx sk st
---                , C.method (C.RSCMintette C.CommitTx) $ id3 $ handleCommitTx sk st
---                , C.method (C.RSCDump C.GetMintetteUtxo) $ id0 $ handleGetUtxo st
---                , C.method (C.RSCDump C.GetMintetteBlocks) $ id1 $ handleGetBlocks st
---                , C.method (C.RSCDump C.GetMintetteLogs) $ id1 $ handleGetLogs st
+                [ C.method (C.RSCMintette C.PeriodFinished) $ idr1 $ 
+                    handlePeriodFinished sk st
+                , C.method (C.RSCMintette C.AnnounceNewPeriod) $ idr2 $ 
+                    handleNewPeriod st
+                , C.method (C.RSCMintette C.CheckTx) $ idr3 $ 
+                    handleCheckTx sk st
+                , C.method (C.RSCMintette C.CommitTx) $ idr4 $ 
+                    handleCommitTx sk st
+                , C.method (C.RSCDump C.GetMintetteUtxo) $ idr5 $ 
+                    handleGetUtxo st
+                , C.method (C.RSCDump C.GetMintetteBlocks) $ idr6 $ 
+                    handleGetBlocks st
+                , C.method (C.RSCDump C.GetMintetteLogs) $ idr7 $ 
+                    handleGetLogs st
                 ]
-  where
-    restrict :: Monad m => m ((a -> ServerT m b) -> (a -> ServerT m b))
-    restrict  =  return id
-
+    
 toServer :: WorkMode m => IO a -> ServerT m a
 toServer action = liftIO $ action `catch` handler
   where

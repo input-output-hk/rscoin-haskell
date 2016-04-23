@@ -80,6 +80,8 @@ instance MonadCatch m => MonadCatch (TimedT m) where
                     .  flip runReaderT r 
                     .  unwrapTimedT . handler
 
+-- TODO: this instance is necessary for launching top level functions
+--       of existing code
 -- instance MonadMask m => MonadMask (TimedT m) where
         
 

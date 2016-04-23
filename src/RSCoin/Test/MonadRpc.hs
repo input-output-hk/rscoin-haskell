@@ -25,10 +25,10 @@ module RSCoin.Test.MonadRpc
     , S.Server
     , S.ServerT
     , S.MethodType
-    , mtr0
-    , mtr1
-    , mtr2
-    , mtr3
+    , serverTypeRestriction0
+    , serverTypeRestriction1
+    , serverTypeRestriction2
+    , serverTypeRestriction3
     ) where
 
 import qualified Data.ByteString            as BS 
@@ -149,17 +149,17 @@ instance Monad m => S.MethodType m Object where
     toBody _   _   =  error "Too many arguments!"
 
 -- | Helps restrict method type
-mtr0 :: Monad m => m (S.ServerT m a -> S.ServerT m a)
-mtr0  =  return id
+serverTypeRestriction0 :: Monad m => m (S.ServerT m a -> S.ServerT m a)
+serverTypeRestriction0  =  return id
 
-mtr1 :: Monad m => m ((b -> S.ServerT m a) -> (b -> S.ServerT m a))
-mtr1  =  return id
+serverTypeRestriction1 :: Monad m => m ((b -> S.ServerT m a) -> (b -> S.ServerT m a))
+serverTypeRestriction1  =  return id
 
-mtr2 :: Monad m => m ((c -> b -> S.ServerT m a) -> (c -> b -> S.ServerT m a))
-mtr2  =  return id
+serverTypeRestriction2 :: Monad m => m ((c -> b -> S.ServerT m a) -> (c -> b -> S.ServerT m a))
+serverTypeRestriction2  =  return id
 
-mtr3 :: Monad m => m ((d -> c -> b -> S.ServerT m a) -> (d -> c -> b -> S.ServerT m a))
-mtr3  =  return id
+serverTypeRestriction3 :: Monad m => m ((d -> c -> b -> S.ServerT m a) -> (d -> c -> b -> S.ServerT m a))
+serverTypeRestriction3  =  return id
 
 
     

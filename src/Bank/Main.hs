@@ -1,4 +1,3 @@
-import           Control.Exception        (bracket)
 import           Control.Monad.Trans     (liftIO)
 import           Data.Acid                (update)
 import           Data.Text                as T
@@ -8,7 +7,7 @@ import           RSCoin.Core              (Mintette (Mintette),
                                            constructPublicKey, initLogging,
                                            readSecretKey, readPublicKey,
                                            logWarning)
-import           RSCoin.Test              (runRealMode)
+import           RSCoin.Test              (runRealMode, bracket')
 
 import qualified Options                  as Opts
 
@@ -16,8 +15,9 @@ main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
-    runRealMode $ return ()
---    bracket (B.openState cloPath) B.closeState $ run cloCommand
+    runRealMode $ 
+        bracket' (liftIO $ B.openState cloPath) (liftIO . B.closeState) 
+            $ run cloCommand
   where
     run (Opts.Serve skPath) st = do
         sk <- liftIO $ readSecretKey skPath

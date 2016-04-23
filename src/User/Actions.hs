@@ -17,7 +17,6 @@ import           Data.List             (nub, nubBy)
 import qualified Data.Map              as M
 import           Data.Maybe            (fromJust, isJust)
 import           Data.Monoid           ((<>))
-import           Data.Ord              (comparing)
 import qualified Data.Text             as T
 import qualified Data.Text.IO          as TIO
 import           Data.Tuple.Select     (sel1)

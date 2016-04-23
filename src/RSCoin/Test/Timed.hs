@@ -13,7 +13,7 @@ module RSCoin.Test.Timed
 
 import           Control.Monad               (void, when)
 import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask
-                                             , catch)
+                                             , catch, mask, uninterruptibleMask)
 import           Control.Exception           (SomeException)
 import           Control.Monad.State         (StateT, evalStateT, gets)
 import           Control.Monad.Reader        (ReaderT(..), runReaderT, ask)
@@ -70,7 +70,8 @@ instance MonadTrans TimedT where
     lift  =  TimedT . lift . lift . lift
 
 -- I don't understand why ConT monad is not an instance of MonadCatch
--- by default   
+-- by default. But in case there is some reason beyound that,
+-- I make an instance not for ContT but for TimedT   
 instance MonadCatch m => MonadCatch (TimedT m) where
     catch (TimedT m) handler  = 
         let m' r c = runContT (runReaderT m r) c 
@@ -80,9 +81,19 @@ instance MonadCatch m => MonadCatch (TimedT m) where
                     .  flip runReaderT r 
                     .  unwrapTimedT . handler
 
--- TODO: this instance is necessary for launching top level functions
---       of existing code
--- instance MonadMask m => MonadMask (TimedT m) where
+instance MonadMask m => MonadMask (TimedT m) where
+    mask a  =  TimedT $ ReaderT $ \r -> ContT $ \c -> 
+        mask $ \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
+      where
+        q u t  =  TimedT $ ReaderT $ \r -> ContT $ \c -> u $
+            runContT (runReaderT (unwrapTimedT t) r) c
+  
+    uninterruptibleMask a  =  TimedT $ ReaderT $ \r -> ContT $ \c -> 
+        uninterruptibleMask $ 
+            \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
+      where
+        q u t  =  TimedT $ ReaderT $ \r -> ContT $ \c -> u $
+            runContT (runReaderT (unwrapTimedT t) r) c
         
 
 launchTimedT :: Monad m => TimedT m a -> m ()

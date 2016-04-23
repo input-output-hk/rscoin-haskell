@@ -1,9 +1,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE FlexibleContexts           #-}
 
 -- This module contains MonadRpc providing RPC communication, 
 -- and it's implementation using MessagePack.
@@ -142,6 +142,3 @@ instance S.MethodType MsgPackRpc f => S.MethodType MsgPackRpc (MsgPackRpc f)
 instance Monad m => S.MethodType m Object where
     toBody res []  =  return res
     toBody _   _   =  error "Too many arguments!"
-
-
-

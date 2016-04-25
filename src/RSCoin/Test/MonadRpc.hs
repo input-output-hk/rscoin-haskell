@@ -69,19 +69,19 @@ class MonadThrow r => MonadRpc r where
 
 -- Implementation for MessagePack
 
-newtype MsgPackRpc a  =  MsgPackRpc { runMsgPackRpc :: (TimedIO a) }
+newtype MsgPackRpc a = MsgPackRpc { runMsgPackRpc :: (TimedIO a) }
     deriving (Functor, Applicative, Monad, MonadIO, MonadBase IO,
               MonadThrow, MonadCatch, MonadTimed)
 
 instance MonadBaseControl IO MsgPackRpc where
-    type StM MsgPackRpc a  =  a
+    type StM MsgPackRpc a = a
     
-    liftBaseWith f  =  MsgPackRpc $ liftBaseWith $ \g -> f $ g . runMsgPackRpc
+    liftBaseWith f = MsgPackRpc $ liftBaseWith $ \g -> f $ g . runMsgPackRpc
 
-    restoreM  =  MsgPackRpc . restoreM
+    restoreM = MsgPackRpc . restoreM
 
 instance MonadRpc MsgPackRpc where 
-    execClient (addr, port) (Client name args)  =  liftIO $ do
+    execClient (addr, port) (Client name args) = liftIO $ do
         box <- newIORef Nothing
         C.execClient addr port $ do
             -- note, underlying rpc accepts a single argument - [Object]
@@ -90,7 +90,7 @@ instance MonadRpc MsgPackRpc where
         fromMaybe (error "Aaa, execClient didn't return a value!") 
             <$> readIORef box
 
-    serve port methods  =  S.serve port $ convertMethod <$> methods
+    serve port methods = S.serve port $ convertMethod <$> methods
       where
         convertMethod :: Method MsgPackRpc -> S.Method MsgPackRpc
         convertMethod Method{..} = S.method methodName methodBody
@@ -100,7 +100,7 @@ instance MonadRpc MsgPackRpc where
 
 -- | Creates a function call. It accepts function name and arguments
 call :: RpcType t => String -> t
-call name  =  rpcc name []
+call name = rpcc name []
 
 -- | Collects function name and arguments 
 -- (it's MessagePack implementation is hiden, need our own)
@@ -108,20 +108,20 @@ class RpcType t where
     rpcc :: String -> [Object] -> t
 
 instance (RpcType t, MessagePack p) => RpcType (p -> t) where
-    rpcc name objs p  =  rpcc name $ toObject p : objs
+    rpcc name objs p = rpcc name $ toObject p : objs
 
 -- | Keeps function name and arguments 
 data Client a where
     Client :: MessagePack a => String -> [Object] -> Client a
 
 instance MessagePack o => RpcType (Client o) where
-    rpcc name args  =  Client name (reverse args)
+    rpcc name args = Client name (reverse args)
 
 
 -- * Server part
 
 -- | Keeps method definition
-data Method m  =  Method 
+data Method m = Method 
     { methodName :: String
     , methodBody :: [Object] -> m Object
     }
@@ -130,15 +130,15 @@ data Method m  =  Method
 --   It accepts method name (which would be refered by clients) 
 --   and it's body
 method :: S.MethodType m f => String -> f -> Method m
-method name f  =  Method
+method name f = Method
     { methodName = name
     , methodBody = S.toBody f
     }
 
 instance S.MethodType MsgPackRpc f => S.MethodType MsgPackRpc (MsgPackRpc f)
    where
-    toBody res args  =  res >>= \r -> S.toBody r args
+    toBody res args = res >>= \r -> S.toBody r args
 
 instance Monad m => S.MethodType m Object where
-    toBody res []  =  return res
-    toBody _   _   =  error "Too many arguments!"
+    toBody res [] = return res
+    toBody _   _  = error "Too many arguments!"

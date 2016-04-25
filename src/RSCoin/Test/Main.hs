@@ -2,25 +2,25 @@
 
 module Main where
 
-import          Prelude                 hiding (log)
-import          Control.Monad           (forM_)
-import          Control.Monad.Trans     (lift, liftIO, MonadIO)
-import          Data.Default            (def)
-import          System.Random           (mkStdGen) 
-import          Control.Monad.Random.Class (getRandomR)
+import           Prelude                 hiding (log)
+import           Control.Monad           (forM_)
+import           Control.Monad.Trans     (lift, liftIO, MonadIO)
+import           Data.Default            (def)
+import           System.Random           (mkStdGen) 
+import           Control.Monad.Random.Class (getRandomR)
 
-import          RSCoin.Test.MonadTimed  (wait, invoke, schedule, now, fork
-                                        , work
-                                        , at, after, for, till, during 
-                                        , sec, minute, sec'
-                                        , MonadTimed, runTimedIO_, localTime)
-import          RSCoin.Test.Timed       (runTimedT)
-import          RSCoin.Test.MonadRpc 
-import          RSCoin.Test.PureRpc
-import          RSCoin.Test.MonadRpc    
-import          Control.Monad.Catch
+import           RSCoin.Test.MonadTimed  (wait, invoke, schedule, now, fork
+                                         , work
+                                         , at, after, for, till, during 
+                                         , sec, minute, sec'
+                                         , MonadTimed, runTimedIO_, localTime)
+import           RSCoin.Test.Timed       (runTimedT)
+import           RSCoin.Test.MonadRpc 
+import           RSCoin.Test.PureRpc
+import           RSCoin.Test.MonadRpc    
+import           Control.Monad.Catch
 
-import          Network.MessagePack.Server (ServerT)
+import           Network.MessagePack.Server (ServerT)
 
 main :: IO ()
 main  =  sayHelloIO

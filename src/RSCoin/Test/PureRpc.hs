@@ -81,7 +81,7 @@ newtype PureRpc m a = PureRpc
 -- | Launches rpc scenario
 runPureRpc :: (Monad m, MonadCatch m) => StdGen -> Delays -> PureRpc m () -> m ()
 runPureRpc _randSeed _delays (PureRpc rpc)  =  do
-    evalStateT (runTimedT (evalStateT rpc "localhost")) net
+    evalStateT (runTimedT (evalStateT rpc "127.0.0.1")) net
   where
     net        = NetInfo{..}
     _listeners = Map.empty

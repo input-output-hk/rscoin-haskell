@@ -1,8 +1,4 @@
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE Rank2Types                #-}
-{-# LANGUAGE TypeSynonymInstances      #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | RSCoin.Test.MonadRpc specification
 
@@ -23,7 +19,8 @@ import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Arbitrary (arbitrary), 
                                              Property, ioProperty,
-                                             counterexample, oneof, elements)
+                                             counterexample, oneof, elements,
+                                             NonEmptyList (..))
 import           Test.QuickCheck.Function    (Fun, apply) 
 import           Test.QuickCheck.Monadic     (run, assert, PropertyM, monadic,
                                              monitor, pick, forAllM)
@@ -32,7 +29,7 @@ import           Test.QuickCheck.Poly        (A)
 import           RSCoin.Test.MonadRpc        (MonadRpc (..), Port, Host, Addr,
                                               Method (..), Client (..),
                                               MsgPackRpc (..))
-import           RSCoin.Test.MonadTimed      (MonadTimed (..), runTimedIO)
+import           RSCoin.Test.MonadTimed      (MonadTimed (..), runTimedIO, for, sec, work, during, ms)
 
 spec :: Spec
 spec =
@@ -48,7 +45,7 @@ msgPackRpcSpec description runProp =
     describe description $ do
         describe "server method should execute" $ do
             prop "client should be able to execute server method" $
-                \a -> runProp . serverMethodShouldExecuteSpec a
+                runProp . serverMethodShouldExecuteSpec
 
 runMsgPackRpcProp :: PropertyM MsgPackRpc () -> Property
 runMsgPackRpcProp = monadic $ ioProperty . runTimedIO . runMsgPackRpc
@@ -81,18 +78,18 @@ instance Arbitrary a => Arbitrary (V.Vector a) where
 -- | Method should execute if called correctly
 serverMethodShouldExecuteSpec
     :: (MonadTimed m, MonadRpc m)
-    => Addr
-    -> [(String, [Object])]
+    => NonEmptyList (NonEmptyList Char, [Object])
     -> PropertyM m ()
-serverMethodShouldExecuteSpec addr methods = do
-    ms <- createMethods methods
-    let methodMap = createMethodMap ms
-    run . fork $ serve port ms
-    forAllM (elements methods) $ \(name, args) -> do
-        res <- run . execClient addr $ Client name args
-        let shouldBe = M.lookup name methodMap <*> pure args
-        maybe (return ()) (\k -> assert . (== res) =<< run k) shouldBe
-  where (_, port) = addr
+serverMethodShouldExecuteSpec (getNonEmpty -> methods') = do
+    mtds <- createMethods methods
+    let methodMap = createMethodMap mtds
+    run . work (during $ ms 1000) $ serve 2222 mtds
+    run . wait $ for 100 ms
+    (name, args) <- pick $ elements methods
+    res <- run . execClient ("127.0.0.1", 2222) $ Client name args
+    let shouldBe = M.lookup name methodMap <*> pure args
+    maybe (return ()) (\k -> assert . (== res) =<< run k) shouldBe
+  where methods = map (\(a, b) -> (getNonEmpty a, b)) methods'
         -- TODO: we wouldn't need to do this if Function was defined
         createMethods :: Monad m => [(String, [Object])] -> PropertyM m [Method m]
         createMethods = mapM $ \(name, args) -> do

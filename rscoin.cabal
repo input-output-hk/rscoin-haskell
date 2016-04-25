@@ -198,6 +198,8 @@ test-suite rscoin-test
                      , mtl
                      , QuickCheck >= 2.8.1
                      , stm >= 2.4.4.1
+                     , msgpack >= 1.0.0
+                     , vector >= 0.11.0.0
                      , rscoin
   hs-source-dirs:      test
   default-language:    Haskell2010

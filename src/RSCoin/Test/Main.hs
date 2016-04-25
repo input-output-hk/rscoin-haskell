@@ -92,7 +92,7 @@ handshake  =  do
                     let a = i * 3 + j
                     log $ "Q" ++ show a
                     res <- execClient ("localhost", 2222) $ request a
-                    log $ "A" ++ show a
+                    log $ "A" ++ show res
 
 restrict :: Monad m => ServerT m a -> m ()
 restrict _  =  return ()
@@ -110,5 +110,3 @@ delays :: Delays
 delays  =  Delays d
   where
     d _ _  =  Just <$> getRandomR (10, 1000)
-
-

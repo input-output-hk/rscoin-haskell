@@ -32,7 +32,7 @@ import           Test.QuickCheck.Poly        (A)
 import           RSCoin.Test.MonadRpc        (MonadRpc (..), Port, Host, Addr,
                                               Method (..), Client (..),
                                               MsgPackRpc (..))
-import           RSCoin.Test.MonadTimed      (runTimedIO)
+import           RSCoin.Test.MonadTimed      (MonadTimed (..), runTimedIO)
 
 spec :: Spec
 spec =
@@ -40,7 +40,7 @@ spec =
         msgPackRpcSpec "MsgPackRpc" runMsgPackRpcProp
 
 msgPackRpcSpec 
-    :: MonadRpc m
+    :: (MonadRpc m, MonadTimed m)
     => String
     -> (PropertyM m () -> Property)
     -> Spec
@@ -80,14 +80,14 @@ instance Arbitrary a => Arbitrary (V.Vector a) where
 
 -- | Method should execute if called correctly
 serverMethodShouldExecuteSpec
-    :: MonadRpc m
+    :: (MonadTimed m, MonadRpc m)
     => Addr
     -> [(String, [Object])]
     -> PropertyM m ()
 serverMethodShouldExecuteSpec addr methods = do
     ms <- createMethods methods
     let methodMap = createMethodMap ms
-    run $ serve port ms
+    run . fork $ serve port ms
     forAllM (elements methods) $ \(name, args) -> do
         res <- run . execClient addr $ Client name args
         let shouldBe = M.lookup name methodMap <*> pure args

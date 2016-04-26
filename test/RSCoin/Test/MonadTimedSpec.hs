@@ -14,7 +14,8 @@ import           Control.Monad.Trans      (MonadIO, liftIO)
 import           Numeric.Natural          (Natural)
 import           Test.Hspec               (Spec, describe)
 import           Test.Hspec.QuickCheck    (prop)
-import           Test.QuickCheck          (Property, counterexample, ioProperty)
+import           Test.QuickCheck          (Property, counterexample, ioProperty,
+                                           (===))
 import           Test.QuickCheck.Function (Fun, apply)
 import           Test.QuickCheck.Monadic  (PropertyM, assert, monadic, monitor,
                                            run)
@@ -154,5 +155,5 @@ actionSemanticProp action val f = do
         ])
     assert $ apply f val == result
 
-nowProp :: MicroSeconds -> Bool
-nowProp ms = ms == now ms
+nowProp :: MicroSeconds -> Property
+nowProp ms = 0 === now ms

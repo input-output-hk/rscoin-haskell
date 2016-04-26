@@ -3,7 +3,9 @@
 module Main where
 
 import           Control.Monad              (forM_)
+import           Control.Monad.Catch.Pure   (CatchT, runCatchT)
 import           Control.Monad.Random.Class (getRandomR)
+import           Control.Monad.State        (State, execState, put)
 import           Control.Monad.Trans        (MonadIO, lift, liftIO)
 import           Prelude                    hiding (log)
 import           System.Random              (mkStdGen)
@@ -15,7 +17,7 @@ import           RSCoin.Test.MonadTimed     (MonadTimed, after, at, during, for,
                                              schedule, sec, sec', till, wait,
                                              work)
 import           RSCoin.Test.PureRpc        (Delays (..), runPureRpc)
-import           RSCoin.Test.Timed          (runTimedT)
+import           RSCoin.Test.Timed          (TimedT, runTimedT)
 import           RSCoin.Test.TimedIO        (runTimedIO_)
 
 import           Control.Concurrent.MVar    (MVar, newMVar, putMVar, takeMVar)
@@ -23,7 +25,13 @@ import           Control.Concurrent.MVar    (MVar, newMVar, putMVar, takeMVar)
 import           Network.MessagePack.Server (ServerT)
 
 main :: IO ()
-main = sayHelloIO
+main = do
+    putStrLn "sayHelloIO"
+    sayHelloIO
+    putStrLn "sayHelloPure"
+    sayHelloPure
+    putStrLn "playWithTimedState"
+    print execPlayWithTimedState
 
 -- * Timed
 
@@ -48,6 +56,17 @@ sayHello = do
     log "Waited till 10-sec point"
 
     schedule (at    2 sec 1 minute) $ log "Aha!"
+
+type TimedState = TimedT (CatchT (State Int))
+
+playWithTimedState :: TimedState ()
+playWithTimedState = do
+    invoke (at 1 sec) $ put 11
+    schedule (after 5 sec) $ put 15
+    invoke   (after 2 sec) $ put 12
+
+execPlayWithTimedState :: Int
+execPlayWithTimedState = execState (runCatchT $ runTimedT playWithTimedState) undefined
 
 log :: (MonadIO m, MonadTimed m) => String -> m ()
 log msg = do

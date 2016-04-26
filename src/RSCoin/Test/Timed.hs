@@ -1,5 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE UndecidableInstances      #-}
@@ -18,7 +19,8 @@ import           Control.Monad.Catch    (MonadCatch, MonadThrow, catch)
 import           Control.Monad.Cont     (ContT (..), runContT)
 import           Control.Monad.Loops    (whileM_)
 import           Control.Monad.Reader   (ReaderT (..), ask, runReaderT)
-import           Control.Monad.State    (StateT, evalStateT)
+import           Control.Monad.State    (MonadState (state, get, put), StateT,
+                                         evalStateT)
 import           Control.Monad.Trans    (MonadIO, MonadTrans, lift)
 import           Data.Function          (on)
 import           Data.Maybe             (fromJust)
@@ -75,6 +77,11 @@ newtype TimedT m a  =  TimedT
 --   StateT below TimedT would share it's state between all threads.
 instance MonadTrans TimedT where
     lift = TimedT . lift . lift . lift
+
+instance MonadState s m => MonadState s (TimedT m) where
+    get = lift get
+    put = lift . put
+    state = lift . state
 
 -- I don't understand why ConT monad is not an instance of MonadCatch
 -- by default

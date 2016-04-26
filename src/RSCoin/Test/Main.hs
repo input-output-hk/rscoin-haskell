@@ -8,15 +8,15 @@ import           Control.Monad.Trans        (lift, liftIO, MonadIO)
 import           System.Random              (mkStdGen) 
 import           Control.Monad.Random.Class (getRandomR)
 
-import           RSCoin.Test.MonadTimed     ( wait, invoke, schedule, now
-                                            , work, localTime
-                                            , at, after, for, till, during 
-                                            , sec, minute, sec'
-                                            , MonadTimed, runTimedIO_)
+import           RSCoin.Test.MonadTimed     (wait, invoke, schedule, now,
+                                             work, localTime,
+                                             at, after, for, till, during ,
+                                             sec, minute, sec',
+                                             MonadTimed, runTimedIO_)
 import           RSCoin.Test.Timed          (runTimedT)
-import           RSCoin.Test.MonadRpc       ( MonadRpc, execClient, serve
-                                            , call, method, runMsgPackRpc
-                                            , Client)
+import           RSCoin.Test.MonadRpc       (MonadRpc, execClient, serve,
+                                             call, method, runMsgPackRpc,
+                                             Client)
 import           RSCoin.Test.PureRpc        (runPureRpc, Delays(..))
 
 import           Control.Concurrent.MVar    (MVar, newMVar, takeMVar, putMVar)

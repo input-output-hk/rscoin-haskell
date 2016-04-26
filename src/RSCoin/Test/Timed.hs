@@ -12,25 +12,24 @@ module RSCoin.Test.Timed
        ) where
 
 import           Control.Monad               (void, when)
-import           Control.Monad.Catch         (MonadThrow, throwM
-                                             , MonadCatch, catch)
+import           Control.Monad.Catch         (MonadThrow, throwM,
+                                              MonadCatch, catch)
 import           Control.Exception           (SomeException)
 import           Control.Monad.State         (StateT, evalStateT, gets)
 import           Control.Monad.Reader        (ReaderT(..), runReaderT, ask)
 import           Control.Monad.Trans         (lift, liftIO, MonadTrans, MonadIO)
 import           Control.Monad.Cont          (ContT(..), runContT)
 import           Control.Monad.Loops         (whileM)
-import           Control.Lens                ((%=), (.=), to, use
-                                             , makeLenses)
+import           Control.Lens                ((%=), (.=), to, use, makeLenses)
 import           Data.Ord                    (comparing) 
 import           Data.Maybe                  (fromJust)
 import           Data.Function               (on)
 
 import qualified Data.PQueue.Min             as PQ
  
-import           RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds
-                                             , wait, localTime, now
-                                             , schedule, workWhile)
+import           RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds,
+                                              wait, localTime, now,
+                                              schedule, workWhile)
 
 type Timestamp = MicroSeconds
 

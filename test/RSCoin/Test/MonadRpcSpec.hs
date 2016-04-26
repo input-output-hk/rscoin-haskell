@@ -92,7 +92,7 @@ serverMethodShouldExecuteSimpleSpec
     :: (MonadTimed m, MonadRpc m, MonadIO m)
     => PropertyM m ()
 serverMethodShouldExecuteSimpleSpec = do
-    run $ schedule now $ server
+    run $ fork $ server
     client
 
 server :: MonadRpc m => m ()

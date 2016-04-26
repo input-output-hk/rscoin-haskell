@@ -2,38 +2,40 @@
 
 module Main where
 
-import           Prelude                 hiding (log)
-import           Control.Monad           (forM_)
-import           Control.Monad.Trans     (lift, liftIO, MonadIO)
-import           Data.Default            (def)
-import           System.Random           (mkStdGen) 
+import           Prelude                    hiding (log)
+import           Control.Monad              (forM_)
+import           Control.Monad.Trans        (lift, liftIO, MonadIO)
+import           System.Random              (mkStdGen) 
 import           Control.Monad.Random.Class (getRandomR)
 
-import           RSCoin.Test.MonadTimed  (wait, invoke, schedule, now, fork
-                                         , work
-                                         , at, after, for, till, during 
-                                         , sec, minute, sec'
-                                         , MonadTimed, runTimedIO_, localTime)
-import           RSCoin.Test.Timed       (runTimedT)
-import           RSCoin.Test.MonadRpc 
-import           RSCoin.Test.PureRpc
-import           Control.Monad.Catch
+import           RSCoin.Test.MonadTimed     ( wait, invoke, schedule, now
+                                            , work, localTime
+                                            , at, after, for, till, during 
+                                            , sec, minute, sec'
+                                            , MonadTimed, runTimedIO_)
+import           RSCoin.Test.Timed          (runTimedT)
+import           RSCoin.Test.MonadRpc       ( MonadRpc, execClient, serve
+                                            , call, method, runMsgPackRpc
+                                            , Client)
+import           RSCoin.Test.PureRpc        (runPureRpc, Delays(..))
+
+import           Control.Concurrent.MVar    (MVar, newMVar, takeMVar, putMVar)
 
 import           Network.MessagePack.Server (ServerT)
 
 main :: IO ()
-main  =  sayHelloIO
+main = sayHelloIO
 
 -- * Timed
 
 sayHelloIO :: IO ()
-sayHelloIO  =  runTimedIO_ sayHello
+sayHelloIO = runTimedIO_ sayHello
 
 sayHelloPure :: IO ()
-sayHelloPure  =  runTimedT sayHello
+sayHelloPure = runTimedT sayHello
 
 sayHello :: (MonadIO m, MonadTimed m) => m ()
-sayHello  =  do
+sayHello = do
     invoke    now          $ log "Hello"
     invoke   (at    1 sec) $ log "It's 1 second now"
 
@@ -49,19 +51,19 @@ sayHello  =  do
     schedule (at    2 sec 1 minute) $ log "Aha!"
  
 log :: (MonadIO m, MonadTimed m) => String -> m ()
-log msg  =  do
+log msg = do
     seconds <- time
     liftIO $ putStrLn $ mconcat $ ["[", show seconds, "s] ", msg]
   where
     time :: MonadTimed m => m Double
-    time  =  ( / 1000000) . fromIntegral <$> localTime 
+    time = ( / 1000000) . fromIntegral <$> localTime 
 
 interruptedLol :: (MonadTimed m, MonadIO m) => m ()
-interruptedLol  =  do
+interruptedLol = do
     work (during 5000000) tempLol
 
 tempLol :: (MonadIO m, MonadTimed m) => m ()
-tempLol  =  do
+tempLol = do
     liftIO $ putStrLn "Lol!"
     wait (for 2 sec)
     tempLol
@@ -70,42 +72,53 @@ tempLol  =  do
 -- * Rpc
 
 rpcIO :: IO ()
-rpcIO  =  runTimedIO_ . runMsgPackRpc $ handshake
+rpcIO = runTimedIO_ . runMsgPackRpc $ handshake
 
 rpcPure :: IO ()
-rpcPure  =  rpcSeed 0
+rpcPure = rpcSeed 0
 
 rpcSeed :: Int -> IO ()
-rpcSeed seed  =  runPureRpc (mkStdGen seed) delays $ handshake
+rpcSeed seed = runPureRpc (mkStdGen seed) delays $ handshake
 
 handshake :: (MonadRpc m, MonadTimed m, MonadIO m) => m ()
-handshake  =  do
-    let resp = response
+handshake = do
+    sync <- liftIO $ syncronized <$> newMVar ()
+
+    let resp = response sync
     restrict $ resp 5
-    work (during 5000000) $ serve 2222 [method "lol" resp]
+    work (during $ sec' 3) $ serve 2222 [method "lol" resp, method "qwe" resp]
 
     forM_ [1..3] $ \i ->
         schedule (at 1 sec) $ do
             forM_ [1..3] $ \j -> 
                 schedule (at 2 sec) $ do
                     let a = i * 3 + j
-                    log $ "Q" ++ show a
-                    res <- execClient ("127.0.0.1", 2222) $ request a
-                    log $ "A" ++ show res
+                    let s = if even a then "lol" else "qwe"
+                    sync $ log $ "Q" ++ show a
+                    res <- execClient ("127.0.0.1", 2222) $ request s a
+                    sync $ log $ "A" ++ show res
 
 restrict :: Monad m => ServerT m a -> m ()
-restrict _  =  return ()
+restrict _ = return ()
 
-response :: (MonadRpc m, MonadTimed m, MonadIO m) => Int -> ServerT m Int
-response k  =  do
-    liftIO $ putStrLn $ "R" ++ show k
+response :: (MonadRpc m, MonadTimed m, MonadIO m) => Sync m -> Int -> ServerT m Int
+response sync k = do
+    lift $ sync $ liftIO $ putStrLn $ "R" ++ show k
     lift $ wait $ for 0.4 sec'
     return k
 
-request :: Int -> Client Int
-request  =  call "lol" 
+request :: String -> Int -> Client Int
+request = call 
 
 delays :: Delays
-delays  =  Delays d
+delays = Delays d
   where
-    d _ _  =  Just <$> getRandomR (10, 1000)
+    d _ _ = Just <$> getRandomR (10, 1000)
+
+type Sync m = m () -> m ()
+
+syncronized :: MonadIO m => MVar () -> Sync m
+syncronized lock action = do
+    _ <- liftIO $ takeMVar lock
+    action
+    liftIO $ putMVar lock ()

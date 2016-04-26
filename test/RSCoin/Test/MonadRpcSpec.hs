@@ -8,6 +8,7 @@ module RSCoin.Test.MonadRpcSpec
 
 import           Control.Monad.Trans        (MonadIO)
 import qualified Data.Map                   as M
+import           Data.List                  (nub)
 import           Data.Maybe                 (fromJust)
 import           Data.MessagePack.Object    (toObject)
 import           Data.MessagePack.Object    (Object)
@@ -117,7 +118,7 @@ serverMethodShouldExecuteSpec (getNonEmpty -> methodNames') = do
     res <- run . execClient addr $ call name
     shouldBe <- run $ fromJust $ M.lookup name methodMap <*> pure []
     assert $ shouldBe == res
-  where methodNames = map getNonEmpty methodNames'
+  where methodNames = nub $ map getNonEmpty methodNames'
         -- TODO: we wouldn't need to do this if Function was defined
         createMethods :: Monad m => [String] -> PropertyM m [Method m]
         createMethods = mapM $ \name -> do

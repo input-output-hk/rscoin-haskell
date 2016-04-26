@@ -215,6 +215,7 @@ test-suite rscoin-test
 executable timed-launch
   main-is:             Main.hs
   other-modules:       RSCoin.Test.MonadTimed
+                     , RSCoin.Test.TimedIO
                      , RSCoin.Test.Timed
                      , RSCoin.Test.MonadRpc
                      , RSCoin.Test.PureRpc

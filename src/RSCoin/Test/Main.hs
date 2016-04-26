@@ -2,24 +2,24 @@
 
 module Main where
 
-import           Prelude                 hiding (log)
-import           Control.Monad           (forM_)
-import           Control.Monad.Trans     (lift, liftIO, MonadIO)
-import           Data.Default            (def)
-import           System.Random           (mkStdGen) 
+import           Prelude                    hiding (log)
+import           Control.Monad              (forM_)
+import           Control.Monad.Trans        (lift, liftIO, MonadIO)
+import           System.Random              (mkStdGen) 
 import           Control.Monad.Random.Class (getRandomR)
 
-import           RSCoin.Test.MonadTimed  (wait, invoke, schedule, now, fork
-                                         , work
-                                         , at, after, for, till, during 
-                                         , sec, minute, sec'
-                                         , MonadTimed, runTimedIO_, localTime)
-import           RSCoin.Test.Timed       (runTimedT)
-import           RSCoin.Test.MonadRpc 
-import           RSCoin.Test.PureRpc
-import           RSCoin.Test.MonadRpc    
-import           Control.Monad.Catch
-import           Control.Concurrent.MVar
+import           RSCoin.Test.MonadTimed     ( wait, invoke, schedule, now
+                                            , work, localTime
+                                            , at, after, for, till, during 
+                                            , sec, minute, sec'
+                                            , MonadTimed, runTimedIO_)
+import           RSCoin.Test.Timed          (runTimedT)
+import           RSCoin.Test.MonadRpc       ( MonadRpc, execClient, serve
+                                            , call, method, runMsgPackRpc
+                                            , Client)
+import           RSCoin.Test.PureRpc        (runPureRpc, Delays(..))
+
+import           Control.Concurrent.MVar    (MVar, newMVar, takeMVar, putMVar)
 
 import           Network.MessagePack.Server (ServerT)
 

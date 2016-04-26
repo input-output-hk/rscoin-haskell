@@ -12,11 +12,11 @@ module RSCoin.Test.Timed
        ) where
 
 import           Control.Exception      (SomeException)
-import           Control.Lens           (makeLenses, to, use, (%=), (.=))
+import           Control.Lens           (makeLenses, to, use, (%=), (.=), (^.))
 import           Control.Monad          (void, when)
 import           Control.Monad.Catch    (MonadCatch, MonadThrow, catch)
 import           Control.Monad.Cont     (ContT (..), runContT)
-import           Control.Monad.Loops    (whileM)
+import           Control.Monad.Loops    (whileM_)
 import           Control.Monad.Reader   (MonadReader, ReaderT (..), ask,
                                          runReaderT)
 import           Control.Monad.State    (MonadState, StateT, evalStateT)
@@ -39,6 +39,8 @@ data Event m  =  Event
     , _condition :: m Bool
     }
 
+$(makeLenses ''Event)
+
 instance Eq (Event m) where
     (==)  =  (==) `on` _timestamp
 
@@ -50,7 +52,15 @@ data Scenario m = Scenario
     { _events  :: PQ.MinQueue (Event m)
     , _curTime :: MicroSeconds
     }
+
 $(makeLenses ''Scenario)
+
+emptyScenario :: Scenario m
+emptyScenario =
+    Scenario
+    { _events = PQ.empty
+    , _curTime = 0
+    }
 
 -- | Pure implementation of MonadTimed.
 --   It stores an event queue, on wait continuation is passed to that queue
@@ -84,33 +94,30 @@ instance MonadCatch m => MonadCatch (TimedT m) where
             flip runReaderT r . unwrapTimedT . handler
 
 launchTimedT :: Monad m => TimedT m a -> m ()
-launchTimedT (TimedT t)  =  flip evalStateT Scenario{..}
+launchTimedT (TimedT t)  =  flip evalStateT emptyScenario
                          $  flip runContT   (void . return)
                          $  flip runReaderT (return True)
                          $  t
-  where
-    _events  = PQ.empty
-    _curTime = 0
 
 -- | Starts timed evaluation. Finishes when no more scheduled actions remain.
 -- FIXME:  MonadCatch is not necessary here, we just should catch if it can throw
 runTimedT :: (Monad m, MonadCatch m) => TimedT m () -> m ()
 runTimedT timed  =  launchTimedT $ do
     schedule now timed `catch` handler
-    void . whileM notDone $ do
+    whileM_ notDone $ do
         nextEv <- do
             (ev, evs') <- fromJust . PQ.minView <$> use events
             events .= evs'
             return ev
-        TimedT $ lift $ lift $ curTime .= _timestamp nextEv
+        curTime .= nextEv ^. timestamp
 
-        let cond = _condition nextEv
+        let cond = nextEv ^. condition
         ok <- cond
         -- We can't just invoke (nextEv ^. action) here, because it can put
         -- further execution to event queue or even throw it away.
         -- We want to successfully finish this action and go to next iteration
         -- rather than loose execution control
-        when ok $ let TimedT act = _action nextEv
+        when ok $ let TimedT act = nextEv ^. action
                       act'       = TimedT $ lift $ lift
                                  $ runContT (runReaderT act cond) return
                   in  act' `catch` handler
@@ -133,12 +140,10 @@ instance Monad m => MonadTimed (TimedT m) where
     wait relativeToNow = do
         cur <- localTime
         cond <- ask
-        let event following =
+        let event =
                 Event
                 { _condition = cond
                 , _timestamp = cur + relativeToNow cur
-                , _action = TimedT $ lift . lift $ following ()
+                , _action = return ()
                 }
-        TimedT $ lift $ ContT $
-            \following ->
-                 events %= PQ.insert (event following)
+        events %= PQ.insert event

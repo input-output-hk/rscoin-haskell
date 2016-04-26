@@ -22,7 +22,8 @@ import           Control.Monad.Trans  (lift)
 
 type MicroSeconds = Int
 
--- | Defines some time point basing on current time point
+-- | Defines some time point (relative to current time point) 
+--   basing on current time point
 type RelativeToNow = MicroSeconds -> MicroSeconds
 
 -- | Allows time management. Time is specified in microseconds passed

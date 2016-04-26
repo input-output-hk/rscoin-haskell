@@ -10,6 +10,7 @@ import           Control.Monad.Trans         (MonadIO)
 import           Data.MessagePack.Object     (toObject)
 import qualified Data.Map                    as M
 import           Data.Maybe                  (fromJust)
+import           Data.MessagePack.Object     (Object)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Arbitrary (arbitrary), 
@@ -120,4 +121,5 @@ serverMethodShouldExecuteSpec (getNonEmpty -> methodNames') = do
         createMethods = mapM $ \name -> do
             res <- toObject <$> pick (arbitrary :: Gen Int)
             return . Method name . const $ return res
+        createMethodMap :: Monad m => [Method m] -> M.Map String ([Object] -> m Object)
         createMethodMap = M.fromList . map (\m -> (methodName m, methodBody m))

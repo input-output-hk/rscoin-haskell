@@ -1,5 +1,4 @@
-{-# LANGUAGE ViewPatterns        #-}
-{-#LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | RSCoin.Test.MonadRpc specification
 

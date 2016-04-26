@@ -12,6 +12,7 @@ import           Control.Monad.Trans         (liftIO, lift, MonadIO)
 import           Data.MessagePack.Object     (Object(..), MessagePack, 
                                               toObject)
 import qualified Data.Map                    as M
+import           Data.Maybe                  (fromJust)
 import           Numeric.Natural             (Natural)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
@@ -119,8 +120,8 @@ serverMethodShouldExecuteSpec (getNonEmpty -> methodNames') = do
     run . wait $ for 500 ms
     name <- pick $ elements methodNames
     res <- run . execClient addr $ Client name []
-    let shouldBe = M.lookup name methodMap <*> pure []
-    maybe (return ()) (\k -> assert . (== res) =<< run k) shouldBe
+    shouldBe <- run $ fromJust $ M.lookup name methodMap <*> pure []
+    assert $ shouldBe == res
   where methodNames = map getNonEmpty methodNames'
         -- TODO: we wouldn't need to do this if Function was defined
         createMethods :: Monad m => [String] -> PropertyM m [Method m]

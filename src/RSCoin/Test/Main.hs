@@ -1,25 +1,24 @@
-{-#LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
-import           Prelude                    hiding (log)
 import           Control.Monad              (forM_)
-import           Control.Monad.Trans        (lift, liftIO, MonadIO)
-import           System.Random              (mkStdGen) 
 import           Control.Monad.Random.Class (getRandomR)
+import           Control.Monad.Trans        (MonadIO, lift, liftIO)
+import           Prelude                    hiding (log)
+import           System.Random              (mkStdGen)
 
-import           RSCoin.Test.MonadTimed     (wait, invoke, schedule, now,
-                                             work, localTime,
-                                             at, after, for, till, during ,
-                                             sec, minute, sec',
-                                             MonadTimed, runTimedIO_)
+import           RSCoin.Test.MonadRpc       (Client, MonadRpc, call, execClient,
+                                             method, runMsgPackRpc, serve)
+import           RSCoin.Test.MonadTimed     (MonadTimed, after, at, during, for,
+                                             invoke, localTime, minute, now,
+                                             schedule, sec, sec', till, wait,
+                                             work)
+import           RSCoin.Test.PureRpc        (Delays (..), runPureRpc)
 import           RSCoin.Test.Timed          (runTimedT)
-import           RSCoin.Test.MonadRpc       (MonadRpc, execClient, serve,
-                                             call, method, runMsgPackRpc,
-                                             Client)
-import           RSCoin.Test.PureRpc        (runPureRpc, Delays(..))
+import           RSCoin.Test.TimedIO        (runTimedIO_)
 
-import           Control.Concurrent.MVar    (MVar, newMVar, takeMVar, putMVar)
+import           Control.Concurrent.MVar    (MVar, newMVar, putMVar, takeMVar)
 
 import           Network.MessagePack.Server (ServerT)
 
@@ -43,20 +42,20 @@ sayHello = do
     schedule (after 5 sec) $ log "5 more seconds passed"
     invoke   (after 2 sec) $ log "2 more seconds passed"
 
-    wait     (for   5 sec) 
+    wait     (for   5 sec)
     log "Waited for 5 sec, now 8"
-    wait     (till 10 sec) 
+    wait     (till 10 sec)
     log "Waited till 10-sec point"
 
     schedule (at    2 sec 1 minute) $ log "Aha!"
- 
+
 log :: (MonadIO m, MonadTimed m) => String -> m ()
 log msg = do
     seconds <- time
     liftIO $ putStrLn $ mconcat $ ["[", show seconds, "s] ", msg]
   where
     time :: MonadTimed m => m Double
-    time = ( / 1000000) . fromIntegral <$> localTime 
+    time = ( / 1000000) . fromIntegral <$> localTime
 
 interruptedLol :: (MonadTimed m, MonadIO m) => m ()
 interruptedLol = do
@@ -67,7 +66,7 @@ tempLol = do
     liftIO $ putStrLn "Lol!"
     wait (for 2 sec)
     tempLol
-    
+
 
 -- * Rpc
 
@@ -90,7 +89,7 @@ handshake = do
 
     forM_ [1..3] $ \i ->
         schedule (at 1 sec) $ do
-            forM_ [1..3] $ \j -> 
+            forM_ [1..3] $ \j ->
                 schedule (at 2 sec) $ do
                     let a = i * 3 + j
                     let s = if even a then "lol" else "qwe"
@@ -108,7 +107,7 @@ response sync k = do
     return k
 
 request :: String -> Int -> Client Int
-request = call 
+request = call
 
 delays :: Delays
 delays = Delays d

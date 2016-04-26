@@ -43,6 +43,7 @@ library
                      , RSCoin.Test.MonadRpc
                      , RSCoin.Test.PureRpc
                      , RSCoin.Test.Timed
+                     , RSCoin.Test.TimedIO
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Server
                      , RSCoin.Bank.Strategies

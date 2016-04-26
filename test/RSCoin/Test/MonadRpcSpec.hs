@@ -6,32 +6,34 @@ module RSCoin.Test.MonadRpcSpec
        ( spec
        ) where
 
-import           Control.Monad.Trans         (MonadIO)
-import           Data.MessagePack.Object     (toObject)
-import qualified Data.Map                    as M
-import           Data.Maybe                  (fromJust)
-import           Data.MessagePack.Object     (Object)
-import           Test.Hspec                  (Spec, describe)
-import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Arbitrary (arbitrary), 
-                                             Property, ioProperty,
-                                             elements, NonEmptyList (..), Gen)
-import           Test.QuickCheck.Monadic     (run, assert, PropertyM, monadic,
-                                             pick)
+import           Control.Monad.Trans        (MonadIO)
+import qualified Data.Map                   as M
+import           Data.Maybe                 (fromJust)
+import           Data.MessagePack.Object    (toObject)
+import           Data.MessagePack.Object    (Object)
+import           Test.Hspec                 (Spec, describe)
+import           Test.Hspec.QuickCheck      (prop)
+import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
+                                             NonEmptyList (..), Property,
+                                             elements, ioProperty)
+import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, pick,
+                                             run)
 
-import           RSCoin.Test.MonadRpc        (MonadRpc (..), Port, Host, Addr,
-                                              Method (..), Client (..),
-                                              MsgPackRpc (..), method, call)
-import           RSCoin.Test.MonadTimed      (MonadTimed (..), runTimedIO, for, sec, ms)
+import           RSCoin.Test.MonadRpc       (Addr, Client (..), Host,
+                                             Method (..), MonadRpc (..),
+                                             MsgPackRpc (..), Port, call,
+                                             method)
+import           RSCoin.Test.MonadTimed     (MonadTimed (..), for, ms, sec)
+import           RSCoin.Test.TimedIO        (runTimedIO)
 
-import           Network.MessagePack.Server  (ServerT)
+import           Network.MessagePack.Server (ServerT)
 
 spec :: Spec
 spec =
     describe "MonadRpc" $ do
         msgPackRpcSpec "MsgPackRpc" runMsgPackRpcProp
 
-msgPackRpcSpec 
+msgPackRpcSpec
     :: (MonadRpc m, MonadTimed m, MonadIO m)
     => String
     -> (PropertyM m () -> Property)

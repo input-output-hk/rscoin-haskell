@@ -1,11 +1,11 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE FlexibleContexts           #-}
 
--- This module contains MonadRpc providing RPC communication, 
+-- This module contains MonadRpc providing RPC communication,
 -- and it's implementation using MessagePack.
 
 module RSCoin.Test.MonadRpc
@@ -26,22 +26,23 @@ module RSCoin.Test.MonadRpc
     , S.MethodType
     ) where
 
-import qualified Data.ByteString            as BS 
-import           Control.Monad.Base            (MonadBase)
-import           Control.Monad.Catch           (MonadThrow, MonadCatch)
-import           Control.Monad.Trans           (MonadIO, liftIO)
-import           Control.Monad.Trans.Control   (MonadBaseControl, StM
-                                               , liftBaseWith, restoreM)
-import           Data.IORef                    (newIORef, readIORef, writeIORef)
-import           Data.Maybe                    (fromMaybe)
+import           Control.Monad.Base          (MonadBase)
+import           Control.Monad.Catch         (MonadCatch, MonadThrow)
+import           Control.Monad.Trans         (MonadIO, liftIO)
+import           Control.Monad.Trans.Control (MonadBaseControl, StM,
+                                              liftBaseWith, restoreM)
+import qualified Data.ByteString             as BS
+import           Data.IORef                  (newIORef, readIORef, writeIORef)
+import           Data.Maybe                  (fromMaybe)
 
-import qualified Network.MessagePack.Client as C
-import qualified Network.MessagePack.Server as S
+import qualified Network.MessagePack.Client  as C
+import qualified Network.MessagePack.Server  as S
 
-import           RSCoin.Test.MonadTimed        (TimedIO, MonadTimed)
+import           RSCoin.Test.MonadTimed      (MonadTimed)
+import           RSCoin.Test.TimedIO         (TimedIO)
 
-import           Data.MessagePack.Object       (Object(..), MessagePack, 
-                                                toObject)
+import           Data.MessagePack.Object     (MessagePack, Object (..),
+                                              toObject)
 
 type Port = Int
 
@@ -52,7 +53,7 @@ type Addr = (Host, Port)
 -- | Defines protocol of RPC layer
 class MonadThrow r => MonadRpc r where
     execClient :: MessagePack a => Addr -> Client a -> r a
-    
+
     serve :: Port -> [Method r] -> r ()
 
 -- | Same as MonadRpc, but we can set delays on per call basis.
@@ -75,19 +76,19 @@ newtype MsgPackRpc a = MsgPackRpc { runMsgPackRpc :: (TimedIO a) }
 
 instance MonadBaseControl IO MsgPackRpc where
     type StM MsgPackRpc a = a
-    
+
     liftBaseWith f = MsgPackRpc $ liftBaseWith $ \g -> f $ g . runMsgPackRpc
 
     restoreM = MsgPackRpc . restoreM
 
-instance MonadRpc MsgPackRpc where 
+instance MonadRpc MsgPackRpc where
     execClient (addr, port) (Client name args) = liftIO $ do
         box <- newIORef Nothing
         C.execClient addr port $ do
             -- note, underlying rpc accepts a single argument - [Object]
             res <- C.call name args
             liftIO . writeIORef box $ Just res
-        fromMaybe (error "Aaa, execClient didn't return a value!") 
+        fromMaybe (error "Aaa, execClient didn't return a value!")
             <$> readIORef box
 
     serve port methods = S.serve port $ convertMethod <$> methods
@@ -95,14 +96,14 @@ instance MonadRpc MsgPackRpc where
         convertMethod :: Method MsgPackRpc -> S.Method MsgPackRpc
         convertMethod Method{..} = S.method methodName methodBody
 
-    
--- * Client part 
+
+-- * Client part
 
 -- | Creates a function call. It accepts function name and arguments
 call :: RpcType t => String -> t
 call name = rpcc name []
 
--- | Collects function name and arguments 
+-- | Collects function name and arguments
 -- (it's MessagePack implementation is hiden, need our own)
 class RpcType t where
     rpcc :: String -> [Object] -> t
@@ -110,7 +111,7 @@ class RpcType t where
 instance (RpcType t, MessagePack p) => RpcType (p -> t) where
     rpcc name objs p = rpcc name $ toObject p : objs
 
--- | Keeps function name and arguments 
+-- | Keeps function name and arguments
 data Client a where
     Client :: MessagePack a => String -> [Object] -> Client a
 
@@ -121,13 +122,13 @@ instance MessagePack o => RpcType (Client o) where
 -- * Server part
 
 -- | Keeps method definition
-data Method m = Method 
+data Method m = Method
     { methodName :: String
     , methodBody :: [Object] -> m Object
     }
 
 -- | Creates method available for RPC-requests.
---   It accepts method name (which would be refered by clients) 
+--   It accepts method name (which would be refered by clients)
 --   and it's body
 method :: S.MethodType m f => String -> f -> Method m
 method name f = Method

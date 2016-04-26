@@ -9,21 +9,20 @@ module RSCoin.Test.MonadTimedSpec
        ( spec
        ) where
 
-import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar, putMVar)
-import           Control.Monad.Trans         (liftIO, MonadIO)
-import           Numeric.Natural             (Natural)
-import           Test.Hspec                  (Spec, describe)
-import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Property, ioProperty,
-                                             counterexample)
-import           Test.QuickCheck.Function    (Fun, apply) 
-import           Test.QuickCheck.Monadic     (run, assert, PropertyM, monadic,
-                                             monitor)
-import           Test.QuickCheck.Poly        (A)
+import           Control.Concurrent.MVar  (newEmptyMVar, putMVar, takeMVar)
+import           Control.Monad.Trans      (MonadIO, liftIO)
+import           Numeric.Natural          (Natural)
+import           Test.Hspec               (Spec, describe)
+import           Test.Hspec.QuickCheck    (prop)
+import           Test.QuickCheck          (Property, counterexample, ioProperty)
+import           Test.QuickCheck.Function (Fun, apply)
+import           Test.QuickCheck.Monadic  (PropertyM, assert, monadic, monitor,
+                                           run)
+import           Test.QuickCheck.Poly     (A)
 
-import           RSCoin.Test.MonadTimed      (MicroSeconds, now, RelativeToNow,
-                                              MonadTimed (..), runTimedIO,
-                                              TimedIO, schedule, invoke)
+import           RSCoin.Test.MonadTimed   (MicroSeconds, MonadTimed (..),
+                                           RelativeToNow, invoke, now, schedule)
+import           RSCoin.Test.TimedIO      (TimedIO, runTimedIO)
 
 spec :: Spec
 spec =
@@ -38,7 +37,7 @@ monadTimedSpec
 monadTimedSpec description runProp =
     describe description $ do
         describe "now" $ do
-            prop "should return the same time as specified" 
+            prop "should return the same time as specified"
                 nowProp
         describe "localTime >> localTime" $ do
             prop "first localTime will run before second localTime" $
@@ -93,7 +92,7 @@ actionTimeSemanticProp
     -> Fun A A
     -> PropertyM m ()
 actionTimeSemanticProp action relativeToNow val f = do
-    actionSemanticProp action' val f  
+    actionSemanticProp action' val f
     timePassingProp relativeToNow action'
   where
     action' = action $ fromIntegralRTN relativeToNow
@@ -129,7 +128,7 @@ timePassingProp relativeToNow action = do
     t1 <- run localTime
     run . action $ localTime >>= liftIO . putMVar mvar
     t2 <- liftIO $ takeMVar mvar
-    monitor (counterexample $ mconcat 
+    monitor (counterexample $ mconcat
         [ "t1: ", show t1
         , ", t2: ", show t2, ", "
         , show $ fromIntegralRTN relativeToNow t1, " <= ", show t2
@@ -147,7 +146,7 @@ actionSemanticProp action val f = do
     mvar <- liftIO newEmptyMVar
     run . action . liftIO . putMVar mvar $ apply f val
     result <- liftIO $ takeMVar mvar
-    monitor (counterexample $ mconcat 
+    monitor (counterexample $ mconcat
         [ "f: ", show f
         , ", val: ", show val
         , ", f val: ", show $ apply f val

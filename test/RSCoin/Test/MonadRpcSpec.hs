@@ -112,7 +112,7 @@ serverMethodShouldExecuteSpec (getNonEmpty -> methodNames') = do
     run . fork $ serve port mtds
     run . wait $ for 500 ms
     name <- pick $ elements methodNames
-    res <- run . execClient addr $ Client name []
+    res <- run . execClient addr $ call name
     shouldBe <- run $ fromJust $ M.lookup name methodMap <*> pure []
     assert $ shouldBe == res
   where methodNames = map getNonEmpty methodNames'

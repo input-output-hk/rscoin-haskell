@@ -103,7 +103,7 @@ for   = after' 0
 
 -- | Current time point
 now :: RelativeToNow
-now = id
+now = const 0
 
 -- | Returns whether specified delay has passed
 --   (timer starts when first monad layer is unwrapped)

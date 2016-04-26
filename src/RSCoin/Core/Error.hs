@@ -22,5 +22,5 @@ rscExceptionToException = toException . RSCoinError
 
 rscExceptionFromException :: Exception e => SomeException -> Maybe e
 rscExceptionFromException x = do
-    RSCoinError _ <- fromException x
-    cast x
+    RSCoinError e <- fromException x
+    cast e

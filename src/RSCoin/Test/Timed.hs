@@ -17,9 +17,8 @@ import           Control.Monad          (void, when)
 import           Control.Monad.Catch    (MonadCatch, MonadThrow, catch)
 import           Control.Monad.Cont     (ContT (..), runContT)
 import           Control.Monad.Loops    (whileM_)
-import           Control.Monad.Reader   (MonadReader, ReaderT (..), ask,
-                                         runReaderT)
-import           Control.Monad.State    (MonadState, StateT, evalStateT)
+import           Control.Monad.Reader   (ReaderT (..), ask, runReaderT)
+import           Control.Monad.State    (StateT, evalStateT)
 import           Control.Monad.Trans    (MonadIO, MonadTrans, lift)
 import           Data.Function          (on)
 import           Data.Maybe             (fromJust)
@@ -68,7 +67,7 @@ newtype TimedT m a  =  TimedT
     { unwrapTimedT :: ReaderT (TimedT m Bool)
                      (ContT ()
                      (StateT (Scenario (TimedT m)) m)) a
-    } deriving (Functor, Applicative, Monad, MonadReader (TimedT m Bool), MonadState (Scenario (TimedT m)), MonadIO, MonadThrow)
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow)
 
 -- | When stacking with other monads, take note of order of nesting.
 --   For example, StateT above TimedT will clone it's state on fork, thus
@@ -105,41 +104,41 @@ runTimedT :: (Monad m, MonadCatch m) => TimedT m () -> m ()
 runTimedT timed  =  launchTimedT $ do
     schedule now timed `catch` handler
     whileM_ notDone $ do
-        nextEv <- do
+        nextEv <- TimedT $ do
             (ev, evs') <- fromJust . PQ.minView <$> use events
             events .= evs'
             return ev
-        curTime .= nextEv ^. timestamp
+        TimedT $ curTime .= nextEv ^. timestamp
 
         let cond = nextEv ^. condition
         ok <- cond
         -- We can't just invoke (nextEv ^. action) here, because it can put
         -- further execution to event queue or even throw it away.
         -- We want to successfully finish this action and go to next iteration
-        -- rather than loose execution control
+        -- rather than lose execution control
         when ok $ let TimedT act = nextEv ^. action
-                      act'       = TimedT $ lift $ lift
+                      act'       = TimedT . lift . lift
                                  $ runContT (runReaderT act cond) return
                   in  act' `catch` handler
   where
     notDone :: Monad m => TimedT m Bool
-    notDone  =  use $ events . to (not . PQ.null)
+    notDone = TimedT . use $ events . to (not . PQ.null)
 
     handler :: Monad m => SomeException -> TimedT m ()
-    handler _  =  return ()   -- TODO: log here
+    handler _ = return ()   -- TODO: log here
 
 instance Monad m => MonadTimed (TimedT m) where
-    localTime = use curTime
+    localTime = TimedT $ use curTime
 
     -- | Take note, created thread may be killed by timeout
     --   only when it calls "wait"
     workWhile _condition _action = do
         _timestamp <- localTime
-        events %= PQ.insert Event { .. }
+        TimedT $ events %= PQ.insert Event { .. }
 
     wait relativeToNow = do
         cur <- localTime
-        cond <- ask
+        cond <- TimedT $ ask
         let event following =
                 Event
                 { _condition = cond

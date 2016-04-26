@@ -14,19 +14,17 @@ module RSCoin.StorageSpec
        ( spec
        ) where
 
-import           Control.Lens              (Getter, ix, makeLenses, to, use,
-                                            uses, (%=), (&), (+=), (.=), (.~), at, preuse)
+import           Control.Lens              (ix, makeLenses, use,
+                                            (.=), at, preuse)
 
-import           Control.Monad              (forM, guard, unless, void, when)
+import           Control.Monad              (forM, when)
 import           Control.Monad.Catch        (MonadThrow (throwM))
-import           Control.Monad.Trans        (lift)
-import           Control.Exception          (Exception, SomeException)
-import           Control.Monad.State.Lazy   (modify, gets)
+import           Control.Exception          (Exception)
+import           Control.Monad.State.Lazy   (gets)
 import qualified Data.Map                   as M
 import           Data.Text                  (Text)
 import           Data.Typeable              (Typeable)
 import           Test.Hspec                 (Spec, describe)
-import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
 
 import qualified RSCoin.Bank.Error       as B
@@ -86,7 +84,7 @@ instance Arbitrary AddMintette where
     return $ AddMintette mId (sk, C.derivePublicKey sk) mintette
 
 instance CanUpdate AddMintette where
-    doUpdate (AddMintette mId (sk, pk) mintette) = do
+    doUpdate (AddMintette mId (_, pk) mintette) = do
         liftBankUpdate $ B.addMintette mId pk
         mintettesState . at mId .= Just mintette
 

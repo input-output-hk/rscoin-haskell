@@ -6,32 +6,24 @@ module RSCoin.Test.MonadRpcSpec
        ( spec
        ) where
 
-import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar, putMVar)
-import           Control.Concurrent.Async    (race_)
-import           Control.Monad.Trans         (liftIO, lift, MonadIO)
-import           Data.MessagePack.Object     (Object(..), MessagePack, 
-                                              toObject)
+import           Control.Monad.Trans         (MonadIO)
+import           Data.MessagePack.Object     (toObject)
 import qualified Data.Map                    as M
 import           Data.Maybe                  (fromJust)
-import           Numeric.Natural             (Natural)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Arbitrary (arbitrary), 
                                              Property, ioProperty,
-                                             counterexample, oneof, elements,
-                                             NonEmptyList (..), Gen)
-import           Test.QuickCheck.Function    (Fun, apply) 
+                                             elements, NonEmptyList (..), Gen)
 import           Test.QuickCheck.Monadic     (run, assert, PropertyM, monadic,
-                                             monitor, pick, forAllM)
-import           Test.QuickCheck.Poly        (A)
+                                             pick)
 
 import           RSCoin.Test.MonadRpc        (MonadRpc (..), Port, Host, Addr,
                                               Method (..), Client (..),
-                                              MsgPackRpc (..))
-import           RSCoin.Test.MonadTimed      (MonadTimed (..), runTimedIO, for, sec, work, during, ms, schedule, now, after)
+                                              MsgPackRpc (..), method, call)
+import           RSCoin.Test.MonadTimed      (MonadTimed (..), runTimedIO, for, sec, ms)
 
 import           Network.MessagePack.Server  (ServerT)
-import           RSCoin.Test.MonadRpc
 
 spec :: Spec
 spec =
@@ -96,11 +88,11 @@ restrict _  =  return ()
 
 client :: (MonadRpc m, MonadTimed m) => PropertyM m ()
 client = do
-	run $ wait $ for 1 sec
-	r1 <- run $ execClient addr $ add 123 456
-	assert $ r1 == 123 + 456
-	r2 <- run $ execClient addr $ echo "hello"
-	assert $ r2 == "***hello***"
+    run $ wait $ for 1 sec
+    r1 <- run $ execClient addr $ add 123 456
+    assert $ r1 == 123 + 456
+    r2 <- run $ execClient addr $ echo "hello"
+    assert $ r2 == "***hello***"
   where
     add :: Int -> Int -> Client Int
     add = call "add"

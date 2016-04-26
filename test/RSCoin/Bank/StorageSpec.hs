@@ -20,9 +20,7 @@ module RSCoin.Bank.StorageSpec
 
 import           Control.Lens               (makeLenses)
 
-import           Control.Monad              (void)
 import           Test.Hspec                 (Spec, describe)
-import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
 
 import qualified RSCoin.Bank.Error     as S
@@ -86,5 +84,5 @@ instance Arbitrary BankState where
         SomeUpdate upd <- arbitrary
         return . flip BankState sk $ T.execUpdate (doUpdate upd) S.mkStorage
 
-startNewPeriodIncrementsPeriodId :: BankState -> Bool
-startNewPeriodIncrementsPeriodId = undefined
+-- startNewPeriodIncrementsPeriodId :: BankState -> Bool
+-- startNewPeriodIncrementsPeriodId = undefined

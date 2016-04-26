@@ -10,12 +10,11 @@ module RSCoin.Test.MonadTimedSpec
        ) where
 
 import           Control.Concurrent.MVar     (newEmptyMVar, takeMVar, putMVar)
-import           Control.Monad.Trans         (liftIO, lift, MonadIO)
+import           Control.Monad.Trans         (liftIO, MonadIO)
 import           Numeric.Natural             (Natural)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Arbitrary (arbitrary), 
-                                             Property, ioProperty,
+import           Test.QuickCheck             (Property, ioProperty,
                                              counterexample)
 import           Test.QuickCheck.Function    (Fun, apply) 
 import           Test.QuickCheck.Monadic     (run, assert, PropertyM, monadic,
@@ -23,9 +22,8 @@ import           Test.QuickCheck.Monadic     (run, assert, PropertyM, monadic,
 import           Test.QuickCheck.Poly        (A)
 
 import           RSCoin.Test.MonadTimed      (MicroSeconds, now, RelativeToNow,
-                                              after, MonadTimed (..), runTimedIO,
+                                              MonadTimed (..), runTimedIO,
                                               TimedIO, schedule, invoke)
-import           RSCoin.Test.Timed           (runTimedT, TimedT)
 
 spec :: Spec
 spec =
@@ -94,8 +92,8 @@ actionTimeSemanticProp
     -> A
     -> Fun A A
     -> PropertyM m ()
-actionTimeSemanticProp action relativeToNow init f = do
-    actionSemanticProp action' init f  
+actionTimeSemanticProp action relativeToNow val f = do
+    actionSemanticProp action' val f  
     timePassingProp relativeToNow action'
   where
     action' = action $ fromIntegralRTN relativeToNow
@@ -145,17 +143,17 @@ actionSemanticProp
     -> A
     -> Fun A A
     -> PropertyM m ()
-actionSemanticProp action init f = do
+actionSemanticProp action val f = do
     mvar <- liftIO newEmptyMVar
-    run . action . liftIO . putMVar mvar $ apply f init
+    run . action . liftIO . putMVar mvar $ apply f val
     result <- liftIO $ takeMVar mvar
     monitor (counterexample $ mconcat 
         [ "f: ", show f
-        , ", init: ", show init
-        , ", f init: ", show $ apply f init
+        , ", val: ", show val
+        , ", f val: ", show $ apply f val
         , ", should be: ", show result
         ])
-    assert $ apply f init == result
+    assert $ apply f val == result
 
 nowProp :: MicroSeconds -> Bool
 nowProp ms = ms == now ms

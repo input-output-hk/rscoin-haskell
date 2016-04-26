@@ -22,7 +22,6 @@ import           Control.Lens               (makeLenses)
 
 import           Control.Monad              (void)
 import           Test.Hspec                 (Spec, describe)
-import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
 
 import qualified RSCoin.Mintette.Error     as S

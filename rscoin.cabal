@@ -200,6 +200,8 @@ test-suite rscoin-test
                      , stm >= 2.4.4.1
                      , msgpack >= 1.0.0
                      , vector >= 0.11.0.0
+                     , async >= 2.0.1
+                     , msgpack-rpc >= 1.0.0
                      , rscoin
   hs-source-dirs:      test
   default-language:    Haskell2010

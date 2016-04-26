@@ -17,7 +17,6 @@ import           RSCoin.Test.MonadTimed  (wait, invoke, schedule, now, fork
 import           RSCoin.Test.Timed       (runTimedT)
 import           RSCoin.Test.MonadRpc 
 import           RSCoin.Test.PureRpc
-import           RSCoin.Test.MonadRpc    
 import           Control.Monad.Catch
 
 import           Network.MessagePack.Server (ServerT)

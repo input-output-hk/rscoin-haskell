@@ -140,10 +140,12 @@ instance Monad m => MonadTimed (TimedT m) where
     wait relativeToNow = do
         cur <- localTime
         cond <- ask
-        let event =
+        let event following =
                 Event
                 { _condition = cond
                 , _timestamp = cur + relativeToNow cur
-                , _action = return ()
+                , _action = TimedT $ lift . lift $ following ()
                 }
-        events %= PQ.insert event
+        TimedT $ lift $ ContT $
+            \following ->
+                 events %= PQ.insert (event following)

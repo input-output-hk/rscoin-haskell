@@ -1,6 +1,6 @@
 import           RSCoin.Core     (initLogging, readSecretKey)
 import qualified RSCoin.Mintette as M
-import           RSCoin.Test     (runRealMode)
+import           RSCoin.Test     (runRealMode, bracket')
 
 import qualified Options         as Opts
 
@@ -10,4 +10,6 @@ main = do
     initLogging cloLogSeverity
     sk <- readSecretKey cloSecretKeyPath
     runRealMode $
-        M.serve cloPort cloPath sk
+        bracket' (liftIO $ openState dbPath) (liftIO . closeState) $
+            \st ->
+                M.serve cloPort cloPath sk

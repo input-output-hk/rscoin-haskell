@@ -186,7 +186,6 @@ test-suite rscoin-test
                      , RSCoin.StorageSpec
                      , RSCoin.Test.MonadTimedSpec
                      , RSCoin.Test.MonadRpcSpec
-                     , MessagePackSpec
                      , Spec
   type:                exitcode-stdio-1.0
   build-depends:       base >=4.8 && <4.9

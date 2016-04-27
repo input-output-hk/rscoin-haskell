@@ -9,6 +9,13 @@ packages:
 - location:
     git: ssh://git@serokell.io:2222/serokell-team/serokell-core.git
     commit: 9a822f6320bf5cdbf8056e9115e4361267f0d710
+- location:
+    git: https://github.com/serokell/msgpack-haskell.git
+    commit: 245340db2526b4cd81b424c66739660b07a492ee
+  subdirs:
+    - msgpack
+    - msgpack-rpc
+    - msgpack-aeson
 
 nix:
     enable: false
@@ -17,9 +24,6 @@ nix:
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
 - secp256k1-0.4.5
-- msgpack-1.0.0
-- msgpack-rpc-1.0.0
-- msgpack-aeson-0.1.0.0
 - OneTuple-0.2.1
 - tuple-0.3.0.2
 

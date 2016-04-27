@@ -12,6 +12,7 @@ packages:
 - location:
     git: https://github.com/serokell/msgpack-haskell.git
     commit: 245340db2526b4cd81b424c66739660b07a492ee
+  extra-dep: true
   subdirs:
     - msgpack
     - msgpack-rpc

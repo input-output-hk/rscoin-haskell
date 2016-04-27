@@ -13,8 +13,10 @@ module RSCoin.Test.Timed
        ) where
 
 import           Control.Exception      (SomeException)
+import           Control.Exception.Base (AsyncException (ThreadKilled))
+import           Control.Monad.Catch    (throwM)
 import           Control.Lens           (makeLenses, to, use, (%=), (.=), (^.))
-import           Control.Monad          (void, when)
+import           Control.Monad          (void, unless)
 import           Control.Monad.Catch    (MonadCatch, MonadThrow, catch)
 import           Control.Monad.Cont     (ContT (..), runContT)
 import           Control.Monad.Loops    (whileM_)
@@ -118,15 +120,16 @@ runTimedT timed  =  launchTimedT $ do
         TimedT $ curTime .= nextEv ^. timestamp
 
         let cond = nextEv ^. condition
-        ok <- cond
+        keepAlive <- cond
         -- We can't just invoke (nextEv ^. action) here, because it can put
         -- further execution to event queue or even throw it away.
         -- We want to successfully finish this action and go to next iteration
         -- rather than lose execution control
-        when ok $ let TimedT act = nextEv ^. action
-                      act'       = TimedT . lift . lift
-                                 $ runContT (runReaderT act cond) return
-                  in  act' `catch` handler
+        let TimedT act = nextEv ^. action
+            act'       = TimedT . lift . lift
+                       $ runContT (runReaderT act cond) return
+            maybeDie   = unless keepAlive $ throwM ThreadKilled
+        (maybeDie >> act') `catch` handler
   where
     notDone :: Monad m => TimedT m Bool
     notDone = TimedT . use $ events . to (not . PQ.null)

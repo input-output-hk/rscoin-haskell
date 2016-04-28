@@ -31,14 +31,15 @@ module RSCoin.Test.MonadRpc
     , serverTypeRestriction3
     ) where
 
-import           Control.Monad.Base            (MonadBase)
-import           Control.Monad.Catch           (MonadThrow, MonadCatch, MonadMask)
-import           Control.Monad.Trans           (MonadIO, liftIO, lift)
-import           Control.Monad.Trans.Control   (MonadBaseControl, StM
-                                               , liftBaseWith, restoreM)
-import qualified Data.ByteString            as BS 
-import           Data.IORef                    (newIORef, readIORef, writeIORef)
-import           Data.Maybe                    (fromMaybe)
+import           Control.Monad.Base          (MonadBase)
+import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask)
+import           Control.Monad.Trans         (MonadIO, liftIO)
+import           Control.Monad.Trans.Control (MonadBaseControl, StM
+                                             , liftBaseWith, restoreM)
+
+import qualified Data.ByteString             as BS 
+import           Data.IORef                  (newIORef, readIORef, writeIORef)
+import           Data.Maybe                  (fromMaybe)
 
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S

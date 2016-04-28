@@ -7,7 +7,6 @@ module RSCoin.Mintette.Server
        ) where
 
 import           Control.Exception         (throwIO, try)
-import           Control.Exception.Base    (SomeException)
 import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.Catch       (catch)
 import           Data.Acid.Advanced        (query', update')

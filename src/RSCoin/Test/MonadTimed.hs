@@ -17,19 +17,11 @@ module RSCoin.Test.MonadTimed
     , RelativeToNow
     ) where
 
-import           Control.Concurrent          (threadDelay, forkIO, killThread)
-import           Control.Monad               (void)
-import           Control.Monad.Base          (MonadBase)
-import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask)
-import           Control.Monad.Loops         (whileM)
-import           Control.Monad.Trans         (liftIO, lift, MonadIO)
-import           Control.Monad.Trans.Control (MonadBaseControl, liftBaseWith
-                                             , restoreM, StM)
-import           Control.Monad.Reader        (ReaderT(..), runReaderT, ask)
-import           Control.Monad.State         (StateT, evalStateT, get)
-import           Data.IORef                  (newIORef, readIORef, writeIORef)
-import           Data.Time.Units             (TimeUnit, toMicroseconds)
-import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import           Control.Monad.Trans  (lift)
+import           Control.Monad.Reader (ReaderT(..), runReaderT, ask)
+import           Control.Monad.State  (StateT, evalStateT, get)
+
+import           Data.Time.Units      (TimeUnit, toMicroseconds)
 
 type MicroSeconds = Int
 

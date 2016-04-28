@@ -182,7 +182,7 @@ test-suite rscoin-test
                      , RSCoin.Core.CryptoSpec
                      , RSCoin.Core.OwnersSpec
                      , RSCoin.Core.Storage
-                     , RSCoin.Core.MessagePack
+                     , RSCoin.Core.MessagePackSpec
                      , RSCoin.Mintette.StorageSpec
                      , RSCoin.StorageSpec
                      , RSCoin.Test.MonadTimedSpec

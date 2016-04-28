@@ -8,7 +8,6 @@ module RSCoin.Bank.Server
 import           Control.Exception      (catch, throwIO)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Acid.Advanced     (query')
-import           Data.Text              (Text)
 
 import           Serokell.Util.Text     (format', formatSingle', show')
 
@@ -19,7 +18,7 @@ import           RSCoin.Bank.Error      (BankError)
 
 import           RSCoin.Core            (ActionLog, HBlock, MintetteId,
                                          Mintettes, PeriodId, bankPort,
-                                         logDebug, logError, logWarning)
+                                         logDebug, logError)
 import qualified RSCoin.Core.Protocol   as C
 import qualified RSCoin.Test            as T
 
@@ -60,22 +59,13 @@ serveGetHeight st =
        return pId
 
 serveGetHBlock :: T.WorkMode m 
-               => State -> PeriodId -> T.ServerT m (Either Text HBlock)
+               => State -> PeriodId -> T.ServerT m (Maybe HBlock)
 serveGetHBlock st pId =
     toServer $
-    do logDebug $
-           formatSingle' "Getting higher-level block with periodId {}" pId
-       maybe onNothing onJust =<< query' st (GetHBlock pId)
-  where
-    onNothing = do
-        let e = formatSingle'
-                    "Higher-level block with periodId {} doesn't exist"
-                    pId
-        logWarning e
-        return $ Left e
-    onJust block = do
-        logDebug $ formatSingle' "High-level block: {}" block
-        return $ Right block
+    do mBlock <- query' st (GetHBlock pId)
+       logDebug $
+           format' "Getting higher-level block with periodId {}: " (pId, mBlock)
+       return mBlock
 
 -- Dumping Bank state
 
@@ -90,20 +80,10 @@ serveGetHBlocks st from to =
        return blocks
 
 serveGetLogs :: T.WorkMode m 
-             => State -> MintetteId -> Int -> Int -> T.ServerT m (Either Text ActionLog)
+             => State -> MintetteId -> Int -> Int -> T.ServerT m (Maybe ActionLog)
 serveGetLogs st m from to =
     toServer $
-    do logDebug $
-           format' "Getting action logs of mintette {} with range of entries {} to {}" (m, from, to)
-       maybe onNothing onJust =<< query' st (GetLogs m from to)
-  where
-    onNothing = do
-        let e = formatSingle' "Action logs of mintette {} don't exists" m
-        logWarning e
-        return $ Left e
-    onJust aLog = do
-        logDebug $
-            format'
-                "Action logs of mintette {} (range {} - {}): {}"
-                (m, from, to, aLog)
-        return $ Right aLog
+    do mLogs <- query' st (GetLogs m from to)
+       logDebug $
+           format' "Getting action logs of mintette {} with range of entries {} to {}: {}" (m, from, to, mLogs)
+       return mLogs

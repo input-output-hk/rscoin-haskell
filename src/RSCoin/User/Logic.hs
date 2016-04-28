@@ -71,13 +71,10 @@ validateTransaction tx@Transaction{..} signatures height = do
         signedPairMb <-
             CC.checkNotDoubleSpent mintette tx addrid $
             fromJust $ M.lookup addrid signatures
-        either
-            (const $ return Nothing)
-            (\proof ->
-                  do unless (verifyCheckConfirmation proof tx addrid) $
-                         throwM $ MintetteSignatureFailed mintette
-                     return $ Just $ M.singleton (mid, addrid) proof)
-            signedPairMb
+        return $ signedPairMb >>= \proof ->
+                    do unless (verifyCheckConfirmation proof tx addrid) $
+                            throwM $ MintetteSignatureFailed mintette
+                       return $ M.singleton (mid, addrid) proof
     commitBundle :: WorkMode m => CheckConfirmations -> m ()
     commitBundle bundle = do
         owns <- CC.getOwnersByTx tx

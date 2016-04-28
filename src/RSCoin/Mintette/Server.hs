@@ -11,7 +11,6 @@ import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.Catch       (catch)
 import           Data.Acid.Advanced        (query', update')
 import           Data.Monoid               ((<>))
-import           Data.Text                 (Text)
 
 import           Serokell.Util.Text        (format', formatSingle',
                                             listBuilderJSONIndent, show',
@@ -117,7 +116,7 @@ handleCheckTx
     -> C.Transaction
     -> C.AddrId
     -> C.Signature
-    -> ServerT m (Either Text C.CheckConfirmation)
+    -> ServerT m (Maybe C.CheckConfirmation)
 handleCheckTx sk st tx addrId sg =
     toServer $
     do C.logDebug $
@@ -132,12 +131,12 @@ handleCheckTx sk st tx addrId sg =
   where
     onError (e :: MintetteError) = do
         C.logWarning $ formatSingle' "CheckTx failed: {}" e
-        return $ Left $ show' e
+        return Nothing
     onSuccess res = do
         C.logInfo $
             format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
         C.logInfo $ formatSingle' "Confirmation: {}" res
-        return $ Right res
+        return $ Just res
 
 handleCommitTx
     :: WorkMode m
@@ -146,7 +145,7 @@ handleCommitTx
     -> C.Transaction
     -> C.PeriodId
     -> C.CheckConfirmations
-    -> ServerT m (Either Text C.CommitConfirmation)
+    -> ServerT m (Maybe C.CommitConfirmation)
 handleCommitTx sk st tx pId cc =
     toServer $
     do C.logDebug $
@@ -159,10 +158,10 @@ handleCommitTx sk st tx pId cc =
   where
     onError (e :: MintetteError) = do
         C.logWarning $ formatSingle' "CommitTx failed: {}" e
-        return $ Left $ show' e
+        return Nothing
     onSuccess res = do
         C.logInfo $ formatSingle' "Successfully committed transaction {}" tx
-        return $ Right res
+        return $ Just res
 
 -- Dumping Mintette state
 
@@ -175,42 +174,20 @@ handleGetUtxo st =
        return curUtxo
 
 handleGetBlocks :: WorkMode m 
-                => State -> C.PeriodId -> ServerT m (Either Text [C.LBlock])
+                => State -> C.PeriodId -> ServerT m (Maybe [C.LBlock])
 handleGetBlocks st pId =
     toServer $
-    do C.logInfo $
-            formatSingle' "Getting blocks for periodId: {}" pId
-       res <- query' st $ GetBlocks pId
-       maybe onNothing onJust res
-  where
-    onNothing = do
-        let e = formatSingle' "Blocks for period id {} don't exist" pId
-        C.logWarning e
-        return $ Left e
-    onJust res = do
-        C.logInfo $
-            format'
-                "Successfully got blocks for period id {}: {}"
-                (pId, listBuilderJSONIndent 2 res)
-        return $ Right res
+    do res <- query' st $ GetBlocks pId
+       C.logInfo $
+            format' "Getting blocks for periodId {}: {}" (pId, listBuilderJSONIndent 2 <$> res)
+       return res
 
 -- TODO: code duplication, simiar as handleGetBlocks => refactor!
 handleGetLogs :: WorkMode m 
-              => State -> C.PeriodId -> ServerT m (Either Text C.ActionLog)
+              => State -> C.PeriodId -> ServerT m (Maybe C.ActionLog)
 handleGetLogs st pId =
     toServer $
-    do C.logInfo $
-            formatSingle' "Getting logs for periodId: {}" pId
-       res <- query' st $ GetLogs pId
-       maybe onNothing onJust res
-  where
-    onNothing = do
-        let e = formatSingle' "Logs for period id {} don't exist" pId
-        C.logWarning e
-        return $ Left e
-    onJust res = do
-        C.logInfo $
-            format'
-                "Successfully got logs for period id {}: {}"
-                (pId, listBuilderJSONIndent 2 $ map pairBuilder res)
-        return $ Right res
+    do res <- query' st $ GetLogs pId 
+       C.logInfo $
+            format' "Getting logs for periodId {}: {}" (pId, listBuilderJSONIndent 2 . map pairBuilder <$> res)
+       return res

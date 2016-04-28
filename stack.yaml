@@ -7,7 +7,7 @@ resolver: lts-5.8
 packages:
 - '.'
 - location:
-    git: ssh://git@serokell.io:2222/serokell-team/serokell-core.git
+    git: https://github.com/serokell/serokell-core.git
     commit: 9a822f6320bf5cdbf8056e9115e4361267f0d710
 
 nix:

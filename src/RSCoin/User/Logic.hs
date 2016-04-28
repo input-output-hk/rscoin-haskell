@@ -13,14 +13,16 @@ import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
 import           RSCoin.Core.Primitives        (AddrId, Transaction (..))
+import           RSCoin.Test                   (WorkMode)
 import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitConfirmation, Mintette,
                                                 MintetteId, PeriodId)
 
 import           Serokell.Util.Text            (format', formatSingle')
 
-import           Control.Exception             (Exception, throwIO)
+import           Control.Exception             (Exception)
 import           Control.Monad                 (unless, when)
+import           Control.Monad.Catch           (throwM)
 import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
@@ -38,46 +40,47 @@ instance Exception UserLogicError
 -- transaction 'signatures' should contain signature of transaction
 -- given. If transaction is confirmed, just returns. If it's not
 -- confirmed, the FailedToCommit is thrown.
-validateTransaction :: Transaction -> M.Map AddrId Signature -> PeriodId -> IO ()
+validateTransaction :: WorkMode m => 
+                       Transaction -> M.Map AddrId Signature -> PeriodId -> m ()
 validateTransaction tx@Transaction{..} signatures height = do
     (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
     commitBundle bundle
   where
-    processInput :: AddrId -> IO CheckConfirmations
+    processInput :: WorkMode m => AddrId -> m CheckConfirmations
     processInput addrid = do
-        owns <- CC.unCps $ CC.getOwnersByAddrid addrid
+        owns <- CC.getOwnersByAddrid addrid
         unless (not (null owns)) $
-            throwIO $
+            throwM $
             MajorityRejected $
             formatSingle' "Addrid {} doesn't have owners" addrid
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
         subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid) owns
         when (length subBundle < length owns `div` 2) $
-            throwIO $
+            throwM $
             MajorityRejected $
             format'
                 ("Couldn't get CheckNotDoubleSpent " <>
                  "from majority of mintettes: only {}/{} confirmed {} is not double-spent.")
                 (length subBundle, length owns, addrid)
         return subBundle
-    processMintette :: AddrId
+    processMintette :: WorkMode m 
+                    => AddrId
                     -> (Mintette, MintetteId)
-                    -> IO (Maybe CheckConfirmations)
+                    -> m (Maybe CheckConfirmations)
     processMintette addrid (mintette,mid) = do
         signedPairMb <-
-            CC.unCps $
             CC.checkNotDoubleSpent mintette tx addrid $
             fromJust $ M.lookup addrid signatures
         either
             (const $ return Nothing)
             (\proof ->
                   do unless (verifyCheckConfirmation proof tx addrid) $
-                         throwIO $ MintetteSignatureFailed mintette
+                         throwM $ MintetteSignatureFailed mintette
                      return $ Just $ M.singleton (mid, addrid) proof)
             signedPairMb
-    commitBundle :: CheckConfirmations -> IO ()
+    commitBundle :: WorkMode m => CheckConfirmations -> m ()
     commitBundle bundle = do
-        owns <- CC.unCps $ CC.getOwnersByTx tx
+        owns <- CC.getOwnersByTx tx
         (succeededCommits :: [CommitConfirmation]) <-
             filter
                 (\(pk,sign,lch) ->
@@ -88,4 +91,4 @@ validateTransaction tx@Transaction{..} signatures height = do
                        CC.commitTx mintette tx height bundle) .
                  fst)
                 owns
-        when (null succeededCommits) $ throwIO FailedToCommit
+        when (null succeededCommits) $ throwM FailedToCommit

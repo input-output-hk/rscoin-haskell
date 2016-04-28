@@ -1,5 +1,6 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE Rank2Types          #-}
 -- | This module provides high-abstraction functions to exchange data
 -- within user/mintette/bank.
 
@@ -23,8 +24,11 @@ module RSCoin.Core.Communication
        , getMintetteLogs
        ) where
 
-import           Control.Exception          (Exception, catch, throwIO)
+import           Control.Exception          (Exception, throwIO)
+import           Control.Monad.Catch        (catch)
+import           Control.Monad.Trans        (MonadIO, liftIO)
 import           Data.Monoid                ((<>))
+import           Data.MessagePack           (MessagePack)
 import           Data.Text                  (Text, pack)
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Tuple.Select          (sel1)
@@ -48,6 +52,7 @@ import           RSCoin.Core.Types          (CheckConfirmation,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Mintettes,
                                              ActionLog, Utxo, LBlock)
+import           RSCoin.Test                (WorkMode)
 
 -- | Errors which may happen during remote call.
 data CommunicationError
@@ -61,8 +66,8 @@ instance Buildable CommunicationError where
     build (ProtocolError t) = "internal error: " <> build t
     build (MethodError t) = "method error: " <> build t
 
-rpcErrorHandler :: MP.RpcError -> IO ()
-rpcErrorHandler = log' . fromError
+rpcErrorHandler :: MonadIO m => MP.RpcError -> m a 
+rpcErrorHandler = liftIO . log' . fromError
   where
     log' (e :: CommunicationError) = do
         logError $ show' e
@@ -71,29 +76,33 @@ rpcErrorHandler = log' . fromError
     fromError (MP.ResultTypeError s) = ProtocolError $ pack s
     fromError (MP.ServerError obj) = MethodError $ pack $ show obj
 
-execBank :: P.Client a -> P.WithResult a
-execBank cl f = P.execBank cl f `catch` rpcErrorHandler
+callBank :: (WorkMode m, MessagePack a) => P.Client a -> m a
+callBank cl = P.callBank cl `catch` rpcErrorHandler
 
-execMintette :: Mintette -> P.Client a -> P.WithResult a
-execMintette m cl f = P.execMintette m cl f `catch` rpcErrorHandler
+callMintette :: (WorkMode m, MessagePack a) => Mintette -> P.Client a -> m a
+callMintette m cl = P.callMintette m cl `catch` rpcErrorHandler
 
-withResult :: IO () -> (a -> IO ()) -> P.WithResult a -> P.WithResult a
-withResult before after action f = action (\a -> before >> f a >> after a)
+withResult :: WorkMode m => IO () -> (a -> IO ()) -> m a -> m a
+withResult before after action = do
+    liftIO before 
+    a <- action 
+    liftIO $ after a     
+    return a
 
 -- | Retrieves blockchainHeight from the server
-getBlockchainHeight :: P.WithResult PeriodId
+getBlockchainHeight :: WorkMode m => m PeriodId
 getBlockchainHeight =
     withResult
         (logInfo "Getting blockchain height")
         (logInfo . formatSingle' "Blockchain height is {}")
-        $ execBank $ P.call (P.RSCBank P.GetBlockchainHeight)
+        $ callBank $ P.call (P.RSCBank P.GetBlockchainHeight)
 
 -- | Given the height/perioud id, retreives block if it's present
-getBlockByHeight :: PeriodId -> IO HBlock
+getBlockByHeight :: WorkMode m => PeriodId -> m HBlock
 getBlockByHeight pId = do
     logInfo $ formatSingle' "Getting block with height {}" pId
-    res <- P.unCps $ execBank $ P.call (P.RSCBank P.GetHBlock) pId
-    either onError onSuccess res
+    res <- callBank $ P.call (P.RSCBank P.GetHBlock) pId
+    liftIO $ either onError onSuccess res
   where
     onError e = do
         logWarning $
@@ -104,19 +113,19 @@ getBlockByHeight pId = do
             format' "Successfully got block with height {}: {}" (pId, res)
         return res
 
-getGenesisBlock :: IO HBlock
+getGenesisBlock :: WorkMode m => m HBlock
 getGenesisBlock = do
-    logInfo "Getting genesis block"
+    liftIO $ logInfo "Getting genesis block"
     block <- getBlockByHeight 0
-    logInfo "Successfully got genesis block"
+    liftIO $ logInfo "Successfully got genesis block"
     return block
 
-getOwnersByHash :: TransactionId -> P.WithResult [(Mintette, MintetteId)]
+getOwnersByHash :: WorkMode m => TransactionId -> m [(Mintette, MintetteId)]
 getOwnersByHash tId =
     withResult
         (logInfo $ formatSingle' "Getting owners by transaction id {}" tId)
         (logInfo . format' "Successfully got owners by hash {}: {}" . (tId,) . mapBuilder)
-        $ execBank $ toOwners <$> P.call (P.RSCBank P.GetMintettes)
+        $ toOwners <$> (callBank $ P.call $ P.RSCBank P.GetMintettes)
   where
     toOwners mts =
         map
@@ -124,7 +133,7 @@ getOwnersByHash tId =
         owners mts tId
 
 -- | Gets owners from Transaction
-getOwnersByTx :: Transaction -> P.WithResult [(Mintette, MintetteId)]
+getOwnersByTx :: WorkMode m => Transaction -> m [(Mintette, MintetteId)]
 getOwnersByTx tx =
     withResult
         (logInfo $ formatSingle' "Getting owners by transaction {}" tx)
@@ -132,7 +141,7 @@ getOwnersByTx tx =
         $ getOwnersByHash $ hash tx
 
 -- | Gets owners from Addrid
-getOwnersByAddrid :: AddrId -> P.WithResult [(Mintette, MintetteId)]
+getOwnersByAddrid :: WorkMode m => AddrId -> m [(Mintette, MintetteId)]
 getOwnersByAddrid aId =
     withResult
         (logInfo $ formatSingle' "Getting owners by addrid {}" aId)
@@ -140,16 +149,17 @@ getOwnersByAddrid aId =
         $ getOwnersByHash $ sel1 aId
 
 checkNotDoubleSpent
-    :: Mintette
+    :: WorkMode m 
+    => Mintette
     -> Transaction
     -> AddrId
     -> Signature
-    -> P.WithResult (Either Text CheckConfirmation)
+    -> m (Either Text CheckConfirmation)
 checkNotDoubleSpent m tx a s =
     withResult
         infoMessage
         (either onError onSuccess)
-        $ execMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
+        $ callMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
   where
     infoMessage =
         logInfo $
@@ -163,16 +173,17 @@ checkNotDoubleSpent m tx a s =
         logInfo $ formatSingle' "Confirmation: {}" res
 
 commitTx
-    :: Mintette
+    :: WorkMode m
+    => Mintette
     -> Transaction
     -> PeriodId
     -> CheckConfirmations
-    -> IO (Maybe CommitConfirmation)
+    -> m (Maybe CommitConfirmation)
 commitTx m tx pId cc = do
     logInfo $
         format' "Commit transaction {}, provided periodId is {}" (tx, pId)
-    res <- P.unCps $ execMintette m $ P.call (P.RSCMintette P.CommitTx) tx pId cc
-    either onError onSuccess res
+    res <- callMintette m $ P.call (P.RSCMintette P.CommitTx) tx pId cc
+    liftIO $ either onError onSuccess res
   where
     onError (e :: Text) = do
         logWarning $
@@ -183,12 +194,12 @@ commitTx m tx pId cc = do
             formatSingle' "Successfully committed transaction {}" tx
         return $ Just res
 
-sendPeriodFinished :: Mintette -> PeriodId -> P.WithResult PeriodResult
+sendPeriodFinished :: WorkMode m => Mintette -> PeriodId -> m PeriodResult
 sendPeriodFinished mintette pId =
     withResult
         infoMessage
         successMessage
-        $ execMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
+        $ callMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
   where
     infoMessage =
         logInfo $
@@ -198,23 +209,22 @@ sendPeriodFinished mintette pId =
             format' "Received period result from mintette {}: \n Blocks: {}\n Logs: {}\n"
             (mintette, listBuilderJSONIndent 2 blks, lgs)
 
-announceNewPeriod :: Mintette -> NewPeriodData -> IO ()
+announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do
     logInfo $
         format' "Announce new period to mintette {}, new period data {}" (mintette, npd)
-    execMintette
+    callMintette
         mintette
         (P.call (P.RSCMintette P.AnnounceNewPeriod) npd)
-        return
 
 -- Dumping Bank state
 
-getBlocks :: PeriodId -> PeriodId -> P.WithResult [HBlock]
+getBlocks :: WorkMode m => PeriodId -> PeriodId -> m [HBlock]
 getBlocks from to =
     withResult
         infoMessage
         successMessage
-        $ execBank $ P.call (P.RSCDump P.GetHBlocks) from to
+        $ callBank $ P.call (P.RSCDump P.GetHBlocks) from to
   where
     infoMessage =
         logInfo $
@@ -225,19 +235,19 @@ getBlocks from to =
             format' "Got higher-level blocks between {} {}: {}"
             (from, to, listBuilderJSONIndent 2 res)
 
-getMintettes :: P.WithResult Mintettes
+getMintettes :: WorkMode m => m Mintettes
 getMintettes =
     withResult
         (logInfo "Getting list of mintettes")
         (logInfo . formatSingle' "Successfully got list of mintettes {}")
-        $ execBank $ P.call (P.RSCBank P.GetMintettes)
+        $ callBank $ P.call (P.RSCBank P.GetMintettes)
 
-getLogs :: MintetteId -> Int -> Int -> IO (Maybe ActionLog)
+getLogs :: WorkMode m => MintetteId -> Int -> Int -> m (Maybe ActionLog)
 getLogs m from to = do
     logInfo $
         format' "Getting action logs of mintette {} with range of entries {} to {}" (m, from, to)
-    res <- P.unCps $ execBank $ P.call (P.RSCDump P.GetLogs) m from to
-    either onError onSuccess res
+    res <- callBank $ P.call (P.RSCDump P.GetLogs) m from to
+    liftIO $ either onError onSuccess res
   where
     onError (e :: Text) = do
         logWarning e
@@ -251,12 +261,12 @@ getLogs m from to = do
 
 -- Dumping Mintette state
 
-getMintetteUtxo :: MintetteId -> P.WithResult Utxo
-getMintetteUtxo mId f = do
-    ms <- P.unCps getMintettes
+getMintetteUtxo :: WorkMode m => MintetteId -> m Utxo
+getMintetteUtxo mId = do
+    ms <- getMintettes
     maybe onNothing onJust $ ms `atMay` mId
   where
-    onNothing = do
+    onNothing = liftIO $ do
         let e = formatSingle' "Mintette with this index {} doesn't exist" mId
         logWarning e
         throwIO $ MethodError e
@@ -264,23 +274,22 @@ getMintetteUtxo mId f = do
         withResult
             (logInfo "Getting utxo")
             (logInfo . formatSingle' "Corrent utxo is: {}")
-            (execMintette mintette $ P.call (P.RSCDump P.GetMintetteUtxo))
-            f
+            (callMintette mintette $ P.call (P.RSCDump P.GetMintetteUtxo))
 
-getMintetteBlocks :: MintetteId -> PeriodId -> IO (Maybe [LBlock])
+getMintetteBlocks :: WorkMode m => MintetteId -> PeriodId -> m (Maybe [LBlock])
 getMintetteBlocks mId pId = do
-    ms <- P.unCps getMintettes
+    ms <- getMintettes
     maybe onNothing onJust $ ms `atMay` mId
   where
-    onNothing = do
+    onNothing = liftIO $ do
         let e = formatSingle' "Mintette with this index {} doesn't exist" mId
         logWarning e
         throwIO $ MethodError e
     onJust mintette = do
         logInfo $
             format' "Getting blocks of mintette {} with period id {}" (mId, pId)
-        res <- P.unCps . execMintette mintette $ P.call (P.RSCDump P.GetMintetteBlocks) pId
-        either onError onSuccess res
+        res <- callMintette mintette $ P.call (P.RSCDump P.GetMintetteBlocks) pId
+        liftIO $ either onError onSuccess res
       where
         onError (e :: Text) = do
             logWarning e
@@ -293,20 +302,20 @@ getMintetteBlocks mId pId = do
             return $ Just res
 
 -- TODO: code duplication as getMintetteBlocks, refactor!
-getMintetteLogs :: MintetteId -> PeriodId -> IO (Maybe ActionLog)
+getMintetteLogs :: WorkMode m => MintetteId -> PeriodId -> m (Maybe ActionLog)
 getMintetteLogs mId pId = do
-    ms <- P.unCps getMintettes
+    ms <- getMintettes
     maybe onNothing onJust $ ms `atMay` mId
   where
-    onNothing = do
+    onNothing = liftIO $ do
         let e = formatSingle' "Mintette with this index {} doesn't exist" mId
         logWarning e
         throwIO $ MethodError e
     onJust mintette = do
         logInfo $
             format' "Getting logs of mintette {} with period id {}" (mId, pId)
-        res <- P.unCps . execMintette mintette $ P.call (P.RSCDump P.GetMintetteLogs) pId
-        either onError onSuccess res
+        res <- callMintette mintette $ P.call (P.RSCDump P.GetMintetteLogs) pId
+        liftIO $ either onError onSuccess res
       where
         onError (e :: Text) = do
             logWarning e

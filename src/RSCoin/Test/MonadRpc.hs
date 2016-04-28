@@ -23,17 +23,22 @@ module RSCoin.Test.MonadRpc
     , method
     , call
     , S.Server
+    , S.ServerT
     , S.MethodType
+    , serverTypeRestriction0
+    , serverTypeRestriction1
+    , serverTypeRestriction2
+    , serverTypeRestriction3
     ) where
 
-import           Control.Monad.Base          (MonadBase)
-import           Control.Monad.Catch         (MonadCatch, MonadThrow)
-import           Control.Monad.Trans         (MonadIO, liftIO)
-import           Control.Monad.Trans.Control (MonadBaseControl, StM,
-                                              liftBaseWith, restoreM)
-import qualified Data.ByteString             as BS
-import           Data.IORef                  (newIORef, readIORef, writeIORef)
-import           Data.Maybe                  (fromMaybe)
+import           Control.Monad.Base            (MonadBase)
+import           Control.Monad.Catch           (MonadThrow, MonadCatch, MonadMask)
+import           Control.Monad.Trans           (MonadIO, liftIO, lift)
+import           Control.Monad.Trans.Control   (MonadBaseControl, StM
+                                               , liftBaseWith, restoreM)
+import qualified Data.ByteString            as BS 
+import           Data.IORef                    (newIORef, readIORef, writeIORef)
+import           Data.Maybe                    (fromMaybe)
 
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
@@ -72,7 +77,7 @@ class MonadThrow r => MonadRpc r where
 
 newtype MsgPackRpc a = MsgPackRpc { runMsgPackRpc :: (TimedIO a) }
     deriving (Functor, Applicative, Monad, MonadIO, MonadBase IO,
-              MonadThrow, MonadCatch, MonadTimed)
+              MonadThrow, MonadCatch, MonadMask, MonadTimed)
 
 instance MonadBaseControl IO MsgPackRpc where
     type StM MsgPackRpc a = a
@@ -143,3 +148,16 @@ instance S.MethodType MsgPackRpc f => S.MethodType MsgPackRpc (MsgPackRpc f)
 instance Monad m => S.MethodType m Object where
     toBody res [] = return res
     toBody _   _  = error "Too many arguments!"
+
+-- | Helps restrict method type
+serverTypeRestriction0 :: Monad m => m (S.ServerT m a -> S.ServerT m a)
+serverTypeRestriction0 = return id
+
+serverTypeRestriction1 :: Monad m => m ((b -> S.ServerT m a) -> (b -> S.ServerT m a))
+serverTypeRestriction1 = return id
+
+serverTypeRestriction2 :: Monad m => m ((c -> b -> S.ServerT m a) -> (c -> b -> S.ServerT m a))
+serverTypeRestriction2 = return id
+
+serverTypeRestriction3 :: Monad m => m ((d -> c -> b -> S.ServerT m a) -> (d -> c -> b -> S.ServerT m a))
+serverTypeRestriction3 = return id

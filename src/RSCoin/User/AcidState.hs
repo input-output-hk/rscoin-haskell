@@ -27,6 +27,7 @@ module RSCoin.User.AcidState
 
 import qualified RSCoin.Core         as C
 import           RSCoin.Core.Crypto  (keyGen)
+import           RSCoin.Test         (WorkMode)
 import           RSCoin.User.Logic   (getBlockchainHeight)
 import           RSCoin.User.Wallet  (UserAddress, WalletStorage)
 import qualified RSCoin.User.Wallet  as W
@@ -34,6 +35,7 @@ import qualified RSCoin.User.Wallet  as W
 import           Control.Exception   (throw, throwIO)
 import           Control.Monad       (replicateM, unless)
 import           Control.Monad.Catch (MonadThrow, throwM)
+import           Control.Monad.Trans (liftIO)
 import           Data.Acid           (makeAcidic)
 import qualified Data.Acid           as A
 import           Data.SafeCopy       (base, deriveSafeCopy)
@@ -99,8 +101,8 @@ $(makeAcidic
 -- also loads secret bank key from ~/.rscoin/bankPrivateKey and adds
 -- it to known addresses (public key is hardcoded in
 -- RSCoin.Core.Constants).
-initState :: RSCoinUserState -> Int -> Maybe FilePath -> IO ()
-initState st n (Just skPath) = do
+initState :: WorkMode m => RSCoinUserState -> Int -> Maybe FilePath -> m ()
+initState st n (Just skPath) = liftIO $ do
     sk <- C.readSecretKey skPath
     let bankAddress = W.makeUserAddress sk $ C.getAddress C.genesisAddress
     unless (W.validateUserAddress bankAddress) $
@@ -109,7 +111,8 @@ initState st n (Just skPath) = do
     A.update st $ InitWallet (bankAddress : addresses) Nothing
     A.createCheckpoint st
 initState st n Nothing = do
-    height <- pred <$> C.unCps getBlockchainHeight
-    addresses <- map (uncurry W.makeUserAddress) <$> replicateM n keyGen
-    A.update st $ InitWallet addresses (Just height)
-    A.createCheckpoint st
+    height <- pred <$> getBlockchainHeight
+    liftIO $ do
+        addresses <- map (uncurry W.makeUserAddress) <$> replicateM n keyGen
+        A.update st $ InitWallet addresses (Just height)
+        A.createCheckpoint st

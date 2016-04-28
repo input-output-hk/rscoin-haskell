@@ -9,6 +9,7 @@ module RSCoin.Test.MonadTimed
     ( fork, wait, localTime, workWhile, work, schedule, invoke
     , minute , sec , ms , mcs
     , minute', sec', ms', mcs'
+    , tu
     , at, after, for, till, now
     , during, upto
     , MicroSeconds
@@ -16,9 +17,19 @@ module RSCoin.Test.MonadTimed
     , RelativeToNow
     ) where
 
-import           Control.Monad.Reader (ReaderT (..), ask, runReaderT)
-import           Control.Monad.State  (StateT, evalStateT, get)
-import           Control.Monad.Trans  (lift)
+import           Control.Concurrent          (threadDelay, forkIO, killThread)
+import           Control.Monad               (void)
+import           Control.Monad.Base          (MonadBase)
+import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask)
+import           Control.Monad.Loops         (whileM)
+import           Control.Monad.Trans         (liftIO, lift, MonadIO)
+import           Control.Monad.Trans.Control (MonadBaseControl, liftBaseWith
+                                             , restoreM, StM)
+import           Control.Monad.Reader        (ReaderT(..), runReaderT, ask)
+import           Control.Monad.State         (StateT, evalStateT, get)
+import           Data.IORef                  (newIORef, readIORef, writeIORef)
+import           Data.Time.Units             (TimeUnit, toMicroseconds)
+import           Data.Time.Clock.POSIX       (getPOSIXTime)
 
 type MicroSeconds = Int
 
@@ -91,6 +102,9 @@ mcs'    = round
 ms'     = round . (*) 1000
 sec'    = round . (*) 1000000
 minute' = round . (*) 60000000
+
+tu :: TimeUnit t => t -> MicroSeconds
+tu  =  fromIntegral . toMicroseconds
 
 -- | Time point by given absolute time (still relative to origin)
 at, till :: TimeAcc t => t

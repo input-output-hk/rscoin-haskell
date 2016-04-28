@@ -21,39 +21,46 @@ import           RSCoin.Core            (ActionLog, HBlock, MintetteId,
                                          Mintettes, PeriodId, bankPort,
                                          logDebug, logError, logWarning)
 import qualified RSCoin.Core.Protocol   as C
+import qualified RSCoin.Test            as T
 
-serve :: State -> IO ()
-serve st =
+serve :: T.WorkMode m => State -> m ()
+serve st = do
+    idr1 <- T.serverTypeRestriction0
+    idr2 <- T.serverTypeRestriction0
+    idr3 <- T.serverTypeRestriction1
+    idr4 <- T.serverTypeRestriction2
+    idr5 <- T.serverTypeRestriction3
     C.serve bankPort
-        [ C.method (C.RSCBank C.GetMintettes) $ serveGetMintettes st
-        , C.method (C.RSCBank C.GetBlockchainHeight) $ serveGetHeight st
-        , C.method (C.RSCBank C.GetHBlock) $ serveGetHBlock st
-        , C.method (C.RSCDump C.GetHBlocks) $ serveGetHBlocks st
-        , C.method (C.RSCDump C.GetHBlocks) $ serveGetLogs st
+        [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
+        , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight st
+        , C.method (C.RSCBank C.GetHBlock) $ idr3 $ serveGetHBlock st
+        , C.method (C.RSCDump C.GetHBlocks) $ idr4 $ serveGetHBlocks st
+        , C.method (C.RSCDump C.GetHBlocks) $ idr5 $ serveGetLogs st
         ]
 
-toServer :: IO a -> C.Server a
+toServer :: T.WorkMode m => IO a -> T.ServerT m a
 toServer action = liftIO $ action `catch` handler
   where
     handler (e :: BankError) = do
         logError $ show' e
         throwIO e
 
-serveGetMintettes :: State -> C.Server Mintettes
+serveGetMintettes :: T.WorkMode m => State -> T.ServerT m Mintettes
 serveGetMintettes st =
     toServer $
     do mts <- query' st GetMintettes
        logDebug $ formatSingle' "Getting list of mintettes: {}" mts
        return mts
 
-serveGetHeight :: State -> C.Server PeriodId
+serveGetHeight :: T.WorkMode m => State -> T.ServerT m PeriodId
 serveGetHeight st =
     toServer $
     do pId <- query' st GetPeriodId
        logDebug $ formatSingle' "Getting blockchain height: {}" pId
        return pId
 
-serveGetHBlock :: State -> PeriodId -> C.Server (Either Text HBlock)
+serveGetHBlock :: T.WorkMode m 
+               => State -> PeriodId -> T.ServerT m (Either Text HBlock)
 serveGetHBlock st pId =
     toServer $
     do logDebug $
@@ -72,7 +79,8 @@ serveGetHBlock st pId =
 
 -- Dumping Bank state
 
-serveGetHBlocks :: State -> PeriodId -> PeriodId -> C.Server [HBlock]
+serveGetHBlocks :: T.WorkMode m 
+                => State -> PeriodId -> PeriodId -> T.ServerT m [HBlock]
 serveGetHBlocks st from to =
     toServer $
     do blocks <- query' st $ GetHBlocks from to
@@ -81,7 +89,8 @@ serveGetHBlocks st from to =
            (from, to)
        return blocks
 
-serveGetLogs :: State -> MintetteId -> Int -> Int -> C.Server (Either Text ActionLog)
+serveGetLogs :: T.WorkMode m 
+             => State -> MintetteId -> Int -> Int -> T.ServerT m (Either Text ActionLog)
 serveGetLogs st m from to =
     toServer $
     do logDebug $

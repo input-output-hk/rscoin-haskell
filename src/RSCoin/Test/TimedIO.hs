@@ -14,7 +14,7 @@ module RSCoin.Test.TimedIO
 import           Control.Concurrent          (forkIO, killThread, threadDelay)
 import           Control.Monad               (void)
 import           Control.Monad.Base          (MonadBase)
-import           Control.Monad.Catch         (MonadCatch, MonadThrow)
+import           Control.Monad.Catch         (MonadCatch, MonadThrow, MonadMask)
 import           Control.Monad.Loops         (whileM)
 import           Control.Monad.Reader        (ReaderT (..), ask, runReaderT)
 import           Control.Monad.Trans         (MonadIO, lift, liftIO)
@@ -28,7 +28,7 @@ import           RSCoin.Test.MonadTimed      (MicroSeconds, MonadTimed (..))
 newtype TimedIO a = TimedIO
     { getTimedIO :: ReaderT MicroSeconds IO a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch
-               , MonadBase IO)
+               , MonadBase IO, MonadMask)
 
 instance MonadBaseControl IO TimedIO where
     type StM TimedIO a = a

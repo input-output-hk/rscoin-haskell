@@ -6,8 +6,10 @@ module RSCoin.Mintette.Server
        ( serve
        ) where
 
-import           Control.Exception         (bracket, catch, throwIO, try)
+import           Control.Exception         (throwIO, try)
+import           Control.Exception.Base    (SomeException)
 import           Control.Monad.IO.Class    (liftIO)
+import           Control.Monad.Catch       (catch)
 import           Data.Acid.Advanced        (query', update')
 import           Data.Monoid               ((<>))
 import           Data.Text                 (Text)
@@ -25,23 +27,42 @@ import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             openState, GetLogs (..))
 import           RSCoin.Mintette.Error     (MintetteError)
 import           RSCoin.Mintette.Worker    (runWorker)
+import           RSCoin.Test               (WorkMode, ServerT, bracket'
+                                           , serverTypeRestriction0
+                                           , serverTypeRestriction1
+                                           , serverTypeRestriction3
+                                           )
 
-serve :: Int -> FilePath -> C.SecretKey -> IO ()
-serve port dbPath sk =
-    bracket (openState dbPath) closeState $
+serve :: WorkMode m => Int -> FilePath -> C.SecretKey -> m ()
+serve port dbPath sk = 
+    bracket' (liftIO $ openState dbPath) (liftIO . closeState) $
     \st ->
-         do runWorker sk st
+         do liftIO $ runWorker sk st
+            idr1 <- serverTypeRestriction1
+            idr2 <- serverTypeRestriction1
+            idr3 <- serverTypeRestriction3
+            idr4 <- serverTypeRestriction3
+            idr5 <- serverTypeRestriction0
+            idr6 <- serverTypeRestriction1
+            idr7 <- serverTypeRestriction1
             C.serve port
-                [ C.method (C.RSCMintette C.PeriodFinished) $ handlePeriodFinished sk st
-                , C.method (C.RSCMintette C.AnnounceNewPeriod) $ handleNewPeriod st
-                , C.method (C.RSCMintette C.CheckTx) $ handleCheckTx sk st
-                , C.method (C.RSCMintette C.CommitTx) $ handleCommitTx sk st
-                , C.method (C.RSCDump C.GetMintetteUtxo) $ handleGetUtxo st
-                , C.method (C.RSCDump C.GetMintetteBlocks) $ handleGetBlocks st
-                , C.method (C.RSCDump C.GetMintetteLogs) $ handleGetLogs st
+                [ C.method (C.RSCMintette C.PeriodFinished) $ idr1 $ 
+                    handlePeriodFinished sk st
+                , C.method (C.RSCMintette C.AnnounceNewPeriod) $ idr2 $ 
+                    handleNewPeriod st
+                , C.method (C.RSCMintette C.CheckTx) $ idr3 $ 
+                    handleCheckTx sk st
+                , C.method (C.RSCMintette C.CommitTx) $ idr4 $ 
+                    handleCommitTx sk st
+                , C.method (C.RSCDump C.GetMintetteUtxo) $ idr5 $ 
+                    handleGetUtxo st
+                , C.method (C.RSCDump C.GetMintetteBlocks) $ idr6 $ 
+                    handleGetBlocks st
+                , C.method (C.RSCDump C.GetMintetteLogs) $ idr7 $ 
+                    handleGetLogs st
                 ]
-
-toServer :: IO a -> C.Server a
+    
+toServer :: WorkMode m => IO a -> ServerT m a
 toServer action = liftIO $ action `catch` handler
   where
     handler (e :: MintetteError) = do
@@ -49,7 +70,8 @@ toServer action = liftIO $ action `catch` handler
         throwIO e
 
 handlePeriodFinished
-    :: C.SecretKey -> State -> C.PeriodId -> C.Server C.PeriodResult
+    :: WorkMode m 
+    => C.SecretKey -> State -> C.PeriodId -> ServerT m C.PeriodResult
 handlePeriodFinished sk st pId =
     toServer $
     do (curUtxo,curPset) <- query' st GetUtxoPset
@@ -70,9 +92,10 @@ handlePeriodFinished sk st pId =
                (curUtxo', curPset')
        return res
 
-handleNewPeriod :: State
+handleNewPeriod :: WorkMode m
+                => State
                 -> C.NewPeriodData
-                -> C.Server ()
+                -> ServerT m ()
 handleNewPeriod st npd =
     toServer $
     do prevMid <- query' st PreviousMintetteId
@@ -89,12 +112,13 @@ handleNewPeriod st npd =
                (curUtxo, curPset)
 
 handleCheckTx
-    :: C.SecretKey
+    :: WorkMode m
+    => C.SecretKey
     -> State
     -> C.Transaction
     -> C.AddrId
     -> C.Signature
-    -> C.Server (Either Text C.CheckConfirmation)
+    -> ServerT m (Either Text C.CheckConfirmation)
 handleCheckTx sk st tx addrId sg =
     toServer $
     do C.logDebug $
@@ -117,12 +141,13 @@ handleCheckTx sk st tx addrId sg =
         return $ Right res
 
 handleCommitTx
-    :: C.SecretKey
+    :: WorkMode m
+    => C.SecretKey
     -> State
     -> C.Transaction
     -> C.PeriodId
     -> C.CheckConfirmations
-    -> C.Server (Either Text C.CommitConfirmation)
+    -> ServerT m (Either Text C.CommitConfirmation)
 handleCommitTx sk st tx pId cc =
     toServer $
     do C.logDebug $
@@ -142,7 +167,7 @@ handleCommitTx sk st tx pId cc =
 
 -- Dumping Mintette state
 
-handleGetUtxo :: State -> C.Server C.Utxo
+handleGetUtxo :: WorkMode m => State -> ServerT m C.Utxo
 handleGetUtxo st =
     toServer $
     do C.logInfo "Getting utxo"
@@ -150,7 +175,8 @@ handleGetUtxo st =
        C.logDebug $ formatSingle' "Corrent utxo is: {}" curUtxo
        return curUtxo
 
-handleGetBlocks :: State -> C.PeriodId -> C.Server (Either Text [C.LBlock])
+handleGetBlocks :: WorkMode m 
+                => State -> C.PeriodId -> ServerT m (Either Text [C.LBlock])
 handleGetBlocks st pId =
     toServer $
     do C.logInfo $
@@ -170,7 +196,8 @@ handleGetBlocks st pId =
         return $ Right res
 
 -- TODO: code duplication, simiar as handleGetBlocks => refactor!
-handleGetLogs :: State -> C.PeriodId -> C.Server (Either Text C.ActionLog)
+handleGetLogs :: WorkMode m 
+              => State -> C.PeriodId -> ServerT m (Either Text C.ActionLog)
 handleGetLogs st pId =
     toServer $
     do C.logInfo $

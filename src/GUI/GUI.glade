@@ -134,7 +134,6 @@
                                   <object class="GtkLabel" id="BalanceLabel">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="label" translatable="yes">0.345</property>
                                   </object>
                                 </child>
                               </object>
@@ -196,7 +195,6 @@
                                   <object class="GtkLabel" id="UnconfirmedLabel">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="label" translatable="yes">0.03</property>
                                   </object>
                                 </child>
                               </object>
@@ -246,7 +244,7 @@
                           <object class="GtkLabel" id="TransactionsLabel">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="label" translatable="yes">Transactions: 21</property>
+                            <property name="label" translatable="yes">Transactions:</property>
                           </object>
                         </child>
                       </object>
@@ -289,6 +287,7 @@
                           <object class="GtkTreeView" id="RecentActivityView">
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
+                            <property name="headers_visible">False</property>
                             <child internal-child="selection">
                               <object class="GtkTreeSelection" id="treeview-selection1"/>
                             </child>
@@ -350,6 +349,7 @@
                   <object class="GtkTreeView" id="ContactsView">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="headers_visible">False</property>
                     <child internal-child="selection">
                       <object class="GtkTreeSelection" id="treeview-selection2"/>
                     </child>
@@ -666,10 +666,10 @@
             <property name="can_focus">False</property>
             <property name="orientation">vertical</property>
             <child>
-              <object class="GtkLabel" id="TransactionsNumberLabel">
+              <object class="GtkLabel" id="TransactionsNumLabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Transactions: 21</property>
+                <property name="label" translatable="yes">Transactions:</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -687,6 +687,7 @@
                   <object class="GtkTreeView" id="TransactionsView">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="headers_visible">False</property>
                     <child internal-child="selection">
                       <object class="GtkTreeSelection" id="treeview-selection3"/>
                     </child>
@@ -734,7 +735,6 @@
           <object class="GtkLabel" id="StatusLabel">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="label" translatable="yes">Synchronized</property>
           </object>
           <packing>
             <property name="expand">False</property>

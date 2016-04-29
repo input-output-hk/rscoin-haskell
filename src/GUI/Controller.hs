@@ -1,4 +1,8 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Controller where
+
+import Control.Lens
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -7,31 +11,68 @@ import Data.IORef
 
 import Graphics.UI.Gtk
 
-data ProgrammState = ProgrammState
+import Wallet
 
-onExit :: IORef ProgrammState -> IO ()
-onExit psr = putStrLn "Exiting."
+data OutputWidgets = OutputWidgets {
+    balanceLabel         :: Label,
+    unconfirmedLabel     :: Label,
+    transactionsLabel    :: Label,
+    recentActivityView   :: TreeView,
+    myWalletLabel        :: Label,
+    transactionsNumLabel :: Label,
+    transactionsView     :: TreeView,
+    statusLabel          :: Label
+}
 
-onAddContact :: IORef ProgrammState -> String -> String -> IO ()
-onAddContact psr name address =
-    putStrLn $ "Adding contact with name = " ++ name ++ ", address = " ++ address
+mkOutputWidgets :: Builder -> IO OutputWidgets
+mkOutputWidgets builder = do
+    balanceLabel         <- builderGetObject builder castToLabel "BalanceLabel"
+    unconfirmedLabel     <- builderGetObject builder castToLabel "UnconfirmedLabel"
+    transactionsLabel    <- builderGetObject builder castToLabel "TransactionsLabel"
+    recentActivityView   <- builderGetObject builder castToTreeView "RecentActivityView"
+    myWalletLabel        <- builderGetObject builder castToLabel "MyWalletLabel"
+    transactionsNumLabel <- builderGetObject builder castToLabel "TransactionsNumLabel"
+    transactionsView     <- builderGetObject builder castToTreeView "TransactionsView"
+    statusLabel          <- builderGetObject builder castToLabel "StatusLabel"
+    return OutputWidgets {..}
 
-onSend :: IORef ProgrammState -> String -> String -> IO ()
-onSend psr address amount = putStrLn $ "Sending " ++ amount ++ " to " ++ address
+onExit :: IORef Wallet -> IO ()
+onExit _ = putStrLn "Exiting."
 
-showState :: IORef ProgrammState -> IO ()
-showState psr = return ()
+onAddContact :: IORef Wallet -> String -> String -> IO ()
+onAddContact wr newName newAddress = do
+    putStrLn $ "Adding contact with name = " ++ newName ++ ", address = " ++ newAddress
+    modifyIORef wr $ contacts %~ ((:) $ Contact newName newAddress)
 
-initializeController :: FilePath -> ProgrammState -> IO ()
-initializeController file state = do
+onSend :: IORef Wallet -> String -> String -> IO ()
+onSend wr sendAddress sendAmount = do
+    putStrLn $ "Sending " ++ sendAmount ++ " to " ++ sendAddress
+    modifyIORef wr $ transactions %~ ((:) $
+        Transaction False (Contact "" sendAddress) (read sendAmount))
 
-    psr <- newIORef state
+showWallet :: OutputWidgets -> IORef Wallet -> IO ()
+showWallet OutputWidgets {..} wr = do
+    wallet <- readIORef wr
+    labelSetText balanceLabel $ show (wallet ^. balance)
+    labelSetText unconfirmedLabel $ show (wallet ^. unconfirmed)
+    let ts = "Transactions: " ++ show (length $ wallet ^. transactions)
+    labelSetText transactionsLabel ts
+    labelSetText transactionsNumLabel ts
+    labelSetText myWalletLabel $ "MY RSCOIN WALLET: " ++ (wallet ^. myAddress)
+    labelSetText statusLabel "Synchronized"
+
+initializeController :: FilePath -> Wallet -> IO ()
+initializeController file wallet = do
+
+    wr <- newIORef wallet
 
     builder <- builderNew
     builderAddFromFile builder file
 
+    ow <- mkOutputWidgets builder
+
     window <- builderGetObject builder castToWindow "Window"
-    _ <- window `on` deleteEvent $ liftIO (onExit psr >> mainQuit) >> return False
+    _ <- window `on` deleteEvent $ liftIO (onExit wr >> mainQuit) >> return False
 
     let tabsNames = ["Wallet", "Send", "Transactions", "Options"]
     buttons <- mapM (builderGetObject builder castToButton . flip (++) "Button") tabsNames
@@ -60,14 +101,27 @@ initializeController file state = do
         entrySetText newNameEntry ""
         entrySetText newAddressEntry ""
 
-    addButton <- builderGetObject builder castToButton "AddButton"
+    addButton    <- builderGetObject builder castToButton "AddButton"
+    contactsView <- builderGetObject builder castToTreeView "ContactsView"
+    cl           <- listStoreNew $ wallet ^. contacts
+    treeViewSetModel contactsView cl
+    nameCol    <- treeViewColumnNew
+    addressCol <- treeViewColumnNew
+    renderer   <- cellRendererTextNew
+    cellLayoutPackStart nameCol renderer False
+    cellLayoutPackStart addressCol renderer False
+    cellLayoutSetAttributes nameCol renderer cl $ \c -> [cellText := c ^. name]
+    cellLayoutSetAttributes addressCol renderer cl $ \c -> [cellText := c ^. address]
+    _ <- treeViewAppendColumn contactsView nameCol
+    _ <- treeViewAppendColumn contactsView addressCol
     _ <- addButton `on` buttonActivated $ do
-        name    <- entryGetText newNameEntry
-        address <- entryGetText newAddressEntry
+        newName    <- entryGetText newNameEntry
+        newAddress <- entryGetText newAddressEntry
         widgetShowAll contactsOperations
         widgetHide addContact
-        onAddContact psr name address
-        showState psr
+        onAddContact wr newName newAddress
+        _ <- listStoreAppend cl $ Contact newName newAddress
+        showWallet ow wr
 
     cancelButton <- builderGetObject builder castToButton "CancelButton"
     _ <- cancelButton `on` buttonActivated $ do
@@ -79,7 +133,12 @@ initializeController file state = do
     _ <- selectButton `on` buttonActivated $ do
         mapM_ widgetHide tabs
         widgetShowAll $ tabs !! 1
-        entrySetText payToEntry "selected"
+        selection <- treeViewGetSelection contactsView
+        rows <- treeSelectionGetSelectedRows selection
+        if length rows > 0 then do
+            c <- listStoreGetValue cl $ head $ head rows
+            entrySetText payToEntry $ c ^. address
+        else return ()
 
     selectAddressButton <- builderGetObject builder castToButton "SelectAddressButton"
     _ <- selectAddressButton `on` buttonActivated $ do
@@ -91,12 +150,15 @@ initializeController file state = do
     performSendButton <- builderGetObject builder castToButton "PerformSendButton"
     amountEntry <- builderGetObject builder castToEntry "AmountEntry"
     _ <- performSendButton `on` buttonActivated $ do
-        address <- entryGetText payToEntry
-        amount  <- entryGetText amountEntry
+        sendAddress <- entryGetText payToEntry
+        sendAmount  <- entryGetText amountEntry
         entrySetText payToEntry ""
         entrySetText amountEntry ""
-        onSend psr address amount
+        onSend wr sendAddress sendAmount
+        showWallet ow wr
 
     widgetShowAll window
     mapM_ widgetHide tabs
     widgetShow $ head tabs
+
+    showWallet ow wr

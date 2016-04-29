@@ -1,6 +1,7 @@
 import Graphics.UI.Gtk
 
 import Controller
+import Wallet
 
 main :: IO ()
 main = do
@@ -8,6 +9,6 @@ main = do
 
     _ <- initGUI
 
-    initializeController layoutFile ProgrammState
+    initializeController layoutFile $ Wallet "MY ADDRESS" 0 0 [] []
 
     mainGUI

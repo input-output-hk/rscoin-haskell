@@ -6,13 +6,11 @@ module RSCoin.Mintette.Worker
        ( runWorker
        ) where
 
-import           Control.Concurrent        (forkFinally, threadDelay)
 import           Control.Exception         (SomeException, fromException)
-import           Control.Monad             (unless, void)
+import           Control.Monad             (unless)
 import           Control.Monad.Catch       (catch)
 import           Control.Monad.Trans       (liftIO)
 import           Data.Acid                 (createCheckpoint, update)
-import           Data.Time.Units           (toMicroseconds)
 
 import           Serokell.Util.Exceptions  ()
 import           Serokell.Util.Text        (formatSingle')

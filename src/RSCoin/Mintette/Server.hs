@@ -7,7 +7,6 @@ module RSCoin.Mintette.Server
        ) where
 
 import           Control.Exception         (throwIO, try)
-import           Control.Exception.Base    (SomeException)
 import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.Catch       (catch)
 import           Data.Acid.Advanced        (query', update')
@@ -23,11 +22,11 @@ import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
                                             GetUtxoPset (..), GetBlocks (..),
                                             PreviousMintetteId (..),
-                                            StartPeriod (..), State, closeState,
-                                            openState, GetLogs (..))
+                                            StartPeriod (..), State,
+                                            GetLogs (..))
 import           RSCoin.Mintette.Error     (MintetteError)
 import           RSCoin.Mintette.Worker    (runWorker)
-import           RSCoin.Test               (WorkMode, ServerT, bracket'
+import           RSCoin.Test               (WorkMode, ServerT
                                            , serverTypeRestriction0
                                            , serverTypeRestriction1
                                            , serverTypeRestriction3

@@ -7,17 +7,24 @@ module RSCoin.Test.MonadRpcSpec
        ) where
 
 import           Control.Monad.Trans        (MonadIO)
-import           Test.Hspec                 (Spec, describe)
+import           Control.Monad.State        (State, execState, modify)
+import           Control.Monad.Catch.Pure   (CatchT, runCatchT)
+import           Test.Hspec                 (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck      (prop)
-import           Test.QuickCheck            (Property, ioProperty)
+import           Test.QuickCheck            (Property, ioProperty,
+                                             Arbitrary (..), generate)
 import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic,
                                              run)
+import           System.Random              (StdGen, mkStdGen)
+import           Control.Monad.Random.Class (getRandomR)
 
 import           RSCoin.Test.MonadRpc       (Addr, Client (..), Host,
                                              MonadRpc (..),
                                              MsgPackRpc (..), Port, call,
                                              method)
 import           RSCoin.Test.MonadTimed     (MonadTimed (..), for, ms)
+import           RSCoin.Test.PureRpc        (PureRpc, runPureRpc,
+                                             Delays (..))
 import           RSCoin.Test.TimedIO        (runTimedIO)
 
 import           Network.MessagePack.Server (ServerT)
@@ -26,6 +33,9 @@ spec :: Spec
 spec =
     describe "MonadRpc" $ do
         msgPackRpcSpec "MsgPackRpc" runMsgPackRpcProp
+        -- FIXME: dont generate new radom seed here. Better way would be use the same seed as the one quickcheck/hspec was initialised with. 
+        -- Proper way of fixing this is to not use StdGen in PureRpc implementation, but to leave this to quickcheck
+        runIO (generate arbitrary) >>= pureRpcSpec "PureRpc" . flip runPureRpcProp delays'
 
 msgPackRpcSpec
     :: (MonadRpc m, MonadTimed m, MonadIO m)
@@ -41,8 +51,36 @@ msgPackRpcSpec description runProp =
         --     prop "client should be able to execute server method" $
         --         runProp . serverMethodShouldExecuteSpec
 
+pureRpcSpec
+    :: String
+    -> (PureRpcProp () -> Bool)
+    -> Spec
+pureRpcSpec description runProp =
+    describe description $ do
+        describe "server method should execute (simple)" $ do
+            prop "client should be able to execute server method" $
+                runProp serverMethodShouldExecuteSimplePureSpec
+
+type PureRpcProp = PureRpc (CatchT (State Bool))
+
+assertPure :: Bool -> PureRpcProp ()
+assertPure b = modify (b &&)
+
 runMsgPackRpcProp :: PropertyM MsgPackRpc () -> Property
 runMsgPackRpcProp = monadic $ ioProperty . runTimedIO . runMsgPackRpc
+
+runPureRpcProp :: StdGen -> Delays -> PureRpcProp () -> Bool
+runPureRpcProp gen delays test = execState (runCatchT $ runPureRpc gen delays test) True
+
+-- TODO: this is kind of odd
+instance Arbitrary StdGen where
+    arbitrary = mkStdGen <$> arbitrary
+
+-- FIXME: use arbitrary instead of StdGen
+delays' :: Delays
+delays' = Delays d
+  where
+    d _ _ = Just <$> getRandomR (10, 1000)
 
 -- TODO: it would be useful to create an instance of Function for Client and Method;
 -- see here https://hackage.haskell.org/package/QuickCheck-2.8.2/docs/Test-QuickCheck-Function.html#t:Function
@@ -62,6 +100,12 @@ serverMethodShouldExecuteSimpleSpec
 serverMethodShouldExecuteSimpleSpec = do
     run $ fork $ server
     client
+
+serverMethodShouldExecuteSimplePureSpec
+    :: PureRpcProp ()
+serverMethodShouldExecuteSimplePureSpec = do
+    fork $ server
+    clientPure
 
 server :: MonadRpc m => m ()
 server = do
@@ -86,16 +130,24 @@ restrict _  =  return ()
 client :: (MonadRpc m, MonadTimed m) => PropertyM m ()
 client = do
     run $ wait $ for 50 ms
-    r1 <- run $ execClient addr $ add 123 456
+    r1 <- run $ execClient addr $ addC 123 456
     assert $ r1 == 123 + 456
-    r2 <- run $ execClient addr $ echo "hello"
+    r2 <- run $ execClient addr $ echoC "hello"
     assert $ r2 == "***hello***"
-  where
-    add :: Int -> Int -> Client Int
-    add = call "add"
 
-    echo :: String -> Client String
-    echo = call "echo"
+clientPure :: PureRpcProp ()
+clientPure = do
+    wait $ for 50 ms
+    r1 <- execClient addr $ addC 123 456
+    assertPure $ r1 == 123 + 456
+    r2 <- execClient addr $ echoC "hello"
+    assertPure $ r2 == "***hello***"
+
+addC :: Int -> Int -> Client Int
+addC = call "add"
+
+echoC :: String -> Client String
+echoC = call "echo"
 
 -- TODO: this method triggers some msgpack exceptions
 -- | Method should execute if called correctly

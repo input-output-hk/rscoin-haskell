@@ -58,6 +58,7 @@ import           RSCoin.Test                (WorkMode)
 -- | Errors which may happen during remote call.
 data CommunicationError
     = ProtocolError Text  -- ^ Message was encoded incorrectly.
+    | TimeoutError Text   -- ^ Waiting too long for the reply
     | MethodError Text    -- ^ Error occured during method execution.
     deriving (Show, Typeable)
 
@@ -107,7 +108,7 @@ getBlockByHeight pId =
         (maybe onError onSuccess)
         $ callBank $ P.call (P.RSCBank P.GetHBlock) pId
   where
-    infoMessage = 
+    infoMessage =
         logInfo $ formatSingle' "Getting block with height {}" pId
     onError = do
         let e = formatSingle' "Getting block with height {} failed." pId
@@ -252,7 +253,7 @@ getLogs m from to = do
         (maybe onError onSuccess)
         $ callBank $ P.call (P.RSCDump P.GetLogs) m from to
   where
-    infoMessage = 
+    infoMessage =
         logInfo $
             format' "Getting action logs of mintette {} with range of entries {} to {}" (m, from, to)
     onError = do

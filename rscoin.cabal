@@ -207,6 +207,8 @@ test-suite rscoin-test
                      , vector >= 0.11.0.0
                      , async >= 2.0.1
                      , msgpack-rpc >= 1.0.0
+                     , random >= 1.1
+                     , MonadRandom >= 0.4.2.2
                      , rscoin
   hs-source-dirs:      test
   default-language:    Haskell2010

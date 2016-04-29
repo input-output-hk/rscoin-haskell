@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 module RSCoin.Test.PureRpc
     ( PureRpc
@@ -13,8 +14,9 @@ module RSCoin.Test.PureRpc
 import           Control.Lens                (use, makeLenses, (.=), (%=))
 import           Control.Monad               (forM_)
 import           Control.Monad.Catch         (MonadThrow, MonadCatch)
-import           Control.Monad.State         (StateT, put, evalStateT, get)
-import           Control.Monad.Trans         (lift, MonadIO)
+import           Control.Monad.State         (StateT, put, evalStateT, get,
+                                              MonadState (state, get, put))
+import           Control.Monad.Trans         (lift, MonadIO, MonadTrans)
 import           Control.Monad.Random        (Rand, runRand)
 import           Data.Default                (Default, def)
 import           Data.Maybe                  (fromMaybe)
@@ -37,6 +39,7 @@ newtype Delays = Delays
     { -- | Just delay if net packet delivered successfully
       --   Nothing otherwise
       -- TODO: more parameters
+      -- FIXME: we should handle StdGen with Quickcheck.Arbitrary
       evalDelay :: RpcStage -> MicroSeconds -> Rand StdGen (Maybe MicroSeconds)
       -- ^ I still think that this function is at right place
       --   We just need to find funny syntax for creating complex description
@@ -77,6 +80,14 @@ newtype PureRpc m a = PureRpc
     { unwrapPureRpc :: StateT Host (TimedT (StateT (NetInfo (PureRpc m)) m)) a 
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTimed
                , MonadThrow)
+
+instance MonadTrans PureRpc where
+    lift = PureRpc . lift . lift . lift
+
+instance MonadState s m => MonadState s (PureRpc m) where
+    get = lift get
+    put = lift . put
+    state = lift . state
 
 -- | Launches rpc scenario
 runPureRpc :: (Monad m, MonadCatch m) => StdGen -> Delays -> PureRpc m () -> m ()

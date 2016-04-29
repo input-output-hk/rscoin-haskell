@@ -187,7 +187,7 @@ handleGetLogs :: WorkMode m
               => State -> C.PeriodId -> ServerT m (Maybe C.ActionLog)
 handleGetLogs st pId =
     toServer $
-    do res <- query' st $ GetLogs pId 
+    do res <- query' st $ GetLogs pId
        C.logInfo $
             format' "Getting logs for periodId {}: {}" (pId, listBuilderJSONIndent 2 . map pairBuilder <$> res)
        return res

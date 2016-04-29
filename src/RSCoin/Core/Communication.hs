@@ -58,7 +58,7 @@ import           RSCoin.Test                (WorkMode)
 -- | Errors which may happen during remote call.
 data CommunicationError
     = ProtocolError Text  -- ^ Message was encoded incorrectly.
-    -- | TimeoutError Text   -- ^ Waiting too long for the reply
+    | TimeoutError Text   -- ^ Waiting too long for the reply
     | MethodError Text    -- ^ Error occured during method execution.
     deriving (Show, Typeable)
 

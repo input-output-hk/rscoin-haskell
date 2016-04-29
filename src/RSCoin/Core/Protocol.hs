@@ -22,21 +22,21 @@ module RSCoin.Core.Protocol
        , unCps
        ) where
 
-import           Control.Monad.IO.Class     (liftIO, MonadIO)
+import           Control.Monad.IO.Class  (liftIO, MonadIO)
 
-import           Data.IORef                 (newIORef, writeIORef, readIORef)
-import qualified Data.ByteString.Char8      as BS
-import           Data.Maybe                 (fromJust)
+import           Data.IORef              (newIORef, writeIORef, readIORef)
+import qualified Data.ByteString.Char8   as BS
+import           Data.Maybe              (fromJust)
 
-import           Data.MessagePack           (MessagePack)
--- import qualified Network.MessagePack.Server as S
--- import qualified Network.MessagePack.Client as C
+import           Data.MessagePack        (MessagePack)
 
-import           RSCoin.Core.Constants      (bankHost, bankPort)
-import           RSCoin.Core.Types          (Mintette (..))
-import           RSCoin.Core.Crypto         ()
-import           RSCoin.Core.MessagePack          ()
-import qualified RSCoin.Test                as T
+import           System.Timeout          (timeout)
+
+import           RSCoin.Core.Constants   (bankHost, bankPort, rpcTimeout)
+import           RSCoin.Core.Types       (Mintette (..))
+import           RSCoin.Core.Crypto      ()
+import           RSCoin.Core.MessagePack ()
+import qualified RSCoin.Test             as T
 
 -- TODO: this module should provide more safety and expose better api
 
@@ -96,17 +96,19 @@ execBank = (>>=) . callBank
 execMintette :: MessagePack a => Mintette -> T.Client a -> WithResult a
 execMintette m = (>>=) . callMintette m
             
+callClient :: (MessagePack a, T.WorkMode m) => T.Addr -> T.Client a -> m a
+callClient adr = (fromJust <$>) . timeout rpcTimeout . T.execClient adr
 
 -- | Send a request to a Bank.
 callBank :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
 callBank action = 
-    T.execClient (BS.pack bankHost, bankPort) action 
+    callClient (BS.pack bankHost, bankPort) action 
 
 -- | Send a request to a Mintette.
 callMintette :: (MessagePack a, T.WorkMode m) 
              => Mintette -> T.Client a -> m a
 callMintette Mintette {..} action = 
-    T.execClient (BS.pack mintetteHost, mintettePort) action 
+    callClient (BS.pack mintetteHost, mintettePort) action 
 
 -- | Reverse Continuation passing style (CPS) transformation
 unCps :: forall a m . MonadIO m => ((a -> m ()) -> m ()) -> m a

@@ -9,15 +9,15 @@ module RSCoin.Test
        , runRealMode, runRealMode_
        ) where
 
-import           RSCoin.Test.MonadTimed         as Exports
-import           RSCoin.Test.Timed              as Exports
-import           RSCoin.Test.TimedIO            as Exports
-import           RSCoin.Test.MonadRpc           as Exports
-import           RSCoin.Test.PureRpc            as Exports
-import           RSCoin.Test.Misc               as Exports
+import           RSCoin.Test.MonadTimed as Exports
+import           RSCoin.Test.Timed      as Exports
+import           RSCoin.Test.TimedIO    as Exports
+import           RSCoin.Test.MonadRpc   as Exports
+import           RSCoin.Test.PureRpc    as Exports
+import           RSCoin.Test.Misc       as Exports
 
-import           Control.Monad.Catch            (MonadMask)
-import           Control.Monad.Trans            (MonadIO)
+import           Control.Monad.Catch    (MonadMask)
+import           Control.Monad.Trans    (MonadIO)
 
 class (MonadTimed m, MonadRpc m, MonadIO m,
        MonadMask m) => WorkMode m where
@@ -30,4 +30,3 @@ runRealMode = runTimedIO . runMsgPackRpc
 
 runRealMode_ :: MsgPackRpc a -> IO ()
 runRealMode_ = runTimedIO_ . runMsgPackRpc
-

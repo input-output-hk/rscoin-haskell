@@ -11,6 +11,7 @@ module RSCoin.Core.Constants
        , genesisValue
        , periodReward
        , shardDivider
+       , rpcTimeout
        ) where
 
 import           Data.Binary            (Binary)
@@ -74,3 +75,8 @@ periodReward = 1000
 -- size.
 shardDivider :: Int
 shardDivider = 3
+
+-- | Timeout for rpc calls in microsecons.
+-- If timeout exceedes TimeoutError is thrown.
+rpcTimeout :: Int
+rpcTimeout = 1000000

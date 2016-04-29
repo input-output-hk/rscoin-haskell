@@ -37,6 +37,7 @@ import           Control.Monad.Catch           (MonadThrow, MonadCatch, MonadMas
 import           Control.Monad.Trans           (MonadIO, liftIO, lift)
 import           Control.Monad.Trans.Control   (MonadBaseControl, StM
                                                , liftBaseWith, restoreM)
+import           Control.Monad.Reader          (ReaderT(..), runReaderT)
 import           Data.IORef                    (newIORef, readIORef, writeIORef)
 import           Data.Maybe                    (fromMaybe)
 
@@ -99,6 +100,16 @@ instance MonadRpc MsgPackRpc where
       where
         convertMethod :: Method MsgPackRpc -> S.Method MsgPackRpc
         convertMethod Method{..} = S.method methodName methodBody
+
+instance MonadRpc m => MonadRpc (ReaderT r m) where
+    execClient addr cli = lift $ execClient addr cli
+
+    serve port methods = ReaderT $ 
+                            \r ->  serve port (convert r <$> methods)
+      where
+        convert :: Monad m => r -> Method (ReaderT r m) -> Method m
+        convert r Method {..} = 
+            Method methodName (flip runReaderT r . methodBody) 
 
     
 -- * Client part 

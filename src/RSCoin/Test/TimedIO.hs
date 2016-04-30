@@ -14,18 +14,19 @@ module RSCoin.Test.TimedIO
 import           Control.Concurrent          (forkIO, killThread, threadDelay)
 import           Control.Monad               (void)
 import           Control.Monad.Base          (MonadBase)
-import           Control.Monad.Catch         (MonadCatch, MonadThrow, MonadMask)
+import           Control.Monad.Catch         (MonadCatch, MonadThrow, MonadMask,
+                                              throwM)
 import           Control.Monad.Loops         (whileM)
 import           Control.Monad.Reader        (ReaderT (..), ask, runReaderT)
 import           Control.Monad.Trans         (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl, StM,
                                               liftBaseWith, restoreM)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
-import           Data.Maybe                  (fromMaybe)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import qualified System.Timeout              as T
 
-import           RSCoin.Test.MonadTimed      (MicroSeconds, MonadTimed (..))
+import           RSCoin.Test.MonadTimed      (MicroSeconds, MonadTimed (..),
+                                              MonadTimedError (MTTimeoutError))
 
 newtype TimedIO a = TimedIO
     { getTimedIO :: ReaderT MicroSeconds IO a
@@ -62,8 +63,8 @@ instance MonadTimed TimedIO where
             killThread tid
 
     timeout t (TimedIO action) = TimedIO $ do
-        let res = liftIO . T.timeout t . runReaderT action =<< ask
-        fromMaybe (error "bla") <$> res
+        res <- liftIO . T.timeout t . runReaderT action =<< ask
+        maybe (throwM $ MTTimeoutError "Timeout has exceeded") return res
 
 -- | Launches this timed action
 runTimedIO :: TimedIO a -> IO a

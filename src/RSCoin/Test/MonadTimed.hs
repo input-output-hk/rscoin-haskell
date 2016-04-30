@@ -15,20 +15,39 @@ module RSCoin.Test.MonadTimed
     , MicroSeconds
     , MonadTimed
     , RelativeToNow
+    , MonadTimedError (..)
     ) where
 
+import           Control.Exception    (Exception (..))
 import           Control.Monad.Catch  (MonadThrow)
 import           Control.Monad.Trans  (lift)
 import           Control.Monad.Reader (ReaderT(..), runReaderT, ask)
 import           Control.Monad.State  (StateT, evalStateT, get)
 
+import           Data.Monoid          ((<>))
+import           Data.Text            (Text)
+import           Data.Text.Buildable  (Buildable (build))
 import           Data.Time.Units      (TimeUnit, toMicroseconds)
+import           Data.Typeable        (Typeable)
 
+import           RSCoin.Core.Error    (rscExceptionToException,
+                                       rscExceptionFromException)
 type MicroSeconds = Int
 
 -- | Defines some time point (relative to current time point) 
 --   basing on current time point
 type RelativeToNow = MicroSeconds -> MicroSeconds
+
+data MonadTimedError
+    = MTTimeoutError Text
+    deriving (Show, Typeable)
+
+instance Exception MonadTimedError where
+    toException = rscExceptionToException
+    fromException = rscExceptionFromException
+
+instance Buildable MonadTimedError where
+    build (MTTimeoutError t) = "timeout error: " <> build t
 
 -- | Allows time management. Time is specified in microseconds passed
 --   from start point (origin).

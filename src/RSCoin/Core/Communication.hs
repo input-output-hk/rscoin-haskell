@@ -24,8 +24,8 @@ module RSCoin.Core.Communication
        , getMintetteLogs
        ) where
 
-import           Control.Exception          (Exception, throwIO)
-import           Control.Monad.Catch        (catch)
+import           Control.Exception          (Exception (..))
+import           Control.Monad.Catch        (catch, throwM)
 import           Control.Monad.Trans        (MonadIO, liftIO)
 import           Data.Maybe                 (fromJust)
 import           Data.Monoid                ((<>))
@@ -42,6 +42,8 @@ import           Serokell.Util.Text        (format', formatSingle', show',
                                             pairBuilder)
 
 import           RSCoin.Core.Crypto         (Signature, hash)
+import           RSCoin.Core.Error          (rscExceptionToException,
+                                             rscExceptionFromException)
 import           RSCoin.Core.Owners         (owners)
 import           RSCoin.Core.Primitives     (AddrId, Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
@@ -53,7 +55,7 @@ import           RSCoin.Core.Types          (CheckConfirmation,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Mintettes,
                                              ActionLog, Utxo, LBlock)
-import           RSCoin.Test                (WorkMode)
+import           RSCoin.Test                (WorkMode, MonadTimedError (..), MonadTimed)
 
 -- | Errors which may happen during remote call.
 data CommunicationError
@@ -62,10 +64,13 @@ data CommunicationError
     | MethodError Text    -- ^ Error occured during method execution.
     deriving (Show, Typeable)
 
-instance Exception CommunicationError
+instance Exception CommunicationError where
+    toException = rscExceptionToException
+    fromException = rscExceptionFromException
 
 instance Buildable CommunicationError where
     build (ProtocolError t) = "internal error: " <> build t
+    build (TimeoutError t) = "timeout error: " <> build t
     build (MethodError t) = "method error: " <> build t
 
 rpcErrorHandler :: MonadIO m => MP.RpcError -> m a 
@@ -73,22 +78,32 @@ rpcErrorHandler = liftIO . log' . fromError
   where
     log' (e :: CommunicationError) = do
         logError $ show' e
-        throwIO e
+        throwM e
     fromError (MP.ProtocolError s) = ProtocolError $ pack s
     fromError (MP.ResultTypeError s) = ProtocolError $ pack s
     fromError (MP.ServerError obj) = MethodError $ pack $ show obj
 
+monadTimedHandler :: (MonadTimed m, MonadIO m) => MonadTimedError -> m a 
+monadTimedHandler = log' . fromError
+  where
+    log' (e :: CommunicationError) = do
+        logError $ show' e
+        throwM e
+    fromError (MTTimeoutError s) = TimeoutError s
+
+handleErrors :: (WorkMode m, MessagePack a) => m a -> m a
+handleErrors action = action `catch` rpcErrorHandler `catch` monadTimedHandler
 callBank :: (WorkMode m, MessagePack a) => P.Client a -> m a
-callBank cl = P.callBank cl `catch` rpcErrorHandler
+callBank = handleErrors . P.callBank
 
 callMintette :: (WorkMode m, MessagePack a) => Mintette -> P.Client a -> m a
-callMintette m cl = P.callMintette m cl `catch` rpcErrorHandler
+callMintette m = handleErrors . P.callMintette m
 
 withResult :: WorkMode m => IO () -> (a -> IO ()) -> m a -> m a
 withResult before after action = do
     liftIO before 
     a <- action 
-    liftIO $ after a     
+    liftIO $ after a
     return a
 
 -- | Retrieves blockchainHeight from the server
@@ -113,7 +128,7 @@ getBlockByHeight pId =
     onError = do
         let e = formatSingle' "Getting block with height {} failed." pId
         logWarning e
-        throwIO $ MethodError e
+        throwM $ MethodError e
     onSuccess res = do
         logInfo $
             format' "Successfully got block with height {}: {}" (pId, res)
@@ -277,7 +292,7 @@ getMintetteUtxo mId = do
     onNothing = liftIO $ do
         let e = formatSingle' "Mintette with this index {} doesn't exist" mId
         logWarning e
-        throwIO $ MethodError e
+        throwM $ MethodError e
     onJust mintette =
         withResult
             (logInfo "Getting utxo")
@@ -292,7 +307,7 @@ getMintetteBlocks mId pId = do
     onNothing = liftIO $ do
         let e = formatSingle' "Mintette with this index {} doesn't exist" mId
         logWarning e
-        throwIO $ MethodError e
+        throwM $ MethodError e
     onJust mintette = do
         withResult
             infoMessage
@@ -321,7 +336,7 @@ getMintetteLogs mId pId = do
     onNothing = liftIO $ do
         let e = formatSingle' "Mintette with this index {} doesn't exist" mId
         logWarning e
-        throwIO $ MethodError e
+        throwM $ MethodError e
     onJust mintette = do
         withResult
             infoMessage

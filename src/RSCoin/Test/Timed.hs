@@ -138,7 +138,7 @@ runTimedT timed  =  launchTimedT $ do
     handler :: Monad m => SomeException -> TimedT m ()
     handler _ = return ()   -- TODO: log here
 
-instance Monad m => MonadTimed (TimedT m) where
+instance MonadThrow m => MonadTimed (TimedT m) where
     localTime = TimedT $ use curTime
 
     -- | Take note, created thread may be killed by timeout

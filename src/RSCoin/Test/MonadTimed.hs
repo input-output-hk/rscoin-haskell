@@ -17,6 +17,7 @@ module RSCoin.Test.MonadTimed
     , RelativeToNow
     ) where
 
+import           Control.Monad.Catch  (MonadThrow)
 import           Control.Monad.Trans  (lift)
 import           Control.Monad.Reader (ReaderT(..), runReaderT, ask)
 import           Control.Monad.State  (StateT, evalStateT, get)
@@ -31,7 +32,7 @@ type RelativeToNow = MicroSeconds -> MicroSeconds
 
 -- | Allows time management. Time is specified in microseconds passed
 --   from start point (origin).
-class Monad m => MonadTimed m where
+class MonadThrow m => MonadTimed m where
     -- | Acquires time relative to origin point
     localTime :: m MicroSeconds
 

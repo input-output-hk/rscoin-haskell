@@ -124,7 +124,7 @@ instance (MonadIO m, Monad m, MonadThrow m) => MonadRpc (PureRpc m) where
         lift $ lift $ forM_ methods $ \Method{..} -> 
             listeners %= Map.insert ((host, port), methodName) methodBody
 
-waitDelay :: Monad m => RpcStage -> PureRpc m () 
+waitDelay :: MonadThrow m => RpcStage -> PureRpc m () 
 waitDelay stage  =  PureRpc $ do
     seed    <- lift . lift $ use randSeed
     delays' <- lift . lift $ use delays

@@ -21,7 +21,9 @@ import           Control.Monad.Trans         (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl, StM,
                                               liftBaseWith, restoreM)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
+import           Data.Maybe                  (fromMaybe)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
+import qualified System.Timeout              as T
 
 import           RSCoin.Test.MonadTimed      (MicroSeconds, MonadTimed (..))
 
@@ -58,6 +60,10 @@ instance MonadTimed TimedIO where
             _ <- whileM ((&&) <$> runReaderT p env <*> readIORef working) $
                 threadDelay 100000
             killThread tid
+
+    timeout t (TimedIO action) = TimedIO $ do
+        let res = liftIO . T.timeout t . runReaderT action =<< ask
+        fromMaybe (error "bla") <$> res
 
 -- | Launches this timed action
 runTimedIO :: TimedIO a -> IO a

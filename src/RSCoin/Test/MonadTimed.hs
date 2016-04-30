@@ -6,7 +6,7 @@
 
 -- | This module contains time management monad and it's implementation for IO.
 module RSCoin.Test.MonadTimed
-    ( fork, wait, localTime, workWhile, work, schedule, invoke
+    ( fork, wait, localTime, workWhile, work, schedule, invoke, timeout
     , minute , sec , ms , mcs
     , minute', sec', ms', mcs'
     , tu
@@ -46,6 +46,9 @@ class Monad m => MonadTimed m where
     --   until preficate evaluates to False
     workWhile :: m Bool -> m () -> m ()
 
+    -- | Throws an TimeoutError exception if running an action exceeds running time
+    timeout :: MicroSeconds -> m a -> m a
+
 -- | Executes an action somewhere in future
 schedule :: MonadTimed m => RelativeToNow -> m () -> m ()
 schedule time action = fork $ wait time >> action
@@ -69,6 +72,8 @@ instance MonadTimed m => MonadTimed (ReaderT r m) where
     workWhile p m =
         lift . (workWhile <$> runReaderT p <*> runReaderT m) =<< ask
 
+    timeout t m = lift . timeout t . runReaderT m =<< ask
+
 instance MonadTimed m => MonadTimed (StateT r m) where
     localTime = lift localTime
 
@@ -79,6 +84,7 @@ instance MonadTimed m => MonadTimed (StateT r m) where
     workWhile p m =
         lift . (workWhile <$> evalStateT p <*> evalStateT m) =<< get
 
+    timeout t m = lift . timeout t . evalStateT m =<< get
 
 -- * Some usefull functions below
 

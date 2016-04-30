@@ -31,7 +31,8 @@ import           Data.Ord               (comparing)
 import qualified Data.PQueue.Min        as PQ
 
 import           RSCoin.Test.MonadTimed (MicroSeconds, MonadTimed, localTime,
-                                         now, schedule, wait, workWhile)
+                                         now, schedule, wait, workWhile,
+                                         timeout)
 
 type Timestamp = MicroSeconds
 
@@ -158,3 +159,5 @@ instance Monad m => MonadTimed (TimedT m) where
         TimedT $ lift $ ContT $
             \following ->
                  events %= PQ.insert (event following)
+    -- FIXME: !
+    timeout _ _ = undefined

@@ -16,9 +16,13 @@ module RSCoin.Core.Protocol
        , T.serve
        , call
        , execBank
+       , execBankSafe
        , execMintette
+       , execMintetteSafe
        , callBank
+       , callBankSafe
        , callMintette
+       , callMintetteSafe
        , unCps
        ) where
 
@@ -29,8 +33,6 @@ import qualified Data.ByteString.Char8   as BS
 import           Data.Maybe              (fromJust)
 
 import           Data.MessagePack        (MessagePack)
-
-import           System.Timeout          (timeout)
 
 import           RSCoin.Core.Constants   (bankHost, bankPort, rpcTimeout)
 import           RSCoin.Core.Types       (Mintette (..))
@@ -95,20 +97,40 @@ execBank = (>>=) . callBank
 -- | Send a request to a Mintette using Continuation passing style (CPS).
 execMintette :: MessagePack a => Mintette -> T.Client a -> WithResult a
 execMintette m = (>>=) . callMintette m
-            
-callClient :: (MessagePack a, T.WorkMode m) => T.Addr -> T.Client a -> m a
-callClient adr = (fromJust <$>) . timeout rpcTimeout . T.execClient adr
+
+-- | Send a request to a Bank using Continuation passing style (CPS).
+-- Rises an exception if Bank doesn't respond in rpcTimeout time.
+execBankSafe :: MessagePack a => T.Client a -> WithResult a
+execBankSafe = (>>=) . callBankSafe
+
+-- | Send a request to a Mintette using Continuation passing style (CPS).
+-- Rises an exception if Mintette doesn't respond in rpcTimeout time.
+execMintetteSafe :: MessagePack a => Mintette -> T.Client a -> WithResult a
+execMintetteSafe m = (>>=) . callMintetteSafe m
 
 -- | Send a request to a Bank.
 callBank :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
 callBank action = 
-    callClient (BS.pack bankHost, bankPort) action 
+    T.execClient (BS.pack bankHost, bankPort) action 
 
 -- | Send a request to a Mintette.
 callMintette :: (MessagePack a, T.WorkMode m) 
              => Mintette -> T.Client a -> m a
 callMintette Mintette {..} action = 
-    callClient (BS.pack mintetteHost, mintettePort) action 
+    T.execClient (BS.pack mintetteHost, mintettePort) action 
+
+-- | Send a request to a Bank.
+-- Rises an exception if Bank doesn't respond in rpcTimeout time.
+callBankSafe :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
+callBankSafe action = 
+    T.execClientTimeout rpcTimeout (BS.pack bankHost, bankPort) action 
+
+-- | Send a request to a Mintette.
+-- Rises an exception if Mintette doesn't respond in rpcTimeout time.
+callMintetteSafe :: (MessagePack a, T.WorkMode m) 
+             => Mintette -> T.Client a -> m a
+callMintetteSafe Mintette {..} action = 
+    T.execClientTimeout rpcTimeout (BS.pack mintetteHost, mintettePort) action 
 
 -- | Reverse Continuation passing style (CPS) transformation
 unCps :: forall a m . MonadIO m => ((a -> m ()) -> m ()) -> m a

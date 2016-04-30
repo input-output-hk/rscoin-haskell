@@ -17,6 +17,7 @@ module RSCoin.Test.MonadRpc
     , runMsgPackRpc
     , RpcType
     , execClient
+    , execClientTimeout
     , serve
     , Method(..)
     , Client(..)
@@ -44,7 +45,7 @@ import           Data.Maybe                  (fromMaybe)
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
 
-import           RSCoin.Test.MonadTimed      (MonadTimed)
+import           RSCoin.Test.MonadTimed      (MonadTimed (timeout), MicroSeconds)
 import           RSCoin.Test.TimedIO         (TimedIO)
 
 import           Data.MessagePack.Object     (MessagePack, Object (..),
@@ -102,6 +103,9 @@ instance MonadRpc MsgPackRpc where
         convertMethod :: Method MsgPackRpc -> S.Method MsgPackRpc
         convertMethod Method{..} = S.method methodName methodBody
 
+
+execClientTimeout :: (MonadTimed m, MonadRpc m, MessagePack a) => MicroSeconds -> Addr -> Client a -> m a
+execClientTimeout t addr = timeout t . execClient addr
 
 -- * Client part
 

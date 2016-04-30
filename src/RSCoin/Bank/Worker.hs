@@ -99,4 +99,3 @@ getPeriodResults mts pId = do
         logWarning $
             formatSingle' "Error occurred in communicating with mintette {}" e
         modifyIORef res (Nothing :)
-

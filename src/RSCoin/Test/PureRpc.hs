@@ -106,7 +106,7 @@ request (Client name args) (listeners', addr)  =  do
         Just f  -> fromMaybe (error "Answer type mismatch")
                  . fromObject <$> f args
 
-instance (MonadIO m, Monad m, MonadThrow m) => MonadRpc (PureRpc m) where
+instance (Monad m, MonadThrow m) => MonadRpc (PureRpc m) where
     execClient addr cli  =  PureRpc $ do  
         curHost <- get
         unwrapPureRpc $ waitDelay Request

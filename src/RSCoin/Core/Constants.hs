@@ -79,4 +79,4 @@ shardDivider = 3
 -- | Timeout for rpc calls in microsecons.
 -- If timeout exceedes TimeoutError is thrown.
 rpcTimeout :: Int
-rpcTimeout = 1000000
+rpcTimeout = 5000000

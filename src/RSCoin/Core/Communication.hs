@@ -93,11 +93,12 @@ monadTimedHandler = log' . fromError
 
 handleErrors :: (WorkMode m, MessagePack a) => m a -> m a
 handleErrors action = action `catch` rpcErrorHandler `catch` monadTimedHandler
+
 callBank :: (WorkMode m, MessagePack a) => P.Client a -> m a
-callBank = handleErrors . P.callBank
+callBank = handleErrors . P.callBankSafe
 
 callMintette :: (WorkMode m, MessagePack a) => Mintette -> P.Client a -> m a
-callMintette m = handleErrors . P.callMintette m
+callMintette m = handleErrors . P.callMintetteSafe m
 
 withResult :: WorkMode m => IO () -> (a -> IO ()) -> m a -> m a
 withResult before after action = do

@@ -8,7 +8,6 @@ module RSCoin.Mintette.Worker
 
 import           Control.Exception         (SomeException, fromException)
 import           Control.Monad             (unless)
-import           Control.Monad.Catch       (catch)
 import           Control.Monad.Trans       (liftIO)
 import           Data.Acid                 (createCheckpoint, update)
 
@@ -20,7 +19,7 @@ import           RSCoin.Core               (SecretKey, epochDelta, logError)
 import           RSCoin.Mintette.AcidState (FinishEpoch (..), State)
 import           RSCoin.Mintette.Error     (MintetteError (MEInactive))
 
-import           RSCoin.Test               (WorkMode, for, wait, tu, fork, sec,
+import           RSCoin.Test               (WorkMode, tu, sec,
                                             repeatForever)
 
 -- | Start worker which updates state when epoch finishes.

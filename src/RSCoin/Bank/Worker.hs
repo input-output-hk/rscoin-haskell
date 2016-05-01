@@ -24,8 +24,7 @@ import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            logError, logInfo, logWarning,
                                            periodDelta, sendPeriodFinished)
 
-import           RSCoin.Test              (WorkMode, for, wait, minute
-                                          , fork, tu, repeatForever)
+import           RSCoin.Test              (WorkMode, minute, tu, repeatForever)
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
                                            StartNewPeriod (..), State)
 

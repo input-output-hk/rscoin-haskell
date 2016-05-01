@@ -24,7 +24,6 @@ import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             StartPeriod (..), State,
                                             GetLogs (..))
 import           RSCoin.Mintette.Error     (MintetteError)
-import           RSCoin.Mintette.Worker    (runWorker)
 import           RSCoin.Test               (WorkMode, ServerT
                                            , serverTypeRestriction0
                                            , serverTypeRestriction1
@@ -33,7 +32,6 @@ import           RSCoin.Test               (WorkMode, ServerT
 
 serve :: WorkMode m => Int -> State -> C.SecretKey -> m ()
 serve port st sk = do
-    runWorker sk st
     idr1 <- serverTypeRestriction1
     idr2 <- serverTypeRestriction1
     idr3 <- serverTypeRestriction3

@@ -6,7 +6,6 @@ import Control.Monad.Catch         (MonadCatch, MonadMask, mask, throwM, catch)
 import Control.Monad.Trans         (MonadIO, liftIO)
 import Control.Monad.STM           (atomically)
 import Control.Concurrent.STM.TVar as T
-import Data.Maybe                  (Maybe(..))
 
 import RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds, wait, fork, 
                                     ms, mcs, for, startTimer)

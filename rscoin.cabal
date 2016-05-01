@@ -39,6 +39,7 @@ library
                      , RSCoin.User.Error
                      , RSCoin.User.Wallet
                      , RSCoin.User.Logic
+                     , RSCoin.User.Operations
                      , RSCoin.Test
                      , RSCoin.Test.MonadTimed
                      , RSCoin.Test.MonadRpc

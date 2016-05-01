@@ -12,6 +12,7 @@ module RSCoin.Test.MonadTimed
     , tu
     , at, after, for, till, now
     , during, upto
+    , startTimer
     , MicroSeconds
     , MonadTimed
     , RelativeToNow
@@ -148,6 +149,12 @@ during time = do
 -- | Returns whether specified time point has passed
 upto :: MonadTimed m => MicroSeconds -> m (m Bool)
 upto time = return $ (time > ) <$> localTime
+
+-- | Counts time since outer monad layer was unwrapped
+startTimer :: MonadTimed m => m (m MicroSeconds)
+startTimer = do
+    start <- localTime
+    return $ subtract start <$> localTime
 
 -- black magic
 class TimeAcc t where

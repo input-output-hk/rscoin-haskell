@@ -87,6 +87,7 @@ library
                      , safecopy
                      , secp256k1 >= 0.4.5
                      , serokell-core
+                     , stm >= 2.4.4
                      , text >= 1.2.2.0
                      , text-format
                      , time
@@ -226,6 +227,7 @@ executable timed-launch
                      , RSCoin.Test.Timed
                      , RSCoin.Test.MonadRpc
                      , RSCoin.Test.PureRpc
+                     , RSCoin.Test.Misc
   build-depends:        acid-state
                      , aeson >= 0.9.0.1
                      , base >=4.8 && <4.9
@@ -254,6 +256,7 @@ executable timed-launch
                      , safecopy
                      , secp256k1 >= 0.4.5
                      , serokell-core
+                     , stm >= 2.4.4
                      , text >= 1.2.2.0
                      , text-format
                      , time
@@ -352,6 +355,7 @@ executable timed-test
                      , safecopy
                      , secp256k1 >= 0.4.5
                      , serokell-core
+                     , stm >= 2.4.4
                      , text >= 1.2.2.0
                      , text-format
                      , time

@@ -17,7 +17,8 @@ import           Control.Exception.Base (AsyncException (ThreadKilled))
 import           Control.Monad.Catch    (throwM)
 import           Control.Lens           (makeLenses, to, use, (%=), (.=), (^.))
 import           Control.Monad          (void, unless)
-import           Control.Monad.Catch    (MonadCatch, MonadThrow, catch)
+import           Control.Monad.Catch    (MonadCatch, MonadThrow, MonadMask, 
+                                         catch, mask, uninterruptibleMask)
 import           Control.Monad.Cont     (ContT (..), runContT)
 import           Control.Monad.Loops    (whileM_)
 import           Control.Monad.Reader   (ReaderT (..), ask, runReaderT)
@@ -101,6 +102,21 @@ instance MonadCatch m => MonadCatch (TimedT m) where
         handler' r =
             flip runContT (return . const ()) .
             flip runReaderT r . unwrapTimedT . handler
+
+instance MonadMask m => MonadMask (TimedT m) where
+    mask a  =  TimedT $ ReaderT $ \r -> ContT $ \c -> 
+        mask $ \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
+      where
+        q u t  =  TimedT $ ReaderT $ \r -> ContT $ \c -> u $
+            runContT (runReaderT (unwrapTimedT t) r) c
+  
+    uninterruptibleMask a  =  TimedT $ ReaderT $ \r -> ContT $ \c -> 
+        uninterruptibleMask $ 
+            \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
+      where
+        q u t  =  TimedT $ ReaderT $ \r -> ContT $ \c -> u $
+            runContT (runReaderT (unwrapTimedT t) r) c
+        
 
 launchTimedT :: Monad m => TimedT m a -> m ()
 launchTimedT (TimedT t)  =  flip evalStateT emptyScenario

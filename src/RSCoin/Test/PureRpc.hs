@@ -13,7 +13,7 @@ module RSCoin.Test.PureRpc
 
 import           Control.Lens                (use, makeLenses, (.=), (%=))
 import           Control.Monad               (forM_)
-import           Control.Monad.Catch         (MonadThrow, MonadCatch)
+import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask)
 import           Control.Monad.State         (StateT, put, evalStateT, get,
                                               MonadState (state, get, put))
 import           Control.Monad.Trans         (lift, MonadIO, MonadTrans)
@@ -79,7 +79,7 @@ $(makeLenses ''NetInfo)
 newtype PureRpc m a = PureRpc 
     { unwrapPureRpc :: StateT Host (TimedT (StateT (NetInfo (PureRpc m)) m)) a 
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTimed
-               , MonadThrow)
+               , MonadThrow, MonadCatch, MonadMask)
 
 instance MonadTrans PureRpc where
     lift = PureRpc . lift . lift . lift

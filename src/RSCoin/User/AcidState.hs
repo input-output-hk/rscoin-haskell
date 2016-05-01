@@ -8,6 +8,7 @@
 module RSCoin.User.AcidState
        ( RSCoinUserState
        , openState
+       , openMemState
        , closeState
        , initState
 
@@ -38,6 +39,7 @@ import           Control.Monad.Catch (MonadThrow, throwM)
 import           Control.Monad.Trans (liftIO)
 import           Data.Acid           (makeAcidic)
 import qualified Data.Acid           as A
+import           Data.Acid.Memory    as AM
 import           Data.SafeCopy       (base, deriveSafeCopy)
 
 $(deriveSafeCopy 0 'base ''UserAddress)
@@ -57,6 +59,9 @@ openState :: FilePath -> IO RSCoinUserState
 openState path = do
     st <- A.openLocalStateFrom path W.emptyWalletStorage
     A.createCheckpoint st >> return st
+
+openMemState :: IO RSCoinUserState
+openMemState = AM.openMemoryState W.emptyWalletStorage
 
 -- | Closes the ACID state.
 closeState :: RSCoinUserState -> IO ()

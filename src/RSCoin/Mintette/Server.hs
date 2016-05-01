@@ -21,44 +21,42 @@ import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
                                             GetUtxoPset (..), GetBlocks (..),
                                             PreviousMintetteId (..),
-                                            StartPeriod (..), State, closeState,
-                                            openState, GetLogs (..))
+                                            StartPeriod (..), State,
+                                            GetLogs (..))
 import           RSCoin.Mintette.Error     (MintetteError)
 import           RSCoin.Mintette.Worker    (runWorker)
-import           RSCoin.Test               (WorkMode, ServerT, bracket'
+import           RSCoin.Test               (WorkMode, ServerT
                                            , serverTypeRestriction0
                                            , serverTypeRestriction1
                                            , serverTypeRestriction3
                                            )
 
-serve :: WorkMode m => Int -> FilePath -> C.SecretKey -> m ()
-serve port dbPath sk = 
-    bracket' (liftIO $ openState dbPath) (liftIO . closeState) $
-    \st ->
-         do liftIO $ runWorker sk st
-            idr1 <- serverTypeRestriction1
-            idr2 <- serverTypeRestriction1
-            idr3 <- serverTypeRestriction3
-            idr4 <- serverTypeRestriction3
-            idr5 <- serverTypeRestriction0
-            idr6 <- serverTypeRestriction1
-            idr7 <- serverTypeRestriction1
-            C.serve port
-                [ C.method (C.RSCMintette C.PeriodFinished) $ idr1 $ 
-                    handlePeriodFinished sk st
-                , C.method (C.RSCMintette C.AnnounceNewPeriod) $ idr2 $ 
-                    handleNewPeriod st
-                , C.method (C.RSCMintette C.CheckTx) $ idr3 $ 
-                    handleCheckTx sk st
-                , C.method (C.RSCMintette C.CommitTx) $ idr4 $ 
-                    handleCommitTx sk st
-                , C.method (C.RSCDump C.GetMintetteUtxo) $ idr5 $ 
-                    handleGetUtxo st
-                , C.method (C.RSCDump C.GetMintetteBlocks) $ idr6 $ 
-                    handleGetBlocks st
-                , C.method (C.RSCDump C.GetMintetteLogs) $ idr7 $ 
-                    handleGetLogs st
-                ]
+serve :: WorkMode m => Int -> State -> C.SecretKey -> m ()
+serve port st sk = do
+    runWorker sk st
+    idr1 <- serverTypeRestriction1
+    idr2 <- serverTypeRestriction1
+    idr3 <- serverTypeRestriction3
+    idr4 <- serverTypeRestriction3
+    idr5 <- serverTypeRestriction0
+    idr6 <- serverTypeRestriction1
+    idr7 <- serverTypeRestriction1
+    C.serve port
+        [ C.method (C.RSCMintette C.PeriodFinished) $ 
+            idr1 $ handlePeriodFinished sk st
+        , C.method (C.RSCMintette C.AnnounceNewPeriod) $ 
+            idr2 $ handleNewPeriod st
+        , C.method (C.RSCMintette C.CheckTx) $ 
+            idr3 $ handleCheckTx sk st
+        , C.method (C.RSCMintette C.CommitTx) $ 
+            idr4 $ handleCommitTx sk st
+        , C.method (C.RSCDump C.GetMintetteUtxo) $ 
+            idr5 $ handleGetUtxo st
+        , C.method (C.RSCDump C.GetMintetteBlocks) $ 
+            idr6 $ handleGetBlocks st
+        , C.method (C.RSCDump C.GetMintetteLogs) $ 
+            idr7 $ handleGetLogs st
+        ]
     
 toServer :: WorkMode m => IO a -> ServerT m a
 toServer action = liftIO $ action `catch` handler

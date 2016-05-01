@@ -176,4 +176,4 @@ instance MonadThrow m => MonadTimed (TimedT m) where
             \following ->
                  events %= PQ.insert (event following)
     -- FIXME: !
-    timeout _ _ = undefined
+    timeout _ = id

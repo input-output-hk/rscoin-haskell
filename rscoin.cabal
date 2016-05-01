@@ -280,7 +280,8 @@ executable timed-launch
 
 executable timed-test
   main-is:             Main.hs
-  other-modules:        RSCoin.Bank
+  other-modules:       Context
+                     , RSCoin.Bank
                      , RSCoin.Bank.Error
                      , RSCoin.Bank.Storage
                      , RSCoin.Core

@@ -1,86 +1,61 @@
-import           RSCoin.Bank         as B
-import           RSCoin.Mintette     as M
-import           RSCoin.User         as U
-import           RSCoin.Core
-import           RSCoin.Test 
+import           Control.Lens         (view, (^.))
+import           Control.Monad.Trans  (MonadIO, liftIO)
+import           Control.Monad.Reader (runReaderT)
+import           Data.Acid            (update)
+import           Data.Default         (def)
+import           System.Random        (mkStdGen)
 
-import           Control.Monad       (forM, replicateM)
-import           Control.Monad.Trans (liftIO)
-import           Data.Acid           (update)
-import           System.Directory    (getDirectoryContents, removeDirectory)
-import           System.Random       (randomIO)
+import           RSCoin.Bank          as B
+import           RSCoin.Mintette      as M
+import           RSCoin.User          as U
+import           RSCoin.Core          (initLogging, Severity(Info), Mintette(..))
+import           RSCoin.Test          (WorkMode, runRealMode, runEmulationMode,
+                                       upto, mcs, work, minute)
+import           Context              (TestEnv, mkTestContext, state, port, 
+                                       keys, publicKey, secretKey, MintetteInfo,
+                                       bank, mintettes, lifetime)
+
+
 
 main :: IO ()
 main = return ()
 
+launchPure :: Int -> Int -> IO ()
+launchPure mNum uNum = runEmulationMode (mkStdGen 0) def $ launch mNum uNum
 
 launch :: WorkMode m => Int -> Int -> m ()
 launch mNum uNum = do
-    -- preparations
-    liftIO $ do
-        initLogging Info
-        -- TODO: remove tmp/ 
+    liftIO $ initLogging Info
 
-    -- initializing acid states and keys
-    bankSt <- liftIO $ B.openState =<< getClearState
-    mintSt <- liftIO $ replicateM mNum $ M.openState =<< getClearState
+    (mkTestContext mNum uNum (minute 3) >>= ) $ runReaderT $ do
+        runBank
+        _ <- mapM runMintette =<< view mintettes
+        _ <- mapM addMintetteToBank =<< view mintettes
 
-    bankKeys <- liftIO keyGen
-    mintKeys <- liftIO $ replicateM mNum $ keyGen
+        return ()
 
-    -- run bank
-    B.runWorker (secretKey bankKeys) bankSt
-    B.serve bankSt    
-
-    -- run mintettes
-    forM [0 .. mNum - 1] $ \mid -> do
-        M.serve 
-            (makeMintettePort mid) 
-            (mintSt !! mid) 
-            (secretKey $ mintKeys !! mid)
-
-    -- add mintettes to bank
-    liftIO $ forM [0 .. mNum - 1] $ \mid -> do
-        let mint = Mintette "127.0.0.1" (makeMintettePort mid)
-        update bankSt $ B.AddMintette mint (publicKey $ mintKeys !! mid)
-   
-
-    return ()
-  where
-    secretKey = fst
-    publicKey = snd
     
 
--- * info
+runBank :: WorkMode m => TestEnv m ()
+runBank = do
+    b <- view bank
+    l <- view lifetime
+    work (upto $ mcs l) $ B.runWorker (b ^. secretKey) (b ^. state)
+    work (upto $ mcs l) $ B.serve (b ^. state)
+    
+runMintette :: WorkMode m => MintetteInfo -> TestEnv m ()
+runMintette m = do
+    l <- view lifetime
+    work (upto $ mcs l) $ 
+        M.serve <$> view port <*> view state <*> view secretKey $ m
+    work (upto $ mcs l) $
+        M.runWorker <$> view secretKey <*> view state $ m
 
-getClearState :: IO FilePath
-getClearState = do
---    existent <- getDirectoryContents statesDir
---    let files = [statesDir ++ "state" ++ show no | no <- [1..]]
---    return $ head $ dropWhile ( `elem` existent) files
-
-    k <- randomIO :: IO Int
-    return $ statesDir ++ "state" ++ show k
-
-makeMintettePort :: Int -> Int
-makeMintettePort = (+2300)
-
-statesDir :: FilePath
-statesDir = "tmp/"
-
-keysDir :: FilePath
-keysDir = "keys/"
-
-mintetteKey :: Int -> String -> FilePath
-mintetteKey n ext = mconcat 
-    [ keysDir
-    , "mintette"
-    , show n
-    , "/"
-    , "mintette"
-    , show n
-    , "."
-    , ext
-    ]
-
+addMintetteToBank :: MonadIO m => MintetteInfo -> TestEnv m ()
+addMintetteToBank mintette = do
+    let addedMint = Mintette "127.0.0.1" (mintette ^. port)
+        mintPKey  = mintette ^. publicKey        
+    bankSt <- view $ bank . state
+    liftIO $ update bankSt $ B.AddMintette addedMint mintPKey
+    
 

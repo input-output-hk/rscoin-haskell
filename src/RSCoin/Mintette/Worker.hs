@@ -20,26 +20,22 @@ import           RSCoin.Core               (SecretKey, epochDelta, logError)
 import           RSCoin.Mintette.AcidState (FinishEpoch (..), State)
 import           RSCoin.Mintette.Error     (MintetteError (MEInactive))
 
-import           RSCoin.Test               (WorkMode, for, wait, tu, fork, sec)
+import           RSCoin.Test               (WorkMode, for, wait, tu, fork, sec,
+                                            repeatForever)
 
 -- | Start worker which updates state when epoch finishes.
 runWorker :: WorkMode m => SecretKey -> State -> m ()
-runWorker sk st =
-    foreverE $
-    do liftIO $ onEpochFinished sk st
-       wait $ for epochDelta tu
+runWorker sk st = repeatForever (tu epochDelta) handler $ 
+    liftIO $ onEpochFinished sk st
   where
-    foreverE f = let cont = foreverE f
-                 in  fork $ (f >> cont) `catch` handler cont
-    handler cont (e :: SomeException) = do
+    handler e = do
         unless (isMEInactive e) $
             liftIO $
             logError $
             formatSingle'
                 "Error was caught by worker, restarting in 2 seconds: {}"
                 e
-        wait $ for 2 sec
-        cont
+        return $ sec 2
  
 isMEInactive :: SomeException -> Bool
 isMEInactive = maybe False (== MEInactive) . fromException

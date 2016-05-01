@@ -32,7 +32,8 @@ bracket' before after thing =
 --   Can be interrupted with asyncronious exception.
 repeatForever :: (MonadTimed m, MonadIO m, MonadCatch m) 
               => MicroSeconds    -- ^ Period between action launches
-              -> m MicroSeconds  -- ^ What to do on exception,  
+              -> (SomeException -> m MicroSeconds)  
+                                 -- ^ What to do on exception,  
                                  --   returns delay before retrying
               -> m ()            -- ^ Action
               -> m ()           
@@ -43,7 +44,7 @@ repeatForever period handler action = do
         let setNextDelay = liftIO . atomically . T.writeTVar nextDelay . Just
             action'      = action >> timer >>= 
                             \passed -> setNextDelay (period - passed)
-            handler' e   = catchAll e >> handler >>= setNextDelay
+            handler' e   = handler e >>= setNextDelay
         in  action' `catch` handler'
  
     waitForRes nextDelay
@@ -51,9 +52,6 @@ repeatForever period handler action = do
   where
     continue = repeatForever period handler action
 
-    catchAll :: MonadCatch m => SomeException -> m ()
-    catchAll _ = return ()
-    
     waitForRes nextDelay = do
         wait $ for 10 ms
         res <- liftIO $ T.readTVarIO nextDelay

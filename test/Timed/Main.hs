@@ -28,7 +28,6 @@ launchPure mNum uNum = runEmulationMode (mkStdGen 9452) def $ launch mNum uNum
 launch :: WorkMode m => Int -> Int -> m ()
 launch mNum uNum = do
     liftIO $ initLogging Info
-    liftIO $ ensureBankSecretKeyDefined
 
     (mkTestContext mNum uNum (minute 3) >>= ) $ runReaderT $ do
         runBank

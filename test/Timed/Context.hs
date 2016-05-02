@@ -14,7 +14,6 @@ module Context
     , keys, secretKey, publicKey
     , state
     , port
-    , ensureBankSecretKeyDefined
     , bankSkPath
     , bankPkPath
     ) where
@@ -83,16 +82,6 @@ mkTestContext mNum uNum lt = liftIO $
         pk <- readPublicKey =<< bankPkPath
         return (sk, pk)
 
-ensureBankSecretKeyDefined :: IO ()
-ensureBankSecretKeyDefined = do
-    skPath <- bankSkPath
-    pkPath <- bankPkPath
-    ok <- (&&) <$> doesFileExist skPath <*> doesFileExist pkPath
-    unless ok $ do
-        (sk, pk) <- keyGen
-        writeSecretKey skPath sk
-        writePublicKey pkPath pk
-        
 bankSkPath :: MonadIO m => m FilePath
 bankSkPath = liftIO defaultSecretKeyPath
 

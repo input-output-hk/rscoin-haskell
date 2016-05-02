@@ -4,6 +4,7 @@
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE UndecidableInstances      #-}
+{-# OPTIONS_GHC -fno-cse #-}
 
 -- | This module contains pure implementation of MonadTimed.
 
@@ -28,12 +29,16 @@ import           Control.Monad.Trans    (MonadIO, MonadTrans, lift)
 import           Data.Function          (on)
 import           Data.Maybe             (fromJust)
 import           Data.Ord               (comparing)
+import           Data.Text              as T
+import           System.IO.Unsafe       (unsafePerformIO)
 
 import qualified Data.PQueue.Min        as PQ
+import           Serokell.Util.Text     (formatSingle')
 
 import           RSCoin.Test.MonadTimed (MicroSeconds, MonadTimed, localTime,
                                          now, schedule, wait, workWhile,
                                          timeout)
+import           RSCoin.Core.Logging    (logWarning)
 
 type Timestamp = MicroSeconds
 
@@ -151,8 +156,11 @@ runTimedT timed  =  launchTimedT $ do
     notDone :: Monad m => TimedT m Bool
     notDone = TimedT . use $ events . to (not . PQ.null)
 
+    {-# NOINLINE handler #-}
     handler :: Monad m => SomeException -> TimedT m ()
-    handler _ = return ()   -- TODO: log here
+    handler e = let text = formatSingle' "Thread killed by exception: {}" $ 
+                           T.pack . show $ e
+                in  return $! unsafePerformIO $ logWarning text
 
 instance MonadThrow m => MonadTimed (TimedT m) where
     localTime = TimedT $ use curTime

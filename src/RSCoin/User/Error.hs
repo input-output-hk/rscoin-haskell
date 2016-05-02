@@ -57,4 +57,5 @@ eWrap :: (MonadCatch m) => m a -> m a
 eWrap action =
     action `catch` localHandler -- FIXME it doesn't work :(
   where
+    -- TODO: catch RSCoinError here!
     localHandler (UserErrorWithClass e) = throwM $ toUserError e

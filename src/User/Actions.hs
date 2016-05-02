@@ -17,7 +17,7 @@ import qualified Data.Text.IO           as TIO
 
 import           Serokell.Util.Text     (format', formatSingle')
 
-import           RSCoin.Core            as C
+import qualified RSCoin.Core            as C
 import           RSCoin.Test            (WorkMode)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
@@ -53,7 +53,7 @@ proceedCommand st O.UpdateBlockchain =
            formatSingle'
                "Current known blockchain's height (last HBLock's id) is {}."
                walletHeight
-       lastBlockHeight <- pred <$> getBlockchainHeight
+       lastBlockHeight <- pred <$> C.getBlockchainHeight
        when (walletHeight > lastBlockHeight) $
            throwM $
            StorageError $

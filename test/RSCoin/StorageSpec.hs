@@ -15,14 +15,19 @@ module RSCoin.StorageSpec
        ) where
 
 import           Control.Lens              (ix, makeLenses, use,
-                                            (.=), at, preuse)
+                                            (.=), at, preuse, to)
 
-import           Control.Monad              (forM, when)
+import           Control.Monad              (forM, when, forM_)
+import           Control.Monad.Trans        (lift)
 import           Control.Monad.Catch        (MonadThrow (throwM))
+import           Control.Monad.Reader       (MonadReader (ask, local))
+import           Data.Monoid                ((<>))
 import           Control.Exception          (Exception)
 import           Control.Monad.State.Lazy   (gets)
 import qualified Data.Map                   as M
+import           Data.Maybe                 (fromJust)
 import           Data.Text                  (Text)
+import           Serokell.Util.Text         (format', formatSingle')
 import           Data.Typeable              (Typeable)
 import           Test.Hspec                 (Spec, describe)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
@@ -119,10 +124,32 @@ instance CanUpdate StartNewPeriod where
                     liftMintetteUpdate m $ M.startPeriod (newPeriodData !! mId))
             (zip newMintettes [0 ..])
 
--- TODO: do we have to simulate user state?
--- data UpdateToBlockHeight
+data UpdateToBlockHeight = UpdateToBlockHeight
+    deriving Show
 
-data FormTransaction = FormTransaction
+instance Arbitrary UpdateToBlockHeight where
+    arbitrary = pure UpdateToBlockHeight
+
+instance CanUpdate UpdateToBlockHeight where
+    doUpdate _ = do
+        walletHeight <- liftUserUpdate U.getLastBlockId
+        lastBlockHeight <- use $ bankState . B.bankStorage . B.getPeriodId . to pred
+        when (walletHeight > lastBlockHeight) $
+            throwM $
+            U.StorageError $
+            U.InternalError $
+            format'
+                ("Last block height in wallet ({}) is greater than last " <>
+                 "block's height in bank ({}). Critical error.")
+                (walletHeight, lastBlockHeight)
+        when (lastBlockHeight /= walletHeight) $
+            forM_
+                [walletHeight + 1 .. lastBlockHeight]
+                updateToBlockHeight
+      where
+        updateToBlockHeight newHeight = do
+            C.HBlock {..} <- use $ bankState . B.bankStorage . B.getHBlock newHeight . to fromJust
+            liftUserUpdate $ U.withBlockchainUpdate newHeight hbTransactions
 
 instance Arbitrary SomeUpdate where
     arbitrary = 
@@ -130,6 +157,7 @@ instance Arbitrary SomeUpdate where
             [ (1, SomeUpdate <$> (arbitrary :: Gen EmptyUpdate))
             , (10, SomeUpdate <$> (arbitrary :: Gen AddMintette))
             , (10, SomeUpdate <$> (arbitrary :: Gen StartNewPeriod))
+            , (10, SomeUpdate <$> (arbitrary :: Gen UpdateToBlockHeight))
             ]
 
 instance Arbitrary RSCoinState where

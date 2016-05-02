@@ -78,7 +78,7 @@ log msg = do
 
 interruptedLol :: (MonadTimed m, MonadIO m) => m ()
 interruptedLol = do
-    work (during 5000000) tempLol
+    work (during 5 sec) tempLol
 
 tempLol :: (MonadIO m, MonadTimed m) => m ()
 tempLol = do
@@ -104,7 +104,7 @@ handshake = do
 
     let resp = response sync
     restrict $ resp 5
-    work (during $ sec' 3) $ serve 2222 [method "lol" resp, method "qwe" resp]
+    work (during 3 sec) $ serve 2222 [method "lol" resp, method "qwe" resp]
 
     forM_ [1..3] $ \i ->
         schedule (at 1 sec) $ do

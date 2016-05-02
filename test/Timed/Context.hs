@@ -19,17 +19,15 @@ module Context
     ) where
 
 import           Control.Lens         (Getter, makeLenses, _1, _2, to)
-import           Control.Monad        (replicateM, forM, unless)
+import           Control.Monad        (replicateM, forM)
 import           Control.Monad.Trans  (MonadIO, liftIO)
 import           Control.Monad.Reader (ReaderT)
-import           System.Directory     (doesFileExist)
 
 import qualified RSCoin.Bank       as B
 import qualified RSCoin.Mintette   as M
 import qualified RSCoin.User       as U
 import           RSCoin.Core          (SecretKey, PublicKey, keyGen, bankPort,
-                                       readPublicKey, writePublicKey, 
-                                       readSecretKey, writeSecretKey,
+                                       readPublicKey, readSecretKey, 
                                        defaultSecretKeyPath)
 import           RSCoin.Test          (MicroSeconds)
 

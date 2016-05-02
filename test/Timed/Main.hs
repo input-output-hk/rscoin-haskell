@@ -10,13 +10,12 @@ import           RSCoin.Mintette      as M
 import           RSCoin.User          as U
 import           RSCoin.Core          (initLogging, Severity(Info), Mintette(..))
 import           RSCoin.Test          (WorkMode, runRealMode, runEmulationMode,
-                                       upto, mcs, work, minute, wait, for, sec)
+                                       upto, mcs, work, minute, wait, for, sec,
+                                       interval)
 import           Context              (TestEnv, mkTestContext, state, port, 
                                        keys, publicKey, secretKey, MintetteInfo,
-                                       bank, mintettes, lifetime,
-                                       ensureBankSecretKeyDefined, users, buser,
+                                       bank, mintettes, lifetime, users, buser,
                                        UserInfo, bankSkPath, bankPkPath)
-
 
 
 main :: IO ()
@@ -29,7 +28,9 @@ launch :: WorkMode m => Int -> Int -> m ()
 launch mNum uNum = do
     liftIO $ initLogging Info
 
-    (mkTestContext mNum uNum (minute 3) >>= ) $ runReaderT $ do
+    -- mNum mintettes, uNum users (excluding user in bank-mode), 
+    -- emulation duration - 3 minutes
+    (mkTestContext mNum uNum (interval 3 minute) >>= ) $ runReaderT $ do
         runBank
         _ <- mapM runMintette =<< view mintettes
 
@@ -40,22 +41,21 @@ launch mNum uNum = do
         _ <- mapM initUser =<< view users
 
         return ()
-
     
 
 runBank :: WorkMode m => TestEnv m ()
 runBank = do
     b <- view bank
     l <- view lifetime
-    work (upto $ mcs l) $ B.runWorker (b ^. secretKey) (b ^. state)
-    work (upto $ mcs l) $ B.serve (b ^. state)
+    work (upto l mcs) $ B.runWorker (b ^. secretKey) (b ^. state)
+    work (upto l mcs) $ B.serve (b ^. state)
     
 runMintette :: WorkMode m => MintetteInfo -> TestEnv m ()
 runMintette m = do
     l <- view lifetime
-    work (upto $ mcs l) $ 
+    work (upto l mcs) $ 
         M.serve <$> view port <*> view state <*> view secretKey $ m
-    work (upto $ mcs l) $
+    work (upto l mcs) $
         M.runWorker <$> view secretKey <*> view state $ m
 
 addMintetteToBank :: MonadIO m => MintetteInfo -> TestEnv m ()

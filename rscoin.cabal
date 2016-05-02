@@ -114,6 +114,7 @@ executable rscoin-bank
   other-modules:       Options
   build-depends:       acid-state
                      , base >= 4.8 && < 4.9
+                     , exceptions
                      , mtl
                      , optparse-applicative
                      , rscoin
@@ -170,6 +171,7 @@ executable rscoin-mintette
   main-is:             Main.hs
   other-modules:       Options
   build-depends:       base >= 4.8 && < 4.9
+                     , exceptions
                      , mtl >= 2.2.1
                      , optparse-applicative
                      , rscoin

@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-import           Control.Monad.Catch   (MonadCatch, catch, throwM)
+import           Control.Monad.Catch   (MonadCatch, catch, throwM, bracket)
 import           Control.Monad.Trans   (MonadIO, liftIO)
 import qualified Data.Acid             as ACID
 import qualified Data.Text             as T
@@ -7,7 +7,7 @@ import qualified Data.Text             as T
 import           Actions               (proceedCommand)
 import           RSCoin.Core           (initLogging, logDebug)
 import qualified RSCoin.User.AcidState as A
-import           RSCoin.Test           (runRealMode, bracket')
+import           RSCoin.Test           (runRealMode)
 import qualified RSCoin.User.Wallet    as W
 import qualified UserOptions           as O
 
@@ -16,7 +16,7 @@ main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     initLogging logSeverity
     runRealMode $  
-        bracket'
+        bracket
             (liftIO $ A.openState walletPath)
             (\st -> liftIO $ do
                 ACID.createCheckpoint st

@@ -10,21 +10,6 @@ import Control.Concurrent.STM.TVar as T
 import RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds, wait, fork, 
                                     ms, mcs, for, startTimer)
 
--- | Implementation of bracket for any MonadMask
-bracket' :: MonadMask m
-         => m a         -- ^ computation to run first (\"acquire resource\")
-         -> (a -> m b)  -- ^ computation to run last (\"release resource\")
-         -> (a -> m c)  -- ^ computation to run in-between
-         -> m c         -- returns the value from the in-between computation
-bracket' before after thing =
-  mask $ \restore -> do
-    a <- before
-    r <- restore (thing a) `onException` after a
-    _ <- after a
-    return r
-  where
-    onException io what = io `catch` \e -> what >> throwM (e :: SomeException)
-
 
 -- | Repeats an action periodically. 
 --   If it fails, handler is invoked, determing delay for retrying.

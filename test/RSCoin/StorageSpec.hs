@@ -31,12 +31,15 @@ import qualified RSCoin.Bank.Error       as B
 import qualified RSCoin.Mintette.Error   as M
 import qualified RSCoin.Bank.Storage     as B
 import qualified RSCoin.Mintette.Storage as M
+import qualified RSCoin.User.Error       as U
+import qualified RSCoin.User.Wallet      as U
 import qualified RSCoin.Core             as C
 
 import           RSCoin.Core.Arbitrary       ()
 import qualified RSCoin.Core.Storage         as T
 import qualified RSCoin.Bank.StorageSpec     as B
 import qualified RSCoin.Mintette.StorageSpec as M
+import qualified RSCoin.User.StorageSpec     as U
 
 spec :: Spec
 spec =
@@ -52,6 +55,7 @@ instance Exception TestError
 data RSCoinState =
     RSCoinState { _bankState      :: B.BankState
                 , _mintettesState :: M.Map C.Mintette M.MintetteState
+                , _userState      :: U.UserState
                 }
 
 $(makeLenses ''RSCoinState)
@@ -131,14 +135,22 @@ instance Arbitrary SomeUpdate where
 instance Arbitrary RSCoinState where
     arbitrary = do
         bank <- arbitrary
+        user <- arbitrary
         SomeUpdate upd <- arbitrary
-        return . T.execUpdate (doUpdate upd) $ RSCoinState bank M.empty
+        return . T.execUpdate (doUpdate upd) $ RSCoinState bank M.empty user
 
 liftBankUpdate :: T.Update B.BankError B.Storage a -> T.Update C.RSCoinError RSCoinState a
 liftBankUpdate upd = do
     bank <- gets $ B._bankStorage . _bankState
     (res, newBank) <- T.runUpdateSafe upd bank
     bankState . B.bankStorage .= newBank
+    return res
+
+liftUserUpdate :: T.Update U.UserError U.WalletStorage a -> T.Update C.RSCoinError RSCoinState a
+liftUserUpdate upd = do
+    user <- gets $ U._userStorage . _userState
+    (res, newUser) <- T.runUpdateSafe upd user
+    userState . U.userStorage .= newUser
     return res
 
 liftMintetteUpdate :: C.Mintette -> T.Update M.MintetteError M.Storage a -> T.Update C.RSCoinError RSCoinState a

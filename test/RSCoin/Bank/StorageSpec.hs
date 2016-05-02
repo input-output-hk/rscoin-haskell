@@ -18,10 +18,10 @@ module RSCoin.Bank.StorageSpec
        , bankKey
        ) where
 
-import           Control.Lens               (makeLenses)
+import           Control.Lens          (makeLenses)
 
-import           Test.Hspec                 (Spec, describe)
-import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
+import           Test.Hspec            (Spec, describe)
+import           Test.QuickCheck       (Arbitrary (arbitrary), Gen, frequency)
 
 import qualified RSCoin.Bank.Error     as S
 import qualified RSCoin.Bank.Storage   as S

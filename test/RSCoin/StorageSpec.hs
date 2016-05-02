@@ -115,6 +115,11 @@ instance CanUpdate StartNewPeriod where
                     liftMintetteUpdate m $ M.startPeriod (newPeriodData !! mId))
             (zip newMintettes [0 ..])
 
+-- TODO: do we have to simulate user state?
+-- data UpdateToBlockHeight
+
+data FormTransaction = FormTransaction
+
 instance Arbitrary SomeUpdate where
     arbitrary = 
         frequency

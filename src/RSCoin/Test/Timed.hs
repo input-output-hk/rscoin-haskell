@@ -43,7 +43,7 @@ import           RSCoin.Core.Logging    (logWarning)
 type Timestamp = MicroSeconds
 
 -- | Timestamped action
-data Event m  =  Event
+data Event m = Event
     { _timestamp :: Timestamp
     , _action    :: m ()
     , _condition :: m Bool
@@ -52,10 +52,10 @@ data Event m  =  Event
 $(makeLenses ''Event)
 
 instance Eq (Event m) where
-    (==)  =  (==) `on` _timestamp
+    (==) = (==) `on` _timestamp
 
 instance Ord (Event m) where
-    compare  =  comparing _timestamp
+    compare = comparing _timestamp
 
 -- | State for MonadTimed
 data Scenario m = Scenario
@@ -74,7 +74,7 @@ emptyScenario =
 
 -- | Pure implementation of MonadTimed.
 --   It stores an event queue, on wait continuation is passed to that queue
-newtype TimedT m a  =  TimedT
+newtype TimedT m a = TimedT
     { unwrapTimedT :: ReaderT (TimedT m Bool)
                      (ContT ()
                      (StateT (Scenario (TimedT m)) m)) a
@@ -109,30 +109,30 @@ instance MonadCatch m => MonadCatch (TimedT m) where
             flip runReaderT r . unwrapTimedT . handler
 
 instance MonadMask m => MonadMask (TimedT m) where
-    mask a  =  TimedT $ ReaderT $ \r -> ContT $ \c -> 
+    mask a = TimedT $ ReaderT $ \r -> ContT $ \c -> 
         mask $ \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
       where
-        q u t  =  TimedT $ ReaderT $ \r -> ContT $ \c -> u $
+        q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
             runContT (runReaderT (unwrapTimedT t) r) c
   
-    uninterruptibleMask a  =  TimedT $ ReaderT $ \r -> ContT $ \c -> 
+    uninterruptibleMask a = TimedT $ ReaderT $ \r -> ContT $ \c -> 
         uninterruptibleMask $ 
             \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
       where
-        q u t  =  TimedT $ ReaderT $ \r -> ContT $ \c -> u $
+        q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
             runContT (runReaderT (unwrapTimedT t) r) c
         
 
 launchTimedT :: Monad m => TimedT m a -> m ()
-launchTimedT (TimedT t)  =  flip evalStateT emptyScenario
-                         $  flip runContT   (void . return)
-                         $  flip runReaderT (return True)
-                         $  t
+launchTimedT (TimedT t) = flip evalStateT emptyScenario
+                        $ flip runContT   (void . return)
+                        $ flip runReaderT (return True)
+                        $ t
 
 -- | Starts timed evaluation. Finishes when no more scheduled actions remain.
 -- FIXME:  MonadCatch is not necessary here, we just should catch if it can throw
 runTimedT :: (Monad m, MonadCatch m) => TimedT m () -> m ()
-runTimedT timed  =  launchTimedT $ do
+runTimedT timed = launchTimedT $ do
     schedule now timed `catch` handler
     whileM_ notDone $ do
         nextEv <- TimedT $ do

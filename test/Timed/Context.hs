@@ -6,6 +6,7 @@
 module Context 
     ( BankInfo(..)
     , MintetteInfo(..)
+    , UserInfo(..)
     , TestContext(..)
     , TestEnv
     , mkTestContext
@@ -13,17 +14,24 @@ module Context
     , keys, secretKey, publicKey
     , state
     , port
+    , ensureBankSecretKeyDefined
+    , bankSkPath
+    , bankPkPath
     ) where
 
 import           Control.Lens         (Getter, makeLenses, _1, _2, to)
-import           Control.Monad        (replicateM, forM)
+import           Control.Monad        (replicateM, forM, unless)
 import           Control.Monad.Trans  (MonadIO, liftIO)
 import           Control.Monad.Reader (ReaderT)
+import           System.Directory     (doesFileExist)
 
 import qualified RSCoin.Bank       as B
 import qualified RSCoin.Mintette   as M
 import qualified RSCoin.User       as U
-import           RSCoin.Core          (SecretKey, PublicKey, keyGen, bankPort)
+import           RSCoin.Core          (SecretKey, PublicKey, keyGen, bankPort,
+                                       readPublicKey, writePublicKey, 
+                                       readSecretKey, writeSecretKey,
+                                       defaultSecretKeyPath)
 import           RSCoin.Test          (MicroSeconds)
 
 data BankInfo = BankInfo
@@ -57,16 +65,39 @@ $(makeLenses ''TestContext)
 type TestEnv m a = ReaderT TestContext m a
 
 mkTestContext :: MonadIO m => Int -> Int -> MicroSeconds -> m TestContext
-mkTestContext mNum uNum lt = liftIO $ do 
+mkTestContext mNum uNum lt = liftIO $ 
     TestContext <$> binfo <*> minfos <*> buinfo <*> uinfos <*> pure lt
   where
-    binfo  = BankInfo <$> keyGen <*> B.openMemState
+    binfo = BankInfo <$> bankKey <*> B.openMemState
+
     minfos = forM [0 .. mNum - 1] $ \mid ->
              MintetteInfo <$> keyGen <*> M.openMemState <*> pure (2300 + mid)
-    buinfo = UserInfo <$> keyGen <*> U.openMemState
-    uinfos = replicateM mNum $  
-             UserInfo <$> keyGen <*> U.openMemState
 
+    buinfo = UserInfo <$> liftIO keyGen <*> U.openMemState
+
+    uinfos = replicateM uNum $  
+             UserInfo <$> liftIO keyGen <*> U.openMemState
+
+    bankKey = do
+        sk <- readSecretKey =<< bankSkPath
+        pk <- readPublicKey =<< bankPkPath
+        return (sk, pk)
+
+ensureBankSecretKeyDefined :: IO ()
+ensureBankSecretKeyDefined = do
+    skPath <- bankSkPath
+    pkPath <- bankPkPath
+    ok <- (&&) <$> doesFileExist skPath <*> doesFileExist pkPath
+    unless ok $ do
+        (sk, pk) <- keyGen
+        writeSecretKey skPath sk
+        writePublicKey pkPath pk
+        
+bankSkPath :: MonadIO m => m FilePath
+bankSkPath = liftIO defaultSecretKeyPath
+
+bankPkPath :: MonadIO m => m FilePath
+bankPkPath = liftIO $ ( ++ ".pub") <$> defaultSecretKeyPath 
 
 -- * Shortcuts
 

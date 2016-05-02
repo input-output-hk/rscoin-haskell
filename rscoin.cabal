@@ -327,6 +327,7 @@ executable timed-test
                      , RSCoin.Mintette.Worker
                      , RSCoin.Test.MonadTimed
                      , RSCoin.Test.Timed
+                     , RSCoin.Test.TimedIO
                      , RSCoin.Test.MonadRpc
                      , RSCoin.Test.PureRpc
   build-depends:       acid-state

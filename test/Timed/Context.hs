@@ -45,8 +45,7 @@ data MintetteInfo = MintetteInfo
 $(makeLenses ''MintetteInfo)
 
 data UserInfo = UserInfo
-    { _userKeys  :: (SecretKey, PublicKey)
-    , _userState :: U.RSCoinUserState
+    { _userState :: U.RSCoinUserState
     }
 $(makeLenses ''UserInfo)
 
@@ -70,10 +69,10 @@ mkTestContext mNum uNum lt = liftIO $
     minfos = forM [0 .. mNum - 1] $ \mid ->
              MintetteInfo <$> keyGen <*> M.openMemState <*> pure (2300 + mid)
 
-    buinfo = UserInfo <$> liftIO keyGen <*> U.openMemState
+    buinfo = UserInfo <$> U.openMemState
 
     uinfos = replicateM uNum $  
-             UserInfo <$> liftIO keyGen <*> U.openMemState
+             UserInfo <$> U.openMemState
 
     bankKey = do
         sk <- readSecretKey =<< bankSkPath
@@ -102,9 +101,6 @@ instance WithKeys BankInfo where
 
 instance WithKeys MintetteInfo where
     keys = mintetteKeys
-
-instance WithKeys UserInfo where
-    keys = userKeys
 
 
 class WithState w s | w -> s where

@@ -39,6 +39,7 @@ library
                      , RSCoin.User.Error
                      , RSCoin.User.Wallet
                      , RSCoin.User.Logic
+                     , RSCoin.User.Operations
                      , RSCoin.Test
                      , RSCoin.Test.MonadTimed
                      , RSCoin.Test.MonadRpc
@@ -228,7 +229,8 @@ executable timed-launch
                      , RSCoin.Test.MonadRpc
                      , RSCoin.Test.PureRpc
                      , RSCoin.Test.Misc
-  build-depends:        acid-state
+                     , RSCoin.Core.Error
+  build-depends:       acid-state
                      , aeson >= 0.9.0.1
                      , base >=4.8 && <4.9
                      , base64-bytestring >= 1.0.0.1

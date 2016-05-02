@@ -9,10 +9,14 @@ module RSCoin.Test.MonadTimedSpec
        ( spec
        ) where
 
+import           Control.Exception.Base   (Exception, SomeException)
 import           Control.Concurrent.MVar  (newEmptyMVar, putMVar, takeMVar)
-import           Control.Monad.State      (State, execState, modify)
+import           Control.Monad.State      (State, execState, modify, put)
 import           Control.Monad.Trans      (MonadIO, liftIO)
+import           Control.Monad.Catch      (MonadCatch, throwM, catch, handleAll,
+                                           catchAll)
 import           Control.Monad.Catch.Pure (CatchT, runCatchT)
+import           Data.Typeable            (Typeable)
 import           Numeric.Natural          (Natural)
 import           Test.Hspec               (Spec, describe)
 import           Test.Hspec.QuickCheck    (prop)
@@ -24,7 +28,8 @@ import           Test.QuickCheck.Monadic  (PropertyM, assert, monadic, monitor,
 import           Test.QuickCheck.Poly     (A)
 
 import           RSCoin.Test.MonadTimed   (MicroSeconds, MonadTimed (..),
-                                           RelativeToNow, invoke, now, schedule)
+                                           RelativeToNow, invoke, now, schedule,
+                                           for, sec, after)
 import           RSCoin.Test.TimedIO      (TimedIO, runTimedIO)
 import           RSCoin.Test.Timed        (TimedT, runTimedT)
 
@@ -81,6 +86,17 @@ monadTimedTSpec description runProp =
         describe "invoke" $ do
             prop "won't change semantics of an action, will execute action in the future" $
                 \a b -> runProp . invokeSemanticTimedProp a b
+        describe "exceptions" $ do
+            prop "thrown nicely" $
+                runProp exceptionsThrown
+            prop "caught nicely" $
+                runProp exceptionsThrowCaught
+            prop "wait + throw caught nicely" $
+                runProp exceptionsWaitThrowCaught
+            prop "exceptions don't affect main thread" $
+                runProp exceptionNotAffectMainThread 
+            prop "exceptions don't affect other threads" $
+                runProp exceptionNotAffectOtherThread 
 
 
 type TimedTProp = TimedT (CatchT (State Bool))
@@ -254,3 +270,50 @@ actionSemanticTimedProp action val f = do
 
 nowProp :: MicroSeconds -> Property
 nowProp ms = 0 === now ms
+
+
+-- * Excpetions
+
+data TestException = TestExc 
+    deriving (Show, Typeable)
+
+instance Exception TestException
+
+handleAll' :: MonadCatch m => m () -> m ()
+handleAll' = handleAll $ const $ return ()
+
+exceptionsThrown :: TimedTProp ()
+exceptionsThrown = handleAll' $ do
+    throwM TestExc 
+    put False
+
+exceptionsThrowCaught :: TimedTProp ()
+exceptionsThrowCaught = 
+    let act = do
+            put False 
+            throwM TestExc
+        hnd = const $ put True
+    in  act `catchAll` hnd
+
+exceptionsWaitThrowCaught :: TimedTProp ()
+exceptionsWaitThrowCaught = 
+    let act = do
+            put False 
+            wait $ for 1 sec
+            throwM TestExc
+        hnd = const $ put True
+    in  act `catchAll` hnd 
+
+exceptionNotAffectMainThread :: TimedTProp ()
+exceptionNotAffectMainThread = handleAll' $ do
+    put False
+    fork $ throwM TestExc
+    wait $ for 1 sec
+    put True
+
+exceptionNotAffectOtherThread :: TimedTProp ()
+exceptionNotAffectOtherThread = handleAll' $ do
+    put False
+    schedule (after 3 sec) $ put True
+    schedule (after 1 sec) $ throwM TestExc
+

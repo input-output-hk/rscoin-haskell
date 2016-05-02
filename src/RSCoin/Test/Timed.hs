@@ -148,16 +148,17 @@ runTimedT timed = launchTimedT $ do
         -- We want to successfully finish this action and go to next iteration
         -- rather than lose execution control
         let TimedT act = nextEv ^. action
-            act'       = TimedT . lift . lift
-                       $ runContT (runReaderT act cond) return
-            maybeDie   = unless keepAlive $ throwM ThreadKilled
-        (maybeDie >> act') `catch` handler
+            act'     = runContT (runReaderT act cond) return
+            act''    = (maybeDie >> act') `catch` handler
+            act'''   = TimedT . lift . lift $ act''
+            maybeDie = unless keepAlive $ throwM ThreadKilled
+        act'''
   where
     notDone :: Monad m => TimedT m Bool
     notDone = TimedT . use $ events . to (not . PQ.null)
 
     {-# NOINLINE handler #-}
-    handler :: Monad m => SomeException -> TimedT m ()
+    handler :: Monad m => SomeException -> m ()
     handler e = let text = formatSingle' "Thread killed by exception: {}" $ 
                            T.pack . show $ e
                 in  return $! unsafePerformIO $ logWarning text

@@ -1,7 +1,7 @@
 image: haskell:7.10.3
 
 before_script:
-    - while [ $? -ne 0 ]; do apt-get update -y && apt-get install -y -qq git-core dh-autoreconf; done
+    - no_such_command; while [ $? -ne 0 ]; do apt-get update -y && apt-get install -y -qq git-core dh-autoreconf; done
 
 stack_job:
   cache:

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-find $dir -iname "mintette-db" -print | xargs rm -rfv
+find . -iname "mintette-db" -print | xargs rm -rfv

@@ -179,6 +179,16 @@ executable rscoin-mintette
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 
+executable rscoin-user-gui
+  main-is:             Main.hs
+  build-depends:       base >= 4.8 && < 4.9
+                     , transformers >= 0.4.2.0
+                     , gtk3 >= 0.14
+                     , lens
+  hs-source-dirs:      src/GUI
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
+
 test-suite rscoin-test
   main-is:             Test.hs
   other-modules:       RSCoin.Bank.StorageSpec

@@ -27,7 +27,7 @@ import           Data.Tuple.Select     (sel1)
 
 import           Serokell.Util.Text    (format', formatSingle')
 
-import           RSCoin.Core           as C
+import qualified RSCoin.Core           as C
 import           RSCoin.Test           (WorkMode)
 import           RSCoin.User.AcidState (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState as A
@@ -47,15 +47,15 @@ getAmount st userAddress =
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.
-updateToBlockHeight :: WorkMode m => A.RSCoinUserState -> PeriodId -> m ()
+updateToBlockHeight :: WorkMode m => A.RSCoinUserState -> C.PeriodId -> m ()
 updateToBlockHeight st newHeight = do
-    C.HBlock{..} <- getBlockByHeight newHeight
+    C.HBlock{..} <- C.getBlockByHeight newHeight
     -- TODO validate this block with integrity check that we don't have
     liftIO $ update st $ A.WithBlockchainUpdate newHeight hbTransactions
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction :: WorkMode m => 
-    A.RSCoinUserState -> [(Int, Int64)] -> Address -> Coin -> m ()
+    A.RSCoinUserState -> [(Int, Int64)] -> C.Address -> C.Coin -> m ()
 formTransaction st inputs outputAddr outputCoin = do
     when
         (nubBy ((==) `on` fst) inputs /= inputs) $
@@ -74,7 +74,7 @@ formTransaction st inputs outputAddr outputCoin = do
             "Found an account id ({}) that's not in [1..{}]"
             ( head $ filter notInRange $ map fst inputs
             , length accounts)
-    let accInputs :: [(Int, W.UserAddress, Coin)]
+    let accInputs :: [(Int, W.UserAddress, C.Coin)]
         accInputs = map (\(i,c) -> (i, accounts !! (i - 1), C.Coin c)) inputs
         hasEnoughFunds (i,acc,c) = liftIO $ do
             amount <- getAmount st acc
@@ -97,7 +97,7 @@ formTransaction st inputs outputAddr outputCoin = do
     liftIO $ TIO.putStrLn $ 
         formatSingle' "Please check your transaction: {}" outTr
     walletHeight <- liftIO $ query st A.GetLastBlockId
-    lastBlockHeight <- pred <$> getBlockchainHeight
+    lastBlockHeight <- pred <$> C.getBlockchainHeight
     when (walletHeight /= lastBlockHeight) $
         commitError $
         format'
@@ -107,20 +107,20 @@ formTransaction st inputs outputAddr outputCoin = do
     let signatures =
             M.fromList $
             map (\(addrid',address') ->
-                      (addrid', sign (address' ^. W.privateAddress) outTr))
+                      (addrid', C.sign (address' ^. W.privateAddress) outTr))
                 addrPairList
     validateTransaction outTr signatures $ lastBlockHeight + 1
     liftIO $ update st $ A.AddTemporaryTransaction outTr
   where
-    formTransactionMapper :: (Int, W.UserAddress, Coin)
-                          -> IO ([(AddrId, W.UserAddress)], Transaction)
+    formTransactionMapper :: (Int, W.UserAddress, C.Coin)
+                          -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)
     formTransactionMapper (_,a,c) = do
         (addrids :: [C.AddrId]) <-
-            concatMap (getAddrIdByAddress $ W.toAddress a) <$>
+            concatMap (C.getAddrIdByAddress $ W.toAddress a) <$>
             query st (A.GetTransactions a)
-        let (chosen,leftCoin) = chooseAddresses addrids c
+        let (chosen,leftCoin) = C.chooseAddresses addrids c
             transaction =
-                Transaction chosen $
+                C.Transaction chosen $
                 (outputAddr, outputCoin) :
                 (if leftCoin == 0
                      then []
@@ -128,11 +128,11 @@ formTransaction st inputs outputAddr outputCoin = do
             addrPairList = map (, a) chosen
         return (addrPairList, transaction)
     mergeTransactions
-        :: ([(AddrId, W.UserAddress)], Transaction)
-        -> ([(AddrId, W.UserAddress)], Transaction)
-        -> ([(AddrId, W.UserAddress)], Transaction)
+        :: ([(C.AddrId, W.UserAddress)], C.Transaction)
+        -> ([(C.AddrId, W.UserAddress)], C.Transaction)
+        -> ([(C.AddrId, W.UserAddress)], C.Transaction)
     mergeTransactions (s1,a) (s2,b) =
         ( nub $ s1 <> s2
-        , Transaction
-              (txInputs a <> txInputs b)
-              (nub $ txOutputs a <> txOutputs b))
+        , C.Transaction
+              (C.txInputs a <> C.txInputs b)
+              (nub $ C.txOutputs a <> C.txOutputs b))

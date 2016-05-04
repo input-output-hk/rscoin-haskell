@@ -21,16 +21,19 @@ import           Control.Monad              (forM, when, forM_)
 import           Control.Monad.Trans        (lift)
 import           Control.Monad.Catch        (MonadThrow (throwM))
 import           Control.Monad.Reader       (MonadReader (ask, local))
-import           Data.Monoid                ((<>))
 import           Control.Exception          (Exception)
 import           Control.Monad.State.Lazy   (gets)
+import           Data.Int              (Int64)
 import qualified Data.Map                   as M
-import           Data.Maybe                 (fromJust)
+import           Data.Maybe                 (fromJust, fromMaybe)
+import           Data.Monoid                ((<>))
 import           Data.Text                  (Text)
-import           Serokell.Util.Text         (format', formatSingle')
 import           Data.Typeable              (Typeable)
+import           Serokell.Util.Text         (format', formatSingle')
 import           Test.Hspec                 (Spec, describe)
-import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
+import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
+                                            frequency, Positive (..),
+                                            NonEmptyList (..), NonNegative (..))
 
 import qualified RSCoin.Bank.Error       as B
 import qualified RSCoin.Mintette.Error   as M
@@ -60,6 +63,7 @@ instance Exception TestError
 data RSCoinState =
     RSCoinState { _bankState      :: B.BankState
                 , _mintettesState :: M.Map C.Mintette M.MintetteState
+                -- TODO: we should probably need to have multiple user states
                 , _userState      :: U.UserState
                 }
 
@@ -151,6 +155,34 @@ instance CanUpdate UpdateToBlockHeight where
             C.HBlock {..} <- use $ bankState . B.bankStorage . B.getHBlock newHeight . to fromJust
             liftUserUpdate $ U.withBlockchainUpdate newHeight hbTransactions
 
+-- TODO: add endpoint for testing addAddress also
+
+type InvalidAddress = Maybe C.Address
+type ValidAddressIndex = NonNegative Int
+type ToAddressIndex = ValidAddressIndex
+type FromAddresses = NonEmptyList (ValidAddressIndex, Positive Int64)
+
+data FormTransaction = FormTransaction InvalidAddress FromAddresses ToAddressIndex
+    deriving Show
+
+instance Arbitrary FormTransaction where
+    arbitrary = FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance CanUpdate FormTransaction where
+    doUpdate (FormTransaction invalidAddress (getNonEmpty -> fromIndexes) toIndex) = do
+        -- Generating random transaction
+        -- TODO: it would be useful if I could do arbitrary in this monad
+        publicAddresses <- liftUserUpdate U.getPublicAddresses
+        when (null publicAddresses) $
+            throwM $ TestError "No public addresses"
+        let validAddress = getAddress publicAddresses toIndex
+            inputs = map (\(a, b) -> (getNonNegative a, getPositive b)) fromIndexes
+            outputAddr = fromMaybe validAddress invalidAddress
+            outputCoin = C.Coin . sum $ map snd inputs
+        return ()
+      where
+        getAddress [] _ = error "This should not happen"
+        getAddress list index = C.Address $ list !! (getNonNegative index `mod` length list)
 instance Arbitrary SomeUpdate where
     arbitrary = 
         frequency
@@ -158,6 +190,7 @@ instance Arbitrary SomeUpdate where
             , (10, SomeUpdate <$> (arbitrary :: Gen AddMintette))
             , (10, SomeUpdate <$> (arbitrary :: Gen StartNewPeriod))
             , (10, SomeUpdate <$> (arbitrary :: Gen UpdateToBlockHeight))
+            , (10, SomeUpdate <$> (arbitrary :: Gen FormTransaction))
             ]
 
 instance Arbitrary RSCoinState where
@@ -167,6 +200,7 @@ instance Arbitrary RSCoinState where
         SomeUpdate upd <- arbitrary
         return . T.execUpdate (doUpdate upd) $ RSCoinState bank M.empty user
 
+-- TODO: there must be a better way to write this (in more lens style)
 liftBankUpdate :: T.Update B.BankError B.Storage a -> T.Update C.RSCoinError RSCoinState a
 liftBankUpdate upd = do
     bank <- gets $ B._bankStorage . _bankState

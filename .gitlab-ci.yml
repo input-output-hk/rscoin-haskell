@@ -1,7 +1,7 @@
 image: haskell:7.10.3
 
 before_script:
-    - apt-get update -y && apt-get install -y -qq git-core dh-autoreconf
+    - apt-get update -y && apt-get install -y -qq git-core dh-autoreconf pkg-config gtk3 cairo 
 
 stack_job:
   cache:

@@ -1,70 +1,44 @@
-{-# LANGUAGE RecordWildCards #-}
-
 module Controller where
 
+import Control.Concurrent.STM.TBQueue
 import Control.Lens
-
 import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.STM
 
-import Data.IORef
+import Data.Maybe
+import Data.Text (pack)
 
 import Graphics.UI.Gtk
 
-import Wallet
+import AcidExecutor
 
-data OutputWidgets = OutputWidgets {
-    balanceLabel         :: Label,
-    unconfirmedLabel     :: Label,
-    transactionsLabel    :: Label,
-    recentActivityView   :: TreeView,
-    myWalletLabel        :: Label,
-    transactionsNumLabel :: Label,
-    transactionsView     :: TreeView,
-    statusLabel          :: Label
-}
+import RSCoin.Core
+import RSCoin.User
 
-mkOutputWidgets :: Builder -> IO OutputWidgets
-mkOutputWidgets builder = do
-    balanceLabel         <- builderGetObject builder castToLabel "BalanceLabel"
-    unconfirmedLabel     <- builderGetObject builder castToLabel "UnconfirmedLabel"
-    transactionsLabel    <- builderGetObject builder castToLabel "TransactionsLabel"
-    recentActivityView   <- builderGetObject builder castToTreeView "RecentActivityView"
-    myWalletLabel        <- builderGetObject builder castToLabel "MyWalletLabel"
-    transactionsNumLabel <- builderGetObject builder castToLabel "TransactionsNumLabel"
-    transactionsView     <- builderGetObject builder castToTreeView "TransactionsView"
-    statusLabel          <- builderGetObject builder castToLabel "StatusLabel"
-    return OutputWidgets {..}
+import Contacts
+import OutputWidgets
+import Updater
 
-onExit :: IORef Wallet -> IO ()
-onExit _ = putStrLn "Exiting."
+onExit :: TBQueue Operation -> IO ()
+onExit queue = atomically (writeTBQueue queue Exit) >> putStrLn "Exiting..."
 
-onAddContact :: IORef Wallet -> String -> String -> IO ()
-onAddContact wr newName newAddress = do
+onAddContact :: String -> String -> IO ()
+onAddContact newName newAddress = do
     putStrLn $ "Adding contact with name = " ++ newName ++ ", address = " ++ newAddress
-    modifyIORef wr $ contacts %~ ((:) $ Contact newName newAddress)
 
-onSend :: IORef Wallet -> String -> String -> IO ()
-onSend wr sendAddress sendAmount = do
+onSend :: TBQueue Operation -> String -> String -> IO ()
+onSend queue sendAddress sendAmount = do
     putStrLn $ "Sending " ++ sendAmount ++ " to " ++ sendAddress
-    modifyIORef wr $ transactions %~ ((:) $
-        Transaction False (Contact "" sendAddress) (read sendAmount))
+    let amount = read sendAmount
+        pubKey = Address <$> (constructPublicKey $ pack sendAddress)
+    unless (isJust pubKey) $ commitError $ pack "Invalid key."
+    atomically $ writeTBQueue queue $ Send [(1, amount)] (fromJust pubKey) $ Coin amount
 
-showWallet :: OutputWidgets -> IORef Wallet -> IO ()
-showWallet OutputWidgets {..} wr = do
-    wallet <- readIORef wr
-    labelSetText balanceLabel $ show (wallet ^. balance)
-    labelSetText unconfirmedLabel $ show (wallet ^. unconfirmed)
-    let ts = "Transactions: " ++ show (length $ wallet ^. transactions)
-    labelSetText transactionsLabel ts
-    labelSetText transactionsNumLabel ts
-    labelSetText myWalletLabel $ "MY RSCOIN WALLET: " ++ (wallet ^. myAddress)
-    labelSetText statusLabel "Synchronized"
+initializeController :: FilePath -> IO (OutputWidgets, TBQueue Operation)
+initializeController file = do
 
-initializeController :: FilePath -> Wallet -> IO ()
-initializeController file wallet = do
-
-    wr <- newIORef wallet
+    queue <- newTBQueueIO 10
 
     builder <- builderNew
     builderAddFromFile builder file
@@ -72,7 +46,7 @@ initializeController file wallet = do
     ow <- mkOutputWidgets builder
 
     window <- builderGetObject builder castToWindow "Window"
-    _ <- window `on` deleteEvent $ liftIO (onExit wr >> mainQuit) >> return False
+    _ <- window `on` deleteEvent $ liftIO (onExit queue >> mainQuit) >> return False
 
     let tabsNames = ["Wallet", "Send", "Transactions", "Options"]
     buttons <- mapM (builderGetObject builder castToButton . flip (++) "Button") tabsNames
@@ -103,7 +77,7 @@ initializeController file wallet = do
 
     addButton    <- builderGetObject builder castToButton "AddButton"
     contactsView <- builderGetObject builder castToTreeView "ContactsView"
-    cl           <- listStoreNew $ wallet ^. contacts
+    cl           <- listStoreNew []
     treeViewSetModel contactsView cl
     nameCol    <- treeViewColumnNew
     addressCol <- treeViewColumnNew
@@ -119,9 +93,9 @@ initializeController file wallet = do
         newAddress <- entryGetText newAddressEntry
         widgetShowAll contactsOperations
         widgetHide addContact
-        onAddContact wr newName newAddress
+        onAddContact newName newAddress
         _ <- listStoreAppend cl $ Contact newName newAddress
-        showWallet ow wr
+        return ()
 
     cancelButton <- builderGetObject builder castToButton "CancelButton"
     _ <- cancelButton `on` buttonActivated $ do
@@ -154,11 +128,10 @@ initializeController file wallet = do
         sendAmount  <- entryGetText amountEntry
         entrySetText payToEntry ""
         entrySetText amountEntry ""
-        onSend wr sendAddress sendAmount
-        showWallet ow wr
+        onSend queue sendAddress sendAmount
 
     widgetShowAll window
     mapM_ widgetHide tabs
     widgetShow $ head tabs
 
-    showWallet ow wr
+    return (ow, queue)

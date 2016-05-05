@@ -1,3 +1,6 @@
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ViewPatterns              #-}
+
 import           Control.Lens         (view, (^.))
 import           Control.Monad.Trans  (MonadIO, liftIO)
 import           Control.Monad.Reader (runReaderT)
@@ -5,18 +8,48 @@ import           Data.Acid            (update)
 import           Data.Default         (def)
 import           System.Random        (mkStdGen)
 
+import           Test.QuickCheck      (Arbitrary (arbitrary), NonNegative (..),
+                                       Gen, oneof)
+
 import           RSCoin.Bank          as B
 import           RSCoin.Mintette      as M
 import           RSCoin.User          as U
 import           RSCoin.Core          (initLogging, Severity(Info), Mintette(..))
 import           RSCoin.Test          (WorkMode, runRealMode, runEmulationMode,
                                        upto, mcs, work, minute, wait, for, sec,
-                                       interval)
+                                       interval, MicroSeconds)
 import           Context              (TestEnv, mkTestContext, state, port, 
                                        keys, publicKey, secretKey, MintetteInfo,
                                        bank, mintettes, lifetime, users, buser,
                                        UserInfo, bankSkPath)
 
+class Action a where
+    doAction :: WorkMode m => a -> TestEnv m ()
+
+data SomeAction = forall a . Action a => SomeAction a
+
+data EmptyAction = EmptyAction
+    deriving Show
+
+instance Action EmptyAction where
+    doAction _ = pure ()
+
+instance Arbitrary EmptyAction where
+    arbitrary = pure EmptyAction
+
+data WaitAction = WaitAction (NonNegative MicroSeconds)
+    deriving Show
+
+instance Action WaitAction where
+    doAction (WaitAction (getNonNegative -> time)) = wait $ for time mcs
+
+instance Arbitrary WaitAction where
+    arbitrary = WaitAction <$> arbitrary
+
+instance Arbitrary SomeAction where
+    arbitrary = oneof [ SomeAction <$> (arbitrary :: Gen EmptyAction) -- I am not sure does this makes sense when we have WaitAction
+                      , SomeAction <$> (arbitrary :: Gen WaitAction)
+                      ]
 
 main :: IO ()
 main = return ()
@@ -32,15 +65,13 @@ launch mNum uNum = do
     -- emulation duration - 3 minutes
     (mkTestContext mNum uNum (interval 3 minute) >>= ) $ runReaderT $ do
         runBank
-        _ <- mapM runMintette =<< view mintettes
+        mapM_ runMintette =<< view mintettes
 
         wait $ for 5 sec  -- ensure that bank & mintettes have initialized
  
-        _ <- mapM addMintetteToBank =<< view mintettes
+        mapM_ addMintetteToBank =<< view mintettes
         initBUser
-        _ <- mapM initUser =<< view users
-
-        return ()
+        mapM_ initUser =<< view users
     
 
 runBank :: WorkMode m => TestEnv m ()

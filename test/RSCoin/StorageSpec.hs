@@ -1,6 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TemplateHaskell           #-}
@@ -14,42 +14,44 @@ module RSCoin.StorageSpec
        ( spec
        ) where
 
-import           Control.Lens              (ix, makeLenses, use,
-                                            (.=), at, preuse, to, (^.))
+import           Control.Lens                (at, ix, makeLenses, preuse, to,
+                                              use, (.=), (^.))
 
-import           Control.Monad              (forM, when, forM_, unless, filterM)
-import           Control.Monad.Trans        (lift)
-import           Control.Monad.Catch        (MonadThrow (throwM))
-import           Control.Monad.Reader       (MonadReader (ask, local))
-import           Control.Exception          (Exception)
-import           Control.Monad.State.Lazy   (gets)
-import           Data.Int                   (Int64)
-import           Data.Function              (on)
-import           Data.List                  (nub, nubBy)
-import qualified Data.Map                   as M
-import           Data.Maybe                 (fromJust, fromMaybe, isJust)
-import           Data.Monoid                ((<>))
-import           Data.Text                  (Text)
-import           Data.Tuple.Select          (sel1)
-import           Data.Typeable              (Typeable)
-import           Serokell.Util.Text         (format', formatSingle')
-import           Test.Hspec                 (Spec, describe)
-import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
-                                            frequency, Positive (..),
-                                            NonEmptyList (..), NonNegative (..))
+import           Control.Exception           (Exception)
+import           Control.Monad               (filterM, forM, forM_, unless,
+                                              when)
+import           Control.Monad.Catch         (MonadThrow (throwM))
+import           Control.Monad.Reader        (MonadReader (ask, local))
+import           Control.Monad.State.Lazy    (gets)
+import           Control.Monad.Trans         (lift)
+import           Data.Function               (on)
+import           Data.Int                    (Int64)
+import           Data.List                   (nub, nubBy)
+import qualified Data.Map                    as M
+import           Data.Maybe                  (fromJust, fromMaybe, isJust)
+import           Data.Monoid                 ((<>))
+import           Data.Text                   (Text)
+import           Data.Tuple.Select           (sel1)
+import           Data.Typeable               (Typeable)
+import           Serokell.Util.Text          (format', formatSingle')
+import           Test.Hspec                  (Spec, describe)
+import           Test.QuickCheck             (Arbitrary (arbitrary), Gen,
+                                              NonEmptyList (..),
+                                              NonNegative (..), Positive (..),
+                                              frequency)
 
-import qualified RSCoin.Bank.Error       as B
-import qualified RSCoin.Mintette.Error   as M
-import qualified RSCoin.Bank.Storage     as B
-import qualified RSCoin.Mintette.Storage as M
-import qualified RSCoin.User.Error       as U
-import qualified RSCoin.User.Wallet      as U
-import qualified RSCoin.User.Logic       as U
-import qualified RSCoin.Core             as C
+import qualified RSCoin.Bank.Error           as B
+import qualified RSCoin.Bank.Storage         as B
+import qualified RSCoin.Core                 as C
+import qualified RSCoin.Mintette.Error       as M
+import qualified RSCoin.Mintette.Storage     as M
+import qualified RSCoin.User.Error           as U
+import qualified RSCoin.User.Logic           as U
+import qualified RSCoin.User.Wallet          as U
 
+import qualified RSCoin.Bank.StorageSpec     as B
 import           RSCoin.Core.Arbitrary       ()
 import qualified RSCoin.Core.Storage         as T
-import qualified RSCoin.Bank.StorageSpec     as B
 import qualified RSCoin.Mintette.StorageSpec as M
 import qualified RSCoin.User.StorageSpec     as U
 
@@ -117,12 +119,12 @@ instance CanUpdate StartNewPeriod where
         mintettes <- use $ bankState . B.bankStorage . B.getMintettes
         pId <- use $ bankState . B.bankStorage . B.getPeriodId
         bankSk <- use $ bankState . B.bankKey
-        periodResults <- forM mintettes $ 
+        periodResults <- forM mintettes $
             \mId -> do
                 mSk <- preuse $ mintettesState . ix mId . M.mintetteKey
-                maybe 
-                    (throwM $ TestError "No mintettes secret key") 
-                    (liftMintetteUpdate mId . flip M.finishPeriod pId) 
+                maybe
+                    (throwM $ TestError "No mintettes secret key")
+                    (liftMintetteUpdate mId . flip M.finishPeriod pId)
                     mSk
         newPeriodData <- liftBankUpdate . B.startNewPeriod bankSk $ map Just periodResults
         newMintettes <- use $ bankState . B.bankStorage . B.getMintettes
@@ -278,7 +280,7 @@ validateTransaction tx@C.Transaction{..} signatures height = do
     -- there will be few more these functions, like Mintette.Worker, and maybe some other that I am not aware of. I don't like this approach, because lots of logic has been reimplemented. Ideally I should reuse these `WorkMode` functions and run them with pure monad stack `PureRpc` and `TimedT`. What do you think? Or should I just continue and reimplement User.Logic (plus some extra stuff from Core.Communication) and Mintette.Worker.
 
 instance Arbitrary SomeUpdate where
-    arbitrary = 
+    arbitrary =
         frequency
             [ (1, SomeUpdate <$> (arbitrary :: Gen EmptyUpdate))
             , (10, SomeUpdate <$> (arbitrary :: Gen AddMintette))
@@ -312,7 +314,7 @@ liftUserUpdate upd = do
 liftMintetteUpdate :: C.Mintette -> T.Update M.MintetteError M.Storage a -> T.Update C.RSCoinError RSCoinState a
 liftMintetteUpdate mintette upd = do
     mMintette <- gets (fmap M._mintetteStorage . M.lookup mintette . _mintettesState)
-    mRes <- return $ mMintette >>= T.runUpdateSafe upd 
+    mRes <- return $ mMintette >>= T.runUpdateSafe upd
     maybe (throwM $ TestError "No mintette") updateMintette mRes
     -- FIXME: return Maybe a instead of error ?
   where

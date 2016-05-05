@@ -17,7 +17,7 @@ import           System.Random         (mkStdGen)
 
 import           Test.QuickCheck       (Arbitrary (arbitrary), NonNegative (..),
                                         Gen, oneof, Positive (..),
-                                        NonEmptyList (..), generate)
+                                        NonEmptyList (..), generate, frequency, vector)
 
 import qualified  RSCoin.Bank          as B
 import qualified  RSCoin.Mintette      as M
@@ -28,7 +28,8 @@ import            RSCoin.Core          (initLogging, Severity(Info), Mintette(..
                                         Address (..), logDebug)
 import           RSCoin.Test           (WorkMode, runRealMode, runEmulationMode,
                                         upto, mcs, work, minute, wait, for, sec,
-                                        interval, MicroSeconds, PureRpc, fork)
+                                        interval, MicroSeconds, PureRpc, fork,
+                                        invoke, at)
 import           RSCoin.Core.Arbitrary ()
 import           Context               (TestEnv, mkTestContext, state, port, 
                                         keys, publicKey, secretKey, MintetteInfo,
@@ -61,15 +62,15 @@ instance Action EmptyAction where
 instance Arbitrary EmptyAction where
     arbitrary = pure EmptyAction
 
-data WaitAction = WaitAction (NonNegative MicroSeconds)
+data WaitSomeAction = WaitAction (NonNegative MicroSeconds) SomeAction
     deriving Show
 
-instance Action WaitAction where
-    doAction (WaitAction (getNonNegative -> time)) =
-        wait $ for time mcs
+instance Action WaitSomeAction where
+    doAction (WaitAction (getNonNegative -> time) action) =
+        invoke (at time mcs) $ doAction action
 
-instance Arbitrary WaitAction where
-    arbitrary = WaitAction <$> arbitrary
+instance Arbitrary WaitSomeAction where
+    arbitrary = WaitAction <$> arbitrary <*> arbitrary
 
 -- | Nothing represents bank user, otherwise user is selected according
 -- to index in the list
@@ -109,10 +110,10 @@ data UserAction
 
 instance Arbitrary UserAction where
     arbitrary =
-        oneof [ ListAddresses <$> arbitrary
-              , FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary
-              , UpdateBlockchain <$> arbitrary
-              ]
+        frequency [ (1, ListAddresses <$> arbitrary)
+                  , (10, FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary)
+                  , (10, UpdateBlockchain <$> arbitrary)
+                  ]
 
 instance Action UserAction where
     doAction (ListAddresses userIndex) =
@@ -136,23 +137,20 @@ getUser (fromJust -> getNonNegative -> index) = do
     maybe (throwM $ TestError "No user in context") return mState
 
 instance Arbitrary SomeAction where
-    arbitrary = oneof [ -- SomeAction <$> (arbitrary :: Gen EmptyAction) -- I am not sure does this makes sense when we have WaitAction
-                        SomeAction <$> (arbitrary :: Gen WaitAction)
-                      , SomeAction <$> (arbitrary :: Gen UserAction)
+    arbitrary = oneof [ SomeAction <$> (arbitrary :: Gen UserAction)
                       ]
 
 -- TODO: maybe we should create also actions StartMintette, AddMintette, in terms of actions
 
 main :: IO ()
 main = do
-    test 10 10
+    test 10 10 1000
 
-test :: Int -> Int -> IO ()
-test mNum uNum = launchPure mNum uNum $ do
-    actions <- liftIO $ generate (arbitrary :: Gen [UserAction])
-    waits <- liftIO $ generate (arbitrary :: Gen [WaitAction])
+test :: Int -> Int -> Int -> IO ()
+test mNum uNum actionNum = launchPure mNum uNum $ do
+    actions <- liftIO $ generate (vector actionNum :: Gen [WaitSomeAction])
     liftIO $ print actions
-    mapM_ (\(w,a) -> fork $ doAction w >> doAction a) $ zip waits actions
+    mapM_ doAction actions
 
 launchPure :: Int -> Int -> TestEnv (PureRpc IO) () -> IO ()
 launchPure mNum uNum = runEmulationMode (mkStdGen 9452) def . launch mNum uNum

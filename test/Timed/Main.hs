@@ -16,7 +16,8 @@ import           Data.Typeable         (Typeable)
 import           System.Random         (mkStdGen)
 
 import           Test.QuickCheck       (Arbitrary (arbitrary), NonNegative (..),
-                                        Gen, oneof, Positive (..), NonEmptyList (..))
+                                        Gen, oneof, Positive (..),
+                                        NonEmptyList (..), generate)
 
 import qualified  RSCoin.Bank          as B
 import qualified  RSCoin.Mintette      as M
@@ -27,7 +28,7 @@ import            RSCoin.Core          (initLogging, Severity(Info), Mintette(..
                                         Address (..))
 import           RSCoin.Test           (WorkMode, runRealMode, runEmulationMode,
                                         upto, mcs, work, minute, wait, for, sec,
-                                        interval, MicroSeconds)
+                                        interval, MicroSeconds, PureRpc)
 import           RSCoin.Core.Arbitrary ()
 import           Context               (TestEnv, mkTestContext, state, port, 
                                         keys, publicKey, secretKey, MintetteInfo,
@@ -43,7 +44,13 @@ instance Exception TestError
 class Action a where
     doAction :: WorkMode m => a -> TestEnv m ()
 
-data SomeAction = forall a . Action a => SomeAction a
+data SomeAction = forall a . (Action a, Show a) => SomeAction a
+
+instance Show SomeAction where
+    show (SomeAction a) = show a
+
+instance Action SomeAction where
+    doAction (SomeAction a) = doAction a
 
 data EmptyAction = EmptyAction
     deriving Show
@@ -137,13 +144,19 @@ instance Arbitrary SomeAction where
 -- TODO: maybe we should create also actions StartMintette, AddMintette, in terms of actions
 
 main :: IO ()
-main = return ()
+main = do
+    test 10 10
 
-launchPure :: Int -> Int -> IO ()
-launchPure mNum uNum = runEmulationMode (mkStdGen 9452) def $ launch mNum uNum
+test :: Int -> Int -> IO ()
+test mNum uNum = launchPure mNum uNum $ do
+    actions <- liftIO $ generate (arbitrary :: Gen [SomeAction])
+    mapM_ doAction actions
 
-launch :: WorkMode m => Int -> Int -> m ()
-launch mNum uNum = do
+launchPure :: Int -> Int -> TestEnv (PureRpc IO) () -> IO ()
+launchPure mNum uNum = runEmulationMode (mkStdGen 9452) def . launch mNum uNum
+
+launch :: WorkMode m => Int -> Int -> TestEnv m () -> m ()
+launch mNum uNum test = do
     liftIO $ initLogging Info
 
     -- mNum mintettes, uNum users (excluding user in bank-mode), 
@@ -157,6 +170,8 @@ launch mNum uNum = do
         mapM_ addMintetteToBank =<< view mintettes
         initBUser
         mapM_ initUser =<< view users
+
+        test
     
 
 runBank :: WorkMode m => TestEnv m ()

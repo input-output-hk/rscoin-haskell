@@ -1,13 +1,18 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE ViewPatterns              #-}
 
+import           Control.Exception     (Exception)
 import           Control.Lens          (view, (^.), preview, ix, to)
+import           Control.Monad         (forM)
+import           Control.Monad.Catch   (throwM)
 import           Control.Monad.Trans   (MonadIO, liftIO)
 import           Control.Monad.Reader  (runReaderT)
 import           Data.Acid             (update, query)
 import           Data.Int              (Int64)
 import           Data.Default          (def)
 import           Data.Maybe            (fromJust)
+import           Data.Text             (Text)
+import           Data.Typeable         (Typeable)
 import           System.Random         (mkStdGen)
 
 import           Test.QuickCheck       (Arbitrary (arbitrary), NonNegative (..),
@@ -19,7 +24,7 @@ import qualified  RSCoin.User          as U
 import qualified  Actions              as U
 import qualified  UserOptions          as U
 import            RSCoin.Core          (initLogging, Severity(Info), Mintette(..),
-                                        Address)
+                                        Address (..))
 import           RSCoin.Test           (WorkMode, runRealMode, runEmulationMode,
                                         upto, mcs, work, minute, wait, for, sec,
                                         interval, MicroSeconds)
@@ -28,6 +33,12 @@ import           Context               (TestEnv, mkTestContext, state, port,
                                         keys, publicKey, secretKey, MintetteInfo,
                                         bank, mintettes, lifetime, users, buser,
                                         UserInfo, bankSkPath)
+
+data TestError
+    = TestError Text
+    deriving (Show, Typeable, Eq)
+
+instance Exception TestError
 
 class Action a where
     doAction :: WorkMode m => a -> TestEnv m ()
@@ -57,11 +68,27 @@ instance Arbitrary WaitAction where
 -- to index in the list
 type UserIndex = Maybe (NonNegative Int)
 
-type InvalidAddress = Maybe Address
 type ValidAddressIndex = NonNegative Int
-type ToAddress = (UserIndex, InvalidAddress, ValidAddressIndex)
+type ToAddress = Either Address (UserIndex, ValidAddressIndex)
 type FromAddresses = NonEmptyList (ValidAddressIndex, Positive Int64)
 
+type Inputs = [(Int, Int64)]
+
+arbitraryAddress :: WorkMode m => ToAddress -> TestEnv m Address
+arbitraryAddress =
+    either return $
+        \(userIndex, getNonNegative -> addressIndex) -> do
+            user <- getUser userIndex
+            publicAddresses <- liftIO $ query user U.GetPublicAddresses
+            return . Address $ cycle publicAddresses !! addressIndex
+
+arbitraryInputs :: WorkMode m => UserIndex -> FromAddresses -> TestEnv m Inputs
+arbitraryInputs userIndex (getNonEmpty -> fromIndexes) = do
+    --user <- getUser userIndex
+    -- publicAddresses <- liftIO $ query user U.GetPublicAddresses
+    -- TODO: we should probably nub and check bounds of addresses
+    -- to make them valid, but lets first try with this
+    return $ map (\(a, b) -> (getNonNegative a, getPositive b)) fromIndexes
 
 -- data DumpAction
 
@@ -84,9 +111,9 @@ instance Action UserAction where
     doAction (ListAddresses userIndex) =
         runUserAction userIndex U.ListAddresses
     doAction (FormTransaction userIndex fromAddresses toAddress) = do
-        publicAddresses <- getUser userIndex >>= liftIO . flip query U.GetPublicAddresses
-
-        undefined
+        address <- getAddress <$> arbitraryAddress toAddress
+        inputs <- arbitraryInputs userIndex fromAddresses
+        getUser userIndex >>= \s -> U.formTransaction' s inputs (Just $ Address address)
     doAction (UpdateBlockchain userIndex) =
         runUserAction userIndex U.UpdateBlockchain
 
@@ -97,8 +124,9 @@ runUserAction user command =
 getUser :: WorkMode m => UserIndex -> TestEnv m U.RSCoinUserState
 getUser Nothing =
     view $ buser . state
-getUser (fromJust -> getNonNegative -> index) =
-    fmap fromJust . preview $ users . to cycle . ix index . state
+getUser (fromJust -> getNonNegative -> index) = do
+    mState <- preview $ users . to cycle . ix index . state
+    maybe (throwM $ TestError "No user in context") return mState
 
 instance Arbitrary SomeAction where
     arbitrary = oneof [ SomeAction <$> (arbitrary :: Gen EmptyAction) -- I am not sure does this makes sense when we have WaitAction

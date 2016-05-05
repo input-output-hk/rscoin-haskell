@@ -11,7 +11,7 @@ import           Data.Acid             (update, query)
 import           Data.Int              (Int64)
 import           Data.Default          (def)
 import           Data.Maybe            (fromJust)
-import           Data.Text             (Text)
+import           Data.Text             (Text, pack)
 import           Data.Typeable         (Typeable)
 import           System.Random         (mkStdGen)
 
@@ -25,10 +25,10 @@ import qualified  RSCoin.User          as U
 import qualified  Actions              as U
 import qualified  UserOptions          as U
 import            RSCoin.Core          (initLogging, Severity(Info), Mintette(..),
-                                        Address (..))
+                                        Address (..), logDebug)
 import           RSCoin.Test           (WorkMode, runRealMode, runEmulationMode,
                                         upto, mcs, work, minute, wait, for, sec,
-                                        interval, MicroSeconds, PureRpc)
+                                        interval, MicroSeconds, PureRpc, fork)
 import           RSCoin.Core.Arbitrary ()
 import           Context               (TestEnv, mkTestContext, state, port, 
                                         keys, publicKey, secretKey, MintetteInfo,
@@ -136,8 +136,8 @@ getUser (fromJust -> getNonNegative -> index) = do
     maybe (throwM $ TestError "No user in context") return mState
 
 instance Arbitrary SomeAction where
-    arbitrary = oneof [ SomeAction <$> (arbitrary :: Gen EmptyAction) -- I am not sure does this makes sense when we have WaitAction
-                      , SomeAction <$> (arbitrary :: Gen WaitAction)
+    arbitrary = oneof [ -- SomeAction <$> (arbitrary :: Gen EmptyAction) -- I am not sure does this makes sense when we have WaitAction
+                        SomeAction <$> (arbitrary :: Gen WaitAction)
                       , SomeAction <$> (arbitrary :: Gen UserAction)
                       ]
 
@@ -149,8 +149,10 @@ main = do
 
 test :: Int -> Int -> IO ()
 test mNum uNum = launchPure mNum uNum $ do
-    actions <- liftIO $ generate (arbitrary :: Gen [SomeAction])
-    mapM_ doAction actions
+    actions <- liftIO $ generate (arbitrary :: Gen [UserAction])
+    waits <- liftIO $ generate (arbitrary :: Gen [WaitAction])
+    liftIO $ print actions
+    mapM_ (\(w,a) -> fork $ doAction w >> doAction a) $ zip waits actions
 
 launchPure :: Int -> Int -> TestEnv (PureRpc IO) () -> IO ()
 launchPure mNum uNum = runEmulationMode (mkStdGen 9452) def . launch mNum uNum

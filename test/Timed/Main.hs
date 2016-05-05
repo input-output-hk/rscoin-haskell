@@ -15,7 +15,7 @@ import           RSCoin.Test          (WorkMode, runRealMode, runEmulationMode,
 import           Context              (TestEnv, mkTestContext, state, port, 
                                        keys, publicKey, secretKey, MintetteInfo,
                                        bank, mintettes, lifetime, users, buser,
-                                       UserInfo, bankSkPath, bankPkPath)
+                                       UserInfo, bankSkPath)
 
 
 main :: IO ()
@@ -73,6 +73,3 @@ initBUser = do
 
 initUser :: WorkMode m => UserInfo -> TestEnv m ()
 initUser user = U.initState (user ^. state) 5 Nothing
-    
-
-

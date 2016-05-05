@@ -15,7 +15,6 @@ module Context
     , state
     , port
     , bankSkPath
-    , bankPkPath
     ) where
 
 import           Control.Lens         (Getter, makeLenses, _1, _2, to)
@@ -27,7 +26,7 @@ import qualified RSCoin.Bank       as B
 import qualified RSCoin.Mintette   as M
 import qualified RSCoin.User       as U
 import           RSCoin.Core          (SecretKey, PublicKey, keyGen, bankPort,
-                                       readPublicKey, readSecretKey, 
+                                       derivePublicKey, readSecretKey, 
                                        defaultSecretKeyPath)
 import           RSCoin.Test          (MicroSeconds)
 
@@ -76,14 +75,10 @@ mkTestContext mNum uNum lt = liftIO $
 
     bankKey = do
         sk <- readSecretKey =<< bankSkPath
-        pk <- readPublicKey =<< bankPkPath
-        return (sk, pk)
+        return (sk, derivePublicKey sk)
 
 bankSkPath :: MonadIO m => m FilePath
 bankSkPath = liftIO defaultSecretKeyPath
-
-bankPkPath :: MonadIO m => m FilePath
-bankPkPath = liftIO $ ( ++ ".pub") <$> defaultSecretKeyPath 
 
 -- * Shortcuts
 
@@ -124,4 +119,3 @@ instance WithPort BankInfo where
 
 instance WithPort MintetteInfo where
     port = mintettePort
-

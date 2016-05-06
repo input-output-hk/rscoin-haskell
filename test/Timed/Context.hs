@@ -57,7 +57,7 @@ data TestContext = TestContext
     }
 $(makeLenses ''TestContext)
 
-type TestEnv m a = ReaderT TestContext m a
+type TestEnv m = ReaderT TestContext m
 
 mkTestContext :: MonadIO m => Int -> Int -> MicroSeconds -> m TestContext
 mkTestContext mNum uNum lt = liftIO $ 

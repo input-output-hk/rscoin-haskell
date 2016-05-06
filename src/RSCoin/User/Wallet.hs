@@ -18,6 +18,7 @@ module RSCoin.User.Wallet
        , WalletStorageError (..)
        , WalletStorage
        , emptyWalletStorage
+       , isInitialized
        , getAllAddresses
        , getPublicAddresses
        , addTemporaryTransaction
@@ -127,6 +128,12 @@ checkInitR action = do
     if a && b
         then action
         else throwM NotInitialized
+
+isInitialized :: ExceptQuery Bool
+isInitialized = do
+    a <- L.views userAddresses (not . null)
+    b <- L.views lastBlockId isJust
+    return $ a && b
 
 -- | Get all available user addresses with private keys
 getAllAddresses :: ExceptQuery [UserAddress]

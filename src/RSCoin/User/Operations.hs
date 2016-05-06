@@ -4,7 +4,8 @@
 -- | Basic operations with wallet.
 
 module RSCoin.User.Operations
-       ( commitError
+       ( walletInitialized
+       , commitError
        , getAmount
        , updateToBlockHeight
        , formTransaction
@@ -34,6 +35,9 @@ import qualified RSCoin.User.AcidState as A
 import           RSCoin.User.Error     (UserError (..))
 import           RSCoin.User.Logic     (validateTransaction)
 import qualified RSCoin.User.Wallet    as W
+
+walletInitialized :: A.RSCoinUserState -> IO Bool
+walletInitialized st = query st A.IsInitialized
 
 commitError :: MonadThrow m => T.Text -> m ()
 commitError = throwM . InputProcessingError

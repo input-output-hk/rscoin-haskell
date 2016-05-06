@@ -24,7 +24,8 @@ import           Serokell.Util.OptParse (strOption)
 
 -- | Input user command that's contained in every program call
 data UserCommand
-    = ListAddresses                 -- ^ List all addresses in wallet,
+    = StartGUI                      -- ^ Start graphical user interface
+    | ListAddresses                 -- ^ List all addresses in wallet,
                                     -- starting with 1
     | UpdateBlockchain              -- ^ Query bank to update wallet
                                     -- state according to blockchain
@@ -66,6 +67,11 @@ userCommandParser :: Parser UserCommand
 userCommandParser =
     subparser
         (command
+             "start-gui"
+             (info
+                  (pure StartGUI)
+                  (progDesc "Start graphical user interface.")) <>
+        command
              "list"
              (info
                   (pure ListAddresses)

@@ -3,7 +3,7 @@ image: haskell:7.10.3
 before_script:
     - RC=1; while [ $RC -eq 1 ]; do apt-get update -y; apt-get install -y -qq git-core dh-autoreconf; RC=$?; done
 
-stack_job:
+rscoin_test:
   cache:
     untracked: true
     paths:
@@ -13,3 +13,14 @@ stack_job:
     - mkdir -p `pwd`/___restore
     - ln -s `pwd`/___restore /root/.stack
     - stack --no-terminal test rscoin
+
+rscoin_bench:
+  cache:
+    untracked: true
+    paths:
+      - .stack-work
+      - ___restore
+  script:
+    - mkdir -p `pwd`/___restore
+    - ln -s `pwd`/___restore /root/.stack
+    - stack --no-terminal bench rscoin

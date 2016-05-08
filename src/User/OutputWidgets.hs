@@ -18,6 +18,8 @@ data OutputWidgets = OutputWidgets
     , transactionsNumLabel :: G.Label
     , transactionsView     :: G.TreeView
     , statusLabel          :: G.Label
+    , notificationWindow   :: G.Window
+    , messageLabel         :: G.Label
     }
 
 mkOutputWidgets :: G.Builder -> IO OutputWidgets
@@ -33,4 +35,6 @@ mkOutputWidgets builder = do
     transactionsNumLabel <- getWidget G.castToLabel    "TransactionsNumLabel"
     transactionsView     <- getWidget G.castToTreeView "TransactionsView"
     statusLabel          <- getWidget G.castToLabel    "StatusLabel"
+    notificationWindow   <- getWidget G.castToWindow   "NotificationWindow"
+    messageLabel         <- getWidget G.castToLabel    "MessageLabel"
     return OutputWidgets {..}

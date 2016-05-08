@@ -5,7 +5,8 @@ module GUI (runGUI) where
 import           Control.Concurrent             (forkIO)
 import           Control.Concurrent.STM.TBQueue (TBQueue, writeTBQueue)
 import           Control.Lens                   ((^.))
-import           Control.Monad                  (forM, forM_, unless, void)
+import           Control.Monad                  (forM, forM_, void, when)
+import           Control.Monad.Catch            (catch)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.STM              (atomically)
 import           Data.Maybe                     (fromJust, isJust)
@@ -13,6 +14,7 @@ import           Data.Text                      (pack)
 
 import           Graphics.UI.Gtk                (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk                as G
+import           Serokell.Util.Text             (readUnsignedDecimal)
 
 import           ActionsExecutor                as A
 import           Contacts                       (Contact (..), address, name)
@@ -26,13 +28,19 @@ onExit queue = atomically (writeTBQueue queue A.Exit)
 onAddContact :: String -> String -> IO ()
 onAddContact _ _ = return ()
 
-onSend :: TBQueue A.Action -> String -> String -> IO ()
-onSend queue sendAddress sendAmount = do
-    let amount = read sendAmount
+onSend :: TBQueue A.Action -> OutputWidgets -> String -> String -> IO ()
+onSend queue ow sendAddress sendAmount = do
+    let amount = readUnsignedDecimal $ pack sendAmount
         pubKey = C.Address <$> (C.constructPublicKey $ pack sendAddress)
-    unless (isJust pubKey) $ commitError $ pack "Invalid key."
-    atomically $ writeTBQueue queue $
-        A.Send [(1, amount)] (fromJust pubKey) $ C.Coin amount
+    case amount of
+        Left s -> G.postGUIAsync $ do
+            G.labelSetText (messageLabel ow) "Bad number format."
+            G.widgetShowAll (notificationWindow ow)
+        Right a -> if isJust pubKey
+            then atomically $ writeTBQueue queue $ A.Send (fromJust pubKey) a
+            else G.postGUIAsync $ do
+                G.labelSetText (messageLabel  ow) "Bad key."
+                G.widgetShowAll (notificationWindow ow)
 
 initializeGUI :: TBQueue A.Action -> IO O.OutputWidgets
 initializeGUI queue = do
@@ -98,7 +106,6 @@ initializeGUI queue = do
         G.widgetHide addContact
         onAddContact newName newAddress
         void $ G.listStoreAppend cl $ Contact (pack newName) (pack newAddress)
-        return ()
 
     cancelButton <- getWidget G.castToButton "CancelButton"
     void $ cancelButton `on` G.buttonActivated $ do
@@ -112,10 +119,9 @@ initializeGUI queue = do
         G.widgetShowAll $ tabs !! 1
         selection <- G.treeViewGetSelection contactsView
         rows <- G.treeSelectionGetSelectedRows selection
-        if length rows > 0 then do
+        when (length rows > 0) $ do
             c <- G.listStoreGetValue cl $ head $ head rows
             G.entrySetText payToEntry $ c ^. address
-        else return ()
 
     selectAddressButton <- getWidget G.castToButton "SelectAddressButton"
     void $ selectAddressButton `on` G.buttonActivated $ do
@@ -131,7 +137,11 @@ initializeGUI queue = do
         sendAmount  <- G.entryGetText amountEntry
         G.entrySetText payToEntry ""
         G.entrySetText amountEntry ""
-        onSend queue sendAddress sendAmount
+        onSend queue ow sendAddress sendAmount
+
+    okButton <- getWidget G.castToButton "OKButton"
+    void $ okButton `on` G.buttonActivated
+        $ G.widgetHide $ notificationWindow ow
 
     G.widgetShowAll window
     mapM_ G.widgetHide tabs

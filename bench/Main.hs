@@ -21,7 +21,10 @@ import           Control.Monad.Extra (whenM)
 import           System.Directory    (createDirectoryIfMissing,
                                       doesDirectoryExist,
                                       removeDirectoryRecursive)
-import           System.FilePath     ((</>))
+import           System.FilePath     ((</>), takeDirectory)
+
+homeKeyDirectory :: IO FilePath
+homeKeyDirectory = takeDirectory <$> defaultSecretKeyPath
 
 tempBenchDirectory :: FilePath
 tempBenchDirectory = ".bench-local"
@@ -30,10 +33,21 @@ bankLocalDirectory :: FilePath
 bankLocalDirectory = tempBenchDirectory </> "bank-db"
 
 setupBench :: IO ()
-setupBench = createDirectoryIfMissing False tempBenchDirectory
+setupBench = do
+    createDirectoryIfMissing False tempBenchDirectory
+    
+    createDirectoryIfMissing False =<< homeKeyDirectory
+    skPath <- defaultSecretKeyPath
+    writeFile skPath "SecKey \"448d85e1261c2ce919bdbdf1b3830653e91380f4f22ef6d5b0edfb6537dd0772\""
 
 cleanupBench :: IO ()
-cleanupBench = whenM (doesDirectoryExist tempBenchDirectory) (removeDirectoryRecursive tempBenchDirectory)
+cleanupBench = do
+    removeDirectoryRecursiveIfExists tempBenchDirectory
+    removeDirectoryRecursiveIfExists =<< homeKeyDirectory
+  where
+    removeDirectoryRecursiveIfExists :: FilePath -> IO ()
+    removeDirectoryRecursiveIfExists directoryName = 
+        whenM (doesDirectoryExist directoryName) (removeDirectoryRecursive directoryName)
 
 bankBracket :: (B.State -> MsgPackRpc ()) -> IO ()
 bankBracket bankStateFun = 

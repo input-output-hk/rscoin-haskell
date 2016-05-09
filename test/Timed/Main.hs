@@ -74,7 +74,7 @@ type WaitSomeAction = WaitAction SomeAction
 
 instance Action a => Action (WaitAction a) where
     doAction (WaitAction (getNonNegative -> time) action) =
-        invoke (at time mcs) $ doAction action
+        invoke (for time sec) $ doAction action
 
 instance Arbitrary a => Arbitrary (WaitAction a) where
     arbitrary = WaitAction <$> arbitrary <*> arbitrary
@@ -99,16 +99,21 @@ arbitraryAddress =
 
 arbitraryInputs :: WorkMode m => UserIndex -> FromAddresses -> TestEnv m Inputs
 arbitraryInputs userIndex (getNonEmpty -> fromIndexes) = do
-    user <- getUser userIndex
-    allAddresses <- liftIO $ query user U.GetAllAddresses
-    publicAddresses <- liftIO $ query user U.GetPublicAddresses
-    addressesAmount <- mapM (U.getAmount user) allAddresses
-    when (null publicAddresses) $
-        throwM $ TestError "No public addresses in this user"
-    -- TODO: for now we are sending all coins. It would be good to send some amount of coins that we have
-    return $ filter ((> 0) . snd) . nubBy ((==) `on` fst) 
-        $ map (\(a, b) -> (a + 1, getCoin $ addressesAmount !! a))
-        $ map (\(getNonNegative -> a, getNonNegative -> b) -> (a `mod` length publicAddresses, b)) fromIndexes
+    return [(1, 50)]
+--    user <- getUser userIndex
+--    allAddresses <- liftIO $ query user U.GetAllAddresses
+--    publicAddresses <- liftIO $ query user U.GetPublicAddresses
+--    addressesAmount <- mapM (U.getAmount user) allAddresses
+--    when (null publicAddresses) $
+--        throwM $ TestError "No public addresses in this user"
+--    -- TODO: for now we are sending all coins. It would be good to send some amount of coins that we have
+--    return $ nubBy ((==) `on` fst) 
+--        $ filter ((> 0) . snd)
+--        $ addAtLeastOneAddress addressesAmount
+--        $ map (\(a, b) -> (a + 1, getCoin $ addressesAmount !! a))
+--        $ map (\(getNonNegative -> a, getNonNegative -> b) -> (a `mod` length publicAddresses, b)) fromIndexes
+--  where
+--    addAtLeastOneAddress addressesAmount = ((1, getCoin $ addressesAmount !! 0):)
 
 -- data DumpAction
 
@@ -130,7 +135,8 @@ instance Arbitrary UserAction where
 instance Action UserAction where
     doAction (ListAddresses userIndex) =
         runUserAction userIndex U.ListAddresses
-    doAction (FormTransaction userIndex fromAddresses toAddress) = do
+    doAction (FormTransaction userIndex' fromAddresses toAddress) = do
+        let userIndex = Nothing
         address <- getAddress <$> arbitraryAddress toAddress
         inputs <- arbitraryInputs userIndex fromAddresses
         getUser userIndex >>= \s -> U.formTransaction' s inputs (Just $ Address address)
@@ -181,7 +187,7 @@ launch mNum uNum test = do
         runBank
         mapM_ runMintette =<< view mintettes
 
-        wait $ for 5 sec  -- ensure that bank & mintettes have initialized
+        wait $ for 50 sec  -- ensure that bank & mintettes have initialized
  
         mapM_ addMintetteToBank =<< view mintettes
         initBUser

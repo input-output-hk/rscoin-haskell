@@ -217,6 +217,8 @@ test-suite rscoin-test
                      , msgpack-rpc >= 1.0.0
                      , random >= 1.1
                      , MonadRandom >= 0.4.2.2
+                     , acid-state >= 0.14.0
+                     , data-default
                      , rscoin
   hs-source-dirs:      test
   default-language:    Haskell2010

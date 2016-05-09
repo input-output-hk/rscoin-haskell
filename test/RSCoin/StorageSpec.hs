@@ -29,8 +29,6 @@ import           Data.Typeable               (Typeable)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Arbitrary (arbitrary), Gen,
-                                              NonEmptyList (..),
-                                              NonNegative (..), Positive (..),
                                               frequency)
 
 import qualified RSCoin.Bank.Error           as B

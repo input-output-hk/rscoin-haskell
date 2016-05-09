@@ -3,7 +3,7 @@
 {-# LANGUAGE ViewPatterns              #-}
 
 module Timed.RSCoinSpec 
-       (
+       ( spec
        ) where
 
 import           Control.Exception     (Exception)
@@ -26,6 +26,7 @@ import           Serokell.Util.Text    (formatSingle')
 import           Test.QuickCheck       (Arbitrary (arbitrary), NonNegative (..),
                                         Gen, oneof, Positive (..),
                                         NonEmptyList (..), generate, frequency, vector)
+import           Test.Hspec            (Spec)
 
 import qualified RSCoin.Bank           as B
 import qualified RSCoin.Mintette       as M
@@ -159,7 +160,13 @@ instance Arbitrary SomeAction where
     arbitrary = oneof [ SomeAction <$> (arbitrary :: Gen UserAction)
                       ]
 
+data AddMintette = AddMintette
+    deriving Show
+
 -- TODO: maybe we should create also actions StartMintette, AddMintette, in terms of actions
+
+spec :: Spec
+spec = return ()
 
 main :: IO ()
 main = do

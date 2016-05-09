@@ -209,6 +209,8 @@ test-suite rscoin-test
                      , mtl
                      , QuickCheck >= 2.8.1
                      , stm >= 2.4.4.1
+                     , serokell-core
+                     , tuple
                      , msgpack >= 1.0.0
                      , vector >= 0.11.0.0
                      , async >= 2.0.1

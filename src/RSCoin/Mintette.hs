@@ -8,3 +8,4 @@ module RSCoin.Mintette
 import           RSCoin.Mintette.AcidState as Exports
 import           RSCoin.Mintette.Error     as Exports
 import           RSCoin.Mintette.Server    as Exports
+import           RSCoin.Mintette.Worker    as Exports

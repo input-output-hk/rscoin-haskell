@@ -6,6 +6,7 @@
 module RSCoin.Mintette.AcidState
        ( State
        , openState
+       , openMemState
        , closeState
        , GetUtxoPset (..)
        , PreviousMintetteId (..)
@@ -23,6 +24,7 @@ import           Control.Monad.Catch     (MonadThrow (throwM))
 import           Data.Acid               (AcidState, Query, Update,
                                           closeAcidState, makeAcidic,
                                           openLocalStateFrom)
+import           Data.Acid.Memory        (openMemoryState)
 import           Data.SafeCopy           (base, deriveSafeCopy)
 
 import           RSCoin.Core             (AddrId, CheckConfirmation,
@@ -40,6 +42,9 @@ $(deriveSafeCopy 0 'base ''MS.Storage)
 
 openState :: FilePath -> IO State
 openState fp = openLocalStateFrom fp MS.mkStorage
+
+openMemState :: IO State
+openMemState = openMemoryState MS.mkStorage
 
 closeState :: State -> IO ()
 closeState = closeAcidState

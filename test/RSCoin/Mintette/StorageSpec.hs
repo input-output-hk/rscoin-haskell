@@ -18,11 +18,11 @@ module RSCoin.Mintette.StorageSpec
        , mintetteKey
        ) where
 
-import           Control.Lens               (makeLenses)
+import           Control.Lens              (makeLenses)
 
-import           Control.Monad              (void)
-import           Test.Hspec                 (Spec, describe)
-import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
+import           Control.Monad             (void)
+import           Test.Hspec                (Spec, describe)
+import           Test.QuickCheck           (Arbitrary (arbitrary), Gen, frequency)
 
 import qualified RSCoin.Mintette.Error     as S
 import qualified RSCoin.Mintette.Storage   as S

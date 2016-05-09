@@ -6,11 +6,10 @@ module RSCoin.Mintette.Worker
        ( runWorker
        ) where
 
-import           Control.Concurrent        (forkFinally, threadDelay)
 import           Control.Exception         (SomeException, fromException)
-import           Control.Monad             (unless, void)
+import           Control.Monad             (unless)
+import           Control.Monad.Trans       (liftIO)
 import           Data.Acid                 (createCheckpoint, update)
-import           Data.Time.Units           (toMicroseconds)
 
 import           Serokell.Util.Exceptions  ()
 import           Serokell.Util.Text        (formatSingle')
@@ -20,24 +19,23 @@ import           RSCoin.Core               (SecretKey, epochDelta, logError)
 import           RSCoin.Mintette.AcidState (FinishEpoch (..), State)
 import           RSCoin.Mintette.Error     (MintetteError (MEInactive))
 
+import           RSCoin.Test               (WorkMode, tu, sec,
+                                            repeatForever)
+
 -- | Start worker which updates state when epoch finishes.
-runWorker :: SecretKey -> State -> IO ()
-runWorker sk st =
-    foreverE $
-    do onEpochFinished sk st
-       threadDelay (fromIntegral $ toMicroseconds epochDelta)
+runWorker :: WorkMode m => SecretKey -> State -> m ()
+runWorker sk st = repeatForever (tu epochDelta) handler $ 
+    liftIO $ onEpochFinished sk st
   where
-    foreverE f = void $ forkFinally f $ handler $ foreverE f
-    handler f (Left (e :: SomeException)) = do
+    handler e = do
         unless (isMEInactive e) $
+            liftIO $
             logError $
             formatSingle'
                 "Error was caught by worker, restarting in 2 seconds: {}"
                 e
-        threadDelay $ 2 * 1000 * 1000
-        f
-    handler f (Right _) = f
-
+        return $ sec 2
+ 
 isMEInactive :: SomeException -> Bool
 isMEInactive = maybe False (== MEInactive) . fromException
 

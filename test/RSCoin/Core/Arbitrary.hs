@@ -15,4 +15,10 @@ instance Arbitrary C.Mintette where
     arbitrary = C.Mintette <$> arbitrary <*> arbitrary
 
 instance Arbitrary C.Hash where
-  arbitrary = (C.hash :: C.Mintette -> C.Hash) <$> arbitrary
+    arbitrary = (C.hash :: C.Mintette -> C.Hash) <$> arbitrary
+
+instance Arbitrary C.Address where
+    arbitrary = C.Address <$> arbitrary
+
+instance Arbitrary C.Transaction where
+    arbitrary = undefined

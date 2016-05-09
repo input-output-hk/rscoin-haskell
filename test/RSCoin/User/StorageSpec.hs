@@ -7,15 +7,15 @@
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
 
--- | HSpec specification of Bank's Storage.
+-- | HSpec specification of User's Storage.
 
-module RSCoin.Bank.StorageSpec
+module RSCoin.User.StorageSpec
        ( spec
        , Update
        , UpdateVoid
-       , BankState (..)
-       , bankStorage
-       , bankKey
+       , UserState (..)
+       , userStorage
+       , userKey
        ) where
 
 import           Control.Lens          (makeLenses)
@@ -23,8 +23,8 @@ import           Control.Lens          (makeLenses)
 import           Test.Hspec            (Spec, describe)
 import           Test.QuickCheck       (Arbitrary (arbitrary), Gen, frequency)
 
-import qualified RSCoin.Bank.Error     as S
-import qualified RSCoin.Bank.Storage   as S
+import qualified RSCoin.User.Error     as S
+import qualified RSCoin.User.Wallet    as S
 import qualified RSCoin.Core           as C
 
 import           RSCoin.Core.Arbitrary ()
@@ -32,12 +32,10 @@ import qualified RSCoin.Core.Storage   as T
 
 spec :: Spec
 spec =
-    describe "Bank storage" $ do
-    describe "startNewPeriod" $ do
+    describe "User storage" $ do
         return ()
-            -- prop "Increments periodId" startNewPeriodIncrementsPeriodId
 
-type Update = T.Update S.BankError S.Storage
+type Update = T.Update S.UserError S.WalletStorage
 type UpdateVoid = Update ()
 
 class CanUpdate a where
@@ -54,35 +52,24 @@ instance Arbitrary EmptyUpdate where
 instance CanUpdate EmptyUpdate where
     doUpdate _ = return ()
 
-data AddMintette = AddMintette C.Mintette C.PublicKey
-
-instance Arbitrary AddMintette where
-  arbitrary = AddMintette <$> arbitrary <*> arbitrary
-
-instance CanUpdate AddMintette where
-    doUpdate (AddMintette m k) = S.addMintette m k
-
 instance Arbitrary SomeUpdate where
     arbitrary =
         frequency
             [ (1, SomeUpdate <$> (arbitrary :: Gen EmptyUpdate))
-            , (10, SomeUpdate <$> (arbitrary :: Gen AddMintette))]
+            ]
 
-data BankState = BankState
-    { _bankStorage :: S.Storage
-    , _bankKey     :: C.SecretKey
+data UserState = UserState
+    { _userStorage :: S.WalletStorage
+    , _userKey     :: C.SecretKey
     }
 
-$(makeLenses ''BankState)
+$(makeLenses ''UserState)
 
-instance Show BankState where
-  show = const "BankState"
+instance Show UserState where
+  show = const "UserState"
 
-instance Arbitrary BankState where
+instance Arbitrary UserState where
     arbitrary = do
         sk <- arbitrary
         SomeUpdate upd <- arbitrary
-        return . flip BankState sk $ T.execUpdate (doUpdate upd) S.mkStorage
-
--- startNewPeriodIncrementsPeriodId :: BankState -> Bool
--- startNewPeriodIncrementsPeriodId = undefined
+        return . flip UserState sk $ T.execUpdate (doUpdate upd) S.emptyWalletStorage

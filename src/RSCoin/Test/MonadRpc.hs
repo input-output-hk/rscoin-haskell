@@ -34,13 +34,13 @@ module RSCoin.Test.MonadRpc
 
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask)
-import           Control.Monad.Trans         (MonadIO, liftIO)
-import           Control.Monad.Trans.Control (MonadBaseControl, StM
-                                             , liftBaseWith, restoreM)
-
-import qualified Data.ByteString             as BS 
+import           Control.Monad.Trans         (MonadIO, liftIO, lift)
+import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, 
+                                              restoreM)
+import           Control.Monad.Reader        (ReaderT(..), runReaderT)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Maybe                  (fromMaybe)
+import qualified Data.ByteString             as BS 
 
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
@@ -103,11 +103,22 @@ instance MonadRpc MsgPackRpc where
         convertMethod :: Method MsgPackRpc -> S.Method MsgPackRpc
         convertMethod Method{..} = S.method methodName methodBody
 
+instance MonadRpc m => MonadRpc (ReaderT r m) where
+    execClient addr cli = lift $ execClient addr cli
+
+    serve port methods = ReaderT $ 
+                            \r ->  serve port (convert r <$> methods)
+      where
+        convert :: Monad m => r -> Method (ReaderT r m) -> Method m
+        convert r Method {..} = 
+            Method methodName (flip runReaderT r . methodBody) 
+
 
 execClientTimeout :: (MonadTimed m, MonadRpc m, MessagePack a) => MicroSeconds -> Addr -> Client a -> m a
 execClientTimeout t addr = timeout t . execClient addr
 
--- * Client part
+
+-- * Client part 
 
 -- | Creates a function call. It accepts function name and arguments
 call :: RpcType t => String -> t

@@ -13,7 +13,7 @@ module RSCoin.Test.PureRpc
 
 import           Control.Lens                (use, makeLenses, (.=), (%=))
 import           Control.Monad               (forM_)
-import           Control.Monad.Catch         (MonadThrow, MonadCatch)
+import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask)
 import           Control.Monad.State         (StateT, put, evalStateT, get,
                                               MonadState (state, get, put))
 import           Control.Monad.Trans         (lift, MonadIO, MonadTrans)
@@ -79,7 +79,7 @@ $(makeLenses ''NetInfo)
 newtype PureRpc m a = PureRpc 
     { unwrapPureRpc :: StateT Host (TimedT (StateT (NetInfo (PureRpc m)) m)) a 
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTimed
-               , MonadThrow)
+               , MonadThrow, MonadCatch, MonadMask)
 
 instance MonadTrans PureRpc where
     lift = PureRpc . lift . lift . lift
@@ -91,7 +91,7 @@ instance MonadState s m => MonadState s (PureRpc m) where
 
 -- | Launches rpc scenario
 runPureRpc :: (Monad m, MonadCatch m) => StdGen -> Delays -> PureRpc m () -> m ()
-runPureRpc _randSeed _delays (PureRpc rpc)  =  do
+runPureRpc _randSeed _delays (PureRpc rpc) = do
     evalStateT (runTimedT (evalStateT rpc "127.0.0.1")) net
   where
     net        = NetInfo{..}
@@ -99,7 +99,7 @@ runPureRpc _randSeed _delays (PureRpc rpc)  =  do
 
 -- TODO: use normal exceptions here
 request :: Monad m => MessagePack a => Client a -> (Listeners (PureRpc m), Addr) -> PureRpc m a
-request (Client name args) (listeners', addr)  =  do
+request (Client name args) (listeners', addr) = do
     case Map.lookup (addr, name) listeners' of
         Nothing -> error $ mconcat 
             ["Method ", name, " is not defined at ", show addr]
@@ -107,7 +107,7 @@ request (Client name args) (listeners', addr)  =  do
                  . fromObject <$> f args
 
 instance (Monad m, MonadThrow m) => MonadRpc (PureRpc m) where
-    execClient addr cli  =  PureRpc $ do  
+    execClient addr cli = PureRpc $ do  
         curHost <- get
         unwrapPureRpc $ waitDelay Request
 
@@ -119,7 +119,7 @@ instance (Monad m, MonadThrow m) => MonadRpc (PureRpc m) where
         put curHost
         return answer
     
-    serve port methods  =  PureRpc $ do
+    serve port methods = PureRpc $ do
         host <- get
         lift $ lift $ forM_ methods $ \Method{..} -> 
             listeners %= Map.insert ((host, port), methodName) methodBody

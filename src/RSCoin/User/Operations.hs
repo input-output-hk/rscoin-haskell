@@ -10,37 +10,38 @@ module RSCoin.User.Operations
        , formTransaction
        ) where
 
-import           Control.Lens          ((^.))
-import           Control.Monad         (filterM, unless, when)
-import           Control.Monad.Catch   (MonadThrow, throwM)
-import           Control.Monad.Trans   (liftIO)
-import           Data.Acid             (query, update)
-import           Data.Int              (Int64)
-import           Data.Function         (on)
-import           Data.List             (nub, nubBy)
-import qualified Data.Map              as M
-import           Data.Maybe            (isJust)
-import           Data.Monoid           ((<>))
-import qualified Data.Text             as T
-import qualified Data.Text.IO          as TIO
-import           Data.Tuple.Select     (sel1)
+import           Control.Lens           ((^.))
+import           Control.Monad          (filterM, unless, when)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Control.Monad.Catch    (MonadThrow, throwM)
+import           Data.Acid              (query, update)
+import           Data.Int               (Int64)
+import           Data.Function          (on)
+import           Data.List              (nub, nubBy)
+import qualified Data.Map               as M
+import           Data.Maybe             (isJust)
+import           Data.Monoid            ((<>))
+import qualified Data.Text              as T
+import qualified Data.Text.IO           as TIO
+import           Data.Tuple.Select      (sel1)
 
-import           Serokell.Util.Text    (format', formatSingle')
+import           Serokell.Util.Text     (format', formatSingle', pairBuilder,
+                                         listBuilderJSONIndent)
 
-import qualified RSCoin.Core           as C
-import           RSCoin.Test           (WorkMode)
-import           RSCoin.User.AcidState (GetAllAddresses (..))
-import qualified RSCoin.User.AcidState as A
-import           RSCoin.User.Error     (UserError (..))
-import           RSCoin.User.Logic     (validateTransaction)
-import qualified RSCoin.User.Wallet    as W
+import qualified RSCoin.Core            as C
+import           RSCoin.Test            (WorkMode)
+import           RSCoin.User.AcidState  (GetAllAddresses (..))
+import qualified RSCoin.User.AcidState  as A
+import           RSCoin.User.Error      (UserError (..))
+import           RSCoin.User.Logic      (validateTransaction)
+import qualified RSCoin.User.Wallet     as W
 
 commitError :: MonadThrow m => T.Text -> m ()
 commitError = throwM . InputProcessingError
 
-getAmount :: A.RSCoinUserState -> W.UserAddress -> IO C.Coin
+getAmount :: MonadIO m => A.RSCoinUserState -> W.UserAddress -> m C.Coin
 getAmount st userAddress =
-    sum . map getValue <$> query st (A.GetTransactions userAddress)
+    liftIO $ sum . map getValue <$> query st (A.GetTransactions userAddress)
   where
     getValue =
         C.getAmountByAddress $ W.toAddress userAddress
@@ -56,7 +57,11 @@ updateToBlockHeight st newHeight = do
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction :: WorkMode m => 
     A.RSCoinUserState -> [(Int, Int64)] -> C.Address -> C.Coin -> m ()
+formTransaction _ [] _ _ =
+    commitError "You should enter at least one source input"
 formTransaction st inputs outputAddr outputCoin = do
+    C.logInfo $
+        format' "Form a transaction from {}, to {}, ammount {}" (listBuilderJSONIndent 2 $ map pairBuilder inputs, outputAddr, outputCoin)
     when
         (nubBy ((==) `on` fst) inputs /= inputs) $
         commitError "All input addresses should have distinct IDs."

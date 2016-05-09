@@ -4,6 +4,7 @@
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE UndecidableInstances      #-}
+{-# OPTIONS_GHC -fno-cse #-}
 
 -- | This module contains pure implementation of MonadTimed.
 
@@ -17,7 +18,8 @@ import           Control.Exception.Base (AsyncException (ThreadKilled))
 import           Control.Monad.Catch    (throwM)
 import           Control.Lens           (makeLenses, to, use, (%=), (.=), (^.))
 import           Control.Monad          (void, unless)
-import           Control.Monad.Catch    (MonadCatch, MonadThrow, catch)
+import           Control.Monad.Catch    (MonadCatch, MonadThrow, MonadMask, 
+                                         catch, mask, uninterruptibleMask)
 import           Control.Monad.Cont     (ContT (..), runContT)
 import           Control.Monad.Loops    (whileM_)
 import           Control.Monad.Reader   (ReaderT (..), ask, runReaderT)
@@ -27,17 +29,21 @@ import           Control.Monad.Trans    (MonadIO, MonadTrans, lift)
 import           Data.Function          (on)
 import           Data.Maybe             (fromJust)
 import           Data.Ord               (comparing)
+import           Data.Text              as T
+import           System.IO.Unsafe       (unsafePerformIO)
 
 import qualified Data.PQueue.Min        as PQ
+import           Serokell.Util.Text     (formatSingle')
 
 import           RSCoin.Test.MonadTimed (MicroSeconds, MonadTimed, localTime,
                                          now, schedule, wait, workWhile,
                                          timeout)
+import           RSCoin.Core.Logging    (logWarning)
 
 type Timestamp = MicroSeconds
 
 -- | Timestamped action
-data Event m  =  Event
+data Event m = Event
     { _timestamp :: Timestamp
     , _action    :: m ()
     , _condition :: m Bool
@@ -46,10 +52,10 @@ data Event m  =  Event
 $(makeLenses ''Event)
 
 instance Eq (Event m) where
-    (==)  =  (==) `on` _timestamp
+    (==) = (==) `on` _timestamp
 
 instance Ord (Event m) where
-    compare  =  comparing _timestamp
+    compare = comparing _timestamp
 
 -- | State for MonadTimed
 data Scenario m = Scenario
@@ -68,7 +74,7 @@ emptyScenario =
 
 -- | Pure implementation of MonadTimed.
 --   It stores an event queue, on wait continuation is passed to that queue
-newtype TimedT m a  =  TimedT
+newtype TimedT m a = TimedT
     { unwrapTimedT :: ReaderT (TimedT m Bool)
                      (ContT ()
                      (StateT (Scenario (TimedT m)) m)) a
@@ -102,16 +108,31 @@ instance MonadCatch m => MonadCatch (TimedT m) where
             flip runContT (return . const ()) .
             flip runReaderT r . unwrapTimedT . handler
 
+instance MonadMask m => MonadMask (TimedT m) where
+    mask a = TimedT $ ReaderT $ \r -> ContT $ \c -> 
+        mask $ \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
+      where
+        q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
+            runContT (runReaderT (unwrapTimedT t) r) c
+  
+    uninterruptibleMask a = TimedT $ ReaderT $ \r -> ContT $ \c -> 
+        uninterruptibleMask $ 
+            \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
+      where
+        q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
+            runContT (runReaderT (unwrapTimedT t) r) c
+        
+
 launchTimedT :: Monad m => TimedT m a -> m ()
-launchTimedT (TimedT t)  =  flip evalStateT emptyScenario
-                         $  flip runContT   (void . return)
-                         $  flip runReaderT (return True)
-                         $  t
+launchTimedT (TimedT t) = flip evalStateT emptyScenario
+                        $ flip runContT   (void . return)
+                        $ flip runReaderT (return True)
+                        $ t
 
 -- | Starts timed evaluation. Finishes when no more scheduled actions remain.
 -- FIXME:  MonadCatch is not necessary here, we just should catch if it can throw
 runTimedT :: (Monad m, MonadCatch m) => TimedT m () -> m ()
-runTimedT timed  =  launchTimedT $ do
+runTimedT timed = launchTimedT $ do
     schedule now timed `catch` handler
     whileM_ notDone $ do
         nextEv <- TimedT $ do
@@ -127,16 +148,20 @@ runTimedT timed  =  launchTimedT $ do
         -- We want to successfully finish this action and go to next iteration
         -- rather than lose execution control
         let TimedT act = nextEv ^. action
-            act'       = TimedT . lift . lift
-                       $ runContT (runReaderT act cond) return
-            maybeDie   = unless keepAlive $ throwM ThreadKilled
-        (maybeDie >> act') `catch` handler
+            act'     = runContT (runReaderT act cond) return
+            act''    = (maybeDie >> act') `catch` handler
+            act'''   = TimedT . lift . lift $ act''
+            maybeDie = unless keepAlive $ throwM ThreadKilled
+        act'''
   where
     notDone :: Monad m => TimedT m Bool
     notDone = TimedT . use $ events . to (not . PQ.null)
 
-    handler :: Monad m => SomeException -> TimedT m ()
-    handler _ = return ()   -- TODO: log here
+    {-# NOINLINE handler #-}
+    handler :: Monad m => SomeException -> m ()
+    handler e = let text = formatSingle' "Thread killed by exception: {}" $ 
+                           T.pack . show $ e
+                in  return $! unsafePerformIO $ logWarning text
 
 instance MonadThrow m => MonadTimed (TimedT m) where
     localTime = TimedT $ use curTime
@@ -160,4 +185,4 @@ instance MonadThrow m => MonadTimed (TimedT m) where
             \following ->
                  events %= PQ.insert (event following)
     -- FIXME: !
-    timeout _ _ = undefined
+    timeout _ = id

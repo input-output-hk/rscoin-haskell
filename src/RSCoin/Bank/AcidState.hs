@@ -7,6 +7,7 @@
 module RSCoin.Bank.AcidState
        ( State
        , openState
+       , openMemState
        , closeState
        , GetMintettes (..)
        , GetPeriodId (..)
@@ -22,6 +23,7 @@ import           Control.Lens        (view)
 import           Control.Monad.Catch (MonadThrow (throwM))
 import           Data.Acid           (AcidState, Query, Update, closeAcidState,
                                       makeAcidic, openLocalStateFrom)
+import           Data.Acid.Memory    (openMemoryState)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 
 import           RSCoin.Core         (ActionLog, HBlock, Mintette, MintetteId,
@@ -37,6 +39,9 @@ $(deriveSafeCopy 0 'base ''BS.Storage)
 
 openState :: FilePath -> IO State
 openState fp = openLocalStateFrom fp BS.mkStorage
+
+openMemState :: IO State
+openMemState = openMemoryState BS.mkStorage
 
 closeState :: State -> IO ()
 closeState = closeAcidState

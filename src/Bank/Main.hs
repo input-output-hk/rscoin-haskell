@@ -1,4 +1,4 @@
-import           Control.Monad.Trans     (liftIO)
+import           Control.Monad.Trans      (liftIO)
 import           Data.Acid                (update)
 import           Data.Text                as T
 
@@ -7,7 +7,7 @@ import           RSCoin.Core              (Mintette (Mintette),
                                            constructPublicKey, initLogging,
                                            readSecretKey, readPublicKey,
                                            logWarning)
-import           RSCoin.Test              (runRealMode, bracket')
+import           RSCoin.Test              (runRealMode, bracket', fork)
 
 import qualified Options                  as Opts
 
@@ -21,7 +21,7 @@ main = do
   where
     run (Opts.Serve skPath) st = do
         sk <- liftIO $ readSecretKey skPath
-        B.runWorker sk st
+        fork $ B.runWorker sk st
         B.serve st
     run (Opts.AddMintette name port pk) st = liftIO $ do
         let m = Mintette name port

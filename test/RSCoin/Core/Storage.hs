@@ -1,6 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TupleSections             #-}
@@ -20,13 +21,18 @@ module RSCoin.Core.Storage
 import           Control.Exception          (throw, fromException, Exception)
 import           Control.Monad.Catch        (MonadThrow (throwM), SomeException (..))
 import           Control.Monad.Except       (runExceptT)
-import           Control.Monad.State        (runState, State)
+import           Control.Monad.State        (runState, State, get, modify)
+import           Control.Monad.Reader       (MonadReader (ask, local))
 import           Control.Monad.State.Class  (MonadState)
 import           Control.Monad.Trans.Except (ExceptT, throwE)
 
 newtype Update e s a =
     Update { getUpdate :: ExceptT e (State s) a }
     deriving (MonadState s, Monad, Applicative, Functor)
+
+instance MonadReader s (Update e s) where
+    ask = get
+    local f m = modify f >> m
 
 instance Exception e => MonadThrow (Update e s) where
     throwM e = Update . maybe (throw e') throwE $ fromException e'

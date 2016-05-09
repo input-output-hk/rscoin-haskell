@@ -24,30 +24,21 @@ import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            logError, logInfo, logWarning,
                                            periodDelta, sendPeriodFinished)
 
-import           RSCoin.Test              (WorkMode, for, wait, minute
-                                          , fork, tu)
+import           RSCoin.Test              (WorkMode, minute, tu, repeatForever)
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
                                            StartNewPeriod (..), State)
 
 -- | Start worker which runs appropriate action when a period finishes
 runWorker :: WorkMode m => SecretKey -> State -> m ()
-runWorker sk st =
-    foreverE $
-    do onPeriodFinished sk st
-       wait $ for periodDelta tu
+runWorker sk st = repeatForever (tu periodDelta) handler $
+    onPeriodFinished sk st
   where
-    -- TODO: is it safe like previous version?
-    foreverE f = let cont = foreverE f
-                 in  fork $ (f >> cont) `catch` handler cont
-
---    foreverE f = void $ forkFinally f $ handler $ foreverE f
-    handler cont (e :: SomeException) = do
+    handler e = do
         logError $
             formatSingle'
                 "Error was caught by worker, restarting in 1 minute: {}"
                 e
-        wait $ for 1 minute
-        cont
+        return $ minute 1
 
 onPeriodFinished :: WorkMode m => SecretKey -> State -> m ()
 onPeriodFinished sk st = do

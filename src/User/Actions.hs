@@ -5,14 +5,12 @@
 -- UserOptions.UserCommand s to IO actions.
 
 module Actions ( proceedCommand
-               , formTransaction'
                ) where
 
 import           Control.Lens           ((^.))
 import           Control.Monad          (forM_, unless, void, when)
 import           Control.Monad.Catch    (throwM)
 import           Control.Monad.Trans    (liftIO)
-import           Data.Int               (Int64)
 import           Data.Acid              (query)
 import           Data.Maybe             (fromJust, isJust)
 import           Data.Monoid            ((<>))
@@ -47,7 +45,8 @@ proceedCommand st (O.FormTransaction inputs outputAddrStr) =
        unless (isJust pubKey) $
            commitError $
            "Provided key can't be exported: " <> outputAddrStr
-       formTransaction' st inputs pubKey
+       formTransaction st inputs (fromJust pubKey) $
+           C.Coin (sum $ map snd inputs)
 proceedCommand st O.UpdateBlockchain =
     eWrap $ 
     do walletHeight <- liftIO $ query st A.GetLastBlockId
@@ -95,9 +94,3 @@ dumpCommand (O.DumpMintetteBlocks mId pId) =
     void $ C.getMintetteBlocks mId pId
 dumpCommand (O.DumpMintetteLogs mId pId) =
     void $ C.getMintetteLogs mId pId
-
--- | This is used in testing
-formTransaction' :: WorkMode m => A.RSCoinUserState -> [(Int, Int64)] -> Maybe C.Address -> m ()
-formTransaction' st inputs pubKey = 
-       formTransaction st inputs (fromJust pubKey) $
-           C.Coin (sum $ map snd inputs)

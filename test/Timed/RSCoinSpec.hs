@@ -2,6 +2,10 @@
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE ViewPatterns              #-}
 
+module Timed.RSCoinSpec 
+       (
+       )
+
 import           Control.Exception     (Exception)
 import           Control.Lens          (view, (^.), preview, ix, to)
 import           Control.Monad         (forM, when)
@@ -26,17 +30,16 @@ import           Test.QuickCheck       (Arbitrary (arbitrary), NonNegative (..),
 import qualified RSCoin.Bank           as B
 import qualified RSCoin.Mintette       as M
 import qualified RSCoin.User           as U
-import qualified Actions               as U
-import qualified UserOptions           as U
+import qualified RSCoin.Core.Arbitrary ()
+
 import           RSCoin.Core           (initLogging, Severity(Info), Mintette(..),
-                                        Address (..), logDebug, getCoin,
+                                        Address (..), logDebug, Coin (..),
                                         RSCoinError, logWarning)
 import           RSCoin.Test           (WorkMode, runRealMode, runEmulationMode,
                                         upto, mcs, work, minute, wait, for, sec,
                                         interval, MicroSeconds, PureRpc, fork,
                                         invoke, at)
-import           RSCoin.Core.Arbitrary ()
-import           Context               (TestEnv, mkTestContext, state, port, 
+import           Timed.Context         (TestEnv, mkTestContext, state, port, 
                                         keys, publicKey, secretKey, MintetteInfo,
                                         bank, mintettes, lifetime, users, buser,
                                         UserInfo, bankSkPath)
@@ -118,8 +121,7 @@ arbitraryInputs userIndex (getNonEmpty -> fromIndexes) = do
 -- data DumpAction
 
 data UserAction
-    = ListAddresses UserIndex
-    | FormTransaction UserIndex FromAddresses ToAddress
+    = FormTransaction UserIndex FromAddresses ToAddress
     | UpdateBlockchain UserIndex
    -- TODO: we use dumping only for debug but we should cover all cases
    -- | Dump DumpAction
@@ -127,26 +129,24 @@ data UserAction
 
 instance Arbitrary UserAction where
     arbitrary =
-        frequency [ (0, ListAddresses <$> arbitrary)
-                  , (10, FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary)
-                  , (0, UpdateBlockchain <$> arbitrary)
+        frequency [ (10, FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary)
+                  , (10, UpdateBlockchain <$> arbitrary)
                   ]
 
 instance Action UserAction where
-    doAction (ListAddresses userIndex) =
-        runUserAction userIndex U.ListAddresses
     doAction (FormTransaction userIndex' fromAddresses toAddress) = do
         -- always run in bank mode
         let userIndex = Nothing
-        address <- getAddress <$> arbitraryAddress toAddress
+        address <- arbitraryAddress toAddress
         inputs <- arbitraryInputs userIndex fromAddresses
-        getUser userIndex >>= \s -> U.formTransaction' s inputs (Just $ Address address)
-    doAction (UpdateBlockchain userIndex) =
-        runUserAction userIndex U.UpdateBlockchain
-
-runUserAction :: WorkMode m => UserIndex -> U.UserCommand -> TestEnv m ()
-runUserAction user command =
-    getUser user >>= flip U.proceedCommand command
+        getUser userIndex >>= \s ->
+            U.formTransaction s inputs address $
+                Coin (sum $ map snd inputs)
+    doAction (UpdateBlockchain userIndex) = do
+        user <- getUser userIndex
+        walletHeight <- liftIO $ query user U.GetLastBlockId
+        lastBlockHeight <- pred <$> U.getBlockchainHeight
+        mapM_ (U.updateToBlockHeight user) [walletHeight + 1 .. lastBlockHeight]
 
 getUser :: WorkMode m => UserIndex -> TestEnv m U.RSCoinUserState
 getUser Nothing =

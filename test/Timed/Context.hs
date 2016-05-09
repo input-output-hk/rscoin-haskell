@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
-module Context 
+module Timed.Context 
     ( BankInfo(..)
     , MintetteInfo(..)
     , UserInfo(..)

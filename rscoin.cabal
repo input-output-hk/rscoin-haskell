@@ -313,6 +313,7 @@ benchmark rscoin-bench
   build-depends:       acid-state
                      , base >=4.8 && <4.9
                      , directory >= 1.2.2
+                     , exceptions
                      , extra >= 1.4.3
                      , filepath
                      , mtl
@@ -323,5 +324,4 @@ benchmark rscoin-bench
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N 
                        -Wall 
                        -fno-warn-orphans
-                       -fno-warn-unused-do-bind
   default-extensions:  OverloadedStrings

@@ -3,6 +3,7 @@
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | This module contains time management monad and it's implementation for IO.
 module RSCoin.Test.MonadTimed
@@ -82,7 +83,7 @@ invoke time action = wait time >> action
 -- | Like workWhile, unwraps first layer of monad immediatelly
 --   and then checks predicate periocially
 work :: MonadTimed m => TwoLayers m Bool -> m () -> m ()
-work (TwoLayers predicate) action = predicate >>= \p -> workWhile p action
+work (getTL -> predicate) action = predicate >>= \p -> workWhile p action
 
 instance MonadTimed m => MonadTimed (ReaderT r m) where
     localTime = lift localTime

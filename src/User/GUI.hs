@@ -6,9 +6,9 @@ import           Control.Concurrent             (forkIO)
 import           Control.Concurrent.STM.TBQueue (TBQueue, writeTBQueue)
 import           Control.Lens                   ((^.))
 import           Control.Monad                  (forM, forM_, void, when)
-import           Control.Monad.Catch            (catch)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.STM              (atomically)
+import           Data.Acid                      (query)
 import           Data.Maybe                     (fromJust, isJust)
 import           Data.Text                      (pack)
 
@@ -16,11 +16,11 @@ import           Graphics.UI.Gtk                (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk                as G
 import           Serokell.Util.Text             (readUnsignedDecimal)
 
-import           ActionsExecutor                as A
+import qualified Action                         as A
 import           Contacts                       (Contact (..), address, name)
 import           OutputWidgets                  as O
-import           RSCoin.Core                    as C
-import           RSCoin.User                    (commitError)
+import qualified RSCoin.Core                    as C
+import qualified RSCoin.User                    as U
 
 onExit :: TBQueue A.Action -> IO ()
 onExit queue = atomically (writeTBQueue queue A.Exit)
@@ -33,7 +33,7 @@ onSend queue ow sendAddress sendAmount = do
     let amount = readUnsignedDecimal $ pack sendAmount
         pubKey = C.Address <$> (C.constructPublicKey $ pack sendAddress)
     case amount of
-        Left s -> G.postGUIAsync $ do
+        Left _ -> G.postGUIAsync $ do
             G.labelSetText (messageLabel ow) "Bad number format."
             G.widgetShowAll (notificationWindow ow)
         Right a -> if isJust pubKey
@@ -42,8 +42,8 @@ onSend queue ow sendAddress sendAmount = do
                 G.labelSetText (messageLabel  ow) "Bad key."
                 G.widgetShowAll (notificationWindow ow)
 
-initializeGUI :: TBQueue A.Action -> IO O.OutputWidgets
-initializeGUI queue = do
+initializeGUI :: TBQueue A.Action -> U.RSCoinUserState -> IO O.OutputWidgets
+initializeGUI queue st = do
     let file = "src/User/GUI.glade"
 
     builder <- G.builderNew
@@ -84,6 +84,17 @@ initializeGUI queue = do
         G.entrySetText newNameEntry ""
         G.entrySetText newAddressEntry ""
 
+    addressesView <- getWidget G.castToTreeView "AddressesView"
+    addresses     <- query st U.GetAllAddresses
+    addressesList <- G.listStoreNew addresses
+    G.treeViewSetModel addressesView addressesList
+    addressesCol <- G.treeViewColumnNew
+    aRenderer    <- G.cellRendererTextNew
+    G.cellLayoutPackStart addressesCol aRenderer False
+    G.cellLayoutSetAttributes addressesCol aRenderer addressesList $ \a ->
+        [G.cellText := show (a ^. U.publicAddress)]
+    void $ G.treeViewAppendColumn addressesView addressesCol
+
     addButton    <- getWidget G.castToButton   "AddButton"
     contactsView <- getWidget G.castToTreeView "ContactsView"
     cl           <- G.listStoreNew []
@@ -116,7 +127,7 @@ initializeGUI queue = do
     payToEntry   <- getWidget G.castToEntry  "PayToEntry"
     void $ selectButton `on` G.buttonActivated $ do
         mapM_ G.widgetHide tabs
-        G.widgetShowAll $ tabs !! 1
+        G.widgetShowAll $ tabs !! 2
         selection <- G.treeViewGetSelection contactsView
         rows <- G.treeSelectionGetSelectedRows selection
         when (length rows > 0) $ do
@@ -149,13 +160,13 @@ initializeGUI queue = do
 
     return ow
   where
-    tabsNames = ["Wallet", "Send", "Transactions", "Options"]
- 
+    tabsNames = ["Wallet", "Addresses", "Send", "Transactions", "Options"]
+
 
 -- | Runs the GUI in a separate thread.
-runGUI :: TBQueue A.Action -> IO O.OutputWidgets
-runGUI queue = do
+runGUI :: TBQueue A.Action -> U.RSCoinUserState -> IO O.OutputWidgets
+runGUI queue st = do
     void $ G.initGUI
-    ow <- initializeGUI queue
+    ow <- initializeGUI queue st
     void $ forkIO G.mainGUI
     return ow

@@ -42,7 +42,7 @@ proceedCommand st O.StartGUI =
     eWrap $
     do
         queue <- liftIO $ newTBQueueIO actionsQueueCapacity
-        ow <- liftIO $ runGUI queue
+        ow <- liftIO $ runGUI queue st
         liftIO $ void $ forkIO $ runUpdater queue
         runActionsExecutor st queue ow
 proceedCommand st O.ListAddresses =

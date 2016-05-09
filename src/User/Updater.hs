@@ -6,7 +6,7 @@ import           Control.Concurrent             (threadDelay)
 import           Control.Concurrent.STM.TBQueue (TBQueue, writeTBQueue)
 import           Control.Monad.STM              (atomically)
 
-import           ActionsExecutor                (Action (Update))
+import           Action                         (Action (Update))
 
 -- | Regularly requests to perform Update action.
 runUpdater :: TBQueue Action -> IO ()

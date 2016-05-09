@@ -14,7 +14,6 @@ data OutputWidgets = OutputWidgets
     , unconfirmedLabel     :: G.Label
     , transactionsLabel    :: G.Label
     , recentActivityView   :: G.TreeView
-    , myWalletLabel        :: G.Label
     , transactionsNumLabel :: G.Label
     , transactionsView     :: G.TreeView
     , statusLabel          :: G.Label
@@ -31,7 +30,6 @@ mkOutputWidgets builder = do
     unconfirmedLabel     <- getWidget G.castToLabel    "UnconfirmedLabel"
     transactionsLabel    <- getWidget G.castToLabel    "TransactionsLabel"
     recentActivityView   <- getWidget G.castToTreeView "RecentActivityView"
-    myWalletLabel        <- getWidget G.castToLabel    "MyWalletLabel"
     transactionsNumLabel <- getWidget G.castToLabel    "TransactionsNumLabel"
     transactionsView     <- getWidget G.castToTreeView "TransactionsView"
     statusLabel          <- getWidget G.castToLabel    "StatusLabel"

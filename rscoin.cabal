@@ -141,9 +141,11 @@ executable rscoin-keygen
 
 executable rscoin-user
   main-is:             Main.hs
-  other-modules:       Actions
+  other-modules:       Action
+                     , Actions
                      , ActionsExecutor
                      , Contacts
+                     , Error
                      , GUI
                      , OutputWidgets
                      , Updater

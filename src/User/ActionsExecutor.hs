@@ -1,13 +1,9 @@
 -- | ActionsExecutor performs actions with RSCoinUserState.
 
-module ActionsExecutor
-    ( Action (..)
-    , runActionsExecutor
-    ) where
+module ActionsExecutor (runActionsExecutor) where
 
 import           Control.Concurrent.STM.TBQueue (TBQueue, readTBQueue)
 import           Control.Monad                  (forM_, when)
-import           Control.Monad.Catch            (catch)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.STM              (atomically)
 import           Data.Acid                      (query)
@@ -18,16 +14,12 @@ import           Data.Maybe                     (fromJust, isJust)
 import           Graphics.UI.Gtk                (labelSetText, postGUIAsync)
 import qualified Graphics.UI.Gtk                as G
 
+import           Action                         (Action (..))
+import           Error                          (handled)
 import           OutputWidgets                  (OutputWidgets (..))
-import           RSCoin.Core                    (Address, Coin (..), getCoin)
+import           RSCoin.Core                    (Coin (..))
 import           RSCoin.Test                    (WorkMode)
 import qualified RSCoin.User                    as U
-import           RSCoin.User.Error              (UserError)
-
--- | Action to be performed by ActionExecutor
-data Action = Exit
-            | Send Address Int64
-            | Update
 
 updateUI :: U.RSCoinUserState -> OutputWidgets -> IO ()
 updateUI st ow = do
@@ -58,7 +50,7 @@ runActionsExecutor st queue ow = run
         case o of
             Exit       -> return ()
             Send a c -> do
-                catch (do
+                handled queue o ow $ do
                     as <- query' st U.GetAllAddresses
                     cs <- liftIO $ mapM ((<$>) getCoin . U.getAmount st) as
                     let is = selectAmounts c cs
@@ -67,19 +59,13 @@ runActionsExecutor st queue ow = run
                         else liftIO $ postGUIAsync $ do
                             labelSetText (messageLabel ow) "Invalid amount"
                             G.widgetShowAll (notificationWindow ow)
-                    ) showError
                 run
             Update     -> do
-                catch (do
+                handled queue o ow $ do
                     walletHeight    <- liftIO $ query st U.GetLastBlockId
                     lastBlockHeight <- pred <$> U.getBlockchainHeight
                     when (walletHeight < lastBlockHeight) $ do
                         forM_ [walletHeight + 1 .. lastBlockHeight] $
                             U.updateToBlockHeight st
                         liftIO $ updateUI st ow
-                    ) showError
                 run
-    showError :: WorkMode m => UserError -> m ()
-    showError e = liftIO $ postGUIAsync $ do
-        labelSetText (messageLabel ow) $ show e
-        G.widgetShowAll (notificationWindow ow)

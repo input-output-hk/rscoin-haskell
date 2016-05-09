@@ -4,7 +4,7 @@
 
 module Timed.RSCoinSpec 
        (
-       )
+       ) where
 
 import           Control.Exception     (Exception)
 import           Control.Lens          (view, (^.), preview, ix, to)

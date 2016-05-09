@@ -136,6 +136,7 @@ instance Action UserAction where
     doAction (ListAddresses userIndex) =
         runUserAction userIndex U.ListAddresses
     doAction (FormTransaction userIndex' fromAddresses toAddress) = do
+        -- always run in bank mode
         let userIndex = Nothing
         address <- getAddress <$> arbitraryAddress toAddress
         inputs <- arbitraryInputs userIndex fromAddresses

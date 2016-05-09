@@ -188,11 +188,13 @@ launch mNum uNum test = do
         runBank
         mapM_ runMintette =<< view mintettes
 
-        wait $ for 50 sec  -- ensure that bank & mintettes have initialized
+        wait $ for 5 sec  -- ensure that bank & mintettes have initialized
  
         mapM_ addMintetteToBank =<< view mintettes
         initBUser
         mapM_ initUser =<< view users
+
+        wait $ for 5 sec  -- ensure that users have initialized
 
         test
     

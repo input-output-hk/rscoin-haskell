@@ -1,10 +1,11 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE ViewPatterns              #-}
 
 import           Control.Exception     (Exception)
 import           Control.Lens          (view, (^.), preview, ix, to)
 import           Control.Monad         (forM, when)
-import           Control.Monad.Catch   (throwM)
+import           Control.Monad.Catch   (throwM, catch)
 import           Control.Monad.Trans   (MonadIO, liftIO)
 import           Control.Monad.Reader  (runReaderT)
 import           Data.Acid             (update, query)
@@ -16,6 +17,7 @@ import           Data.Maybe            (fromJust)
 import           Data.Text             (Text, pack)
 import           Data.Typeable         (Typeable)
 import           System.Random         (mkStdGen)
+import           Serokell.Util.Text    (formatSingle')
 
 import           Test.QuickCheck       (Arbitrary (arbitrary), NonNegative (..),
                                         Gen, oneof, Positive (..),
@@ -27,7 +29,8 @@ import qualified RSCoin.User           as U
 import qualified Actions               as U
 import qualified UserOptions           as U
 import           RSCoin.Core           (initLogging, Severity(Info), Mintette(..),
-                                        Address (..), logDebug, getCoin)
+                                        Address (..), logDebug, getCoin,
+                                        RSCoinError, logWarning)
 import           RSCoin.Test           (WorkMode, runRealMode, runEmulationMode,
                                         upto, mcs, work, minute, wait, for, sec,
                                         interval, MicroSeconds, PureRpc, fork,
@@ -64,14 +67,16 @@ instance Action EmptyAction where
 instance Arbitrary EmptyAction where
     arbitrary = pure EmptyAction
 
-data WaitSomeAction = WaitAction (NonNegative MicroSeconds) SomeAction
+data WaitAction a = WaitAction (NonNegative MicroSeconds) a
     deriving Show
 
-instance Action WaitSomeAction where
+type WaitSomeAction = WaitAction SomeAction
+
+instance Action a => Action (WaitAction a) where
     doAction (WaitAction (getNonNegative -> time) action) =
         invoke (at time mcs) $ doAction action
 
-instance Arbitrary WaitSomeAction where
+instance Arbitrary a => Arbitrary (WaitAction a) where
     arbitrary = WaitAction <$> arbitrary <*> arbitrary
 
 -- | Nothing represents bank user, otherwise user is selected according
@@ -117,9 +122,9 @@ data UserAction
 
 instance Arbitrary UserAction where
     arbitrary =
-        frequency [ (1, ListAddresses <$> arbitrary)
+        frequency [ (0, ListAddresses <$> arbitrary)
                   , (10, FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary)
-                  , (10, UpdateBlockchain <$> arbitrary)
+                  , (0, UpdateBlockchain <$> arbitrary)
                   ]
 
 instance Action UserAction where
@@ -151,13 +156,17 @@ instance Arbitrary SomeAction where
 
 main :: IO ()
 main = do
-    test 10 10 1000
+    test 10 10 10
 
 test :: Int -> Int -> Int -> IO ()
 test mNum uNum actionNum = launchPure mNum uNum $ do
-    actions <- liftIO $ generate (vector actionNum :: Gen [WaitSomeAction])
+    actions <- liftIO $ generate (vector actionNum :: Gen [WaitAction UserAction])
     liftIO $ print actions
-    mapM_ doAction actions
+    mapM_ (\a -> doAction a `catch` handler) actions
+  where
+    handler (e :: RSCoinError) =
+        logWarning $
+            formatSingle' "Error occured while testing: {}" $ show e
 
 launchPure :: Int -> Int -> TestEnv (PureRpc IO) () -> IO ()
 launchPure mNum uNum = runEmulationMode (mkStdGen 9452) def . launch mNum uNum
@@ -168,7 +177,7 @@ launch mNum uNum test = do
 
     -- mNum mintettes, uNum users (excluding user in bank-mode), 
     -- emulation duration - 3 minutes
-    (mkTestContext mNum uNum (interval 10 sec) >>= ) $ runReaderT $ do
+    (mkTestContext mNum uNum (interval 100 sec) >>= ) $ runReaderT $ do
         runBank
         mapM_ runMintette =<< view mintettes
 

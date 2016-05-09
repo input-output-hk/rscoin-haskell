@@ -3,13 +3,15 @@
 
 import           Control.Exception     (Exception)
 import           Control.Lens          (view, (^.), preview, ix, to)
-import           Control.Monad         (forM)
+import           Control.Monad         (forM, when)
 import           Control.Monad.Catch   (throwM)
 import           Control.Monad.Trans   (MonadIO, liftIO)
 import           Control.Monad.Reader  (runReaderT)
 import           Data.Acid             (update, query)
-import           Data.Int              (Int64)
 import           Data.Default          (def)
+import           Data.Int              (Int64)
+import           Data.List             (nubBy)
+import           Data.Function         (on)
 import           Data.Maybe            (fromJust)
 import           Data.Text             (Text, pack)
 import           Data.Typeable         (Typeable)
@@ -19,13 +21,13 @@ import           Test.QuickCheck       (Arbitrary (arbitrary), NonNegative (..),
                                         Gen, oneof, Positive (..),
                                         NonEmptyList (..), generate, frequency, vector)
 
-import qualified  RSCoin.Bank          as B
-import qualified  RSCoin.Mintette      as M
-import qualified  RSCoin.User          as U
-import qualified  Actions              as U
-import qualified  UserOptions          as U
-import            RSCoin.Core          (initLogging, Severity(Info), Mintette(..),
-                                        Address (..), logDebug)
+import qualified RSCoin.Bank           as B
+import qualified RSCoin.Mintette       as M
+import qualified RSCoin.User           as U
+import qualified Actions               as U
+import qualified UserOptions           as U
+import           RSCoin.Core           (initLogging, Severity(Info), Mintette(..),
+                                        Address (..), logDebug, getCoin)
 import           RSCoin.Test           (WorkMode, runRealMode, runEmulationMode,
                                         upto, mcs, work, minute, wait, for, sec,
                                         interval, MicroSeconds, PureRpc, fork,
@@ -78,7 +80,7 @@ type UserIndex = Maybe (NonNegative Int)
 
 type ValidAddressIndex = NonNegative Int
 type ToAddress = Either Address (UserIndex, ValidAddressIndex)
-type FromAddresses = NonEmptyList (ValidAddressIndex, Positive Int64)
+type FromAddresses = NonEmptyList (ValidAddressIndex, NonNegative Int)
 
 type Inputs = [(Int, Int64)]
 
@@ -92,11 +94,16 @@ arbitraryAddress =
 
 arbitraryInputs :: WorkMode m => UserIndex -> FromAddresses -> TestEnv m Inputs
 arbitraryInputs userIndex (getNonEmpty -> fromIndexes) = do
-    --user <- getUser userIndex
-    -- publicAddresses <- liftIO $ query user U.GetPublicAddresses
-    -- TODO: we should probably nub and check bounds of addresses
-    -- to make them valid, but lets first try with this
-    return $ map (\(a, b) -> (getNonNegative a, getPositive b)) fromIndexes
+    user <- getUser userIndex
+    allAddresses <- liftIO $ query user U.GetAllAddresses
+    publicAddresses <- liftIO $ query user U.GetPublicAddresses
+    addressesAmount <- mapM (U.getAmount user) allAddresses
+    when (null publicAddresses) $
+        throwM $ TestError "No public addresses in this user"
+    -- TODO: for now we are sending all coins. It would be good to send some amount of coins that we have
+    return $ filter ((> 0) . snd) . nubBy ((==) `on` fst) 
+        $ map (\(a, b) -> (a + 1, getCoin $ addressesAmount !! a))
+        $ map (\(getNonNegative -> a, getNonNegative -> b) -> (a `mod` length publicAddresses, b)) fromIndexes
 
 -- data DumpAction
 
@@ -161,7 +168,7 @@ launch mNum uNum test = do
 
     -- mNum mintettes, uNum users (excluding user in bank-mode), 
     -- emulation duration - 3 minutes
-    (mkTestContext mNum uNum (interval 3 minute) >>= ) $ runReaderT $ do
+    (mkTestContext mNum uNum (interval 10 sec) >>= ) $ runReaderT $ do
         runBank
         mapM_ runMintette =<< view mintettes
 

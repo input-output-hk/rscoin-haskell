@@ -36,6 +36,7 @@ library
                      , RSCoin.Mintette.Storage
                      , RSCoin.User
                      , RSCoin.User.AcidState
+                     , RSCoin.User.Commands
                      , RSCoin.User.Error
                      , RSCoin.User.Wallet
                      , RSCoin.User.Logic
@@ -142,8 +143,7 @@ executable rscoin-keygen
 
 executable rscoin-user
   main-is:             Main.hs
-  other-modules:       Actions
-                     , UserOptions
+  other-modules:       UserOptions
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
                      , containers >= 0.5.6.2

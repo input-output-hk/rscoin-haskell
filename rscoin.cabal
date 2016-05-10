@@ -312,13 +312,12 @@ benchmark rscoin-bench
   main-is:             Main.hs
   build-depends:       acid-state
                      , base >=4.8 && <4.9
-                     , directory >= 1.2.2
                      , exceptions
-                     , extra >= 1.4.3
                      , filepath
                      , mtl
                      , rscoin
-                     , text >= 1.2.2.0
+                     , temporary
+                     , text
   hs-source-dirs:      bench
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N 

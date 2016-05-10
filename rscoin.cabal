@@ -56,7 +56,6 @@ library
                      , RSCoin.Core.Communication
                      , RSCoin.Core.Logging
                      , RSCoin.Core.MessagePack
-                     , RSCoin.Timed.NewtypeBaseControl
                      , RSCoin.Core.Protocol
                      , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Server

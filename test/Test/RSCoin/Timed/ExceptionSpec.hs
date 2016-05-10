@@ -1,6 +1,6 @@
 {-# LANGUAGE ViewPatterns #-}
 
-module RSCoin.Timed.ExceptionSpec
+module Test.RSCoin.Timed.ExceptionSpec
        ( spec
        ) where
 

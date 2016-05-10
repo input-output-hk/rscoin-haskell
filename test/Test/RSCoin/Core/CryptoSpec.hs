@@ -1,6 +1,6 @@
 -- | RSCoin.Core.Crypto specification
 
-module RSCoin.Core.CryptoSpec
+module Test.RSCoin.Core.CryptoSpec
        ( spec
        ) where
 

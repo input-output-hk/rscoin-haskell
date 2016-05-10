@@ -1,6 +1,6 @@
 -- | Arbitrary instances for Core types.
 
-module RSCoin.Core.Arbitrary
+module Test.RSCoin.Core.Arbitrary
        (
        ) where
 

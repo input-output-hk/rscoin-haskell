@@ -9,38 +9,38 @@
 
 -- | HSpec specification of Storage.
 
-module RSCoin.StorageSpec
+module Test.RSCoin.StorageSpec
        ( spec
        ) where
 
-import           Control.Lens                (at, ix, makeLenses, preuse, use,
-                                              (+=), (.=), (^.))
+import           Control.Lens                     (at, ix, makeLenses, preuse, use,
+                                                   (+=), (.=), (^.))
 
-import           Control.Exception           (Exception)
-import           Control.Monad               (forM, when)
-import           Control.Monad.Catch         (MonadThrow (throwM))
-import           Control.Monad.State.Lazy    (gets)
-import           Data.List                   (elemIndex)
-import qualified Data.Map                    as M
-import           Data.Maybe                  (fromJust)
-import           Data.Text                   (Text)
-import           Data.Tuple.Select           (sel1, sel3)
-import           Data.Typeable               (Typeable)
-import           Test.Hspec                  (Spec, describe)
-import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Arbitrary (arbitrary), Gen,
-                                              frequency)
+import           Control.Exception                (Exception)
+import           Control.Monad                    (forM, when)
+import           Control.Monad.Catch              (MonadThrow (throwM))
+import           Control.Monad.State.Lazy         (gets)
+import           Data.List                        (elemIndex)
+import qualified Data.Map                         as M
+import           Data.Maybe                       (fromJust)
+import           Data.Text                        (Text)
+import           Data.Tuple.Select                (sel1, sel3)
+import           Data.Typeable                    (Typeable)
+import           Test.Hspec                       (Spec, describe)
+import           Test.Hspec.QuickCheck            (prop)
+import           Test.QuickCheck                  (Arbitrary (arbitrary), Gen,
+                                                   frequency)
 
-import qualified RSCoin.Bank.Error           as B
-import qualified RSCoin.Bank.Storage         as B
-import qualified RSCoin.Core                 as C
-import qualified RSCoin.Mintette.Error       as M
-import qualified RSCoin.Mintette.Storage     as M
+import qualified RSCoin.Bank.Error                as B
+import qualified RSCoin.Bank.Storage              as B
+import qualified RSCoin.Core                      as C
+import qualified RSCoin.Mintette.Error            as M
+import qualified RSCoin.Mintette.Storage          as M
 
-import qualified RSCoin.Bank.StorageSpec     as B
-import           RSCoin.Core.Arbitrary       ()
-import qualified RSCoin.Core.Storage         as T
-import qualified RSCoin.Mintette.StorageSpec as M
+import qualified Test.RSCoin.Bank.StorageSpec     as B
+import           Test.RSCoin.Core.Arbitrary       ()
+import qualified Test.RSCoin.Core.Storage         as T
+import qualified Test.RSCoin.Mintette.StorageSpec as M
 
 data TestError
     = TestError Text

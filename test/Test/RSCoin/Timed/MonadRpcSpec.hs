@@ -2,7 +2,7 @@
 
 -- | RSCoin.Test.MonadRpc specification
 
-module RSCoin.Timed.MonadRpcSpec
+module Test.RSCoin.Timed.MonadRpcSpec
        ( spec
        ) where
 

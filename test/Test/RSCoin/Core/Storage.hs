@@ -10,7 +10,7 @@
 
 -- | Bank and Mintette common storage types
 
-module RSCoin.Core.Storage
+module Test.RSCoin.Core.Storage
        ( Update (..)
        , execUpdate
        , runUpdate

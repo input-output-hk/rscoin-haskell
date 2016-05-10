@@ -3,49 +3,49 @@
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ViewPatterns              #-}
 
-module RSCoin.Timed.RSCoinSpec
+module Test.RSCoin.Timed.RSCoinSpec
        ( spec
        ) where
 
-import           Control.Exception     (Exception)
-import           Control.Lens          (view, (^.), preview, ix, to)
-import           Control.Monad         (forM, when)
-import           Control.Monad.Catch   (throwM, catch)
-import           Control.Monad.Trans   (MonadIO, liftIO)
-import           Control.Monad.Reader  (runReaderT, ask)
-import           Data.Acid             (update, query)
-import           Data.Default          (def)
-import           Data.Int              (Int64)
-import           Data.List             (nubBy)
-import           Data.Function         (on)
-import           Data.Maybe            (fromJust)
-import           Data.Text             (Text, pack)
-import           Data.Typeable         (Typeable)
-import           System.Random         (mkStdGen)
-import           Serokell.Util.Text    (formatSingle')
+import           Control.Exception          (Exception)
+import           Control.Lens               (view, (^.), preview, ix, to)
+import           Control.Monad              (forM, when)
+import           Control.Monad.Catch        (throwM, catch)
+import           Control.Monad.Trans        (MonadIO, liftIO)
+import           Control.Monad.Reader       (runReaderT, ask)
+import           Data.Acid                  (update, query)
+import           Data.Default               (def)
+import           Data.Int                   (Int64)
+import           Data.List                  (nubBy)
+import           Data.Function              (on)
+import           Data.Maybe                 (fromJust)
+import           Data.Text                  (Text, pack)
+import           Data.Typeable              (Typeable)
+import           System.Random              (mkStdGen)
+import           Serokell.Util.Text         (formatSingle')
 
-import           Test.QuickCheck       (Arbitrary (arbitrary), NonNegative (..),
-                                        Gen, oneof, Positive (..),
-                                        NonEmptyList (..), generate, frequency, vector, Property)
-import           Test.QuickCheck.Monadic (monadicIO)
-import           Test.Hspec            (Spec)
+import           Test.QuickCheck            (Arbitrary (arbitrary), NonNegative (..),
+                                             Gen, oneof, Positive (..),
+                                             NonEmptyList (..), generate, frequency, vector, Property)
+import           Test.QuickCheck.Monadic    (monadicIO)
+import           Test.Hspec                 (Spec)
 
-import qualified RSCoin.Bank           as B
-import qualified RSCoin.Mintette       as M
-import qualified RSCoin.User           as U
-import qualified RSCoin.Core.Arbitrary ()
+import qualified RSCoin.Bank                as B
+import qualified RSCoin.Mintette            as M
+import qualified RSCoin.User                as U
+import           Test.RSCoin.Core.Arbitrary ()
 
-import           RSCoin.Core           (initLogging, Severity(Info), Mintette(..),
-                                        Address (..), logDebug, Coin (..),
-                                        RSCoinError, logWarning)
-import           RSCoin.Timed          (WorkMode, runRealMode, runEmulationMode,
-                                        upto, mcs, work, minute, wait, for, sec,
-                                        interval, MicroSeconds, PureRpc, fork,
-                                        invoke, at)
-import           RSCoin.Timed.Context  (TestEnv, mkTestContext, state, port,
-                                        keys, publicKey, secretKey, MintetteInfo,
-                                        bank, mintettes, lifetime, users, buser,
-                                        UserInfo, bankSkPath, TestContext)
+import           RSCoin.Core                (initLogging, Severity(Info), Mintette(..),
+                                             Address (..), logDebug, Coin (..),
+                                             RSCoinError, logWarning)
+import           RSCoin.Timed               (WorkMode, runRealMode, runEmulationMode,
+                                             upto, mcs, work, minute, wait, for, sec,
+                                             interval, MicroSeconds, PureRpc, fork,
+                                             invoke, at)
+import           Test.RSCoin.Timed.Context  (TestEnv, mkTestContext, state, port,
+                                             keys, publicKey, secretKey, MintetteInfo,
+                                             bank, mintettes, lifetime, users, buser,
+                                             UserInfo, bankSkPath, TestContext)
 spec :: Spec
 spec = return ()
 

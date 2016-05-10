@@ -9,7 +9,7 @@
 
 -- | HSpec specification of Mintette's Storage.
 
-module RSCoin.Mintette.StorageSpec
+module Test.RSCoin.Mintette.StorageSpec
        ( spec
        , Update
        , UpdateVoid
@@ -18,18 +18,18 @@ module RSCoin.Mintette.StorageSpec
        , mintetteKey
        ) where
 
-import           Control.Lens              (makeLenses)
+import           Control.Lens                   (makeLenses)
 
-import           Control.Monad             (void)
-import           Test.Hspec                (Spec, describe)
-import           Test.QuickCheck           (Arbitrary (arbitrary), Gen, frequency)
+import           Control.Monad                  (void)
+import           Test.Hspec                     (Spec, describe)
+import           Test.QuickCheck                (Arbitrary (arbitrary), Gen, frequency)
 
-import qualified RSCoin.Mintette.Error     as S
-import qualified RSCoin.Mintette.Storage   as S
-import qualified RSCoin.Core               as C
+import qualified RSCoin.Mintette.Error          as S
+import qualified RSCoin.Mintette.Storage        as S
+import qualified RSCoin.Core                    as C
 
-import           RSCoin.Core.Arbitrary ()
-import qualified RSCoin.Core.Storage       as T
+import           Test.RSCoin.Core.Arbitrary ()
+import qualified Test.RSCoin.Core.Storage       as T
 
 spec :: Spec
 spec =

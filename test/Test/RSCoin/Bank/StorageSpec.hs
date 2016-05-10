@@ -9,7 +9,7 @@
 
 -- | HSpec specification of Bank's Storage.
 
-module RSCoin.Bank.StorageSpec
+module Test.RSCoin.Bank.StorageSpec
        ( spec
        , Update
        , UpdateVoid
@@ -18,17 +18,17 @@ module RSCoin.Bank.StorageSpec
        , bankKey
        ) where
 
-import           Control.Lens          (makeLenses)
+import           Control.Lens               (makeLenses)
 
-import           Test.Hspec            (Spec, describe)
-import           Test.QuickCheck       (Arbitrary (arbitrary), Gen, frequency)
+import           Test.Hspec                 (Spec, describe)
+import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
 
-import qualified RSCoin.Bank.Error     as S
-import qualified RSCoin.Bank.Storage   as S
-import qualified RSCoin.Core           as C
+import qualified RSCoin.Bank.Error          as S
+import qualified RSCoin.Bank.Storage        as S
+import qualified RSCoin.Core                as C
 
-import           RSCoin.Core.Arbitrary ()
-import qualified RSCoin.Core.Storage   as T
+import           Test.RSCoin.Core.Arbitrary ()
+import qualified Test.RSCoin.Core.Storage   as T
 
 spec :: Spec
 spec =

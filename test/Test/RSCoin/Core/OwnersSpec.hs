@@ -1,14 +1,14 @@
 -- | HSpec specification for `Owners` module
 
-module RSCoin.Core.OwnersSpec
+module Test.RSCoin.Core.OwnersSpec
        ( spec
        ) where
 
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec                 (Spec, describe)
+import           Test.Hspec.QuickCheck      (prop)
 
-import qualified RSCoin.Core           as C
-import           RSCoin.Core.Arbitrary ()
+import qualified RSCoin.Core                as C
+import           Test.RSCoin.Core.Arbitrary ()
 
 spec :: Spec
 spec =

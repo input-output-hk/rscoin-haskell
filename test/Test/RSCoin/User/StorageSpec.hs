@@ -9,7 +9,7 @@
 
 -- | HSpec specification of User's Storage.
 
-module RSCoin.User.StorageSpec
+module Test.RSCoin.User.StorageSpec
        ( spec
        , Update
        , UpdateVoid
@@ -18,17 +18,17 @@ module RSCoin.User.StorageSpec
        , userKey
        ) where
 
-import           Control.Lens          (makeLenses)
+import           Control.Lens               (makeLenses)
 
-import           Test.Hspec            (Spec, describe)
-import           Test.QuickCheck       (Arbitrary (arbitrary), Gen, frequency)
+import           Test.Hspec                 (Spec, describe)
+import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
 
-import qualified RSCoin.User.Error     as S
-import qualified RSCoin.User.Wallet    as S
-import qualified RSCoin.Core           as C
+import qualified RSCoin.User.Error          as S
+import qualified RSCoin.User.Wallet         as S
+import qualified RSCoin.Core                as C
 
-import           RSCoin.Core.Arbitrary ()
-import qualified RSCoin.Core.Storage   as T
+import           Test.RSCoin.Core.Arbitrary ()
+import qualified Test.RSCoin.Core.Storage   as T
 
 spec :: Spec
 spec =

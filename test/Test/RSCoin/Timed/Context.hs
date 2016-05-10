@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
-module RSCoin.Timed.Context
+module Test.RSCoin.Timed.Context
     ( BankInfo(..)
     , MintetteInfo(..)
     , UserInfo(..)
@@ -22,9 +22,9 @@ import           Control.Monad        (replicateM, forM)
 import           Control.Monad.Trans  (MonadIO, liftIO)
 import           Control.Monad.Reader (ReaderT)
 
-import qualified RSCoin.Bank       as B
-import qualified RSCoin.Mintette   as M
-import qualified RSCoin.User       as U
+import qualified RSCoin.Bank          as B
+import qualified RSCoin.Mintette      as M
+import qualified RSCoin.User          as U
 import           RSCoin.Core          (SecretKey, PublicKey, keyGen, bankPort,
                                        derivePublicKey, readSecretKey, 
                                        defaultSecretKeyPath)

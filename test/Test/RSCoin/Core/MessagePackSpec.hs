@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module RSCoin.Core.MessagePackSpec
+module Test.RSCoin.Core.MessagePackSpec
        ( spec
        ) where
 
@@ -12,7 +12,8 @@ import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            ((===))
 
 import qualified RSCoin.Core                as C
-import qualified RSCoin.Core.Arbitrary      ()
+
+import           Test.RSCoin.Core.Arbitrary ()
 
 spec :: Spec
 spec =

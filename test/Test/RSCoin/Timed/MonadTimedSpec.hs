@@ -5,7 +5,7 @@
 
 -- | RSCoin.Test.MonadTimed specification
 
-module RSCoin.Timed.MonadTimedSpec
+module Test.RSCoin.Timed.MonadTimedSpec
        ( spec
        ) where
 
@@ -23,10 +23,10 @@ import           Test.QuickCheck.Monadic  (PropertyM, assert, monadic, monitor,
                                            run)
 import           Test.QuickCheck.Poly     (A)
 
-import           RSCoin.Timed.MonadTimed   (MicroSeconds, MonadTimed (..),
+import           RSCoin.Timed.MonadTimed  (MicroSeconds, MonadTimed (..),
                                            RelativeToNow, invoke, now, schedule)
-import           RSCoin.Timed.TimedIO      (TimedIO, runTimedIO)
-import           RSCoin.Timed.Timed        (TimedT, runTimedT)
+import           RSCoin.Timed.TimedIO     (TimedIO, runTimedIO)
+import           RSCoin.Timed.Timed       (TimedT, runTimedT)
 
 spec :: Spec
 spec =

@@ -5,32 +5,32 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
 
--- This module contains MonadRpc providing RPC communication,
+-- | This module contains MonadRpc providing RPC communication,
 -- and it's implementation using MessagePack.
 
 module RSCoin.Timed.MonadRpc
-    ( Port
-    , Host
-    , Addr
-    , MonadRpc
-    , MsgPackRpc
-    , runMsgPackRpc
-    , RpcType
-    , execClient
-    , execClientTimeout
-    , serve
-    , Method(..)
-    , Client(..)
-    , method
-    , call
-    , S.Server
-    , S.ServerT
-    , S.MethodType
-    , serverTypeRestriction0
-    , serverTypeRestriction1
-    , serverTypeRestriction2
-    , serverTypeRestriction3
-    ) where
+       ( Port
+       , Host
+       , Addr
+       , MonadRpc
+       , MsgPackRpc
+       , runMsgPackRpc
+       , RpcType
+       , execClient
+       , execClientTimeout
+       , serve
+       , Method(..)
+       , Client(..)
+       , method
+       , call
+       , S.Server
+       , S.ServerT
+       , S.MethodType
+       , serverTypeRestriction0
+       , serverTypeRestriction1
+       , serverTypeRestriction2
+       , serverTypeRestriction3
+       ) where
 
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)

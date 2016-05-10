@@ -1,7 +1,9 @@
 module RSCoin.Timed.Misc
-    where
+       ( bracket'
+       , repeatForever
+       ) where
 
-import           Control.Concurrent.STM.TVar as T
+import qualified Control.Concurrent.STM.TVar as T
 import           Control.Exception.Base      (SomeException)
 import           Control.Monad.Catch         (MonadCatch, MonadMask, catch,
                                               mask, throwM)
@@ -18,14 +20,17 @@ bracket' :: MonadMask m
          -> (a -> m c)  -- ^ computation to run in-between
          -> m c         -- returns the value from the in-between computation
 bracket' before after thing =
-  mask $ \restore -> do
-    a <- before
-    r <- restore (thing a) `onException` after a
-    _ <- after a
-    return r
+    mask $
+    \restore ->
+         do a <- before
+            r <- restore (thing a) `onException` after a
+            _ <- after a
+            return r
   where
-    onException io what = io `catch` \e -> what >> throwM (e :: SomeException)
-
+    onException io what =
+        io `catch`
+        \e ->
+             what >> throwM (e :: SomeException)
 
 -- | Repeats an action periodically.
 --   If it fails, handler is invoked, determing delay for retrying.
@@ -51,7 +56,6 @@ repeatForever period handler action = do
 
   where
     continue = repeatForever period handler action
-
     waitForRes nextDelay = do
         wait $ for 10 ms
         res <- liftIO $ T.readTVarIO nextDelay

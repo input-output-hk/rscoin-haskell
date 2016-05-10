@@ -15,15 +15,15 @@ module RSCoin.Timed.Timed
 
 import           Control.Exception       (SomeException)
 import           Control.Exception.Base  (AsyncException (ThreadKilled))
-import           Control.Monad.Catch     (throwM)
 import           Control.Lens            (makeLenses, to, use, (%=), (.=), (^.))
-import           Control.Monad           (void, unless)
-import           Control.Monad.Catch     (MonadCatch, MonadThrow, MonadMask, 
-                                          catch, mask, uninterruptibleMask)
+import           Control.Monad           (unless, void)
+import           Control.Monad.Catch     (MonadCatch, MonadMask, MonadThrow,
+                                          catch, mask, throwM,
+                                          uninterruptibleMask)
 import           Control.Monad.Cont      (ContT (..), runContT)
 import           Control.Monad.Loops     (whileM_)
 import           Control.Monad.Reader    (ReaderT (..), ask, runReaderT)
-import           Control.Monad.State     (MonadState (state, get, put), StateT,
+import           Control.Monad.State     (MonadState (get, put, state), StateT,
                                           evalStateT)
 import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
 import           Data.Function           (on)
@@ -35,10 +35,10 @@ import           System.IO.Unsafe        (unsafePerformIO)
 import qualified Data.PQueue.Min         as PQ
 import           Serokell.Util.Text      (formatSingle')
 
-import           RSCoin.Timed.MonadTimed (MicroSeconds, MonadTimed, localTime,
-                                          now, schedule, wait, workWhile,
-                                          timeout)
 import           RSCoin.Core.Logging     (logWarning)
+import           RSCoin.Timed.MonadTimed (MicroSeconds, MonadTimed, localTime,
+                                          now, schedule, timeout, wait,
+                                          workWhile)
 
 type Timestamp = MicroSeconds
 
@@ -109,25 +109,25 @@ instance MonadCatch m => MonadCatch (TimedT m) where
             flip runReaderT r . unwrapTimedT . handler
 
 instance MonadMask m => MonadMask (TimedT m) where
-    mask a = TimedT $ ReaderT $ \r -> ContT $ \c -> 
+    mask a = TimedT $ ReaderT $ \r -> ContT $ \c ->
         mask $ \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
       where
         q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
             runContT (runReaderT (unwrapTimedT t) r) c
-  
-    uninterruptibleMask a = TimedT $ ReaderT $ \r -> ContT $ \c -> 
-        uninterruptibleMask $ 
+
+    uninterruptibleMask a = TimedT $ ReaderT $ \r -> ContT $ \c ->
+        uninterruptibleMask $
             \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
       where
         q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
             runContT (runReaderT (unwrapTimedT t) r) c
-        
+
 
 launchTimedT :: Monad m => TimedT m a -> m ()
-launchTimedT (TimedT t) = flip evalStateT emptyScenario
-                        $ flip runContT   (void . return)
-                        $ flip runReaderT (return True)
-                        $ t
+launchTimedT (TimedT t) =
+    flip evalStateT emptyScenario $
+    flip runContT (void . return) $
+    flip runReaderT (return True) $ t
 
 -- | Starts timed evaluation. Finishes when no more scheduled actions remain.
 -- FIXME:  MonadCatch is not necessary here, we just should catch if it can throw
@@ -159,7 +159,7 @@ runTimedT timed = launchTimedT $ do
 
     {-# NOINLINE handler #-}
     handler :: Monad m => SomeException -> m ()
-    handler e = let text = formatSingle' "Thread killed by exception: {}" $ 
+    handler e = let text = formatSingle' "Thread killed by exception: {}" $
                            T.pack . show $ e
                 in  return $! unsafePerformIO $ logWarning text
 
@@ -174,7 +174,7 @@ instance MonadThrow m => MonadTimed (TimedT m) where
 
     wait relativeToNow = do
         cur <- localTime
-        cond <- TimedT $ ask
+        cond <- TimedT ask
         let event following =
                 Event
                 { _condition = cond
@@ -184,5 +184,5 @@ instance MonadThrow m => MonadTimed (TimedT m) where
         TimedT $ lift $ ContT $
             \following ->
                  events %= PQ.insert (event following)
-    -- FIXME: !
+    -- FIXME: implement this!
     timeout _ = id

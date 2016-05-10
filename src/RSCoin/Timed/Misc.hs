@@ -1,14 +1,15 @@
 module RSCoin.Timed.Misc
     where
 
-import Control.Exception.Base      (SomeException)
-import Control.Monad.Catch         (MonadCatch, MonadMask, mask, throwM, catch)
-import Control.Monad.Trans         (MonadIO, liftIO)
-import Control.Monad.STM           (atomically)
-import Control.Concurrent.STM.TVar as T
+import           Control.Concurrent.STM.TVar as T
+import           Control.Exception.Base      (SomeException)
+import           Control.Monad.Catch         (MonadCatch, MonadMask, catch,
+                                              mask, throwM)
+import           Control.Monad.STM           (atomically)
+import           Control.Monad.Trans         (MonadIO, liftIO)
 
-import RSCoin.Timed.MonadTimed     (MonadTimed, MicroSeconds, wait, fork, 
-                                    ms, mcs, for, startTimer)
+import           RSCoin.Timed.MonadTimed     (MicroSeconds, MonadTimed, for,
+                                              fork, mcs, ms, startTimer, wait)
 
 -- | Implementation of bracket for any MonadMask
 bracket' :: MonadMask m
@@ -26,26 +27,26 @@ bracket' before after thing =
     onException io what = io `catch` \e -> what >> throwM (e :: SomeException)
 
 
--- | Repeats an action periodically. 
+-- | Repeats an action periodically.
 --   If it fails, handler is invoked, determing delay for retrying.
 --   Can be interrupted with asyncronious exception.
-repeatForever :: (MonadTimed m, MonadIO m, MonadCatch m) 
+repeatForever :: (MonadTimed m, MonadIO m, MonadCatch m)
               => MicroSeconds    -- ^ Period between action launches
-              -> (SomeException -> m MicroSeconds)  
-                                 -- ^ What to do on exception,  
+              -> (SomeException -> m MicroSeconds)
+                                 -- ^ What to do on exception,
                                  --   returns delay before retrying
               -> m ()            -- ^ Action
-              -> m ()           
+              -> m ()
 repeatForever period handler action = do
     timer <- startTimer
     nextDelay <- liftIO $ T.newTVarIO Nothing
-    fork $ 
+    fork $
         let setNextDelay = liftIO . atomically . T.writeTVar nextDelay . Just
-            action'      = action >> timer >>= 
+            action'      = action >> timer >>=
                             \passed -> setNextDelay (period - passed)
             handler' e   = handler e >>= setNextDelay
         in  action' `catch` handler'
- 
+
     waitForRes nextDelay
 
   where
@@ -57,4 +58,3 @@ repeatForever period handler action = do
         case res of
             Nothing -> waitForRes nextDelay
             Just t  -> wait (for t mcs) >> continue
-

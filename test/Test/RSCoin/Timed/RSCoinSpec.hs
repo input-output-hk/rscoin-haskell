@@ -127,6 +127,7 @@ arbitraryInputs userIndex (getNonEmpty -> fromIndexes) = do
 
 data UserAction
     = FormTransaction UserIndex FromAddresses ToAddress
+    | ListAddresses UserIndex
     | UpdateBlockchain UserIndex
    -- TODO: we use dumping only for debug but we should cover all cases
    -- | Dump DumpAction
@@ -135,23 +136,25 @@ data UserAction
 instance Arbitrary UserAction where
     arbitrary =
         frequency [ (10, FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary)
+                  , (1, ListAddresses <$> arbitrary)
                   , (10, UpdateBlockchain <$> arbitrary)
                   ]
 
 instance Action UserAction where
-    doAction (FormTransaction userIndex' fromAddresses toAddress) = do
-        -- always run in bank mode
-        let userIndex = Nothing
+    doAction (FormTransaction userIndex fromAddresses toAddress) = do
         address <- arbitraryAddress toAddress
         inputs <- arbitraryInputs userIndex fromAddresses
         getUser userIndex >>= \s ->
             U.formTransaction s inputs address $
                 Coin (sum $ map snd inputs)
+    doAction (ListAddresses userIndex) = do
+        runUserAction userIndex U.ListAddresses
     doAction (UpdateBlockchain userIndex) = do
-        user <- getUser userIndex
-        walletHeight <- liftIO $ query user U.GetLastBlockId
-        lastBlockHeight <- pred <$> U.getBlockchainHeight
-        mapM_ (U.updateToBlockHeight user) [walletHeight + 1 .. lastBlockHeight]
+        runUserAction userIndex U.UpdateBlockchain
+
+runUserAction :: WorkMode m => UserIndex -> U.UserCommand -> TestEnv m ()
+runUserAction userIndex command =
+    getUser userIndex >>= flip U.proceedCommand command
 
 getUser :: WorkMode m => UserIndex -> TestEnv m U.RSCoinUserState
 getUser Nothing =

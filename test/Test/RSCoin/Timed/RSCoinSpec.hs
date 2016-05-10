@@ -7,12 +7,13 @@ module Test.RSCoin.Timed.RSCoinSpec
        ( spec
        ) where
 
+import           Control.Concurrent.MVar    (newEmptyMVar, putMVar, readMVar, MVar)
 import           Control.Exception          (Exception)
 import           Control.Lens               (view, (^.), preview, ix, to)
 import           Control.Monad              (forM, when)
 import           Control.Monad.Catch        (throwM, catch)
 import           Control.Monad.Trans        (MonadIO, liftIO)
-import           Control.Monad.Reader       (runReaderT, ask)
+import           Control.Monad.Reader       (runReaderT, ask, ReaderT)
 import           Data.Acid                  (update, query)
 import           Data.Default               (def)
 import           Data.Int                   (Int64)
@@ -27,7 +28,7 @@ import           Serokell.Util.Text         (formatSingle')
 import           Test.QuickCheck            (Arbitrary (arbitrary), NonNegative (..),
                                              Gen, oneof, Positive (..),
                                              NonEmptyList (..), generate, frequency, vector, Property)
-import           Test.QuickCheck.Monadic    (monadicIO)
+import           Test.QuickCheck.Monadic    (monadicIO, assert)
 import           Test.Hspec                 (Spec)
 
 import qualified RSCoin.Bank                as B
@@ -236,6 +237,19 @@ initUser user = U.initState (user ^. state) 5 Nothing
 runAnotherAction :: WorkMode m => RSCoinState m -> SomeAction -> RSCoinState m
 runAnotherAction (stateContext -> context) action =
     RSCoinState $ context >>= runReaderT (doAction action >> ask)
+
+-- TODO: this is a workaround until exception handling is fixed (waiting until @martoon merges).
+-- We cant pull out value from PureRpc so one solution is to use create something like PureRpc (State Bool) and use that for testing. This solution is used in MonadRpcSpec module. Because PureRpc is MonadIO here, I am instead reusing MVar. Possibly better approach would be to throw some SpecialTestException and catch that exception outside. If exception is caught then test failed.
+monadicIOProp :: WorkMode m => ReaderT (MVar Bool) m () -> Property
+monadicIOProp action = monadicIO $ do
+    var <- liftIO newEmptyMVar
+    -- FIXME: run action >> putMVar True
+    res <- liftIO $ readMVar var
+    assert res
+
+assertProp :: WorkMode m => Bool -> ReaderT (MVar Bool) m ()
+assertProp True  = pure ()
+assertProp False = ask >>= liftIO . flip putMVar False
 
 somePropertyX :: WorkMode m => RSCoinState m -> Property
 somePropertyX state = monadicIO $

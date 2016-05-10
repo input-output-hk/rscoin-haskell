@@ -26,7 +26,8 @@ import           Serokell.Util.Text    (formatSingle')
 
 import           Test.QuickCheck       (Arbitrary (arbitrary), NonNegative (..),
                                         Gen, oneof, Positive (..),
-                                        NonEmptyList (..), generate, frequency, vector)
+                                        NonEmptyList (..), generate, frequency, vector, Property)
+import           Test.QuickCheck.Monadic (monadicIO)
 import           Test.Hspec            (Spec)
 
 import qualified RSCoin.Bank           as B
@@ -166,9 +167,6 @@ instance Arbitrary SomeAction where
 newtype RSCoinState =
     RSCoinState { stateContext :: forall m . (WorkMode m) => m TestContext }
 
-runAnotherAction :: WorkMode m => m TestContext -> TestEnv m () -> m TestContext
-runAnotherAction context action = context >>= runReaderT (action >> ask)
-
 -- TODO: maybe we should create also StartMintette, AddMintette, in terms of actions
 instance Arbitrary RSCoinState where
     arbitrary = do
@@ -228,3 +226,16 @@ initBUser = do
 
 initUser :: WorkMode m => UserInfo -> TestEnv m ()
 initUser user = U.initState (user ^. state) 5 Nothing
+
+runAnotherAction :: WorkMode m => m TestContext -> SomeAction -> m TestContext
+runAnotherAction context action = context >>= runReaderT (doAction action >> ask)
+
+somePropertyX :: RSCoinState -> Property
+somePropertyX state = monadicIO $
+    -- assert $ 1 == 1
+    return ()
+
+somePropertyAfterAction :: RSCoinState -> SomeAction -> Property
+somePropertyAfterAction state action = monadicIO $
+    -- runAnotherAction state action
+    return ()

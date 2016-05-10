@@ -28,7 +28,7 @@ module RSCoin.User.AcidState
 
 import qualified RSCoin.Core         as C
 import           RSCoin.Core.Crypto  (keyGen)
-import           RSCoin.Test         (WorkMode)
+import           RSCoin.Timed        (WorkMode)
 import           RSCoin.User.Logic   (getBlockchainHeight)
 import           RSCoin.User.Wallet  (UserAddress, WalletStorage)
 import qualified RSCoin.User.Wallet  as W

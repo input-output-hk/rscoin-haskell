@@ -2,7 +2,7 @@
 
 -- | RSCoin.Test.MonadRpc specification
 
-module RSCoin.Test.MonadRpcSpec
+module RSCoin.Timed.MonadRpcSpec
        ( spec
        ) where
 
@@ -18,14 +18,14 @@ import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic,
 import           System.Random              (StdGen, mkStdGen)
 import           Control.Monad.Random.Class (getRandomR)
 
-import           RSCoin.Test.MonadRpc       (Addr, Client (..), Host,
+import           RSCoin.Timed.MonadRpc       (Addr, Client (..), Host,
                                              MonadRpc (..),
                                              MsgPackRpc (..), Port, call,
                                              method)
-import           RSCoin.Test.MonadTimed     (MonadTimed (..), for, ms)
-import           RSCoin.Test.PureRpc        (PureRpc, runPureRpc,
+import           RSCoin.Timed.MonadTimed     (MonadTimed (..), for, ms)
+import           RSCoin.Timed.PureRpc        (PureRpc, runPureRpc,
                                              Delays (..))
-import           RSCoin.Test.TimedIO        (runTimedIO)
+import           RSCoin.Timed.TimedIO        (runTimedIO)
 
 import           Network.MessagePack.Server (ServerT)
 

@@ -40,13 +40,13 @@ library
                      , RSCoin.User.Wallet
                      , RSCoin.User.Logic
                      , RSCoin.User.Operations
-                     , RSCoin.Test
-                     , RSCoin.Test.MonadTimed
-                     , RSCoin.Test.MonadRpc
-                     , RSCoin.Test.PureRpc
-                     , RSCoin.Test.Timed
-                     , RSCoin.Test.TimedIO
-                     , RSCoin.Test.Misc
+                     , RSCoin.Timed
+                     , RSCoin.Timed.MonadTimed
+                     , RSCoin.Timed.MonadRpc
+                     , RSCoin.Timed.PureRpc
+                     , RSCoin.Timed.Timed
+                     , RSCoin.Timed.TimedIO
+                     , RSCoin.Timed.Misc
   other-modules:       RSCoin.Bank.AcidState
                      , RSCoin.Bank.Server
                      , RSCoin.Bank.Strategies
@@ -55,7 +55,7 @@ library
                      , RSCoin.Core.Communication
                      , RSCoin.Core.Logging
                      , RSCoin.Core.MessagePack
-                     , RSCoin.Test.NewtypeBaseControl
+                     , RSCoin.Timed.NewtypeBaseControl
                      , RSCoin.Core.Protocol
                      , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Server
@@ -191,11 +191,11 @@ test-suite rscoin-test
                      , RSCoin.Core.MessagePackSpec
                      , RSCoin.Mintette.StorageSpec
                      , RSCoin.StorageSpec
-                     , RSCoin.Test.MonadTimedSpec
-                     , RSCoin.Test.MonadRpcSpec
+                     , RSCoin.Timed.MonadTimedSpec
+                     , RSCoin.Timed.MonadRpcSpec
                      , RSCoin.User.StorageSpec
-                     , Timed.Context
-                     , Timed.RSCoinSpec
+                     , RSCoin.Timed.Context
+                     , RSCoin.Timed.RSCoinSpec
                      , Spec
   type:                exitcode-stdio-1.0
   build-depends:       base >=4.8 && <4.9
@@ -230,12 +230,12 @@ test-suite rscoin-test
 
 executable timed-launch
   main-is:             Main.hs
-  other-modules:       RSCoin.Test.MonadTimed
-                     , RSCoin.Test.TimedIO
-                     , RSCoin.Test.Timed
-                     , RSCoin.Test.MonadRpc
-                     , RSCoin.Test.PureRpc
-                     , RSCoin.Test.Misc
+  other-modules:       RSCoin.Timed.MonadTimed
+                     , RSCoin.Timed.TimedIO
+                     , RSCoin.Timed.Timed
+                     , RSCoin.Timed.MonadRpc
+                     , RSCoin.Timed.PureRpc
+                     , RSCoin.Timed.Misc
                      , RSCoin.Core.Error
                      , RSCoin.Core.Logging
   build-depends:       acid-state
@@ -280,7 +280,7 @@ executable timed-launch
                      , msgpack >= 1.0.0
                      , msgpack-rpc >= 1.0.0
                      , msgpack-aeson >= 0.1.0.0
-  hs-source-dirs:      src/RSCoin/Test,src, test
+  hs-source-dirs:      src/RSCoin/Timed,src, test
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
   default-extensions:  OverloadedStrings

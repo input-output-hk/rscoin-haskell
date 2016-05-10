@@ -1,6 +1,6 @@
 
 -- | This module creates an instance of MonadBaseControl for newtypes
-module RSCoin.Test.NewtypeBaseControl 
+module RSCoin.Timed.NewtypeBaseControl
     () where
 
 {-

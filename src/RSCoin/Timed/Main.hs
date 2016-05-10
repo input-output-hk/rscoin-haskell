@@ -10,15 +10,15 @@ import           Control.Monad.Trans        (MonadIO, lift, liftIO)
 import           Prelude                    hiding (log)
 import           System.Random              (mkStdGen)
 
-import           RSCoin.Test.MonadRpc       (Client, MonadRpc, call, execClient,
+import           RSCoin.Timed.MonadRpc      (Client, MonadRpc, call, execClient,
                                              method, runMsgPackRpc, serve)
-import           RSCoin.Test.MonadTimed     (MonadTimed, after, at, during, for,
+import           RSCoin.Timed.MonadTimed    (MonadTimed, after, at, during, for,
                                              invoke, localTime, minute, now,
                                              schedule, sec, sec', till, wait,
                                              work)
-import           RSCoin.Test.PureRpc        (Delays (..), runPureRpc)
-import           RSCoin.Test.Timed          (TimedT, runTimedT)
-import           RSCoin.Test.TimedIO        (runTimedIO_)
+import           RSCoin.Timed.PureRpc       (Delays (..), runPureRpc)
+import           RSCoin.Timed.Timed         (TimedT, runTimedT)
+import           RSCoin.Timed.TimedIO       (runTimedIO_)
 
 import           Control.Concurrent.MVar    (MVar, newMVar, putMVar, takeMVar)
 

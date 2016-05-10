@@ -29,7 +29,7 @@ import           Serokell.Util.Text     (format', formatSingle', pairBuilder,
                                          listBuilderJSONIndent)
 
 import qualified RSCoin.Core            as C
-import           RSCoin.Test            (WorkMode)
+import           RSCoin.Timed           (WorkMode)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Error      (UserError (..))

@@ -8,37 +8,37 @@
 
 -- | This module contains pure implementation of MonadTimed.
 
-module RSCoin.Test.Timed
+module RSCoin.Timed.Timed
        ( TimedT
        , runTimedT
        ) where
 
-import           Control.Exception      (SomeException)
-import           Control.Exception.Base (AsyncException (ThreadKilled))
-import           Control.Monad.Catch    (throwM)
-import           Control.Lens           (makeLenses, to, use, (%=), (.=), (^.))
-import           Control.Monad          (void, unless)
-import           Control.Monad.Catch    (MonadCatch, MonadThrow, MonadMask, 
-                                         catch, mask, uninterruptibleMask)
-import           Control.Monad.Cont     (ContT (..), runContT)
-import           Control.Monad.Loops    (whileM_)
-import           Control.Monad.Reader   (ReaderT (..), ask, runReaderT)
-import           Control.Monad.State    (MonadState (state, get, put), StateT,
-                                         evalStateT)
-import           Control.Monad.Trans    (MonadIO, MonadTrans, lift)
-import           Data.Function          (on)
-import           Data.Maybe             (fromJust)
-import           Data.Ord               (comparing)
-import           Data.Text              as T
-import           System.IO.Unsafe       (unsafePerformIO)
+import           Control.Exception       (SomeException)
+import           Control.Exception.Base  (AsyncException (ThreadKilled))
+import           Control.Monad.Catch     (throwM)
+import           Control.Lens            (makeLenses, to, use, (%=), (.=), (^.))
+import           Control.Monad           (void, unless)
+import           Control.Monad.Catch     (MonadCatch, MonadThrow, MonadMask, 
+                                          catch, mask, uninterruptibleMask)
+import           Control.Monad.Cont      (ContT (..), runContT)
+import           Control.Monad.Loops     (whileM_)
+import           Control.Monad.Reader    (ReaderT (..), ask, runReaderT)
+import           Control.Monad.State     (MonadState (state, get, put), StateT,
+                                          evalStateT)
+import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
+import           Data.Function           (on)
+import           Data.Maybe              (fromJust)
+import           Data.Ord                (comparing)
+import           Data.Text               as T
+import           System.IO.Unsafe        (unsafePerformIO)
 
-import qualified Data.PQueue.Min        as PQ
-import           Serokell.Util.Text     (formatSingle')
+import qualified Data.PQueue.Min         as PQ
+import           Serokell.Util.Text      (formatSingle')
 
-import           RSCoin.Test.MonadTimed (MicroSeconds, MonadTimed, localTime,
-                                         now, schedule, wait, workWhile,
-                                         timeout)
-import           RSCoin.Core.Logging    (logWarning)
+import           RSCoin.Timed.MonadTimed (MicroSeconds, MonadTimed, localTime,
+                                          now, schedule, wait, workWhile,
+                                          timeout)
+import           RSCoin.Core.Logging     (logWarning)
 
 type Timestamp = MicroSeconds
 

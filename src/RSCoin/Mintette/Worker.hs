@@ -19,7 +19,7 @@ import           RSCoin.Core               (SecretKey, epochDelta, logError)
 import           RSCoin.Mintette.AcidState (FinishEpoch (..), State)
 import           RSCoin.Mintette.Error     (MintetteError (MEInactive))
 
-import           RSCoin.Test               (WorkMode, tu, sec,
+import           RSCoin.Timed              (WorkMode, tu, sec,
                                             repeatForever)
 
 -- | Start worker which updates state when epoch finishes.

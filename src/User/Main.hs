@@ -7,7 +7,7 @@ import qualified Data.Text             as T
 import           Actions               (proceedCommand)
 import           RSCoin.Core           (initLogging, logDebug)
 import qualified RSCoin.User.AcidState as A
-import           RSCoin.Test           (runRealMode, bracket')
+import           RSCoin.Timed          (runRealMode, bracket')
 import qualified RSCoin.User.Wallet    as W
 import qualified UserOptions           as O
 

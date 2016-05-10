@@ -5,7 +5,7 @@
 
 -- | IO-based implementation of MonadTimed type class.
 
-module RSCoin.Test.TimedIO
+module RSCoin.Timed.TimedIO
        ( TimedIO
        , runTimedIO
        , runTimedIO_
@@ -25,7 +25,7 @@ import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import qualified System.Timeout              as T
 
-import           RSCoin.Test.MonadTimed      (MicroSeconds, MonadTimed (..),
+import           RSCoin.Timed.MonadTimed     (MicroSeconds, MonadTimed (..),
                                               MonadTimedError (MTTimeoutError))
 
 newtype TimedIO a = TimedIO

@@ -1,4 +1,4 @@
-module RSCoin.Test.Misc
+module RSCoin.Timed.Misc
     where
 
 import Control.Exception.Base      (SomeException)
@@ -7,7 +7,7 @@ import Control.Monad.Trans         (MonadIO, liftIO)
 import Control.Monad.STM           (atomically)
 import Control.Concurrent.STM.TVar as T
 
-import RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds, wait, fork, 
+import RSCoin.Timed.MonadTimed     (MonadTimed, MicroSeconds, wait, fork, 
                                     ms, mcs, for, startTimer)
 
 -- | Implementation of bracket for any MonadMask

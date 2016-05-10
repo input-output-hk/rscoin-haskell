@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
-module Timed.Context 
+module RSCoin.Timed.Context
     ( BankInfo(..)
     , MintetteInfo(..)
     , UserInfo(..)
@@ -28,7 +28,7 @@ import qualified RSCoin.User       as U
 import           RSCoin.Core          (SecretKey, PublicKey, keyGen, bankPort,
                                        derivePublicKey, readSecretKey, 
                                        defaultSecretKeyPath)
-import           RSCoin.Test          (MicroSeconds)
+import           RSCoin.Timed         (MicroSeconds)
 
 data BankInfo = BankInfo
     { _bankKeys  :: (SecretKey, PublicKey)

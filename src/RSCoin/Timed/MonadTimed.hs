@@ -6,7 +6,7 @@
 {-# LANGUAGE ViewPatterns          #-}
 
 -- | This module contains time management monad and it's implementation for IO.
-module RSCoin.Test.MonadTimed
+module RSCoin.Timed.MonadTimed
     ( fork, wait, localTime, workWhile, work, schedule, invoke, timeout
     , minute , sec , ms , mcs
     , minute', sec', ms', mcs'

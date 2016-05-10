@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE ViewPatterns              #-}
 
-module Timed.RSCoinSpec 
+module RSCoin.Timed.RSCoinSpec
        ( spec
        ) where
 
@@ -36,11 +36,11 @@ import qualified RSCoin.Core.Arbitrary ()
 import           RSCoin.Core           (initLogging, Severity(Info), Mintette(..),
                                         Address (..), logDebug, Coin (..),
                                         RSCoinError, logWarning)
-import           RSCoin.Test           (WorkMode, runRealMode, runEmulationMode,
+import           RSCoin.Timed          (WorkMode, runRealMode, runEmulationMode,
                                         upto, mcs, work, minute, wait, for, sec,
                                         interval, MicroSeconds, PureRpc, fork,
                                         invoke, at)
-import           Timed.Context         (TestEnv, mkTestContext, state, port, 
+import           RSCoin.Timed.Context  (TestEnv, mkTestContext, state, port,
                                         keys, publicKey, secretKey, MintetteInfo,
                                         bank, mintettes, lifetime, users, buser,
                                         UserInfo, bankSkPath)
@@ -159,9 +159,6 @@ getUser (fromJust -> getNonNegative -> index) = do
 instance Arbitrary SomeAction where
     arbitrary = oneof [ SomeAction <$> (arbitrary :: Gen UserAction)
                       ]
-
-data AddMintette = AddMintette
-    deriving Show
 
 -- TODO: maybe we should create also actions StartMintette, AddMintette, in terms of actions
 

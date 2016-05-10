@@ -5,7 +5,7 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module RSCoin.Test.PureRpc
+module RSCoin.Timed.PureRpc
     ( PureRpc
     , runPureRpc
     , Delays(..)
@@ -26,12 +26,12 @@ import           System.Random               (StdGen)
 import           Data.MessagePack            (Object)
 import           Data.MessagePack.Object     (fromObject, MessagePack)
 
-import           RSCoin.Test.MonadTimed      (MonadTimed, MicroSeconds, for,
+import           RSCoin.Timed.MonadTimed      (MonadTimed, MicroSeconds, for,
                                               wait, sec, mcs, localTime)
-import           RSCoin.Test.MonadRpc        (MonadRpc, execClient, serve,
+import           RSCoin.Timed.MonadRpc        (MonadRpc, execClient, serve,
                                               Addr, Method(..), Client(..),
                                               methodName, methodBody, Host)
-import           RSCoin.Test.Timed           (runTimedT, TimedT)
+import           RSCoin.Timed.Timed           (runTimedT, TimedT)
 
 
 -- | Describes network nastyness

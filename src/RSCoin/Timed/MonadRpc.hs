@@ -8,7 +8,7 @@
 -- This module contains MonadRpc providing RPC communication,
 -- and it's implementation using MessagePack.
 
-module RSCoin.Test.MonadRpc
+module RSCoin.Timed.MonadRpc
     ( Port
     , Host
     , Addr
@@ -45,8 +45,8 @@ import qualified Data.ByteString             as BS
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
 
-import           RSCoin.Test.MonadTimed      (MonadTimed (timeout), MicroSeconds)
-import           RSCoin.Test.TimedIO         (TimedIO)
+import           RSCoin.Timed.MonadTimed     (MonadTimed (timeout), MicroSeconds)
+import           RSCoin.Timed.TimedIO        (TimedIO)
 
 import           Data.MessagePack.Object     (MessagePack, Object (..),
                                               toObject)

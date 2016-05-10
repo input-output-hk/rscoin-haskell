@@ -24,7 +24,7 @@ import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
                                             StartPeriod (..), State,
                                             GetLogs (..))
 import           RSCoin.Mintette.Error     (MintetteError)
-import           RSCoin.Test               (WorkMode, ServerT
+import           RSCoin.Timed              (WorkMode, ServerT
                                            , serverTypeRestriction0
                                            , serverTypeRestriction1
                                            , serverTypeRestriction3

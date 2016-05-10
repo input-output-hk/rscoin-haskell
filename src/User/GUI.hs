@@ -8,7 +8,7 @@ import           Control.Lens                   ((^.))
 import           Control.Monad                  (forM, forM_, void, when)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.STM              (atomically)
-import           Data.Acid                      (query)
+import           Data.Acid                      (query, update)
 import           Data.Maybe                     (fromJust, isJust)
 import           Data.Text                      (pack)
 
@@ -17,16 +17,13 @@ import qualified Graphics.UI.Gtk                as G
 import           Serokell.Util.Text             (readUnsignedDecimal)
 
 import qualified Action                         as A
-import           Contacts                       (Contact (..), address, name)
+import qualified Contacts                       as S
 import           OutputWidgets                  as O
 import qualified RSCoin.Core                    as C
 import qualified RSCoin.User                    as U
 
 onExit :: TBQueue A.Action -> IO ()
 onExit queue = atomically (writeTBQueue queue A.Exit)
-
-onAddContact :: String -> String -> IO ()
-onAddContact _ _ = return ()
 
 onSend :: TBQueue A.Action -> OutputWidgets -> String -> String -> IO ()
 onSend queue ow sendAddress sendAmount = do
@@ -42,8 +39,9 @@ onSend queue ow sendAddress sendAmount = do
                 G.labelSetText (messageLabel  ow) "Bad key."
                 G.widgetShowAll (notificationWindow ow)
 
-initializeGUI :: TBQueue A.Action -> U.RSCoinUserState -> IO O.OutputWidgets
-initializeGUI queue st = do
+initializeGUI :: TBQueue A.Action ->
+    U.RSCoinUserState -> S.ContactsState -> IO O.OutputWidgets
+initializeGUI queue st cs = do
     let file = "src/User/GUI.glade"
 
     builder <- G.builderNew
@@ -97,7 +95,8 @@ initializeGUI queue st = do
 
     addButton    <- getWidget G.castToButton   "AddButton"
     contactsView <- getWidget G.castToTreeView "ContactsView"
-    cl           <- G.listStoreNew []
+    cls          <- query cs $ S.GetContacts
+    cl           <- G.listStoreNew cls
     G.treeViewSetModel contactsView cl
     nameCol    <- G.treeViewColumnNew
     addressCol <- G.treeViewColumnNew
@@ -105,18 +104,18 @@ initializeGUI queue st = do
     G.cellLayoutPackStart nameCol renderer False
     G.cellLayoutPackStart addressCol renderer False
     G.cellLayoutSetAttributes nameCol renderer cl $ \c ->
-        [G.cellText := c ^. name]
+        [G.cellText := (S.name c)]
     G.cellLayoutSetAttributes addressCol renderer cl $ \c ->
-        [G.cellText := c ^. address]
+        [G.cellText := (S.address c)]
     void $ G.treeViewAppendColumn contactsView nameCol
     void $ G.treeViewAppendColumn contactsView addressCol
     void $ addButton `on` G.buttonActivated $ do
-        newName    <- G.entryGetText newNameEntry
-        newAddress <- G.entryGetText newAddressEntry
+        newName    <- pack <$> G.entryGetText newNameEntry
+        newAddress <- pack <$> G.entryGetText newAddressEntry
         G.widgetShowAll contactsOperations
         G.widgetHide addContact
-        onAddContact newName newAddress
-        void $ G.listStoreAppend cl $ Contact (pack newName) (pack newAddress)
+        void $ G.listStorePrepend cl $ S.Contact newName newAddress
+        update cs $ S.AddContact $ S.Contact newName newAddress
 
     cancelButton <- getWidget G.castToButton "CancelButton"
     void $ cancelButton `on` G.buttonActivated $ do
@@ -132,7 +131,7 @@ initializeGUI queue st = do
         rows <- G.treeSelectionGetSelectedRows selection
         when (length rows > 0) $ do
             c <- G.listStoreGetValue cl $ head $ head rows
-            G.entrySetText payToEntry $ c ^. address
+            G.entrySetText payToEntry $ S.address c
 
     selectAddressButton <- getWidget G.castToButton "SelectAddressButton"
     void $ selectAddressButton `on` G.buttonActivated $ do
@@ -164,9 +163,10 @@ initializeGUI queue st = do
 
 
 -- | Runs the GUI in a separate thread.
-runGUI :: TBQueue A.Action -> U.RSCoinUserState -> IO O.OutputWidgets
-runGUI queue st = do
+runGUI :: TBQueue A.Action ->
+    U.RSCoinUserState -> S.ContactsState -> IO O.OutputWidgets
+runGUI queue st cs = do
     void $ G.initGUI
-    ow <- initializeGUI queue st
+    ow <- initializeGUI queue st cs
     void $ forkIO G.mainGUI
     return ow

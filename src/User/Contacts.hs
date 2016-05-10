@@ -1,19 +1,41 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TypeFamilies       #-}
 
 -- | Contacts list.
 
 module Contacts
     ( Contact (..)
-    , name
-    , address
+    , ContactsList (..)
+    , ContactsState
+    , AddContact (..)
+    , GetContacts (..)
     ) where
 
-import           Control.Lens (makeLenses)
-import           Data.Text    (Text)
+import Control.Monad.Reader (ask)
+import Control.Monad.State  (get, put)
+import Data.Acid            (AcidState, Query, Update, makeAcidic)
+import Data.SafeCopy        (base, deriveSafeCopy)
+import Data.Text            (Text)
 
 data Contact = Contact
-    { _name    :: Text
-    , _address :: Text
+    { name    :: Text
+    , address :: Text
     }
 
-makeLenses ''Contact
+data ContactsList = ContactsList { list :: [Contact] }
+
+$(deriveSafeCopy 0 'base ''Contact)
+$(deriveSafeCopy 0 'base ''ContactsList)
+
+addContact :: Contact -> Update ContactsList ()
+addContact c = do
+    ContactsList l <- get
+    put $ ContactsList $ c : l
+
+getContacts :: Query ContactsList [Contact]
+getContacts = list <$> ask
+
+type ContactsState = AcidState ContactsList
+
+$(makeAcidic ''ContactsList ['addContact, 'getContacts])

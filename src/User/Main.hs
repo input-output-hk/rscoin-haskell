@@ -30,7 +30,7 @@ main = do
                     when (not i) $ do
                         A.initState st addressesNum $
                             bankKeyPath isBankMode bankModePath
-                    proceedCommand st userCommand
+                    proceedCommand st userCommand contactsPath
   where
     bankKeyPath True  p = Just p
     bankKeyPath False _ = Nothing

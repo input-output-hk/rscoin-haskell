@@ -13,7 +13,7 @@ import           Control.Lens                   ((^.))
 import           Control.Monad                  (forM_, unless, void, when)
 import           Control.Monad.Catch            (throwM)
 import           Control.Monad.Trans            (liftIO)
-import           Data.Acid                      (query)
+import qualified Data.Acid                      as S
 import           Data.Maybe                     (fromJust, isJust)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text.IO                   as TIO
@@ -21,9 +21,10 @@ import qualified Data.Text.IO                   as TIO
 import           Serokell.Util.Text             (format', formatSingle')
 
 import           ActionsExecutor                (runActionsExecutor)
+import           Contacts                       (ContactsList (..))
 import           GUI                            (runGUI)
 import           RSCoin.Core                    as C
-import           RSCoin.Test                    (WorkMode)
+import           RSCoin.Test                    (WorkMode, bracket')
 import           RSCoin.User.AcidState          (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState          as A
 import           RSCoin.User.Error              (UserError (..), eWrap)
@@ -37,24 +38,31 @@ actionsQueueCapacity = 10
 
 -- | Given the state of program and command, makes correspondent
 -- actions.
-proceedCommand :: WorkMode m => A.RSCoinUserState -> O.UserCommand -> m ()
-proceedCommand st O.StartGUI =
+proceedCommand
+    :: WorkMode m => A.RSCoinUserState -> O.UserCommand -> FilePath -> m ()
+proceedCommand st O.StartGUI contactsPath =
     eWrap $
     do
-        queue <- liftIO $ newTBQueueIO actionsQueueCapacity
-        ow <- liftIO $ runGUI queue st
-        liftIO $ void $ forkIO $ runUpdater queue
-        runActionsExecutor st queue ow
-proceedCommand st O.ListAddresses =
+        bracket'
+            (liftIO $ S.openLocalStateFrom contactsPath $ ContactsList [])
+            (\cs -> liftIO $ do
+                S.createCheckpoint cs
+                S.closeAcidState cs)
+            (\cs -> do
+                queue <- liftIO $ newTBQueueIO actionsQueueCapacity
+                ow <- liftIO $ runGUI queue st cs
+                liftIO $ void $ forkIO $ runUpdater queue
+                runActionsExecutor st queue ow)
+proceedCommand st O.ListAddresses _ =
     liftIO $ eWrap $
     do (wallets :: [(C.PublicKey, C.Coin)]) <-
            mapM (\w -> (w ^. W.publicAddress, ) <$> P.getAmount st w) =<<
-           query st GetAllAddresses
+           S.query st GetAllAddresses
        TIO.putStrLn "Here's the list of your accounts:"
        TIO.putStrLn "# | Public ID                                    | Amount"
        mapM_ (TIO.putStrLn . format' "{}.  {} : {}") $
            uncurry (zip3 [(1 :: Integer) ..]) $ unzip wallets
-proceedCommand st (O.FormTransaction inputs outputAddrStr) =
+proceedCommand st (O.FormTransaction inputs outputAddrStr) _ =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr
        unless (isJust pubKey) $
@@ -62,9 +70,9 @@ proceedCommand st (O.FormTransaction inputs outputAddrStr) =
            "Provided key can't be exported: " <> outputAddrStr
        P.formTransaction st inputs (fromJust pubKey) $
            C.Coin (sum $ map snd inputs)
-proceedCommand st O.UpdateBlockchain =
+proceedCommand st O.UpdateBlockchain _ =
     eWrap $
-    do walletHeight <- liftIO $ query st A.GetLastBlockId
+    do walletHeight <- liftIO $ S.query st A.GetLastBlockId
        liftIO $ TIO.putStrLn $
            formatSingle'
                "Current known blockchain's height (last HBLock's id) is {}."
@@ -90,7 +98,7 @@ proceedCommand st O.UpdateBlockchain =
                         liftIO $ TIO.putStrLn $
                             formatSingle' "updated to height {}" h)
                liftIO $ TIO.putStrLn "Successfully updated blockchain!"
-proceedCommand _ (O.Dump command) = eWrap $ dumpCommand command
+proceedCommand _ (O.Dump command) _ = eWrap $ dumpCommand command
 
 dumpCommand :: WorkMode m => O.DumpCommand -> m ()
 dumpCommand (O.DumpHBlocks from to) =

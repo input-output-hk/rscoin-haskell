@@ -7,4 +7,5 @@ stats
 wallet-db/
 bank-db/
 mintette-db/
+contacts-db/
 tmp/

@@ -1,5 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ViewPatterns              #-}
 
 module RSCoin.Timed.RSCoinSpec
@@ -11,7 +12,7 @@ import           Control.Lens          (view, (^.), preview, ix, to)
 import           Control.Monad         (forM, when)
 import           Control.Monad.Catch   (throwM, catch)
 import           Control.Monad.Trans   (MonadIO, liftIO)
-import           Control.Monad.Reader  (runReaderT)
+import           Control.Monad.Reader  (runReaderT, ask)
 import           Data.Acid             (update, query)
 import           Data.Default          (def)
 import           Data.Int              (Int64)
@@ -43,7 +44,9 @@ import           RSCoin.Timed          (WorkMode, runRealMode, runEmulationMode,
 import           RSCoin.Timed.Context  (TestEnv, mkTestContext, state, port,
                                         keys, publicKey, secretKey, MintetteInfo,
                                         bank, mintettes, lifetime, users, buser,
-                                        UserInfo, bankSkPath)
+                                        UserInfo, bankSkPath, TestContext)
+spec :: Spec
+spec = return ()
 
 data TestError
     = TestError Text
@@ -160,48 +163,40 @@ instance Arbitrary SomeAction where
     arbitrary = oneof [ SomeAction <$> (arbitrary :: Gen UserAction)
                       ]
 
--- TODO: maybe we should create also actions StartMintette, AddMintette, in terms of actions
+newtype RSCoinState =
+    RSCoinState { stateContext :: forall m . (WorkMode m) => m TestContext }
 
-spec :: Spec
-spec = return ()
+runAnotherAction :: WorkMode m => m TestContext -> TestEnv m () -> m TestContext
+runAnotherAction context action = context >>= runReaderT (action >> ask)
 
-main :: IO ()
-main = do
-    test 10 10 10
+-- TODO: maybe we should create also StartMintette, AddMintette, in terms of actions
+instance Arbitrary RSCoinState where
+    arbitrary = do
+        actions :: [WaitSomeAction] <- arbitrary
+        let actionsRunningTime = sum $ map (\(WaitAction t _) -> getNonNegative t) actions
+            safeRunningTime = actionsRunningTime + (minute 1)
+        mNum <- arbitrary
+        uNum <- arbitrary
+        return $ RSCoinState $ (mkTestContext mNum uNum safeRunningTime >>=) $ runReaderT $ do
+            runBank
+            mapM_ runMintette =<< view mintettes
 
-test :: Int -> Int -> Int -> IO ()
-test mNum uNum actionNum = launchPure mNum uNum $ do
-    actions <- liftIO $ generate (vector actionNum :: Gen [WaitAction UserAction])
-    liftIO $ print actions
-    mapM_ (\a -> doAction a `catch` handler) actions
-  where
-    handler (e :: RSCoinError) =
-        logWarning $
-            formatSingle' "Error occured while testing: {}" $ show e
-
-launchPure :: Int -> Int -> TestEnv (PureRpc IO) () -> IO ()
-launchPure mNum uNum = runEmulationMode (mkStdGen 9452) def . launch mNum uNum
-
-launch :: WorkMode m => Int -> Int -> TestEnv m () -> m ()
-launch mNum uNum test = do
-    liftIO $ initLogging Info
-
-    -- mNum mintettes, uNum users (excluding user in bank-mode), 
-    -- emulation duration - 3 minutes
-    (mkTestContext mNum uNum (interval 100 sec) >>= ) $ runReaderT $ do
-        runBank
-        mapM_ runMintette =<< view mintettes
-
-        wait $ for 5 sec  -- ensure that bank & mintettes have initialized
- 
-        mapM_ addMintetteToBank =<< view mintettes
-        initBUser
-        mapM_ initUser =<< view users
-
-        wait $ for 5 sec  -- ensure that users have initialized
-
-        test
+            wait $ for 5 sec  -- ensure that bank & mintettes have initialized
     
+            mapM_ addMintetteToBank =<< view mintettes
+            initBUser
+            mapM_ initUser =<< view users
+
+            wait $ for 5 sec  -- ensure that users have initialized
+
+            mapM_ doAction actions
+
+            wait $ for safeRunningTime sec -- wait for all actions to finish
+
+            ask
+ 
+-- launchPure :: Int -> Int -> TestEnv (PureRpc IO) () -> IO ()
+-- launchPure mNum uNum = runEmulationMode (mkStdGen 9452) def . launch mNum uNum
 
 runBank :: WorkMode m => TestEnv m ()
 runBank = do
@@ -209,7 +204,7 @@ runBank = do
     l <- view lifetime
     work (upto l mcs) $ B.runWorker (b ^. secretKey) (b ^. state)
     work (upto l mcs) $ B.serve (b ^. state)
-    
+
 runMintette :: WorkMode m => MintetteInfo -> TestEnv m ()
 runMintette m = do
     l <- view lifetime

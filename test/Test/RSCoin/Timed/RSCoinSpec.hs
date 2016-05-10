@@ -92,7 +92,10 @@ instance Arbitrary a => Arbitrary (WaitAction a) where
 type UserIndex = Maybe (NonNegative Int)
 
 type ValidAddressIndex = NonNegative Int
+
+-- | Address will be either some arbitrary address or some user address
 type ToAddress = Either Address (UserIndex, ValidAddressIndex)
+
 type FromAddresses = NonEmptyList (ValidAddressIndex, NonNegative Int)
 
 type Inputs = [(Int, Int64)]
@@ -163,15 +166,15 @@ getUser (fromJust -> getNonNegative -> index) = do
     mState <- preview $ users . to cycle . ix index . state
     maybe (throwM $ TestError "No user in context") return mState
 
+-- TODO: maybe we should create also StartMintette, AddMintette, in terms of actions
 instance Arbitrary SomeAction where
     arbitrary = oneof [ SomeAction <$> (arbitrary :: Gen UserAction)
                       ]
 
-newtype RSCoinState =
-    RSCoinState { stateContext :: forall m . (WorkMode m) => m TestContext }
+newtype RSCoinState m =
+    RSCoinState { stateContext :: m TestContext }
 
--- TODO: maybe we should create also StartMintette, AddMintette, in terms of actions
-instance Arbitrary RSCoinState where
+instance WorkMode m => Arbitrary (RSCoinState m) where
     arbitrary = do
         actions :: [WaitSomeAction] <- arbitrary
         let actionsRunningTime = sum $ map (\(WaitAction t _) -> getNonNegative t) actions
@@ -230,15 +233,16 @@ initBUser = do
 initUser :: WorkMode m => UserInfo -> TestEnv m ()
 initUser user = U.initState (user ^. state) 5 Nothing
 
-runAnotherAction :: WorkMode m => m TestContext -> SomeAction -> m TestContext
-runAnotherAction context action = context >>= runReaderT (doAction action >> ask)
+runAnotherAction :: WorkMode m => RSCoinState m -> SomeAction -> RSCoinState m
+runAnotherAction (stateContext -> context) action =
+    RSCoinState $ context >>= runReaderT (doAction action >> ask)
 
-somePropertyX :: RSCoinState -> Property
+somePropertyX :: WorkMode m => RSCoinState m -> Property
 somePropertyX state = monadicIO $
     -- assert $ 1 == 1
     return ()
 
-somePropertyAfterAction :: RSCoinState -> SomeAction -> Property
+somePropertyAfterAction :: WorkMode m => RSCoinState m -> SomeAction -> Property
 somePropertyAfterAction state action = monadicIO $
     -- runAnotherAction state action
     return ()

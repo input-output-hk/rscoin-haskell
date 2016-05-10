@@ -4,10 +4,10 @@ import           Control.Monad.Trans   (MonadIO, liftIO)
 import qualified Data.Acid             as ACID
 import qualified Data.Text             as T
 
-import           Actions               (proceedCommand)
+import           RSCoin.User.Commands  (proceedCommand)
 import           RSCoin.Core           (initLogging, logDebug)
 import qualified RSCoin.User.AcidState as A
-import           RSCoin.Test           (runRealMode)
+import           RSCoin.Timed          (runRealMode)
 import qualified RSCoin.User.Wallet    as W
 import qualified UserOptions           as O
 

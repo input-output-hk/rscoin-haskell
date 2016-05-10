@@ -38,7 +38,7 @@ import           RSCoin.Core.Constants   (bankHost, bankPort, rpcTimeout)
 import           RSCoin.Core.Types       (Mintette (..))
 import           RSCoin.Core.Crypto      ()
 import           RSCoin.Core.MessagePack ()
-import qualified RSCoin.Test             as T
+import qualified RSCoin.Timed            as T
 
 -- TODO: this module should provide more safety and expose better api
 

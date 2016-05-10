@@ -13,14 +13,16 @@ import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
 import           RSCoin.Core.Primitives        (AddrId, Transaction (..))
-import           RSCoin.Test                   (WorkMode)
+import           RSCoin.Timed                  (WorkMode)
 import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitConfirmation, Mintette,
                                                 MintetteId, PeriodId)
+import           RSCoin.Core                   (rscExceptionToException,
+                                                rscExceptionFromException)
 
 import           Serokell.Util.Text            (format', formatSingle')
 
-import           Control.Exception             (Exception)
+import           Control.Exception             (Exception (..))
 import           Control.Monad                 (unless, when)
 import           Control.Monad.Catch           (throwM)
 import qualified Data.Map                      as M
@@ -34,7 +36,9 @@ data UserLogicError
     | FailedToCommit
     deriving (Show)
 
-instance Exception UserLogicError
+instance Exception UserLogicError where
+    toException = rscExceptionToException
+    fromException = rscExceptionFromException
 
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction

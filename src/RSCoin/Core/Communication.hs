@@ -55,7 +55,7 @@ import           RSCoin.Core.Types          (CheckConfirmation,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Mintettes,
                                              ActionLog, Utxo, LBlock)
-import           RSCoin.Test                (WorkMode, MonadTimedError (..), MonadTimed)
+import           RSCoin.Timed               (WorkMode, MonadTimedError (..), MonadTimed)
 
 -- | Errors which may happen during remote call.
 data CommunicationError

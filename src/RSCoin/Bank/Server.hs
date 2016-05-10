@@ -20,7 +20,7 @@ import           RSCoin.Core            (ActionLog, HBlock, MintetteId,
                                          Mintettes, PeriodId, bankPort,
                                          logDebug, logError)
 import qualified RSCoin.Core.Protocol   as C
-import qualified RSCoin.Test            as T
+import qualified RSCoin.Timed           as T
 
 serve :: T.WorkMode m => State -> m ()
 serve st = do
@@ -64,7 +64,7 @@ serveGetHBlock st pId =
     toServer $
     do mBlock <- query' st (GetHBlock pId)
        logDebug $
-           format' "Getting higher-level block with periodId {}: " (pId, mBlock)
+           format' "Getting higher-level block with periodId {}: {}" (pId, mBlock)
        return mBlock
 
 -- Dumping Bank state

@@ -8,7 +8,7 @@ import           RSCoin.Core              (Mintette (Mintette),
                                            constructPublicKey, initLogging,
                                            readSecretKey, readPublicKey,
                                            logWarning)
-import           RSCoin.Test              (runRealMode, fork)
+import           RSCoin.Timed             (runRealMode, fork)
 
 import qualified Options                  as Opts
 

@@ -1,7 +1,8 @@
 -- | Functions tightly related to HBlock
 
 module RSCoin.Core.HBlock
-       ( mkHBlock
+       ( initialTx
+       , mkHBlock
        , mkGenesisHBlock
        , checkHBlock
        ) where

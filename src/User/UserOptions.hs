@@ -2,18 +2,14 @@
 
 module UserOptions
        ( UserOptions (..)
-       , UserCommand (..)
-       , DumpCommand (..)
        , getUserOptions
        ) where
 
-import           RSCoin.Core            (MintetteId, PeriodId, Severity (Info),
-                                         defaultAccountsNumber,
+import           RSCoin.Core            (Severity (Info), defaultAccountsNumber,
                                          defaultSecretKeyPath)
+import           RSCoin.User.Commands   (DumpCommand (..), UserCommand (..))
 
-import           Data.Int               (Int64)
 import           Data.Monoid            ((<>))
-import           Data.Text              (Text)
 import           Options.Applicative    (Parser, argument, auto, command,
                                          execParser, fullDesc, help, helper,
                                          info, long, metavar, option, progDesc,
@@ -21,36 +17,6 @@ import           Options.Applicative    (Parser, argument, auto, command,
                                          value)
 
 import           Serokell.Util.OptParse (strOption)
-
--- | Input user command that's contained in every program call
-data UserCommand
-    = ListAddresses                 -- ^ List all addresses in wallet,
-                                    -- starting with 1
-    | UpdateBlockchain              -- ^ Query bank to update wallet
-                                    -- state according to blockchain
-                                    -- status
-    | FormTransaction [(Int, Int64)]
-                      Text          -- ^ First argument represents
-                                    -- inputs -- pairs (a,b), where a
-                                    -- is index (starting from 1) of
-                                    -- address in wallet, b is
-                                    -- positive integer representing
-                                    -- value to send.  Second argument
-                                    -- represents the address to send,
-                                    -- and amount
-    | Dump DumpCommand
-    deriving (Show)
-
-data DumpCommand
-    = DumpHBlocks PeriodId PeriodId
-    | DumpHBlock PeriodId
-    | DumpMintettes
-    | DumpPeriod
-    | DumpLogs MintetteId Int Int
-    | DumpMintetteUtxo MintetteId
-    | DumpMintetteBlocks MintetteId PeriodId
-    | DumpMintetteLogs MintetteId PeriodId
-    deriving (Show)
 
 -- | Datatype describing user command line options
 data UserOptions = UserOptions

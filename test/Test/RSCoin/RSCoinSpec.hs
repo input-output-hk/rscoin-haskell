@@ -3,7 +3,7 @@
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ViewPatterns              #-}
 
-module Test.RSCoin.Timed.RSCoinSpec
+module Test.RSCoin.RSCoinSpec
        ( spec
        ) where
 
@@ -43,7 +43,7 @@ import           RSCoin.Timed               (WorkMode, runRealMode, runEmulation
                                              upto, mcs, work, minute, wait, for, sec,
                                              interval, MicroSeconds, PureRpc, fork,
                                              invoke, at)
-import           Test.RSCoin.Timed.Context  (TestEnv, mkTestContext, state, port,
+import           Test.RSCoin.Context        (TestEnv, mkTestContext, state, port,
                                              keys, publicKey, secretKey, MintetteInfo,
                                              bank, mintettes, lifetime, users, buser,
                                              UserInfo, bankSkPath, TestContext)

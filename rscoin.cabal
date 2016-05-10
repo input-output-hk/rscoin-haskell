@@ -193,8 +193,8 @@ test-suite rscoin-test
                      , Test.RSCoin.Timed.MonadTimedSpec
                      , Test.RSCoin.Timed.MonadRpcSpec
                      , Test.RSCoin.User.StorageSpec
-                     , Test.RSCoin.Timed.Context
-                     , Test.RSCoin.Timed.RSCoinSpec
+                     , Test.RSCoin.Context
+                     , Test.RSCoin.RSCoinSpec
                      , Test.RSCoin.Timed.ExceptionSpec
                      , Spec
   type:                exitcode-stdio-1.0

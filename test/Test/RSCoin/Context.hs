@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
-module Test.RSCoin.Timed.Context
+module Test.RSCoin.Context
     ( BankInfo(..)
     , MintetteInfo(..)
     , UserInfo(..)

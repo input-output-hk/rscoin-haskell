@@ -1,17 +1,16 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
 
--- | HSpec specification of Bank's Storage.
+-- | WIP
 
-module Test.RSCoin.Bank.StorageSpec
-       ( spec
-       , Update
+module Test.RSCoin.Pure.BankState
+       ( Update
        , UpdateVoid
        , BankState (..)
        , bankStorage
@@ -20,22 +19,15 @@ module Test.RSCoin.Bank.StorageSpec
 
 import           Control.Lens               (makeLenses)
 
-import           Test.Hspec                 (Spec, describe)
-import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
+import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
+                                             frequency)
 
 import qualified RSCoin.Bank.Error          as S
 import qualified RSCoin.Bank.Storage        as S
 import qualified RSCoin.Core                as C
 
 import           Test.RSCoin.Core.Arbitrary ()
-import qualified Test.RSCoin.Core.Storage   as T
-
-spec :: Spec
-spec =
-    describe "Bank storage" $ do
-    describe "startNewPeriod" $ do
-        return ()
-            -- prop "Increments periodId" startNewPeriodIncrementsPeriodId
+import qualified Test.RSCoin.Pure.Update    as T
 
 type Update = T.Update S.BankError S.Storage
 type UpdateVoid = Update ()
@@ -83,6 +75,3 @@ instance Arbitrary BankState where
         sk <- arbitrary
         SomeUpdate upd <- arbitrary
         return . flip BankState sk $ T.execUpdate (doUpdate upd) S.mkStorage
-
--- startNewPeriodIncrementsPeriodId :: BankState -> Bool
--- startNewPeriodIncrementsPeriodId = undefined

@@ -3,7 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE ViewPatterns              #-}
 
-module Test.RSCoin.RSCoinSpec
+module Test.RSCoin.Full.RSCoinSpec
        ( spec
        ) where
 
@@ -36,12 +36,13 @@ import           RSCoin.Timed               (MicroSeconds, WorkMode,
                                              sec, upto, wait, work)
 import qualified RSCoin.User                as U
 
-import           Test.RSCoin.Context        (MintetteInfo, TestContext, TestEnv,
+import           Test.RSCoin.Full.Context   (MintetteInfo, TestContext, TestEnv,
                                              UserInfo, bank, bankSkPath, buser,
                                              lifetime, mintettes,
                                              mkTestContext, port, publicKey,
                                              secretKey, state, users)
 import           Test.RSCoin.Core.Arbitrary ()
+
 spec :: Spec
 spec = return ()
 

@@ -1,34 +1,34 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE TemplateHaskell        #-}
 
-module Test.RSCoin.Context
-    ( BankInfo(..)
-    , MintetteInfo(..)
-    , UserInfo(..)
-    , TestContext(..)
-    , TestEnv
-    , mkTestContext
-    , bank, mintettes, buser, users, lifetime
-    , keys, secretKey, publicKey
-    , state
-    , port
-    , bankSkPath
-    ) where
+module Test.RSCoin.Full.Context
+       ( BankInfo(..)
+       , MintetteInfo(..)
+       , UserInfo(..)
+       , TestContext(..)
+       , TestEnv
+       , mkTestContext
+       , bank, mintettes, buser, users, lifetime
+       , keys, secretKey, publicKey
+       , state
+       , port
+       , bankSkPath
+       ) where
 
-import           Control.Lens         (Getter, makeLenses, _1, _2, to)
-import           Control.Monad        (replicateM, forM)
-import           Control.Monad.Trans  (MonadIO, liftIO)
+import           Control.Lens         (Getter, makeLenses, to, _1, _2)
+import           Control.Monad        (forM, replicateM)
 import           Control.Monad.Reader (ReaderT)
+import           Control.Monad.Trans  (MonadIO, liftIO)
 
 import qualified RSCoin.Bank          as B
+import           RSCoin.Core          (PublicKey, SecretKey, bankPort,
+                                       defaultSecretKeyPath, derivePublicKey,
+                                       keyGen, readSecretKey)
 import qualified RSCoin.Mintette      as M
-import qualified RSCoin.User          as U
-import           RSCoin.Core          (SecretKey, PublicKey, keyGen, bankPort,
-                                       derivePublicKey, readSecretKey, 
-                                       defaultSecretKeyPath)
 import           RSCoin.Timed         (MicroSeconds)
+import qualified RSCoin.User          as U
 
 data BankInfo = BankInfo
     { _bankKeys  :: (SecretKey, PublicKey)
@@ -60,7 +60,7 @@ $(makeLenses ''TestContext)
 type TestEnv m = ReaderT TestContext m
 
 mkTestContext :: MonadIO m => Int -> Int -> MicroSeconds -> m TestContext
-mkTestContext mNum uNum lt = liftIO $ 
+mkTestContext mNum uNum lt = liftIO $
     TestContext <$> binfo <*> minfos <*> buinfo <*> uinfos <*> pure lt
   where
     binfo = BankInfo <$> bankKey <*> B.openMemState
@@ -70,7 +70,7 @@ mkTestContext mNum uNum lt = liftIO $
 
     buinfo = UserInfo <$> U.openMemState
 
-    uinfos = replicateM uNum $  
+    uinfos = replicateM uNum $
              UserInfo <$> U.openMemState
 
     bankKey = do
@@ -99,7 +99,7 @@ instance WithKeys MintetteInfo where
 
 
 class WithState w s | w -> s where
-    state :: Getter w s 
+    state :: Getter w s
 
 instance WithState BankInfo B.State where
     state = bankState

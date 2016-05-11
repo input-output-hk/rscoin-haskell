@@ -1,15 +1,15 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
 
--- | HSpec specification of User's Storage.
+-- | WIP
 
-module Test.RSCoin.User.StorageSpec
+module Test.RSCoin.Pure.UserState
        ( spec
        , Update
        , UpdateVoid
@@ -21,11 +21,12 @@ module Test.RSCoin.User.StorageSpec
 import           Control.Lens               (makeLenses)
 
 import           Test.Hspec                 (Spec, describe)
-import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, frequency)
+import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
+                                             frequency)
 
+import qualified RSCoin.Core                as C
 import qualified RSCoin.User.Error          as S
 import qualified RSCoin.User.Wallet         as S
-import qualified RSCoin.Core                as C
 
 import           Test.RSCoin.Core.Arbitrary ()
 import qualified Test.RSCoin.Core.Storage   as T

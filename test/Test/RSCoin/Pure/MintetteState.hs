@@ -1,40 +1,34 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
 
--- | HSpec specification of Mintette's Storage.
+-- | WIP
 
-module Test.RSCoin.Mintette.StorageSpec
-       ( spec
-       , Update
+module Test.RSCoin.Pure.MintetteState
+       ( Update
        , UpdateVoid
        , MintetteState (..)
        , mintetteStorage
        , mintetteKey
        ) where
 
-import           Control.Lens                   (makeLenses)
+import           Control.Lens               (makeLenses)
 
-import           Control.Monad                  (void)
-import           Test.Hspec                     (Spec, describe)
-import           Test.QuickCheck                (Arbitrary (arbitrary), Gen, frequency)
+import           Control.Monad              (void)
+import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
+                                             frequency)
 
-import qualified RSCoin.Mintette.Error          as S
-import qualified RSCoin.Mintette.Storage        as S
-import qualified RSCoin.Core                    as C
+import qualified RSCoin.Core                as C
+import qualified RSCoin.Mintette.Error      as S
+import qualified RSCoin.Mintette.Storage    as S
 
 import           Test.RSCoin.Core.Arbitrary ()
-import qualified Test.RSCoin.Core.Storage       as T
-
-spec :: Spec
-spec =
-    describe "Mintette storage" $ do
-        return ()
+import qualified Test.RSCoin.Pure.Update    as T
 
 type Update = T.Update S.MintetteError S.Storage
 type UpdateVoid = Update ()
@@ -67,10 +61,10 @@ instance CanUpdate FinishPeriod where
 
 -- data StartPeriod = StartPeriod C.NewPeriodData
 --     deriving Show
--- 
+--
 -- instance CanUpdate StartPeriod where
 --     doUpdate (StartPeriod pd) = void $ S.startPeriod pd
--- 
+--
 instance Arbitrary SomeUpdate where
     arbitrary =
         frequency

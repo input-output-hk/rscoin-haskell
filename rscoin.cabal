@@ -184,20 +184,20 @@ executable rscoin-mintette
 
 test-suite rscoin-test
   main-is:             Test.hs
-  other-modules:       Test.RSCoin.Bank.StorageSpec
-                     , Test.RSCoin.Core.Arbitrary
+  other-modules:       Test.RSCoin.Core.Arbitrary
                      , Test.RSCoin.Core.CryptoSpec
-                     , Test.RSCoin.Core.OwnersSpec
-                     , Test.RSCoin.Core.Storage
                      , Test.RSCoin.Core.MessagePackSpec
-                     , Test.RSCoin.Mintette.StorageSpec
-                     , Test.RSCoin.StorageSpec
-                     , Test.RSCoin.Timed.MonadTimedSpec
-                     , Test.RSCoin.Timed.MonadRpcSpec
-                     , Test.RSCoin.User.StorageSpec
-                     , Test.RSCoin.Context
-                     , Test.RSCoin.RSCoinSpec
+                     , Test.RSCoin.Core.OwnersSpec
+                     , Test.RSCoin.Full.Context
+                     , Test.RSCoin.Full.RSCoinSpec
+                     , Test.RSCoin.Pure.BankState
+                     , Test.RSCoin.Pure.MintetteState
+                     , Test.RSCoin.Pure.StorageSpec
+                     , Test.RSCoin.Pure.Update
+                     , Test.RSCoin.Pure.UserState
                      , Test.RSCoin.Timed.ExceptionSpec
+                     , Test.RSCoin.Timed.MonadRpcSpec
+                     , Test.RSCoin.Timed.MonadTimedSpec
                      , Spec
   type:                exitcode-stdio-1.0
   build-depends:       base >=4.8 && <4.9

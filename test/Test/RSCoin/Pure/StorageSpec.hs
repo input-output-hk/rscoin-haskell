@@ -7,40 +7,39 @@
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
 
--- | HSpec specification of Storage.
+-- | HSpec specification of Storages.
 
-module Test.RSCoin.StorageSpec
+module Test.RSCoin.Pure.StorageSpec
        ( spec
        ) where
 
-import           Control.Lens                     (at, ix, makeLenses, preuse, use,
-                                                   (+=), (.=), (^.))
+import           Control.Exception              (Exception)
+import           Control.Lens                   (at, ix, makeLenses, preuse,
+                                                 use, (+=), (.=), (^.))
+import           Control.Monad                  (forM, when)
+import           Control.Monad.Catch            (MonadThrow (throwM))
+import           Control.Monad.State.Lazy       (gets)
+import           Data.List                      (elemIndex)
+import qualified Data.Map                       as M
+import           Data.Maybe                     (fromJust)
+import           Data.Text                      (Text)
+import           Data.Tuple.Select              (sel1, sel3)
+import           Data.Typeable                  (Typeable)
+import           Test.Hspec                     (Spec, describe)
+import           Test.Hspec.QuickCheck          (prop)
+import           Test.QuickCheck                (Arbitrary (arbitrary), Gen,
+                                                 frequency)
 
-import           Control.Exception                (Exception)
-import           Control.Monad                    (forM, when)
-import           Control.Monad.Catch              (MonadThrow (throwM))
-import           Control.Monad.State.Lazy         (gets)
-import           Data.List                        (elemIndex)
-import qualified Data.Map                         as M
-import           Data.Maybe                       (fromJust)
-import           Data.Text                        (Text)
-import           Data.Tuple.Select                (sel1, sel3)
-import           Data.Typeable                    (Typeable)
-import           Test.Hspec                       (Spec, describe)
-import           Test.Hspec.QuickCheck            (prop)
-import           Test.QuickCheck                  (Arbitrary (arbitrary), Gen,
-                                                   frequency)
+import qualified RSCoin.Bank.Error              as B
+import qualified RSCoin.Bank.Storage            as B
+import qualified RSCoin.Core                    as C
+import qualified RSCoin.Mintette.Error          as M
+import qualified RSCoin.Mintette.Storage        as M
 
-import qualified RSCoin.Bank.Error                as B
-import qualified RSCoin.Bank.Storage              as B
-import qualified RSCoin.Core                      as C
-import qualified RSCoin.Mintette.Error            as M
-import qualified RSCoin.Mintette.Storage          as M
-
-import qualified Test.RSCoin.Bank.StorageSpec     as B
-import           Test.RSCoin.Core.Arbitrary       ()
-import qualified Test.RSCoin.Core.Storage         as T
-import qualified Test.RSCoin.Mintette.StorageSpec as M
+import           Test.RSCoin.Core.Arbitrary     ()
+import qualified Test.RSCoin.Pure.BankState     as B
+import qualified Test.RSCoin.Pure.MintetteState as M
+import qualified Test.RSCoin.Pure.Update        as T
 
 data TestError
     = TestError Text
@@ -56,6 +55,12 @@ data RSCoinState = RSCoinState
     } deriving (Show)
 
 $(makeLenses ''RSCoinState)
+
+spec :: Spec
+spec =
+    describe "Storage" $ do
+        prop "something happens when transaction is sent and period finishes"
+            sendTxAndFinishPeriod
 
 type Update = T.Update C.RSCoinError RSCoinState
 type UpdateVoid = Update ()
@@ -218,13 +223,6 @@ liftMintetteUpdate mintette upd = do
     updateMintette (ret, newStorage) = do
         mintettesState . ix mintette . M.mintetteStorage .= newStorage
         return ret
-
--- If I move it to the line 46, code doesn't compile :O
-spec :: Spec
-spec =
-    describe "Storage" $ do
-        prop "something happens when transaction is sent and period finishes"
-            sendTxAndFinishPeriod
 
 sendTxAndFinishPeriod :: SendGoodTransaction -> StartNewPeriod -> RSCoinState -> Bool
 sendTxAndFinishPeriod sendTx startNewPeriod st = const True st'

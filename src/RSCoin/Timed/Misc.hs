@@ -2,7 +2,7 @@ module RSCoin.Timed.Misc
     where
 
 import Control.Exception.Base      (SomeException)
-import Control.Monad.Catch         (MonadCatch, MonadMask, mask, throwM, catch)
+import Control.Monad.Catch         (MonadCatch, catch)
 import Control.Monad.Trans         (MonadIO, liftIO)
 import Control.Monad.STM           (atomically)
 import Control.Concurrent.STM.TVar as T

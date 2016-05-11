@@ -3,9 +3,7 @@
 module Main where
 
 import           Control.Monad              (forM_)
-import           Control.Monad.Catch.Pure   (CatchT, runCatchT)
 import           Control.Monad.Random.Class (getRandomR)
-import           Control.Monad.State        (State, StateT, execState, put)
 import           Control.Monad.Trans        (MonadIO, lift, liftIO)
 import           Prelude                    hiding (log)
 import           System.Random              (mkStdGen)
@@ -17,16 +15,13 @@ import           RSCoin.Timed.MonadTimed    (MonadTimed, after, at, during, for,
                                              schedule, sec, sec', till, wait,
                                              work)
 import           RSCoin.Timed.PureRpc       (Delays (..), runPureRpc)
-import           RSCoin.Timed.Timed         (TimedT, runTimedT)
+import           RSCoin.Timed.Timed         (runTimedT)
 import           RSCoin.Timed.TimedIO       (runTimedIO_)
 
 import           Control.Concurrent.MVar    (MVar, newMVar, putMVar, takeMVar)
 
 import           Network.MessagePack.Server (ServerT)
 
-import RSCoin.Test.ContA
-import Control.Exception.Base (AsyncException(..), ArithException(..), SomeException)
-import Control.Monad.Catch
 
 main :: IO ()
 main = do
@@ -34,8 +29,6 @@ main = do
     sayHelloIO
     putStrLn "sayHelloPure"
     sayHelloPure
---    putStrLn "playWithTimedState"
---    print execPlayWithTimedState
 
 -- * Timed
 
@@ -62,8 +55,9 @@ sayHello = do
 
     schedule (at    2 sec 1 minute) $ log "Aha!"
 
+-- actually pure launch of TimedT, now not applicable (hope - temporally)
 {-
- type TimedState = TimedT (CatchT (State Int))
+type TimedState = TimedT (CatchT (State Int))
 
 playWithTimedState :: TimedState ()
 playWithTimedState = do
@@ -74,6 +68,7 @@ playWithTimedState = do
 execPlayWithTimedState :: Int
 execPlayWithTimedState = execState (runCatchT $ runTimedT playWithTimedState) undefined
 -}
+
 log :: (MonadIO m, MonadTimed m) => String -> m ()
 log msg = do
     seconds <- time
@@ -147,11 +142,4 @@ syncronized lock action = do
     action
     liftIO $ putMVar lock ()
 
-superLaunch :: (MonadCatch m, MonadIO m, MonadTimed m) => m ()
-superLaunch = do
-    (return ()) `catch` handle 
-    throwM ThreadKilled
-  where
-    handle :: (MonadTimed m, MonadIO m) => SomeException -> m ()
-    handle e = log $ "Caught " ++ show e 
 

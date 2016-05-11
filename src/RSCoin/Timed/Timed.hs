@@ -16,7 +16,7 @@ module RSCoin.Timed.Timed
 import           Control.Exception       (SomeException)
 import           Control.Exception.Base  (AsyncException (ThreadKilled))
 import           Control.Lens            (makeLenses, to, use, (%=), (.=), (^.),
-                                          (&), (%~), (|>), (.~))
+                                          (&), (%~))
 import           Control.Monad           (void, unless)
 import           Control.Monad.Catch     (MonadCatch, MonadThrow, MonadMask, 
                                           catch, mask, uninterruptibleMask,

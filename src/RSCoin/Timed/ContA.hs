@@ -20,6 +20,11 @@ import Control.Monad.Identity    (Identity)
 import Control.Monad.State       (MonadState, get, put, state)
 import Control.Monad.Trans       (MonadTrans, MonadIO, lift, liftIO)
 
+
+-- | Like Cont monad, but forall-quantificated by it's return type.
+--   It might be helpful in resolving 
+--   "TimedT doesn't return a value" non-feature
+
 newtype ContAT m a = ContAT { runContAT' :: forall r . ContT r m a }
 
 contAT :: (forall r . (a -> m r) -> m r) -> ContAT m a

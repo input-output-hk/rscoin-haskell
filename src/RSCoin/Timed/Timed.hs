@@ -13,7 +13,8 @@ module RSCoin.Timed.Timed
        , runTimedT
        ) where
 
-import           Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
+import           Control.Concurrent.STM.TVar (TVar, newTVar, readTVar, writeTVar)
+import           Control.Concurrent.STM  (atomically)
 import           Control.Exception       (SomeException)
 import           Control.Exception.Base  (AsyncException (ThreadKilled))
 import           Control.Lens            (makeLenses, to, use, (%=), (.=), (^.),
@@ -32,7 +33,7 @@ import           Control.Monad.State     (MonadState (get, put, state), StateT,
 import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
 import           Data.Function           (on)
 import           Data.IORef              (newIORef, readIORef, writeIORef)
-import           Data.Maybe              (fromJust)
+import           Data.Maybe              (fromJust, isNothing, catMaybes)
 import           Data.Ord                (comparing)
 import           Data.Text               as T
 import           System.IO.Unsafe        (unsafePerformIO)
@@ -211,7 +212,7 @@ threadKilledNotifier e =
     in  return $! unsafePerformIO $ logWarning text
 {-# NOINLINE threadKilledNotifier #-}
 
-instance (MonadIO m, MonadThrow m) => MonadTimed (TimedT m) where
+instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
     localTime = TimedT $ use curTime
 
     -- | Take note, created thread may be killed by timeout
@@ -241,16 +242,23 @@ instance (MonadIO m, MonadThrow m) => MonadTimed (TimedT m) where
                   \c -> do
                     events %= PQ.insert (event $ c ())
     timeout t action' = do
-        var <- liftIO $ newEmptyMVar
+        var <- liftIO $ atomically $ newTVar Nothing
         timestamp' <- localTime
         schedule (after t mcs) $ do
-            liftIO $ putMVar var $
-                throwM $ MTTimeoutError "Timeout exceeeded"
-        workWhile (untilTime $ t + timestamp') $ do
+            liftIO $ atomically $ writeTVar var $
+                Just $ throwM $ MTTimeoutError "Timeout exceeeded"
+        workWhile (untilTime var $ t + timestamp') $ do
             res <- action'
-            liftIO $ putMVar var $
-                return res
-        join $ liftIO $ takeMVar var
+            liftIO $ atomically $ writeTVar var $
+                Just $ return res
+        k <- Prelude.head . catMaybes
+             <$> (sequence $ repeat $ wait (after 1 mcs) >> getValue var)
+        lift k
       where
-        untilTime :: (MonadIO m, MonadThrow m) => MicroSeconds -> TimedT m Bool
-        untilTime time = (time <) <$> localTime
+        getValue :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))
+        getValue var = liftIO $ atomically $ readTVar var
+        untilTime :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> MicroSeconds -> TimedT m Bool
+        untilTime var time = do
+            lt <- localTime
+            stop <- liftIO $ atomically $ readTVar var
+            return $ time > lt && isNothing stop

@@ -100,14 +100,14 @@ runPureRpc _randSeed _delays (PureRpc rpc) =
 
 -- TODO: use normal exceptions here
 request :: (Monad m, MessagePack a) => Client a -> (Listeners (PureRpc m), Addr) -> PureRpc m a
-request (Client name args) (listeners', addr) = 
+request (Client name args) (listeners', addr) =
     case Map.lookup (addr, name) listeners' of
         Nothing -> error $ mconcat
             ["Method ", name, " is not defined at ", show addr]
         Just f  -> fromMaybe (error "Answer type mismatch")
                  . fromObject <$> f args
 
-instance (Monad m, MonadThrow m) => MonadRpc (PureRpc m) where
+instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
     execClient addr cli = PureRpc $ do
         curHost <- get
         unwrapPureRpc $ waitDelay Request
@@ -125,7 +125,7 @@ instance (Monad m, MonadThrow m) => MonadRpc (PureRpc m) where
         lift $ lift $ forM_ methods $ \Method{..} ->
             listeners %= Map.insert ((host, port), methodName) methodBody
 
-waitDelay :: MonadThrow m => RpcStage -> PureRpc m ()
+waitDelay :: (MonadThrow m, MonadIO m, MonadCatch m) => RpcStage -> PureRpc m ()
 waitDelay stage =
     PureRpc $
     do seed <- lift . lift $ use randSeed

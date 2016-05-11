@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE ViewPatterns              #-}
 
 -- | RSCoin.Test.MonadTimed specification
 
@@ -15,13 +17,13 @@ import           Control.Monad            (void)
 import           Control.Monad.State      (StateT, execStateT, modify, put)
 import           Control.Monad.Trans      (MonadIO, liftIO)
 import           Control.Monad.Catch      (MonadCatch, throwM, handleAll,
-                                           catchAll)
+                                           catchAll, catch)
 import           Data.Typeable            (Typeable)
 import           Numeric.Natural          (Natural)
 import           Test.Hspec               (Spec, describe)
 import           Test.Hspec.QuickCheck    (prop)
 import           Test.QuickCheck          (Property, counterexample, ioProperty,
-                                           (===))
+                                           (===), NonNegative (..))
 import           Test.QuickCheck.Function (Fun, apply)
 import           Test.QuickCheck.Monadic  (PropertyM, assert, monadic, monitor,
                                            run)
@@ -29,7 +31,7 @@ import           Test.QuickCheck.Poly     (A)
 
 import           RSCoin.Timed.MonadTimed  (MicroSeconds, MonadTimed (..),
                                            RelativeToNow, invoke, now, schedule,
-                                           for, after, sec)
+                                           for, after, sec, MonadTimedError, mcs)
 import           RSCoin.Timed.TimedIO     (TimedIO, runTimedIO)
 import           RSCoin.Timed.Timed       (TimedT, runTimedT)
 
@@ -43,7 +45,7 @@ spec =
         monadTimedTSpec "TimedT" runTimedTProp
 
 monadTimedSpec
-    :: (MonadTimed m, MonadIO m)
+    :: (MonadTimed m, MonadIO m, MonadCatch m)
     => String
     -> (PropertyM m () -> Property)
     -> Spec
@@ -64,6 +66,10 @@ monadTimedSpec description runProp =
         describe "invoke" $ do
             prop "won't change semantics of an action, will execute action in the future" $
                 \a b -> runProp . invokeSemanticProp a b
+--        describe "timeout" $ do
+--            prop "should throw an exception if time has exceeded" $
+--                \a -> runProp . timeoutProp a
+
 
 monadTimedTSpec
     :: String
@@ -86,6 +92,9 @@ monadTimedTSpec description runProp =
         describe "invoke" $ do
             prop "won't change semantics of an action, will execute action in the future" $
                 \a b -> runProp . invokeSemanticTimedProp a b
+        describe "timeout" $ do
+            prop "should throw an exception if time has exceeded" $
+                \a -> runProp . timeoutTimedProp a
         describe "exceptions" $ do
             prop "thrown nicely" $
                 runProp exceptionsThrown
@@ -120,6 +129,20 @@ runTimedTProp :: TimedTProp () -> Property
 runTimedTProp test = ioProperty $ execStateT (runTimedT test) True
 
 -- TimedIO tests
+
+timeoutProp
+    :: (MonadTimed m, MonadIO m, MonadCatch m)
+    => NonNegative MicroSeconds
+    -> NonNegative MicroSeconds
+    -> PropertyM m ()
+timeoutProp (getNonNegative -> wt) (getNonNegative -> tout) = do
+    let wtLTtout = wt < tout
+        action = do
+            wait $ for wt mcs
+            return wtLTtout
+        handler (_ :: MonadTimedError) = return $ not wtLTtout
+    res <- run $ timeout tout action `catch` handler
+    assert res
 
 invokeSemanticProp
     :: (MonadTimed m, MonadIO m)
@@ -208,6 +231,20 @@ actionSemanticProp action val f = do
     assert $ apply f val == result
 
 -- TimedT tests
+-- TODO: As TimedT is an instance of MonadIO, we can now reuse tests for TimedIO instead of these tests
+
+timeoutTimedProp
+    :: NonNegative MicroSeconds
+    -> NonNegative MicroSeconds
+    -> TimedTProp ()
+timeoutTimedProp (getNonNegative -> wt) (getNonNegative -> tout) = do
+    let wtLTtout = wt < tout
+        action = do
+            wait $ for wt mcs
+            return wtLTtout
+        handler (_ :: MonadTimedError) = return $ not wtLTtout
+    res <- timeout tout action `catch` handler
+    assertTimedT res
 
 invokeSemanticTimedProp
     :: RelativeToNowNat

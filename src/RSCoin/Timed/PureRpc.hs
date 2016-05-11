@@ -98,7 +98,7 @@ runPureRpc _randSeed _delays (PureRpc rpc) = do
     _listeners = Map.empty
 
 -- TODO: use normal exceptions here
-request :: Monad m => MessagePack a => Client a -> (Listeners (PureRpc m), Addr) -> PureRpc m a
+request :: (Monad m, MessagePack a) => Client a -> (Listeners (PureRpc m), Addr) -> PureRpc m a
 request (Client name args) (listeners', addr) = do
     case Map.lookup (addr, name) listeners' of
         Nothing -> error $ mconcat 

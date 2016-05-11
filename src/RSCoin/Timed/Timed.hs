@@ -19,7 +19,7 @@ import           Control.Exception       (SomeException)
 import           Control.Exception.Base  (AsyncException (ThreadKilled))
 import           Control.Lens            (makeLenses, to, use, (%=), (.=), (^.),
                                           (&), (%~))
-import           Control.Monad           (void, unless, join, when)
+import           Control.Monad           (void, unless, when)
 import           Control.Monad.Catch     (MonadCatch, MonadThrow, MonadMask,
                                           catch, mask, uninterruptibleMask,
                                           throwM, Handler(..), catches,

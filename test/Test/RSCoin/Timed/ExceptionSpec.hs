@@ -208,7 +208,7 @@ runEmu :: StdGen -> PureRpc IO () -> IO ()
 runEmu seed = runEmulationMode seed def
 
 -- Principle of checkpoints: every checkpoint has it's id
--- Checkpoints should be visited in according order
+-- Checkpoints should be visited in according order: 1, 2, 3 ...
 newtype CheckPoints = CP { getCP :: TVar (Either String Int) }
 
 initCheckPoints :: MonadIO m => m CheckPoints

@@ -14,6 +14,7 @@ maintainer:          volhovm.cs@gmail.com
 build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
+data-files:          src/RSCoin/User/GUI.glade
 
 library
   exposed-modules:     RSCoin.Bank
@@ -36,18 +37,27 @@ library
                      , RSCoin.Mintette.Storage
                      , RSCoin.User
                      , RSCoin.User.AcidState
+                     , RSCoin.User.Action
+                     , RSCoin.User.ActionsExecutor
+                     , RSCoin.User.Commands
+                     , RSCoin.User.Contacts
                      , RSCoin.User.Error
-                     , RSCoin.User.Wallet
+                     , RSCoin.User.GUI
+                     , RSCoin.User.GUIError
                      , RSCoin.User.Logic
                      , RSCoin.User.Operations
-                     , RSCoin.Test
-                     , RSCoin.Test.MonadTimed
-                     , RSCoin.Test.MonadRpc
-                     , RSCoin.Test.PureRpc
-                     , RSCoin.Test.Timed
-                     , RSCoin.Test.TimedIO
-                     , RSCoin.Test.Misc
-  other-modules:       RSCoin.Bank.AcidState
+                     , RSCoin.User.OutputWidgets
+                     , RSCoin.User.Updater
+                     , RSCoin.User.Wallet
+                     , RSCoin.Timed
+                     , RSCoin.Timed.MonadTimed
+                     , RSCoin.Timed.MonadRpc
+                     , RSCoin.Timed.PureRpc
+                     , RSCoin.Timed.Timed
+                     , RSCoin.Timed.TimedIO
+                     , RSCoin.Timed.Misc
+  other-modules:       Paths_rscoin
+                     , RSCoin.Bank.AcidState
                      , RSCoin.Bank.Server
                      , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
@@ -55,7 +65,6 @@ library
                      , RSCoin.Core.Communication
                      , RSCoin.Core.Logging
                      , RSCoin.Core.MessagePack
-                     , RSCoin.Test.NewtypeBaseControl
                      , RSCoin.Core.Protocol
                      , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Server
@@ -74,6 +83,7 @@ library
                      , directory
                      , exceptions
                      , filepath
+                     , gtk3 >= 0.14
                      , hashable
                      , hslogger
                      , lens
@@ -88,6 +98,7 @@ library
                      , safecopy
                      , secp256k1 >= 0.4.5
                      , serokell-core
+                     , stm >= 2.4.4
                      , text >= 1.2.2.0
                      , text-format
                      , time
@@ -103,8 +114,7 @@ library
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans -fwarn-typed-holes
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
+  default-extensions:  RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 
@@ -113,6 +123,7 @@ executable rscoin-bank
   other-modules:       Options
   build-depends:       acid-state
                      , base >= 4.8 && < 4.9
+                     , exceptions
                      , mtl
                      , optparse-applicative
                      , rscoin
@@ -141,15 +152,7 @@ executable rscoin-keygen
 
 executable rscoin-user
   main-is:             Main.hs
-  other-modules:       Action
-                     , Actions
-                     , ActionsExecutor
-                     , Contacts
-                     , Error
-                     , GUI
-                     , OutputWidgets
-                     , Updater
-                     , UserOptions
+  other-modules:       UserOptions
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
                      , containers >= 0.5.6.2
@@ -177,6 +180,8 @@ executable rscoin-mintette
   main-is:             Main.hs
   other-modules:       Options
   build-depends:       base >= 4.8 && < 4.9
+                     , exceptions
+                     , mtl >= 2.2.1
                      , optparse-applicative
                      , rscoin
   hs-source-dirs:      src/Mintette
@@ -189,16 +194,20 @@ executable rscoin-mintette
 
 test-suite rscoin-test
   main-is:             Test.hs
-  other-modules:       RSCoin.Bank.StorageSpec
-                     , RSCoin.Core.Arbitrary
-                     , RSCoin.Core.CryptoSpec
-                     , RSCoin.Core.OwnersSpec
-                     , RSCoin.Core.Storage
-                     , RSCoin.Core.MessagePackSpec
-                     , RSCoin.Mintette.StorageSpec
-                     , RSCoin.StorageSpec
-                     , RSCoin.Test.MonadTimedSpec
-                     , RSCoin.Test.MonadRpcSpec
+  other-modules:       Test.RSCoin.Bank.StorageSpec
+                     , Test.RSCoin.Core.Arbitrary
+                     , Test.RSCoin.Core.CryptoSpec
+                     , Test.RSCoin.Core.OwnersSpec
+                     , Test.RSCoin.Core.Storage
+                     , Test.RSCoin.Core.MessagePackSpec
+                     , Test.RSCoin.Mintette.StorageSpec
+                     , Test.RSCoin.StorageSpec
+                     , Test.RSCoin.Timed.MonadTimedSpec
+                     , Test.RSCoin.Timed.MonadRpcSpec
+                     , Test.RSCoin.User.StorageSpec
+                     , Test.RSCoin.Context
+                     , Test.RSCoin.RSCoinSpec
+                     , Test.RSCoin.Timed.ExceptionSpec
                      , Spec
   type:                exitcode-stdio-1.0
   build-depends:       base >=4.8 && <4.9
@@ -212,12 +221,16 @@ test-suite rscoin-test
                      , mtl
                      , QuickCheck >= 2.8.1
                      , stm >= 2.4.4.1
+                     , serokell-core
+                     , tuple
                      , msgpack >= 1.0.0
                      , vector >= 0.11.0.0
                      , async >= 2.0.1
                      , msgpack-rpc >= 1.0.0
                      , random >= 1.1
                      , MonadRandom >= 0.4.2.2
+                     , acid-state >= 0.14.0
+                     , data-default
                      , rscoin
   hs-source-dirs:      test
   default-language:    Haskell2010
@@ -229,13 +242,15 @@ test-suite rscoin-test
 
 executable timed-launch
   main-is:             Main.hs
-  other-modules:       RSCoin.Test.MonadTimed
-                     , RSCoin.Test.TimedIO
-                     , RSCoin.Test.Timed
-                     , RSCoin.Test.MonadRpc
-                     , RSCoin.Test.PureRpc
+  other-modules:       RSCoin.Timed.MonadTimed
+                     , RSCoin.Timed.TimedIO
+                     , RSCoin.Timed.Timed
+                     , RSCoin.Timed.MonadRpc
+                     , RSCoin.Timed.PureRpc
+                     , RSCoin.Timed.Misc
                      , RSCoin.Core.Error
-  build-depends:        acid-state
+                     , RSCoin.Core.Logging
+  build-depends:       acid-state
                      , aeson >= 0.9.0.1
                      , base >=4.8 && <4.9
                      , base64-bytestring >= 1.0.0.1
@@ -263,6 +278,7 @@ executable timed-launch
                      , safecopy
                      , secp256k1 >= 0.4.5
                      , serokell-core
+                     , stm >= 2.4.4
                      , text >= 1.2.2.0
                      , text-format
                      , time
@@ -276,7 +292,7 @@ executable timed-launch
                      , msgpack >= 1.0.0
                      , msgpack-rpc >= 1.0.0
                      , msgpack-aeson >= 0.1.0.0
-  hs-source-dirs:      src/RSCoin/Test,src, test
+  hs-source-dirs:      src/RSCoin/Timed,src, test
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
   default-extensions:  OverloadedStrings

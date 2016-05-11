@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- | All possible runtime errors in Mintette
 
 module RSCoin.Mintette.Error

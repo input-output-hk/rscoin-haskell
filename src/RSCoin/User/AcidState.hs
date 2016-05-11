@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
@@ -8,6 +9,7 @@
 module RSCoin.User.AcidState
        ( RSCoinUserState
        , openState
+       , openMemState
        , closeState
        , initState
 
@@ -28,7 +30,7 @@ module RSCoin.User.AcidState
 
 import qualified RSCoin.Core         as C
 import           RSCoin.Core.Crypto  (keyGen)
-import           RSCoin.Test         (WorkMode)
+import           RSCoin.Timed        (WorkMode)
 import           RSCoin.User.Logic   (getBlockchainHeight)
 import           RSCoin.User.Wallet  (UserAddress, WalletStorage)
 import qualified RSCoin.User.Wallet  as W
@@ -39,6 +41,7 @@ import           Control.Monad.Catch (MonadThrow, throwM)
 import           Control.Monad.Trans (liftIO)
 import           Data.Acid           (makeAcidic)
 import qualified Data.Acid           as A
+import           Data.Acid.Memory    as AM
 import           Data.SafeCopy       (base, deriveSafeCopy)
 
 $(deriveSafeCopy 0 'base ''UserAddress)
@@ -58,6 +61,9 @@ openState :: FilePath -> IO RSCoinUserState
 openState path = do
     st <- A.openLocalStateFrom path W.emptyWalletStorage
     A.createCheckpoint st >> return st
+
+openMemState :: IO RSCoinUserState
+openMemState = AM.openMemoryState W.emptyWalletStorage
 
 -- | Closes the ACID state.
 closeState :: RSCoinUserState -> IO ()

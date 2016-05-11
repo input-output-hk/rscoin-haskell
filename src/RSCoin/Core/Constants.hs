@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module RSCoin.Core.Constants
        ( defaultSecretKeyPath
        , defaultAccountsNumber

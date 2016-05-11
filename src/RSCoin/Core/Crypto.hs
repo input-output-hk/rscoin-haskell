@@ -1,5 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 -- | A small module providing necessary cryptographic functions
 -- We are using secp256k1 implementation.

@@ -13,14 +13,16 @@ module RSCoin.Timed.Timed
        , runTimedT
        ) where
 
+import           Control.Concurrent.STM.TVar (TVar, newTVar, readTVar, writeTVar)
+import           Control.Concurrent.STM  (atomically)
 import           Control.Exception       (SomeException)
 import           Control.Exception.Base  (AsyncException (ThreadKilled))
 import           Control.Lens            (makeLenses, to, use, (%=), (.=), (^.),
                                           (&), (%~))
-import           Control.Monad           (void, unless)
-import           Control.Monad.Catch     (MonadCatch, MonadThrow, MonadMask, 
+import           Control.Monad           (void, unless, when)
+import           Control.Monad.Catch     (MonadCatch, MonadThrow, MonadMask,
                                           catch, mask, uninterruptibleMask,
-                                          throwM, Handler(..), catches, 
+                                          throwM, Handler(..), catches,
                                           catchAll)
 import           Control.Monad.Cont      (ContT (..), runContT)
 import           Control.Monad.Loops     (whileM_)
@@ -31,7 +33,7 @@ import           Control.Monad.State     (MonadState (get, put, state), StateT,
 import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
 import           Data.Function           (on)
 import           Data.IORef              (newIORef, readIORef, writeIORef)
-import           Data.Maybe              (fromJust)
+import           Data.Maybe              (fromJust, isNothing, catMaybes)
 import           Data.Ord                (comparing)
 import           Data.Text               as T
 import           System.IO.Unsafe        (unsafePerformIO)
@@ -40,7 +42,9 @@ import qualified Data.PQueue.Min         as PQ
 import           Serokell.Util.Text      (formatSingle')
 
 import           RSCoin.Timed.MonadTimed (MicroSeconds, MonadTimed, localTime,
-                                          wait, workWhile, timeout)
+                                          wait, workWhile, timeout, schedule,
+                                          after, mcs,
+                                          MonadTimedError (MTTimeoutError))
 import           RSCoin.Core.Logging     (logWarning)
 
 
@@ -77,7 +81,7 @@ data Scenario m = Scenario
 
 $(makeLenses ''Scenario)
 
-emptyScenario :: Scenario m 
+emptyScenario :: Scenario m
 emptyScenario =
     Scenario
     { _events = PQ.empty
@@ -113,24 +117,24 @@ instance (MonadCatch m, MonadIO m) => MonadCatch (TimedT m) where
         \r ->
             ContT $
             \c -> do
-            -- dirty hack 
+            -- dirty hack
             -- catch from (m + it's continuation)
-            -- if continuation throws, store exception into variable 
-            -- and then rethrow 
-            -- (all that because TimedT can't return a sensible value 
+            -- if continuation throws, store exception into variable
+            -- and then rethrow
+            -- (all that because TimedT can't return a sensible value
             --  when unwrapped :< )
                 contExcept <- liftIO $ newIORef Nothing
                 let remE = liftIO . writeIORef contExcept . Just
                     act = m >>= \x -> wrapCore $ c x `catchAll` remE
-                    handler' e = handler e >>= wrapCore . c  
+                    handler' e = handler e >>= wrapCore . c
                     r' = r & handlers %~ (Handler handler' : )
                 unwrapCore' r' act `catch` (unwrapCore' r . handler')
                 e <- liftIO $ readIORef contExcept
-                maybe (return ()) throwM e 
- 
+                maybe (return ()) throwM e
+
 -- Posibly incorrect instance
 instance (MonadIO m, MonadMask m) => MonadMask (TimedT m) where
-    mask a = TimedT $ ReaderT $ \r -> ContT $ \c -> 
+    mask a = TimedT $ ReaderT $ \r -> ContT $ \c ->
         mask $ \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
       where
         q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
@@ -142,15 +146,15 @@ instance (MonadIO m, MonadMask m) => MonadMask (TimedT m) where
       where
         q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
             runContT (runReaderT (unwrapTimedT t) r) c
-      
+
 
 wrapCore :: Monad m => Core m a -> TimedT m a
 wrapCore = TimedT . lift . lift
 
-unwrapCore :: Monad m 
-           => ThreadCtx (TimedT m) 
-           -> (a -> Core m ()) 
-           -> TimedT m a 
+unwrapCore :: Monad m
+           => ThreadCtx (TimedT m)
+           -> (a -> Core m ())
+           -> TimedT m a
            -> Core m ()
 unwrapCore r c = flip runContT c
                . flip runReaderT r
@@ -181,7 +185,7 @@ runTimedT timed = launchTimedT $ do
             return ev
         TimedT $ curTime .= nextEv ^. timestamp
 
-        let ctx = nextEv ^. threadCtx 
+        let ctx = nextEv ^. threadCtx
         keepAlive <- ctx ^. condition
         let -- die if time has come
             maybeDie = unless keepAlive $ throwM ThreadKilled
@@ -195,20 +199,20 @@ runTimedT timed = launchTimedT $ do
     -- put empty continuation to an action (not our own!)
     runInSandbox r = wrapCore . unwrapCore' r
 
-    mainThreadCtx = 
-        ThreadCtx 
+    mainThreadCtx =
+        ThreadCtx
         { _condition = return True
         , _handlers  = [Handler threadKilledNotifier]
         }
 
 threadKilledNotifier :: Monad m => SomeException -> m ()
-threadKilledNotifier e = 
-    let text = formatSingle' "Thread killed by exception: {}" $ 
+threadKilledNotifier e =
+    let text = formatSingle' "Thread killed by exception: {}" $
                T.pack . show $ e
     in  return $! unsafePerformIO $ logWarning text
 {-# NOINLINE threadKilledNotifier #-}
 
-instance MonadThrow m => MonadTimed (TimedT m) where
+instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
     localTime = TimedT $ use curTime
 
     -- | Take note, created thread may be killed by timeout
@@ -216,7 +220,7 @@ instance MonadThrow m => MonadTimed (TimedT m) where
     workWhile cond _action = do
         -- just put new thread to an event queue
         _timestamp <- localTime
-        let _threadCtx = 
+        let _threadCtx =
                 ThreadCtx
                 { _condition = cond
                 , _handlers  = [Handler threadKilledNotifier]
@@ -234,8 +238,31 @@ instance MonadThrow m => MonadTimed (TimedT m) where
                 }
         -- grab our continuation, put it to event queue
         -- and finish execution
-        TimedT $ lift $ ContT $ 
+        TimedT $ lift $ ContT $
                   \c -> do
                     events %= PQ.insert (event $ c ())
-    -- FIXME: implement this!
-    timeout _ = id
+    timeout t action' = do
+        var <- liftIO $ atomically $ newTVar Nothing
+        timestamp' <- localTime
+        schedule (after t mcs) $ do
+            liftIO $ atomically $ writeTVar var $
+                Just $ throwM $ MTTimeoutError "Timeout exceeeded"
+        workWhile (untilTime var $ t + timestamp') $ do
+            res <- action'
+            liftIO $ atomically $ writeTVar var $
+                Just $ return res
+        k <- Prelude.head . catMaybes
+             <$> (sequence $ Prelude.take (t + 1) $ repeat $ getMaybeValue var)
+        lift k
+      where
+        getMaybeValue :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))
+        getMaybeValue var = do
+            res <- liftIO $ atomically $ readTVar var
+            when (isNothing res) $
+                wait $ after 1 mcs
+            return res
+        untilTime :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> MicroSeconds -> TimedT m Bool
+        untilTime var time = do
+            lt <- localTime
+            stop <- liftIO $ atomically $ readTVar var
+            return $ time > lt && isNothing stop

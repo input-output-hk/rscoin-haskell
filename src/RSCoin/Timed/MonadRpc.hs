@@ -5,47 +5,48 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
 
--- This module contains MonadRpc providing RPC communication,
+-- | This module contains MonadRpc providing RPC communication,
 -- and it's implementation using MessagePack.
 
 module RSCoin.Timed.MonadRpc
-    ( Port
-    , Host
-    , Addr
-    , MonadRpc
-    , MsgPackRpc
-    , runMsgPackRpc
-    , RpcType
-    , execClient
-    , execClientTimeout
-    , serve
-    , Method(..)
-    , Client(..)
-    , method
-    , call
-    , S.Server
-    , S.ServerT
-    , S.MethodType
-    , serverTypeRestriction0
-    , serverTypeRestriction1
-    , serverTypeRestriction2
-    , serverTypeRestriction3
-    ) where
+       ( Port
+       , Host
+       , Addr
+       , MonadRpc
+       , MsgPackRpc
+       , runMsgPackRpc
+       , RpcType
+       , execClient
+       , execClientTimeout
+       , serve
+       , Method(..)
+       , Client(..)
+       , method
+       , call
+       , S.Server
+       , S.ServerT
+       , S.MethodType
+       , serverTypeRestriction0
+       , serverTypeRestriction1
+       , serverTypeRestriction2
+       , serverTypeRestriction3
+       ) where
 
 import           Control.Monad.Base          (MonadBase)
-import           Control.Monad.Catch         (MonadThrow, MonadCatch, MonadMask)
-import           Control.Monad.Trans         (MonadIO, liftIO, lift)
-import           Control.Monad.Trans.Control (MonadBaseControl, StM, liftBaseWith, 
-                                              restoreM)
-import           Control.Monad.Reader        (ReaderT(..), runReaderT)
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Reader        (ReaderT (..), runReaderT)
+import           Control.Monad.Trans         (MonadIO, lift, liftIO)
+import           Control.Monad.Trans.Control (MonadBaseControl, StM,
+                                              liftBaseWith, restoreM)
+import qualified Data.ByteString             as BS
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Maybe                  (fromMaybe)
-import qualified Data.ByteString             as BS 
 
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
 
-import           RSCoin.Timed.MonadTimed     (MonadTimed (timeout), MicroSeconds)
+import           RSCoin.Timed.MonadTimed     (MicroSeconds,
+                                              MonadTimed (timeout))
 import           RSCoin.Timed.TimedIO        (TimedIO)
 
 import           Data.MessagePack.Object     (MessagePack, Object (..),
@@ -77,7 +78,7 @@ class MonadThrow r => MonadRpc r where
 
 -- Implementation for MessagePack
 
-newtype MsgPackRpc a = MsgPackRpc { runMsgPackRpc :: (TimedIO a) }
+newtype MsgPackRpc a = MsgPackRpc { runMsgPackRpc :: TimedIO a }
     deriving (Functor, Applicative, Monad, MonadIO, MonadBase IO,
               MonadThrow, MonadCatch, MonadMask, MonadTimed)
 
@@ -106,19 +107,21 @@ instance MonadRpc MsgPackRpc where
 instance MonadRpc m => MonadRpc (ReaderT r m) where
     execClient addr cli = lift $ execClient addr cli
 
-    serve port methods = ReaderT $ 
+    serve port methods = ReaderT $
                             \r ->  serve port (convert r <$> methods)
       where
         convert :: Monad m => r -> Method (ReaderT r m) -> Method m
-        convert r Method {..} = 
-            Method methodName (flip runReaderT r . methodBody) 
+        convert r Method {..} =
+            Method methodName (flip runReaderT r . methodBody)
 
 
-execClientTimeout :: (MonadTimed m, MonadRpc m, MessagePack a) => MicroSeconds -> Addr -> Client a -> m a
+execClientTimeout
+    :: (MonadTimed m, MonadRpc m, MessagePack a)
+    => MicroSeconds -> Addr -> Client a -> m a
 execClientTimeout t addr = timeout t . execClient addr
 
 
--- * Client part 
+-- * Client part
 
 -- | Creates a function call. It accepts function name and arguments
 call :: RpcType t => String -> t

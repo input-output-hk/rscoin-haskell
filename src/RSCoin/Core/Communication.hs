@@ -1,6 +1,6 @@
-{-# LANGUAGE TupleSections       #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 -- | This module provides high-abstraction functions to exchange data
 -- within user/mintette/bank.
 
@@ -28,34 +28,34 @@ import           Control.Exception          (Exception (..))
 import           Control.Monad.Catch        (catch, throwM)
 import           Control.Monad.Trans        (MonadIO, liftIO)
 import           Data.Maybe                 (fromJust)
-import           Data.Monoid                ((<>))
 import           Data.MessagePack           (MessagePack)
+import           Data.Monoid                ((<>))
 import           Data.Text                  (Text, pack)
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Tuple.Select          (sel1)
 import           Data.Typeable              (Typeable)
 import qualified Network.MessagePack.Client as MP (RpcError (..))
 
-import           Safe                      (atMay)
-import           Serokell.Util.Text        (format', formatSingle', show',
-                                            mapBuilder, listBuilderJSONIndent,
-                                            pairBuilder)
+import           Safe                       (atMay)
+import           Serokell.Util.Text         (format', formatSingle',
+                                             listBuilderJSONIndent, mapBuilder,
+                                             pairBuilder, show')
 
 import           RSCoin.Core.Crypto         (Signature, hash)
-import           RSCoin.Core.Error          (rscExceptionToException,
-                                             rscExceptionFromException)
+import           RSCoin.Core.Error          (rscExceptionFromException,
+                                             rscExceptionToException)
+import           RSCoin.Core.Logging        (logError, logInfo, logWarning)
 import           RSCoin.Core.Owners         (owners)
 import           RSCoin.Core.Primitives     (AddrId, Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
-import           RSCoin.Core.Logging        (logInfo, logWarning, logError)
-import           RSCoin.Core.Types          (CheckConfirmation,
+import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              CheckConfirmations,
-                                             CommitConfirmation, HBlock,
-                                             Mintette, MintetteId,
+                                             CommitConfirmation, HBlock, LBlock,
+                                             Mintette, MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
-                                             PeriodResult, Mintettes,
-                                             ActionLog, Utxo, LBlock)
-import           RSCoin.Timed               (WorkMode, MonadTimedError (..), MonadTimed)
+                                             PeriodResult, Utxo)
+import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
+                                             WorkMode)
 
 -- | Errors which may happen during remote call.
 data CommunicationError
@@ -73,7 +73,7 @@ instance Buildable CommunicationError where
     build (TimeoutError t) = "timeout error: " <> build t
     build (MethodError t) = "method error: " <> build t
 
-rpcErrorHandler :: MonadIO m => MP.RpcError -> m a 
+rpcErrorHandler :: MonadIO m => MP.RpcError -> m a
 rpcErrorHandler = liftIO . log' . fromError
   where
     log' (e :: CommunicationError) = do
@@ -83,7 +83,7 @@ rpcErrorHandler = liftIO . log' . fromError
     fromError (MP.ResultTypeError s) = ProtocolError $ pack s
     fromError (MP.ServerError obj) = MethodError $ pack $ show obj
 
-monadTimedHandler :: (MonadTimed m, MonadIO m) => MonadTimedError -> m a 
+monadTimedHandler :: (MonadTimed m, MonadIO m) => MonadTimedError -> m a
 monadTimedHandler = log' . fromError
   where
     log' (e :: CommunicationError) = do
@@ -102,8 +102,8 @@ callMintette m = handleErrors . P.callMintetteSafe m
 
 withResult :: WorkMode m => IO () -> (a -> IO ()) -> m a -> m a
 withResult before after action = do
-    liftIO before 
-    a <- action 
+    liftIO before
+    a <- action
     liftIO $ after a
     return a
 
@@ -170,7 +170,7 @@ getOwnersByAddrid aId =
         $ getOwnersByHash $ sel1 aId
 
 checkNotDoubleSpent
-    :: WorkMode m 
+    :: WorkMode m
     => Mintette
     -> Transaction
     -> AddrId

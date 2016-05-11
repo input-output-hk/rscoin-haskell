@@ -26,7 +26,7 @@ import           Control.Monad.Cont      (ContT (..), runContT)
 import           Control.Monad.Loops     (whileM_)
 import           Control.Monad.Trans     (liftIO)
 import           Control.Monad.Reader    (ReaderT (..), ask, runReaderT)
-import           Control.Monad.State     (MonadState (state, get, put), StateT,
+import           Control.Monad.State     (MonadState (get, put, state), StateT,
                                           evalStateT)
 import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
 import           Data.Function           (on)
@@ -135,9 +135,9 @@ instance (MonadIO m, MonadMask m) => MonadMask (TimedT m) where
       where
         q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
             runContT (runReaderT (unwrapTimedT t) r) c
-  
-    uninterruptibleMask a = TimedT $ ReaderT $ \r -> ContT $ \c -> 
-        uninterruptibleMask $ 
+
+    uninterruptibleMask a = TimedT $ ReaderT $ \r -> ContT $ \c ->
+        uninterruptibleMask $
             \u -> runContT (runReaderT (unwrapTimedT $ a $ q u) r) c
       where
         q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
@@ -165,6 +165,7 @@ launchTimedT t = flip evalStateT emptyScenario
                $ unwrapCore vacuumCtx (void . return) t
   where
     vacuumCtx = error "Access to thread context from nowhere"
+
 
 -- | Starts timed evaluation. Finishes when no more scheduled actions remain.
 runTimedT :: (MonadIO m, MonadCatch m) => TimedT m () -> m ()
@@ -236,5 +237,5 @@ instance MonadThrow m => MonadTimed (TimedT m) where
         TimedT $ lift $ ContT $ 
                   \c -> do
                     events %= PQ.insert (event $ c ())
-    -- FIXME: !
+    -- FIXME: implement this!
     timeout _ = id

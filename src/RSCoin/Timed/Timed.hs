@@ -19,7 +19,7 @@ import           Control.Exception       (SomeException)
 import           Control.Exception.Base  (AsyncException (ThreadKilled))
 import           Control.Lens            (makeLenses, to, use, (%=), (.=), (^.),
                                           (&), (%~))
-import           Control.Monad           (void, unless, join)
+import           Control.Monad           (void, unless, join, when)
 import           Control.Monad.Catch     (MonadCatch, MonadThrow, MonadMask,
                                           catch, mask, uninterruptibleMask,
                                           throwM, Handler(..), catches,
@@ -252,11 +252,15 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
             liftIO $ atomically $ writeTVar var $
                 Just $ return res
         k <- Prelude.head . catMaybes
-             <$> (sequence $ Prelude.take (t + 1) $ repeat $ wait (after 1 mcs) >> getValue var)
+             <$> (sequence $ Prelude.take (t + 1) $ repeat $ getMaybeValue var)
         lift k
       where
-        getValue :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))
-        getValue var = liftIO $ atomically $ readTVar var
+        getMaybeValue :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))
+        getMaybeValue var = do
+            res <- liftIO $ atomically $ readTVar var
+            when (isNothing res) $
+                wait $ after 1 mcs
+            return res
         untilTime :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> MicroSeconds -> TimedT m Bool
         untilTime var time = do
             lt <- localTime

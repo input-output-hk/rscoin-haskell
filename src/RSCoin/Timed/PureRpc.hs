@@ -90,7 +90,7 @@ instance MonadState s m => MonadState s (PureRpc m) where
     state = lift . state
 
 -- | Launches rpc scenario
-runPureRpc :: (Monad m, MonadCatch m) => StdGen -> Delays -> PureRpc m () -> m ()
+runPureRpc :: (MonadIO m, MonadCatch m) => StdGen -> Delays -> PureRpc m () -> m ()
 runPureRpc _randSeed _delays (PureRpc rpc) = do
     evalStateT (runTimedT (evalStateT rpc "127.0.0.1")) net
   where

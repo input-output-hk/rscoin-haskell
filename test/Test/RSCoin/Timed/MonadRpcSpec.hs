@@ -7,7 +7,7 @@ module Test.RSCoin.Timed.MonadRpcSpec
        ) where
 
 import           Control.Monad.Trans        (MonadIO)
-import           Control.Monad.State        (State, execState, modify)
+import           Control.Monad.State        (StateT, execStateT, modify)
 import           Control.Monad.Catch.Pure   (CatchT, runCatchT)
 import           Test.Hspec                 (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck      (prop)
@@ -53,7 +53,7 @@ msgPackRpcSpec description runProp =
 
 pureRpcSpec
     :: String
-    -> (PureRpcProp () -> Bool)
+    -> (PureRpcProp () -> Property)
     -> Spec
 pureRpcSpec description runProp =
     describe description $ do
@@ -61,7 +61,9 @@ pureRpcSpec description runProp =
             prop "client should be able to execute server method" $
                 runProp serverMethodShouldExecuteSimplePureSpec
 
-type PureRpcProp = PureRpc (CatchT (State Bool))
+-- from pure testing
+-- type PureRpcProp = PureRpc (CatchT (State Bool))
+type PureRpcProp = PureRpc (StateT Bool IO)
 
 assertPure :: Bool -> PureRpcProp ()
 assertPure b = modify (b &&)
@@ -69,8 +71,9 @@ assertPure b = modify (b &&)
 runMsgPackRpcProp :: PropertyM MsgPackRpc () -> Property
 runMsgPackRpcProp = monadic $ ioProperty . runTimedIO . runMsgPackRpc
 
-runPureRpcProp :: StdGen -> Delays -> PureRpcProp () -> Bool
-runPureRpcProp gen delays test = execState (runCatchT $ runPureRpc gen delays test) True
+runPureRpcProp :: StdGen -> Delays -> PureRpcProp () -> Property
+runPureRpcProp gen delays test = 
+    ioProperty $ execStateT (runPureRpc gen delays test) True
 
 -- TODO: this is kind of odd
 instance Arbitrary StdGen where

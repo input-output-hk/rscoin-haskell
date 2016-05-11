@@ -11,7 +11,7 @@ module Test.RSCoin.Timed.MonadTimedSpec
 
 import           Control.Exception.Base   (Exception, SomeException)
 import           Control.Concurrent.MVar  (newEmptyMVar, putMVar, takeMVar)
-import           Control.Monad.State      (State, execState, modify, put)
+import           Control.Monad.State      (StateT, execStateT, modify, put)
 import           Control.Monad.Trans      (MonadIO, liftIO)
 import           Control.Monad.Catch      (MonadCatch, throwM, catch, handleAll,
                                            catchAll)
@@ -67,7 +67,7 @@ monadTimedSpec description runProp =
 
 monadTimedTSpec
     :: String
-    -> (TimedTProp () -> Bool)
+    -> (TimedTProp () -> Property)
     -> Spec
 monadTimedTSpec description runProp =
     describe description $ do
@@ -99,7 +99,9 @@ monadTimedTSpec description runProp =
                 runProp exceptionNotAffectOtherThread 
 
 
-type TimedTProp = TimedT (CatchT (State Bool))
+-- pure version
+-- type TimedTProp = TimedT (CatchT (State Bool))
+type TimedTProp = TimedT (StateT Bool IO)
 
 assertTimedT :: Bool -> TimedTProp ()
 assertTimedT b = modify (b &&)
@@ -114,8 +116,8 @@ fromIntegralRTN = (+) . fromIntegral
 runTimedIOProp :: PropertyM TimedIO () -> Property
 runTimedIOProp = monadic $ ioProperty . runTimedIO
 
-runTimedTProp :: TimedTProp () -> Bool
-runTimedTProp test = execState (runCatchT $ runTimedT test) True
+runTimedTProp :: TimedTProp () -> Property
+runTimedTProp test = ioProperty $ execStateT (runTimedT test) True
 
 -- TimedIO tests
 
@@ -281,6 +283,7 @@ instance Exception TestException
 
 handleAll' :: MonadCatch m => m () -> m ()
 handleAll' = handleAll $ const $ return ()
+
 
 exceptionsThrown :: TimedTProp ()
 exceptionsThrown = handleAll' $ do

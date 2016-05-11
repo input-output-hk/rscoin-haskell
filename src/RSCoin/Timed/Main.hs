@@ -5,7 +5,7 @@ module Main where
 import           Control.Monad              (forM_)
 import           Control.Monad.Catch.Pure   (CatchT, runCatchT)
 import           Control.Monad.Random.Class (getRandomR)
-import           Control.Monad.State        (State, execState, put)
+import           Control.Monad.State        (State, StateT, execState, put)
 import           Control.Monad.Trans        (MonadIO, lift, liftIO)
 import           Prelude                    hiding (log)
 import           System.Random              (mkStdGen)
@@ -24,14 +24,18 @@ import           Control.Concurrent.MVar    (MVar, newMVar, putMVar, takeMVar)
 
 import           Network.MessagePack.Server (ServerT)
 
+import RSCoin.Test.ContA
+import Control.Exception.Base (AsyncException(..), ArithException(..), SomeException)
+import Control.Monad.Catch
+
 main :: IO ()
 main = do
     putStrLn "sayHelloIO"
     sayHelloIO
     putStrLn "sayHelloPure"
     sayHelloPure
-    putStrLn "playWithTimedState"
-    print execPlayWithTimedState
+--    putStrLn "playWithTimedState"
+--    print execPlayWithTimedState
 
 -- * Timed
 
@@ -43,6 +47,7 @@ sayHelloPure = runTimedT sayHello
 
 sayHello :: (MonadIO m, MonadTimed m) => m ()
 sayHello = do
+    log                          "Initiating..."
     invoke    now          $ log "Hello"
     invoke   (at    1 sec) $ log "It's 1 second now"
 
@@ -57,7 +62,8 @@ sayHello = do
 
     schedule (at    2 sec 1 minute) $ log "Aha!"
 
-type TimedState = TimedT (CatchT (State Int))
+{-
+ type TimedState = TimedT (CatchT (State Int))
 
 playWithTimedState :: TimedState ()
 playWithTimedState = do
@@ -67,7 +73,7 @@ playWithTimedState = do
 
 execPlayWithTimedState :: Int
 execPlayWithTimedState = execState (runCatchT $ runTimedT playWithTimedState) undefined
-
+-}
 log :: (MonadIO m, MonadTimed m) => String -> m ()
 log msg = do
     seconds <- time
@@ -140,3 +146,12 @@ syncronized lock action = do
     _ <- liftIO $ takeMVar lock
     action
     liftIO $ putMVar lock ()
+
+superLaunch :: (MonadCatch m, MonadIO m, MonadTimed m) => m ()
+superLaunch = do
+    (return ()) `catch` handle 
+    throwM ThreadKilled
+  where
+    handle :: (MonadTimed m, MonadIO m) => SomeException -> m ()
+    handle e = log $ "Caught " ++ show e 
+

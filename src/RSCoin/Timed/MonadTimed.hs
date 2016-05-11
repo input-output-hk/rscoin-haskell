@@ -156,6 +156,8 @@ startTimer = do
     start <- localTime
     return $ subtract start <$> localTime
 
+-- | Returns a time in microseconds
+--   Example: interval 1 sec :: MicroSeconds 
 interval :: TimeAcc3 t => t
 interval = interval' 0
 

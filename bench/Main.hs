@@ -4,7 +4,7 @@ import           Control.Lens           ((^.))
 import           Control.Monad.Trans    (MonadIO, liftIO)
 import           Data.Acid              (createCheckpoint, query, update)
 import           Data.Int               (Int64)
-import           Data.Text              as T
+import qualified Data.Text              as T
 import           Data.Text.Lazy         (toStrict)
 import           Formatting             (format, build)
 
@@ -46,7 +46,7 @@ bankBracket benchDir bankStateFun =
 
 addMintette :: FilePath -> IO ()
 addMintette benchDir = bankBracket benchDir $ \st -> liftIO $ do
-    let m  = Mintette "bench-mintette-1" 4001
+    let m  = Mintette "127.0.0.1" 1234
     let pk = "A7DUEZGbDSAO4ruo8BWJDGyAioio7HFlLnDc5yPZRTz4"  -- TODO: generate new keys
     k     <- maybe (readPublicKeyFallback pk) return $ constructPublicKey pk
     update st $ B.AddMintette m k
@@ -121,7 +121,7 @@ main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
     threadDelay (3 * 10^6)
 
     _ <- forkIO $ mintetteThread benchDir bankKeyFilePath
-    threadDelay (5 * 10^6)
+    threadDelay (3 * 10^6)
 
     _ <- forkIO $ userThread 1 benchDir bankKeyFilePath
     threadDelay (10 * 10^6)

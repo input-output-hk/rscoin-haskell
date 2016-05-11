@@ -252,7 +252,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
             liftIO $ atomically $ writeTVar var $
                 Just $ return res
         k <- Prelude.head . catMaybes
-             <$> (sequence $ repeat $ wait (after 1 mcs) >> getValue var)
+             <$> (sequence $ Prelude.take (t + 1) $ repeat $ wait (after 1 mcs) >> getValue var)
         lift k
       where
         getValue :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))

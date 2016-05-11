@@ -188,8 +188,11 @@ test-suite rscoin-test
                      , Test.RSCoin.Core.CryptoSpec
                      , Test.RSCoin.Core.MessagePackSpec
                      , Test.RSCoin.Core.OwnersSpec
+                     , Test.RSCoin.Full.Action
+                     , Test.RSCoin.Full.Arbitrary
                      , Test.RSCoin.Full.Context
-                     , Test.RSCoin.Full.RSCoinSpec
+                     , Test.RSCoin.Full.Error
+                     , Test.RSCoin.Full.FullSpec
                      , Test.RSCoin.Pure.BankState
                      , Test.RSCoin.Pure.MintetteState
                      , Test.RSCoin.Pure.StorageSpec

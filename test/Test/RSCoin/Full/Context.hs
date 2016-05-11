@@ -3,11 +3,13 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE TemplateHaskell        #-}
 
+-- | Context to run full rscoin system.
+
 module Test.RSCoin.Full.Context
-       ( BankInfo(..)
-       , MintetteInfo(..)
-       , UserInfo(..)
-       , TestContext(..)
+       ( BankInfo (..)
+       , MintetteInfo (..)
+       , UserInfo (..)
+       , TestContext (..), WorkTestContext (..)
        , TestEnv
        , mkTestContext
        , bank, mintettes, buser, users, lifetime
@@ -41,11 +43,13 @@ data MintetteInfo = MintetteInfo
     , _mintetteState :: M.State
     , _mintettePort  :: Int
     }
+
 $(makeLenses ''MintetteInfo)
 
 data UserInfo = UserInfo
     { _userState :: U.RSCoinUserState
     }
+
 $(makeLenses ''UserInfo)
 
 data TestContext = TestContext
@@ -55,7 +59,12 @@ data TestContext = TestContext
     , _users     :: [UserInfo]
     , _lifetime  :: MicroSeconds
     }
+
 $(makeLenses ''TestContext)
+
+newtype WorkTestContext m = WorkTestContext
+    { getWorkTestContext :: m TestContext
+    }
 
 type TestEnv m = ReaderT TestContext m
 

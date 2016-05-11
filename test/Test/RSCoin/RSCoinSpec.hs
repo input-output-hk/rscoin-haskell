@@ -11,44 +11,34 @@ import           Control.Concurrent.MVar    (MVar, newEmptyMVar, putMVar,
                                              readMVar)
 import           Control.Exception          (Exception)
 import           Control.Lens               (ix, preview, to, view, (^.))
-import           Control.Monad              (forM, when)
-import           Control.Monad.Catch        (catch, throwM)
+import           Control.Monad.Catch        (throwM)
 import           Control.Monad.Reader       (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans        (MonadIO, liftIO)
 import           Data.Acid.Advanced         (query', update')
-import           Data.Default               (def)
-import           Data.Function              (on)
 import           Data.Int                   (Int64)
-import           Data.List                  (nubBy)
 import           Data.Maybe                 (fromJust)
-import           Data.Text                  (Text, pack)
+import           Data.Text                  (Text)
 import           Data.Typeable              (Typeable)
-import           System.Random              (mkStdGen)
 import           Test.Hspec                 (Spec)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
                                              NonEmptyList (..),
-                                             NonNegative (..), Positive (..),
-                                             Property, frequency, generate,
-                                             oneof, vector)
+                                             NonNegative (..),
+                                             Property, frequency,
+                                             oneof)
 import           Test.QuickCheck.Monadic    (assert, monadicIO)
-
-import           Serokell.Util.Text         (formatSingle')
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Address (..), Coin (..),
-                                             Mintette (..), RSCoinError,
-                                             Severity (Info), initLogging,
-                                             logDebug, logWarning)
+                                             Mintette (..))
 import qualified RSCoin.Mintette            as M
-import           RSCoin.Timed               (MicroSeconds, PureRpc, WorkMode,
-                                             at, for, fork, interval, invoke,
-                                             mcs, minute, runEmulationMode,
-                                             runRealMode, sec, upto, wait, work)
+import           RSCoin.Timed               (MicroSeconds, WorkMode,
+                                             for, invoke, mcs, minute,
+                                             sec, upto, wait, work)
 import qualified RSCoin.User                as U
 
 import           Test.RSCoin.Context        (MintetteInfo, TestContext, TestEnv,
                                              UserInfo, bank, bankSkPath, buser,
-                                             keys, lifetime, mintettes,
+                                             lifetime, mintettes,
                                              mkTestContext, port, publicKey,
                                              secretKey, state, users)
 import           Test.RSCoin.Core.Arbitrary ()
@@ -115,8 +105,9 @@ arbitraryAddress =
             return . Address $ cycle publicAddresses !! addressIndex
 
 arbitraryInputs :: WorkMode m => UserIndex -> FromAddresses -> TestEnv m Inputs
-arbitraryInputs userIndex (getNonEmpty -> fromIndexes) = do
+arbitraryInputs _ _ =
     return [(1, 50)]
+-- arbitraryInputs userIndex (getNonEmpty -> fromIndexes) = do
 --    user <- getUser userIndex
 --    allAddresses <- liftIO $ query user U.GetAllAddresses
 --    publicAddresses <- liftIO $ query user U.GetPublicAddresses

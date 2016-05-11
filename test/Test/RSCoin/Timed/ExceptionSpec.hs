@@ -5,23 +5,22 @@ module Test.RSCoin.Timed.ExceptionSpec
        ( spec
        ) where
 
-import           Control.Exception.Base      (AsyncException(ThreadKilled), 
+import           Control.Exception.Base      (AsyncException(ThreadKilled),
                                               ArithException(Overflow))
 import           Control.Monad.IO.Class      (liftIO)
 import           Control.Monad               (void)
-import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVarIO, 
+import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVarIO,
                                               writeTVar, modifyTVar)
 import           Control.Monad.Catch         (MonadCatch, throwM, catch,
                                               catchAll)
-import           Control.Monad.Trans         (MonadIO, liftIO)
+import           Control.Monad.Trans         (MonadIO)
 import           Control.Concurrent.STM      (atomically)
 import           Data.Default                (def)
-import           Data.Maybe                  (isJust)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Property, Arbitrary (..),
                                               NonNegative (..))
-import           Test.QuickCheck.Property    (ioProperty, Result(reason), 
+import           Test.QuickCheck.Property    (ioProperty, Result(reason),
                                               failed, succeeded, exception)
 import           Test.QuickCheck.Monadic     (assert, monadicIO)
 import           System.Random               (StdGen, mkStdGen)
@@ -29,7 +28,7 @@ import           Control.Monad.Random.Class  (getRandomR)
 
 import           RSCoin.Timed                (MicroSeconds, sec, for,
                                               wait, runEmulationMode,
-                                              Delays (..), fork, WorkMode, 
+                                              Delays (..), fork,
                                               PureRpc, invoke, after)
 
 import           RSCoin.User.Error           (UserError (InputProcessingError))
@@ -97,9 +96,9 @@ asyncExceptionShouldntAbortExecution std (getNonNegative -> t1) (getNonNegative 
 excCaught
     :: StdGen
     -> Property
-excCaught seed = 
-    ioProperty . inSandbox . withCheckPoints $ 
-        \checkPoint -> runEmu seed $ 
+excCaught seed =
+    ioProperty . inSandbox . withCheckPoints $
+        \checkPoint -> runEmu seed $
             let act   = throwM ThreadKilled >> checkPoint (-1)
                 hnd _ = checkPoint 1
             in  act `catchAll` hnd
@@ -107,22 +106,22 @@ excCaught seed =
 excCaughtOutside
     :: StdGen
     -> Property
-excCaughtOutside seed = 
-    ioProperty . inSandbox . withCheckPoints $ 
-        \checkPoint -> 
+excCaughtOutside seed =
+    ioProperty . inSandbox . withCheckPoints $
+        \checkPoint ->
             let act = runEmu seed (throwM ThreadKilled) >> checkPoint (-1)
                 hnd _ = checkPoint 1
             in  act `catchAll` hnd
-    
+
 excWaitThrow
     :: StdGen
     -> Property
-excWaitThrow seed = 
-    ioProperty . inSandbox . withCheckPoints $ 
-        \checkPoint -> runEmu seed $ 
+excWaitThrow seed =
+    ioProperty . inSandbox . withCheckPoints $
+        \checkPoint -> runEmu seed $
             let act = do
                     wait (for 1 sec)
-                    throwM ThreadKilled 
+                    throwM ThreadKilled
                 hnd _ = checkPoint 1
             in  do
                     act `catchAll` hnd
@@ -131,12 +130,12 @@ excWaitThrow seed =
 excWaitThrowForked
     :: StdGen
     -> Property
-excWaitThrowForked seed = 
-    ioProperty . inSandbox . withCheckPoints $ 
-        \checkPoint -> runEmu seed $ 
+excWaitThrowForked seed =
+    ioProperty . inSandbox . withCheckPoints $
+        \checkPoint -> runEmu seed $
             let act = do
                     wait (for 1 sec)
-                    throwM ThreadKilled 
+                    throwM ThreadKilled
                 hnd _ = checkPoint 1
             in  do
                     fork $ act `catchAll` hnd
@@ -145,10 +144,10 @@ excWaitThrowForked seed =
 excCatchOrder
     :: StdGen
     -> Property
-excCatchOrder seed = 
-    ioProperty . inSandbox . withCheckPoints $ 
-        \checkPoint -> runEmu seed $ 
-            let act    = throwM ThreadKilled 
+excCatchOrder seed =
+    ioProperty . inSandbox . withCheckPoints $
+        \checkPoint -> runEmu seed $
+            let act    = throwM ThreadKilled
                 hnd1 _ = checkPoint 1
                 hnd2 _ = checkPoint (-1)
             in  do  act `catchAll` hnd1 `catchAll` hnd2
@@ -157,9 +156,9 @@ excCatchOrder seed =
 excCatchScope
     :: StdGen
     -> Property
-excCatchScope seed = 
-    ioProperty . inSandbox . withCheckPoints $ 
-        \checkPoint -> runEmu seed $ 
+excCatchScope seed =
+    ioProperty . inSandbox . withCheckPoints $
+        \checkPoint -> runEmu seed $
             let act1 = checkPoint 1 `catchAll` const (checkPoint $ -1)
                 act2 = act1 >> throwM ThreadKilled
             in  do
@@ -169,12 +168,12 @@ excCatchScope seed =
 excDiffCatchInner
     :: StdGen
     -> Property
-excDiffCatchInner seed = 
-    ioProperty . inSandbox . withCheckPoints $ 
-        \checkPoint -> runEmu seed $ 
-            let act = throwM ThreadKilled 
-                hnd1 (e :: AsyncException) = checkPoint 1
-                hnd2 (e :: ArithException) = checkPoint (-1)
+excDiffCatchInner seed =
+    ioProperty . inSandbox . withCheckPoints $
+        \checkPoint -> runEmu seed $
+            let act = throwM ThreadKilled
+                hnd1 (_ :: AsyncException) = checkPoint 1
+                hnd2 (_ :: ArithException) = checkPoint (-1)
             in  do
                 act `catch` hnd1 `catch` hnd2
                 checkPoint 2
@@ -182,12 +181,12 @@ excDiffCatchInner seed =
 excDiffCatchOuter
     :: StdGen
     -> Property
-excDiffCatchOuter seed = 
-    ioProperty . inSandbox . withCheckPoints $ 
-        \checkPoint -> runEmu seed $ 
+excDiffCatchOuter seed =
+    ioProperty . inSandbox . withCheckPoints $
+        \checkPoint -> runEmu seed $
             let act = throwM Overflow
-                hnd1 (e :: AsyncException) = checkPoint (-1)
-                hnd2 (e :: ArithException) = checkPoint 1
+                hnd1 (_ :: AsyncException) = checkPoint (-1)
+                hnd2 (_ :: ArithException) = checkPoint 1
             in  do
                 act `catch` hnd1 `catch` hnd2
                 checkPoint 2
@@ -216,18 +215,18 @@ initCheckPoints = fmap CP $ liftIO $ newTVarIO $ Right 0
 
 visitCheckPoint :: MonadIO m => CheckPoints -> Int -> m ()
 visitCheckPoint cp curId = liftIO $ atomically $ modifyTVar (getCP cp) $
-    \wasId -> 
+    \wasId ->
         if wasId == Right (curId - 1)
             then Right curId
-            else Left $ either id (showError curId) wasId 
+            else Left $ either id (showError curId) wasId
   where
-    showError cur was = mconcat 
+    showError cur was = mconcat
         ["Wrong chechpoint. Expected "
         , show (was + 1)
         , ", but visited "
         , show cur
         ]
-    
+
 assertCheckPoints :: MonadIO m => CheckPoints -> m Result
 assertCheckPoints = fmap mkRes . liftIO . readTVarIO . getCP
   where
@@ -236,7 +235,7 @@ assertCheckPoints = fmap mkRes . liftIO . readTVarIO . getCP
 
 withCheckPoints :: MonadIO m => ((Int -> m ()) -> IO a) -> IO Result
 withCheckPoints act = do
-    cp <- initCheckPoints 
+    cp <- initCheckPoints
     _  <- act $ liftIO . visitCheckPoint cp
     assertCheckPoints cp
 

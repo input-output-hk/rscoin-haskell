@@ -9,13 +9,13 @@ module Test.RSCoin.Timed.MonadTimedSpec
        ( spec
        ) where
 
-import           Control.Exception.Base   (Exception, SomeException)
+import           Control.Exception.Base   (Exception)
 import           Control.Concurrent.MVar  (newEmptyMVar, putMVar, takeMVar)
+import           Control.Monad            (void)
 import           Control.Monad.State      (StateT, execStateT, modify, put)
 import           Control.Monad.Trans      (MonadIO, liftIO)
-import           Control.Monad.Catch      (MonadCatch, throwM, catch, handleAll,
+import           Control.Monad.Catch      (MonadCatch, throwM, handleAll,
                                            catchAll)
-import           Control.Monad.Catch.Pure (CatchT, runCatchT)
 import           Data.Typeable            (Typeable)
 import           Numeric.Natural          (Natural)
 import           Test.Hspec               (Spec, describe)
@@ -94,9 +94,9 @@ monadTimedTSpec description runProp =
             prop "wait + throw caught nicely" $
                 runProp exceptionsWaitThrowCaught
             prop "exceptions don't affect main thread" $
-                runProp exceptionNotAffectMainThread 
+                runProp exceptionNotAffectMainThread
             prop "exceptions don't affect other threads" $
-                runProp exceptionNotAffectOtherThread 
+                runProp exceptionNotAffectOtherThread
 
 
 -- pure version
@@ -276,7 +276,7 @@ nowProp ms = 0 === now ms
 
 -- * Excpetions
 
-data TestException = TestExc 
+data TestException = TestExc
     deriving (Show, Typeable)
 
 instance Exception TestException
@@ -287,25 +287,25 @@ handleAll' = handleAll $ const $ return ()
 
 exceptionsThrown :: TimedTProp ()
 exceptionsThrown = handleAll' $ do
-    throwM TestExc 
+    void $ throwM TestExc
     put False
 
 exceptionsThrowCaught :: TimedTProp ()
-exceptionsThrowCaught = 
+exceptionsThrowCaught =
     let act = do
-            put False 
+            put False
             throwM TestExc
         hnd = const $ put True
     in  act `catchAll` hnd
 
 exceptionsWaitThrowCaught :: TimedTProp ()
-exceptionsWaitThrowCaught = 
+exceptionsWaitThrowCaught =
     let act = do
-            put False 
+            put False
             wait $ for 1 sec
             throwM TestExc
         hnd = const $ put True
-    in  act `catchAll` hnd 
+    in  act `catchAll` hnd
 
 exceptionNotAffectMainThread :: TimedTProp ()
 exceptionNotAffectMainThread = handleAll' $ do
@@ -319,4 +319,3 @@ exceptionNotAffectOtherThread = handleAll' $ do
     put False
     schedule (after 3 sec) $ put True
     schedule (after 1 sec) $ throwM TestExc
-

@@ -8,7 +8,6 @@ module Test.RSCoin.Timed.MonadRpcSpec
 
 import           Control.Monad.Trans        (MonadIO)
 import           Control.Monad.State        (StateT, execStateT, modify)
-import           Control.Monad.Catch.Pure   (CatchT, runCatchT)
 import           Test.Hspec                 (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Property, ioProperty,
@@ -33,7 +32,7 @@ spec :: Spec
 spec =
     describe "MonadRpc" $ do
         msgPackRpcSpec "MsgPackRpc" runMsgPackRpcProp
-        -- FIXME: dont generate new radom seed here. Better way would be use the same seed as the one quickcheck/hspec was initialised with. 
+        -- FIXME: dont generate new radom seed here. Better way would be use the same seed as the one quickcheck/hspec was initialised with.
         -- Proper way of fixing this is to not use StdGen in PureRpc implementation, but to leave this to quickcheck
         runIO (generate arbitrary) >>= pureRpcSpec "PureRpc" . flip runPureRpcProp delays'
 
@@ -72,7 +71,7 @@ runMsgPackRpcProp :: PropertyM MsgPackRpc () -> Property
 runMsgPackRpcProp = monadic $ ioProperty . runTimedIO . runMsgPackRpc
 
 runPureRpcProp :: StdGen -> Delays -> PureRpcProp () -> Property
-runPureRpcProp gen delays test = 
+runPureRpcProp gen delays test =
     ioProperty $ execStateT (runPureRpc gen delays test) True
 
 -- TODO: this is kind of odd

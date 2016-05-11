@@ -13,7 +13,7 @@ import           RSCoin.Core            (Mintette (Mintette), Severity (Debug),
                                          constructPublicKey,
                                          defaultAccountsNumber, initLogging,
                                          logWarning, readPublicKey,
-                                         readSecretKey)
+                                         readSecretKey, keyGen, SecretKey, PublicKey)
 import qualified RSCoin.Mintette        as M
 import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Commands   (UserCommand (..), proceedCommand)
@@ -44,16 +44,10 @@ bankBracket benchDir bankStateFun =
         (liftIO . B.closeState)
         bankStateFun
 
-addMintette :: FilePath -> IO ()
-addMintette benchDir = bankBracket benchDir $ \st -> liftIO $ do
-    let m  = Mintette "127.0.0.1" 1234
-    let pk = "A7DUEZGbDSAO4ruo8BWJDGyAioio7HFlLnDc5yPZRTz4"  -- TODO: generate new keys
-    k     <- maybe (readPublicKeyFallback pk) return $ constructPublicKey pk
-    update st $ B.AddMintette m k
-  where
-    readPublicKeyFallback pk = liftIO $ do
-        logWarning "Failed to parse public key, trying to interpret as a filepath to key"
-        readPublicKey $ T.unpack pk
+addMintette :: Int -> FilePath -> PublicKey -> IO ()
+addMintette mintetteNum benchDir secretKey = bankBracket benchDir $ \st -> liftIO $ do
+    let m  = Mintette "127.0.0.1" (4000 + mintetteNum)
+    update st $ B.AddMintette m secretKey
 
 bankThread :: FilePath -> FilePath -> IO ()
 bankThread benchDir bankKeyFilePath = bankBracket benchDir $ \st -> do
@@ -61,18 +55,16 @@ bankThread benchDir bankKeyFilePath = bankBracket benchDir $ \st -> do
     fork $ B.runWorker secretKey st
     B.serve st
 
-mintetteThread :: FilePath -> FilePath -> IO ()
-mintetteThread benchDir bankKeyFilePath = do
+mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
+mintetteThread mintetteNum benchDir secretKey = do
     initLogging Debug
-    secretKey <- readSecretKey bankKeyFilePath
     runRealMode $
         bracket'
-            (liftIO $ M.openState $ benchDir </> "mintette-db")
+            (liftIO $ M.openState $ benchDir </> "mintette-db1" ++ show mintetteNum)
             (liftIO . M.closeState) $
             \st -> do
-                secretKey <- liftIO $ readSecretKey bankKeyFilePath
                 fork $ M.runWorker secretKey st
-                M.serve 1234 st secretKey
+                M.serve (4000 + mintetteNum) st secretKey
 
 userThread :: Int64 -> FilePath -> FilePath -> IO ()
 userThread userId benchDir bankKeyFilePath = runRealMode $ bracket'
@@ -96,7 +88,7 @@ userThread userId benchDir bankKeyFilePath = runRealMode $ bracket'
 
         let bAdress = (adresses !! 1) ^. W.publicAddress
         proceedCommand st $ FormTransaction [(1, 50 + userId)] $ toStrict $ format build bAdress
-        proceedCommand st UpdateBlockchain
+        --proceedCommand st UpdateBlockchain
         userAmount <- getAmount st $ adresses !! 1
         liftIO $ putStrLn $ "Adress " ++ show userId ++ " amount: " ++ show userAmount
     )
@@ -115,15 +107,16 @@ main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
 
     initLogging Debug
 
-    addMintette benchDir
+    (sk1, pk1) <- keyGen
+    addMintette 1 benchDir pk1
+
+    _ <- forkIO $ mintetteThread 1 benchDir sk1
+    threadDelay (5 * 10^6)
 
     _ <- forkIO $ bankThread benchDir bankKeyFilePath
-    threadDelay (3 * 10^6)
-
-    _ <- forkIO $ mintetteThread benchDir bankKeyFilePath
-    threadDelay (3 * 10^6)
+    threadDelay (5 * 10^6)
 
     _ <- forkIO $ userThread 1 benchDir bankKeyFilePath
-    threadDelay (10 * 10^6)
+    threadDelay (20 * 10^6)
     _ <- forkIO $ userThread 2 benchDir bankKeyFilePath
     threadDelay (10 * 10^6)

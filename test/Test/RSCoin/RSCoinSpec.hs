@@ -1,52 +1,57 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE ViewPatterns              #-}
 
 module Test.RSCoin.RSCoinSpec
        ( spec
        ) where
 
-import           Control.Concurrent.MVar    (newEmptyMVar, putMVar, readMVar, MVar)
+import           Control.Concurrent.MVar    (MVar, newEmptyMVar, putMVar,
+                                             readMVar)
 import           Control.Exception          (Exception)
-import           Control.Lens               (view, (^.), preview, ix, to)
+import           Control.Lens               (ix, preview, to, view, (^.))
 import           Control.Monad              (forM, when)
-import           Control.Monad.Catch        (throwM, catch)
+import           Control.Monad.Catch        (catch, throwM)
+import           Control.Monad.Reader       (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans        (MonadIO, liftIO)
-import           Control.Monad.Reader       (runReaderT, ask, ReaderT)
-import           Data.Acid                  (update, query)
+import           Data.Acid.Advanced         (query', update')
 import           Data.Default               (def)
+import           Data.Function              (on)
 import           Data.Int                   (Int64)
 import           Data.List                  (nubBy)
-import           Data.Function              (on)
 import           Data.Maybe                 (fromJust)
 import           Data.Text                  (Text, pack)
 import           Data.Typeable              (Typeable)
 import           System.Random              (mkStdGen)
+import           Test.Hspec                 (Spec)
+import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
+                                             NonEmptyList (..),
+                                             NonNegative (..), Positive (..),
+                                             Property, frequency, generate,
+                                             oneof, vector)
+import           Test.QuickCheck.Monadic    (assert, monadicIO)
+
 import           Serokell.Util.Text         (formatSingle')
 
-import           Test.QuickCheck            (Arbitrary (arbitrary), NonNegative (..),
-                                             Gen, oneof, Positive (..),
-                                             NonEmptyList (..), generate, frequency, vector, Property)
-import           Test.QuickCheck.Monadic    (monadicIO, assert)
-import           Test.Hspec                 (Spec)
-
 import qualified RSCoin.Bank                as B
+import           RSCoin.Core                (Address (..), Coin (..),
+                                             Mintette (..), RSCoinError,
+                                             Severity (Info), initLogging,
+                                             logDebug, logWarning)
 import qualified RSCoin.Mintette            as M
+import           RSCoin.Timed               (MicroSeconds, PureRpc, WorkMode,
+                                             at, for, fork, interval, invoke,
+                                             mcs, minute, runEmulationMode,
+                                             runRealMode, sec, upto, wait, work)
 import qualified RSCoin.User                as U
-import           Test.RSCoin.Core.Arbitrary ()
 
-import           RSCoin.Core                (initLogging, Severity(Info), Mintette(..),
-                                             Address (..), logDebug, Coin (..),
-                                             RSCoinError, logWarning)
-import           RSCoin.Timed               (WorkMode, runRealMode, runEmulationMode,
-                                             upto, mcs, work, minute, wait, for, sec,
-                                             interval, MicroSeconds, PureRpc, fork,
-                                             invoke, at)
-import           Test.RSCoin.Context        (TestEnv, mkTestContext, state, port,
-                                             keys, publicKey, secretKey, MintetteInfo,
-                                             bank, mintettes, lifetime, users, buser,
-                                             UserInfo, bankSkPath, TestContext)
+import           Test.RSCoin.Context        (MintetteInfo, TestContext, TestEnv,
+                                             UserInfo, bank, bankSkPath, buser,
+                                             keys, lifetime, mintettes,
+                                             mkTestContext, port, publicKey,
+                                             secretKey, state, users)
+import           Test.RSCoin.Core.Arbitrary ()
 spec :: Spec
 spec = return ()
 
@@ -106,7 +111,7 @@ arbitraryAddress =
     either return $
         \(userIndex, getNonNegative -> addressIndex) -> do
             user <- getUser userIndex
-            publicAddresses <- liftIO $ query user U.GetPublicAddresses
+            publicAddresses <- query' user U.GetPublicAddresses
             return . Address $ cycle publicAddresses !! addressIndex
 
 arbitraryInputs :: WorkMode m => UserIndex -> FromAddresses -> TestEnv m Inputs
@@ -119,7 +124,7 @@ arbitraryInputs userIndex (getNonEmpty -> fromIndexes) = do
 --    when (null publicAddresses) $
 --        throwM $ TestError "No public addresses in this user"
 --    -- TODO: for now we are sending all coins. It would be good to send some amount of coins that we have
---    return $ nubBy ((==) `on` fst) 
+--    return $ nubBy ((==) `on` fst)
 --        $ filter ((> 0) . snd)
 --        $ addAtLeastOneAddress addressesAmount
 --        $ map (\(a, b) -> (a + 1, getCoin $ addressesAmount !! a))
@@ -187,7 +192,7 @@ instance WorkMode m => Arbitrary (RSCoinState m) where
             mapM_ runMintette =<< view mintettes
 
             wait $ for 5 sec  -- ensure that bank & mintettes have initialized
-    
+
             mapM_ addMintetteToBank =<< view mintettes
             initBUser
             mapM_ initUser =<< view users
@@ -199,7 +204,7 @@ instance WorkMode m => Arbitrary (RSCoinState m) where
             wait $ for safeRunningTime sec -- wait for all actions to finish
 
             ask
- 
+
 -- launchPure :: Int -> Int -> TestEnv (PureRpc IO) () -> IO ()
 -- launchPure mNum uNum = runEmulationMode (mkStdGen 9452) def . launch mNum uNum
 
@@ -213,7 +218,7 @@ runBank = do
 runMintette :: WorkMode m => MintetteInfo -> TestEnv m ()
 runMintette m = do
     l <- view lifetime
-    work (upto l mcs) $ 
+    work (upto l mcs) $
         M.serve <$> view port <*> view state <*> view secretKey $ m
     work (upto l mcs) $
         M.runWorker <$> view secretKey <*> view state $ m
@@ -221,11 +226,11 @@ runMintette m = do
 addMintetteToBank :: MonadIO m => MintetteInfo -> TestEnv m ()
 addMintetteToBank mintette = do
     let addedMint = Mintette "127.0.0.1" (mintette ^. port)
-        mintPKey  = mintette ^. publicKey        
+        mintPKey  = mintette ^. publicKey
     bankSt <- view $ bank . state
-    liftIO $ update bankSt $ B.AddMintette addedMint mintPKey
- 
-initBUser :: WorkMode m => TestEnv m ()   
+    update' bankSt $ B.AddMintette addedMint mintPKey
+
+initBUser :: WorkMode m => TestEnv m ()
 initBUser = do
     st <- view $ buser . state
     skPath <- bankSkPath

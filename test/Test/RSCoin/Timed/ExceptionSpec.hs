@@ -1,36 +1,35 @@
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 module Test.RSCoin.Timed.ExceptionSpec
        ( spec
        ) where
 
-import           Control.Exception.Base      (AsyncException(ThreadKilled),
-                                              ArithException(Overflow))
-import           Control.Monad.IO.Class      (liftIO)
-import           Control.Monad               (void)
-import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVarIO,
-                                              writeTVar, modifyTVar)
-import           Control.Monad.Catch         (MonadCatch, throwM, catch,
-                                              catchAll)
-import           Control.Monad.Trans         (MonadIO)
 import           Control.Concurrent.STM      (atomically)
+import           Control.Concurrent.STM.TVar (TVar, modifyTVar, newTVarIO,
+                                              readTVarIO, writeTVar)
+import           Control.Exception.Base      (ArithException (Overflow),
+                                              AsyncException (ThreadKilled))
+import           Control.Monad               (void)
+import           Control.Monad.Catch         (MonadCatch, catch, catchAll,
+                                              throwM)
+import           Control.Monad.IO.Class      (liftIO)
+import           Control.Monad.Random.Class  (getRandomR)
+import           Control.Monad.Trans         (MonadIO)
 import           Data.Default                (def)
 import           Data.Time.Units             (fromMicroseconds)
+import           System.Random               (StdGen, mkStdGen)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Property, Arbitrary (..),
-                                              NonNegative (..))
-import           Test.QuickCheck.Property    (ioProperty, Result(reason),
-                                              failed, succeeded, exception)
+import           Test.QuickCheck             (Arbitrary (..), NonNegative (..),
+                                              Property)
 import           Test.QuickCheck.Monadic     (assert, monadicIO)
-import           System.Random               (StdGen, mkStdGen)
-import           Control.Monad.Random.Class  (getRandomR)
+import           Test.QuickCheck.Property    (Result (reason), exception,
+                                              failed, ioProperty, succeeded)
 
-import           RSCoin.Timed                (Microsecond, sec, for,
-                                              wait, runEmulationMode,
-                                              Delays (..), fork, mcs,
-                                              PureRpc, invoke, after)
+import           RSCoin.Timed                (Delays (..), Microsecond, PureRpc,
+                                              after, for, fork, invoke, mcs,
+                                              runEmulationMode_, sec, wait)
 
 import           RSCoin.User.Error           (UserError (InputProcessingError))
 import           Test.RSCoin.Timed.Arbitrary ()
@@ -68,7 +67,7 @@ exceptionShouldAbortExecution
 exceptionShouldAbortExecution std (getNonNegative -> t) =
     monadicIO $ do
         var <- liftIO $ newTVarIO (0 :: Int)
-        liftIO $ runEmulationMode std delays' $
+        runEmulationMode_ (Just std) delays' $
             fork $ do
                 liftIO $ atomically $ writeTVar var 1
                 wait $ for t mcs
@@ -85,7 +84,7 @@ asyncExceptionShouldntAbortExecution
 asyncExceptionShouldntAbortExecution std (getNonNegative -> t1) (getNonNegative -> t2) =
     monadicIO $ do
         var <- liftIO $ newTVarIO (0 :: Int)
-        liftIO $ runEmulationMode std delays' $ do
+        runEmulationMode_ (Just std) delays' $ do
             liftIO $ atomically $ writeTVar var 1
             fork $ do
                 wait $ for t2 mcs
@@ -206,7 +205,7 @@ delays' = Delays d
 
 
 runEmu :: StdGen -> PureRpc IO () -> IO ()
-runEmu seed = runEmulationMode seed def
+runEmu seed = runEmulationMode_ (Just seed) def
 
 -- Principle of checkpoints: every checkpoint has it's id
 -- Checkpoints should be visited in according order: 1, 2, 3 ...

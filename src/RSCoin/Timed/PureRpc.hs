@@ -9,6 +9,7 @@
 module RSCoin.Timed.PureRpc
     ( PureRpc
     , runPureRpc
+    , runPureRpc_
     , Delays(..)
     ) where
 
@@ -32,7 +33,7 @@ import           RSCoin.Timed.MonadRpc   (Addr, Client (..), Host, Method (..),
                                           methodName, serve)
 import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
                                           localTime, mcs, sec, wait)
-import           RSCoin.Timed.Timed      (TimedT, runTimedT)
+import           RSCoin.Timed.Timed      (TimedT, evalTimedT, runTimedT)
 
 
 data RpcStage = Request | Response
@@ -90,9 +91,21 @@ instance MonadState s m => MonadState s (PureRpc m) where
     put = lift . put
     state = lift . state
 
--- | Launches rpc scenario
-runPureRpc :: (MonadIO m, MonadCatch m) => StdGen -> Delays -> PureRpc m () -> m ()
+-- | Launches rpc scenario.
+runPureRpc
+    :: (MonadIO m, MonadCatch m)
+    => StdGen -> Delays -> PureRpc m a -> m a
 runPureRpc _randSeed _delays (PureRpc rpc) =
+    evalStateT (evalTimedT (evalStateT rpc "127.0.0.1")) net
+  where
+    net        = NetInfo{..}
+    _listeners = Map.empty
+
+-- | Launches rpc scenario without result. May be slightly more efficient.
+runPureRpc_
+    :: (MonadIO m, MonadCatch m)
+    => StdGen -> Delays -> PureRpc m () -> m ()
+runPureRpc_ _randSeed _delays (PureRpc rpc) =
     evalStateT (runTimedT (evalStateT rpc "127.0.0.1")) net
   where
     net        = NetInfo{..}

@@ -9,7 +9,7 @@ module Test.RSCoin.Full.Context
        ( BankInfo (..)
        , MintetteInfo (..)
        , UserInfo (..)
-       , TestContext (..), WorkTestContext (..)
+       , TestContext (..)
        , TestEnv
        , mkTestContext
        , bank, mintettes, buser, users, lifetime
@@ -22,6 +22,7 @@ import           Control.Lens         (Getter, makeLenses, to, _1, _2)
 import           Control.Monad        (forM, replicateM)
 import           Control.Monad.Reader (ReaderT)
 import           Control.Monad.Trans  (MonadIO, liftIO)
+import           Data.Word            (Word16, Word8)
 
 import qualified RSCoin.Bank          as B
 import           RSCoin.Core          (PublicKey, SecretKey, bankPort,
@@ -61,13 +62,9 @@ data TestContext = TestContext
 
 $(makeLenses ''TestContext)
 
-newtype WorkTestContext m = WorkTestContext
-    { getWorkTestContext :: m TestContext
-    }
-
 type TestEnv m = ReaderT TestContext m
 
-mkTestContext :: MonadIO m => Int -> Int -> Microsecond -> m TestContext
+mkTestContext :: MonadIO m => Word8 -> Word16 -> Microsecond -> m TestContext
 mkTestContext mNum uNum lt =
     liftIO $ TestContext <$> binfo <*> minfos <*> buinfo <*> uinfos <*> pure lt
   where
@@ -75,9 +72,9 @@ mkTestContext mNum uNum lt =
     minfos =
         forM [0 .. mNum - 1] $
         \mid ->
-             MintetteInfo <$> keyGen <*> M.openMemState <*> pure (2300 + mid)
+             MintetteInfo <$> keyGen <*> M.openMemState <*> pure (2300 + fromIntegral mid)
     buinfo = UserInfo <$> U.openMemState
-    uinfos = replicateM uNum $ UserInfo <$> U.openMemState
+    uinfos = replicateM (fromIntegral uNum) $ UserInfo <$> U.openMemState
     bankKey = pure (bankSecretKey, derivePublicKey bankSecretKey)
 
 -- * Shortcuts

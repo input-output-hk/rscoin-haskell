@@ -252,6 +252,13 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
             res <- action'
             liftIO $ atomically $ writeTVar var $
                 Just $ return res
+        -- NOTE: this is checking TVar in order to find one result (either error, or some value)
+        -- every microsecond. Testing performanse could be slightly worse with this. Proper way would
+        -- be to implement ThreadId and killThread in MonadTimed, then this would be avoided.
+        --
+        -- Depending on MonadTimed (TimedT) internals, actions might take 1 microsecond longer to finish.
+        -- It takes at least one microsecond to collect and return the results (next line).
+        -- Doing `timeout 10 (wait $ for 5 mcs)` might return after 6 mcs.
         k <- Prelude.head . catMaybes
              <$> (sequence $ Prelude.take (t + 1) $ repeat $ getMaybeValue var)
         lift k

@@ -33,7 +33,7 @@ import           Control.Monad.State     (MonadState (get, put, state), StateT,
 import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
 import           Data.Function           (on)
 import           Data.IORef              (newIORef, readIORef, writeIORef)
-import           Data.Maybe              (fromJust, isNothing, catMaybes)
+import           Data.Maybe              (fromJust, isNothing, catMaybes, isJust)
 import           Data.Ord                (comparing)
 import           Data.Text               as T
 import           System.IO.Unsafe        (unsafePerformIO)
@@ -245,6 +245,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         var <- liftIO $ atomically $ newTVar Nothing
         timestamp' <- localTime
         schedule (after t mcs) $ do
+            syncThreads var
             liftIO $ atomically $ writeTVar var $
                 Just $ throwM $ MTTimeoutError "Timeout exceeeded"
         workWhile (untilTime var $ t + timestamp') $ do
@@ -255,6 +256,10 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
              <$> (sequence $ Prelude.take (t + 1) $ repeat $ getMaybeValue var)
         lift k
       where
+        syncThreads var = do
+            old <- liftIO $ atomically $ readTVar var
+            when (isJust old) $
+                wait $ after 1 mcs
         getMaybeValue :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))
         getMaybeValue var = do
             res <- liftIO $ atomically $ readTVar var

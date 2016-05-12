@@ -66,6 +66,7 @@ monadTimedSpec description runProp =
         describe "invoke" $ do
             prop "won't change semantics of an action, will execute action in the future" $
                 \a b -> runProp . invokeSemanticProp a b
+-- TODO: fix tests for timeout in TimedIO.
 --        describe "timeout" $ do
 --            prop "should throw an exception if time has exceeded" $
 --                \a -> runProp . timeoutProp a

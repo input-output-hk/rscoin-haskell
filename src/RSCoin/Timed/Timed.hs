@@ -35,8 +35,7 @@ import           Control.Monad.Trans         (liftIO)
 import           Control.Monad.Trans         (MonadIO, MonadTrans, lift)
 import           Data.Function               (on)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
-import           Data.Maybe                  (catMaybes, fromJust, isJust,
-                                              isNothing)
+import           Data.Maybe                  (catMaybes, fromJust, isNothing)
 import           Data.Ord                    (comparing)
 import           Data.Text                   as T
 import           System.IO.Unsafe            (unsafePerformIO)
@@ -276,9 +275,9 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         lift k
       where
         sleepStep = 100 :: Microsecond
-        onNothingVar var action = do
+        onNothingVar var act = do
             res <- liftIO $ atomically $ readTVar var
-            maybe action (const $ return ()) res
+            maybe act (const $ return ()) res
         getMaybeValue :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))
         getMaybeValue var = do
             res <- liftIO $ atomically $ readTVar var

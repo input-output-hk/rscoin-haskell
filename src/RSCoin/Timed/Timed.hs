@@ -245,13 +245,14 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         var <- liftIO $ atomically $ newTVar Nothing
         timestamp' <- localTime
         schedule (after t mcs) $ do
-            syncThreads var
-            liftIO $ atomically $ writeTVar var $
-                Just $ throwM $ MTTimeoutError "Timeout exceeeded"
+            onNothingVar var $
+                liftIO $ atomically $ writeTVar var $
+                    Just $ throwM $ MTTimeoutError "Timeout exceeeded"
         workWhile (untilTime var $ t + timestamp') $ do
             res <- action'
-            liftIO $ atomically $ writeTVar var $
-                Just $ return res
+            onNothingVar var $
+                liftIO $ atomically $ writeTVar var $
+                    Just $ return res
         -- NOTE: this is checking TVar in order to find one result (either error, or some value)
         -- every microsecond. Testing performanse could be slightly worse with this. Proper way would
         -- be to implement ThreadId and killThread in MonadTimed, then this would be avoided.
@@ -260,18 +261,20 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         -- It takes at least one microsecond to collect and return the results (next line).
         -- Doing `timeout 10 (wait $ for 5 mcs)` might return after 6 mcs.
         k <- Prelude.head . catMaybes
-             <$> (sequence $ Prelude.take (fromIntegral $ t + 1) $ repeat $ getMaybeValue var)
+             <$> (sequence $ Prelude.replicate (fromIntegral t `div` fromIntegral sleepStep + 1) $ getMaybeValue var)
         lift k
       where
-        syncThreads var = do
-            old <- liftIO $ atomically $ readTVar var
-            when (isJust old) $
-                wait $ after 1 mcs
+        sleepStep = 100 :: Microsecond
+        onNothingVar var action = do
+            res <- liftIO $ atomically $ readTVar var
+            maybe action (const $ return ()) res
         getMaybeValue :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))
         getMaybeValue var = do
             res <- liftIO $ atomically $ readTVar var
             when (isNothing res) $
-                wait $ after 1 mcs
+                -- NOTE: @martoon said 100 mcs is sleep time resolution in threads.
+                -- Sleeping only 1 mcs might hit the preformance wall.
+                wait $ after sleepStep mcs
             return res
         untilTime :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> Microsecond -> TimedT m Bool
         untilTime var time = do

@@ -41,14 +41,14 @@ import           System.IO.Unsafe        (unsafePerformIO)
 import qualified Data.PQueue.Min         as PQ
 import           Serokell.Util.Text      (formatSingle')
 
-import           RSCoin.Timed.MonadTimed (MicroSeconds, MonadTimed, localTime,
+import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, localTime,
                                           wait, workWhile, timeout, schedule,
                                           after, mcs,
                                           MonadTimedError (MTTimeoutError))
 import           RSCoin.Core.Logging     (logWarning)
 
 
-type Timestamp = MicroSeconds
+type Timestamp = Microsecond
 
 -- | Private context for each pure thread
 data ThreadCtx m = ThreadCtx
@@ -76,7 +76,7 @@ instance Ord (Event m) where
 -- | State for MonadTimed
 data Scenario m = Scenario
     { _events  :: PQ.MinQueue (Event m)
-    , _curTime :: MicroSeconds
+    , _curTime :: Microsecond
     }
 
 $(makeLenses ''Scenario)
@@ -260,7 +260,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         -- It takes at least one microsecond to collect and return the results (next line).
         -- Doing `timeout 10 (wait $ for 5 mcs)` might return after 6 mcs.
         k <- Prelude.head . catMaybes
-             <$> (sequence $ Prelude.take (t + 1) $ repeat $ getMaybeValue var)
+             <$> (sequence $ Prelude.take (fromIntegral $ t + 1) $ repeat $ getMaybeValue var)
         lift k
       where
         syncThreads var = do
@@ -273,7 +273,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
             when (isNothing res) $
                 wait $ after 1 mcs
             return res
-        untilTime :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> MicroSeconds -> TimedT m Bool
+        untilTime :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> Microsecond -> TimedT m Bool
         untilTime var time = do
             lt <- localTime
             stop <- liftIO $ atomically $ readTVar var

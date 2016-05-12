@@ -22,8 +22,7 @@ import           Data.Maybe               (fromJust)
 import           Test.QuickCheck          (NonEmptyList (..), NonNegative (..))
 
 import           RSCoin.Core              (Address (..), Coin (..))
-import           RSCoin.Timed             (MicroSeconds, WorkMode)
-import           RSCoin.Timed             (for, invoke, sec)
+import           RSCoin.Timed             (Second, WorkMode, for, invoke, sec)
 import qualified RSCoin.User              as U
 
 import           Test.RSCoin.Full.Context (TestEnv, buser, state, users)
@@ -46,7 +45,7 @@ data EmptyAction = EmptyAction
 instance Action EmptyAction where
     doAction _ = pure ()
 
-data WaitAction a = WaitAction (NonNegative MicroSeconds) a
+data WaitAction a = WaitAction (NonNegative Second) a
     deriving Show
 
 type WaitSomeAction = WaitAction SomeAction

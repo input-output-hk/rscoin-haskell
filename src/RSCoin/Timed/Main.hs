@@ -5,6 +5,7 @@ module Main where
 import           Control.Monad              (forM_)
 import           Control.Monad.Random.Class (getRandomR)
 import           Control.Monad.Trans        (MonadIO, lift, liftIO)
+import           Data.Time.Units            (fromMicroseconds)
 import           Prelude                    hiding (log)
 import           System.Random              (mkStdGen)
 
@@ -132,7 +133,7 @@ request = call
 delays :: Delays
 delays = Delays d
   where
-    d _ _ = Just <$> getRandomR (10, 1000)
+    d _ _ = Just . fromMicroseconds <$> getRandomR (10, 1000)
 
 type Sync m = m () -> m ()
 

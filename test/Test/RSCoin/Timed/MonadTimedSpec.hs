@@ -11,29 +11,30 @@ module Test.RSCoin.Timed.MonadTimedSpec
        ( spec
        ) where
 
-import           Control.Exception.Base   (Exception)
-import           Control.Concurrent.MVar  (newEmptyMVar, putMVar, takeMVar)
-import           Control.Monad            (void)
-import           Control.Monad.State      (StateT, execStateT, modify, put)
-import           Control.Monad.Trans      (MonadIO, liftIO)
-import           Control.Monad.Catch      (MonadCatch, throwM, handleAll,
-                                           catchAll, catch)
-import           Data.Typeable            (Typeable)
-import           Numeric.Natural          (Natural)
-import           Test.Hspec               (Spec, describe)
-import           Test.Hspec.QuickCheck    (prop)
-import           Test.QuickCheck          (Property, counterexample, ioProperty,
-                                           (===), NonNegative (..))
-import           Test.QuickCheck.Function (Fun, apply)
-import           Test.QuickCheck.Monadic  (PropertyM, assert, monadic, monitor,
-                                           run)
-import           Test.QuickCheck.Poly     (A)
+import           Control.Exception.Base      (Exception)
+import           Control.Concurrent.MVar     (newEmptyMVar, putMVar, takeMVar)
+import           Control.Monad               (void)
+import           Control.Monad.State         (StateT, execStateT, modify, put)
+import           Control.Monad.Trans         (MonadIO, liftIO)
+import           Control.Monad.Catch         (MonadCatch, throwM, handleAll,
+                                              catchAll, catch)
+import           Data.Typeable               (Typeable)
+import           Numeric.Natural             (Natural)
+import           Test.Hspec                  (Spec, describe)
+import           Test.Hspec.QuickCheck       (prop)
+import           Test.QuickCheck             (Property, counterexample, ioProperty,
+                                              (===), NonNegative (..))
+import           Test.QuickCheck.Function    (Fun, apply)
+import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, monitor,
+                                              run)
+import           Test.QuickCheck.Poly        (A)
+import           Test.RSCoin.Timed.Arbitrary ()
 
-import           RSCoin.Timed.MonadTimed  (MicroSeconds, MonadTimed (..),
-                                           RelativeToNow, invoke, now, schedule,
-                                           for, after, sec, MonadTimedError, mcs)
-import           RSCoin.Timed.TimedIO     (TimedIO, runTimedIO)
-import           RSCoin.Timed.Timed       (TimedT, runTimedT)
+import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..),
+                                              RelativeToNow, invoke, now, schedule,
+                                              for, after, sec, MonadTimedError, mcs)
+import           RSCoin.Timed.TimedIO        (TimedIO, runTimedIO)
+import           RSCoin.Timed.Timed          (TimedT, runTimedT)
 
 spec :: Spec
 spec =
@@ -133,8 +134,8 @@ runTimedTProp test = ioProperty $ execStateT (runTimedT test) True
 
 timeoutProp
     :: (MonadTimed m, MonadIO m, MonadCatch m)
-    => NonNegative MicroSeconds
-    -> NonNegative MicroSeconds
+    => NonNegative Microsecond
+    -> NonNegative Microsecond
     -> PropertyM m ()
 timeoutProp (getNonNegative -> wt) (getNonNegative -> tout) = do
     let wtLTtout = wt < tout
@@ -235,8 +236,8 @@ actionSemanticProp action val f = do
 -- TODO: As TimedT is an instance of MonadIO, we can now reuse tests for TimedIO instead of these tests
 
 timeoutTimedProp
-    :: NonNegative MicroSeconds
-    -> NonNegative MicroSeconds
+    :: NonNegative Microsecond
+    -> NonNegative Microsecond
     -> TimedTProp ()
 timeoutTimedProp (getNonNegative -> wt) (getNonNegative -> tout) = do
     let wtLTtout = wt < tout
@@ -308,7 +309,7 @@ actionSemanticTimedProp action val f = do
     let result = apply f val
     action $ assertTimedT $ apply f val == result
 
-nowProp :: MicroSeconds -> Property
+nowProp :: Microsecond -> Property
 nowProp ms = 0 === now ms
 
 

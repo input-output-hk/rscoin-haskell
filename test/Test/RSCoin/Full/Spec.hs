@@ -25,7 +25,7 @@ import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Address (..), Coin (..),
                                              Mintette (..))
 import qualified RSCoin.Mintette            as M
-import           RSCoin.Timed               (MicroSeconds, WorkMode, for,
+import           RSCoin.Timed               (Microsecond, WorkMode, for,
                                              invoke, mcs, minute, sec, upto,
                                              wait, work)
 import qualified RSCoin.User                as U

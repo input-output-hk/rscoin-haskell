@@ -6,30 +6,32 @@ module Test.RSCoin.Full.Arbitrary
        (
        ) where
 
-import           Control.Lens               (view, (^.))
-import           Control.Monad.Reader       (ask, runReaderT)
-import           Control.Monad.Trans        (MonadIO)
-import           Data.Acid.Advanced         (update')
-import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
-                                             NonNegative (..), frequency, oneof)
+import           Control.Lens                (view, (^.))
+import           Control.Monad.Reader        (ask, runReaderT)
+import           Control.Monad.Trans         (MonadIO)
+import           Data.Acid.Advanced          (update')
+import           Data.Time.Units             (addTime)
+import           Test.QuickCheck             (Arbitrary (arbitrary), Gen,
+                                              NonNegative (..), frequency, oneof)
 
-import qualified RSCoin.Bank                as B
-import           RSCoin.Core                (Mintette (..))
-import qualified RSCoin.Mintette            as M
-import           RSCoin.Timed               (WorkMode, for, mcs, minute, sec,
-                                             upto, wait, work)
-import qualified RSCoin.User                as U
+import qualified RSCoin.Bank                 as B
+import           RSCoin.Core                 (Mintette (..))
+import qualified RSCoin.Mintette             as M
+import           RSCoin.Timed                (WorkMode, for, mcs, minute, sec,
+                                              upto, wait, work)
+import qualified RSCoin.User                 as U
 
-import           Test.RSCoin.Core.Arbitrary ()
-import           Test.RSCoin.Full.Action    (EmptyAction (..),
-                                             SomeAction (SomeAction),
-                                             UserAction (..), WaitAction (..),
-                                             WaitSomeAction, doAction)
-import           Test.RSCoin.Full.Context   (MintetteInfo, TestEnv, UserInfo,
-                                             WorkTestContext (WorkTestContext),
-                                             bank, bankSkPath, buser, lifetime,
-                                             mintettes, mkTestContext, port,
-                                             publicKey, secretKey, state, users)
+import           Test.RSCoin.Core.Arbitrary  ()
+import           Test.RSCoin.Timed.Arbitrary ()
+import           Test.RSCoin.Full.Action     (EmptyAction (..),
+                                              SomeAction (SomeAction),
+                                              UserAction (..), WaitAction (..),
+                                              WaitSomeAction, doAction)
+import           Test.RSCoin.Full.Context    (MintetteInfo, TestEnv, UserInfo,
+                                              WorkTestContext (WorkTestContext),
+                                              bank, bankSkPath, buser, lifetime,
+                                              mintettes, mkTestContext, port,
+                                              publicKey, secretKey, state, users)
 
 instance Arbitrary EmptyAction where
     arbitrary = pure EmptyAction
@@ -53,7 +55,7 @@ instance WorkMode m => Arbitrary (WorkTestContext m) where
     arbitrary = do
         actions :: [WaitSomeAction] <- arbitrary
         let actionsRunningTime = sum $ map (\(WaitAction t _) -> getNonNegative t) actions
-            safeRunningTime = actionsRunningTime + (minute 1)
+            safeRunningTime = addTime actionsRunningTime (minute 1)
         mNum <- arbitrary
         uNum <- arbitrary
         return $ WorkTestContext $ (mkTestContext mNum uNum safeRunningTime >>=) $ runReaderT $ do
@@ -70,7 +72,7 @@ instance WorkMode m => Arbitrary (WorkTestContext m) where
 
             mapM_ doAction actions
 
-            wait $ for safeRunningTime sec -- wait for all actions to finish
+            wait $ for safeRunningTime mcs -- wait for all actions to finish
 
             ask
 

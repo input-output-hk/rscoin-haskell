@@ -29,7 +29,7 @@ import           RSCoin.Core          (PublicKey, SecretKey, bankPort,
                                        defaultSecretKeyPath, derivePublicKey,
                                        keyGen, readSecretKey)
 import qualified RSCoin.Mintette      as M
-import           RSCoin.Timed         (MicroSeconds)
+import           RSCoin.Timed         (Microsecond)
 import qualified RSCoin.User          as U
 
 data BankInfo = BankInfo
@@ -57,7 +57,7 @@ data TestContext = TestContext
     , _mintettes :: [MintetteInfo]
     , _buser     :: UserInfo  -- ^ user in bank mode
     , _users     :: [UserInfo]
-    , _lifetime  :: MicroSeconds
+    , _lifetime  :: Microsecond
     }
 
 $(makeLenses ''TestContext)
@@ -68,7 +68,7 @@ newtype WorkTestContext m = WorkTestContext
 
 type TestEnv m = ReaderT TestContext m
 
-mkTestContext :: MonadIO m => Int -> Int -> MicroSeconds -> m TestContext
+mkTestContext :: MonadIO m => Int -> Int -> Microsecond -> m TestContext
 mkTestContext mNum uNum lt = liftIO $
     TestContext <$> binfo <*> minfos <*> buinfo <*> uinfos <*> pure lt
   where

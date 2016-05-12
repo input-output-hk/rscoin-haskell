@@ -25,11 +25,11 @@ import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import qualified System.Timeout              as T
 
-import           RSCoin.Timed.MonadTimed     (MicroSeconds, MonadTimed (..),
+import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..),
                                               MonadTimedError (MTTimeoutError))
 
 newtype TimedIO a = TimedIO
-    { getTimedIO :: ReaderT MicroSeconds IO a
+    { getTimedIO :: ReaderT Microsecond IO a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch
                , MonadBase IO, MonadMask)
 
@@ -47,7 +47,7 @@ instance MonadTimed TimedIO where
 
     wait relativeToNow = do
         cur <- localTime
-        liftIO $ threadDelay $ relativeToNow cur
+        liftIO $ threadDelay $ fromIntegral $ relativeToNow cur
 
     workWhile (TimedIO p) (TimedIO action) = TimedIO $ do
         env     <- ask
@@ -63,7 +63,7 @@ instance MonadTimed TimedIO where
             killThread tid
 
     timeout t (TimedIO action) = TimedIO $ do
-        res <- liftIO . T.timeout t . runReaderT action =<< ask
+        res <- liftIO . T.timeout (fromIntegral t) . runReaderT action =<< ask
         maybe (throwM $ MTTimeoutError "Timeout has exceeded") return res
 
 -- | Launches this timed action
@@ -74,5 +74,5 @@ runTimedIO = (curTime >>= ) . runReaderT . getTimedIO
 runTimedIO_ ::  TimedIO a -> IO ()
 runTimedIO_ = void . runTimedIO
 
-curTime :: IO MicroSeconds
+curTime :: IO Microsecond
 curTime = round . ( * 1000000) <$> getPOSIXTime

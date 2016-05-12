@@ -16,6 +16,7 @@ import           Control.Monad.Catch         (MonadCatch, throwM, catch,
 import           Control.Monad.Trans         (MonadIO)
 import           Control.Concurrent.STM      (atomically)
 import           Data.Default                (def)
+import           Data.Time.Units             (fromMicroseconds)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Property, Arbitrary (..),
@@ -26,12 +27,13 @@ import           Test.QuickCheck.Monadic     (assert, monadicIO)
 import           System.Random               (StdGen, mkStdGen)
 import           Control.Monad.Random.Class  (getRandomR)
 
-import           RSCoin.Timed                (MicroSeconds, sec, for,
+import           RSCoin.Timed                (Microsecond, sec, for,
                                               wait, runEmulationMode,
-                                              Delays (..), fork,
+                                              Delays (..), fork, mcs,
                                               PureRpc, invoke, after)
 
 import           RSCoin.User.Error           (UserError (InputProcessingError))
+import           Test.RSCoin.Timed.Arbitrary ()
 
 spec :: Spec
 spec =
@@ -61,7 +63,7 @@ spec =
 
 exceptionShouldAbortExecution
     :: StdGen
-    -> NonNegative MicroSeconds
+    -> NonNegative Microsecond
     -> Property
 exceptionShouldAbortExecution std (getNonNegative -> t) =
     monadicIO $ do
@@ -69,7 +71,7 @@ exceptionShouldAbortExecution std (getNonNegative -> t) =
         liftIO $ runEmulationMode std delays' $
             fork $ do
                 liftIO $ atomically $ writeTVar var 1
-                wait $ for t sec
+                wait $ for t mcs
                 void $ throwM $ InputProcessingError "Error"
                 liftIO $ atomically $ writeTVar var 2
         res <- liftIO $ readTVarIO var
@@ -77,8 +79,8 @@ exceptionShouldAbortExecution std (getNonNegative -> t) =
 
 asyncExceptionShouldntAbortExecution
     :: StdGen
-    -> NonNegative MicroSeconds
-    -> NonNegative MicroSeconds
+    -> NonNegative Microsecond
+    -> NonNegative Microsecond
     -> Property
 asyncExceptionShouldntAbortExecution std (getNonNegative -> t1) (getNonNegative -> t2) =
     monadicIO $ do
@@ -86,9 +88,9 @@ asyncExceptionShouldntAbortExecution std (getNonNegative -> t1) (getNonNegative 
         liftIO $ runEmulationMode std delays' $ do
             liftIO $ atomically $ writeTVar var 1
             fork $ do
-                wait $ for t2 sec
+                wait $ for t2 mcs
                 throwM $ InputProcessingError "Error"
-            wait $ for t1 sec
+            wait $ for t1 mcs
             liftIO $ atomically $ writeTVar var 2
         res <- liftIO $ readTVarIO var
         assert $ res == 2
@@ -200,7 +202,7 @@ instance Arbitrary StdGen where
 delays' :: Delays
 delays' = Delays d
   where
-    d _ _ = Just <$> getRandomR (10, 1000)
+    d _ _ = Just . fromMicroseconds <$> getRandomR (10, 1000)
 
 
 runEmu :: StdGen -> PureRpc IO () -> IO ()
@@ -241,4 +243,3 @@ withCheckPoints act = do
 
 inSandbox :: MonadCatch m => m Result -> m Result
 inSandbox = flip catchAll $ return . exception "Unexpected exception"
-

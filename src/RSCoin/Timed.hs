@@ -34,4 +34,4 @@ runRealMode_ :: MsgPackRpc a -> IO ()
 runRealMode_ = runTimedIO_ . runMsgPackRpc
 
 runEmulationMode :: StdGen -> Delays -> PureRpc IO () -> IO ()
-runEmulationMode = runPureRpc 
+runEmulationMode = runPureRpc

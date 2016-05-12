@@ -30,7 +30,7 @@ import           Data.MessagePack.Object (MessagePack, fromObject)
 import           RSCoin.Timed.MonadRpc   (Addr, Client (..), Host, Method (..),
                                           MonadRpc, execClient, methodBody,
                                           methodName, serve)
-import           RSCoin.Timed.MonadTimed (MicroSeconds, MonadTimed, for,
+import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
                                           localTime, mcs, sec, wait)
 import           RSCoin.Timed.Timed      (TimedT, runTimedT)
 
@@ -43,7 +43,7 @@ newtype Delays = Delays
       --   Nothing otherwise
       -- TODO: more parameters
       -- FIXME: we should handle StdGen with Quickcheck.Arbitrary
-      evalDelay :: RpcStage -> MicroSeconds -> Rand StdGen (Maybe MicroSeconds)
+      evalDelay :: RpcStage -> Microsecond -> Rand StdGen (Maybe Microsecond)
       -- ^ I still think that this function is at right place
       --   We just need to find funny syntax for creating complex description
       --   of network nastinesses.

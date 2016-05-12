@@ -12,26 +12,27 @@ import           Control.Monad.Trans         (MonadIO)
 import           Data.Acid.Advanced          (update')
 import           Data.Time.Units             (addTime)
 import           Test.QuickCheck             (Arbitrary (arbitrary), Gen,
-                                              NonNegative (..), frequency, oneof)
+                                              NonNegative (..), frequency,
+                                              oneof)
 
 import qualified RSCoin.Bank                 as B
-import           RSCoin.Core                 (Mintette (..))
+import           RSCoin.Core                 (Mintette (..), bankSecretKey)
 import qualified RSCoin.Mintette             as M
 import           RSCoin.Timed                (WorkMode, for, mcs, minute, sec,
                                               upto, wait, work)
 import qualified RSCoin.User                 as U
 
 import           Test.RSCoin.Core.Arbitrary  ()
-import           Test.RSCoin.Timed.Arbitrary ()
 import           Test.RSCoin.Full.Action     (EmptyAction (..),
                                               SomeAction (SomeAction),
                                               UserAction (..), WaitAction (..),
                                               WaitSomeAction, doAction)
 import           Test.RSCoin.Full.Context    (MintetteInfo, TestEnv, UserInfo,
                                               WorkTestContext (WorkTestContext),
-                                              bank, bankSkPath, buser, lifetime,
-                                              mintettes, mkTestContext, port,
-                                              publicKey, secretKey, state, users)
+                                              bank, buser, lifetime, mintettes,
+                                              mkTestContext, port, publicKey,
+                                              secretKey, state, users)
+import           Test.RSCoin.Timed.Arbitrary ()
 
 instance Arbitrary EmptyAction where
     arbitrary = pure EmptyAction
@@ -101,8 +102,7 @@ addMintetteToBank mintette = do
 initBUser :: WorkMode m => TestEnv m ()
 initBUser = do
     st <- view $ buser . state
-    skPath <- bankSkPath
-    U.initState st 5 (Just skPath)
+    U.initStateBank st 5 bankSecretKey
 
 initUser :: WorkMode m => UserInfo -> TestEnv m ()
 initUser user = U.initState (user ^. state) 5 Nothing

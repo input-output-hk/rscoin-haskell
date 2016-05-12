@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | HSpec specification of full rscoin.
 
@@ -12,7 +12,6 @@ import           Control.Lens               (view, (^.))
 import           Control.Monad.Reader       (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans        (MonadIO, liftIO)
 import           Data.Acid.Advanced         (update')
-import           Data.Int                   (Int64)
 import           Test.Hspec                 (Spec, describe, it, pending)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
                                              NonEmptyList (..),
@@ -23,9 +22,8 @@ import           Test.QuickCheck.Monadic    (assert, monadicIO)
 import           RSCoin.Core                (Address (..), Coin (..),
                                              Mintette (..))
 import qualified RSCoin.Mintette            as M
-import           RSCoin.Timed               (Microsecond, WorkMode, for,
-                                             invoke, mcs, minute, sec, upto,
-                                             wait, work)
+import           RSCoin.Timed               (Microsecond, WorkMode, for, invoke,
+                                             mcs, minute, sec, upto, wait, work)
 import qualified RSCoin.User                as U
 
 import           Test.RSCoin.Core.Arbitrary ()
@@ -36,9 +34,9 @@ import           Test.RSCoin.Full.Arbitrary ()
 import           Test.RSCoin.Full.Context   (MintetteInfo, TestContext, TestEnv,
                                              UserInfo,
                                              WorkTestContext (WorkTestContext),
-                                             bank, bankSkPath, buser, lifetime,
-                                             mintettes, mkTestContext, port,
-                                             publicKey, secretKey, state, users)
+                                             bank, buser, lifetime, mintettes,
+                                             mkTestContext, port, publicKey,
+                                             secretKey, state, users)
 
 spec :: Spec
 spec =

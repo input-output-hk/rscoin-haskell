@@ -16,7 +16,6 @@ module Test.RSCoin.Full.Context
        , keys, secretKey, publicKey
        , state
        , port
-       , bankSkPath
        ) where
 
 import           Control.Lens         (Getter, makeLenses, to, _1, _2)
@@ -26,8 +25,7 @@ import           Control.Monad.Trans  (MonadIO, liftIO)
 
 import qualified RSCoin.Bank          as B
 import           RSCoin.Core          (PublicKey, SecretKey, bankPort,
-                                       defaultSecretKeyPath, derivePublicKey,
-                                       keyGen, readSecretKey)
+                                       bankSecretKey, derivePublicKey, keyGen)
 import qualified RSCoin.Mintette      as M
 import           RSCoin.Timed         (Microsecond)
 import qualified RSCoin.User          as U
@@ -36,6 +34,7 @@ data BankInfo = BankInfo
     { _bankKeys  :: (SecretKey, PublicKey)
     , _bankState :: B.State
     }
+
 $(makeLenses ''BankInfo)
 
 data MintetteInfo = MintetteInfo
@@ -69,25 +68,17 @@ newtype WorkTestContext m = WorkTestContext
 type TestEnv m = ReaderT TestContext m
 
 mkTestContext :: MonadIO m => Int -> Int -> Microsecond -> m TestContext
-mkTestContext mNum uNum lt = liftIO $
-    TestContext <$> binfo <*> minfos <*> buinfo <*> uinfos <*> pure lt
+mkTestContext mNum uNum lt =
+    liftIO $ TestContext <$> binfo <*> minfos <*> buinfo <*> uinfos <*> pure lt
   where
     binfo = BankInfo <$> bankKey <*> B.openMemState
-
-    minfos = forM [0 .. mNum - 1] $ \mid ->
+    minfos =
+        forM [0 .. mNum - 1] $
+        \mid ->
              MintetteInfo <$> keyGen <*> M.openMemState <*> pure (2300 + mid)
-
     buinfo = UserInfo <$> U.openMemState
-
-    uinfos = replicateM uNum $
-             UserInfo <$> U.openMemState
-
-    bankKey = do
-        sk <- readSecretKey =<< bankSkPath
-        return (sk, derivePublicKey sk)
-
-bankSkPath :: MonadIO m => m FilePath
-bankSkPath = liftIO defaultSecretKeyPath
+    uinfos = replicateM uNum $ UserInfo <$> U.openMemState
+    bankKey = pure (bankSecretKey, derivePublicKey bankSecretKey)
 
 -- * Shortcuts
 

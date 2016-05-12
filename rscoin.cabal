@@ -73,6 +73,7 @@ library
                      , data-default
                      , directory
                      , exceptions
+                     , file-embed
                      , filepath
                      , hashable
                      , hslogger

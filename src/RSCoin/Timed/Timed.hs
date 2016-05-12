@@ -11,41 +11,44 @@
 module RSCoin.Timed.Timed
        ( TimedT
        , runTimedT
+       , evalTimedT
        ) where
 
-import           Control.Concurrent.STM.TVar (TVar, newTVar, readTVar, writeTVar)
-import           Control.Concurrent.STM  (atomically)
-import           Control.Exception       (SomeException)
-import           Control.Exception.Base  (AsyncException (ThreadKilled))
-import           Control.Lens            (makeLenses, to, use, (%=), (.=), (^.),
-                                          (&), (%~))
-import           Control.Monad           (void, unless, when)
-import           Control.Monad.Catch     (MonadCatch, MonadThrow, MonadMask,
-                                          catch, mask, uninterruptibleMask,
-                                          throwM, Handler(..), catches,
-                                          catchAll)
-import           Control.Monad.Cont      (ContT (..), runContT)
-import           Control.Monad.Loops     (whileM_)
-import           Control.Monad.Trans     (liftIO)
-import           Control.Monad.Reader    (ReaderT (..), ask, runReaderT)
-import           Control.Monad.State     (MonadState (get, put, state), StateT,
-                                          evalStateT)
-import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
-import           Data.Function           (on)
-import           Data.IORef              (newIORef, readIORef, writeIORef)
-import           Data.Maybe              (fromJust, isNothing, catMaybes, isJust)
-import           Data.Ord                (comparing)
-import           Data.Text               as T
-import           System.IO.Unsafe        (unsafePerformIO)
+import           Control.Concurrent.STM      (atomically)
+import           Control.Concurrent.STM.TVar (TVar, newTVar, readTVar,
+                                              writeTVar)
+import           Control.Exception           (SomeException)
+import           Control.Exception.Base      (AsyncException (ThreadKilled))
+import           Control.Lens                (makeLenses, to, use, (%=), (%~),
+                                              (&), (.=), (^.))
+import           Control.Monad               (unless, void, when)
+import           Control.Monad.Catch         (Handler (..), MonadCatch,
+                                              MonadMask, MonadThrow, catch,
+                                              catchAll, catches, mask, throwM,
+                                              uninterruptibleMask)
+import           Control.Monad.Cont          (ContT (..), runContT)
+import           Control.Monad.Loops         (whileM_)
+import           Control.Monad.Reader        (ReaderT (..), ask, runReaderT)
+import           Control.Monad.State         (MonadState (get, put, state),
+                                              StateT, evalStateT)
+import           Control.Monad.Trans         (liftIO)
+import           Control.Monad.Trans         (MonadIO, MonadTrans, lift)
+import           Data.Function               (on)
+import           Data.IORef                  (newIORef, readIORef, writeIORef)
+import           Data.Maybe                  (catMaybes, fromJust, isJust,
+                                              isNothing)
+import           Data.Ord                    (comparing)
+import           Data.Text                   as T
+import           System.IO.Unsafe            (unsafePerformIO)
 
-import qualified Data.PQueue.Min         as PQ
-import           Serokell.Util.Text      (formatSingle')
+import qualified Data.PQueue.Min             as PQ
+import           Serokell.Util.Text          (formatSingle')
 
-import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, localTime,
-                                          wait, workWhile, timeout, schedule,
-                                          after, mcs,
-                                          MonadTimedError (MTTimeoutError))
-import           RSCoin.Core.Logging     (logWarning)
+import           RSCoin.Core.Logging         (logWarning)
+import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
+                                              MonadTimedError (MTTimeoutError),
+                                              after, localTime, mcs, schedule,
+                                              timeout, wait, workWhile)
 
 
 type Timestamp = Microsecond
@@ -170,7 +173,6 @@ launchTimedT t = flip evalStateT emptyScenario
   where
     vacuumCtx = error "Access to thread context from nowhere"
 
-
 -- | Starts timed evaluation. Finishes when no more scheduled actions remain.
 runTimedT :: (MonadIO m, MonadCatch m) => TimedT m () -> m ()
 runTimedT timed = launchTimedT $ do
@@ -204,6 +206,15 @@ runTimedT timed = launchTimedT $ do
         { _condition = return True
         , _handlers  = [Handler threadKilledNotifier]
         }
+
+-- | Just like runTimedT but makes it possible to get a result.
+evalTimedT
+    :: (MonadIO m, MonadCatch m)
+    => TimedT m a -> m a
+evalTimedT timed = do
+    ref <- liftIO $ newIORef Nothing
+    runTimedT $ liftIO . writeIORef ref . Just =<< timed
+    fromJust <$> liftIO (readIORef ref)
 
 threadKilledNotifier :: Monad m => SomeException -> m ()
 threadKilledNotifier e =

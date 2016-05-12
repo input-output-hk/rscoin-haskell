@@ -6,28 +6,25 @@ module Test.RSCoin.Timed.MonadRpcSpec
        ( spec
        ) where
 
-import           Control.Monad.Trans         (MonadIO)
-import           Control.Monad.State         (StateT, execStateT, modify)
-import           Data.Time.Units             (fromMicroseconds)
-import           Test.Hspec                  (Spec, describe, runIO)
-import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Property, ioProperty,
-                                              Arbitrary (..), generate)
-import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic,
-                                              run)
-import           System.Random               (StdGen, mkStdGen)
-import           Control.Monad.Random.Class  (getRandomR)
+import           Control.Monad.Random.Class (getRandomR)
+import           Control.Monad.State        (StateT, execStateT, modify)
+import           Control.Monad.Trans        (MonadIO)
+import           Data.Time.Units            (fromMicroseconds)
+import           System.Random              (StdGen, mkStdGen)
+import           Test.Hspec                 (Spec, describe, runIO)
+import           Test.Hspec.QuickCheck      (prop)
+import           Test.QuickCheck            (Arbitrary (..), Property, generate,
+                                             ioProperty)
+import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, run)
 
-import           RSCoin.Timed.MonadRpc       (Addr, Client (..), Host,
-                                              MonadRpc (..),
-                                              MsgPackRpc (..), Port, call,
-                                              method)
-import           RSCoin.Timed.MonadTimed     (MonadTimed (..), for, ms)
-import           RSCoin.Timed.PureRpc        (PureRpc, runPureRpc,
-                                              Delays (..))
-import           RSCoin.Timed.TimedIO        (runTimedIO)
+import           RSCoin.Timed.MonadRpc      (Addr, Client (..), Host,
+                                             MonadRpc (..), MsgPackRpc (..),
+                                             Port, call, method)
+import           RSCoin.Timed.MonadTimed    (MonadTimed (..), for, ms)
+import           RSCoin.Timed.PureRpc       (Delays (..), PureRpc, runPureRpc)
+import           RSCoin.Timed.TimedIO       (runTimedIO)
 
-import           Network.MessagePack.Server  (ServerT)
+import           Network.MessagePack.Server (ServerT)
 
 spec :: Spec
 spec =

@@ -6,17 +6,18 @@
 module RSCoin.User.Operations
        ( commitError
        , getAmount
+       , getAmountByIndex
        , updateToBlockHeight
        , formTransaction
        ) where
 
 import           Control.Lens           ((^.))
 import           Control.Monad          (filterM, unless, when)
-import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Catch    (MonadThrow, throwM)
-import           Data.Acid              (query, update)
-import           Data.Int               (Int64)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
+import           Data.Int               (Int64)
 import           Data.List              (nub, nubBy)
 import qualified Data.Map               as M
 import           Data.Maybe             (isJust)
@@ -24,9 +25,10 @@ import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as TIO
 import           Data.Tuple.Select      (sel1)
+import           Safe                   (atMay)
 
-import           Serokell.Util.Text     (format', formatSingle', pairBuilder,
-                                         listBuilderJSONIndent)
+import           Serokell.Util.Text     (format', formatSingle',
+                                         listBuilderJSONIndent, pairBuilder)
 
 import qualified RSCoin.Core            as C
 import           RSCoin.Timed           (WorkMode)
@@ -41,10 +43,20 @@ commitError = throwM . InputProcessingError
 
 getAmount :: MonadIO m => A.RSCoinUserState -> W.UserAddress -> m C.Coin
 getAmount st userAddress =
-    liftIO $ sum . map getValue <$> query st (A.GetTransactions userAddress)
+    sum . map getValue <$> query' st (A.GetTransactions userAddress)
   where
     getValue =
         C.getAmountByAddress $ W.toAddress userAddress
+
+getAmountByIndex :: MonadIO m => A.RSCoinUserState -> Int -> m C.Coin
+getAmountByIndex st idx = do
+    addr <- flip atMay idx <$> query' st A.GetAllAddresses
+    maybe
+        (liftIO $
+         throwM $
+         InputProcessingError "invalid index was given to getAmountByIndex")
+        (getAmount st)
+        addr
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.
@@ -52,10 +64,10 @@ updateToBlockHeight :: WorkMode m => A.RSCoinUserState -> C.PeriodId -> m ()
 updateToBlockHeight st newHeight = do
     C.HBlock{..} <- C.getBlockByHeight newHeight
     -- TODO validate this block with integrity check that we don't have
-    liftIO $ update st $ A.WithBlockchainUpdate newHeight hbTransactions
+    update' st $ A.WithBlockchainUpdate newHeight hbTransactions
 
 -- | Forms transaction out of user input and sends it to the net.
-formTransaction :: WorkMode m => 
+formTransaction :: WorkMode m =>
     A.RSCoinUserState -> [(Int, Int64)] -> C.Address -> C.Coin -> m ()
 formTransaction _ [] _ _ =
     commitError "You should enter at least one source input"
@@ -70,7 +82,7 @@ formTransaction st inputs outputAddr outputCoin = do
         formatSingle'
             "All input values should be positive, but encountered {}, that's not." $
         head $ filter (<= 0) $ map snd inputs
-    accounts <- liftIO $ query st GetAllAddresses
+    accounts <- query' st GetAllAddresses
     let notInRange i = i <= 0 || i > length accounts
     when
         (any notInRange $ map fst inputs) $
@@ -99,9 +111,9 @@ formTransaction st inputs outputAddr outputCoin = do
             (sel1 $ head overSpentAccounts)
     (addrPairList,outTr) <- liftIO $
         foldl1 mergeTransactions <$> mapM formTransactionMapper accInputs
-    liftIO $ TIO.putStrLn $ 
+    liftIO $ TIO.putStrLn $
         formatSingle' "Please check your transaction: {}" outTr
-    walletHeight <- liftIO $ query st A.GetLastBlockId
+    walletHeight <- query' st A.GetLastBlockId
     lastBlockHeight <- pred <$> C.getBlockchainHeight
     when (walletHeight /= lastBlockHeight) $
         commitError $
@@ -115,14 +127,14 @@ formTransaction st inputs outputAddr outputCoin = do
                       (addrid', C.sign (address' ^. W.privateAddress) outTr))
                 addrPairList
     validateTransaction outTr signatures $ lastBlockHeight + 1
-    liftIO $ update st $ A.AddTemporaryTransaction outTr
+    update' st $ A.AddTemporaryTransaction outTr
   where
     formTransactionMapper :: (Int, W.UserAddress, C.Coin)
                           -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)
     formTransactionMapper (_,a,c) = do
         (addrids :: [C.AddrId]) <-
             concatMap (C.getAddrIdByAddress $ W.toAddress a) <$>
-            query st (A.GetTransactions a)
+            query' st (A.GetTransactions a)
         let (chosen,leftCoin) = C.chooseAddresses addrids c
             transaction =
                 C.Transaction chosen $

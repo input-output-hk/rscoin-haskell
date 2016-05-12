@@ -1,4 +1,6 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 -- | HSpec specification of full rscoin.
 
@@ -6,69 +8,71 @@ module Test.RSCoin.Full.FullSpec
        ( spec
        ) where
 
-import           Control.Concurrent.MVar    (MVar, newEmptyMVar, putMVar,
-                                             readMVar)
-import           Control.Lens               (view, (^.))
-import           Control.Monad.Reader       (ReaderT, ask, runReaderT)
-import           Control.Monad.Trans        (MonadIO, liftIO)
-import           Data.Acid.Advanced         (update')
+import           Control.Lens               (view)
+import           Control.Monad.Reader       (ask, runReaderT)
+import           Control.Monad.Trans        (MonadIO, lift)
+import           Data.Default               (def)
+import           Data.Word                  (Word16, Word8)
 import           Test.Hspec                 (Spec, describe, it, pending)
-import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
-                                             NonEmptyList (..),
-                                             NonNegative (..), Property,
-                                             frequency, oneof)
-import           Test.QuickCheck.Monadic    (assert, monadicIO)
+import           Test.Hspec.QuickCheck      (prop)
+import           Test.QuickCheck            (Property, Testable (property),
+                                             ioProperty)
+import           Test.QuickCheck.Monadic    (PropertyM, monadic, pick)
+import qualified Test.QuickCheck.Monadic    as TQM (assert)
 
 import           RSCoin.Core                (Address (..), Coin (..),
-                                             Mintette (..))
-import qualified RSCoin.Mintette            as M
-import           RSCoin.Timed               (Microsecond, WorkMode, for, invoke,
-                                             mcs, minute, sec, upto, wait, work)
+                                             Mintette (..), genesisAddress)
+import           RSCoin.Timed               (Microsecond, MonadRpc (..),
+                                             MonadTimed (..), PureRpc, WorkMode,
+                                             for, invoke, mcs, minute,
+                                             runEmulationMode, sec, upto, wait,
+                                             work)
 import qualified RSCoin.User                as U
 
 import           Test.RSCoin.Core.Arbitrary ()
-import           Test.RSCoin.Full.Action    (SomeAction (..), UserAction (..),
-                                             WaitAction (WaitAction),
-                                             WaitSomeAction, doAction)
-import           Test.RSCoin.Full.Arbitrary ()
+import           Test.RSCoin.Full.Action    (Action (doAction), UserAction (..),
+                                             doAction)
 import           Test.RSCoin.Full.Context   (MintetteInfo, TestContext, TestEnv,
-                                             UserInfo,
-                                             WorkTestContext (WorkTestContext),
-                                             bank, buser, lifetime, mintettes,
-                                             mkTestContext, port, publicKey,
-                                             secretKey, state, users)
+                                             UserInfo, bank, buser, lifetime,
+                                             mintettes, mkTestContext, port,
+                                             publicKey, secretKey, state, users)
+import           Test.RSCoin.Full.Gen       (genActions)
 
 spec :: Spec
 spec =
     describe "RSCoin" $ do
-        it "is a great cryptocurrency" $ do
-            pending
+        -- It fails now
+        -- prop "great property" dummyProperty
+        return ()
 
-runAnotherAction
-    :: WorkMode m
-    => WorkTestContext m -> SomeAction -> WorkTestContext m
-runAnotherAction (WorkTestContext context) action =
-    WorkTestContext $ context >>= runReaderT (doAction action >> ask)
+launchPure :: MonadIO m => PureRpc IO a -> m a
+launchPure = runEmulationMode def def
 
--- TODO: this is a workaround until exception handling is fixed (waiting until @martoon merges).
--- We cant pull out value from PureRpc so one solution is to use create something like PureRpc (State Bool) and use that for testing. This solution is used in MonadRpcSpec module. Because PureRpc is MonadIO here, I am instead reusing MVar. Possibly better approach would be to throw some SpecialTestException and catch that exception outside. If exception is caught then test failed.
-monadicIOProp :: WorkMode m => ReaderT (MVar Bool) m () -> Property
-monadicIOProp action = monadicIO $ do
-    var <- liftIO newEmptyMVar
-    -- FIXME: run action >> putMVar True
-    res <- liftIO $ readMVar var
-    assert res
+toTestable :: FullProperty -> Word8 -> Word16 -> Property
+toTestable fp mintetteCount userCount =
+    monadic unwrapProperty $
+    do (acts,t) <- pick genActions
+       context <- lift $ mkTestContext mintetteCount userCount t
+       launchPure $ runReaderT (mapM_ doAction acts) context
+       runReaderT fp context
+  where
+    unwrapProperty = ioProperty . launchPure
 
-assertProp :: WorkMode m => Bool -> ReaderT (MVar Bool) m ()
-assertProp True  = pure ()
-assertProp False = ask >>= liftIO . flip putMVar False
+type FullProperty = (TestEnv (PropertyM (PureRpc IO)) ())
 
-somePropertyX :: WorkMode m => WorkTestContext m -> Property
-somePropertyX state = monadicIO $
-    -- assert $ 1 == 1
-    return ()
+instance Testable FullProperty  where
+    property = property . toTestable
 
-somePropertyAfterAction :: WorkMode m => WorkTestContext m -> SomeAction -> Property
-somePropertyAfterAction state action = monadicIO $
-    -- runAnotherAction state action
-    return ()
+assert :: Bool -> FullProperty
+assert = lift . TQM.assert
+
+runAction :: Action a => a -> FullProperty
+runAction action = lift . lift . runReaderT (doAction action) =<< ask
+
+dummyProperty :: FullProperty
+dummyProperty = do
+    buSt <- view $ buser . state
+    amount <- U.getAmountByIndex buSt 1
+    runAction $ FormTransaction undefined undefined $ Left genesisAddress
+    amount' <- U.getAmountByIndex buSt 1
+    assert $ amount' - amount == 50

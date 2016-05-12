@@ -115,12 +115,10 @@ instance MonadRpc m => MonadRpc (ReaderT r m) where
         convert r Method {..} =
             Method methodName (flip runReaderT r . methodBody)
 
-
 execClientTimeout
     :: (MonadTimed m, MonadRpc m, MessagePack a, TimeUnit t)
     => t -> Addr -> Client a -> m a
 execClientTimeout (convertUnit -> t) addr = timeout t . execClient addr
-
 
 -- * Client part
 
@@ -142,7 +140,6 @@ data Client a where
 
 instance MessagePack o => RpcType (Client o) where
     rpcc name args = Client name (reverse args)
-
 
 -- * Server part
 

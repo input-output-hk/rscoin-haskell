@@ -35,7 +35,9 @@ import           Control.Monad.Trans         (liftIO)
 import           Control.Monad.Trans         (MonadIO, MonadTrans, lift)
 import           Data.Function               (on)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
-import           Data.Maybe                  (catMaybes, fromJust, isNothing)
+import           Data.Maybe                  (catMaybes, fromJust, isNothing,
+                                             fromMaybe)
+import           Safe                        (headMay)
 import           Data.Ord                    (comparing)
 import           Data.Text                   as T
 import           System.IO.Unsafe            (unsafePerformIO)
@@ -270,7 +272,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         -- Depending on MonadTimed (TimedT) internals, actions might take 1 microsecond longer to finish.
         -- It takes at least one microsecond to collect and return the results (next line).
         -- Doing `timeout 10 (wait $ for 5 mcs)` might return after 6 mcs.
-        k <- Prelude.head . catMaybes
+        k <- fromMaybe (error "Timeout: Neither timeout nor action finished in time") . headMay . catMaybes
              <$> (sequence $ Prelude.replicate (fromIntegral t `div` fromIntegral sleepStep + 1) $ getMaybeValue var)
         lift k
       where

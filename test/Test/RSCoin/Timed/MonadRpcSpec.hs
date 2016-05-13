@@ -44,9 +44,6 @@ msgPackRpcSpec description runProp =
         describe "server method should execute (simple)" $ do
             prop "client should be able to execute server method" $
                 runProp serverMethodShouldExecuteSimpleSpec
-        -- describe "server method should execute" $ do
-        --     prop "client should be able to execute server method" $
-        --         runProp . serverMethodShouldExecuteSpec
 
 pureRpcSpec
     :: String

@@ -23,7 +23,6 @@ import           Control.Monad.State     (MonadState (get, put, state), StateT,
 import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
 import           Data.Default            (Default, def)
 import           Data.Map                as Map
-import           Data.Maybe              (fromMaybe)
 import           System.Random           (StdGen)
 
 import           Data.MessagePack        (Object)

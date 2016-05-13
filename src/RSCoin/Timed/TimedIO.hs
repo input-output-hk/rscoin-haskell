@@ -11,7 +11,7 @@ module RSCoin.Timed.TimedIO
        , runTimedIO_
        ) where
 
-import           Control.Concurrent          (forkIO, killThread, threadDelay)
+import qualified Control.Concurrent          as C
 import           Control.Monad               (void)
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadCatch, MonadThrow, MonadMask,
@@ -43,24 +43,15 @@ instance MonadBaseControl IO TimedIO where
 instance MonadTimed TimedIO where
     localTime = TimedIO $ (-) <$> lift curTime <*> ask
 
-    fork (TimedIO a) = TimedIO $ lift . void . forkIO . runReaderT a =<< ask
-
     wait relativeToNow = do
         cur <- localTime
-        liftIO $ threadDelay $ fromIntegral $ relativeToNow cur
+        liftIO $ C.threadDelay $ fromIntegral $ relativeToNow cur
 
-    workWhile (TimedIO p) (TimedIO action) = TimedIO $ do
-        env     <- ask
-        working <- lift $ newIORef True
-
-        tid <- lift . forkIO $ do
-            runReaderT action env
-            writeIORef working False
-
-        lift . void . forkIO $ do
-            _ <- whileM ((&&) <$> runReaderT p env <*> readIORef working) $
-                threadDelay 100000
-            killThread tid
+    fork (TimedIO a) = TimedIO $ lift . forkIO . runReaderT a =<< ask
+    
+    myThreadId = C.myThreadId
+    
+    killThread = C.killThread
 
     timeout t (TimedIO action) = TimedIO $ do
         res <- liftIO . T.timeout (fromIntegral t) . runReaderT action =<< ask

@@ -8,11 +8,12 @@ module RSCoin.User.Operations
        , getAmount
        , getAmountByIndex
        , updateToBlockHeight
+       , updateBlockchain
        , formTransaction
        ) where
 
 import           Control.Lens           ((^.))
-import           Control.Monad          (filterM, unless, when)
+import           Control.Monad          (filterM, forM_, unless, when)
 import           Control.Monad.Catch    (MonadThrow, throwM)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
@@ -65,6 +66,39 @@ updateToBlockHeight st newHeight = do
     C.HBlock{..} <- C.getBlockByHeight newHeight
     -- TODO validate this block with integrity check that we don't have
     update' st $ A.WithBlockchainUpdate newHeight hbTransactions
+
+-- | Updates blockchain to the last height (that was requested in this
+-- function call). Returns bool indicating that blockchain was or
+-- wasn't updated. Does throw exception when update is not possible
+-- due to some error. Thus 'False' return means that blockchain wasn't
+-- updated and it's ok (already at max height)
+updateBlockchain :: WorkMode m => A.RSCoinUserState -> Bool -> m Bool
+updateBlockchain st verbose = do
+    walletHeight <- liftIO $ query' st A.GetLastBlockId
+    verboseSay $ formatSingle'
+                 "Current known blockchain's height (last HBLock's id) is {}."
+                 walletHeight
+    lastBlockHeight <- pred <$> C.getBlockchainHeight
+    when (walletHeight > lastBlockHeight) $
+        throwM $
+        StorageError $
+        W.InternalError $
+        format'
+            ("Last block height in wallet ({}) is greater than last " <>
+             "block's height in bank ({}). Critical error.")
+            (walletHeight, lastBlockHeight)
+    if lastBlockHeight == walletHeight
+        then return False
+        else do
+            forM_
+                [walletHeight + 1 .. lastBlockHeight]
+                (\h ->
+                      do verboseSay $ formatSingle' "Updating to height {} ..." h
+                         updateToBlockHeight st h
+                         verboseSay $ formatSingle' "updated to height {}" h)
+            return True
+  where
+    verboseSay t = when verbose $ liftIO $ TIO.putStr t
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction :: WorkMode m =>

@@ -4,9 +4,9 @@
 -- | Module that provides some functions that transform
 -- UserOptions.UserCommand s to IO actions.
 
-module RSCoin.User.Commands 
+module RSCoin.User.Commands
         ( UserCommand (..)
-        , DumpCommand (..)  
+        , DumpCommand (..)
         , proceedCommand
         ) where
 
@@ -14,23 +14,22 @@ import           Data.Int               (Int64)
 import           Data.Text              (Text)
 
 import           Control.Lens           ((^.))
-import           Control.Monad          (forM_, unless, void, when)
-import           Control.Monad.Catch    (throwM)
+import           Control.Monad          (unless, void)
 import           Control.Monad.Trans    (liftIO)
 import           Data.Acid              (query)
 import           Data.Maybe             (fromJust, isJust)
 import           Data.Monoid            ((<>))
 import qualified Data.Text.IO           as TIO
 
-import           Serokell.Util.Text     (format', formatSingle')
+import           Serokell.Util.Text     (format')
 
 import qualified RSCoin.Core            as C
 import           RSCoin.Timed           (WorkMode)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
-import           RSCoin.User.Error      (UserError (..), eWrap)
+import           RSCoin.User.Error      (eWrap)
 import           RSCoin.User.Operations (commitError, formTransaction,
-                                         getAmount, updateToBlockHeight)
+                                         getAmount, updateBlockchain)
 import qualified RSCoin.User.Wallet     as W
 
 
@@ -68,7 +67,7 @@ data DumpCommand
 -- actions.
 proceedCommand :: WorkMode m => A.RSCoinUserState -> UserCommand -> m ()
 proceedCommand st ListAddresses =
-    liftIO $ eWrap $ 
+    liftIO $ eWrap $
     do (wallets :: [(C.PublicKey, C.Coin)]) <-
            mapM (\w -> (w ^. W.publicAddress, ) <$> getAmount st w) =<<
            query st GetAllAddresses
@@ -85,33 +84,11 @@ proceedCommand st (FormTransaction inputs outputAddrStr) =
        formTransaction st inputs (fromJust pubKey) $
            C.Coin (sum $ map snd inputs)
 proceedCommand st UpdateBlockchain =
-    eWrap $ 
-    do walletHeight <- liftIO $ query st A.GetLastBlockId
-       liftIO $ TIO.putStrLn $
-           formatSingle'
-               "Current known blockchain's height (last HBLock's id) is {}."
-               walletHeight
-       lastBlockHeight <- pred <$> C.getBlockchainHeight
-       when (walletHeight > lastBlockHeight) $
-           throwM $
-           StorageError $
-           W.InternalError $
-           format'
-               ("Last block height in wallet ({}) is greater than last " <>
-                "block's height in bank ({}). Critical error.")
-               (walletHeight, lastBlockHeight)
-       if lastBlockHeight == walletHeight
-           then liftIO $ putStrLn "Blockchain is updated already."
-           else do  
-               forM_
-                  [walletHeight + 1 .. lastBlockHeight]
-                  (\h -> do
-                        liftIO $ TIO.putStr $
-                            formatSingle' "Updating to height {} ..." h
-                        updateToBlockHeight st h
-                        liftIO $ TIO.putStrLn $
-                            formatSingle' "updated to height {}" h)
-               liftIO $ TIO.putStrLn "Successfully updated blockchain!"
+    eWrap $ do
+       res <- updateBlockchain st True
+       liftIO $ if res
+                then putStrLn "Blockchain is updated already."
+                else putStrLn "Successfully updated blockchain."
 proceedCommand _ (Dump command) = eWrap $ dumpCommand command
 
 dumpCommand :: WorkMode m => DumpCommand -> m ()

@@ -20,6 +20,7 @@ import           Control.Monad.Trans      (MonadIO)
 import           Data.Acid.Advanced       (update')
 import           Data.Acid.Advanced       (query')
 import           Data.Int                 (Int64)
+import           Data.List                (genericIndex)
 import           Data.Maybe               (fromJust)
 import           Test.QuickCheck          (NonEmptyList (..), NonNegative (..))
 
@@ -106,12 +107,10 @@ initUser user = U.initState (user ^. state) 5 Nothing
 -- to index in the list
 type UserIndex = Maybe (NonNegative Int)
 
-type ValidAddressIndex = NonNegative Int
-
 -- | Address will be either some arbitrary address or some user address
-type ToAddress = Either Address (UserIndex, ValidAddressIndex)
+type ToAddress = Either Address (UserIndex, Word)
 
-type FromAddresses = NonEmptyList (ValidAddressIndex, NonNegative Int)
+type FromAddresses = NonEmptyList (Word, Word)
 
 type Inputs = [(Int, Int64)]
 
@@ -141,10 +140,10 @@ instance Action UserAction where
 toAddress :: WorkMode m => ToAddress -> TestEnv m Address
 toAddress =
     either return $
-        \(userIndex, getNonNegative -> addressIndex) -> do
+        \(userIndex, addressIndex) -> do
             user <- getUser userIndex
             publicAddresses <- query' user U.GetPublicAddresses
-            return . Address $ cycle publicAddresses !! addressIndex
+            return . Address $ cycle publicAddresses `genericIndex` addressIndex
 
 toInputs :: WorkMode m => UserIndex -> FromAddresses -> TestEnv m Inputs
 toInputs _ _ =

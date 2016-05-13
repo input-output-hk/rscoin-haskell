@@ -12,17 +12,13 @@ import           Control.Lens               (view)
 import           Control.Monad.Reader       (ask, runReaderT)
 import           Control.Monad.Trans        (MonadIO, lift)
 import           Data.Default               (def)
-import           Data.Word                  (Word16, Word8)
-import           Test.Hspec                 (Spec, describe, it, pending)
+import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
                                              NonEmptyList (NonEmpty), Property,
                                              Testable (property), ioProperty)
 import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, pick)
-import qualified Test.QuickCheck.Monadic    as TQM (assert)
 
-import           RSCoin.Core                (Address (..), Coin (..),
-                                             Mintette (..), genesisAddress)
 import           RSCoin.Timed               (Microsecond, MonadRpc (..),
                                              MonadTimed (..), PureRpc, WorkMode,
                                              for, invoke, mcs, minute,
@@ -33,9 +29,9 @@ import qualified RSCoin.User                as U
 import           Test.RSCoin.Core.Arbitrary ()
 import           Test.RSCoin.Full.Action    (Action (doAction), UserAction (..),
                                              doAction)
-import           Test.RSCoin.Full.Context   (MintetteInfo, TestContext, TestEnv,
-                                             UserInfo, bank, buser, lifetime,
-                                             mintettes, mkTestContext, port,
+import           Test.RSCoin.Full.Context   (MintetteNumber, TestEnv,
+                                             UserNumber, bank, buser, lifetime,
+                                             mintettes, mkTestContext,
                                              publicKey, secretKey, state, users)
 import           Test.RSCoin.Full.Gen       (genActions)
 
@@ -48,11 +44,11 @@ spec =
 launchPure :: MonadIO m => PureRpc IO a -> m a
 launchPure = runEmulationMode def def
 
-toTestable :: FullProperty a -> Word8 -> Word16 -> Property
-toTestable fp mintetteCount userCount =
+toTestable :: FullProperty a -> MintetteNumber -> UserNumber -> Property
+toTestable fp mNum uNum =
     monadic unwrapProperty $
     do (acts,t) <- pick genActions
-       context <- lift $ mkTestContext 1 1 t
+       context <- lift $ mkTestContext mNum uNum t
        launchPure $ runReaderT (mapM_ doAction acts) context
        runReaderT fp context
   where

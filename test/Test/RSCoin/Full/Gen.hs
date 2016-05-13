@@ -8,7 +8,8 @@ module Test.RSCoin.Full.Gen
 
 import           Data.Time.Units             (addTime)
 import           Test.QuickCheck             (Arbitrary (arbitrary), Gen,
-                                              frequency, oneof, NonNegative (..))
+                                              NonNegative (..), frequency,
+                                              oneof)
 
 import           RSCoin.Timed                (Microsecond, minute)
 
@@ -17,7 +18,14 @@ import           Test.RSCoin.Full.Action     (InitAction (InitAction),
                                               SomeAction (SomeAction),
                                               UserAction (..), WaitAction (..),
                                               WaitSomeAction, doAction)
+import           Test.RSCoin.Full.Context    (MintetteNumber, UserNumber)
 import           Test.RSCoin.Timed.Arbitrary ()
+
+instance Arbitrary MintetteNumber where
+    arbitrary = pure 1
+
+instance Arbitrary UserNumber where
+    arbitrary = pure 1
 
 instance Arbitrary a => Arbitrary (WaitAction a) where
     arbitrary = WaitAction <$> arbitrary <*> arbitrary

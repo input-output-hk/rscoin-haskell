@@ -11,6 +11,7 @@ module Test.RSCoin.Full.Context
        , UserInfo (..)
        , TestContext (..)
        , TestEnv
+       , MintetteNumber (..), UserNumber (..)
        , mkTestContext
        , bank, mintettes, buser, users, lifetime
        , keys, secretKey, publicKey
@@ -64,7 +65,17 @@ $(makeLenses ''TestContext)
 
 type TestEnv m = ReaderT TestContext m
 
-mkTestContext :: MonadIO m => Word8 -> Word16 -> Microsecond -> m TestContext
+-- | Number of mintettes in system.
+newtype MintetteNumber = MintetteNumber
+    { getMintetteNumber :: Word8
+    } deriving (Show,Real,Ord,Eq,Enum,Num,Integral)
+
+-- | Number of users in system.
+newtype UserNumber = UserNumber
+    { getUserNumber :: Word16
+    } deriving (Show,Real,Ord,Eq,Enum,Num,Integral)
+
+mkTestContext :: MonadIO m => MintetteNumber -> UserNumber -> Microsecond -> m TestContext
 mkTestContext mNum uNum lt =
     liftIO $ TestContext <$> binfo <*> minfos <*> buinfo <*> uinfos <*> pure lt
   where

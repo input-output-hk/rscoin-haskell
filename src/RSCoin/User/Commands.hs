@@ -16,7 +16,7 @@ import           Data.Text              (Text)
 import           Control.Lens           ((^.))
 import           Control.Monad          (unless, void)
 import           Control.Monad.Trans    (liftIO)
-import           Data.Acid              (query)
+import           Data.Acid.Advanced     (query')
 import           Data.Maybe             (fromJust, isJust)
 import           Data.Monoid            ((<>))
 import qualified Data.Text.IO           as TIO
@@ -67,14 +67,15 @@ data DumpCommand
 -- actions.
 proceedCommand :: WorkMode m => A.RSCoinUserState -> UserCommand -> m ()
 proceedCommand st ListAddresses =
-    liftIO $ eWrap $
+    eWrap $
     do (wallets :: [(C.PublicKey, C.Coin)]) <-
            mapM (\w -> (w ^. W.publicAddress, ) <$> getAmount st w) =<<
-           query st GetAllAddresses
-       TIO.putStrLn "Here's the list of your accounts:"
-       TIO.putStrLn "# | Public ID                                    | Amount"
-       mapM_ (TIO.putStrLn . format' "{}.  {} : {}") $
-           uncurry (zip3 [(1 :: Integer) ..]) $ unzip wallets
+           query' st GetAllAddresses
+       liftIO $ do
+           TIO.putStrLn "Here's the list of your accounts:"
+           TIO.putStrLn "# | Public ID                                    | Amount"
+           mapM_ (TIO.putStrLn . format' "{}.  {} : {}") $
+               uncurry (zip3 [(1 :: Integer) ..]) $ unzip wallets
 proceedCommand st (FormTransaction inputs outputAddrStr) =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr

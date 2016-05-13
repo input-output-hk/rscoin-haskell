@@ -13,9 +13,9 @@ module RSCoin.User.Operations
        ) where
 
 import           Control.Lens           ((^.))
-import           Control.Monad          (filterM, forM_, unless, when)
+import           Control.Monad          (filterM, forM_, unless, void, when)
 import           Control.Monad.Catch    (MonadThrow, throwM)
-import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Control.Monad.IO.Class (liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
 import           Data.Int               (Int64)
@@ -42,23 +42,6 @@ import qualified RSCoin.User.Wallet     as W
 commitError :: MonadThrow m => T.Text -> m ()
 commitError = throwM . InputProcessingError
 
-getAmount :: MonadIO m => A.RSCoinUserState -> W.UserAddress -> m C.Coin
-getAmount st userAddress =
-    sum . map getValue <$> query' st (A.GetTransactions userAddress)
-  where
-    getValue =
-        C.getAmountByAddress $ W.toAddress userAddress
-
-getAmountByIndex :: MonadIO m => A.RSCoinUserState -> Int -> m C.Coin
-getAmountByIndex st idx = do
-    addr <- flip atMay idx <$> query' st A.GetAllAddresses
-    maybe
-        (liftIO $
-         throwM $
-         InputProcessingError "invalid index was given to getAmountByIndex")
-        (getAmount st)
-        addr
-
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.
 updateToBlockHeight :: WorkMode m => A.RSCoinUserState -> C.PeriodId -> m ()
@@ -75,9 +58,10 @@ updateToBlockHeight st newHeight = do
 updateBlockchain :: WorkMode m => A.RSCoinUserState -> Bool -> m Bool
 updateBlockchain st verbose = do
     walletHeight <- liftIO $ query' st A.GetLastBlockId
-    verboseSay $ formatSingle'
-                 "Current known blockchain's height (last HBLock's id) is {}."
-                 walletHeight
+    verboseSay $
+        formatSingle'
+            "Current known blockchain's height (last HBLock's id) is {}."
+            walletHeight
     lastBlockHeight <- pred <$> C.getBlockchainHeight
     when (walletHeight > lastBlockHeight) $
         throwM $
@@ -87,18 +71,43 @@ updateBlockchain st verbose = do
             ("Last block height in wallet ({}) is greater than last " <>
              "block's height in bank ({}). Critical error.")
             (walletHeight, lastBlockHeight)
-    if lastBlockHeight == walletHeight
-        then return False
-        else do
-            forM_
-                [walletHeight + 1 .. lastBlockHeight]
-                (\h ->
-                      do verboseSay $ formatSingle' "Updating to height {} ..." h
-                         updateToBlockHeight st h
-                         verboseSay $ formatSingle' "updated to height {}" h)
-            return True
+    when (lastBlockHeight /= walletHeight) $
+        forM_
+            [walletHeight + 1 .. lastBlockHeight]
+            (\h ->
+                  do verboseSay $ formatSingle' "Updating to height {} ..." h
+                     updateToBlockHeight st h
+                     verboseSay $ formatSingle' "updated to height {}" h)
+    return $ lastBlockHeight /= walletHeight
   where
     verboseSay t = when verbose $ liftIO $ TIO.putStr t
+
+-- | Gets amount of coins on user address
+getAmount :: WorkMode m => A.RSCoinUserState -> W.UserAddress -> m C.Coin
+getAmount st userAddress =
+    updateBlockchain st False >> getAmountNoUpdate st userAddress
+
+-- | Get amount without storage update
+getAmountNoUpdate
+    :: WorkMode m
+    => A.RSCoinUserState -> W.UserAddress -> m C.Coin
+getAmountNoUpdate st userAddress =
+    sum . map getValue <$> query' st (A.GetTransactions userAddress)
+  where
+    getValue = C.getAmountByAddress $ W.toAddress userAddress
+
+-- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
+-- n is the number of accounts stored in wallet)
+getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m C.Coin
+getAmountByIndex st idx = do
+    void $ updateBlockchain st False
+    addr <- flip atMay idx <$> query' st A.GetAllAddresses
+    maybe
+        (liftIO $
+         throwM $
+         InputProcessingError "invalid index was given to getAmountByIndex")
+        (getAmount st)
+        addr
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction :: WorkMode m =>
@@ -127,8 +136,8 @@ formTransaction st inputs outputAddr outputCoin = do
             , length accounts)
     let accInputs :: [(Int, W.UserAddress, C.Coin)]
         accInputs = map (\(i,c) -> (i, accounts !! (i - 1), C.Coin c)) inputs
-        hasEnoughFunds (i,acc,c) = liftIO $ do
-            amount <- getAmount st acc
+        hasEnoughFunds (i,acc,c) = do
+            amount <- getAmountNoUpdate st acc
             return $
                 if amount >= c
                     then Nothing
@@ -147,6 +156,7 @@ formTransaction st inputs outputAddr outputCoin = do
         foldl1 mergeTransactions <$> mapM formTransactionMapper accInputs
     liftIO $ TIO.putStrLn $
         formatSingle' "Please check your transaction: {}" outTr
+    void $ updateBlockchain st False
     walletHeight <- query' st A.GetLastBlockId
     lastBlockHeight <- pred <$> C.getBlockchainHeight
     when (walletHeight /= lastBlockHeight) $

@@ -42,7 +42,6 @@ instance Arbitrary SomeAction where
     arbitrary = oneof [ SomeAction <$> (arbitrary :: Gen UserAction)
                       ]
 
--- TODO: it should be expanded akin to definition below.
 genActions :: Gen ([SomeAction], Microsecond)
 genActions = do
     actions :: [WaitSomeAction] <- arbitrary

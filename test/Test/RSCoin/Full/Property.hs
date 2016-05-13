@@ -10,6 +10,7 @@ module Test.RSCoin.Full.Property
        , toTestable
        , assertFP
        , pickFP
+       , runWorkModeFP
        , doActionFP
        ) where
 
@@ -52,5 +53,8 @@ assertFP = lift . assert
 pickFP :: Show a => Gen a -> FullProperty a
 pickFP = lift . pick
 
+runWorkModeFP :: PureRpc IO a -> FullProperty a
+runWorkModeFP = lift . lift
+
 doActionFP :: Action a => a -> FullProperty ()
-doActionFP action = lift . lift . runReaderT (doAction action) =<< ask
+doActionFP action = runWorkModeFP . runReaderT (doAction action) =<< ask

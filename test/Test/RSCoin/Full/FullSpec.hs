@@ -20,7 +20,7 @@ import           Test.RSCoin.Core.Arbitrary ()
 import           Test.RSCoin.Full.Action    (UserAction (..))
 import           Test.RSCoin.Full.Context   (buser, state)
 import           Test.RSCoin.Full.Property  (FullProperty, assertFP, doActionFP,
-                                             pickFP)
+                                             pickFP, runWorkModeFP)
 
 spec :: Spec
 spec =
@@ -31,8 +31,8 @@ spec =
 dummyProperty :: FullProperty ()
 dummyProperty = do
     buSt <- view $ buser . state
-    amount <- U.getAmountByIndex buSt 1
+    amount <- runWorkModeFP $ U.getAmountByIndex buSt 1
     addr <- pickFP arbitrary
     doActionFP $ FormTransaction Nothing (NonEmpty [(1, 50)]) $ Left addr
-    amount' <- U.getAmountByIndex buSt 1
+    amount' <- runWorkModeFP $ U.getAmountByIndex buSt 1
     assertFP $ amount' - amount == 50

@@ -8,9 +8,9 @@ module Test.RSCoin.Full.Gen
 
 import           Data.Time.Units             (addTime)
 import           Test.QuickCheck             (Arbitrary (arbitrary), Gen,
-                                              frequency, oneof)
+                                              frequency, oneof, NonNegative (..))
 
-import           RSCoin.Timed                (Microsecond)
+import           RSCoin.Timed                (Microsecond, minute)
 
 import           Test.RSCoin.Core.Arbitrary  ()
 import           Test.RSCoin.Full.Action     (InitAction (InitAction),
@@ -36,29 +36,8 @@ instance Arbitrary SomeAction where
 
 -- TODO: it should be expanded akin to definition below.
 genActions :: Gen ([SomeAction], Microsecond)
-genActions = pure ([SomeAction InitAction], 0)
-
--- instance WorkMode m => Arbitrary (WorkTestContext m) where
---     arbitrary = do
---         actions :: [WaitSomeAction] <- arbitrary
---         let actionsRunningTime = sum $ map (\(WaitAction t _) -> getNonNegative t) actions
---             safeRunningTime = addTime actionsRunningTime (minute 1)
---         mNum <- arbitrary
---         uNum <- arbitrary
---         return $ WorkTestContext $ (mkTestContext mNum uNum safeRunningTime >>=) $ runReaderT $ do
---             runBank
---             mapM_ runMintette =<< view mintettes
-
---             wait $ for 5 sec  -- ensure that bank & mintettes have initialized
-
---             mapM_ addMintetteToBank =<< view mintettes
---             initBUser
---             mapM_ initUser =<< view users
-
---             wait $ for 5 sec  -- ensure that users have initialized
-
---             mapM_ doAction actions
-
---             wait $ for safeRunningTime mcs -- wait for all actions to finish
-
---             ask
+genActions = do
+    actions :: [WaitSomeAction] <- arbitrary
+    let actionsRunningTime = sum $ map (\(WaitAction t _) -> getNonNegative t) actions
+        safeRunningTime = addTime actionsRunningTime (minute 1)
+    return (SomeAction InitAction : map SomeAction actions, safeRunningTime)

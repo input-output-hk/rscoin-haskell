@@ -19,7 +19,7 @@ import           Control.Monad.Trans         (MonadIO)
 import           Data.Default                (def)
 import           Data.Time.Units             (fromMicroseconds)
 import           System.Random               (StdGen, mkStdGen)
-import           Test.Hspec                  (Spec, describe)
+import           Test.Hspec                  (Spec, before, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Arbitrary (..), NonNegative (..),
                                               Property)
@@ -27,6 +27,7 @@ import           Test.QuickCheck.Monadic     (assert, monadicIO)
 import           Test.QuickCheck.Property    (Result (reason), exception,
                                               failed, ioProperty, succeeded)
 
+import           RSCoin.Core                 (Severity (Error), initLogging)
 import           RSCoin.Timed                (Delays (..), Microsecond, PureRpc,
                                               after, for, fork, invoke, mcs,
                                               runEmulationMode_, sec, wait)
@@ -36,6 +37,7 @@ import           Test.RSCoin.Timed.Arbitrary ()
 
 spec :: Spec
 spec =
+    before (initLogging Error) $
     describe "WorkMode" $ do
         describe "error" $ do
             prop "should abort the execution"

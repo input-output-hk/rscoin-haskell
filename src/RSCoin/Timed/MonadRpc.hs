@@ -27,6 +27,7 @@ module RSCoin.Timed.MonadRpc
        , S.Server
        , S.ServerT
        , S.MethodType
+       , C.RpcError(..)
        , serverTypeRestriction0
        , serverTypeRestriction1
        , serverTypeRestriction2

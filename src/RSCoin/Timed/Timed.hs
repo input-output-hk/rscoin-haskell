@@ -35,12 +35,10 @@ import           Control.Monad.Trans         (liftIO)
 import           Control.Monad.Trans         (MonadIO, MonadTrans, lift)
 import           Data.Function               (on)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
-import           Data.Maybe                  (catMaybes, fromJust, isNothing,
-                                             fromMaybe)
-import           Safe                        (headMay)
+import           Data.Maybe                  (catMaybes, fromJust, fromMaybe,
+                                              isNothing)
 import           Data.Ord                    (comparing)
-import           Data.Text                   as T
-import           System.IO.Unsafe            (unsafePerformIO)
+import           Safe                        (headMay)
 
 import qualified Data.PQueue.Min             as PQ
 import           Serokell.Util.Text          (formatSingle')
@@ -48,8 +46,8 @@ import           Serokell.Util.Text          (formatSingle')
 import           RSCoin.Core.Logging         (logWarning)
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
-                                              after, localTime, mcs, schedule,
-                                              timeout, wait, workWhile)
+                                              after, localTime, mcs, timeout,
+                                              wait, workWhile)
 
 
 type Timestamp = Microsecond
@@ -151,7 +149,6 @@ instance (MonadIO m, MonadMask m) => MonadMask (TimedT m) where
         q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
             runContT (runReaderT (unwrapTimedT t) r) c
 
-
 wrapCore :: Monad m => Core m a -> TimedT m a
 wrapCore = TimedT . lift . lift
 
@@ -166,7 +163,6 @@ unwrapCore r c = flip runContT c
 
 unwrapCore' :: Monad m => ThreadCtx (TimedT m) -> TimedT m () -> Core m ()
 unwrapCore' r = unwrapCore r return
-
 
 launchTimedT :: Monad m => TimedT m a -> m ()
 launchTimedT t = flip evalStateT emptyScenario
@@ -217,11 +213,9 @@ evalTimedT timed = do
     runTimedT $ liftIO . writeIORef ref . Just =<< timed
     fromJust <$> liftIO (readIORef ref)
 
-threadKilledNotifier :: Monad m => SomeException -> m ()
+threadKilledNotifier :: MonadIO m => SomeException -> m ()
 threadKilledNotifier e =
-    let text = formatSingle' "Thread killed by exception: {}" $
-               T.pack . show $ e
-    in  return $! unsafePerformIO $ logWarning text
+    logWarning $ formatSingle' "Thread killed by exception: {}" $ show $ e
 {-# NOINLINE threadKilledNotifier #-}
 
 instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where

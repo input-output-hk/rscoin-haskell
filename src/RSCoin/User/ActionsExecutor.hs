@@ -3,7 +3,7 @@
 module RSCoin.User.ActionsExecutor (runActionsExecutor) where
 
 import           Control.Concurrent.STM.TBQueue (TBQueue, readTBQueue)
-import           Control.Monad                  (forM_, when)
+import           Control.Monad                  (forM, forM_, when)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.STM              (atomically)
 import           Data.Acid                      (query)
@@ -19,14 +19,24 @@ import           RSCoin.User.Action             (Action (..))
 import           RSCoin.User.GUIError           (handled)
 import qualified RSCoin.User.Operations         as O
 import           RSCoin.User.OutputWidgets      (OutputWidgets (..))
-import           RSCoin.Core                    (Coin (..), getBlockchainHeight)
+import           RSCoin.Core                    (Coin (..), Transaction (..)
+                                                , getBlockchainHeight
+                                                , getTransactionById)
 import           RSCoin.Timed                   (WorkMode)
 
-updateUI :: A.RSCoinUserState -> OutputWidgets -> IO ()
+updateUI :: WorkMode m => A.RSCoinUserState -> OutputWidgets -> m ()
 updateUI st ow = do
-    a <- query st A.GetAllAddresses
-    b <- sum <$> mapM (O.getAmount st) a
-    postGUIAsync $ do
+    a <- query' st A.GetAllAddresses
+    b <- liftIO $ sum <$> mapM (O.getAmount st) a
+    t <- liftIO $ concat <$> mapM (query st . A.GetTransactions) a
+    liftIO $ putStrLn "Transactions:"
+    forM_ t $ \tr -> do
+        ti <- forM (txInputs tr) $ \(tId, i, c) -> do
+            pt <- getTransactionById tId
+            let ua = (\a -> (txOutputs a) !! i) <$> pt
+            return (ua, c)
+        liftIO $ putStrLn $ show ti ++ " -> " ++ show (txOutputs tr)
+    liftIO $ postGUIAsync $ do
         labelSetText (balanceLabel ow) $ show $ getCoin b
 
 selectAmounts :: Int64 -> [Int64] -> Maybe [(Int, Int64)]
@@ -68,5 +78,5 @@ runActionsExecutor st queue ow = run
                     when (walletHeight < lastBlockHeight) $ do
                         forM_ [walletHeight + 1 .. lastBlockHeight] $
                             O.updateToBlockHeight st
-                        liftIO $ updateUI st ow
+                        updateUI st ow
                 run

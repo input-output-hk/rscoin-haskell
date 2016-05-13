@@ -18,6 +18,7 @@ module RSCoin.Bank.Storage
        , getPeriodId
        , getHBlock
        , getHBlocks
+       , getTransaction
        , getLogs
        , addMintette
        , startNewPeriod
@@ -29,6 +30,7 @@ import           Control.Monad             (forM_, guard, unless)
 import           Control.Monad.Catch       (MonadThrow (throwM))
 import           Control.Monad.State.Class (MonadState)
 import           Data.Bifunctor            (first)
+import           Data.Foldable             (foldl')
 import qualified Data.HashMap.Lazy         as M
 import qualified Data.HashSet              as S
 import           Data.List                 (unfoldr, (\\))
@@ -44,8 +46,8 @@ import           RSCoin.Core               (ActionLog,
                                             HBlock (..), Mintette, MintetteId,
                                             Mintettes, NewPeriodData (..),
                                             PeriodId, PeriodResult, PublicKey,
-                                            SecretKey, Transaction (..), Utxo,
-                                            checkActionLog, checkLBlock,
+                                            SecretKey, Transaction (..), TransactionId,
+                                            Utxo, checkActionLog, checkLBlock,
                                             computeOutputAddrids,
                                             derivePublicKey, emissionHash, hash,
                                             lbTransactions, mkGenesisHBlock,
@@ -107,6 +109,7 @@ data Storage = Storage
     , _deadMintettes    :: DeadMintetteMap          -- ^ State of all
                                                     -- known dead
                                                     -- mintettes.
+    , _transactionMap   :: MP.Map TransactionId Transaction
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
@@ -123,6 +126,7 @@ mkStorage =
     , _dpk = []
     , _actionLogs = []
     , _deadMintettes = MP.empty
+    , _transactionMap = MP.empty
     }
 
 type Query a = Getter Storage a
@@ -135,6 +139,9 @@ getPeriodId = periodId
 
 getHBlock :: PeriodId -> Query (Maybe HBlock)
 getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
+
+getTransaction :: TransactionId -> Query (Maybe Transaction)
+getTransaction tId = transactionMap . to (MP.lookup tId)
 
 -- Dumping Bank state
 
@@ -228,6 +235,8 @@ startNewPeriodFinally sk goodMintettes newBlockCtor = do
     newBlock <- newBlockCtor sk <$> use dpk
     updateUtxo $ hbTransactions newBlock
     blocks %= (newBlock:)
+    transactionMap %= (\map -> foldl' (\m t -> MP.insert (hash t) t m)
+        map (hbTransactions newBlock))
     return updateIds
 
 updateUtxo :: [Transaction] -> ExceptUpdate ()

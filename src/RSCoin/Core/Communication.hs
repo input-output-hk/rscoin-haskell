@@ -10,6 +10,7 @@ module RSCoin.Core.Communication
        ( CommunicationError (..)
        , getBlockchainHeight
        , getBlockByHeight
+       , getTransactionById
        , getGenesisBlock
        , checkNotDoubleSpent
        , commitTx
@@ -135,6 +136,13 @@ getBlockByHeight pId =
     onSuccess res = do
         logInfo $
             format' "Successfully got block with height {}: {}" (pId, res)
+
+getTransactionById :: WorkMode m => TransactionId -> m (Maybe Transaction)
+getTransactionById tId =
+    withResult
+        (logInfo $ formatSingle' "Getting transaction by id {}" tId)
+        (\t -> logInfo $ format' "Successfully got transaction by id {}: {}" (tId, t))
+        $ callBank $ P.call (P.RSCBank P.GetTransaction) tId
 
 getGenesisBlock :: WorkMode m => m HBlock
 getGenesisBlock = do

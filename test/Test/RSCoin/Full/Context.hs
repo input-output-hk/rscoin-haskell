@@ -9,11 +9,12 @@ module Test.RSCoin.Full.Context
        ( BankInfo (..)
        , MintetteInfo (..)
        , UserInfo (..)
+       , Scenario (..)
        , TestContext (..)
        , TestEnv
        , MintetteNumber (..), UserNumber (..)
        , mkTestContext
-       , bank, mintettes, buser, users, lifetime
+       , bank, mintettes, buser, users, lifetime, scenario
        , keys, secretKey, publicKey
        , state
        , port
@@ -53,12 +54,20 @@ data UserInfo = UserInfo
 
 $(makeLenses ''UserInfo)
 
+-- also mixed?
+data Scenario
+    = DefaultScenario                -- ^ Default behaviour of all nodes
+    | MalfunctioningMintettes Double -- ^ Some mintette fraction makes errors
+    | AdversarialMintettes Double    -- ^ Mintettes try to execute malicious actions
+    deriving (Show)
+
 data TestContext = TestContext
     { _bank      :: BankInfo
     , _mintettes :: [MintetteInfo]
     , _buser     :: UserInfo  -- ^ user in bank mode
     , _users     :: [UserInfo]
     , _lifetime  :: Microsecond
+    , _scenario  :: Scenario
     }
 
 $(makeLenses ''TestContext)
@@ -75,9 +84,12 @@ newtype UserNumber = UserNumber
     { getUserNumber :: Word16
     } deriving (Show,Real,Ord,Eq,Enum,Num,Integral)
 
-mkTestContext :: MonadIO m => MintetteNumber -> UserNumber -> Microsecond -> m TestContext
-mkTestContext mNum uNum lt =
-    liftIO $ TestContext <$> binfo <*> minfos <*> buinfo <*> uinfos <*> pure lt
+mkTestContext
+    :: MonadIO m
+    => MintetteNumber -> UserNumber -> Microsecond -> Scenario -> m TestContext
+mkTestContext mNum uNum lt scen =
+    liftIO $
+    TestContext <$> binfo <*> minfos <*> buinfo <*> uinfos <*> pure lt <*> pure scen
   where
     binfo = BankInfo <$> bankKey <*> B.openMemState
     minfos =

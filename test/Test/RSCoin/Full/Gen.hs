@@ -17,7 +17,7 @@ import           Test.RSCoin.Core.Arbitrary  ()
 import           Test.RSCoin.Full.Action     (InitAction (InitAction),
                                               SomeAction (SomeAction),
                                               UserAction (..), WaitAction (..),
-                                              WaitSomeAction, doAction)
+                                              WaitSomeAction)
 import           Test.RSCoin.Full.Context    (MintetteNumber, UserNumber)
 import           Test.RSCoin.Timed.Arbitrary ()
 

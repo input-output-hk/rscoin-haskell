@@ -14,29 +14,31 @@ module Test.RSCoin.Full.Action
        , UserAction (..)
        ) where
 
-import           Control.Lens             (ix, preview, to, view, (^.))
-import           Control.Monad.Catch      (throwM)
-import           Control.Monad.Trans      (MonadIO)
-import           Data.Acid.Advanced       (update')
-import           Data.Acid.Advanced       (query')
-import           Data.Int                 (Int64)
-import           Data.List                (genericIndex)
-import           Data.Maybe               (fromJust)
-import           Test.QuickCheck          (NonEmptyList (..), NonNegative (..))
+import           Control.Exception         (assert)
+import           Control.Lens              (ix, preview, to, view, (^.))
+import           Control.Monad             (forM_)
+import           Control.Monad.Catch       (throwM)
+import           Control.Monad.Trans       (MonadIO)
+import           Data.Acid.Advanced        (query', update')
+import           Data.Int                  (Int64)
+import           Data.List                 (genericIndex)
+import           Data.Maybe                (fromJust)
+import           Test.QuickCheck           (NonEmptyList (..), NonNegative (..))
 
-import qualified RSCoin.Bank              as B
-import           RSCoin.Core              (Address (..), Coin (..),
-                                           Mintette (..), bankSecretKey)
-import qualified RSCoin.Mintette          as M
-import           RSCoin.Timed             (Second, WorkMode, for, invoke, mcs,
-                                           sec, upto, wait, work)
-import qualified RSCoin.User              as U
+import qualified RSCoin.Bank               as B
+import           RSCoin.Core               (Address (..), Coin (..),
+                                            Mintette (..), bankSecretKey)
+import           RSCoin.Timed              (Second, WorkMode, for, invoke, mcs,
+                                            sec, upto, wait, work)
+import qualified RSCoin.User               as U
 
-import           Test.RSCoin.Full.Context (MintetteInfo, TestEnv, UserInfo,
-                                           bank, buser, lifetime, mintettes,
-                                           port, publicKey, secretKey, state,
-                                           users)
-import           Test.RSCoin.Full.Error   (TestError (TestError))
+import           Test.RSCoin.Full.Context  (MintetteInfo, Scenario (..),
+                                            TestEnv, UserInfo, bank, buser,
+                                            lifetime, mintettes, port,
+                                            publicKey, scenario, secretKey,
+                                            state, users)
+import           Test.RSCoin.Full.Error    (TestError (TestError))
+import qualified Test.RSCoin.Full.Mintette as TM
 
 class Action a where
     doAction :: WorkMode m => a -> TestEnv m ()
@@ -59,13 +61,14 @@ instance Action a => Action (WaitAction a) where
     doAction (WaitAction (getNonNegative -> time) action) =
         invoke (for time sec) $ doAction action
 
-data InitAction =
-    InitAction
+data InitAction = InitAction
     deriving (Show)
 
 instance Action InitAction where
     doAction InitAction = do
-        mapM_ runMintette =<< view mintettes
+        scen <- view scenario
+        mint <- view mintettes
+        runMintettes mint scen
         mapM_ addMintetteToBank =<< view mintettes
         runBank
         wait $ for 5 sec  -- ensure that bank and mintettes are initialized
@@ -80,13 +83,24 @@ runBank = do
     work (upto l mcs) $ B.runWorker (b ^. secretKey) (b ^. state)
     work (upto l mcs) $ B.serve (b ^. state)
 
-runMintette :: WorkMode m => MintetteInfo -> TestEnv m ()
-runMintette m = do
+runMintettes :: WorkMode m => [MintetteInfo] -> Scenario -> TestEnv m ()
+runMintettes ms scen = do
     l <- view lifetime
-    work (upto l mcs) $
-        M.serve <$> view port <*> view state <*> view secretKey $ m
-    work (upto l mcs) $
-        M.runWorker <$> view secretKey <*> view state $ m
+    case scen of
+        DefaultScenario -> mapM_ (TM.defaultMintetteInit l) ms
+        (MalfunctioningMintettes d) -> do
+            let (other,normal) =
+                    (take (partSize d) ms,
+                     drop (partSize d) ms)
+            forM_ normal $ TM.defaultMintetteInit l
+            forM_ other $ TM.malfunctioningMintetteInit l
+        _ -> error "Test.Action.runMintettes not implemented"
+  where
+    partSize :: Double -> Int
+    partSize d =
+        assert (d >= 0 && d <= 1) $
+        floor $
+        (fromInteger $ toInteger $ length ms) * d
 
 addMintetteToBank :: MonadIO m => MintetteInfo -> TestEnv m ()
 addMintetteToBank mintette = do

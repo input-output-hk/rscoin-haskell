@@ -25,8 +25,9 @@ import           RSCoin.Timed               (PureRpc, runEmulationMode)
 
 import           Test.RSCoin.Core.Arbitrary ()
 import           Test.RSCoin.Full.Action    (Action (doAction))
-import           Test.RSCoin.Full.Context   (MintetteNumber, TestEnv,
-                                             UserNumber, mkTestContext)
+import           Test.RSCoin.Full.Context   (MintetteNumber,
+                                             Scenario (DefaultScenario),
+                                             TestEnv, UserNumber, mkTestContext)
 import           Test.RSCoin.Full.Gen       (genActions)
 
 type FullProperty a = TestEnv (PropertyM (PureRpc IO)) a
@@ -34,11 +35,14 @@ type FullProperty a = TestEnv (PropertyM (PureRpc IO)) a
 launchPure :: MonadIO m => PureRpc IO a -> m a
 launchPure = runEmulationMode def def
 
-toTestable :: FullProperty a -> MintetteNumber -> UserNumber -> Property
+toTestable :: FullProperty a
+           -> MintetteNumber
+           -> UserNumber
+           -> Property
 toTestable fp mNum uNum =
     monadic unwrapProperty $
     do (acts,t) <- pick genActions
-       context <- lift $ mkTestContext mNum uNum t
+       context <- lift $ mkTestContext mNum uNum t DefaultScenario
        launchPure $ runReaderT (mapM_ doAction acts) context
        runReaderT fp context
   where

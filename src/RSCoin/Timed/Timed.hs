@@ -21,7 +21,7 @@ import           Control.Exception           (SomeException)
 import           Control.Exception.Base      (AsyncException (ThreadKilled))
 import           Control.Lens                (makeLenses, to, use, (%=), (%~),
                                               (&), (.=), (^.))
-import           Control.Monad               (unless, void, when)
+import           Control.Monad               (replicateM, unless, void, when)
 import           Control.Monad.Catch         (Handler (..), MonadCatch,
                                               MonadMask, MonadThrow, catch,
                                               catchAll, catches, mask, throwM,
@@ -31,8 +31,7 @@ import           Control.Monad.Loops         (whileM_)
 import           Control.Monad.Reader        (ReaderT (..), ask, runReaderT)
 import           Control.Monad.State         (MonadState (get, put, state),
                                               StateT, evalStateT)
-import           Control.Monad.Trans         (liftIO)
-import           Control.Monad.Trans         (MonadIO, MonadTrans, lift)
+import           Control.Monad.Trans         (MonadIO, MonadTrans, lift, liftIO)
 import           Data.Function               (on)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Maybe                  (catMaybes, fromJust, fromMaybe,
@@ -215,12 +214,11 @@ evalTimedT timed = do
 
 threadKilledNotifier :: MonadIO m => SomeException -> m ()
 threadKilledNotifier e =
-    logWarning $ formatSingle' "Thread killed by exception: {}" $ show $ e
+    logWarning $ formatSingle' "Thread killed by exception: {}" $ show e
 {-# NOINLINE threadKilledNotifier #-}
 
 instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
     localTime = TimedT $ use curTime
-
     -- | Take note, created thread may be killed by timeout
     --   only when it calls "wait"
     workWhile cond _action = do
@@ -229,10 +227,9 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         let _threadCtx =
                 ThreadCtx
                 { _condition = cond
-                , _handlers  = [Handler threadKilledNotifier]
+                , _handlers = [Handler threadKilledNotifier]
                 }
         TimedT $ events %= PQ.insert Event { .. }
-
     wait relativeToNow = do
         cur <- localTime
         ctx <- TimedT ask
@@ -244,35 +241,43 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
                 }
         -- grab our continuation, put it to event queue
         -- and finish execution
-        TimedT $ lift $ ContT $
-                  \c -> do
-                    events %= PQ.insert (event $ c ())
+        TimedT $ lift $ ContT $ \c -> events %= PQ.insert (event $ c ())
     timeout t action' = do
         var <- liftIO $ atomically $ newTVar Nothing
         timestamp' <- localTime
-        workWhile (untilTime $ t + timestamp') $ do
-            res <- action'
-            liftIO $ atomically $ writeTVar var $
-                Just $ return res
-        -- NOTE: this is checking TVar in order to find one result (either error, or some value)
-        -- every microsecond. Testing performanse could be slightly worse with this. Proper way would
-        -- be to implement ThreadId and killThread in MonadTimed, then this would be avoided.
+        workWhile (untilTime $ t + timestamp') $
+            do res <- action'
+               liftIO $ atomically $ writeTVar var $ Just $ return res
+        -- NOTE: this is checking TVar in order to find one result
+        -- (either error, or some value) every microsecond. Testing
+        -- performanse could be slightly worse with this. Proper way would
+        -- be to implement ThreadId and killThread in MonadTimed, then
+        -- this would be avoided.
         --
-        -- Depending on MonadTimed (TimedT) internals, actions might take 1 microsecond longer to finish.
-        -- It takes at least one microsecond to collect and return the results (next line).
-        -- Doing `timeout 10 (wait $ for 5 mcs)` might return after 6 mcs (in this very exaple it will return after 100 mcs, depending on sleepStep)
-        k <- fromMaybe (throwM $ MTTimeoutError "Timeout exceeeded") . headMay . catMaybes
-             <$> (sequence $ Prelude.replicate ((+1) . ceiling $ fromIntegral t / fromIntegral sleepStep) $ getMaybeValue var)
+        -- Depending on MonadTimed (TimedT) internals, actions might
+        -- take 1 microsecond longer to finish.
+        -- It takes at least one microsecond to collect and return the
+        -- results (next line).
+        -- Doing `timeout 10 (wait $ for 5 mcs)` might return after 6 mcs
+        -- (in this very exaple it will return after 100 mcs, depending
+        -- on sleepStep)
+        k <-
+            fromMaybe (throwM $ MTTimeoutError "Timeout exceeeded") .
+            headMay . catMaybes <$>
+            (replicateM
+                 ((+ 1) . ceiling $ (fromIntegral t :: Double) / fromIntegral sleepStep)
+                 (getMaybeValue var))
         lift k
       where
         sleepStep = 100 :: Microsecond
-        getMaybeValue :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))
+        getMaybeValue
+            :: (MonadIO m, MonadThrow m, MonadCatch m)
+            => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))
         getMaybeValue var = do
             res <- liftIO $ atomically $ readTVar var
-            when (isNothing res) $
-                -- NOTE: @martoon said 100 mcs is sleep time resolution in threads.
-                -- Sleeping only 1 mcs might hit the preformance wall.
-                wait $ after sleepStep mcs
+            when (isNothing res) $ wait $ after sleepStep mcs
             return res
-        untilTime :: (MonadIO m, MonadThrow m, MonadCatch m) => Microsecond -> TimedT m Bool
+        untilTime
+            :: (MonadIO m, MonadThrow m, MonadCatch m)
+            => Microsecond -> TimedT m Bool
         untilTime time = (time >) <$> localTime

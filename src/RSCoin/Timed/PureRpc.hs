@@ -23,22 +23,21 @@ import           Control.Monad.State     (MonadState (get, put, state), StateT,
 import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
 import           Data.Default            (Default, def)
 import           Data.Map                as Map
-import           Data.Maybe              (fromMaybe)
 import           System.Random           (StdGen)
 
 import           Data.MessagePack        (Object)
 import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
 import           RSCoin.Timed.MonadRpc   (Addr, Client (..), Host, Method (..),
-                                          MonadRpc, execClient, methodBody,
-                                          methodName, serve, RpcError(..))
+                                          MonadRpc, RpcError (..), execClient,
+                                          methodBody, methodName, serve)
 import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
                                           localTime, mcs, minute, wait)
 import           RSCoin.Timed.Timed      (TimedT, evalTimedT, runTimedT)
 
 -- | List of known issues:
---     -) Method, once being declared in net, can't be removed 
---        Even timeout won't help 
+--     -) Method, once being declared in net, can't be removed
+--        Even timeout won't help
 --        Status: not relevant in tests for now
 --     -) Connection can't be refused, only be held on much time
 --        Status: not relevant until used with fixed timeout
@@ -119,9 +118,9 @@ runPureRpc_ _randSeed _delays (PureRpc rpc) =
     _listeners = Map.empty
 
 -- TODO: use normal exceptions here
-request :: (Monad m, MonadThrow m, MessagePack a) 
-        => Client a 
-        -> (Listeners (PureRpc m), Addr) 
+request :: (Monad m, MonadThrow m, MessagePack a)
+        => Client a
+        -> (Listeners (PureRpc m), Addr)
         -> PureRpc m a
 request (Client name args) (listeners', addr) =
     case Map.lookup (addr, name) listeners' of
@@ -132,7 +131,7 @@ request (Client name args) (listeners', addr) =
             case fromObject res of
                 Nothing -> throwM $ ResultTypeError "type mismatch"
                 Just r  -> return r
-            
+
 
 instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
     execClient addr cli = PureRpc $ do
@@ -161,4 +160,3 @@ waitDelay stage =
        let (delay,nextSeed) = runRand (evalDelay delays' stage time) seed
        lift $ lift $ randSeed .= nextSeed
        wait $ maybe (for 99999 minute) (`for` mcs) delay
-

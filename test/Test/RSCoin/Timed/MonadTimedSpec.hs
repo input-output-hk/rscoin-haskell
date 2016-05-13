@@ -137,7 +137,7 @@ timeoutProp
     => NonNegative Microsecond
     -> NonNegative Microsecond
     -> PropertyM m ()
-timeoutProp (getNonNegative -> wt) (getNonNegative -> tout) = do
+timeoutProp (getNonNegative -> tout) (getNonNegative -> wt) = do
     let wtLTtout = wt < tout
         action = do
             wait $ for wt mcs
@@ -239,7 +239,7 @@ timeoutTimedProp
     :: NonNegative Microsecond
     -> NonNegative Microsecond
     -> TimedTProp ()
-timeoutTimedProp (getNonNegative -> wt) (getNonNegative -> tout) = do
+timeoutTimedProp (getNonNegative -> tout) (getNonNegative -> wt) = do
     let wtLTtout = wt < tout
         action = do
             wait $ for wt mcs

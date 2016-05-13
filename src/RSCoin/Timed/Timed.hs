@@ -38,9 +38,10 @@ import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Maybe                  (catMaybes, fromJust, fromMaybe,
                                               isNothing)
 import           Data.Ord                    (comparing)
-import           Safe                        (headMay)
 
 import qualified Data.PQueue.Min             as PQ
+import qualified Data.Set                    as S
+import           Safe                        (headMay)
 import           Serokell.Util.Text          (formatSingle')
 
 import           RSCoin.Core.Logging         (logWarning)
@@ -52,9 +53,12 @@ import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
 
 type Timestamp = Microsecond
 
+type ThreadId = Int
+
 -- | Private context for each pure thread
 data ThreadCtx m = ThreadCtx
     { _condition :: m Bool          -- ^ Whether thread should remain alive
+    , _threadId  :: ThreadId        -- ^ Thread id
     , _handlers  :: [Handler m ()]  -- ^ Exception handlers stack
     }
 
@@ -77,8 +81,10 @@ instance Ord (Event m) where
 
 -- | State for MonadTimed
 data Scenario m = Scenario
-    { _events  :: PQ.MinQueue (Event m)
-    , _curTime :: Microsecond
+    { _events         :: PQ.MinQueue (Event m)
+    , _curTime        :: Microsecond
+    , _aliveThreads   :: S.Set ThreadId
+    , _threadsCounter :: ThreadId
     }
 
 $(makeLenses ''Scenario)
@@ -88,6 +94,8 @@ emptyScenario =
     Scenario
     { _events = PQ.empty
     , _curTime = 0
+    , _aliveThreads = S.empty
+    , _threadsCounter = 0
     }
 
 -- | Heart of TimedT monad

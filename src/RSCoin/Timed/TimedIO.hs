@@ -16,12 +16,10 @@ import           Control.Monad               (void)
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadCatch, MonadThrow, MonadMask,
                                               throwM)
-import           Control.Monad.Loops         (whileM)
 import           Control.Monad.Reader        (ReaderT (..), ask, runReaderT)
 import           Control.Monad.Trans         (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl, StM,
                                               liftBaseWith, restoreM)
-import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import qualified System.Timeout              as T
 
@@ -40,7 +38,7 @@ instance MonadBaseControl IO TimedIO where
 
     restoreM = TimedIO . restoreM
 
-instance MonadTimed TimedIO where
+instance MonadTimed TimedIO C.ThreadId where
     localTime = TimedIO $ (-) <$> lift curTime <*> ask
 
     wait relativeToNow = do

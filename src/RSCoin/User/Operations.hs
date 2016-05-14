@@ -12,9 +12,10 @@ module RSCoin.User.Operations
        , formTransaction
        ) where
 
+import           Control.Exception      (SomeException)
 import           Control.Lens           ((^.))
 import           Control.Monad          (filterM, forM_, unless, void, when)
-import           Control.Monad.Catch    (MonadThrow, throwM)
+import           Control.Monad.Catch    (MonadThrow, throwM, try)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
@@ -84,8 +85,10 @@ updateBlockchain st verbose = do
 
 -- | Gets amount of coins on user address
 getAmount :: WorkMode m => A.RSCoinUserState -> W.UserAddress -> m C.Coin
-getAmount st userAddress =
-    updateBlockchain st False >> getAmountNoUpdate st userAddress
+getAmount st userAddress = do
+    -- try to update, but silently fail if net is down
+    (_ :: Either SomeException Bool) <- try $ updateBlockchain st False
+    getAmountNoUpdate st userAddress
 
 -- | Get amount without storage update
 getAmountNoUpdate

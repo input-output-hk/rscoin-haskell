@@ -18,7 +18,6 @@ module RSCoin.User.AcidState
        , GetPublicAddresses (..)
        , GetTransactions (..)
        , GetLastBlockId (..)
-       , DumpAllTransactions (..)
 
        -- * Updates
        , WithBlockchainUpdate (..)
@@ -72,13 +71,11 @@ getAllAddresses :: A.Query WalletStorage [UserAddress]
 getPublicAddresses :: A.Query WalletStorage [C.PublicKey]
 getTransactions :: UserAddress -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
-dumpAllTransactions :: A.Query WalletStorage [(UserAddress, (C.Transaction, C.AddrId))]
 
 getAllAddresses = W.getAllAddresses
 getPublicAddresses = W.getPublicAddresses
 getTransactions = W.getTransactions
 getLastBlockId = W.getLastBlockId
-dumpAllTransactions = W.dumpAllTransactions
 
 withBlockchainUpdate :: Int -> [C.Transaction] -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.Transaction -> A.Update WalletStorage ()
@@ -96,7 +93,6 @@ $(makeAcidic
       , 'getPublicAddresses
       , 'getTransactions
       , 'getLastBlockId
-      , 'dumpAllTransactions
       , 'withBlockchainUpdate
       , 'addTemporaryTransaction
       , 'addAddresses

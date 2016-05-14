@@ -52,14 +52,16 @@ checkNotDoubleSpent :: MintetteConfig
                     -> AddrId
                     -> Signature
                     -> ExceptUpdate C.CheckConfirmation
-checkNotDoubleSpent _ sk tx addrId sg = do -- TODO use config
-    checkIsActive
-    checkTxSum tx
-    unless (addrId `elem` txInputs tx) $
-        throwM $ MEInconsistentRequest "AddrId is not part of inputs"
-    inPset <- M.lookup addrId <$> use pset
-    maybe notInPsetCase inPsetCase inPset
+checkNotDoubleSpent conf sk tx addrId sg = do
+    unless (checkActive conf) checkIsActive
+    if ignoreCheckTx conf then finalize else verify
   where
+    verify = do
+        unless (ignoreSumCheckTx conf) $ checkTxSum tx
+        unless (addrId `elem` txInputs tx || ignoreAddridInTxCheckTx conf) $
+            throwM $ MEInconsistentRequest "AddrId is not part of inputs"
+        inPset <- M.lookup addrId <$> use pset
+        maybe notInPsetCase inPsetCase inPset
     inPsetCase storedTx
       | storedTx == tx = finishCheck
       | otherwise = throwM MEDoubleSpending
@@ -69,16 +71,22 @@ checkNotDoubleSpent _ sk tx addrId sg = do -- TODO use config
     checkSignatureAndFinish a
       | validateSignature sg a tx = finishCheck
       | otherwise = throwM MEInvalidSignature
-    finishCheck = do
+    finishCheck
+      | updateUtxoCheckTx conf = do
         pushLogEntry $ C.QueryEntry tx
         utxoEntry <- uses utxo (M.lookup addrId)
         utxo %= M.delete addrId
         when (isJust utxoEntry)
              (utxoDeleted %= M.insert addrId (fromJust utxoEntry))
         pset %= M.insert addrId tx
+        finalize
+      | otherwise = finalize
+    finalize = do
         hsh <- uses logHead (snd . fromJust)
         logSz <- use logSize
-        return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
+        if inverseCheckTx conf
+        then throwM MEDoubleSpending
+        else return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
 
 -- | Check that transaction is valid and whether it falls within
 -- mintette's remit.  If it's true, add transaction to storage and
@@ -90,7 +98,7 @@ commitTx :: MintetteConfig
          -> C.CheckConfirmations
          -> ExceptUpdate C.CommitConfirmation
 commitTx conf sk tx@Transaction{..} pId bundle = do
-    checkIsActive
+    unless (checkActive conf) checkIsActive
     checkPeriodId pId
     checkTxSum tx
     mts <- use mintettes
@@ -99,12 +107,12 @@ commitTx conf sk tx@Transaction{..} pId bundle = do
         MEInconsistentRequest "I'm not an owner!"
     curDpk <- use dpk
     isConfirmed <- and <$> mapM (checkInputConfirmed mts curDpk) txInputs
-    res <- commitTxChecked isConfirmed sk tx bundle
+    res <- commitTxChecked conf isConfirmed sk tx bundle
     mapM_ (updateLogHeads curDpk) $ M.assocs bundle
     return res
   where
     checkInputConfirmed _ _ _
-      | ignoreChecksCommitTx conf = return True
+      | skipChecksCommitTx conf = return True
     checkInputConfirmed mts curDpk addrid = do
         let addridOwners = owners mts (sel1 addrid)
             ownerConfirmed owner =
@@ -116,7 +124,7 @@ commitTx conf sk tx@Transaction{..} pId bundle = do
                 M.lookup (owner, addrid) bundle
             filtered = filter ownerConfirmed addridOwners
         return (length filtered > length addridOwners `div` 2)
-    verifyDpk _ _ _ | dontVerifyDpk conf = True
+    verifyDpk _ _ _ | skipDpkVerificationCommitTx conf = True
     verifyDpk curDpk ownerId C.CheckConfirmation{..} =
         maybe
             False
@@ -132,17 +140,19 @@ commitTx conf sk tx@Transaction{..} pId bundle = do
         unless (mId == myId) $ logHeads . at pk .= Just lh
 
 commitTxChecked
-    :: Bool
+    :: MintetteConfig
+    -> Bool
     -> SecretKey
     -> Transaction
     -> C.CheckConfirmations
     -> ExceptUpdate C.CommitConfirmation
-commitTxChecked False _ _ _ = throwM MENotConfirmed
-commitTxChecked True sk tx bundle = do
+commitTxChecked _ False _ _ _ = throwM MENotConfirmed
+commitTxChecked conf True sk tx bundle = do
     pushLogEntry $ C.CommitEntry tx bundle
-    utxo <>= M.fromList (computeOutputAddrids tx)
-    utxoAdded <>= M.fromList (computeOutputAddrids tx)
-    txset %= S.insert tx
+    when (updateUtxoCommitTx conf) $ do
+        utxo <>= M.fromList (computeOutputAddrids tx)
+        utxoAdded <>= M.fromList (computeOutputAddrids tx)
+        txset %= S.insert tx
     let pk = derivePublicKey sk
     hsh <- uses logHead (snd . fromJust)
     logSz <- use logSize

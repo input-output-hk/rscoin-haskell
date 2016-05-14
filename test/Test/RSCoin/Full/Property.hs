@@ -44,7 +44,7 @@ toTestable fp mNum uNum =
     monadic unwrapProperty $
     do (acts,t) <- pick genActions
        context <- lift $ mkTestContext mNum uNum t DefaultScenario
-       launchPure $ runReaderT (mapM_ doAction acts) context
+       lift $ runReaderT (mapM_ doAction acts) context
        runReaderT fp context
   where
     unwrapProperty = ioProperty . launchPure
@@ -65,5 +65,4 @@ runTestEnvFP :: TestEnv (PureRpc IO) a -> FullProperty a
 runTestEnvFP a = runWorkModeFP . runReaderT a =<< ask
 
 doActionFP :: Action a => a -> FullProperty ()
--- doActionFP action = runWorkModeFP . runReaderT (doAction action) =<< ask
 doActionFP = runTestEnvFP . doAction

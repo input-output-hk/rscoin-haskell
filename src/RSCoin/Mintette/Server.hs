@@ -4,31 +4,38 @@
 
 module RSCoin.Mintette.Server
        ( serve
+       , handlePeriodFinished
+       , handleNewPeriod
+       , handleCheckTx
+       , handleCommitTx
+       , handleGetUtxo
+       , handleGetBlocks
+       , handleGetLogs
        ) where
 
 import           Control.Exception         (throwIO, try)
-import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.Catch       (catch)
+import           Control.Monad.IO.Class    (liftIO)
 import           Data.Acid.Advanced        (query', update')
 import           Data.Monoid               ((<>))
 
 import           Serokell.Util.Text        (format', formatSingle',
-                                            listBuilderJSONIndent, show',
-                                            pairBuilder)
+                                            listBuilderJSONIndent, pairBuilder,
+                                            show')
 
 import qualified RSCoin.Core               as C
-import           RSCoin.Mintette.AcidState (CheckNotDoubleSpent (..),
+import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
-                                            GetUtxoPset (..), GetBlocks (..),
+                                            GetBlocks (..), GetLogs (..),
+                                            GetUtxoPset (..),
                                             PreviousMintetteId (..),
-                                            StartPeriod (..), State,
-                                            GetLogs (..))
+                                            StartPeriod (..))
+import           RSCoin.Mintette.AcidState (State)
 import           RSCoin.Mintette.Error     (MintetteError)
-import           RSCoin.Timed              (WorkMode, ServerT
-                                           , serverTypeRestriction0
-                                           , serverTypeRestriction1
-                                           , serverTypeRestriction3
-                                           )
+import           RSCoin.Timed              (ServerT, WorkMode,
+                                            serverTypeRestriction0,
+                                            serverTypeRestriction1,
+                                            serverTypeRestriction3)
 
 serve :: WorkMode m => Int -> State -> C.SecretKey -> m ()
 serve port st sk = do
@@ -40,22 +47,22 @@ serve port st sk = do
     idr6 <- serverTypeRestriction1
     idr7 <- serverTypeRestriction1
     C.serve port
-        [ C.method (C.RSCMintette C.PeriodFinished) $ 
+        [ C.method (C.RSCMintette C.PeriodFinished) $
             idr1 $ handlePeriodFinished sk st
-        , C.method (C.RSCMintette C.AnnounceNewPeriod) $ 
+        , C.method (C.RSCMintette C.AnnounceNewPeriod) $
             idr2 $ handleNewPeriod st
-        , C.method (C.RSCMintette C.CheckTx) $ 
+        , C.method (C.RSCMintette C.CheckTx) $
             idr3 $ handleCheckTx sk st
-        , C.method (C.RSCMintette C.CommitTx) $ 
+        , C.method (C.RSCMintette C.CommitTx) $
             idr4 $ handleCommitTx sk st
-        , C.method (C.RSCDump C.GetMintetteUtxo) $ 
+        , C.method (C.RSCDump C.GetMintetteUtxo) $
             idr5 $ handleGetUtxo st
-        , C.method (C.RSCDump C.GetMintetteBlocks) $ 
+        , C.method (C.RSCDump C.GetMintetteBlocks) $
             idr6 $ handleGetBlocks st
-        , C.method (C.RSCDump C.GetMintetteLogs) $ 
+        , C.method (C.RSCDump C.GetMintetteLogs) $
             idr7 $ handleGetLogs st
         ]
-    
+
 toServer :: WorkMode m => IO a -> ServerT m a
 toServer action = liftIO $ action `catch` handler
   where
@@ -64,7 +71,7 @@ toServer action = liftIO $ action `catch` handler
         throwIO e
 
 handlePeriodFinished
-    :: WorkMode m 
+    :: WorkMode m
     => C.SecretKey -> State -> C.PeriodId -> ServerT m C.PeriodResult
 handlePeriodFinished sk st pId =
     toServer $
@@ -169,7 +176,7 @@ handleGetUtxo st =
        C.logDebug $ formatSingle' "Corrent utxo is: {}" curUtxo
        return curUtxo
 
-handleGetBlocks :: WorkMode m 
+handleGetBlocks :: WorkMode m
                 => State -> C.PeriodId -> ServerT m (Maybe [C.LBlock])
 handleGetBlocks st pId =
     toServer $
@@ -179,7 +186,7 @@ handleGetBlocks st pId =
        return res
 
 -- TODO: code duplication, simiar as handleGetBlocks => refactor!
-handleGetLogs :: WorkMode m 
+handleGetLogs :: WorkMode m
               => State -> C.PeriodId -> ServerT m (Maybe C.ActionLog)
 handleGetLogs st pId =
     toServer $

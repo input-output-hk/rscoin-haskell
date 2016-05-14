@@ -14,24 +14,30 @@ import           RSCoin.Timed                     (Microsecond, WorkMode, mcs,
 
 import           Test.RSCoin.Full.Context         (MintetteInfo, TestEnv, port,
                                                    secretKey, state)
-import           Test.RSCoin.Full.Mintette.Config (usualMintetteConfig)
+import           Test.RSCoin.Full.Mintette.Config (MintetteConfig,
+                                                   malfunctioningConfig)
 import qualified Test.RSCoin.Full.Mintette.Server as FM
+
+initialization
+    :: (WorkMode m)
+    => Maybe MintetteConfig -> Microsecond -> MintetteInfo -> TestEnv m ()
+initialization conf l m = do
+    let runner = case conf of
+             Nothing -> M.serve
+             Just s  -> FM.serve s
+    work (upto l mcs) $
+        runner <$> view port <*> view state <*> view secretKey $ m
+    work (upto l mcs) $
+        M.runWorker <$> view secretKey <*> view state $ m
+
 
 defaultMintetteInit
     :: (WorkMode m)
     => Microsecond -> MintetteInfo -> TestEnv m ()
-defaultMintetteInit l m = do
-    work (upto l mcs) $
-        M.serve <$> view port <*> view state <*> view secretKey $ m
-    work (upto l mcs) $
-        M.runWorker <$> view secretKey <*> view state $ m
+defaultMintetteInit = initialization Nothing
 
 malfunctioningMintetteInit
     :: (WorkMode m)
     => Microsecond -> MintetteInfo -> TestEnv m ()
-malfunctioningMintetteInit l m = do
-    let conf = usualMintetteConfig
-    work (upto l mcs) $
-        FM.serve conf <$> view port <*> view state <*> view secretKey $ m
-    work (upto l mcs) $
-        M.runWorker <$> view secretKey <*> view state $ m
+malfunctioningMintetteInit =
+    initialization (Just malfunctioningConfig)

@@ -5,6 +5,8 @@
 module Test.RSCoin.Full.Mintette.Config
        ( MintetteConfig (..)
        , usualMintetteConfig
+       , notCheckingDataConfig
+       , malfunctioningConfig
        ) where
 
 import           Data.SafeCopy (base, deriveSafeCopy)
@@ -26,6 +28,8 @@ data MintetteConfig = MintetteConfig
     , updateUtxoCommitTx          :: Bool
     }
 
+$(deriveSafeCopy 0 'base ''MintetteConfig)
+
 usualMintetteConfig :: MintetteConfig
 usualMintetteConfig = MintetteConfig
     { checkActive                 = True
@@ -40,5 +44,22 @@ usualMintetteConfig = MintetteConfig
     , updateUtxoCommitTx          = True
     }
 
+notCheckingDataConfig :: MintetteConfig
+notCheckingDataConfig =
+    let MintetteConfig{..} = usualMintetteConfig
+    in MintetteConfig
+       { ignoreCheckTx = True
+       , skipOwnerCheckCommitTx = True
+       , skipDpkVerificationCommitTx = True
+       , ..
+       }
 
-$(deriveSafeCopy 0 'base ''MintetteConfig)
+malfunctioningConfig :: MintetteConfig
+malfunctioningConfig =
+    let MintetteConfig{..} = usualMintetteConfig
+    in MintetteConfig
+       { checkActive = False
+       , updateUtxoCommitTx = False
+       , updateUtxoCheckTx = False
+       , ..
+       }

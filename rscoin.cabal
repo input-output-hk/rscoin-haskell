@@ -32,8 +32,12 @@ library
                      , RSCoin.Core.Transaction
                      , RSCoin.Core.Types
                      , RSCoin.Mintette
+                     , RSCoin.Mintette.Acidic
+                     , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Error
+                     , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
+                     , RSCoin.Mintette.Worker
                      , RSCoin.User
                      , RSCoin.User.AcidState
                      , RSCoin.User.Commands
@@ -57,9 +61,6 @@ library
                      , RSCoin.Core.Logging
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
-                     , RSCoin.Mintette.AcidState
-                     , RSCoin.Mintette.Server
-                     , RSCoin.Mintette.Worker
   build-depends:       acid-state
                      , aeson >= 0.9.0.1
                      , base >=4.8 && <4.9
@@ -195,7 +196,11 @@ test-suite rscoin-test
                      , Test.RSCoin.Full.FullSpec
                      , Test.RSCoin.Full.Gen
                      , Test.RSCoin.Full.Mintette
+                     , Test.RSCoin.Full.Mintette.Storage
+                     , Test.RSCoin.Full.Mintette.Server
+                     , Test.RSCoin.Full.Mintette.Acidic
                      , Test.RSCoin.Full.Property
+                     , Test.RSCoin.Full.UserOperations
                      , Test.RSCoin.Pure.BankState
                      , Test.RSCoin.Pure.MintetteState
                      , Test.RSCoin.Pure.StorageSpec
@@ -217,6 +222,8 @@ test-suite rscoin-test
                      , hspec >= 2.1.10
                      , mtl
                      , QuickCheck >= 2.8.1
+                     , safe
+                     , safecopy
                      , stm >= 2.4.4.1
                      , serokell-core
                      , tuple

@@ -18,8 +18,8 @@ import           Control.Monad.Catch    (MonadThrow, throwM)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
-import           Data.Int               (Int64)
-import           Data.List              (nub, nubBy)
+import           Data.List              (genericIndex, genericLength, nub,
+                                         nubBy)
 import qualified Data.Map               as M
 import           Data.Maybe             (isJust)
 import           Data.Monoid            ((<>))
@@ -111,7 +111,7 @@ getAmountByIndex st idx = do
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction :: WorkMode m =>
-    A.RSCoinUserState -> [(Int, Int64)] -> C.Address -> C.Coin -> m ()
+    A.RSCoinUserState -> [(Word, C.Coin)] -> C.Address -> C.Coin -> m ()
 formTransaction _ [] _ _ =
     commitError "You should enter at least one source input"
 formTransaction st inputs outputAddr outputCoin = do
@@ -126,7 +126,7 @@ formTransaction st inputs outputAddr outputCoin = do
             "All input values should be positive, but encountered {}, that's not." $
         head $ filter (<= 0) $ map snd inputs
     accounts <- query' st GetAllAddresses
-    let notInRange i = i <= 0 || i > length accounts
+    let notInRange i = i <= 0 || i > genericLength accounts
     when
         (any notInRange $ map fst inputs) $
         commitError $
@@ -134,8 +134,8 @@ formTransaction st inputs outputAddr outputCoin = do
             "Found an account id ({}) that's not in [1..{}]"
             ( head $ filter notInRange $ map fst inputs
             , length accounts)
-    let accInputs :: [(Int, W.UserAddress, C.Coin)]
-        accInputs = map (\(i,c) -> (i, accounts !! (i - 1), C.Coin c)) inputs
+    let accInputs :: [(Word, W.UserAddress, C.Coin)]
+        accInputs = map (\(i,c) -> (i, accounts `genericIndex` (i - 1), c)) inputs
         hasEnoughFunds (i,acc,c) = do
             amount <- getAmountNoUpdate st acc
             return $
@@ -173,7 +173,7 @@ formTransaction st inputs outputAddr outputCoin = do
     validateTransaction outTr signatures $ lastBlockHeight + 1
     update' st $ A.AddTemporaryTransaction outTr
   where
-    formTransactionMapper :: (Int, W.UserAddress, C.Coin)
+    formTransactionMapper :: (Word, W.UserAddress, C.Coin)
                           -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)
     formTransactionMapper (_,a,c) = do
         (addrids :: [C.AddrId]) <-

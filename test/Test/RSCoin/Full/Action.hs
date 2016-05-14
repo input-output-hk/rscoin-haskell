@@ -12,6 +12,8 @@ module Test.RSCoin.Full.Action
        , WaitSomeAction
        , InitAction (..)
        , UserAction (..)
+       , UserIndex
+       , getUser
        ) where
 
 import           Control.Exception         (assert)

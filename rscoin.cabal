@@ -200,6 +200,7 @@ test-suite rscoin-test
                      , Test.RSCoin.Full.Mintette.Server
                      , Test.RSCoin.Full.Mintette.Acidic
                      , Test.RSCoin.Full.Property
+                     , Test.RSCoin.Full.UserOperations
                      , Test.RSCoin.Pure.BankState
                      , Test.RSCoin.Pure.MintetteState
                      , Test.RSCoin.Pure.StorageSpec

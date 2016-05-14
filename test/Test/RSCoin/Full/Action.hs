@@ -33,7 +33,7 @@ import qualified RSCoin.Bank               as B
 import           RSCoin.Core               (Address (..), Coin (..),
                                             Mintette (..), bankSecretKey)
 import           RSCoin.Timed              (Second, WorkMode, for, invoke, mcs,
-                                            sec, upto, work, wait)
+                                            sec, upto, wait, work)
 import qualified RSCoin.User               as U
 
 import           Test.RSCoin.Full.Context  (MintetteInfo, Scenario (..),
@@ -140,10 +140,8 @@ instance Action UserAction where
     doAction (FormTransaction userIndex fromAddresses toAddr) = do
         address <- toAddress toAddr
         inputs <- toInputs userIndex fromAddresses
-        getUser userIndex >>=
-            \s ->
-                 U.formTransaction s inputs address $
-                 sum $ map snd inputs
+        user <- getUser userIndex
+        U.formTransaction user inputs address $ sum $ map snd inputs
     doAction (ListAddresses userIndex) =
         runUserAction userIndex U.ListAddresses
     doAction (UpdateBlockchain userIndex) =

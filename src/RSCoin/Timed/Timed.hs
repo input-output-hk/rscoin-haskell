@@ -49,7 +49,7 @@ import           RSCoin.Core.Logging         (logWarning)
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
                                               after, localTime, mcs, timeout,
-                                              wait, workWhile, myThreadId, 
+                                              wait, workWhile, myThreadId,
                                               killThread, fork, for,
                                               ThreadId(PureThreadId))
 
@@ -207,7 +207,7 @@ runTimedT timed = launchTimedT $ do
     -- put empty continuation to an action (not our own!)
     runInSandbox r = wrapCore . unwrapCore' r
 
-    mainThreadCtx = getNextThreadId <&> 
+    mainThreadCtx = getNextThreadId <&>
         \tid ->
             ThreadCtx
             { _threadId = tid
@@ -245,7 +245,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         tid <- getNextThreadId
         let _threadCtx =
                 ThreadCtx
-                { _threadId = tid 
+                { _threadId = tid
                 , _handlers = [Handler threadKilledNotifier]
                 }
         TimedT $ events %= PQ.insert Event { .. }
@@ -270,6 +270,8 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
 
     killThread tid = wrapCore $ modify $ aliveThreads %~ S.delete tid
 
+    -- TODO: we should probably implement this similar to
+    -- http://haddock.stackage.org/lts-5.8/base-4.8.2.0/src/System-Timeout.html#timeout
     timeout t action' = do
         var <- liftIO $ newTVarIO Nothing
         -- fork worker
@@ -281,4 +283,4 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         killThread wtid
         res <- liftIO $ readTVarIO var
         maybe (throwM $ MTTimeoutError "Timedout exceeded") return res
-        
+

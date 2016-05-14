@@ -269,11 +269,10 @@ timeoutTimedProp
     -> NonNegative Microsecond
     -> TimedTProp ()
 timeoutTimedProp (getNonNegative -> tout) (getNonNegative -> wt) = do
-    let wtLTtout = wt < tout
-        action = do
+    let action = do
             wait $ for wt mcs
-            return wtLTtout
-        handler (_ :: MonadTimedError) = return $ not wtLTtout
+            return $ wt <= tout
+        handler (_ :: MonadTimedError) = return $ tout <= wt
     res <- timeout tout action `catch` handler
     assertTimedT res
 

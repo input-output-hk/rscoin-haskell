@@ -72,6 +72,7 @@ handleCheckTx
     -> C.AddrId
     -> C.Signature
     -> ServerT m (Maybe C.CheckConfirmation)
+handleCheckTx
 handleCheckTx sk st conf tx addrId sg =
     toServer $
     do C.logDebug $

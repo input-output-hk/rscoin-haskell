@@ -11,20 +11,16 @@ module Test.RSCoin.Full.Mintette.Acidic
        , CommitTx (..)
        ) where
 
-import           Data.Acid                         (AcidState, Query, Update,
-                                                    closeAcidState, makeAcidic,
+import           Data.Acid                         (Update, closeAcidState,
+                                                    makeAcidic,
                                                     openLocalStateFrom)
 import           Data.Acid.Memory                  (openMemoryState)
-import           Data.SafeCopy                     (base, deriveSafeCopy)
 
-import           RSCoin.Core                       (ActionLog, AddrId,
-                                                    CheckConfirmation,
+import           RSCoin.Core                       (AddrId, CheckConfirmation,
                                                     CheckConfirmations,
-                                                    CommitConfirmation, LBlock,
-                                                    MintetteId, NewPeriodData,
-                                                    PeriodId, PeriodResult,
-                                                    Pset, SecretKey, Signature,
-                                                    Transaction, Utxo)
+                                                    CommitConfirmation,
+                                                    PeriodId, SecretKey,
+                                                    Signature, Transaction)
 import           RSCoin.Mintette.AcidState         (State)
 import qualified RSCoin.Mintette.AcidState         as OMA
 import qualified RSCoin.Mintette.Storage           as OMS

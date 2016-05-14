@@ -39,7 +39,7 @@ import           RSCoin.Mintette.Storage          (Storage, checkIsActive,
                                                    pushLogEntry, txset, utxo,
                                                    utxoAdded, utxoDeleted)
 
-import           Test.RSCoin.Full.Mintette.Config (MintetteConfig)
+import           Test.RSCoin.Full.Mintette.Config (MintetteConfig (..))
 
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
@@ -89,7 +89,7 @@ commitTx :: MintetteConfig
          -> PeriodId
          -> C.CheckConfirmations
          -> ExceptUpdate C.CommitConfirmation
-commitTx _ sk tx@Transaction{..} pId bundle = do -- TODO use config
+commitTx conf sk tx@Transaction{..} pId bundle = do
     checkIsActive
     checkPeriodId pId
     checkTxSum tx
@@ -103,6 +103,8 @@ commitTx _ sk tx@Transaction{..} pId bundle = do -- TODO use config
     mapM_ (updateLogHeads curDpk) $ M.assocs bundle
     return res
   where
+    checkInputConfirmed _ _ _
+      | ignoreChecksCommitTx conf = return True
     checkInputConfirmed mts curDpk addrid = do
         let addridOwners = owners mts (sel1 addrid)
             ownerConfirmed owner =
@@ -114,6 +116,7 @@ commitTx _ sk tx@Transaction{..} pId bundle = do -- TODO use config
                 M.lookup (owner, addrid) bundle
             filtered = filter ownerConfirmed addridOwners
         return (length filtered > length addridOwners `div` 2)
+    verifyDpk _ _ _ | dontVerifyDpk conf = True
     verifyDpk curDpk ownerId C.CheckConfirmation{..} =
         maybe
             False

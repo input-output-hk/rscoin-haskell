@@ -14,7 +14,7 @@ import           RSCoin.Timed                     (Microsecond, WorkMode, mcs,
 
 import           Test.RSCoin.Full.Context         (MintetteInfo, TestEnv, port,
                                                    secretKey, state)
-import           Test.RSCoin.Full.Mintette.Config (MintetteConfig (..))
+import           Test.RSCoin.Full.Mintette.Config (usualMintetteConfig)
 import qualified Test.RSCoin.Full.Mintette.Server as FM
 
 defaultMintetteInit
@@ -30,7 +30,7 @@ malfunctioningMintetteInit
     :: (WorkMode m)
     => Microsecond -> MintetteInfo -> TestEnv m ()
 malfunctioningMintetteInit l m = do
-    let conf = MintetteConfig False False False
+    let conf = usualMintetteConfig
     work (upto l mcs) $
         FM.serve conf <$> view port <*> view state <*> view secretKey $ m
     work (upto l mcs) $

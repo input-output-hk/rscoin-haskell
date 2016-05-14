@@ -22,11 +22,11 @@ import           Control.Exception           (SomeException)
 import           Control.Exception.Base      (AsyncException (ThreadKilled))
 import           Control.Lens                (makeLenses, to, use, (%=), (%~),
                                               (&), (.=), (^.), (<&>), view)
-import           Control.Monad               (unless, void)
+import           Control.Monad               (unless, void, join)
 import           Control.Monad.Catch         (Handler (..), MonadCatch,
                                               MonadMask, MonadThrow, catch,
                                               catchAll, catches, mask, throwM,
-                                              uninterruptibleMask)
+                                              uninterruptibleMask, try)
 import           Control.Monad.Cont          (ContT (..), runContT)
 import           Control.Monad.Loops         (whileM_)
 import           Control.Monad.Reader        (ReaderT (..), ask, runReaderT)
@@ -35,7 +35,7 @@ import           Control.Monad.State         (MonadState (get, put, state),
 import           Control.Monad.Trans         (MonadIO, MonadTrans, lift, liftIO)
 import           Data.Function               (on)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
-import           Data.Maybe                  (fromJust)
+import           Data.Maybe                  (fromJust, fromMaybe)
 import           Data.Ord                    (comparing)
 
 import qualified Data.PQueue.Min             as PQ
@@ -223,8 +223,8 @@ evalTimedT
     => TimedT m a -> m a
 evalTimedT timed = do
     ref <- liftIO $ newIORef Nothing
-    runTimedT $ liftIO . writeIORef ref . Just =<< timed
-    fromJust <$> liftIO (readIORef ref)
+    runTimedT $ liftIO . writeIORef ref . Just =<< try timed
+    join $ either throwM return . fromJust <$> liftIO (readIORef ref)
 
 threadKilledNotifier :: MonadIO m => SomeException -> m ()
 threadKilledNotifier e =

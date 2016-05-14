@@ -97,6 +97,9 @@ monadTimedTSpec description runProp =
         describe "timeout" $ do
             prop "should throw an exception if time has exceeded" $
                 \a -> runProp . timeoutTimedProp a
+        describe "killThread" $ do
+            prop "should abort the execution of a thread" $
+                \a -> runProp . killThreadTimedProp a
         describe "exceptions" $ do
             prop "thrown nicely" $
                 runProp exceptionsThrown

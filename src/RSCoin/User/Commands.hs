@@ -17,6 +17,7 @@ import           Control.Lens           ((^.))
 import           Control.Monad          (unless, void)
 import           Control.Monad.Trans    (liftIO)
 import           Data.Acid.Advanced     (query')
+import           Data.Bifunctor         (bimap)
 import           Data.Maybe             (fromJust, isJust)
 import           Data.Monoid            ((<>))
 import qualified Data.Text.IO           as TIO
@@ -79,10 +80,11 @@ proceedCommand st ListAddresses =
 proceedCommand st (FormTransaction inputs outputAddrStr) =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr
+           inputs' = map (bimap fromIntegral C.Coin) inputs
        unless (isJust pubKey) $
            commitError $
            "Provided key can't be exported: " <> outputAddrStr
-       formTransaction st inputs (fromJust pubKey) $
+       formTransaction st inputs' (fromJust pubKey) $
            C.Coin (sum $ map snd inputs)
 proceedCommand st UpdateBlockchain =
     eWrap $ do

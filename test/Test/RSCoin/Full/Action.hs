@@ -66,11 +66,11 @@ data InitAction = InitAction
 
 instance Action InitAction where
     doAction InitAction = do
+        runBank
         scen <- view scenario
         mint <- view mintettes
         runMintettes mint scen
         mapM_ addMintetteToBank =<< view mintettes
-        runBank
         wait $ for 5 sec  -- ensure that bank and mintettes are initialized
         initBUser
         mapM_ initUser =<< view users

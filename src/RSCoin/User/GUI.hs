@@ -22,6 +22,8 @@ import qualified RSCoin.User.Action             as A
 import qualified RSCoin.User.Contacts           as S
 import qualified RSCoin.User.OutputWidgets      as O
 import qualified RSCoin.Core                    as C
+import           RSCoin.User.Transactions       (getTransactionAmount,
+                                                 showTransaction)
 import           RSCoin.User.Wallet             (publicAddress)
 
 onExit :: TBQueue A.Action -> IO ()
@@ -92,8 +94,22 @@ initializeGUI queue st cs = do
     aRenderer    <- G.cellRendererTextNew
     G.cellLayoutPackStart addressesCol aRenderer False
     G.cellLayoutSetAttributes addressesCol aRenderer addressesList $ \a ->
-        [G.cellText := show (a ^. publicAddress)]
+        [G.cellText := C.printPublicKey (a ^. publicAddress)]
     void $ G.treeViewAppendColumn addressesView addressesCol
+
+    transactionsView  <- getWidget G.castToTreeView "TransactionsView"
+    G.treeViewSetModel transactionsView (O.transactionsList ow)
+    amountCol  <- G.treeViewColumnNew
+    detailsCol <- G.treeViewColumnNew
+    tRenderer  <- G.cellRendererTextNew
+    G.cellLayoutPackStart amountCol tRenderer False
+    G.cellLayoutPackStart detailsCol tRenderer False
+    G.cellLayoutSetAttributes amountCol tRenderer (O.transactionsList ow) $ \t ->
+        [G.cellText := show (getTransactionAmount addresses t)]
+    G.cellLayoutSetAttributes detailsCol tRenderer (O.transactionsList ow) $ \t ->
+        [G.cellText := showTransaction t]
+    void $ G.treeViewAppendColumn transactionsView amountCol
+    void $ G.treeViewAppendColumn transactionsView detailsCol
 
     addButton    <- getWidget G.castToButton   "AddButton"
     contactsView <- getWidget G.castToTreeView "ContactsView"

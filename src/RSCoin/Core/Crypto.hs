@@ -11,6 +11,7 @@ module RSCoin.Core.Crypto
        , Signature
        , SecretKey
        , PublicKey
+       , printPublicKey
        , hash
        , sign
        , verify
@@ -171,6 +172,9 @@ instance Binary PublicKey where
         mKey <- importPubKey <$> get
         maybe (fail "Public key import failed") (return . PublicKey) mKey
     put = put . exportPubKey True . getPublicKey
+
+printPublicKey :: PublicKey -> String
+printPublicKey = init . drop 8 . show . getPublicKey
 
 -- | Generate a hash from a binary data.
 hash :: Binary t => t -> Hash

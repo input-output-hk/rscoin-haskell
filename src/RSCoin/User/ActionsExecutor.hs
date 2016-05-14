@@ -3,7 +3,7 @@
 module RSCoin.User.ActionsExecutor (runActionsExecutor) where
 
 import           Control.Concurrent.STM.TBQueue (TBQueue, readTBQueue)
-import           Control.Monad                  (forM, forM_, when)
+import           Control.Monad                  ((<=<), forM, forM_, when)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.STM              (atomically)
 import           Data.Acid                      (query)
@@ -23,21 +23,25 @@ import           RSCoin.Core                    (Coin (..), Transaction (..)
                                                 , getBlockchainHeight
                                                 , getTransactionById)
 import           RSCoin.Timed                   (WorkMode)
+import           RSCoin.User.Transactions       (fromTransaction)
 
 updateUI :: WorkMode m => A.RSCoinUserState -> OutputWidgets -> m ()
 updateUI st ow = do
     a <- query' st A.GetAllAddresses
     b <- liftIO $ sum <$> mapM (O.getAmount st) a
-    t <- liftIO $ concat <$> mapM (query st . A.GetTransactions) a
-    liftIO $ putStrLn "Transactions:"
+    x <- liftIO $ concat <$> mapM (query st . A.GetTransactions) a
+    t <- mapM fromTransaction x
+    {-liftIO $ putStrLn "Transactions:"
     forM_ t $ \tr -> do
         ti <- forM (txInputs tr) $ \(tId, i, c) -> do
             pt <- getTransactionById tId
             let ua = (\a -> (txOutputs a) !! i) <$> pt
             return (ua, c)
-        liftIO $ putStrLn $ show ti ++ " -> " ++ show (txOutputs tr)
+        liftIO $ putStrLn $ show ti ++ " -> " ++ show (txOutputs tr)-}
     liftIO $ postGUIAsync $ do
         labelSetText (balanceLabel ow) $ show $ getCoin b
+        G.listStoreClear (transactionsList ow)
+        forM_ t $ G.listStoreAppend $ transactionsList ow
 
 selectAmounts :: Int64 -> [Int64] -> Maybe [(Int, Int64)]
 selectAmounts t a = select t a 1

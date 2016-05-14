@@ -7,7 +7,9 @@ module RSCoin.User.OutputWidgets
     , mkOutputWidgets
     ) where
 
-import qualified Graphics.UI.Gtk as G
+import qualified Graphics.UI.Gtk          as G
+
+import           RSCoin.User.Transactions (VerboseTransaction)
 
 data OutputWidgets = OutputWidgets
     { balanceLabel         :: G.Label
@@ -19,6 +21,7 @@ data OutputWidgets = OutputWidgets
     , statusLabel          :: G.Label
     , notificationWindow   :: G.Window
     , messageLabel         :: G.Label
+    , transactionsList     :: G.ListStore VerboseTransaction
     }
 
 mkOutputWidgets :: G.Builder -> IO OutputWidgets
@@ -35,4 +38,5 @@ mkOutputWidgets builder = do
     statusLabel          <- getWidget G.castToLabel    "StatusLabel"
     notificationWindow   <- getWidget G.castToWindow   "NotificationWindow"
     messageLabel         <- getWidget G.castToLabel    "MessageLabel"
+    transactionsList     <- G.listStoreNew []
     return OutputWidgets {..}

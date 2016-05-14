@@ -248,19 +248,20 @@ killThreadTimedProp
 killThreadTimedProp (getNonNegative -> mTime) (getNonNegative -> f1Time) (getNonNegative -> f2Time)= do
     var <- liftIO $ newTVarIO (0 :: Int)
     tId <- fork $ do
-        fork_ $ do
+        fork_ $ do -- this thread can't be killed
             wait $ for f1Time mcs
             liftIO $ atomically $ writeTVar var 1
         wait $ for f2Time mcs
         liftIO $ atomically $ writeTVar var 2
     wait $ for mTime mcs
     killThread tId
+    wait $ for f1Time mcs f2Time mcs -- wait for both threads to finish
     res <- liftIO $ readTVarIO var
     assertTimedT $ check res
   where
-    check 0 = mTime <= f1Time && f1Time <= f2Time
-    check 1 = f1Time <= mTime && mTime <= f2Time
-    check 2 = f2Time <= mTime && mTime <= f1Time
+    check 0 = mTime <= f1Time && mTime <= f2Time
+    check 1 = True -- this thread can't be killed
+    check 2 = f2Time <= mTime
     check _ = error "This checkpoint doesn't exist"
 
 timeoutTimedProp

@@ -2,7 +2,7 @@ import           Control.Monad.Catch    (bracket)
 import           Control.Monad.Trans    (liftIO)
 import           RSCoin.Core            (initLogging, readSecretKey)
 import qualified RSCoin.Mintette        as M
-import           RSCoin.Timed           (runRealMode, fork)
+import           RSCoin.Timed           (runRealMode, fork_)
 
 import qualified Options                as Opts
 
@@ -14,5 +14,5 @@ main = do
     runRealMode $
         bracket (liftIO $ M.openState cloPath) (liftIO . M.closeState) $
             \st -> do
-                fork $ M.runWorker sk st
+                fork_ $ M.runWorker sk st
                 M.serve cloPort st sk

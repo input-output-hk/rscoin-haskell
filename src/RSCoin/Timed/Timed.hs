@@ -16,13 +16,13 @@ module RSCoin.Timed.Timed
        ) where
 
 import           Control.Concurrent.STM      (atomically)
-import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVarIO,
+import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO,
                                               writeTVar)
 import           Control.Exception           (SomeException)
 import           Control.Exception.Base      (AsyncException (ThreadKilled))
 import           Control.Lens                (makeLenses, to, use, (%=), (%~),
                                               (&), (.=), (^.), view, (<&>))
-import           Control.Monad               (unless, void, when)
+import           Control.Monad               (unless, void)
 import           Control.Monad.Catch         (Handler (..), MonadCatch,
                                               MonadMask, MonadThrow, catch,
                                               catchAll, catches, mask, throwM,
@@ -36,23 +36,20 @@ import           Control.Monad.Trans         (liftIO)
 import           Control.Monad.Trans         (MonadIO, MonadTrans, lift)
 import           Data.Function               (on)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
-import           Data.Maybe                  (catMaybes, fromJust, fromMaybe,
-                                              isNothing)
+import           Data.Maybe                  (fromJust)
 import           Data.Ord                    (comparing)
 
 import qualified Data.PQueue.Min             as PQ
 import qualified Data.Set                    as S
-import           Safe                        (headMay)
 import           Serokell.Util.Text          (formatSingle')
 
 import           RSCoin.Core.Logging         (logWarning)
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
-                                              after, localTime, mcs, timeout,
-                                              wait, workWhile, myThreadId,
+                                              localTime, mcs, timeout,
+                                              wait, myThreadId,
                                               killThread, fork, for,
                                               ThreadId(PureThreadId))
-
 
 type Timestamp = Microsecond
 
@@ -283,4 +280,3 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         killThread wtid
         res <- liftIO $ readTVarIO var
         maybe (throwM $ MTTimeoutError "Timedout exceeded") return res
-

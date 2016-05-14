@@ -20,7 +20,8 @@ packages:
 
 nix:
     enable: false
-    packages: [git,zlib,openssh,autoreconfHook]
+    shell-file: shell.nix
+#    packages: [git,zlib,openssh,autoreconfHook]
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:

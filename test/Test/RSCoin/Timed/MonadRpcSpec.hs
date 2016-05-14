@@ -20,7 +20,7 @@ import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, run)
 import           RSCoin.Timed.MonadRpc      (Addr, Client (..), Host,
                                              MonadRpc (..), MsgPackRpc (..),
                                              Port, call, method)
-import           RSCoin.Timed.MonadTimed    (MonadTimed (..), for, ms)
+import           RSCoin.Timed.MonadTimed    (MonadTimed (..), fork_, for, ms)
 import           RSCoin.Timed.PureRpc       (Delays (..), PureRpc, runPureRpc)
 import           RSCoin.Timed.TimedIO       (runTimedIO)
 
@@ -95,13 +95,13 @@ serverMethodShouldExecuteSimpleSpec
     :: (MonadTimed m, MonadRpc m, MonadIO m)
     => PropertyM m ()
 serverMethodShouldExecuteSimpleSpec = do
-    run $ fork $ server
+    run $ fork_ $ server
     client
 
 serverMethodShouldExecuteSimplePureSpec
     :: PureRpcProp ()
 serverMethodShouldExecuteSimplePureSpec = do
-    fork $ server
+    fork_ $ server
     clientPure
 
 server :: MonadRpc m => m ()

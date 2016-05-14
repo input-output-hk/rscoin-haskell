@@ -9,7 +9,7 @@ import Control.Monad.STM           (atomically)
 import Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
 
 import RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed, for,
-                                    fork, mcs, ms, startTimer, wait)
+                                    fork_, mcs, ms, startTimer, wait)
 
 -- | Repeats an action periodically.
 --   If it fails, handler is invoked, determing delay for retrying.
@@ -24,7 +24,7 @@ repeatForever :: (MonadTimed m, MonadIO m, MonadCatch m)
 repeatForever period handler action = do
     timer <- startTimer
     nextDelay <- liftIO $ newTVarIO Nothing
-    fork $
+    fork_ $
         let setNextDelay = liftIO . atomically . writeTVar nextDelay . Just
             action'      = action >> timer >>=
                             \passed -> setNextDelay (period - passed)

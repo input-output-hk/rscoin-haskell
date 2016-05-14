@@ -8,7 +8,7 @@ import           RSCoin.Core              (Mintette (Mintette),
                                            constructPublicKey, initLogging,
                                            readSecretKey, readPublicKey,
                                            logWarning)
-import           RSCoin.Timed             (runRealMode, fork)
+import           RSCoin.Timed             (runRealMode, fork_)
 
 import qualified Options                  as Opts
 
@@ -16,13 +16,13 @@ main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
-    runRealMode $ 
-        bracket (liftIO $ B.openState cloPath) (liftIO . B.closeState) 
+    runRealMode $
+        bracket (liftIO $ B.openState cloPath) (liftIO . B.closeState)
             $ run cloCommand
   where
     run (Opts.Serve skPath) st = do
         sk <- liftIO $ readSecretKey skPath
-        fork $ B.runWorker sk st
+        fork_ $ B.runWorker sk st
         B.serve st
     run (Opts.AddMintette name port pk) st = liftIO $ do
         let m = Mintette name port

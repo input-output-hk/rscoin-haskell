@@ -13,6 +13,8 @@ module Test.RSCoin.Timed.MonadTimedSpec
 
 import           Control.Exception.Base      (Exception)
 import           Control.Concurrent.MVar     (newEmptyMVar, putMVar, takeMVar)
+import           Control.Concurrent.STM      (atomically)
+import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
 import           Control.Monad               (void)
 import           Control.Monad.State         (StateT, execStateT, modify, put)
 import           Control.Monad.Trans         (MonadIO, liftIO)
@@ -30,7 +32,7 @@ import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, monito
 import           Test.QuickCheck.Poly        (A)
 import           Test.RSCoin.Timed.Arbitrary ()
 
-import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..),
+import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..), fork_,
                                               RelativeToNow, invoke, now, schedule,
                                               for, after, sec, MonadTimedError, mcs)
 import           RSCoin.Timed.TimedIO        (TimedIO, runTimedIO)
@@ -97,6 +99,9 @@ monadTimedTSpec description runProp =
         describe "timeout" $ do
             prop "should throw an exception if time has exceeded" $
                 \a -> runProp . timeoutTimedProp a
+        describe "killThread" $ do
+            prop "should abort the execution of a thread" $
+                \a b -> runProp . killThreadTimedProp a b
         describe "exceptions" $ do
             prop "thrown nicely" $
                 runProp exceptionsThrown
@@ -138,11 +143,10 @@ timeoutProp
     -> NonNegative Microsecond
     -> PropertyM m ()
 timeoutProp (getNonNegative -> tout) (getNonNegative -> wt) = do
-    let wtLTtout = wt < tout
-        action = do
+    let action = do
             wait $ for wt mcs
-            return wtLTtout
-        handler (_ :: MonadTimedError) = return $ not wtLTtout
+            return $ wt <= tout
+        handler (_ :: MonadTimedError) = return $ wt >= tout
     res <- run $ timeout tout action `catch` handler
     assert res
 
@@ -180,7 +184,7 @@ forkSemanticProp
     => A
     -> Fun A A
     -> PropertyM m ()
-forkSemanticProp = actionSemanticProp fork
+forkSemanticProp = actionSemanticProp fork_
 
 waitPassingProp
     :: (MonadTimed m, MonadIO m)
@@ -235,16 +239,40 @@ actionSemanticProp action val f = do
 -- TimedT tests
 -- TODO: As TimedT is an instance of MonadIO, we can now reuse tests for TimedIO instead of these tests
 
+-- TODO: use checkpoints timeout pattern from ExceptionSpec
+killThreadTimedProp
+    :: NonNegative Microsecond
+    -> NonNegative Microsecond
+    -> NonNegative Microsecond
+    -> TimedTProp ()
+killThreadTimedProp (getNonNegative -> mTime) (getNonNegative -> f1Time) (getNonNegative -> f2Time)= do
+    var <- liftIO $ newTVarIO (0 :: Int)
+    tId <- fork $ do
+        fork_ $ do -- this thread can't be killed
+            wait $ for f1Time mcs
+            liftIO $ atomically $ writeTVar var 1
+        wait $ for f2Time mcs
+        liftIO $ atomically $ writeTVar var 2
+    wait $ for mTime mcs
+    killThread tId
+    wait $ for f1Time mcs f2Time mcs -- wait for both threads to finish
+    res <- liftIO $ readTVarIO var
+    assertTimedT $ check res
+  where
+    check 0 = mTime <= f1Time && mTime <= f2Time
+    check 1 = True -- this thread can't be killed
+    check 2 = f2Time <= mTime
+    check _ = error "This checkpoint doesn't exist"
+
 timeoutTimedProp
     :: NonNegative Microsecond
     -> NonNegative Microsecond
     -> TimedTProp ()
 timeoutTimedProp (getNonNegative -> tout) (getNonNegative -> wt) = do
-    let wtLTtout = wt < tout
-        action = do
+    let action = do
             wait $ for wt mcs
-            return wtLTtout
-        handler (_ :: MonadTimedError) = return $ not wtLTtout
+            return $ wt <= tout
+        handler (_ :: MonadTimedError) = return $ tout <= wt
     res <- timeout tout action `catch` handler
     assertTimedT res
 
@@ -278,7 +306,7 @@ forkSemanticTimedProp
     :: A
     -> Fun A A
     -> TimedTProp ()
-forkSemanticTimedProp = actionSemanticTimedProp fork
+forkSemanticTimedProp = actionSemanticTimedProp fork_
 
 waitPassingTimedProp
     :: RelativeToNowNat
@@ -349,7 +377,7 @@ exceptionsWaitThrowCaught =
 exceptionNotAffectMainThread :: TimedTProp ()
 exceptionNotAffectMainThread = handleAll' $ do
     put False
-    fork $ throwM TestExc
+    fork_ $ throwM TestExc
     wait $ for 1 sec
     put True
 

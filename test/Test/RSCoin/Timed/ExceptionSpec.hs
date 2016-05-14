@@ -14,14 +14,12 @@ import           Control.Monad               (void)
 import           Control.Monad.Catch         (MonadCatch, catch, catchAll,
                                               throwM)
 import           Control.Monad.IO.Class      (liftIO)
-import           Control.Monad.Random.Class  (getRandomR)
 import           Control.Monad.Trans         (MonadIO)
 import           Data.Default                (def)
-import           Data.Time.Units             (fromMicroseconds)
-import           System.Random               (StdGen, mkStdGen)
+import           System.Random               (StdGen)
 import           Test.Hspec                  (Spec, before, describe)
 import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Arbitrary (..), NonNegative (..),
+import           Test.QuickCheck             (NonNegative (..),
                                               Property)
 import           Test.QuickCheck.Monadic     (assert, monadicIO)
 import           Test.QuickCheck.Property    (Result (reason), exception,
@@ -29,8 +27,8 @@ import           Test.QuickCheck.Property    (Result (reason), exception,
 
 import           RSCoin.Core                 (Severity (Error), initLogging)
 import           RSCoin.Timed                (Delays (..), Microsecond, PureRpc,
-                                              after, for, fork, invoke, mcs,
-                                              runEmulationMode_, sec, wait)
+                                              after, for, fork, fork_, invoke,
+                                              runEmulationMode_, sec, wait, mcs)
 
 import           RSCoin.User.Error           (UserError (InputProcessingError))
 import           Test.RSCoin.Timed.Arbitrary ()
@@ -64,13 +62,14 @@ spec =
 
 exceptionShouldAbortExecution
     :: StdGen
+    -> Delays
     -> NonNegative Microsecond
     -> Property
-exceptionShouldAbortExecution std (getNonNegative -> t) =
+exceptionShouldAbortExecution std delays' (getNonNegative -> t) =
     monadicIO $ do
         var <- liftIO $ newTVarIO (0 :: Int)
         runEmulationMode_ (Just std) delays' $
-            fork $ do
+            fork_ $ do
                 liftIO $ atomically $ writeTVar var 1
                 wait $ for t mcs
                 void $ throwM $ InputProcessingError "Error"
@@ -80,15 +79,16 @@ exceptionShouldAbortExecution std (getNonNegative -> t) =
 
 asyncExceptionShouldntAbortExecution
     :: StdGen
+    -> Delays
     -> NonNegative Microsecond
     -> NonNegative Microsecond
     -> Property
-asyncExceptionShouldntAbortExecution std (getNonNegative -> t1) (getNonNegative -> t2) =
+asyncExceptionShouldntAbortExecution std delays' (getNonNegative -> t1) (getNonNegative -> t2) =
     monadicIO $ do
         var <- liftIO $ newTVarIO (0 :: Int)
         runEmulationMode_ (Just std) delays' $ do
             liftIO $ atomically $ writeTVar var 1
-            fork $ do
+            fork_ $ do
                 wait $ for t2 mcs
                 throwM $ InputProcessingError "Error"
             wait $ for t1 mcs
@@ -141,7 +141,7 @@ excWaitThrowForked seed =
                     throwM ThreadKilled
                 hnd _ = checkPoint 1
             in  do
-                    fork $ act `catchAll` hnd
+                    fork_ $ act `catchAll` hnd
                     invoke (after 1 sec) $ checkPoint 2
 
 excCatchOrder
@@ -194,16 +194,6 @@ excDiffCatchOuter seed =
                 act `catch` hnd1 `catch` hnd2
                 checkPoint 2
 
-
--- TODO: this is kind of odd
-instance Arbitrary StdGen where
-    arbitrary = mkStdGen <$> arbitrary
-
--- FIXME: use arbitrary instead of StdGen
-delays' :: Delays
-delays' = Delays d
-  where
-    d _ _ = Just . fromMicroseconds <$> getRandomR (10, 1000)
 
 
 runEmu :: StdGen -> PureRpc IO () -> IO ()

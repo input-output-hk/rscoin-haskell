@@ -119,7 +119,7 @@ formTransaction _ [] _ _ =
     commitError "You should enter at least one source input"
 formTransaction st inputs outputAddr outputCoin = do
     C.logInfo $
-        format' "Form a transaction from {}, to {}, ammount {}" (listBuilderJSONIndent 2 $ map pairBuilder inputs, outputAddr, outputCoin)
+        format' "Form a transaction from {}, to {}, amount {}" (listBuilderJSONIndent 2 $ map pairBuilder inputs, outputAddr, outputCoin)
     when
         (nubBy ((==) `on` fst) inputs /= inputs) $
         commitError "All input addresses should have distinct IDs."

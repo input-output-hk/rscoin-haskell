@@ -277,4 +277,4 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         wait $ for t mcs
         killThread wtid
         res <- liftIO $ readTVarIO var
-        maybe (throwM $ MTTimeoutError "Timedout exceeded") return res
+        maybe (throwM $ MTTimeoutError "Timeout exceeded") return res

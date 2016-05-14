@@ -12,15 +12,16 @@ module RSCoin.Timed.Timed
        ( TimedT
        , runTimedT
        , evalTimedT
+       , ThreadId
        ) where
 
 import           Control.Concurrent.STM      (atomically)
-import           Control.Concurrent.STM.TVar (TVar, newTVar, readTVar,
+import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVarIO,
                                               writeTVar)
 import           Control.Exception           (SomeException)
 import           Control.Exception.Base      (AsyncException (ThreadKilled))
 import           Control.Lens                (makeLenses, to, use, (%=), (%~),
-                                              (&), (.=), (^.))
+                                              (&), (.=), (^.), view, (<&>))
 import           Control.Monad               (unless, void, when)
 import           Control.Monad.Catch         (Handler (..), MonadCatch,
                                               MonadMask, MonadThrow, catch,
@@ -30,7 +31,7 @@ import           Control.Monad.Cont          (ContT (..), runContT)
 import           Control.Monad.Loops         (whileM_)
 import           Control.Monad.Reader        (ReaderT (..), ask, runReaderT)
 import           Control.Monad.State         (MonadState (get, put, state),
-                                              StateT, evalStateT)
+                                              StateT, evalStateT, modify)
 import           Control.Monad.Trans         (liftIO)
 import           Control.Monad.Trans         (MonadIO, MonadTrans, lift)
 import           Data.Function               (on)
@@ -48,17 +49,16 @@ import           RSCoin.Core.Logging         (logWarning)
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
                                               after, localTime, mcs, timeout,
-                                              wait, workWhile)
+                                              wait, workWhile, myThreadId, 
+                                              killThread, fork, for,
+                                              ThreadId(PureThreadId))
 
 
 type Timestamp = Microsecond
 
-type ThreadId = Int
-
 -- | Private context for each pure thread
 data ThreadCtx m = ThreadCtx
-    { _condition :: m Bool          -- ^ Whether thread should remain alive
-    , _threadId  :: ThreadId        -- ^ Thread id
+    { _threadId  :: ThreadId        -- ^ Thread id
     , _handlers  :: [Handler m ()]  -- ^ Exception handlers stack
     }
 
@@ -84,7 +84,7 @@ data Scenario m = Scenario
     { _events         :: PQ.MinQueue (Event m)
     , _curTime        :: Microsecond
     , _aliveThreads   :: S.Set ThreadId
-    , _threadsCounter :: ThreadId
+    , _threadsCounter :: Integer
     }
 
 $(makeLenses ''Scenario)
@@ -182,7 +182,7 @@ launchTimedT t = flip evalStateT emptyScenario
 runTimedT :: (MonadIO m, MonadCatch m) => TimedT m () -> m ()
 runTimedT timed = launchTimedT $ do
     -- execute first action (main thread)
-    runInSandbox mainThreadCtx timed
+    mainThreadCtx >>= \ctx -> runInSandbox ctx timed
     -- event loop
     whileM_ notDone $ do
         -- take next event
@@ -193,7 +193,8 @@ runTimedT timed = launchTimedT $ do
         TimedT $ curTime .= nextEv ^. timestamp
 
         let ctx = nextEv ^. threadCtx
-        keepAlive <- ctx ^. condition
+            tid = ctx ^. threadId
+        keepAlive <- wrapCore $ use $ aliveThreads . to (S.member tid)
         let -- die if time has come
             maybeDie = unless keepAlive $ throwM ThreadKilled
             act      = maybeDie >> runInSandbox ctx (nextEv ^. action)
@@ -206,11 +207,19 @@ runTimedT timed = launchTimedT $ do
     -- put empty continuation to an action (not our own!)
     runInSandbox r = wrapCore . unwrapCore' r
 
-    mainThreadCtx =
-        ThreadCtx
-        { _condition = return True
-        , _handlers  = [Handler threadKilledNotifier]
-        }
+    mainThreadCtx = getNextThreadId <&> 
+        \tid ->
+            ThreadCtx
+            { _threadId = tid
+            , _handlers = [Handler threadKilledNotifier]
+            }
+
+getNextThreadId :: Monad m => TimedT m ThreadId
+getNextThreadId = do
+    tid <- PureThreadId <$> wrapCore (use threadsCounter)
+    wrapCore $ modify $ threadsCounter %~ (+1)
+    wrapCore $ modify $ aliveThreads %~ S.insert tid
+    return tid
 
 -- | Just like runTimedT but makes it possible to get a result.
 evalTimedT
@@ -223,23 +232,24 @@ evalTimedT timed = do
 
 threadKilledNotifier :: MonadIO m => SomeException -> m ()
 threadKilledNotifier e =
-    logWarning $ formatSingle' "Thread killed by exception: {}" $ show $ e
-{-# NOINLINE threadKilledNotifier #-}
+    logWarning $ formatSingle' "Thread killed by exception: {}" $ show e
 
 instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
     localTime = TimedT $ use curTime
 
     -- | Take note, created thread may be killed by timeout
     --   only when it calls "wait"
-    workWhile cond _action = do
+    fork _action = do
         -- just put new thread to an event queue
         _timestamp <- localTime
+        tid <- getNextThreadId
         let _threadCtx =
                 ThreadCtx
-                { _condition = cond
-                , _handlers  = [Handler threadKilledNotifier]
+                { _threadId = tid 
+                , _handlers = [Handler threadKilledNotifier]
                 }
         TimedT $ events %= PQ.insert Event { .. }
+        return tid
 
     wait relativeToNow = do
         cur <- localTime
@@ -255,32 +265,20 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         TimedT $ lift $ ContT $
                   \c -> do
                     events %= PQ.insert (event $ c ())
+
+    myThreadId = TimedT $ view threadId
+
+    killThread tid = wrapCore $ modify $ aliveThreads %~ S.delete tid
+
     timeout t action' = do
-        var <- liftIO $ atomically $ newTVar Nothing
-        timestamp' <- localTime
-        workWhile (untilTime $ t + timestamp') $ do
+        var <- liftIO $ newTVarIO Nothing
+        -- fork worker
+        wtid <- fork $ do
             res <- action'
-            liftIO $ atomically $ writeTVar var $
-                Just $ return res
-        -- NOTE: this is checking TVar in order to find one result (either error, or some value)
-        -- every microsecond. Testing performanse could be slightly worse with this. Proper way would
-        -- be to implement ThreadId and killThread in MonadTimed, then this would be avoided.
-        --
-        -- Depending on MonadTimed (TimedT) internals, actions might take 1 microsecond longer to finish.
-        -- It takes at least one microsecond to collect and return the results (next line).
-        -- Doing `timeout 10 (wait $ for 5 mcs)` might return after 6 mcs (in this very exaple it will return after 100 mcs, depending on sleepStep)
-        k <- fromMaybe (throwM $ MTTimeoutError "Timeout exceeeded") . headMay . catMaybes
-             <$> (sequence $ Prelude.replicate ((+1) . ceiling $ fromIntegral t / fromIntegral sleepStep) $ getMaybeValue var)
-        lift k
-      where
-        sleepStep = 100 :: Microsecond
-        getMaybeValue :: (MonadIO m, MonadThrow m, MonadCatch m) => TVar (Maybe (m a)) -> TimedT m (Maybe (m a))
-        getMaybeValue var = do
-            res <- liftIO $ atomically $ readTVar var
-            when (isNothing res) $
-                -- NOTE: @martoon said 100 mcs is sleep time resolution in threads.
-                -- Sleeping only 1 mcs might hit the preformance wall.
-                wait $ after sleepStep mcs
-            return res
-        untilTime :: (MonadIO m, MonadThrow m, MonadCatch m) => Microsecond -> TimedT m Bool
-        untilTime time = (time >) <$> localTime
+            liftIO $ atomically $ writeTVar var $ Just res
+        -- wait and gather results
+        wait $ for t mcs
+        killThread wtid
+        res <- liftIO $ readTVarIO var
+        maybe (throwM $ MTTimeoutError "Timedout exceeded") return res
+        

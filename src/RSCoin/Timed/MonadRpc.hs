@@ -34,6 +34,7 @@ module RSCoin.Timed.MonadRpc
        , serverTypeRestriction3
        ) where
 
+import           Control.Concurrent          (ThreadId)
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Reader        (ReaderT (..), runReaderT)

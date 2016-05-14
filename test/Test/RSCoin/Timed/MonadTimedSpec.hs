@@ -26,11 +26,11 @@ import           Test.QuickCheck             (Property, counterexample, ioProper
                                               (===), NonNegative (..))
 import           Test.QuickCheck.Function    (Fun, apply)
 import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, monitor,
-                                              run)
+                                              run, pre)
 import           Test.QuickCheck.Poly        (A)
 import           Test.RSCoin.Timed.Arbitrary ()
 
-import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..),
+import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..), fork_,
                                               RelativeToNow, invoke, now, schedule,
                                               for, after, sec, MonadTimedError, mcs)
 import           RSCoin.Timed.TimedIO        (TimedIO, runTimedIO)
@@ -138,11 +138,10 @@ timeoutProp
     -> NonNegative Microsecond
     -> PropertyM m ()
 timeoutProp (getNonNegative -> tout) (getNonNegative -> wt) = do
-    let wtLTtout = wt < tout
-        action = do
+    let action = do
             wait $ for wt mcs
-            return wtLTtout
-        handler (_ :: MonadTimedError) = return $ not wtLTtout
+            return $ wt <= tout
+        handler (_ :: MonadTimedError) = return $ wt >= tout
     res <- run $ timeout tout action `catch` handler
     assert res
 
@@ -180,7 +179,7 @@ forkSemanticProp
     => A
     -> Fun A A
     -> PropertyM m ()
-forkSemanticProp = actionSemanticProp fork
+forkSemanticProp = actionSemanticProp fork_
 
 waitPassingProp
     :: (MonadTimed m, MonadIO m)
@@ -278,7 +277,7 @@ forkSemanticTimedProp
     :: A
     -> Fun A A
     -> TimedTProp ()
-forkSemanticTimedProp = actionSemanticTimedProp fork
+forkSemanticTimedProp = actionSemanticTimedProp fork_
 
 waitPassingTimedProp
     :: RelativeToNowNat

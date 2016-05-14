@@ -4,12 +4,11 @@
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE ViewPatterns           #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE UndecidableInstances   #-}
 
 -- | This module contains time management monad and it's implementation for IO.
 module RSCoin.Timed.MonadTimed
-    ( fork, wait, localTime, workWhile, work, schedule, invoke, timeout
+    ( fork, fork_, wait, localTime, workWhile, work, schedule, invoke, timeout
+    , killThread, myThreadId    
     , minute , sec , ms , mcs
     , minute', sec', ms', mcs'
     , tu
@@ -24,8 +23,10 @@ module RSCoin.Timed.MonadTimed
     , MonadTimed
     , RelativeToNow
     , MonadTimedError (..)
+    , ThreadId(..)
     ) where
 
+import qualified Control.Concurrent   as C
 import           Control.Exception    (Exception (..))
 import           Control.Monad        (void)
 import           Control.Monad.Catch  (MonadThrow)
@@ -49,6 +50,13 @@ import           RSCoin.Core.Error    (rscExceptionToException,
 --   basing on current time point
 type RelativeToNow = Microsecond -> Microsecond
 
+-- | Dirty hack, constructor depends on whether is it emulation or real mode
+--   Alternative is to add in MonadTimed, and thus WorkMode, second typeclass
+--   parameter
+data ThreadId = IOThreadId C.ThreadId
+              | PureThreadId Integer
+    deriving (Eq, Ord, Show)
+
 data MonadTimedError
     = MTTimeoutError Text
     deriving (Show, Typeable)
@@ -63,7 +71,7 @@ instance Buildable MonadTimedError where
 -- | Allows time management. Time is specified in microseconds passed
 --   from start point (origin).
 --   Second class parameter stands for ThreadId type
-class MonadThrow m => MonadTimed m i | m -> i where
+class MonadThrow m => MonadTimed m where
     -- | Acquires time relative to origin point
     localTime :: m Microsecond
 
@@ -71,29 +79,29 @@ class MonadThrow m => MonadTimed m i | m -> i where
     wait :: RelativeToNow -> m ()
 
     -- | Creates another thread of execution, with same point of origin
-    fork :: m () -> m i
+    fork :: m () -> m ThreadId
 
     -- | Acquires current thread id
-    myThreadId :: m i
+    myThreadId :: m ThreadId
 
     -- | Arises ThreadKilled exception in specified thread
-    killThread :: i -> m ()
+    killThread :: ThreadId -> m ()
 
     -- | Throws an TimeoutError exception if running an action exceeds running time
     timeout :: Microsecond -> m a -> m a
 
 -- | Executes an action somewhere in future
-schedule :: MonadTimed m i => RelativeToNow -> m () -> m ()
+schedule :: MonadTimed m => RelativeToNow -> m () -> m ()
 schedule time action = fork_ $ wait time >> action
 
 -- | Executes an action at specified time in current thread
-invoke :: MonadTimed m i => RelativeToNow -> m a -> m a
+invoke :: MonadTimed m => RelativeToNow -> m a -> m a
 invoke time action = wait time >> action
 
 -- | (Deprecated)
 --   Forks a temporal thread, which exists
 --   until preficate evaluates to False
-workWhile :: (MonadIO m, MonadTimed m i) => m Bool -> m () -> m ()
+workWhile :: (MonadIO m, MonadTimed m) => m Bool -> m () -> m ()
 workWhile cond action = do
     working <- liftIO $ newIORef True
     tid     <- fork $ action >> liftIO (writeIORef working False)
@@ -104,14 +112,14 @@ workWhile cond action = do
  
 -- | Like workWhile, unwraps first layer of monad immediatelly
 --   and then checks predicate periocially
-work :: (MonadIO m, MonadTimed m i) => TwoLayers m Bool -> m () -> m ()
+work :: (MonadIO m, MonadTimed m) => TwoLayers m Bool -> m () -> m ()
 work (getTL -> predicate) action = predicate >>= \p -> workWhile p action
 
 -- | Similar to fork, but without result
-fork_ :: MonadTimed m i => m () -> m ()
+fork_ :: MonadTimed m => m () -> m ()
 fork_ = void . fork
 
-instance MonadTimed m i => MonadTimed (ReaderT r m) i where
+instance MonadTimed m => MonadTimed (ReaderT r m) where
     localTime = lift localTime
 
     wait = lift . wait
@@ -124,7 +132,7 @@ instance MonadTimed m i => MonadTimed (ReaderT r m) i where
 
     timeout t m = lift . timeout t . runReaderT m =<< ask
 
-instance MonadTimed m i => MonadTimed (StateT r m) i where
+instance MonadTimed m => MonadTimed (StateT r m) where
     localTime = lift localTime
 
     wait = lift . wait
@@ -185,7 +193,7 @@ upto :: TimeAcc2 t => t
 upto = upto' 0
 
 -- | Counts time since outer monad layer was unwrapped
-startTimer :: MonadTimed m i => m (m Microsecond)
+startTimer :: MonadTimed m => m (m Microsecond)
 startTimer = do
     start <- localTime
     return $ subtract start <$> localTime
@@ -216,7 +224,7 @@ class TimeAcc2 t where
     during' :: Microsecond -> t
     upto'   :: Microsecond -> t
 
-instance MonadTimed m i => TimeAcc2 (TwoLayers m Bool) where
+instance MonadTimed m => TimeAcc2 (TwoLayers m Bool) where
     during' time = TwoLayers $ do
         end <- (time + ) <$> localTime
         return $ (end > ) <$> localTime

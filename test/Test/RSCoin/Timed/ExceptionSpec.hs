@@ -29,8 +29,8 @@ import           Test.QuickCheck.Property    (Result (reason), exception,
 
 import           RSCoin.Core                 (Severity (Error), initLogging)
 import           RSCoin.Timed                (Delays (..), Microsecond, PureRpc,
-                                              after, for, fork, invoke, mcs,
-                                              runEmulationMode_, sec, wait)
+                                              after, for, fork, fork_, invoke,
+                                              runEmulationMode_, sec, wait, mcs)
 
 import           RSCoin.User.Error           (UserError (InputProcessingError))
 import           Test.RSCoin.Timed.Arbitrary ()
@@ -70,7 +70,7 @@ exceptionShouldAbortExecution std (getNonNegative -> t) =
     monadicIO $ do
         var <- liftIO $ newTVarIO (0 :: Int)
         runEmulationMode_ (Just std) delays' $
-            fork $ do
+            fork_ $ do
                 liftIO $ atomically $ writeTVar var 1
                 wait $ for t mcs
                 void $ throwM $ InputProcessingError "Error"

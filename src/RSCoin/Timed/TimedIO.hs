@@ -24,7 +24,8 @@ import           Data.Time.Clock.POSIX       (getPOSIXTime)
 import qualified System.Timeout              as T
 
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..),
-                                              MonadTimedError (MTTimeoutError))
+                                              MonadTimedError (MTTimeoutError),
+                                              ThreadId(IOThreadId))
 
 newtype TimedIO a = TimedIO
     { getTimedIO :: ReaderT Microsecond IO a
@@ -38,18 +39,20 @@ instance MonadBaseControl IO TimedIO where
 
     restoreM = TimedIO . restoreM
 
-instance MonadTimed TimedIO C.ThreadId where
+instance MonadTimed TimedIO where
     localTime = TimedIO $ (-) <$> lift curTime <*> ask
 
     wait relativeToNow = do
         cur <- localTime
         liftIO $ C.threadDelay $ fromIntegral $ relativeToNow cur
 
-    fork (TimedIO a) = TimedIO $ lift . forkIO . runReaderT a =<< ask
+    fork (TimedIO a) = TimedIO $ lift . fmap IOThreadId . C.forkIO . runReaderT a 
+        =<< ask
     
-    myThreadId = C.myThreadId
+    myThreadId = TimedIO $ lift $ IOThreadId <$> C.myThreadId
     
-    killThread = C.killThread
+    killThread (IOThreadId tid) = TimedIO $ lift $ C.killThread $ tid
+    killThread _ = error "Inproper ThreadId object (expected IOThreadId)"
 
     timeout t (TimedIO action) = TimedIO $ do
         res <- liftIO . T.timeout (fromIntegral t) . runReaderT action =<< ask

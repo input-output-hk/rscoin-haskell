@@ -7,6 +7,7 @@ module RSCoin.User.Operations
        ( commitError
        , getAmount
        , getAmountByIndex
+       , getAllPublicAddresses
        , updateToBlockHeight
        , updateBlockchain
        , formTransaction
@@ -111,6 +112,10 @@ getAmountByIndex st idx = do
          InputProcessingError "invalid index was given to getAmountByIndex")
         (getAmount st)
         addr
+
+-- | Returns list of public addresses available
+getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
+getAllPublicAddresses st = map C.Address <$> query' st A.GetPublicAddresses
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction :: WorkMode m =>

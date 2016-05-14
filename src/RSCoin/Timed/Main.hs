@@ -73,14 +73,13 @@ execPlayWithTimedState = execState (runCatchT $ runTimedT playWithTimedState) un
 log :: (MonadIO m, MonadTimed m) => String -> m ()
 log msg = do
     seconds <- time
-    liftIO $ putStrLn $ mconcat $ ["[", show seconds, "s] ", msg]
+    liftIO $ putStrLn $ mconcat ["[", show seconds, "s] ", msg]
   where
     time :: MonadTimed m => m Double
     time = ( / 1000000) . fromIntegral <$> localTime
 
 interruptedLol :: (MonadTimed m, MonadIO m) => m ()
-interruptedLol = do
-    work (during 5 sec) tempLol
+interruptedLol = work (during 5 sec) tempLol
 
 tempLol :: (MonadIO m, MonadTimed m) => m ()
 tempLol = do
@@ -98,7 +97,7 @@ rpcPure :: IO ()
 rpcPure = rpcSeed 0
 
 rpcSeed :: Int -> IO ()
-rpcSeed seed = runPureRpc (mkStdGen seed) delays $ handshake
+rpcSeed seed = runPureRpc (mkStdGen seed) delays handshake
 
 handshake :: (MonadRpc m, MonadTimed m, MonadIO m) => m ()
 handshake = do
@@ -109,7 +108,7 @@ handshake = do
     work (during 3 sec) $ serve 2222 [method "lol" resp, method "qwe" resp]
 
     forM_ [1..3] $ \i ->
-        schedule (at 1 sec) $ do
+        schedule (at 1 sec) $
             forM_ [1..3] $ \j ->
                 schedule (at 2 sec) $ do
                     let a = i * 3 + j
@@ -142,5 +141,3 @@ syncronized lock action = do
     _ <- liftIO $ takeMVar lock
     action
     liftIO $ putMVar lock ()
-
-

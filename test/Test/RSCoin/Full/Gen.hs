@@ -39,8 +39,7 @@ instance Arbitrary UserAction where
 
 -- TODO: maybe we should create also StartMintette, AddMintette, in terms of actions
 instance Arbitrary SomeAction where
-    arbitrary = oneof [ SomeAction <$> (arbitrary :: Gen UserAction)
-                      ]
+    arbitrary = oneof [SomeAction <$> (arbitrary :: Gen UserAction)]
 
 genActions :: Gen ([SomeAction], Microsecond)
 genActions = do

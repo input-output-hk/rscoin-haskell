@@ -1,8 +1,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE Rank2Types                #-}
+{-# LANGUAGE UndecidableInstances      #-}
 
 module RSCoin.Test.ContA
     ( ContAT
@@ -13,16 +13,16 @@ module RSCoin.Test.ContA
     , runContA
     ) where
 
-import Control.Monad             (liftM, ap)
-import Control.Monad.Catch       (MonadThrow, throwM)
-import Control.Monad.Cont        (ContT(..), cont, runCont)
-import Control.Monad.Identity    (Identity)
-import Control.Monad.State       (MonadState, get, put, state)
-import Control.Monad.Trans       (MonadTrans, MonadIO, lift, liftIO)
+import           Control.Monad          (ap, liftM)
+import           Control.Monad.Catch    (MonadThrow, throwM)
+import           Control.Monad.Cont     (ContT (..), cont, runCont)
+import           Control.Monad.Identity (Identity)
+import           Control.Monad.State    (MonadState, get, put, state)
+import           Control.Monad.Trans    (MonadIO, MonadTrans, lift, liftIO)
 
 
 -- | Like Cont monad, but forall-quantificated by it's return type.
---   It might be helpful in resolving 
+--   It might be helpful in resolving
 --   "TimedT doesn't return a value" non-feature
 
 newtype ContAT m a = ContAT { runContAT' :: forall r . ContT r m a }
@@ -52,9 +52,9 @@ instance Monad m => Applicative (ContAT m) where
     (<*>) = ap
 
 instance Monad m => Monad (ContAT m) where
-    return x = ContAT $ return x  
- 
-    ContAT m >>= f = ContAT $ m >>= (\x -> runContAT' $ f x)
+    return x = ContAT $ return x
+
+    ContAT m >>= f = ContAT $ m >>= runContAT' . f
 
 
 -- * Auxilary monad instances
@@ -72,6 +72,3 @@ instance MonadIO m => MonadIO (ContAT m) where
 
 instance MonadThrow m => MonadThrow (ContAT m) where
     throwM e = ContAT $ throwM e
-
-
-

@@ -146,9 +146,9 @@ instance Action UserAction where
             \s ->
                  U.formTransaction s inputs address $
                  Coin (sum $ map snd inputs)
-    doAction (ListAddresses userIndex) = do
+    doAction (ListAddresses userIndex) =
         runUserAction userIndex U.ListAddresses
-    doAction (UpdateBlockchain userIndex) = do
+    doAction (UpdateBlockchain userIndex) =
         runUserAction userIndex U.UpdateBlockchain
 
 toAddress :: WorkMode m => ToAddress -> TestEnv m Address

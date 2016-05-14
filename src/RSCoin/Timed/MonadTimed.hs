@@ -26,19 +26,19 @@ module RSCoin.Timed.MonadTimed
 
 import           Control.Exception    (Exception (..))
 import           Control.Monad.Catch  (MonadThrow)
-import           Control.Monad.Trans  (lift)
-import           Control.Monad.Reader (ReaderT(..), runReaderT, ask)
+import           Control.Monad.Reader (ReaderT (..), ask, runReaderT)
 import           Control.Monad.State  (StateT, evalStateT, get)
+import           Control.Monad.Trans  (lift)
 
 import           Data.Monoid          ((<>))
 import           Data.Text            (Text)
 import           Data.Text.Buildable  (Buildable (build))
-import           Data.Time.Units      (TimeUnit (..), Microsecond, Millisecond,
-                                       Second, Minute, convertUnit)
+import           Data.Time.Units      (Microsecond, Millisecond, Minute, Second,
+                                       TimeUnit (..), convertUnit)
 import           Data.Typeable        (Typeable)
 
-import           RSCoin.Core.Error    (rscExceptionToException,
-                                       rscExceptionFromException)
+import           RSCoin.Core.Error    (rscExceptionFromException,
+                                       rscExceptionToException)
 
 -- | Defines some time point (relative to current time point)
 --   basing on current time point
@@ -211,4 +211,3 @@ instance TimeAcc3 Microsecond where
 
 instance (a ~ b, TimeAcc3 t) => TimeAcc3 (a -> (b -> Microsecond) -> t) where
     interval' acc t f = interval' $ f t + acc
-

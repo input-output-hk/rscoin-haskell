@@ -47,44 +47,56 @@ import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
                                               ThreadId (PureThreadId), for,
                                               fork, killThread, localTime, mcs,
-                                              myThreadId, timeout, wait)
+                                             myThreadId, timeout, wait)
+
+import Data.Maybe (isJust)
+import Debug.Trace
+
 
 type Timestamp = Microsecond
 
 -- | Private context for each pure thread
-data ThreadCtx m = ThreadCtx
+data ThreadCtx c = ThreadCtx
     { _threadId :: ThreadId        -- ^ Thread id
-    , _handlers :: [Handler m ()]  -- ^ Exception handlers stack
+    , _handlers :: [Handler c ()]  -- ^ Exception handlers stack
     }
 
 $(makeLenses ''ThreadCtx)
 
 -- | Timestamped action
-data Event m = Event
+data Event m c = Event
     { _timestamp :: Timestamp
     , _action    :: m ()
-    , _threadCtx :: ThreadCtx m
+    , _threadCtx :: ThreadCtx c
     }
 
 $(makeLenses ''Event)
 
-instance Eq (Event m) where
+instance Eq (Event m c) where
     (==) = (==) `on` _timestamp
 
-instance Ord (Event m) where
+instance Ord (Event m c) where
     compare = comparing _timestamp
 
--- | State for MonadTimed
-data Scenario m = Scenario
-    { _events         :: PQ.MinQueue (Event m)
+-- | Overall state for MonadTimed
+data Scenario m c = Scenario
+    { -- | set of sleeping threads
+      _events         :: PQ.MinQueue (Event m c)  
+      -- | current virtual time
     , _curTime        :: Microsecond
+      -- | set of declared threads.
+      --   Implementation notes:
+      --   when thread apperars, its id is added to set
+      --   when thread is "killThread"ed, its id is removed
+      --   when thread finishes it's execution, id remains in set
     , _aliveThreads   :: S.Set ThreadId
+      -- | Number of created threads ever 
     , _threadsCounter :: Integer
     }
 
 $(makeLenses ''Scenario)
 
-emptyScenario :: Scenario m
+emptyScenario :: Scenario m c
 emptyScenario =
     Scenario
     { _events = PQ.empty
@@ -94,12 +106,23 @@ emptyScenario =
     }
 
 -- | Heart of TimedT monad
-type Core m = StateT (Scenario (TimedT m)) m
+newtype Core m a = Core 
+    { getCore :: StateT (Scenario (TimedT m) (Core m)) m a
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow,
+               MonadCatch, MonadMask)
+
+instance MonadTrans Core where
+    lift = Core . lift
+
+instance MonadState s m => MonadState s (Core m) where
+    get = lift get
+    put = lift . put
+    state = lift . state
 
 -- | Pure implementation of MonadTimed.
 --   It stores an event queue, on "wait" continuation is passed to that queue
 newtype TimedT m a = TimedT
-    { unwrapTimedT :: ReaderT (ThreadCtx (TimedT m)) (ContT () (Core m)) a
+    { unwrapTimedT :: ReaderT (ThreadCtx (Core m)) (ContT () (Core m)) a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow)
 
 
@@ -129,13 +152,16 @@ instance (MonadCatch m, MonadIO m) => MonadCatch (TimedT m) where
             -- (all that because TimedT can't return a sensible value
             --  when unwrapped :< )
                 contExcept <- liftIO $ newIORef Nothing
-                let remE = liftIO . writeIORef contExcept . Just
-                    act = m >>= \x -> wrapCore $ c x `catchAll` remE
-                    handler' e = handler e >>= wrapCore . c
-                    r' = r & handlers %~ (Handler handler' : )
-                unwrapCore' r' act `catch` (unwrapCore' r . handler')
+                let remE = \x -> (liftIO $ putStrLn ("@Rem er" ++ show x)) >> (liftIO . writeIORef contExcept . Just $ x)
+                    act = unwrapCore' r' $ m >>= \x -> wrapCore $ (getCore $ c x) `catchAll` remE
+                    handler' e = unwrapCore' r $ (liftIO . putStrLn) ("@handled" ++ show e) >> handler e >>= wrapCore . getCore . c
+                    r' = r & handlers %~ (Handler (Core . handler') : )
+                Core $ act `catch` handler'
                 e <- liftIO $ readIORef contExcept
+                liftIO $ putStrLn $ "Var exc: " ++ show e
                 maybe (return ()) throwM e
+
+
 
 -- Posibly incorrect instance
 instance (MonadIO m, MonadMask m) => MonadMask (TimedT m) where
@@ -152,19 +178,20 @@ instance (MonadIO m, MonadMask m) => MonadMask (TimedT m) where
         q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
             runContT (runReaderT (unwrapTimedT t) r) c
 
-wrapCore :: Monad m => Core m a -> TimedT m a
-wrapCore = TimedT . lift . lift
+wrapCore :: Monad m => StateT (Scenario (TimedT m) (Core m)) m a -> TimedT m a
+wrapCore = TimedT . lift . lift . Core
 
 unwrapCore :: Monad m
-           => ThreadCtx (TimedT m)
+           => ThreadCtx (Core m)
            -> (a -> Core m ())
            -> TimedT m a
-           -> Core m ()
-unwrapCore r c = flip runContT c
+           -> StateT (Scenario (TimedT m) (Core m)) m ()
+unwrapCore r c = getCore
+               . flip runContT c
                . flip runReaderT r
                . unwrapTimedT
 
-unwrapCore' :: Monad m => ThreadCtx (TimedT m) -> TimedT m () -> Core m ()
+unwrapCore' :: Monad m => ThreadCtx (Core m) -> TimedT m () -> StateT (Scenario (TimedT m) (Core m)) m ()
 unwrapCore' r = unwrapCore r return
 
 launchTimedT :: Monad m => TimedT m a -> m ()
@@ -181,11 +208,12 @@ runTimedT timed = launchTimedT $ do
     -- event loop
     whileM_ notDone $ do
         -- take next event
-        nextEv <- TimedT $ do
+        nextEv <- wrapCore $ do
             (ev, evs') <- fromJust . PQ.minView <$> use events
             events .= evs'
             return ev
-        TimedT $ curTime .= nextEv ^. timestamp
+        wrapCore $ curTime .= nextEv ^. timestamp
+
 
         let ctx = nextEv ^. threadCtx
             tid = ctx ^. threadId
@@ -194,10 +222,11 @@ runTimedT timed = launchTimedT $ do
             maybeDie = unless keepAlive $ throwM ThreadKilled
             act      = maybeDie >> runInSandbox ctx (nextEv ^. action)
             -- catch with handlers from handlers stack
-        act `catches` (ctx ^. handlers)
+        wrapCore . getCore $ (Core (unwrapCore' ctx act)) `catches` (ctx ^. handlers)
+
   where
     notDone :: Monad m => TimedT m Bool
-    notDone = TimedT . use $ events . to (not . PQ.null)
+    notDone = TimedT . lift . lift . Core . use $ events . to (not . PQ.null)
 
     -- put empty continuation to an action (not our own!)
     runInSandbox r = wrapCore . unwrapCore' r
@@ -218,12 +247,21 @@ getNextThreadId = do
 
 -- | Just like runTimedT but makes it possible to get a result.
 evalTimedT
-    :: forall a . forall m . (MonadIO m, MonadCatch m)
+    :: forall m a . (MonadIO m, MonadCatch m)
     => TimedT m a -> m a
 evalTimedT timed = do
     ref <- liftIO $ newIORef Nothing
-    runTimedT $ liftIO . writeIORef ref . Just =<< try timed
-    res :: Either SomeException a <- fromJust <$> liftIO (readIORef ref)
+    liftIO $ putStrLn "initiating"
+    runTimedT $ do
+        liftIO $ putStrLn "!launching"
+        m <- try timed
+        liftIO $ putStrLn "!!!!"
+        liftIO $ putStrLn $ either (const "!Left") (const "!Right") m
+        liftIO $ putStrLn "???"
+        liftIO . writeIORef ref . Just $ m
+        liftIO $ putStrLn "!wrote"
+    -- traceM $ maybe "!Nothing" (const "!Just") res
+    res :: Either SomeException a <- fromJust <$> (liftIO (readIORef ref) >>= \x -> liftIO (print $ isJust x) >> return x)
     either throwM return res
 
 threadKilledNotifier :: MonadIO m => SomeException -> m ()
@@ -231,7 +269,7 @@ threadKilledNotifier e =
     logWarning $ formatSingle' "Thread killed by exception: {}" $ show e
 
 instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
-    localTime = TimedT $ use curTime
+    localTime = wrapCore $ use curTime
     -- | Take note, created thread may be killed by timeout
     --   only when it calls "wait"
     fork _action = do
@@ -243,7 +281,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
                 { _threadId = tid
                 , _handlers = [Handler threadKilledNotifier]
                 }
-        TimedT $ events %= PQ.insert Event { .. }
+        wrapCore $ events %= PQ.insert Event { .. }
         return tid
 
     wait relativeToNow = do
@@ -253,13 +291,13 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
                 Event
                 { _threadCtx = ctx
                 , _timestamp = cur + relativeToNow cur
-                , _action = wrapCore following
+                , _action = wrapCore $ getCore $ following
                 }
         -- grab our continuation, put it to event queue
         -- and finish execution
         TimedT $ lift $ ContT $
-                  \c -> do
-                    events %= PQ.insert (event $ c ())
+                  \c -> 
+                    Core $ events %= PQ.insert (event $ c ())
 
     myThreadId = TimedT $ view threadId
 

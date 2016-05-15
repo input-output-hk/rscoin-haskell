@@ -10,12 +10,13 @@ module Test.RSCoin.Full.FullSpec
 
 import           Control.Lens                    (view, views)
 import           Data.List                       (nub)
-import           Test.Hspec                      (Spec, describe)
+import           Test.Hspec                      (Spec, before, describe)
 import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck                 (Arbitrary (arbitrary),
                                                   NonEmptyList (NonEmpty))
 
-import           RSCoin.Core                     (genesisValue)
+import           RSCoin.Core                     (Severity (..), genesisValue,
+                                                  initLogging)
 import qualified RSCoin.User                     as U
 
 import           Test.RSCoin.Core.Arbitrary      ()
@@ -28,12 +29,13 @@ import           Test.RSCoin.Full.Property       (FullProperty, assertFP,
 import qualified Test.RSCoin.Full.UserOperations as UO
 
 spec :: Spec
-spec = do
-    describe "test" $
-        prop "test" test
-    describe "Full RSCoin" $ do
-        prop "if bank sends 50 coins to arbitrary address then it has 50 less coins" prop_sendAll
-        prop "all users have unique addresses" prop_uniqueAddresses
+spec =
+    before (initLogging Warning) $ do
+        describe "test" $
+            prop "test" test
+        describe "Full RSCoin" $ do
+            prop "if bank sends all coins to arbitrary address then it has 0 coins" prop_sendAll
+            prop "all users have unique addresses" prop_uniqueAddresses
 
 test :: FullProperty ()
 test = assertFP True

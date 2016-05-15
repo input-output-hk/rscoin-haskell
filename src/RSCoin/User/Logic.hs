@@ -9,16 +9,18 @@ module RSCoin.User.Logic
        , validateTransaction
        ) where
 
+import           RSCoin.Core                   (logError,
+                                                rscExceptionFromException,
+                                                rscExceptionToException,
+                                                userLoggerName)
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
 import           RSCoin.Core.Primitives        (AddrId, Transaction (..))
-import           RSCoin.Timed                  (WorkMode)
 import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitConfirmation, Mintette,
                                                 MintetteId, PeriodId)
-import           RSCoin.Core                   (rscExceptionToException,
-                                                rscExceptionFromException)
+import           RSCoin.Timed                  (WorkMode)
 
 import           Serokell.Util.Text            (format', formatSingle')
 
@@ -36,6 +38,11 @@ data UserLogicError
     | FailedToCommit
     deriving (Show)
 
+throwUserLogicError :: WorkMode m => UserLogicError -> m a
+throwUserLogicError e = do
+    logError userLoggerName $ T.pack $ show e
+    throwM e
+
 instance Exception UserLogicError where
     toException = rscExceptionToException
     fromException = rscExceptionFromException
@@ -44,7 +51,7 @@ instance Exception UserLogicError where
 -- transaction 'signatures' should contain signature of transaction
 -- given. If transaction is confirmed, just returns. If it's not
 -- confirmed, the FailedToCommit is thrown.
-validateTransaction :: WorkMode m => 
+validateTransaction :: WorkMode m =>
                        Transaction -> M.Map AddrId Signature -> PeriodId -> m ()
 validateTransaction tx@Transaction{..} signatures height = do
     (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
@@ -54,20 +61,20 @@ validateTransaction tx@Transaction{..} signatures height = do
     processInput addrid = do
         owns <- CC.getOwnersByAddrid addrid
         unless (not (null owns)) $
-            throwM $
+            throwUserLogicError $
             MajorityRejected $
             formatSingle' "Addrid {} doesn't have owners" addrid
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
         subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid) owns
         when (length subBundle < length owns `div` 2) $
-            throwM $
+            throwUserLogicError $
             MajorityRejected $
             format'
                 ("Couldn't get CheckNotDoubleSpent " <>
                  "from majority of mintettes: only {}/{} confirmed {} is not double-spent.")
                 (length subBundle, length owns, addrid)
         return subBundle
-    processMintette :: WorkMode m 
+    processMintette :: WorkMode m
                     => AddrId
                     -> (Mintette, MintetteId)
                     -> m (Maybe CheckConfirmations)
@@ -92,4 +99,4 @@ validateTransaction tx@Transaction{..} signatures height = do
                        CC.commitTx mintette tx height bundle) .
                  fst)
                 owns
-        when (null succeededCommits) $ throwM FailedToCommit
+        when (null succeededCommits) $ throwUserLogicError FailedToCommit

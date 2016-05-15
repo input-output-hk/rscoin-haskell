@@ -310,20 +310,24 @@ executable timed-launch
 benchmark rscoin-bench
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
+  other-modules:       Bench.RSCoin.FilePathUtils
+                     , Bench.RSCoin.InfraThreads
+                     , Bench.RSCoin.UserLogic
   build-depends:       acid-state
+                     , async
                      , base >=4.8 && <4.9
                      , exceptions
                      , filepath
                      , formatting
-                     , lens
                      , mtl
                      , rscoin
                      , temporary
                      , text
-                     , text-format
+                     , transformers
   hs-source-dirs:      bench
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
                        -Wall
                        -fno-warn-orphans
+                       -fwarn-unused-imports
   default-extensions:  OverloadedStrings

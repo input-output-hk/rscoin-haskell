@@ -31,15 +31,10 @@ updateUI st ow = do
     b <- liftIO $ sum <$> mapM (O.getAmount st) a
     x <- liftIO $ concat <$> mapM (query st . A.GetTransactions) a
     t <- mapM fromTransaction x
-    {-liftIO $ putStrLn "Transactions:"
-    forM_ t $ \tr -> do
-        ti <- forM (txInputs tr) $ \(tId, i, c) -> do
-            pt <- getTransactionById tId
-            let ua = (\a -> (txOutputs a) !! i) <$> pt
-            return (ua, c)
-        liftIO $ putStrLn $ show ti ++ " -> " ++ show (txOutputs tr)-}
     liftIO $ postGUIAsync $ do
         labelSetText (balanceLabel ow) $ show $ getCoin b
+        labelSetText (transactionsLabel ow) $ "Transactions: " ++ show (length t)
+        labelSetText (transactionsNumLabel ow) $ "Transactions: " ++ show (length t)
         G.listStoreClear (transactionsList ow)
         forM_ t $ G.listStoreAppend $ transactionsList ow
 

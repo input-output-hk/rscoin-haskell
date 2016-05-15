@@ -22,9 +22,10 @@ import qualified RSCoin.User.Action             as A
 import qualified RSCoin.User.Contacts           as S
 import qualified RSCoin.User.OutputWidgets      as O
 import qualified RSCoin.Core                    as C
-import           RSCoin.User.Transactions       (getTransactionAmount,
+import           RSCoin.User.Transactions       (VerboseTransaction,
+                                                 getTransactionAmount,
                                                  showTransaction)
-import           RSCoin.User.Wallet             (publicAddress)
+import           RSCoin.User.Wallet             (UserAddress, publicAddress)
 
 onExit :: TBQueue A.Action -> IO ()
 onExit queue = atomically (writeTBQueue queue A.Exit)
@@ -42,6 +43,22 @@ onSend queue ow sendAddress sendAmount = do
             else G.postGUIAsync $ do
                 G.labelSetText (O.messageLabel  ow) "Bad key."
                 G.widgetShowAll (O.notificationWindow ow)
+
+setupTransactionsView
+    :: [UserAddress] -> G.TreeView -> G.ListStore VerboseTransaction -> IO ()
+setupTransactionsView a t l = do
+    G.treeViewSetModel t l
+    amountCol  <- G.treeViewColumnNew
+    detailsCol <- G.treeViewColumnNew
+    tRenderer  <- G.cellRendererTextNew
+    G.cellLayoutPackStart amountCol tRenderer False
+    G.cellLayoutPackStart detailsCol tRenderer False
+    G.cellLayoutSetAttributes amountCol tRenderer l $ \r ->
+        [G.cellText := show (getTransactionAmount a r)]
+    G.cellLayoutSetAttributes detailsCol tRenderer l $ \r ->
+        [G.cellText := showTransaction r]
+    void $ G.treeViewAppendColumn t amountCol
+    void $ G.treeViewAppendColumn t detailsCol
 
 initializeGUI :: TBQueue A.Action ->
     T.RSCoinUserState -> S.ContactsState -> IO O.OutputWidgets
@@ -98,18 +115,10 @@ initializeGUI queue st cs = do
     void $ G.treeViewAppendColumn addressesView addressesCol
 
     transactionsView  <- getWidget G.castToTreeView "TransactionsView"
-    G.treeViewSetModel transactionsView (O.transactionsList ow)
-    amountCol  <- G.treeViewColumnNew
-    detailsCol <- G.treeViewColumnNew
-    tRenderer  <- G.cellRendererTextNew
-    G.cellLayoutPackStart amountCol tRenderer False
-    G.cellLayoutPackStart detailsCol tRenderer False
-    G.cellLayoutSetAttributes amountCol tRenderer (O.transactionsList ow) $ \t ->
-        [G.cellText := show (getTransactionAmount addresses t)]
-    G.cellLayoutSetAttributes detailsCol tRenderer (O.transactionsList ow) $ \t ->
-        [G.cellText := showTransaction t]
-    void $ G.treeViewAppendColumn transactionsView amountCol
-    void $ G.treeViewAppendColumn transactionsView detailsCol
+    setupTransactionsView addresses transactionsView (O.transactionsList ow)
+
+    recentActivityView <- getWidget G.castToTreeView "RecentActivityView"
+    setupTransactionsView addresses recentActivityView (O.transactionsList ow)
 
     addButton    <- getWidget G.castToButton   "AddButton"
     contactsView <- getWidget G.castToTreeView "ContactsView"

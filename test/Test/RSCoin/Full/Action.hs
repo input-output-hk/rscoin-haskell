@@ -18,13 +18,12 @@ module Test.RSCoin.Full.Action
 
 import           Control.Exception         (assert)
 import           Control.Lens              (to, view, (^.))
-import           Control.Monad             (forM_, when)
+import           Control.Monad             (forM_, unless, when)
 import           Control.Monad.Catch       (throwM)
 import           Control.Monad.Trans       (MonadIO)
 import           Data.Acid.Advanced        (query', update')
-import           Data.Bifunctor            (bimap)
 import           Data.Function             (on)
-import           Data.List                 (genericLength, nubBy)
+import           Data.List                 (genericIndex, genericLength, nubBy)
 import           Test.QuickCheck           (NonEmptyList (..), NonNegative (..))
 
 import           Serokell.Util             (indexModulo, indexModuloMay)
@@ -122,7 +121,7 @@ type UserIndex = Maybe Word
 -- | Address will be either some arbitrary address or some user address
 type ToAddress = Either Address (UserIndex, Word)
 
-type FromAddresses = NonEmptyList (Word, Word)
+type FromAddresses = NonEmptyList Word
 
 type Inputs = [(Word, Coin)]
 
@@ -136,7 +135,8 @@ instance Action UserAction where
         address <- toAddress toAddr
         inputs <- toInputs userIndex fromAddresses
         user <- getUser userIndex
-        U.formTransaction user inputs address $ sum $ map snd inputs
+        unless (null inputs) $
+            U.formTransaction user inputs address $ sum $ map snd inputs
     doAction (UpdateBlockchain userIndex) =
         runUserAction userIndex U.UpdateBlockchain
 
@@ -156,16 +156,14 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
     addressesAmount <- mapM (U.getAmount user) allAddresses
     when (null publicAddresses) $
         throwM $ TestError "No public addresses in this user"
-    -- TODO: for now we are sending all coins. It would be good to send some amount of coins that we have
     return $
         nubBy ((==) `on` fst) .
         filter ((> 0) . snd) .
-        addAtLeastOneAddress addressesAmount .
-        map (bimap succ $ indexModulo addressesAmount) $
+        map
+            (\i ->
+                  (succ i, addressesAmount `genericIndex` i)) .
+        map (`mod` genericLength publicAddresses) $
         fromIndexes
-  where
-    addAtLeastOneAddress addressesAmount =
-        ((1, addressesAmount !! 0) :)
 
 getUser :: WorkMode m => UserIndex -> TestEnv m U.RSCoinUserState
 getUser Nothing =

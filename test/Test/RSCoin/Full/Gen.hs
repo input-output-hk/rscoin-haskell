@@ -3,7 +3,7 @@
 -- | Arbitrary instances for full testing.
 
 module Test.RSCoin.Full.Gen
-       ( genActions
+       ( genValidActions
        ) where
 
 import           Data.Time.Units             (addTime)
@@ -40,8 +40,13 @@ instance Arbitrary UserAction where
 instance Arbitrary SomeAction where
     arbitrary = oneof [SomeAction <$> (arbitrary :: Gen UserAction)]
 
-genActions :: Gen ([SomeAction], Microsecond)
-genActions = do
+type ActionsDescription = ([SomeAction], Microsecond)
+
+-- | Generate sequence of action which can be applied to empty context
+-- (created using mkTestContext) and are guaranteed to be executed
+-- without fails.
+genValidActions :: Gen ActionsDescription
+genValidActions = do
     actions :: [WaitSomeAction] <- arbitrary
     let actionsRunningTime = sum $ map (\(WaitAction t _) -> getNonNegative t) actions
         safeRunningTime = addTime actionsRunningTime (minute 1)

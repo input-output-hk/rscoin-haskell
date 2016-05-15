@@ -29,7 +29,7 @@ import           Test.RSCoin.Full.Action    (Action (doAction))
 import           Test.RSCoin.Full.Context   (MintetteNumber,
                                              Scenario (DefaultScenario),
                                              TestEnv, UserNumber, mkTestContext)
-import           Test.RSCoin.Full.Gen       (genActions)
+import           Test.RSCoin.Full.Gen       (genValidActions)
 
 type FullProperty a = TestEnv (PropertyM (PureRpc IO)) a
 
@@ -42,7 +42,7 @@ toTestable :: FullProperty a
            -> Property
 toTestable fp mNum uNum =
     monadic unwrapProperty $
-    do (acts,t) <- pick genActions
+    do (acts,t) <- pick genValidActions
        context <- lift $ mkTestContext mNum uNum t DefaultScenario
        lift $ runReaderT (mapM_ doAction acts) context
        runReaderT fp context

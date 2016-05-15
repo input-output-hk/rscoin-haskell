@@ -17,7 +17,7 @@ import           Control.Exception      (SomeException)
 import           Control.Lens           ((^.))
 import           Control.Monad          (filterM, forM_, unless, void, when)
 import           Control.Monad.Catch    (MonadThrow, throwM, try)
-import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
 import           Data.List              (genericIndex, genericLength, nub,
@@ -41,8 +41,10 @@ import           RSCoin.User.Error      (UserError (..))
 import           RSCoin.User.Logic      (validateTransaction)
 import qualified RSCoin.User.Wallet     as W
 
-commitError :: MonadThrow m => T.Text -> m ()
-commitError = throwM . InputProcessingError
+commitError :: (MonadIO m, MonadThrow m) => T.Text -> m ()
+commitError e = do
+  C.logError e
+  throwM . InputProcessingError $ e
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.

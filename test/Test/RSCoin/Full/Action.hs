@@ -35,7 +35,7 @@ import qualified RSCoin.User              as U
 import           Test.RSCoin.Full.Context (TestEnv, buser, state, users)
 import           Test.RSCoin.Full.Error   (TestError (TestError))
 
-class Action a where
+class (Show a) => Action a where
     doAction :: WorkMode m => a -> TestEnv m ()
 
 data SomeAction =
@@ -90,7 +90,7 @@ instance Action UserAction where
         inputs <- toInputs userIndex fromAddresses
         user <- getUser userIndex
         unless (null inputs) $
-            U.formTransaction user inputs address $ sum $ map snd inputs
+            U.formTransactionRetry 5 user inputs address $ sum $ map snd inputs
     doAction (UpdateBlockchain userIndex) =
         runUserAction userIndex U.UpdateBlockchain
 

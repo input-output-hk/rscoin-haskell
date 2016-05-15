@@ -4,7 +4,8 @@
 -- requests to bank/mintettes and related things.
 
 module RSCoin.User.Logic
-       ( CC.getBlockByHeight
+       ( UserLogicError (..)
+       , CC.getBlockByHeight
        , CC.getBlockchainHeight
        , validateTransaction
        ) where
@@ -31,6 +32,8 @@ import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
 import qualified Data.Text                     as T
+import           Data.Text.Buildable           (Buildable (build))
+import           Debug.Trace                   (trace)
 
 data UserLogicError
     = MajorityRejected T.Text
@@ -59,12 +62,14 @@ validateTransaction tx@Transaction{..} signatures height = do
     processInput :: WorkMode m => AddrId -> m CheckConfirmations
     processInput addrid = do
         owns <- CC.getOwnersByAddrid addrid
-        unless (not (null owns)) $
+        when (null owns) $
             throwUserLogicError $
             MajorityRejected $
             formatSingle' "Addrid {} doesn't have owners" addrid
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
-        subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid) owns
+        subBundle <-
+            trace ("Owners of addrid: " ++ show owns) $
+            mconcat . catMaybes <$> mapM (processMintette addrid) owns
         when (length subBundle < length owns `div` 2) $
             throwUserLogicError $
             MajorityRejected $
@@ -77,7 +82,9 @@ validateTransaction tx@Transaction{..} signatures height = do
                     => AddrId
                     -> (Mintette, MintetteId)
                     -> m (Maybe CheckConfirmations)
-    processMintette addrid (mintette,mid) = do
+    processMintette addrid (mintette,mid) =
+        trace "processing mintette" $
+        do
         signedPairMb <-
             CC.checkNotDoubleSpent mintette tx addrid $
             fromJust $ M.lookup addrid signatures

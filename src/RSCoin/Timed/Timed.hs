@@ -16,6 +16,7 @@ module RSCoin.Timed.Timed
        , ThreadId
        ) where
 
+import           Control.Exception.Base      (Exception)
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
 import           Control.Exception           (SomeException)
@@ -138,6 +139,15 @@ instance MonadState s m => MonadState s (TimedT m) where
     put = lift . put
     state = lift . state
 
+newtype ContException = ContException SomeException
+    deriving (Show)
+
+{-
+instance Show (ContException e) where
+    show (ContException e) = show e
+-}
+instance Exception ContException
+
 instance (MonadCatch m, MonadIO m) => MonadCatch (TimedT m) where
     catch m handler =
         TimedT $
@@ -151,16 +161,17 @@ instance (MonadCatch m, MonadIO m) => MonadCatch (TimedT m) where
             -- and then rethrow
             -- (all that because TimedT can't return a sensible value
             --  when unwrapped :< )
-                contExcept <- liftIO $ newIORef Nothing
-                let remE = \x -> (liftIO $ putStrLn ("@Rem er" ++ show x)) >> (liftIO . writeIORef contExcept . Just $ x)
-                    act = unwrapCore' r' $ m >>= \x -> wrapCore $ (getCore $ c x) `catchAll` remE
-                    handler' e = unwrapCore' r $ (liftIO . putStrLn) ("@handled" ++ show e) >> handler e >>= wrapCore . getCore . c
-                    r' = r & handlers %~ (Handler (Core . handler') : )
-                Core $ act `catch` handler'
-                e <- liftIO $ readIORef contExcept
-                liftIO $ putStrLn $ "Var exc: " ++ show e
-                maybe (return ()) throwM e
-
+                let lol :: forall m . MonadIO m => String -> m ()
+                    lol = liftIO . putStrLn
+                let remE = \x -> (liftIO $ putStrLn ("@Rem er" ++ show x)) >> throwM (ContException x)
+                    act = (unwrapCore' r' $ lol "1: " >> m >>= \x -> ( lol "2: " >> ) $ TimedT $ ReaderT $ \r -> lift $ (c x >> lol "3:") `catchAll` remE) >> lol "9:"
+                    handler' e = unwrapCore' r $ (liftIO . putStrLn) ("@handled" ++ show e) >> handler e >>= \x -> lol "hand cont" >> (wrapCore . getCore . c $ x)
+                    contHandler (ContException e) = throwM e
+                    r'' = r & handlers %~ (Handler contHandler : )
+                    r'  = r'' & handlers %~ (Handler (Core . handler') : )
+                lol "exec"
+                Core $ act `catches` [Handler handler', Handler contHandler]
+                lol "passed"
 
 
 -- Posibly incorrect instance
@@ -222,7 +233,7 @@ runTimedT timed = launchTimedT $ do
             maybeDie = unless keepAlive $ throwM ThreadKilled
             act      = maybeDie >> runInSandbox ctx (nextEv ^. action)
             -- catch with handlers from handlers stack
-        wrapCore . getCore $ (Core (unwrapCore' ctx act)) `catches` (ctx ^. handlers)
+        wrapCore . getCore $ (Core (unwrapCore' ctx act)) `catchesSeq` (ctx ^. handlers)
 
   where
     notDone :: Monad m => TimedT m Bool
@@ -235,8 +246,11 @@ runTimedT timed = launchTimedT $ do
         \tid ->
             ThreadCtx
             { _threadId = tid
-            , _handlers = [Handler threadKilledNotifier]
+            , _handlers = [Handler $ \(ContException e) -> throwM e, Handler threadKilledNotifier]
             }
+
+    catchesSeq act [] = act
+    catchesSeq act (h1:h2:hs) = catchesSeq (act `catches` [h1, h2]) hs
 
 getNextThreadId :: Monad m => TimedT m ThreadId
 getNextThreadId = do
@@ -279,7 +293,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         let _threadCtx =
                 ThreadCtx
                 { _threadId = tid
-                , _handlers = [Handler threadKilledNotifier]
+                , _handlers = [Handler $ \(ContException e) -> throwM e, Handler threadKilledNotifier]
                 }
         wrapCore $ events %= PQ.insert Event { .. }
         return tid

@@ -46,13 +46,13 @@ establishMintettes benchDir = do
     keyPairs <- generateMintetteKeys benchMintetteNumber
     runMintettes benchDir keyPairs
     putStrLn $ "Running " ++ show benchMintetteNumber ++ " mintettes..."
-    threadDelay (5 * 10^6 :: Int)
+    threadDelay $ 5 * 10 ^ (6 :: Int)
 
 establishBank :: FilePath -> IO ()
 establishBank benchDir = do
     _ <- forkIO $ bankThread benchDir
     putStrLn "Running bank..."
-    threadDelay (3 * 10^6 :: Int)
+    threadDelay $ 3 * 10 ^ (6 :: Int)
 
 initializeUsers :: FilePath -> [Int64] -> IO [UserAddress]
 initializeUsers benchDir userIds = do
@@ -66,7 +66,7 @@ initializeSuperUser benchDir userAddresses = do
     let bankId = 0
     userThread benchDir (initializeBank userAddresses) bankId
     putStrLn "Running user in bankMode and waiting for period end..."
-    threadDelay (7 * 10^6 :: Int)
+    threadDelay $ 5 * 10 ^ (6 :: Int)
 
 runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO Int
 runTransactions benchDir userAddresses userIds = do

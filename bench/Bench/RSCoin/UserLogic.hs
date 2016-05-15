@@ -24,7 +24,7 @@ import           RSCoin.Timed               (MsgPackRpc, runRealMode)
 import           System.FilePath            ((</>))
 
 transactionNum :: Int
-transactionNum = 10
+transactionNum = 100
 
 userThread :: FilePath -> (A.RSCoinUserState -> MsgPackRpc a) -> Int64 -> IO a
 userThread benchDir userAction userId = runRealMode $ bracket

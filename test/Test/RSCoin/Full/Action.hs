@@ -13,6 +13,7 @@ module Test.RSCoin.Full.Action
        , UserAction (..)
        , UserIndex
        , PartToSend (..)
+       , applyPartToSend
        , getUser
        ) where
 

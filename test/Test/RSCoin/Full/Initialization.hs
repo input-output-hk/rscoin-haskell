@@ -13,8 +13,8 @@ import           Data.List                 (genericLength)
 
 import qualified RSCoin.Bank               as B
 import           RSCoin.Core               (Mintette (..), bankSecretKey)
-import           RSCoin.Timed              (WorkMode, for, invoke, mcs, upto,
-                                            wait, work)
+import           RSCoin.Timed              (WorkMode, for, mcs, upto, wait,
+                                            work)
 import qualified RSCoin.User               as U
 
 import           Test.RSCoin.Full.Action   (Action (doAction))

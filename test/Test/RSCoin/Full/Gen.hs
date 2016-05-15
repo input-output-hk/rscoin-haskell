@@ -1,4 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | Arbitrary instances for full testing.
 
@@ -6,13 +8,17 @@ module Test.RSCoin.Full.Gen
        ( genValidActions
        ) where
 
-import           Control.Monad                   (replicateM)
+import           Control.Lens                    (ix, makeLenses, use, (.=))
+import           Control.Monad                   (forM_, replicateM)
 import           Control.Monad.State             (StateT, evalStateT)
 import           Control.Monad.Trans             (lift)
+import           Data.List                       (genericIndex)
+import           Data.Maybe                      (catMaybes)
 import           Data.Time.Units                 (addTime)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
+                                                  NonEmptyList (..),
                                                   NonNegative (..), choose,
-                                                  sized)
+                                                  oneof, sized, sublistOf)
 
 import qualified RSCoin.Core                     as C
 import           RSCoin.Timed                    (Microsecond, minute)
@@ -20,8 +26,9 @@ import           RSCoin.Timed                    (Microsecond, minute)
 import           Test.RSCoin.Core.Arbitrary      ()
 import           Test.RSCoin.Full.Action         (PartToSend (..),
                                                   SomeAction (SomeAction),
-                                                  UserAction (..),
-                                                  WaitAction (..))
+                                                  UserAction (..), UserIndex,
+                                                  WaitAction (..),
+                                                  applyPartToSend)
 import           Test.RSCoin.Full.Context        (MintetteNumber, UserNumber,
                                                   bankUserAddressesCount,
                                                   userAddressesCount)
@@ -43,22 +50,67 @@ genWaitAction a = WaitAction <$> arbitrary <*> pure a
 type BalancesList = [C.Coin]
 
 data AllBalances = AllBalances
-    { bankBalances  :: BalancesList
-    , usersBalances :: [BalancesList]
+    { _bankBalances  :: BalancesList
+    , _usersBalances :: [BalancesList]
     } deriving (Show)
+
+$(makeLenses ''AllBalances)
 
 initialBalances :: UserNumber -> AllBalances
 initialBalances userNumber =
     AllBalances
-    { bankBalances = C.genesisValue : replicate (bankUserAddressesCount - 1) 0
-    , usersBalances = replicate (fromIntegral userNumber) $
+    { _bankBalances = C.genesisValue : replicate (bankUserAddressesCount - 1) 0
+    , _usersBalances = replicate (fromIntegral userNumber) $
       replicate userAddressesCount 0
     }
 
--- TODO
-genValidFormTransaction :: StateT AllBalances Gen UserAction
-genValidFormTransaction =
-    lift $ FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary
+-- It may be impossible if there were transactions to arbitrary
+-- address (in this case there may be effectively no coins in system).
+genValidFormTransaction :: StateT AllBalances Gen (Maybe UserAction)
+genValidFormTransaction = do
+    bb <- (Nothing, ) <$> use bankBalances
+    ub <- zip (fmap Just [0 ..]) <$> use usersBalances
+    genValidFormTransactionDo $ filter ((> 0) . sum . snd) $ bb : ub
+
+genValidFormTransactionDo :: [(UserIndex, BalancesList)]
+                          -> StateT AllBalances Gen (Maybe UserAction)
+genValidFormTransactionDo [] = return Nothing
+genValidFormTransactionDo solvents =
+    Just <$>
+    do (uIdx,uAddresses) <- lift . oneof . map pure $ solvents
+       let nonEmptyAddresses = map fst . zip [0 ..] . filter (> 0) $ uAddresses
+       indicesToUse <- lift $ nonEmptySublistOf nonEmptyAddresses
+       fromAddresses <-
+           mapM
+               (\i ->
+                     (i, ) <$> lift arbitrary)
+               indicesToUse
+       forM_ fromAddresses $
+           \(addrIdx,p) ->
+                do amountWas <-
+                       (`genericIndex` addrIdx) <$>
+                       maybe
+                           (use bankBalances)
+                           (\i ->
+                                 use $ usersBalances . ix (fromIntegral i))
+                           uIdx
+                   let amountSent = applyPartToSend p amountWas
+                       amountFinal = amountWas - amountSent
+                   maybe
+                       (bankBalances . ix (fromIntegral addrIdx) .= amountFinal)
+                       (\i ->
+                             usersBalances . ix (fromIntegral i) .
+                             ix (fromIntegral addrIdx) .=
+                             amountFinal)
+                       uIdx
+       lift $ FormTransaction uIdx (NonEmpty fromAddresses) <$> arbitrary
+  where
+    nonEmptySublistOf :: [a] -> Gen [a]
+    nonEmptySublistOf xs = do
+        res <- sublistOf xs
+        case res of
+            [] -> (: []) <$> (oneof . map pure $ xs)
+            _ -> return res
 
 genUpdateBlockchain :: Gen UserAction
 genUpdateBlockchain = UpdateBlockchain <$> arbitrary
@@ -81,6 +133,7 @@ genValidActions userNumber = do
         let updates = s `div` 10
             transactions = s - updates
         in (++) <$> replicateM updates genUpdateBlockchain <*>
-           evalStateT
-               (replicateM transactions genValidFormTransaction)
-               (initialBalances userNumber)
+           (catMaybes <$>
+            evalStateT
+                (replicateM transactions genValidFormTransaction)
+                (initialBalances userNumber))

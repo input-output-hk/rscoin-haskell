@@ -41,7 +41,8 @@ import qualified Data.PQueue.Min             as PQ
 import qualified Data.Set                    as S
 import           Serokell.Util.Text          (formatSingle')
 
-import           RSCoin.Core.Logging         (logDebug, logWarning)
+import           RSCoin.Core.Logging         (logDebug, logWarning,
+                                              timedLoggerName)
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
                                               ThreadId (PureThreadId), for,
@@ -229,8 +230,8 @@ isThreadKilled = maybe False (== ThreadKilled) . fromException
 
 threadKilledNotifier :: MonadIO m => SomeException -> m ()
 threadKilledNotifier e
-  | isThreadKilled e = logDebug msg
-  | otherwise = logWarning msg
+  | isThreadKilled e = logDebug timedLoggerName msg
+  | otherwise = logWarning timedLoggerName msg
   where
     msg = formatSingle' "Thread killed by exception: {}" $ show e
 

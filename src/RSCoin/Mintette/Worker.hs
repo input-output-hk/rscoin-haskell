@@ -14,7 +14,8 @@ import           Data.Acid                 (createCheckpoint, update)
 import           Serokell.Util.Exceptions  ()
 import           Serokell.Util.Text        (formatSingle')
 
-import           RSCoin.Core               (SecretKey, epochDelta, logError)
+import           RSCoin.Core               (SecretKey, epochDelta, logError,
+                                            mintetteLoggerName)
 
 import           RSCoin.Mintette.Acidic    (FinishEpoch (..))
 import           RSCoin.Mintette.AcidState (State)
@@ -29,8 +30,7 @@ runWorker sk st =
   where
     handler e = do
         unless (isMEInactive e) $
-            liftIO $
-            logError $
+            logError mintetteLoggerName $
             formatSingle'
                 "Error was caught by worker, restarting in 2 seconds: {}"
                 e

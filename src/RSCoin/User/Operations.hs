@@ -43,8 +43,8 @@ import qualified RSCoin.User.Wallet     as W
 
 commitError :: (MonadIO m, MonadThrow m) => T.Text -> m ()
 commitError e = do
-  C.logError e
-  throwM . InputProcessingError $ e
+    C.logError C.userLoggerName e
+    throwM . InputProcessingError $ e
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.
@@ -125,10 +125,13 @@ formTransaction :: WorkMode m =>
 formTransaction _ [] _ _ =
     commitError "You should enter at least one source input"
 formTransaction st inputs outputAddr outputCoin = do
-    C.logInfo $
-        format' "Form a transaction from {}, to {}, amount {}" (listBuilderJSONIndent 2 $ map pairBuilder inputs, outputAddr, outputCoin)
-    when
-        (nubBy ((==) `on` fst) inputs /= inputs) $
+    C.logInfo C.userLoggerName $
+        format'
+            "Form a transaction from {}, to {}, amount {}"
+            ( listBuilderJSONIndent 2 $ map pairBuilder inputs
+            , outputAddr
+            , outputCoin)
+    when (nubBy ((==) `on` fst) inputs /= inputs) $
         commitError "All input addresses should have distinct IDs."
     unless (all (> 0) $ map snd inputs) $
         commitError $
@@ -137,15 +140,17 @@ formTransaction st inputs outputAddr outputCoin = do
         head $ filter (<= 0) $ map snd inputs
     accounts <- query' st GetAllAddresses
     let notInRange i = i <= 0 || i > genericLength accounts
-    when
-        (any notInRange $ map fst inputs) $
+    when (any notInRange $ map fst inputs) $
         commitError $
         format'
             "Found an account id ({}) that's not in [1..{}]"
-            ( head $ filter notInRange $ map fst inputs
-            , length accounts)
+            (head $ filter notInRange $ map fst inputs, length accounts)
     let accInputs :: [(Word, W.UserAddress, C.Coin)]
-        accInputs = map (\(i,c) -> (i, accounts `genericIndex` (i - 1), c)) inputs
+        accInputs =
+            map
+                (\(i,c) ->
+                      (i, accounts `genericIndex` (i - 1), c))
+                inputs
         hasEnoughFunds (i,acc,c) = do
             amount <- getAmountNoUpdate st acc
             return $
@@ -153,7 +158,10 @@ formTransaction st inputs outputAddr outputCoin = do
                     then Nothing
                     else Just i
     overSpentAccounts <-
-        filterM (\a -> isJust <$> hasEnoughFunds a) accInputs
+        filterM
+            (\a ->
+                  isJust <$> hasEnoughFunds a)
+            accInputs
     unless (null overSpentAccounts) $
         commitError $
         (if length overSpentAccounts > 1
@@ -162,10 +170,11 @@ formTransaction st inputs outputAddr outputCoin = do
         formatSingle'
             " following account doesn't have enough coins: {}"
             (sel1 $ head overSpentAccounts)
-    (addrPairList,outTr) <- liftIO $
+    (addrPairList,outTr) <-
+        liftIO $
         foldl1 mergeTransactions <$> mapM formTransactionMapper accInputs
-    liftIO $ TIO.putStrLn $
-        formatSingle' "Please check your transaction: {}" outTr
+    liftIO $
+        TIO.putStrLn $ formatSingle' "Please check your transaction: {}" outTr
     void $ updateBlockchain st False
     walletHeight <- query' st A.GetLastBlockId
     lastBlockHeight <- pred <$> C.getBlockchainHeight
@@ -177,14 +186,16 @@ formTransaction st inputs outputAddr outputCoin = do
             (walletHeight, lastBlockHeight)
     let signatures =
             M.fromList $
-            map (\(addrid',address') ->
+            map
+                (\(addrid',address') ->
                       (addrid', C.sign (address' ^. W.privateAddress) outTr))
                 addrPairList
     validateTransaction outTr signatures $ lastBlockHeight + 1
     update' st $ A.AddTemporaryTransaction outTr
   where
-    formTransactionMapper :: (Word, W.UserAddress, C.Coin)
-                          -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)
+    formTransactionMapper
+        :: (Word, W.UserAddress, C.Coin)
+        -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)
     formTransactionMapper (_,a,c) = do
         (addrids :: [C.AddrId]) <-
             concatMap (C.getAddrIdByAddress $ W.toAddress a) <$>

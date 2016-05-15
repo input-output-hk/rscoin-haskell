@@ -89,7 +89,7 @@ proceedCommand st (FormTransaction inputs outputAddrStr) =
 proceedCommand st UpdateBlockchain =
     eWrap $
     do res <- updateBlockchain st True
-       C.logInfo $
+       C.logInfo C.userLoggerName $
            if res
                then "Blockchain is updated already."
                else "Successfully updated blockchain."

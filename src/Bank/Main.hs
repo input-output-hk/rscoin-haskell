@@ -1,16 +1,15 @@
-import           Control.Monad.Catch      (bracket)
-import           Control.Monad.Trans      (liftIO)
-import           Data.Acid                (update)
-import           Data.Text                as T
+import           Control.Monad.Catch (bracket)
+import           Control.Monad.Trans (liftIO)
+import           Data.Acid           (update)
+import           Data.Text           as T
 
-import qualified RSCoin.Bank              as B
-import           RSCoin.Core              (Mintette (Mintette),
-                                           constructPublicKey, initLogging,
-                                           readSecretKey, readPublicKey,
-                                           logWarning)
-import           RSCoin.Timed             (runRealMode, fork_)
+import qualified RSCoin.Bank         as B
+import           RSCoin.Core         (Mintette (Mintette), bankLoggerName,
+                                      constructPublicKey, initLogging,
+                                      logWarning, readPublicKey, readSecretKey)
+import           RSCoin.Timed        (fork_, runRealMode)
 
-import qualified Options                  as Opts
+import qualified Options             as Opts
 
 main :: IO ()
 main = do
@@ -29,5 +28,5 @@ main = do
         k <- maybe (readPublicKeyFallback pk) return $ constructPublicKey pk
         update st $ B.AddMintette m k
     readPublicKeyFallback pk = liftIO $ do
-        logWarning "Failed to parse public key, trying to interpret as a filepath to key"
+        logWarning bankLoggerName "Failed to parse public key, trying to interpret as a filepath to key"
         readPublicKey $ T.unpack pk

@@ -15,8 +15,9 @@ import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck                 (Arbitrary (arbitrary),
                                                   NonEmptyList (NonEmpty))
 
-import           RSCoin.Core                     (Severity (..), genesisValue,
-                                                  initLogging)
+import           RSCoin.Core                     (Severity (..), bankLoggerName,
+                                                  genesisValue,
+                                                  initLoggerByName, initLogging)
 import qualified RSCoin.User                     as U
 
 import           Test.RSCoin.Core.Arbitrary      ()
@@ -30,12 +31,17 @@ import qualified Test.RSCoin.Full.UserOperations as UO
 
 spec :: Spec
 spec =
-    before (initLogging Warning) $ do
+    before setupLogging $ do
         describe "test" $
             prop "test" test
         describe "Full RSCoin" $ do
             prop "if bank sends all coins to arbitrary address then it has 0 coins" prop_sendAll
             prop "all users have unique addresses" prop_uniqueAddresses
+
+setupLogging :: IO ()
+setupLogging = do
+  initLogging Error
+  initLoggerByName Info bankLoggerName
 
 test :: FullProperty ()
 test = assertFP True

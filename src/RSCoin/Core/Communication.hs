@@ -44,7 +44,7 @@ import           Serokell.Util.Text         (format', formatSingle',
 import           RSCoin.Core.Crypto         (Signature, hash)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
-import           RSCoin.Core.Logging        (logError, logInfo, logWarning)
+import qualified RSCoin.Core.Logging        as L
 import           RSCoin.Core.Owners         (owners)
 import           RSCoin.Core.Primitives     (AddrId, Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
@@ -56,6 +56,11 @@ import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              PeriodResult, Utxo)
 import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
                                              WorkMode)
+
+logError, logWarning, logInfo :: MonadIO m => Text -> m ()
+logError = L.logError L.communicationLoggerName
+logWarning = L.logWarning L.communicationLoggerName
+logInfo = L.logInfo L.communicationLoggerName
 
 -- | Errors which may happen during remote call.
 data CommunicationError

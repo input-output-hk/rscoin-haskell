@@ -76,7 +76,11 @@ communicationLoggerName = "timed"
 
 predefinedLoggers :: [LoggerName]
 predefinedLoggers =
-    [bankLoggerName, mintetteLoggerName, userLoggerName, timedLoggerName]
+    [ bankLoggerName
+    , mintetteLoggerName
+    , userLoggerName
+    , timedLoggerName
+    , communicationLoggerName]
 
 logDebug :: MonadIO m
          => LoggerName -> T.Text -> m ()

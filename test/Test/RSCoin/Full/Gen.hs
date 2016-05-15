@@ -6,20 +6,21 @@ module Test.RSCoin.Full.Gen
        ( genValidActions
        ) where
 
-import           Data.Time.Units             (addTime)
-import           Test.QuickCheck             (Arbitrary (arbitrary), Gen,
-                                              NonNegative (..), frequency,
-                                              oneof)
+import           Data.Time.Units                 (addTime)
+import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
+                                                  NonNegative (..), frequency,
+                                                  oneof)
 
-import           RSCoin.Timed                (Microsecond, minute)
+import           RSCoin.Timed                    (Microsecond, minute)
 
-import           Test.RSCoin.Core.Arbitrary  ()
-import           Test.RSCoin.Full.Action     (InitAction (InitAction),
-                                              SomeAction (SomeAction),
-                                              UserAction (..), WaitAction (..),
-                                              WaitSomeAction)
-import           Test.RSCoin.Full.Context    (MintetteNumber, UserNumber)
-import           Test.RSCoin.Timed.Arbitrary ()
+import           Test.RSCoin.Core.Arbitrary      ()
+import           Test.RSCoin.Full.Action         (SomeAction (SomeAction),
+                                                  UserAction (..),
+                                                  WaitAction (..),
+                                                  WaitSomeAction)
+import           Test.RSCoin.Full.Context        (MintetteNumber, UserNumber)
+import           Test.RSCoin.Full.Initialization (InitAction (InitAction))
+import           Test.RSCoin.Timed.Arbitrary     ()
 
 instance Arbitrary MintetteNumber where
     arbitrary = pure 1

@@ -87,11 +87,12 @@ proceedCommand st (FormTransaction inputs outputAddrStr) =
        formTransaction st inputs' (fromJust pubKey) $
            C.Coin (sum $ map snd inputs)
 proceedCommand st UpdateBlockchain =
-    eWrap $ do
-       res <- updateBlockchain st True
-       liftIO $ if res
-                then putStrLn "Blockchain is updated already."
-                else putStrLn "Successfully updated blockchain."
+    eWrap $
+    do res <- updateBlockchain st True
+       C.logInfo $
+           if res
+               then "Blockchain is updated already."
+               else "Successfully updated blockchain."
 proceedCommand _ (Dump command) = eWrap $ dumpCommand command
 
 dumpCommand :: WorkMode m => DumpCommand -> m ()

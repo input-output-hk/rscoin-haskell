@@ -16,12 +16,11 @@ module RSCoin.Timed.Timed
        ) where
 
 import           Control.Concurrent.STM      (atomically)
-import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO,
-                                              writeTVar)
-import           Control.Exception           (SomeException)
+import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
+import           Control.Exception           (SomeException, fromException)
 import           Control.Exception.Base      (AsyncException (ThreadKilled))
-import           Control.Lens                (makeLenses, to, use, (%=), (%~),
-                                              (&), (.=), (^.), (<&>), view)
+import           Control.Lens                (makeLenses, to, use, view, (%=),
+                                              (%~), (&), (.=), (<&>), (^.))
 import           Control.Monad               (unless, void)
 import           Control.Monad.Catch         (Handler (..), MonadCatch,
                                               MonadMask, MonadThrow, catch,
@@ -42,20 +41,19 @@ import qualified Data.PQueue.Min             as PQ
 import qualified Data.Set                    as S
 import           Serokell.Util.Text          (formatSingle')
 
-import           RSCoin.Core.Logging         (logWarning)
+import           RSCoin.Core.Logging         (logDebug, logWarning)
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
-                                              localTime, mcs, timeout,
-                                              wait, myThreadId,
-                                              killThread, fork, for,
-                                              ThreadId(PureThreadId))
+                                              ThreadId (PureThreadId), for,
+                                              fork, killThread, localTime, mcs,
+                                              myThreadId, timeout, wait)
 
 type Timestamp = Microsecond
 
 -- | Private context for each pure thread
 data ThreadCtx m = ThreadCtx
-    { _threadId  :: ThreadId        -- ^ Thread id
-    , _handlers  :: [Handler m ()]  -- ^ Exception handlers stack
+    { _threadId :: ThreadId        -- ^ Thread id
+    , _handlers :: [Handler m ()]  -- ^ Exception handlers stack
     }
 
 $(makeLenses ''ThreadCtx)
@@ -226,9 +224,15 @@ evalTimedT timed = do
     runTimedT $ liftIO . writeIORef ref . Just =<< timed
     fromJust <$> liftIO (readIORef ref)
 
+isThreadKilled :: SomeException -> Bool
+isThreadKilled = maybe False (== ThreadKilled) . fromException
+
 threadKilledNotifier :: MonadIO m => SomeException -> m ()
-threadKilledNotifier e =
-    logWarning $ formatSingle' "Thread killed by exception: {}" $ show e
+threadKilledNotifier e
+  | isThreadKilled e = logDebug msg
+  | otherwise = logWarning msg
+  where
+    msg = formatSingle' "Thread killed by exception: {}" $ show e
 
 instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
     localTime = TimedT $ use curTime

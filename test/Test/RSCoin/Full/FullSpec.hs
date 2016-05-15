@@ -40,8 +40,8 @@ spec =
 
 setupLogging :: IO ()
 setupLogging = do
-  initLogging Error
-  initLoggerByName Info bankLoggerName
+    initLogging Error
+    initLoggerByName Info bankLoggerName
 
 test :: FullProperty ()
 test = assertFP True

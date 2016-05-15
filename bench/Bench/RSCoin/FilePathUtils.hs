@@ -5,7 +5,7 @@ module Bench.RSCoin.FilePathUtils
         ) where
 
 import           Data.Text.Lazy (Text, unpack)
-import           Formatting     (Format, format, int, text, (%))
+import           Formatting     (format, int, text, (%))
 
 tempBenchDirectory :: FilePath
 tempBenchDirectory = ".bench-local"

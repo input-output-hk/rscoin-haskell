@@ -6,6 +6,7 @@ module Bench.RSCoin.InfraThreads
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 
+import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (update)
 
@@ -15,13 +16,13 @@ import           RSCoin.Core                (Mintette (Mintette), PublicKey,
                                              readSecretKey)
 import qualified RSCoin.Mintette            as M
 
-import           RSCoin.Timed               (MsgPackRpc, bracket', fork,
+import           RSCoin.Timed               (MsgPackRpc, fork,
                                              runRealMode)
 
 import           System.FilePath            ((</>))
 
 bankBracket :: FilePath -> (B.State -> MsgPackRpc a) -> IO a
-bankBracket benchDir bankAction = runRealMode $ bracket'
+bankBracket benchDir bankAction = runRealMode $ bracket
     (liftIO $ B.openState $ benchDir </> "bank-db")
     (liftIO . B.closeState)
     bankAction
@@ -34,13 +35,13 @@ addMintette mintetteNum benchDir publicKey = bankBracket benchDir $ \bankState -
 bankThread :: FilePath -> FilePath -> IO ()
 bankThread benchDir bankKeyFilePath = bankBracket benchDir $ \bankState -> do
     secretKey <- liftIO $ readSecretKey bankKeyFilePath
-    fork $ B.runWorker secretKey bankState
+    _ <- fork $ B.runWorker secretKey bankState
     B.serve bankState
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
-mintetteThread mintetteNum benchDir secretKey = runRealMode $ bracket'
+mintetteThread mintetteNum benchDir secretKey = runRealMode $ bracket
     (liftIO $ M.openState $ benchDir </> dbFormatPath "mintette-db" mintetteNum)
     (liftIO . M.closeState) $
     \mintetteState -> do
-        fork $ M.runWorker secretKey mintetteState
+        _ <- fork $ M.runWorker secretKey mintetteState
         M.serve (defaultPort + mintetteNum) mintetteState secretKey

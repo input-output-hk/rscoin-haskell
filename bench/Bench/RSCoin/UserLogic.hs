@@ -8,6 +8,7 @@ module Bench.RSCoin.UserLogic
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 
 import           Control.Monad              (forM_)
+import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint, query)
 import           Data.Int                   (Int64)
@@ -20,12 +21,12 @@ import           RSCoin.User.Commands       (UserCommand (UpdateBlockchain),
 import           RSCoin.User.Operations     (getAmount, formTransaction)
 import qualified RSCoin.User.Wallet         as W
 
-import           RSCoin.Timed               (MsgPackRpc, bracket', runRealMode)
+import           RSCoin.Timed               (MsgPackRpc, runRealMode)
 
 import           System.FilePath            ((</>))
 
 userThread :: FilePath -> (A.RSCoinUserState -> MsgPackRpc a) -> Int64 -> IO a
-userThread benchDir userAction userId = runRealMode $ bracket'
+userThread benchDir userAction userId = runRealMode $ bracket
     (liftIO $ A.openState $ benchDir </> dbFormatPath "wallet-db" userId)
     (\userState -> liftIO $ do
         createCheckpoint userState
@@ -51,9 +52,8 @@ initializeBank bankKeyFilePath userAddresses bankUserState = do
     let additionalBankAddreses = 0
     A.initState bankUserState additionalBankAddreses (Just bankKeyFilePath)
 
-    let outputNumber   = 1000
-    let outputMoney    = Coin outputNumber
-    let inputMoneyInfo = [(1, outputNumber)]
+    let outputMoney    = Coin 1000
+    let inputMoneyInfo = [(1, outputMoney)]
     forM_ userAddresses $ \userAddr -> do
         proceedCommand bankUserState UpdateBlockchain
         formTransaction bankUserState inputMoneyInfo (W.toAddress userAddr) outputMoney
@@ -68,9 +68,8 @@ benchUserTransactions allAddresses userState = do
 
     let otherAddresses = filter (/= myAddress) allAddresses
     let numberOfUsers  = length otherAddresses
-    let outputNumber   = 1
-    let outputMoney    = Coin outputNumber
-    let inputMoneyInfo = [(1, outputNumber)]
+    let outputMoney    = Coin 1
+    let inputMoneyInfo = [(1, outputMoney)]
     forM_ [0..3] $ \i -> do
         liftIO $ putStrLn $ "Iter: " ++ show i
         let userAddrToSend = otherAddresses !! (i `mod` numberOfUsers)

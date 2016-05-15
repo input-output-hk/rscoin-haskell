@@ -117,7 +117,7 @@ genUpdateBlockchain = UpdateBlockchain <$> arbitrary
 
 type ActionsDescription = ([SomeAction], Microsecond)
 
--- | Generate sequence of action which can be applied to empty context
+-- | Generate sequence of actions which can be applied to empty context
 -- (created using mkTestContext) and are guaranteed to be executed
 -- without fails.
 genValidActions :: UserNumber -> Gen ActionsDescription

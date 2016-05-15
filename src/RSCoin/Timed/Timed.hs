@@ -50,9 +50,6 @@ import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               fork, killThread, localTime, mcs,
                                              myThreadId, timeout, wait)
 
-import Data.Maybe (isJust)
-import Debug.Trace
-
 
 type Timestamp = Microsecond
 
@@ -142,10 +139,6 @@ instance MonadState s m => MonadState s (TimedT m) where
 newtype ContException = ContException SomeException
     deriving (Show)
 
-{-
-instance Show (ContException e) where
-    show (ContException e) = show e
--}
 instance Exception ContException
 
 instance (MonadCatch m, MonadIO m) => MonadCatch (TimedT m) where
@@ -154,25 +147,20 @@ instance (MonadCatch m, MonadIO m) => MonadCatch (TimedT m) where
         ReaderT $
         \r ->
             ContT $
+            -- we can catch only from (m + its continuation)
+            -- thus, any exception of continuation shouldn't be handled
+            -- it's reached by handling any exception and rethrowing it
+            -- in ContException
+            -- so any catch handler should first check for ContException.
+            -- if it's throw, rethrow exception inside, otherwise handle 
+            -- original exception
             \c -> do
-            -- dirty hack
-            -- catch from (m + it's continuation)
-            -- if continuation throws, store exception into variable
-            -- and then rethrow
-            -- (all that because TimedT can't return a sensible value
-            --  when unwrapped :< )
-                let lol :: forall m . MonadIO m => String -> m ()
-                    lol = liftIO . putStrLn
-                let remE = \x -> (liftIO $ putStrLn ("@Rem er" ++ show x)) >> throwM (ContException x)
-                    act = (unwrapCore' r' $ lol "1: " >> m >>= \x -> ( lol "2: " >> ) $ TimedT $ ReaderT $ \r -> lift $ (c x >> lol "3:") `catchAll` remE) >> lol "9:"
-                    handler' e = unwrapCore' r $ (liftIO . putStrLn) ("@handled" ++ show e) >> handler e >>= \x -> lol "hand cont" >> (wrapCore . getCore . c $ x)
+                let act = unwrapCore' r' $ m >>= \x -> wrapCore (getCore $ c x) `catchAll` (throwM . ContException)
+                    handler' e = unwrapCore' r $ handler e >>= wrapCore . getCore . c 
                     contHandler (ContException e) = throwM e
-                    r'' = r & handlers %~ (Handler contHandler : )
-                    r'  = r'' & handlers %~ (Handler (Core . handler') : )
-                lol "exec"
+                    r' = r & handlers %~ (Handler (Core . handler') : )
+                           & handlers %~ (Handler contHandler : )
                 Core $ act `catches` [Handler handler', Handler contHandler]
-                lol "passed"
-
 
 -- Posibly incorrect instance
 instance (MonadIO m, MonadMask m) => MonadMask (TimedT m) where
@@ -233,11 +221,14 @@ runTimedT timed = launchTimedT $ do
             maybeDie = unless keepAlive $ throwM ThreadKilled
             act      = maybeDie >> runInSandbox ctx (nextEv ^. action)
             -- catch with handlers from handlers stack
+            -- catch which is performed in instance MonadCatch is not enought
+            -- cause on "wait" "catch" scope finishes, we need to catch 
+            -- again here
         wrapCore . getCore $ (Core (unwrapCore' ctx act)) `catchesSeq` (ctx ^. handlers)
 
   where
     notDone :: Monad m => TimedT m Bool
-    notDone = TimedT . lift . lift . Core . use $ events . to (not . PQ.null)
+    notDone = wrapCore . use $ events . to (not . PQ.null)
 
     -- put empty continuation to an action (not our own!)
     runInSandbox r = wrapCore . unwrapCore' r
@@ -246,11 +237,16 @@ runTimedT timed = launchTimedT $ do
         \tid ->
             ThreadCtx
             { _threadId = tid
-            , _handlers = [Handler $ \(ContException e) -> throwM e, Handler threadKilledNotifier]
+            , _handlers = [ Handler $ \(ContException e) -> throwM e
+                          , Handler threadKilledNotifier]
             }
 
+    -- gets handlers by pairs (cont handler and original handler, see note
+    -- in instance MonadCatch), and catches them so that if ContException 
+    -- handled, seconds handler is ingored (but not remaining handlers)
     catchesSeq act [] = act
     catchesSeq act (h1:h2:hs) = catchesSeq (act `catches` [h1, h2]) hs
+    catchesSeq _   _  = error "Handers stack should have even size"
 
 getNextThreadId :: Monad m => TimedT m ThreadId
 getNextThreadId = do
@@ -265,17 +261,10 @@ evalTimedT
     => TimedT m a -> m a
 evalTimedT timed = do
     ref <- liftIO $ newIORef Nothing
-    liftIO $ putStrLn "initiating"
     runTimedT $ do
-        liftIO $ putStrLn "!launching"
         m <- try timed
-        liftIO $ putStrLn "!!!!"
-        liftIO $ putStrLn $ either (const "!Left") (const "!Right") m
-        liftIO $ putStrLn "???"
         liftIO . writeIORef ref . Just $ m
-        liftIO $ putStrLn "!wrote"
-    -- traceM $ maybe "!Nothing" (const "!Just") res
-    res :: Either SomeException a <- fromJust <$> (liftIO (readIORef ref) >>= \x -> liftIO (print $ isJust x) >> return x)
+    res :: Either SomeException a <- fromJust <$> liftIO (readIORef ref)
     either throwM return res
 
 threadKilledNotifier :: MonadIO m => SomeException -> m ()
@@ -293,7 +282,8 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         let _threadCtx =
                 ThreadCtx
                 { _threadId = tid
-                , _handlers = [Handler $ \(ContException e) -> throwM e, Handler threadKilledNotifier]
+                , _handlers = [ Handler $ \(ContException e) -> throwM e
+                              , Handler threadKilledNotifier]
                 }
         wrapCore $ events %= PQ.insert Event { .. }
         return tid

@@ -23,9 +23,9 @@ import           Control.Concurrent.MVar    (MVar, newMVar, putMVar, takeMVar)
 
 import           Network.MessagePack.Server (ServerT)
 
-import Control.Monad.Catch (throwM, catch, catchAll)
+import Control.Monad.Catch (throwM, catchAll)
 
-import Control.Exception.Base (AsyncException(..), ArithException(..))
+import Control.Exception.Base (ArithException(..))
 
 main :: IO ()
 main = do
@@ -150,6 +150,6 @@ ololo = runTimedT $ do
     let act = do
             (wait (for 1 sec) >> log "checkpoint") `catchAll` (\e -> liftIO $ putStrLn $ "caught1" ++ show e)
             log "prepare to throw!"
-            throwM Overflow
+            _ <- throwM Overflow
             wait $ for 1 sec
-    act `catchAll` (\e -> liftIO $ print e)
+    act -- `catchAll` (\e -> liftIO $ print e)

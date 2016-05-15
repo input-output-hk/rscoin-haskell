@@ -5,6 +5,7 @@
 
 module RSCoin.Bank.Worker
        ( runWorker
+       , runWorkerWithPeriod
        ) where
 
 
@@ -15,6 +16,7 @@ import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
 import           Data.Monoid              ((<>))
+import           Data.Time.Units          (TimeUnit)
 
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text       (formatSingle')
@@ -32,7 +34,11 @@ import           RSCoin.Timed             (WorkMode, minute, repeatForever, tu)
 
 -- | Start worker which runs appropriate action when a period finishes
 runWorker :: WorkMode m => SecretKey -> State -> m ()
-runWorker sk st = repeatForever (tu periodDelta) handler $
+runWorker = runWorkerWithPeriod periodDelta
+
+-- | Start worker with provided period. Used in benchmarks. Also see 'runWorker'.
+runWorkerWithPeriod :: (TimeUnit t, WorkMode m) => t -> SecretKey -> State -> m ()
+runWorkerWithPeriod period sk st = repeatForever (tu period) handler $
     onPeriodFinished sk st
   where
     handler e = do

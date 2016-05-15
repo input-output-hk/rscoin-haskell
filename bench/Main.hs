@@ -1,6 +1,6 @@
 module Main where
 
-import           Bench.RSCoin.FilePathUtils (defaultBankKey, tempBenchDirectory)
+import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.InfraThreads  (addMintette, bankThread,
                                              mintetteThread)
 import           Bench.RSCoin.UserLogic     (benchUserTransactions, initializeBank,
@@ -10,19 +10,12 @@ import           RSCoin.Core                (Severity (Debug), initLogging,
                                              keyGen)
 
 import           Control.Concurrent         (forkIO, threadDelay)
-import           Control.Concurrent.Async   (async, forConcurrently, wait)
-
-import           System.FilePath            ((</>))
+import           Control.Concurrent.Async   (forConcurrently)
 
 import           System.IO.Temp             (withSystemTempDirectory)
 
-import           Control.Monad              (forM_)
-
 main :: IO ()
 main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
-    let bankKeyFilePath = benchDir </> "rscoin-key"
-    writeFile bankKeyFilePath defaultBankKey
-
     initLogging Debug
 
     (sk1, pk1) <- keyGen
@@ -31,7 +24,7 @@ main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
     _ <- forkIO $ mintetteThread 1 benchDir sk1
     threadDelay (3 * 10^6)
 
-    _ <- forkIO $ bankThread benchDir bankKeyFilePath
+    _ <- forkIO $ bankThread benchDir
     threadDelay (3 * 10^6)
 
     let initUserAction = userThread benchDir initializeUser
@@ -40,10 +33,10 @@ main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
 
     -- give money to all users
     let bankId = 0
-    userThread benchDir (initializeBank bankKeyFilePath userAddresses) bankId
-    threadDelay (5 * 10^6)
+    userThread benchDir (initializeBank userAddresses) bankId
+    threadDelay (20 * 10^6)
 
     putStrLn $ "Should be addr: " ++ show (userAddresses !! 0)
     let benchUserAction = userThread benchDir $ benchUserTransactions userAddresses
-    _ <- forM_ userIds benchUserAction
+    _ <- forConcurrently userIds benchUserAction
     threadDelay (5 * 10^6)

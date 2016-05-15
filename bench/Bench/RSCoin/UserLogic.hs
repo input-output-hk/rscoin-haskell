@@ -13,12 +13,10 @@ import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint, query)
 import           Data.Int                   (Int64)
 
-import           RSCoin.Core                (Coin (..))
+import           RSCoin.Core                (Coin (..), bankSecretKey)
 
 import qualified RSCoin.User.AcidState      as A
-import           RSCoin.User.Commands       (UserCommand (UpdateBlockchain),
-                                             proceedCommand)
-import           RSCoin.User.Operations     (getAmount, formTransaction)
+import           RSCoin.User.Operations     (getAmount, formTransaction, updateBlockchain)
 import qualified RSCoin.User.Wallet         as W
 
 import           RSCoin.Timed               (MsgPackRpc, runRealMode)
@@ -47,15 +45,15 @@ initializeUser userState = do
     queryMyAddress userState
 
 -- | Create user in `bankMode` and send 1000 coins to every user from list.
-initializeBank :: FilePath -> [W.UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
-initializeBank bankKeyFilePath userAddresses bankUserState = do
+initializeBank :: [W.UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
+initializeBank userAddresses bankUserState = do
     let additionalBankAddreses = 0
-    A.initState bankUserState additionalBankAddreses (Just bankKeyFilePath)
+    A.initStateBank bankUserState additionalBankAddreses bankSecretKey
 
     let outputMoney    = Coin 1000
     let inputMoneyInfo = [(1, outputMoney)]
     forM_ userAddresses $ \userAddr -> do
-        proceedCommand bankUserState UpdateBlockchain
+        _ <- updateBlockchain bankUserState True
         formTransaction bankUserState inputMoneyInfo (W.toAddress userAddr) outputMoney
 
 -- | Start user with provided addresses of other users and do 1000 transactions.
@@ -73,5 +71,5 @@ benchUserTransactions allAddresses userState = do
     forM_ [0..3] $ \i -> do
         liftIO $ putStrLn $ "Iter: " ++ show i
         let userAddrToSend = otherAddresses !! (i `mod` numberOfUsers)
-        proceedCommand userState UpdateBlockchain
+        _ <- updateBlockchain userState True
         formTransaction userState inputMoneyInfo (W.toAddress userAddrToSend) outputMoney

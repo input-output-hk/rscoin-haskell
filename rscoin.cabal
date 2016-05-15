@@ -323,6 +323,7 @@ benchmark rscoin-bench
                      , rscoin
                      , temporary
                      , text
+                     , time-units
                      , transformers
   hs-source-dirs:      bench
   default-language:    Haskell2010

@@ -9,15 +9,15 @@ import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (update)
+import           Data.Time.Units            (Second)
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (Mintette), PublicKey,
-                                             SecretKey, defaultPort,
-                                             readSecretKey)
+                                             SecretKey, bankHost, bankSecretKey,
+                                             defaultPort)
 import qualified RSCoin.Mintette            as M
 
-import           RSCoin.Timed               (MsgPackRpc, fork,
-                                             runRealMode)
+import           RSCoin.Timed               (MsgPackRpc, fork, runRealMode)
 
 import           System.FilePath            ((</>))
 
@@ -29,13 +29,13 @@ bankBracket benchDir bankAction = runRealMode $ bracket
 
 addMintette :: Int -> FilePath -> PublicKey -> IO ()
 addMintette mintetteNum benchDir publicKey = bankBracket benchDir $ \bankState -> liftIO $ do
-    let mintette = Mintette "127.0.0.1" (defaultPort + mintetteNum)
+    let mintette = Mintette bankHost (defaultPort + mintetteNum)
     update bankState $ B.AddMintette mintette publicKey
 
-bankThread :: FilePath -> FilePath -> IO ()
-bankThread benchDir bankKeyFilePath = bankBracket benchDir $ \bankState -> do
-    secretKey <- liftIO $ readSecretKey bankKeyFilePath
-    _ <- fork $ B.runWorker secretKey bankState
+bankThread :: FilePath -> IO ()
+bankThread benchDir = bankBracket benchDir $ \bankState -> do
+    let defaultBenchPeriod = 5 :: Second
+    _ <- fork $ B.runWorkerWithPeriod defaultBenchPeriod bankSecretKey bankState
     B.serve bankState
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()

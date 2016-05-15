@@ -17,7 +17,8 @@ import           Test.QuickCheck                 (Arbitrary (arbitrary),
 
 import           RSCoin.Core                     (Severity (..), bankLoggerName,
                                                   genesisValue,
-                                                  initLoggerByName, initLogging)
+                                                  initLoggerByName, initLogging,
+                                                  testingLoggerName)
 import qualified RSCoin.User                     as U
 
 import           Test.RSCoin.Core.Arbitrary      ()
@@ -42,6 +43,7 @@ setupLogging :: IO ()
 setupLogging = do
     initLogging Error
     initLoggerByName Info bankLoggerName
+    initLoggerByName Info testingLoggerName
 
 test :: FullProperty ()
 test = assertFP True

@@ -12,7 +12,8 @@ import           Data.Acid.Advanced        (update')
 import           Data.List                 (genericLength)
 
 import qualified RSCoin.Bank               as B
-import           RSCoin.Core               (Mintette (..), bankSecretKey)
+import           RSCoin.Core               (Mintette (..), bankSecretKey,
+                                            logInfo, testingLoggerName)
 import           RSCoin.Timed              (WorkMode, for, mcs, upto, wait,
                                             work)
 import qualified RSCoin.User               as U
@@ -31,6 +32,7 @@ data InitAction = InitAction
 
 instance Action InitAction where
     doAction InitAction = do
+        logInfo testingLoggerName "Initializing system…"
         runBank
         scen <- view scenario
         mint <- view mintettes
@@ -39,6 +41,7 @@ instance Action InitAction where
         wait $ for 1 mcs -- this is necessary
         initBUser
         mapM_ initUser =<< view users
+        logInfo testingLoggerName "Successfully initialized system"
 
 runBank :: WorkMode m => TestEnv m ()
 runBank = do

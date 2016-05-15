@@ -12,6 +12,7 @@ module RSCoin.Core.Logging
        , userLoggerName
        , timedLoggerName
        , communicationLoggerName
+       , testingLoggerName
        , logDebug
        , logInfo
        , logWarning
@@ -46,9 +47,9 @@ convertSeverity Warning = WARNING
 convertSeverity Error = ERROR
 
 initLogging :: Severity -> IO ()
-initLogging sev@(convertSeverity -> s) = do
+initLogging sev = do
     updateGlobalLogger rootLoggerName removeHandler
-    updateGlobalLogger rootLoggerName $ setLevel s
+    updateGlobalLogger rootLoggerName $ setLevel DEBUG
     mapM_ (initLoggerByName sev) predefinedLoggers
 
 initLoggerByName :: Severity -> LoggerName -> IO ()
@@ -67,12 +68,13 @@ initLoggerByName (convertSeverity -> s) name = do
 
 type LoggerName = String
 
-bankLoggerName, mintetteLoggerName, userLoggerName, timedLoggerName, communicationLoggerName :: LoggerName
+bankLoggerName, mintetteLoggerName, userLoggerName, timedLoggerName, communicationLoggerName, testingLoggerName :: LoggerName
 bankLoggerName = "bank"
 mintetteLoggerName = "mintette"
 userLoggerName = "user"
 timedLoggerName = "timed"
 communicationLoggerName = "communication"
+testingLoggerName = "testing"
 
 predefinedLoggers :: [LoggerName]
 predefinedLoggers =

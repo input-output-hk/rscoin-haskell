@@ -3,40 +3,91 @@ module Main where
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.InfraThreads  (addMintette, bankThread,
                                              mintetteThread)
-import           Bench.RSCoin.UserLogic     (benchUserTransactions, initializeBank,
-                                             initializeUser, userThread)
+import           Bench.RSCoin.UserLogic     (benchUserTransactions,
+                                             initializeBank, initializeUser,
+                                             userThread)
 
-import           RSCoin.Core                (Severity (Debug), initLogging,
+import           Data.Int                   (Int64)
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
+
+import           RSCoin.Core                (PublicKey, SecretKey,
+                                             Severity (Debug), initLogging,
                                              keyGen)
+import           RSCoin.User.Wallet         (UserAddress)
 
 import           Control.Concurrent         (forkIO, threadDelay)
 import           Control.Concurrent.Async   (forConcurrently)
+import           Control.Monad              (forM_, replicateM, void)
 
 import           System.IO.Temp             (withSystemTempDirectory)
 
-main :: IO ()
-main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
-    initLogging Debug
+benchMintetteNumber :: Int
+benchMintetteNumber = 10
 
-    (sk1, pk1) <- keyGen
-    addMintette 1 benchDir pk1
+benchUserNumber :: Int64
+benchUserNumber = 2
 
-    _ <- forkIO $ mintetteThread 1 benchDir sk1
-    threadDelay (3 * 10^6)
+type KeyPairList = [(SecretKey, PublicKey)]
 
+generateMintetteKeys :: Int -> IO KeyPairList
+generateMintetteKeys n = replicateM n keyGen
+
+runMintettes :: FilePath -> KeyPairList -> IO ()
+runMintettes benchDir secretKeys
+    = forM_ (zip [1..] secretKeys) $ \(mintetteId, (secretKey, publicKey)) -> do
+        addMintette mintetteId benchDir publicKey
+        void $ forkIO $ mintetteThread mintetteId benchDir secretKey
+
+curTime :: IO Int
+curTime = round <$> getPOSIXTime
+
+establishMintettes :: FilePath -> IO ()
+establishMintettes benchDir = do
+    keyPairs <- generateMintetteKeys benchMintetteNumber
+    runMintettes benchDir keyPairs
+    putStrLn $ "Running " ++ show benchMintetteNumber ++ " mintettes..."
+    threadDelay (5 * 10^6 :: Int)
+
+establishBank :: FilePath -> IO ()
+establishBank benchDir = do
     _ <- forkIO $ bankThread benchDir
-    threadDelay (3 * 10^6)
+    putStrLn "Running bank..."
+    threadDelay (3 * 10^6 :: Int)
 
+initializeUsers :: FilePath -> [Int64] -> IO [UserAddress]
+initializeUsers benchDir userIds = do
     let initUserAction = userThread benchDir initializeUser
-    let userIds = [1..2]
-    userAddresses <- mapM initUserAction userIds
+    putStrLn $ "Initializing " ++ show benchUserNumber ++ " users..."
+    mapM initUserAction userIds
 
+initializeSuperUser :: FilePath -> [UserAddress] -> IO ()
+initializeSuperUser benchDir userAddresses = do
     -- give money to all users
     let bankId = 0
     userThread benchDir (initializeBank userAddresses) bankId
-    threadDelay (20 * 10^6)
+    putStrLn "Running user in bankMode and waiting for period end..."
+    threadDelay (7 * 10^6 :: Int)
 
-    putStrLn $ "Should be addr: " ++ show (userAddresses !! 0)
+runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO Int
+runTransactions benchDir userAddresses userIds = do
     let benchUserAction = userThread benchDir $ benchUserTransactions userAddresses
+
+    timeBefore <- curTime
     _ <- forConcurrently userIds benchUserAction
-    threadDelay (5 * 10^6)
+    timeAfter <- curTime
+
+    return $ timeAfter - timeBefore
+
+main :: IO ()
+main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
+    -- initLogging Debug
+
+    establishMintettes benchDir
+    establishBank      benchDir
+
+    let userIds    = [1..benchUserNumber]
+    userAddresses <- initializeUsers benchDir userIds
+    initializeSuperUser benchDir userAddresses
+
+    elapsedTime <- runTransactions benchDir userAddresses userIds
+    putStrLn $ "Elapsed time: " ++ show elapsedTime

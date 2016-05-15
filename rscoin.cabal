@@ -323,6 +323,7 @@ benchmark rscoin-bench
                      , rscoin
                      , temporary
                      , text
+                     , time
                      , time-units
                      , transformers
   hs-source-dirs:      bench

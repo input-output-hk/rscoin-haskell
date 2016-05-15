@@ -16,12 +16,15 @@ import           Data.Int                   (Int64)
 import           RSCoin.Core                (Coin (..), bankSecretKey)
 
 import qualified RSCoin.User.AcidState      as A
-import           RSCoin.User.Operations     (getAmount, formTransaction, updateBlockchain)
+import           RSCoin.User.Operations     (formTransaction, updateBlockchain)
 import qualified RSCoin.User.Wallet         as W
 
 import           RSCoin.Timed               (MsgPackRpc, runRealMode)
 
 import           System.FilePath            ((</>))
+
+transactionNum :: Int
+transactionNum = 10
 
 userThread :: FilePath -> (A.RSCoinUserState -> MsgPackRpc a) -> Int64 -> IO a
 userThread benchDir userAction userId = runRealMode $ bracket
@@ -53,23 +56,19 @@ initializeBank userAddresses bankUserState = do
     let outputMoney    = Coin 1000
     let inputMoneyInfo = [(1, outputMoney)]
     forM_ userAddresses $ \userAddr -> do
-        _ <- updateBlockchain bankUserState True
+        _ <- updateBlockchain bankUserState False
         formTransaction bankUserState inputMoneyInfo (W.toAddress userAddr) outputMoney
 
 -- | Start user with provided addresses of other users and do 1000 transactions.
 benchUserTransactions :: [W.UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
 benchUserTransactions allAddresses userState = do
     myAddress         <- queryMyAddress userState
-    liftIO $ putStrLn $ "Real addr: " ++ show myAddress
-    myAmount <- getAmount userState myAddress
-    liftIO $ putStrLn $ "My amount: " ++ show myAmount
 
     let otherAddresses = filter (/= myAddress) allAddresses
     let numberOfUsers  = length otherAddresses
     let outputMoney    = Coin 1
     let inputMoneyInfo = [(1, outputMoney)]
-    forM_ [0..3] $ \i -> do
-        liftIO $ putStrLn $ "Iter: " ++ show i
+    forM_ [0..transactionNum - 1] $ \i -> do
         let userAddrToSend = otherAddresses !! (i `mod` numberOfUsers)
-        _ <- updateBlockchain userState True
+        _ <- updateBlockchain userState False
         formTransaction userState inputMoneyInfo (W.toAddress userAddrToSend) outputMoney

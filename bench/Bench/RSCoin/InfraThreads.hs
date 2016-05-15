@@ -28,8 +28,8 @@ bankBracket benchDir bankAction = runRealMode $ bracket
     bankAction
 
 addMintette :: Int -> FilePath -> PublicKey -> IO ()
-addMintette mintetteNum benchDir publicKey = bankBracket benchDir $ \bankState -> liftIO $ do
-    let mintette = Mintette bankHost (defaultPort + mintetteNum)
+addMintette mintetteId benchDir publicKey = bankBracket benchDir $ \bankState -> liftIO $ do
+    let mintette = Mintette bankHost (defaultPort + mintetteId)
     update bankState $ B.AddMintette mintette publicKey
 
 bankThread :: FilePath -> IO ()
@@ -39,9 +39,9 @@ bankThread benchDir = bankBracket benchDir $ \bankState -> do
     B.serve bankState
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
-mintetteThread mintetteNum benchDir secretKey = runRealMode $ bracket
-    (liftIO $ M.openState $ benchDir </> dbFormatPath "mintette-db" mintetteNum)
+mintetteThread mintetteId benchDir secretKey = runRealMode $ bracket
+    (liftIO $ M.openState $ benchDir </> dbFormatPath "mintette-db" mintetteId)
     (liftIO . M.closeState) $
     \mintetteState -> do
         _ <- fork $ M.runWorker secretKey mintetteState
-        M.serve (defaultPort + mintetteNum) mintetteState secretKey
+        M.serve (defaultPort + mintetteId) mintetteState secretKey

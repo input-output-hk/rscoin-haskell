@@ -32,8 +32,7 @@ instance Arbitrary a => Arbitrary (WaitAction a) where
 
 instance Arbitrary UserAction where
     arbitrary =
-        frequency [ (10, FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary)
-                  , (1, ListAddresses <$> arbitrary)
+        frequency [ (100, FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary)
                   , (10, UpdateBlockchain <$> arbitrary)
                   ]
 

@@ -126,14 +126,9 @@ type FromAddresses = NonEmptyList (Word, Word)
 
 type Inputs = [(Word, Coin)]
 
--- data DumpAction
-
 data UserAction
     = FormTransaction UserIndex FromAddresses ToAddress
-    | ListAddresses UserIndex
     | UpdateBlockchain UserIndex
-   -- TODO: we use dumping only for debug but we should cover all cases
-   -- | Dump DumpAction
     deriving Show
 
 instance Action UserAction where
@@ -142,8 +137,6 @@ instance Action UserAction where
         inputs <- toInputs userIndex fromAddresses
         user <- getUser userIndex
         U.formTransaction user inputs address $ sum $ map snd inputs
-    doAction (ListAddresses userIndex) =
-        runUserAction userIndex U.ListAddresses
     doAction (UpdateBlockchain userIndex) =
         runUserAction userIndex U.UpdateBlockchain
 

@@ -84,7 +84,7 @@ validateTransaction tx@Transaction{..} signatures height = do
             fromJust $ M.lookup addrid signatures
         return $ signedPairMb >>= \proof ->
                     do unless (verifyCheckConfirmation proof tx addrid) $
-                            throwM $ MintetteSignatureFailed mintette
+                            Nothing
                        return $ M.singleton (mid, addrid) proof
     commitBundle :: WorkMode m => CheckConfirmations -> m ()
     commitBundle bundle = do

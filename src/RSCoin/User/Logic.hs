@@ -33,8 +33,7 @@ import           Data.Monoid                   ((<>))
 import qualified Data.Text                     as T
 
 data UserLogicError
-    = MintetteSignatureFailed Mintette
-    | MajorityRejected T.Text
+    = MajorityRejected T.Text
     | FailedToCommit
     deriving (Show)
 

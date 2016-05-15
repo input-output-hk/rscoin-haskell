@@ -8,21 +8,22 @@ import           Control.Exception         (assert)
 import           Control.Lens              (view, (^.))
 import           Control.Monad             (forM_)
 import           Control.Monad.Trans       (MonadIO)
-import           Data.Acid.Advanced        (query', update')
-import           Data.List                 (genericIndex, genericLength, nubBy)
+import           Data.Acid.Advanced        (update')
+import           Data.List                 (genericLength)
 
 import qualified RSCoin.Bank               as B
 import           RSCoin.Core               (Mintette (..), bankSecretKey)
-import           RSCoin.Timed              (Second, WorkMode, for, invoke, mcs,
-                                            upto, wait, work)
+import           RSCoin.Timed              (WorkMode, for, invoke, mcs, upto,
+                                            wait, work)
 import qualified RSCoin.User               as U
 
 import           Test.RSCoin.Full.Action   (Action (doAction))
 import           Test.RSCoin.Full.Context  (MintetteInfo, Scenario (..),
-                                            TestEnv, UserInfo, bank, buser,
+                                            TestEnv, UserInfo, bank,
+                                            bankUserAddressesCount, buser,
                                             lifetime, mintettes, port,
                                             publicKey, scenario, secretKey,
-                                            state, users)
+                                            state, userAddressesCount, users)
 import qualified Test.RSCoin.Full.Mintette as TM
 
 data InitAction = InitAction
@@ -70,7 +71,7 @@ addMintetteToBank mintette = do
 initBUser :: WorkMode m => TestEnv m ()
 initBUser = do
     st <- view $ buser . state
-    U.initStateBank st 5 bankSecretKey
+    U.initStateBank st (bankUserAddressesCount - 1) bankSecretKey
 
 initUser :: WorkMode m => UserInfo -> TestEnv m ()
-initUser user = U.initState (user ^. state) 5 Nothing
+initUser user = U.initState (user ^. state) userAddressesCount Nothing

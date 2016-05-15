@@ -15,6 +15,7 @@ import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck                 (Arbitrary (arbitrary),
                                                   NonEmptyList (NonEmpty))
 
+import           RSCoin.Core                     (genesisValue)
 import qualified RSCoin.User                     as U
 
 import           Test.RSCoin.Core.Arbitrary      ()
@@ -31,20 +32,21 @@ spec = do
     describe "test" $
         prop "test" test
     describe "Full RSCoin" $ do
-        prop "if bank sends 50 coins to arbitrary address then it has 50 less coins" prop_send50
+        prop "if bank sends 50 coins to arbitrary address then it has 50 less coins" prop_sendAll
         prop "all users have unique addresses" prop_uniqueAddresses
 
 test :: FullProperty ()
 test = assertFP True
 
-prop_send50 :: FullProperty ()
-prop_send50 = do
+prop_sendAll :: FullProperty ()
+prop_sendAll = do
     buSt <- view $ buser . state
     amount <- getAmount buSt 1
     addr <- pickFP arbitrary
-    doActionFP $ FormTransaction Nothing (NonEmpty [1]) $ Left addr
+    doActionFP $ FormTransaction Nothing (NonEmpty [(1, 1)]) $ Left addr
     amount' <- getAmount buSt 1
-    assertFP $ amount' - amount == 50
+    assertFP $ amount' == 0
+    assertFP $ amount' - amount == genesisValue
 
 prop_uniqueAddresses :: UserIndex -> FullProperty ()
 prop_uniqueAddresses idx = do

@@ -42,7 +42,7 @@ toTestable :: FullProperty a
            -> Property
 toTestable fp mNum uNum =
     monadic unwrapProperty $
-    do (acts,t) <- pick genValidActions
+    do (acts,t) <- pick $ genValidActions uNum
        context <- lift $ mkTestContext mNum uNum t DefaultScenario
        lift $ runReaderT (mapM_ doAction acts) context
        runReaderT fp context

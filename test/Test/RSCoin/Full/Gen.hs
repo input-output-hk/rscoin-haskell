@@ -6,19 +6,25 @@ module Test.RSCoin.Full.Gen
        ( genValidActions
        ) where
 
+import           Control.Monad                   (replicateM)
+import           Control.Monad.State             (StateT, evalStateT)
+import           Control.Monad.Trans             (lift)
 import           Data.Time.Units                 (addTime)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
-                                                  NonNegative (..), frequency,
-                                                  oneof)
+                                                  NonNegative (..), choose,
+                                                  sized)
 
+import qualified RSCoin.Core                     as C
 import           RSCoin.Timed                    (Microsecond, minute)
 
 import           Test.RSCoin.Core.Arbitrary      ()
-import           Test.RSCoin.Full.Action         (SomeAction (SomeAction),
+import           Test.RSCoin.Full.Action         (PartToSend (..),
+                                                  SomeAction (SomeAction),
                                                   UserAction (..),
-                                                  WaitAction (..),
-                                                  WaitSomeAction)
-import           Test.RSCoin.Full.Context        (MintetteNumber, UserNumber)
+                                                  WaitAction (..))
+import           Test.RSCoin.Full.Context        (MintetteNumber, UserNumber,
+                                                  bankUserAddressesCount,
+                                                  userAddressesCount)
 import           Test.RSCoin.Full.Initialization (InitAction (InitAction))
 import           Test.RSCoin.Timed.Arbitrary     ()
 
@@ -28,27 +34,53 @@ instance Arbitrary MintetteNumber where
 instance Arbitrary UserNumber where
     arbitrary = pure 1
 
-instance Arbitrary a => Arbitrary (WaitAction a) where
-    arbitrary = WaitAction <$> arbitrary <*> arbitrary
+instance Arbitrary PartToSend where
+    arbitrary = PartToSend <$> choose (0.001, 1.0)
 
-instance Arbitrary UserAction where
-    arbitrary =
-        frequency [ (100, FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary)
-                  , (10, UpdateBlockchain <$> arbitrary)
-                  ]
+genWaitAction :: a -> Gen (WaitAction a)
+genWaitAction a = WaitAction <$> arbitrary <*> pure a
 
--- TODO: maybe we should create also StartMintette, AddMintette, in terms of actions
-instance Arbitrary SomeAction where
-    arbitrary = oneof [SomeAction <$> (arbitrary :: Gen UserAction)]
+type BalancesList = [C.Coin]
+
+data AllBalances = AllBalances
+    { bankBalances  :: BalancesList
+    , usersBalances :: [BalancesList]
+    } deriving (Show)
+
+initialBalances :: UserNumber -> AllBalances
+initialBalances userNumber =
+    AllBalances
+    { bankBalances = C.genesisValue : replicate (bankUserAddressesCount - 1) 0
+    , usersBalances = replicate (fromIntegral userNumber) $
+      replicate userAddressesCount 0
+    }
+
+-- TODO
+genValidFormTransaction :: StateT AllBalances Gen UserAction
+genValidFormTransaction =
+    lift $ FormTransaction <$> arbitrary <*> arbitrary <*> arbitrary
+
+genUpdateBlockchain :: Gen UserAction
+genUpdateBlockchain = UpdateBlockchain <$> arbitrary
 
 type ActionsDescription = ([SomeAction], Microsecond)
 
 -- | Generate sequence of action which can be applied to empty context
 -- (created using mkTestContext) and are guaranteed to be executed
 -- without fails.
-genValidActions :: Gen ActionsDescription
-genValidActions = do
-    actions :: [WaitSomeAction] <- arbitrary
-    let actionsRunningTime = sum $ map (\(WaitAction t _) -> getNonNegative t) actions
+genValidActions :: UserNumber -> Gen ActionsDescription
+genValidActions userNumber = do
+    userActions <- map SomeAction <$> sized genUserActions
+    actions <- mapM genWaitAction userActions
+    let actionsRunningTime = sum $ map runningTime actions
         safeRunningTime = addTime actionsRunningTime (minute 1)
     return (SomeAction InitAction : map SomeAction actions, safeRunningTime)
+  where
+    runningTime (WaitAction t _) = getNonNegative t
+    genUserActions s =
+        let updates = s `div` 10
+            transactions = s - updates
+        in (++) <$> replicateM updates genUpdateBlockchain <*>
+           evalStateT
+               (replicateM transactions genValidFormTransaction)
+               (initialBalances userNumber)

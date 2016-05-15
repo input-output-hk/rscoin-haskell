@@ -12,6 +12,7 @@ module Test.RSCoin.Full.Action
        , WaitSomeAction
        , UserAction (..)
        , UserIndex
+       , PartToSend (..)
        , getUser
        ) where
 
@@ -19,6 +20,7 @@ import           Control.Lens             (to, view)
 import           Control.Monad            (unless, when)
 import           Control.Monad.Catch      (throwM)
 import           Data.Acid.Advanced       (query')
+import           Data.Bifunctor           (first)
 import           Data.Function            (on)
 import           Data.List                (genericIndex, genericLength, nubBy)
 import           Test.QuickCheck          (NonEmptyList (..), NonNegative (..))
@@ -29,8 +31,7 @@ import           RSCoin.Core              (Address (..), Coin (..))
 import           RSCoin.Timed             (Second, WorkMode, for, invoke, sec)
 import qualified RSCoin.User              as U
 
-import           Test.RSCoin.Full.Context (TestEnv, buser, publicKey, secretKey,
-                                           state, users)
+import           Test.RSCoin.Full.Context (TestEnv, buser, state, users)
 import           Test.RSCoin.Full.Error   (TestError (TestError))
 
 class Action a where
@@ -61,7 +62,19 @@ type UserIndex = Maybe Word
 -- | Address will be either some arbitrary address or some user address
 type ToAddress = Either Address (UserIndex, Word)
 
-type FromAddresses = NonEmptyList Word
+-- | Represents a number in range (0, 1] and determines how much to
+-- send from address.
+newtype PartToSend = PartToSend
+    { getPartToSend :: Double
+    } deriving (Show, Num)
+
+applyPartToSend :: PartToSend -> Coin -> Coin
+applyPartToSend (PartToSend p) (Coin c) = Coin . ceiling $ p * (fromIntegral c)
+
+-- | FromAddresses is a non empty list describing which addresses to
+-- use as inputs of transaction. It has pairs where first item is an
+-- index of address and the second one determines how much to send.
+type FromAddresses = NonEmptyList (Word, PartToSend)
 
 type Inputs = [(Word, Coin)]
 
@@ -100,9 +113,9 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
         nubBy ((==) `on` fst) .
         filter ((> 0) . snd) .
         map
-            (\i ->
-                  (succ i, addressesAmount `genericIndex` i)) .
-        map (`mod` genericLength publicAddresses) $
+            (\(i, p) ->
+                  (succ i, applyPartToSend p $ addressesAmount `genericIndex` i)) .
+        map (first (`mod` genericLength publicAddresses)) $
         fromIndexes
 
 getUser :: WorkMode m => UserIndex -> TestEnv m U.RSCoinUserState

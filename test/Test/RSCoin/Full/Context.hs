@@ -13,6 +13,7 @@ module Test.RSCoin.Full.Context
        , TestContext (..)
        , TestEnv
        , MintetteNumber (..), UserNumber (..)
+       , userAddressesCount, bankUserAddressesCount
        , mkTestContext
        , bank, mintettes, buser, users, lifetime, scenario
        , keys, secretKey, publicKey
@@ -99,6 +100,14 @@ mkTestContext mNum uNum lt scen =
     buinfo = UserInfo <$> U.openMemState
     uinfos = replicateM (fromIntegral uNum) $ UserInfo <$> U.openMemState
     bankKey = pure (bankSecretKey, derivePublicKey bankSecretKey)
+
+-- | Number of addresses each casual user has in wallet (constant).
+userAddressesCount :: Num a => a
+userAddressesCount = 5
+
+-- | Number of addresses each bank user has in wallet (constant).
+bankUserAddressesCount :: Num a => a
+bankUserAddressesCount = 6
 
 -- * Shortcuts
 

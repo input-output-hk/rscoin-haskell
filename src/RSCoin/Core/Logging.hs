@@ -72,7 +72,7 @@ bankLoggerName = "bank"
 mintetteLoggerName = "mintette"
 userLoggerName = "user"
 timedLoggerName = "timed"
-communicationLoggerName = "timed"
+communicationLoggerName = "communication"
 
 predefinedLoggers :: [LoggerName]
 predefinedLoggers =

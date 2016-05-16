@@ -79,7 +79,7 @@ instance Ord (Event m c) where
 -- | Overall state for MonadTimed
 data Scenario m c = Scenario
     { -- | set of sleeping threads
-      _events         :: PQ.MinQueue (Event m c)  
+      _events         :: PQ.MinQueue (Event m c)
       -- | current virtual time
     , _curTime        :: Microsecond
       -- | set of declared threads.
@@ -88,7 +88,7 @@ data Scenario m c = Scenario
       --   when thread is "killThread"ed, its id is removed
       --   when thread finishes it's execution, id remains in set
     , _aliveThreads   :: S.Set ThreadId
-      -- | Number of created threads ever 
+      -- | Number of created threads ever
     , _threadsCounter :: Integer
     }
 
@@ -104,7 +104,7 @@ emptyScenario =
     }
 
 -- | Heart of TimedT monad
-newtype Core m a = Core 
+newtype Core m a = Core
     { getCore :: StateT (Scenario (TimedT m) (Core m)) m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow,
                MonadCatch, MonadMask)
@@ -152,11 +152,11 @@ instance (MonadCatch m, MonadIO m) => MonadCatch (TimedT m) where
             -- it's reached by handling any exception and rethrowing it
             -- in ContException
             -- so any catch handler should first check for ContException.
-            -- if it's throw, rethrow exception inside, otherwise handle 
+            -- if it's throw, rethrow exception inside, otherwise handle
             -- original exception
             \c -> do
                 let act = unwrapCore' r' $ m >>= \x -> wrapCore (getCore $ c x) `catchAll` (throwM . ContException)
-                    handler' e = unwrapCore' r $ handler e >>= wrapCore . getCore . c 
+                    handler' e = unwrapCore' r $ handler e >>= wrapCore . getCore . c
                     contHandler (ContException e) = throwM e
                     r' = r & handlers %~ (Handler (Core . handler') : )
                            & handlers %~ (Handler contHandler : )
@@ -203,7 +203,9 @@ launchTimedT t = flip evalStateT emptyScenario
 runTimedT :: (MonadIO m, MonadCatch m) => TimedT m () -> m ()
 runTimedT timed = launchTimedT $ do
     -- execute first action (main thread)
+    liftIO $ print "before"
     mainThreadCtx >>= \ctx -> runInSandbox ctx timed
+    liftIO $ print "after"
     -- event loop
     whileM_ notDone $ do
         -- take next event
@@ -222,7 +224,7 @@ runTimedT timed = launchTimedT $ do
             act      = maybeDie >> runInSandbox ctx (nextEv ^. action)
             -- catch with handlers from handlers stack
             -- catch which is performed in instance MonadCatch is not enought
-            -- cause on "wait" "catch" scope finishes, we need to catch 
+            -- cause on "wait" "catch" scope finishes, we need to catch
             -- again here
         wrapCore . getCore $ (Core (unwrapCore' ctx act)) `catchesSeq` (ctx ^. handlers)
 
@@ -242,7 +244,7 @@ runTimedT timed = launchTimedT $ do
             }
 
     -- gets handlers by pairs (cont handler and original handler, see note
-    -- in instance MonadCatch), and catches them so that if ContException 
+    -- in instance MonadCatch), and catches them so that if ContException
     -- handled, seconds handler is ingored (but not remaining handlers)
     catchesSeq act [] = act
     catchesSeq act (h1:h2:hs) = catchesSeq (act `catches` [h1, h2]) hs
@@ -300,7 +302,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         -- grab our continuation, put it to event queue
         -- and finish execution
         TimedT $ lift $ ContT $
-                  \c -> 
+                  \c ->
                     Core $ events %= PQ.insert (event $ c ())
 
     myThreadId = TimedT $ view threadId

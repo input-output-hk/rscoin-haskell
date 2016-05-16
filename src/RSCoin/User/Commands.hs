@@ -85,7 +85,7 @@ proceedCommand st (FormTransaction inputs outputAddrStr) =
        unless (isJust pubKey) $
            commitError $
            "Provided key can't be exported: " <> outputAddrStr
-       formTransactionRetry 8 st inputs' (fromJust pubKey) $
+       formTransactionRetry 2 st inputs' (fromJust pubKey) $
            C.Coin (sum $ map snd inputs)
 proceedCommand st UpdateBlockchain =
     eWrap $

@@ -50,6 +50,7 @@ import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               fork, killThread, localTime, mcs,
                                              myThreadId, timeout, wait)
 
+import Debug.Trace (trace)
 
 type Timestamp = Microsecond
 
@@ -186,8 +187,8 @@ unwrapCore :: Monad m
            -> TimedT m a
            -> StateT (Scenario (TimedT m) (Core m)) m ()
 unwrapCore r c = getCore
-               . flip runContT c
-               . flip runReaderT r
+               . trace "1" . flip runContT c
+               . trace "2" . flip runReaderT r
                . unwrapTimedT
 
 unwrapCore' :: Monad m => ThreadCtx (Core m) -> TimedT m () -> StateT (Scenario (TimedT m) (Core m)) m ()

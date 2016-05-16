@@ -269,11 +269,19 @@ timeoutTimedProp
     -> NonNegative Microsecond
     -> TimedTProp ()
 timeoutTimedProp (getNonNegative -> tout) (getNonNegative -> wt) = do
+    liftIO $ print (tout, wt)
+    liftIO $ print 0
     let action = do
+            liftIO $ print 1
             wait $ for wt mcs
+            liftIO $ print 2
             return $ wt <= tout
-        handler (_ :: MonadTimedError) = return $ tout <= wt
+        handler (_ :: MonadTimedError) = do
+            liftIO $ print 3
+            return $ tout <= wt
     res <- timeout tout action `catch` handler
+    liftIO $ print 4
+    liftIO $ print res
     assertTimedT res
 
 invokeSemanticTimedProp

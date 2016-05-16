@@ -7,6 +7,8 @@ module Bench.RSCoin.UserLogic
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 
+import           Control.Exception          (SomeException, fromException)
+
 import           Control.Monad              (forM_)
 import           Control.Monad.Catch        (MonadCatch, MonadThrow, bracket, catch, throwM)
 import           Control.Monad.Trans        (liftIO)
@@ -14,9 +16,10 @@ import           Data.Acid                  (createCheckpoint, query)
 import           Data.Int                   (Int64)
 
 import           RSCoin.Core                (Coin (..), bankSecretKey)
-import           RSCoin.Mintette            (MintetteError (MEInactive))
+import           RSCoin.Mintette            (MintetteError (MEInactive), isMEInactive)
 
 import qualified RSCoin.User.AcidState      as A
+import           RSCoin.User.Logic          (UserLogicError (..))
 import           RSCoin.User.Operations     (formTransaction, updateBlockchain)
 import qualified RSCoin.User.Wallet         as W
 
@@ -27,7 +30,7 @@ import           System.FilePath            ((</>))
 import Debug.Trace (trace)
 
 transactionNum :: Int64
-transactionNum = 100
+transactionNum = 1000
 
 userThread :: FilePath -> (A.RSCoinUserState -> MsgPackRpc a) -> Int64 -> IO a
 userThread benchDir userAction userId = runRealMode $ bracket
@@ -54,18 +57,23 @@ executeTransaction :: A.RSCoinUserState -> Int64 -> W.UserAddress -> MsgPackRpc 
 executeTransaction userState coinAmount addrToSend = do
     let outputMoney    = Coin coinAmount
     let inputMoneyInfo = [(1, outputMoney)]
-    let transactionAction = do {
-                            ; _ <- updateBlockchain userState False
-                            ; formTransaction userState inputMoneyInfo (W.toAddress addrToSend) outputMoney
-                            }
-    inactiveHandler transactionAction
+    _ <- updateBlockchain userState False
+    inactiveHandler $ formTransaction userState inputMoneyInfo (W.toAddress addrToSend) outputMoney
   where
     inactiveHandler :: (MonadCatch m, MonadThrow m) => m () -> m ()
     inactiveHandler transactionAction = transactionAction `catch` repeatIfInactive transactionAction
 
-    repeatIfInactive :: (MonadCatch m, MonadThrow m) => m () -> MintetteError -> m ()
-    repeatIfInactive transactionAction MEInactive = trace "succesful catch!" $ inactiveHandler transactionAction
-    repeatIfInactive _                 someError  = trace "WAAAAAAAAAAAAAT?" $ throwM someError
+    repeatIfInactive :: (MonadCatch m, MonadThrow m) => m () -> SomeException -> m ()
+    repeatIfInactive transactionAction e
+        | isMEInactive     e = trace "catch ME!" $ inactiveHandler transactionAction
+        | isUserLogicError e = trace "catch UL!" $ inactiveHandler transactionAction
+        | otherwise          = trace "WAAAAAAT?" $ throwM e
+
+    isUserLogicError :: SomeException -> Bool
+    isUserLogicError e = case fromException e of
+        Nothing                   -> False
+        Just FailedToCommit       -> True
+        Just (MajorityRejected _) -> True
 
 -- | Create user in `bankMode` and send 1000 coins to every user from list.
 initializeBank :: [W.UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()

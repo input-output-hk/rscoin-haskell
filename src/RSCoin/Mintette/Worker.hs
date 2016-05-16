@@ -3,7 +3,8 @@
 -- | Worker that checks for the end of epoch.
 
 module RSCoin.Mintette.Worker
-       ( runWorker
+       ( isMEInactive
+       , runWorker
        ) where
 
 import           Control.Exception         (SomeException, fromException)

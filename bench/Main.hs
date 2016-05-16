@@ -22,10 +22,10 @@ import           Control.Monad              (forM_, replicateM, void)
 import           System.IO.Temp             (withSystemTempDirectory)
 
 benchMintetteNumber :: Int
-benchMintetteNumber = 10
+benchMintetteNumber = 30
 
 benchUserNumber :: Int64
-benchUserNumber = 2
+benchUserNumber = 25
 
 type KeyPairList = [(SecretKey, PublicKey)]
 

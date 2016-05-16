@@ -29,7 +29,6 @@ import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as TIO
 import           Data.Tuple.Select      (sel1)
-import           Debug.Trace            (trace)
 import           Safe                   (atMay)
 
 import           Serokell.Util.Text     (format', formatSingle',
@@ -89,7 +88,6 @@ updateBlockchain st verbose = do
                   do verboseSay $ formatSingle' "Updating to height {} ..." h
                      updateToBlockHeight st h
                      verboseSay $ formatSingle' "updated to height {}" h)
-    trace "Exiting updateBlockchain\n" $ return ()
     return $ lastBlockHeight /= walletHeight
   where
     verboseSay t = when verbose $ liftIO $ TIO.putStrLn t
@@ -148,7 +146,7 @@ formTransactionRetry tries st inputs outputAddr outputCoin =
     run `catch` catcher
   where
     catcher e@FailedToCommit | tries == 1 = throwM e
-    catcher e@FailedToCommit = do
+    catcher FailedToCommit = do
         C.logWarning C.userLoggerName $
             formatSingle'
             "formTransactionRetry failed (FailedToCommit), retries left: {}"
@@ -221,7 +219,6 @@ formTransactionRetry tries st inputs outputAddr outputCoin =
                     (\(addrid',address') ->
                           (addrid', C.sign (address' ^. W.privateAddress) outTr))
                     addrPairList
-        trace "Calling validateTransaction\n" $ return ()
         validateTransaction outTr signatures $ lastBlockHeight + 1
         update' st $ A.AddTemporaryTransaction outTr
     formTransactionMapper

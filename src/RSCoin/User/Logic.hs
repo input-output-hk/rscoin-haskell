@@ -28,6 +28,7 @@ import           Serokell.Util.Text            (format', formatSingle')
 import           Control.Exception             (Exception (..))
 import           Control.Monad                 (unless, when)
 import           Control.Monad.Catch           (throwM)
+import           Data.Either.Combinators       (rightToMaybe)
 import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
@@ -82,12 +83,11 @@ validateTransaction tx@Transaction{..} signatures height = do
                     => AddrId
                     -> (Mintette, MintetteId)
                     -> m (Maybe CheckConfirmations)
-    processMintette addrid (mintette,mid) =
-        trace "processing mintette" $
-        do
+    processMintette addrid (mintette,mid) = do
         signedPairMb <-
-            CC.checkNotDoubleSpent mintette tx addrid $
-            fromJust $ M.lookup addrid signatures
+            rightToMaybe <$>
+            (CC.checkNotDoubleSpent mintette tx addrid $
+             fromJust $ M.lookup addrid signatures)
         return $ signedPairMb >>= \proof ->
                     do unless (verifyCheckConfirmation proof tx addrid) $
                             Nothing
@@ -95,14 +95,12 @@ validateTransaction tx@Transaction{..} signatures height = do
     commitBundle :: WorkMode m => CheckConfirmations -> m ()
     commitBundle bundle = do
         owns <- CC.getOwnersByTx tx
-        (succeededCommits :: [CommitConfirmation]) <-
-            filter
-                (\(pk,sign,lch) ->
-                      verify pk sign (tx, lch)) .
-            catMaybes <$>
-            mapM
-                ((\mintette ->
-                       CC.commitTx mintette tx height bundle) .
-                 fst)
-                owns
+        commitActions <- mapM (\(mintette, _) -> rightToMaybe <$>
+                                  CC.commitTx mintette tx height bundle)
+                              owns
+        let succeededCommits :: [CommitConfirmation]
+            succeededCommits =
+                filter
+                    (\(pk,sign,lch) -> verify pk sign (tx, lch)) $
+                catMaybes commitActions
         when (null succeededCommits) $ throwUserLogicError FailedToCommit

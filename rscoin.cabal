@@ -74,6 +74,7 @@ library
                      , data-default
                      , directory
                      , exceptions
+                     , either
                      , file-embed
                      , filepath
                      , hashable

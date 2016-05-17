@@ -35,7 +35,7 @@ import           Serokell.Util.Text     (format', formatSingle',
                                          listBuilderJSONIndent, pairBuilder)
 
 import qualified RSCoin.Core            as C
-import           RSCoin.Timed           (WorkMode)
+import           RSCoin.Timed           (WorkMode, for, mcs, wait)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Error      (UserError (..))
@@ -125,11 +125,13 @@ getAmountByIndex st idx = do
 getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
 getAllPublicAddresses st = map C.Address <$> query' st A.GetPublicAddresses
 
+-- | Forms transaction out of user input and sends it to the net.
 formTransaction :: WorkMode m =>
     A.RSCoinUserState -> [(Word, C.Coin)] -> C.Address -> C.Coin -> m ()
 formTransaction = formTransactionRetry 1
 
--- | Forms transaction out of user input and sends it to the net.
+-- | Forms transaction out of user input and sends it. If failure
+-- occurs, waits for 600 mcs, then retries up to given amout of tries.
 formTransactionRetry
     :: WorkMode m
     => Int
@@ -151,6 +153,7 @@ formTransactionRetry tries st inputs outputAddr outputCoin =
             formatSingle'
             "formTransactionRetry failed (FailedToCommit), retries left: {}"
             tries
+        wait $ for 600 mcs
         formTransactionRetry (tries-1) st inputs outputAddr outputCoin
     catcher e = throwM e
     run = do

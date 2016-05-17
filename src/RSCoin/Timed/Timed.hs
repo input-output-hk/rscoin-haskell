@@ -56,8 +56,11 @@ type Timestamp = Microsecond
 
 -- | Private context for each pure thread
 data ThreadCtx c = ThreadCtx
-    { _threadId :: ThreadId        -- ^ Thread id
-    , _handlers :: [Handler c ()]  -- ^ Exception handlers stack
+    { -- | Thread id
+      _threadId :: ThreadId                 
+      -- | Exception handlers stack. First is original handler, 
+      --   second is for continuation handler
+    , _handlers :: [(Handler c (), Handler c ())]  -- ^ Exception handlers stack
     }
 
 $(makeLenses ''ThreadCtx)
@@ -148,20 +151,20 @@ instance (MonadCatch m, MonadIO m) => MonadCatch (TimedT m) where
         ReaderT $
         \r ->
             ContT $
-            -- we can catch only from (m + its continuation)
-            -- thus, any exception of continuation shouldn't be handled
-            -- it's reached by handling any exception and rethrowing it
-            -- in ContException
-            -- so any catch handler should first check for ContException.
-            -- if it's throw, rethrow exception inside, otherwise handle
-            -- original exception
-            \c -> do
-                let act = unwrapCore' r' $ m >>= \x -> wrapCore (getCore $ c x) `catchAll` (throwM . ContException)
+            -- We can catch only from (m + its continuation).
+            -- Thus, we should avoid handling exception from continuation.
+            -- It's achieved by handling any exception and rethrowing it
+            -- as ContException.
+            -- Then, any catch handler should first check for ContException.
+            -- If it's throw, rethrow exception inside ContException, 
+            -- otherwise handle original exception
+            \c -> 
+                let safeCont x = getCore (c x) `catchAll` (throwM . ContException)
+                    act = unwrapCore' r' $ m >>= wrapCore . safeCont
                     handler' e = unwrapCore' r $ handler e >>= wrapCore . getCore . c
                     contHandler (ContException e) = throwM e
-                    r' = r & handlers %~ (Handler (Core . handler') : )
-                           & handlers %~ (Handler contHandler : )
-                Core $ act `catches` [Handler handler', Handler contHandler]
+                    r' = r & handlers %~ (:) (Handler (Core . handler'), Handler contHandler)
+                in  Core $ act `catches` [Handler handler', Handler contHandler]
 
 -- Posibly incorrect instance
 instance (MonadIO m, MonadMask m) => MonadMask (TimedT m) where
@@ -240,16 +243,14 @@ runTimedT timed = launchTimedT $ do
         \tid ->
             ThreadCtx
             { _threadId = tid
-            , _handlers = [ Handler $ \(ContException e) -> throwM e
-                          , Handler threadKilledNotifier]
+            , _handlers = [( Handler threadKilledNotifier
+                           , Handler $ \(ContException e) -> throwM e 
+                           )]
             }
 
-    -- gets handlers by pairs (cont handler and original handler, see note
-    -- in instance MonadCatch), and catches them so that if ContException
-    -- handled, seconds handler is ingored (but not remaining handlers)
-    catchesSeq act [] = act
-    catchesSeq act (h1:h2:hs) = catchesSeq (act `catches` [h1, h2]) hs
-    catchesSeq _   _  = error "Handers stack should have even size"
+    -- Apply all handlers from stack.
+    -- If handled ContException, ignore second handler from that layer
+    catchesSeq = foldl $ \act (h, hc) -> act `catches` [hc, h]
 
 getNextThreadId :: Monad m => TimedT m ThreadId
 getNextThreadId = do
@@ -285,8 +286,9 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         let _threadCtx =
                 ThreadCtx
                 { _threadId = tid
-                , _handlers = [ Handler $ \(ContException e) -> throwM e
-                              , Handler threadKilledNotifier]
+                , _handlers = [( Handler threadKilledNotifier
+                               , Handler $ \(ContException e) -> throwM e
+                               )]
                 }
         wrapCore $ events %= PQ.insert Event { .. }
         return tid

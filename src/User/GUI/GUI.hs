@@ -64,7 +64,7 @@ setupTransactionsView a t l = do
 initializeGUI :: TBQueue A.Action ->
     T.RSCoinUserState -> S.ContactsState -> IO O.OutputWidgets
 initializeGUI queue st cs = do
-    layoutFile <- getDataFileName "src/RSCoin/User/GUI.glade"
+    layoutFile <- getDataFileName "src/User/GUI/GUI.glade"
 
     builder <- G.builderNew
     G.builderAddFromFile builder layoutFile

@@ -14,7 +14,7 @@ module RSCoin.Mintette.Server
        ) where
 
 import           Control.Exception         (throwIO, try)
-import           Control.Monad.Catch       (catch, throwM)
+import           Control.Monad.Catch       (catch)
 import           Control.Monad.IO.Class    (MonadIO, liftIO)
 import           Data.Acid.Advanced        (query', update')
 import           Data.Monoid               ((<>))
@@ -119,6 +119,10 @@ handleNewPeriod st npd =
                "After start of new period, my utxo: {}\nCurrent pset is: {}"
                (curUtxo, curPset)
 
+logFunction :: MonadIO m => MintetteError -> Text -> m ()
+logFunction MEInactive = logInfo
+logFunction _ = logWarning
+
 handleCheckTx
     :: WorkMode m
     => C.SecretKey
@@ -139,9 +143,8 @@ handleCheckTx sk st tx addrId sg =
        res <- try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
        either onError onSuccess res
   where
-    onError (e :: MintetteError) = do
-        logWarning $ formatSingle' "CheckTx failed: {}" e
-        return $ Left e
+    onError e =
+        Left e <$ (logFunction e $ formatSingle' "CheckTx failed: {}" e)
     onSuccess res = do
         logInfo $
             format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
@@ -166,9 +169,8 @@ handleCommitTx sk st tx pId cc =
        res <- try $ update' st $ CommitTx sk tx pId cc
        either onError onSuccess res
   where
-    onError (e :: MintetteError) = do
-        logWarning $ formatSingle' "CommitTx failed: {}" e
-        return $ Left e
+    onError e =
+        Left e <$ (logFunction e $ formatSingle' "CommitTx failed: {}" e)
     onSuccess res = do
         logInfo $ formatSingle' "Successfully committed transaction {}" tx
         return $ Right res
@@ -178,7 +180,7 @@ handleCommitTx sk st tx pId cc =
 handleGetUtxo :: WorkMode m => State -> ServerT m C.Utxo
 handleGetUtxo st =
     toServer $
-    do logInfo "Getting utxo"
+    do logDebug "Getting utxo"
        (curUtxo, _) <- query' st GetUtxoPset
        logDebug $ formatSingle' "Corrent utxo is: {}" curUtxo
        return curUtxo
@@ -188,7 +190,7 @@ handleGetBlocks :: WorkMode m
 handleGetBlocks st pId =
     toServer $
     do res <- query' st $ GetBlocks pId
-       logInfo $
+       logDebug $
             format' "Getting blocks for periodId {}: {}" (pId, listBuilderJSONIndent 2 <$> res)
        return res
 
@@ -198,6 +200,6 @@ handleGetLogs :: WorkMode m
 handleGetLogs st pId =
     toServer $
     do res <- query' st $ GetLogs pId
-       logInfo $
+       logDebug $
             format' "Getting logs for periodId {}: {}" (pId, listBuilderJSONIndent 2 . map pairBuilder <$> res)
        return res

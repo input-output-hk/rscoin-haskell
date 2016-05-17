@@ -54,7 +54,7 @@ import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              Mintette, MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Utxo)
-import           RSCoin.Mintette.Error      (MintetteError)
+import           RSCoin.Mintette.Error      (MintetteError (MEInactive))
 import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
                                              WorkMode)
 
@@ -176,6 +176,10 @@ getOwnersByAddrid aId =
         (const $ logDebug "Successfully got owners by addrid")
         $ getOwnersByHash $ sel1 aId
 
+logFunction :: MonadIO m => MintetteError -> Text -> m ()
+logFunction MEInactive = logInfo
+logFunction _ = logWarning
+
 checkNotDoubleSpent
     :: WorkMode m
     => Mintette
@@ -184,20 +188,15 @@ checkNotDoubleSpent
     -> Signature
     -> m (Either MintetteError CheckConfirmation)
 checkNotDoubleSpent m tx a s =
-    withResult
-        infoMessage
-        (either onError onSuccess)
-        $ callMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
+    withResult infoMessage (either onError onSuccess) $
+    callMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
   where
     infoMessage =
-        logDebug $
-            format' "Checking addrid ({}) from transaction: {}" (a, tx)
+        logDebug $ format' "Checking addrid ({}) from transaction: {}" (a, tx)
     onError e =
-        logWarning $
-            formatSingle' "Checking double spending failed: {}" e
+        logFunction e $ formatSingle' "Checking double spending failed: {}" e
     onSuccess res = do
-        logDebug $
-            format' "Confirmed addrid ({}) from transaction: {}" (a, tx)
+        logDebug $ format' "Confirmed addrid ({}) from transaction: {}" (a, tx)
         logDebug $ formatSingle' "Confirmation: {}" res
 
 commitTx
@@ -214,7 +213,8 @@ commitTx m tx pId cc =
     infoMessage =
         logInfo $
         format' "Commit transaction {}, provided periodId is {}" (tx, pId)
-    onError e = logWarning $ formatSingle' "CommitTx failed: {}" e
+    onError e =
+        logFunction e $ formatSingle' "Checking double spending failed: {}" e
     onSuccess _ =
         logInfo $ formatSingle' "Successfully committed transaction {}" tx
 

@@ -4,9 +4,10 @@
 
 module RSCoin.Mintette.Error
        ( MintetteError (..)
+       , isMEInactive
        ) where
 
-import           Control.Exception      (Exception (..))
+import           Control.Exception      (Exception (..), SomeException)
 import           Data.Aeson.TH          (defaultOptions, deriveJSON)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -62,3 +63,6 @@ $(deriveJSON defaultOptions ''MintetteError)
 instance MessagePack MintetteError where
     toObject = toObject . AsMessagePack
     fromObject = fmap getAsMessagePack . fromObject
+
+isMEInactive :: SomeException -> Bool
+isMEInactive = maybe False (== MEInactive) . fromException

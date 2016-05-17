@@ -50,15 +50,13 @@ import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               fork, killThread, localTime, mcs,
                                              myThreadId, timeout, wait)
 
-import Debug.Trace (trace)
-
 type Timestamp = Microsecond
 
 -- | Private context for each pure thread
 data ThreadCtx c = ThreadCtx
     { -- | Thread id
-      _threadId :: ThreadId                 
-      -- | Exception handlers stack. First is original handler, 
+      _threadId :: ThreadId
+      -- | Exception handlers stack. First is original handler,
       --   second is for continuation handler
     , _handlers :: [(Handler c (), Handler c ())]  -- ^ Exception handlers stack
     }
@@ -156,9 +154,9 @@ instance (MonadCatch m, MonadIO m) => MonadCatch (TimedT m) where
             -- It's achieved by handling any exception and rethrowing it
             -- as ContException.
             -- Then, any catch handler should first check for ContException.
-            -- If it's throw, rethrow exception inside ContException, 
+            -- If it's throw, rethrow exception inside ContException,
             -- otherwise handle original exception
-            \c -> 
+            \c ->
                 let safeCont x = getCore (c x) `catchAll` (throwM . ContException)
                     act = unwrapCore' r' $ m >>= wrapCore . safeCont
                     handler' e = unwrapCore' r $ handler e >>= wrapCore . getCore . c
@@ -190,8 +188,8 @@ unwrapCore :: Monad m
            -> TimedT m a
            -> StateT (Scenario (TimedT m) (Core m)) m ()
 unwrapCore r c = getCore
-               . trace "1" . flip runContT c
-               . trace "2" . flip runReaderT r
+               . flip runContT c
+               . flip runReaderT r
                . unwrapTimedT
 
 unwrapCore' :: Monad m => ThreadCtx (Core m) -> TimedT m () -> StateT (Scenario (TimedT m) (Core m)) m ()
@@ -207,9 +205,7 @@ launchTimedT t = flip evalStateT emptyScenario
 runTimedT :: (MonadIO m, MonadCatch m) => TimedT m () -> m ()
 runTimedT timed = launchTimedT $ do
     -- execute first action (main thread)
-    liftIO $ print "before"
     mainThreadCtx >>= \ctx -> runInSandbox ctx timed
-    liftIO $ print "after"
     -- event loop
     whileM_ notDone $ do
         -- take next event
@@ -244,7 +240,7 @@ runTimedT timed = launchTimedT $ do
             ThreadCtx
             { _threadId = tid
             , _handlers = [( Handler threadKilledNotifier
-                           , Handler $ \(ContException e) -> throwM e 
+                           , Handler $ \(ContException e) -> throwM e
                            )]
             }
 

@@ -156,7 +156,6 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
             tries
         wait $ for 600 mcs
         formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
-        formTransactionRetry (tries-1) st inputs outputAddr outputCoin
     catcher e = throwM e
     run = do
         C.logInfo C.userLoggerName $

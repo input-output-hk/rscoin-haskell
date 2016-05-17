@@ -145,7 +145,8 @@ executable rscoin-keygen
 
 executable rscoin-user
   main-is:             Main.hs
-  other-modules:       UserOptions
+  other-modules:       Paths_rscoin
+                     , UserOptions
                      , GUI.Action
                      , GUI.ActionsExecutor
                      , GUI.Contacts

@@ -49,6 +49,4 @@ showTransaction (VT i o) = "[" ++ show1 i ++ " -> " ++
     show1 (x:xs) = show2 x ++ ", " ++ show1 xs
 
     show2 (Nothing, Coin c) = "(Unrecognized, " ++ show c ++ ")"
-    show2 (Just (Address a), Coin c) = "(" ++ show3 a ++ ", " ++ show c ++ ")"
-
-    show3 k = drop 8 $ init $ printPublicKey k
+    show2 (Just (Address a), Coin c) = "(" ++ printPublicKey a ++ ", " ++ show c ++ ")"

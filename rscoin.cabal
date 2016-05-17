@@ -33,8 +33,12 @@ library
                      , RSCoin.Core.Transaction
                      , RSCoin.Core.Types
                      , RSCoin.Mintette
+                     , RSCoin.Mintette.Acidic
+                     , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Error
+                     , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
+                     , RSCoin.Mintette.Worker
                      , RSCoin.User
                      , RSCoin.User.AcidState
                      , RSCoin.User.Actions
@@ -59,9 +63,6 @@ library
                      , RSCoin.Core.Logging
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
-                     , RSCoin.Mintette.AcidState
-                     , RSCoin.Mintette.Server
-                     , RSCoin.Mintette.Worker
   build-depends:       acid-state
                      , aeson >= 0.9.0.1
                      , base >=4.8 && <4.9
@@ -75,6 +76,8 @@ library
                      , data-default
                      , directory
                      , exceptions
+                     , either
+                     , file-embed
                      , filepath
                      , gtk3 >= 0.14
                      , hashable
@@ -195,20 +198,32 @@ executable rscoin-mintette
 
 test-suite rscoin-test
   main-is:             Test.hs
-  other-modules:       Test.RSCoin.Bank.StorageSpec
-                     , Test.RSCoin.Core.Arbitrary
+  other-modules:       Test.RSCoin.Core.Arbitrary
                      , Test.RSCoin.Core.CryptoSpec
-                     , Test.RSCoin.Core.OwnersSpec
-                     , Test.RSCoin.Core.Storage
                      , Test.RSCoin.Core.MessagePackSpec
-                     , Test.RSCoin.Mintette.StorageSpec
-                     , Test.RSCoin.StorageSpec
-                     , Test.RSCoin.Timed.MonadTimedSpec
-                     , Test.RSCoin.Timed.MonadRpcSpec
-                     , Test.RSCoin.User.StorageSpec
-                     , Test.RSCoin.Context
-                     , Test.RSCoin.RSCoinSpec
+                     , Test.RSCoin.Core.OwnersSpec
+                     , Test.RSCoin.Full.Action
+                     , Test.RSCoin.Full.Context
+                     , Test.RSCoin.Full.Error
+                     , Test.RSCoin.Full.FullSpec
+                     , Test.RSCoin.Full.Gen
+                     , Test.RSCoin.Full.Initialization
+                     , Test.RSCoin.Full.Mintette
+                     , Test.RSCoin.Full.Mintette.Storage
+                     , Test.RSCoin.Full.Mintette.Server
+                     , Test.RSCoin.Full.Mintette.Config
+                     , Test.RSCoin.Full.Mintette.Acidic
+                     , Test.RSCoin.Full.Property
+                     , Test.RSCoin.Full.UserOperations
+                     , Test.RSCoin.Pure.BankState
+                     , Test.RSCoin.Pure.MintetteState
+                     , Test.RSCoin.Pure.StorageSpec
+                     , Test.RSCoin.Pure.Update
+                     , Test.RSCoin.Pure.UserState
                      , Test.RSCoin.Timed.ExceptionSpec
+                     , Test.RSCoin.Timed.MonadRpcSpec
+                     , Test.RSCoin.Timed.MonadTimedSpec
+                     , Test.RSCoin.Timed.Arbitrary
                      , Spec
   type:                exitcode-stdio-1.0
   build-depends:       base >=4.8 && <4.9
@@ -221,6 +236,8 @@ test-suite rscoin-test
                      , hspec >= 2.1.10
                      , mtl
                      , QuickCheck >= 2.8.1
+                     , safe
+                     , safecopy
                      , stm >= 2.4.4.1
                      , serokell-core
                      , tuple
@@ -232,6 +249,7 @@ test-suite rscoin-test
                      , MonadRandom >= 0.4.2.2
                      , acid-state >= 0.14.0
                      , data-default
+                     , time-units >= 1.0.0
                      , rscoin
   hs-source-dirs:      test
   default-language:    Haskell2010

@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE ViewPatterns              #-}
 
 -- | RSCoin.Test.MonadTimed specification
 
@@ -9,29 +11,32 @@ module Test.RSCoin.Timed.MonadTimedSpec
        ( spec
        ) where
 
-import           Control.Exception.Base   (Exception, SomeException)
-import           Control.Concurrent.MVar  (newEmptyMVar, putMVar, takeMVar)
-import           Control.Monad.State      (StateT, execStateT, modify, put)
-import           Control.Monad.Trans      (MonadIO, liftIO)
-import           Control.Monad.Catch      (MonadCatch, throwM, catch, handleAll,
-                                           catchAll)
-import           Control.Monad.Catch.Pure (CatchT, runCatchT)
-import           Data.Typeable            (Typeable)
-import           Numeric.Natural          (Natural)
-import           Test.Hspec               (Spec, describe)
-import           Test.Hspec.QuickCheck    (prop)
-import           Test.QuickCheck          (Property, counterexample, ioProperty,
-                                           (===))
-import           Test.QuickCheck.Function (Fun, apply)
-import           Test.QuickCheck.Monadic  (PropertyM, assert, monadic, monitor,
-                                           run)
-import           Test.QuickCheck.Poly     (A)
+import           Control.Exception.Base      (Exception)
+import           Control.Concurrent.MVar     (newEmptyMVar, putMVar, takeMVar)
+import           Control.Concurrent.STM      (atomically)
+import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
+import           Control.Monad               (void)
+import           Control.Monad.State         (StateT, execStateT, modify, put)
+import           Control.Monad.Trans         (MonadIO, liftIO)
+import           Control.Monad.Catch         (MonadCatch, throwM, handleAll,
+                                              catchAll, catch)
+import           Data.Typeable               (Typeable)
+import           Numeric.Natural             (Natural)
+import           Test.Hspec                  (Spec, describe)
+import           Test.Hspec.QuickCheck       (prop)
+import           Test.QuickCheck             (Property, counterexample, ioProperty,
+                                              (===), NonNegative (..))
+import           Test.QuickCheck.Function    (Fun, apply)
+import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, monitor,
+                                              run)
+import           Test.QuickCheck.Poly        (A)
+import           Test.RSCoin.Timed.Arbitrary ()
 
-import           RSCoin.Timed.MonadTimed  (MicroSeconds, MonadTimed (..),
-                                           RelativeToNow, invoke, now, schedule,
-                                           for, after, sec)
-import           RSCoin.Timed.TimedIO     (TimedIO, runTimedIO)
-import           RSCoin.Timed.Timed       (TimedT, runTimedT)
+import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..), fork_,
+                                              RelativeToNow, invoke, now, schedule,
+                                              for, after, sec, MonadTimedError, mcs)
+import           RSCoin.Timed.TimedIO        (TimedIO, runTimedIO)
+import           RSCoin.Timed.Timed          (TimedT, runTimedT)
 
 spec :: Spec
 spec =
@@ -43,7 +48,7 @@ spec =
         monadTimedTSpec "TimedT" runTimedTProp
 
 monadTimedSpec
-    :: (MonadTimed m, MonadIO m)
+    :: (MonadTimed m, MonadIO m, MonadCatch m)
     => String
     -> (PropertyM m () -> Property)
     -> Spec
@@ -64,6 +69,11 @@ monadTimedSpec description runProp =
         describe "invoke" $ do
             prop "won't change semantics of an action, will execute action in the future" $
                 \a b -> runProp . invokeSemanticProp a b
+-- TODO: fix tests for timeout in TimedIO.
+--        describe "timeout" $ do
+--            prop "should throw an exception if time has exceeded" $
+--                \a -> runProp . timeoutProp a
+
 
 monadTimedTSpec
     :: String
@@ -86,6 +96,12 @@ monadTimedTSpec description runProp =
         describe "invoke" $ do
             prop "won't change semantics of an action, will execute action in the future" $
                 \a b -> runProp . invokeSemanticTimedProp a b
+        describe "timeout" $ do
+            prop "should throw an exception if time has exceeded" $
+                \a -> runProp . timeoutTimedProp a
+        describe "killThread" $ do
+            prop "should abort the execution of a thread" $
+                \a b -> runProp . killThreadTimedProp a b
         describe "exceptions" $ do
             prop "thrown nicely" $
                 runProp exceptionsThrown
@@ -94,9 +110,9 @@ monadTimedTSpec description runProp =
             prop "wait + throw caught nicely" $
                 runProp exceptionsWaitThrowCaught
             prop "exceptions don't affect main thread" $
-                runProp exceptionNotAffectMainThread 
+                runProp exceptionNotAffectMainThread
             prop "exceptions don't affect other threads" $
-                runProp exceptionNotAffectOtherThread 
+                runProp exceptionNotAffectOtherThread
 
 
 -- pure version
@@ -120,6 +136,19 @@ runTimedTProp :: TimedTProp () -> Property
 runTimedTProp test = ioProperty $ execStateT (runTimedT test) True
 
 -- TimedIO tests
+
+timeoutProp
+    :: (MonadTimed m, MonadIO m, MonadCatch m)
+    => NonNegative Microsecond
+    -> NonNegative Microsecond
+    -> PropertyM m ()
+timeoutProp (getNonNegative -> tout) (getNonNegative -> wt) = do
+    let action = do
+            wait $ for wt mcs
+            return $ wt <= tout
+        handler (_ :: MonadTimedError) = return $ wt >= tout
+    res <- run $ timeout tout action `catch` handler
+    assert res
 
 invokeSemanticProp
     :: (MonadTimed m, MonadIO m)
@@ -155,7 +184,7 @@ forkSemanticProp
     => A
     -> Fun A A
     -> PropertyM m ()
-forkSemanticProp = actionSemanticProp fork
+forkSemanticProp = actionSemanticProp fork_
 
 waitPassingProp
     :: (MonadTimed m, MonadIO m)
@@ -208,6 +237,44 @@ actionSemanticProp action val f = do
     assert $ apply f val == result
 
 -- TimedT tests
+-- TODO: As TimedT is an instance of MonadIO, we can now reuse tests for TimedIO instead of these tests
+
+-- TODO: use checkpoints timeout pattern from ExceptionSpec
+killThreadTimedProp
+    :: NonNegative Microsecond
+    -> NonNegative Microsecond
+    -> NonNegative Microsecond
+    -> TimedTProp ()
+killThreadTimedProp (getNonNegative -> mTime) (getNonNegative -> f1Time) (getNonNegative -> f2Time)= do
+    var <- liftIO $ newTVarIO (0 :: Int)
+    tId <- fork $ do
+        fork_ $ do -- this thread can't be killed
+            wait $ for f1Time mcs
+            liftIO $ atomically $ writeTVar var 1
+        wait $ for f2Time mcs
+        liftIO $ atomically $ writeTVar var 2
+    wait $ for mTime mcs
+    killThread tId
+    wait $ for f1Time mcs f2Time mcs -- wait for both threads to finish
+    res <- liftIO $ readTVarIO var
+    assertTimedT $ check res
+  where
+    check 0 = mTime <= f1Time && mTime <= f2Time
+    check 1 = True -- this thread can't be killed
+    check 2 = f2Time <= mTime
+    check _ = error "This checkpoint doesn't exist"
+
+timeoutTimedProp
+    :: NonNegative Microsecond
+    -> NonNegative Microsecond
+    -> TimedTProp ()
+timeoutTimedProp (getNonNegative -> tout) (getNonNegative -> wt) = do
+    let action = do
+            wait $ for wt mcs
+            return $ wt <= tout
+        handler (_ :: MonadTimedError) = return $ tout <= wt
+    res <- timeout tout action `catch` handler
+    assertTimedT res
 
 invokeSemanticTimedProp
     :: RelativeToNowNat
@@ -239,7 +306,7 @@ forkSemanticTimedProp
     :: A
     -> Fun A A
     -> TimedTProp ()
-forkSemanticTimedProp = actionSemanticTimedProp fork
+forkSemanticTimedProp = actionSemanticTimedProp fork_
 
 waitPassingTimedProp
     :: RelativeToNowNat
@@ -270,13 +337,13 @@ actionSemanticTimedProp action val f = do
     let result = apply f val
     action $ assertTimedT $ apply f val == result
 
-nowProp :: MicroSeconds -> Property
+nowProp :: Microsecond -> Property
 nowProp ms = 0 === now ms
 
 
 -- * Excpetions
 
-data TestException = TestExc 
+data TestException = TestExc
     deriving (Show, Typeable)
 
 instance Exception TestException
@@ -287,30 +354,30 @@ handleAll' = handleAll $ const $ return ()
 
 exceptionsThrown :: TimedTProp ()
 exceptionsThrown = handleAll' $ do
-    throwM TestExc 
+    void $ throwM TestExc
     put False
 
 exceptionsThrowCaught :: TimedTProp ()
-exceptionsThrowCaught = 
+exceptionsThrowCaught =
     let act = do
-            put False 
+            put False
             throwM TestExc
         hnd = const $ put True
     in  act `catchAll` hnd
 
 exceptionsWaitThrowCaught :: TimedTProp ()
-exceptionsWaitThrowCaught = 
+exceptionsWaitThrowCaught =
     let act = do
-            put False 
+            put False
             wait $ for 1 sec
             throwM TestExc
         hnd = const $ put True
-    in  act `catchAll` hnd 
+    in  act `catchAll` hnd
 
 exceptionNotAffectMainThread :: TimedTProp ()
 exceptionNotAffectMainThread = handleAll' $ do
     put False
-    fork $ throwM TestExc
+    fork_ $ throwM TestExc
     wait $ for 1 sec
     put True
 
@@ -319,4 +386,3 @@ exceptionNotAffectOtherThread = handleAll' $ do
     put False
     schedule (after 3 sec) $ put True
     schedule (after 1 sec) $ throwM TestExc
-

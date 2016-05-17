@@ -12,6 +12,7 @@ module RSCoin.User.AcidState
        , openMemState
        , closeState
        , initState
+       , initStateBank
 
        -- * Queries
        , IsInitialized (..)
@@ -19,7 +20,6 @@ module RSCoin.User.AcidState
        , GetPublicAddresses (..)
        , GetTransactions (..)
        , GetLastBlockId (..)
-       , DumpAllTransactions (..)
 
        -- * Updates
        , WithBlockchainUpdate (..)
@@ -28,21 +28,21 @@ module RSCoin.User.AcidState
        , InitWallet (..)
        ) where
 
+import           Control.Exception   (throw, throwIO)
+import           Control.Monad       (replicateM, unless)
+import           Control.Monad.Catch (MonadThrow, throwM)
+import           Control.Monad.Trans (MonadIO, liftIO)
+import           Data.Acid           (makeAcidic)
+import qualified Data.Acid           as A
+import           Data.Acid.Memory    as AM
+import           Data.SafeCopy       (base, deriveSafeCopy)
+
 import qualified RSCoin.Core         as C
 import           RSCoin.Core.Crypto  (keyGen)
 import           RSCoin.Timed        (WorkMode)
 import           RSCoin.User.Logic   (getBlockchainHeight)
 import           RSCoin.User.Wallet  (UserAddress, WalletStorage)
 import qualified RSCoin.User.Wallet  as W
-
-import           Control.Exception   (throw, throwIO)
-import           Control.Monad       (replicateM, unless)
-import           Control.Monad.Catch (MonadThrow, throwM)
-import           Control.Monad.Trans (liftIO)
-import           Data.Acid           (makeAcidic)
-import qualified Data.Acid           as A
-import           Data.Acid.Memory    as AM
-import           Data.SafeCopy       (base, deriveSafeCopy)
 
 $(deriveSafeCopy 0 'base ''UserAddress)
 $(deriveSafeCopy 0 'base ''WalletStorage)
@@ -74,14 +74,12 @@ getAllAddresses :: A.Query WalletStorage [UserAddress]
 getPublicAddresses :: A.Query WalletStorage [C.PublicKey]
 getTransactions :: UserAddress -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
-dumpAllTransactions :: A.Query WalletStorage [(UserAddress, (C.Transaction, C.AddrId))]
 
 isInitialized = W.isInitialized
 getAllAddresses = W.getAllAddresses
 getPublicAddresses = W.getPublicAddresses
 getTransactions = W.getTransactions
 getLastBlockId = W.getLastBlockId
-dumpAllTransactions = W.dumpAllTransactions
 
 withBlockchainUpdate :: Int -> [C.Transaction] -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.Transaction -> A.Update WalletStorage ()
@@ -100,7 +98,6 @@ $(makeAcidic
       , 'getPublicAddresses
       , 'getTransactions
       , 'getLastBlockId
-      , 'dumpAllTransactions
       , 'withBlockchainUpdate
       , 'addTemporaryTransaction
       , 'addAddresses
@@ -114,15 +111,24 @@ $(makeAcidic
 initState :: WorkMode m => RSCoinUserState -> Int -> Maybe FilePath -> m ()
 initState st n (Just skPath) = liftIO $ do
     sk <- C.readSecretKey skPath
-    let bankAddress = W.makeUserAddress sk $ C.getAddress C.genesisAddress
-    unless (W.validateUserAddress bankAddress) $
-        throwIO $ W.BadRequest "Imported bank's secret key doesn't belong to bank."
-    addresses <- map (uncurry W.makeUserAddress) <$> replicateM n keyGen
-    A.update st $ InitWallet (bankAddress : addresses) Nothing
-    A.createCheckpoint st
+    initStateBank st n sk
 initState st n Nothing = do
     height <- pred <$> getBlockchainHeight
-    liftIO $ do
-        addresses <- map (uncurry W.makeUserAddress) <$> replicateM n keyGen
-        A.update st $ InitWallet addresses (Just height)
-        A.createCheckpoint st
+    liftIO $
+        do addresses <- map (uncurry W.makeUserAddress) <$> replicateM n keyGen
+           A.update st $ InitWallet addresses (Just height)
+           A.createCheckpoint st
+
+-- | This function is is similar to the previous one, but is intended to
+-- be used in tests/benchmark, where bank's secret key is embeded and
+-- is not contained in file.
+initStateBank :: MonadIO m => RSCoinUserState -> Int -> C.SecretKey -> m ()
+initStateBank st n sk =
+    liftIO $
+    do let bankAddress = W.makeUserAddress sk $ C.getAddress C.genesisAddress
+       unless (W.validateUserAddress bankAddress) $
+           throwIO $
+           W.BadRequest "Imported bank's secret key doesn't belong to bank."
+       addresses <- map (uncurry W.makeUserAddress) <$> replicateM n keyGen
+       A.update st $ InitWallet (bankAddress : addresses) Nothing
+       A.createCheckpoint st

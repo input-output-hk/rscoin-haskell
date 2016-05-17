@@ -6,25 +6,22 @@ module Test.RSCoin.Timed.MonadRpcSpec
        ( spec
        ) where
 
-import           Control.Monad.Trans        (MonadIO)
+import           Control.Monad.Random.Class (getRandomR)
 import           Control.Monad.State        (StateT, execStateT, modify)
-import           Control.Monad.Catch.Pure   (CatchT, runCatchT)
+import           Control.Monad.Trans        (MonadIO)
+import           Data.Time.Units            (fromMicroseconds)
+import           System.Random              (StdGen, mkStdGen)
 import           Test.Hspec                 (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck      (prop)
-import           Test.QuickCheck            (Property, ioProperty,
-                                             Arbitrary (..), generate)
-import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic,
-                                             run)
-import           System.Random              (StdGen, mkStdGen)
-import           Control.Monad.Random.Class (getRandomR)
+import           Test.QuickCheck            (Arbitrary (..), Property, generate,
+                                             ioProperty)
+import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, run)
 
 import           RSCoin.Timed.MonadRpc      (Addr, Client (..), Host,
-                                             MonadRpc (..),
-                                             MsgPackRpc (..), Port, call,
-                                             method)
-import           RSCoin.Timed.MonadTimed    (MonadTimed (..), for, ms)
-import           RSCoin.Timed.PureRpc       (PureRpc, runPureRpc,
-                                             Delays (..))
+                                             MonadRpc (..), MsgPackRpc (..),
+                                             Port, call, method)
+import           RSCoin.Timed.MonadTimed    (MonadTimed (..), fork_, for, ms)
+import           RSCoin.Timed.PureRpc       (Delays (..), PureRpc, runPureRpc)
 import           RSCoin.Timed.TimedIO       (runTimedIO)
 
 import           Network.MessagePack.Server (ServerT)
@@ -33,7 +30,7 @@ spec :: Spec
 spec =
     describe "MonadRpc" $ do
         msgPackRpcSpec "MsgPackRpc" runMsgPackRpcProp
-        -- FIXME: dont generate new radom seed here. Better way would be use the same seed as the one quickcheck/hspec was initialised with. 
+        -- FIXME: dont generate new radom seed here. Better way would be use the same seed as the one quickcheck/hspec was initialised with.
         -- Proper way of fixing this is to not use StdGen in PureRpc implementation, but to leave this to quickcheck
         runIO (generate arbitrary) >>= pureRpcSpec "PureRpc" . flip runPureRpcProp delays'
 
@@ -47,9 +44,6 @@ msgPackRpcSpec description runProp =
         describe "server method should execute (simple)" $ do
             prop "client should be able to execute server method" $
                 runProp serverMethodShouldExecuteSimpleSpec
-        -- describe "server method should execute" $ do
-        --     prop "client should be able to execute server method" $
-        --         runProp . serverMethodShouldExecuteSpec
 
 pureRpcSpec
     :: String
@@ -72,7 +66,7 @@ runMsgPackRpcProp :: PropertyM MsgPackRpc () -> Property
 runMsgPackRpcProp = monadic $ ioProperty . runTimedIO . runMsgPackRpc
 
 runPureRpcProp :: StdGen -> Delays -> PureRpcProp () -> Property
-runPureRpcProp gen delays test = 
+runPureRpcProp gen delays test =
     ioProperty $ execStateT (runPureRpc gen delays test) True
 
 -- TODO: this is kind of odd
@@ -83,7 +77,7 @@ instance Arbitrary StdGen where
 delays' :: Delays
 delays' = Delays d
   where
-    d _ _ = Just <$> getRandomR (10, 1000)
+    d _ _ = Just . fromMicroseconds <$> getRandomR (10, 1000)
 
 -- TODO: it would be useful to create an instance of Function for Client and Method;
 -- see here https://hackage.haskell.org/package/QuickCheck-2.8.2/docs/Test-QuickCheck-Function.html#t:Function
@@ -101,13 +95,13 @@ serverMethodShouldExecuteSimpleSpec
     :: (MonadTimed m, MonadRpc m, MonadIO m)
     => PropertyM m ()
 serverMethodShouldExecuteSimpleSpec = do
-    run $ fork $ server
+    run $ fork_ $ server
     client
 
 serverMethodShouldExecuteSimplePureSpec
     :: PureRpcProp ()
 serverMethodShouldExecuteSimplePureSpec = do
-    fork $ server
+    fork_ $ server
     clientPure
 
 server :: MonadRpc m => m ()

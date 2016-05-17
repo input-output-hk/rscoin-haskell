@@ -12,7 +12,8 @@ module RSCoin.Bank.Worker
 import           Control.Exception        (SomeException)
 import           Control.Monad.Catch      (catch)
 import           Control.Monad.Trans      (liftIO)
-import           Data.Acid                (createCheckpoint, query, update)
+import           Data.Acid                (createCheckpoint)
+import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
 import           Data.Monoid              ((<>))
 
@@ -21,13 +22,14 @@ import           Serokell.Util.Text       (formatSingle')
 
 import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            SecretKey, announceNewPeriod,
-                                           formatNewPeriodData, logDebug,
-                                           logError, logInfo, logWarning,
-                                           periodDelta, sendPeriodFinished)
+                                           bankLoggerName, formatNewPeriodData,
+                                           logDebug, logError, logInfo,
+                                           logWarning, periodDelta,
+                                           sendPeriodFinished)
 
-import           RSCoin.Timed             (WorkMode, minute, tu, repeatForever)
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
                                            StartNewPeriod (..), State)
+import           RSCoin.Timed             (WorkMode, minute, repeatForever, tu)
 
 -- | Start worker which runs appropriate action when a period finishes
 runWorker :: WorkMode m => SecretKey -> State -> m ()
@@ -35,7 +37,7 @@ runWorker sk st = repeatForever (tu periodDelta) handler $
     onPeriodFinished sk st
   where
     handler e = do
-        logError $
+        logError bankLoggerName $
             formatSingle'
                 "Error was caught by worker, restarting in 1 minute: {}"
                 e
@@ -43,29 +45,29 @@ runWorker sk st = repeatForever (tu periodDelta) handler $
 
 onPeriodFinished :: WorkMode m => SecretKey -> State -> m ()
 onPeriodFinished sk st = do
-    mintettes <- liftIO $ query st GetMintettes
-    pId <- liftIO $ query st GetPeriodId
-    liftIO $ logInfo $ formatSingle' "Period {} has just finished!" pId
+    mintettes <- query' st GetMintettes
+    pId <- query' st GetPeriodId
+    logInfo bankLoggerName $ formatSingle' "Period {} has just finished!" pId
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     periodResults <- getPeriodResults mintettes pId
-    newPeriodData <- liftIO $ update st $ StartNewPeriod sk periodResults
+    newPeriodData <- update' st $ StartNewPeriod sk periodResults
     liftIO $ createCheckpoint st
-    newMintettes <- liftIO $ query st GetMintettes
+    newMintettes <- query' st GetMintettes
     if null newMintettes
-        then liftIO $ logWarning "New mintettes list is empty!"
+        then logWarning bankLoggerName "New mintettes list is empty!"
         else do
             mapM_
                 (\(m,mId) ->
                       announceNewPeriod m (newPeriodData !! mId) `catch`
                       handlerAnnouncePeriod)
                 (zip newMintettes [0 ..])
-            liftIO $ logInfo $
+            logInfo bankLoggerName $
                 formatSingle'
                     ("Announced new period with this NewPeriodData " <>
                      "(payload is Nothing -- omitted (only in Debug)):\n{}")
                     (formatNewPeriodData False $ head newPeriodData)
-            liftIO $ logDebug $
+            logDebug bankLoggerName $
                 formatSingle'
                    "Announced new period, sent these newPeriodData's:\n{}"
                    newPeriodData
@@ -73,8 +75,7 @@ onPeriodFinished sk st = do
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)
     handlerAnnouncePeriod (e :: SomeException) =
-        liftIO $
-        logWarning $
+        logWarning bankLoggerName $
         formatSingle' "Error occurred in communicating with mintette {}" e
 
 getPeriodResults :: WorkMode m => Mintettes -> PeriodId -> m [Maybe PeriodResult]
@@ -84,10 +85,10 @@ getPeriodResults mts pId = do
     liftIO $ reverse <$> readIORef res
   where
     f res mintette =
-        (sendPeriodFinished mintette pId 
-            >>= liftIO . modifyIORef res . (:) . Just)  
+        (sendPeriodFinished mintette pId
+            >>= liftIO . modifyIORef res . (:) . Just)
                 `catch` handler res
     handler res (e :: SomeException) = liftIO $ do
-        logWarning $
+        logWarning bankLoggerName $
             formatSingle' "Error occurred in communicating with mintette {}" e
         modifyIORef res (Nothing :)

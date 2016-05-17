@@ -19,6 +19,7 @@ module RSCoin.Core.Crypto
        , constructPublicKey
        , writePublicKey
        , readPublicKey
+       , constructSecretKey
        , writeSecretKey
        , readSecretKey
        , derivePublicKey
@@ -42,7 +43,7 @@ import           Data.SafeCopy             (Contained,
                                             safePut)
 import           Data.Serialize            (Get, Put)
 import           Data.String               (IsString)
-import           Data.Text                 (Text)
+import           Data.Text                 (Text, unpack)
 import           Data.Text.Buildable       (Buildable (build))
 import           Data.Text.Encoding        (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format          as F
@@ -213,6 +214,12 @@ readPublicKey :: FilePath -> IO PublicKey
 readPublicKey fp =
     maybe (throwText "Failed to parse public key") return =<<
     (constructPublicKey <$> TIO.readFile fp)
+
+-- | Constructs secret key from file content.
+-- In general it should not be used.  The only reason it's needed is
+-- to read embeded key (for which we know it's correct).
+constructSecretKey :: ByteString -> SecretKey
+constructSecretKey = SecretKey . read . unpack . decodeUtf8
 
 -- | Writes SecretKey to a file
 writeSecretKey :: FilePath -> SecretKey -> IO ()

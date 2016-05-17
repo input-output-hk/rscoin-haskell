@@ -15,7 +15,6 @@ module RSCoin.User.Wallet
        , makeUserAddress
        , toAddress
        , validateUserAddress
-       , dumpAllTransactions
        , WalletStorageError (..)
        , WalletStorage
        , emptyWalletStorage
@@ -167,12 +166,6 @@ getTransactions addr = checkInitR $ do
 getLastBlockId :: ExceptQuery Int
 getLastBlockId = checkInitR $ L.views lastBlockId fromJust
 
-dumpAllTransactions :: ExceptQuery [(UserAddress, TrAddrId)]
-dumpAllTransactions =
-    concatMap
-        (\(a,b) ->
-              map (a, ) b) <$>
-    L.views inputAddressesTxs M.assocs
 
 -- Updates
 
@@ -243,7 +236,7 @@ withBlockchainUpdate newHeight transactions =
        restoreTransactions
        ownedAddressesRaw <- L.use userAddresses
        ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
-       let addSomeTransactions tx@Transaction{..} = do
+       let addSomeTransactions tx@Transaction{..} =
                -- first! add transactions that have output with address that we own
                forM_ (C.computeOutputAddrids tx) $
                      \(addrid',address) ->

@@ -1,4 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
+
+-- | This module contains all constants in rscoin.
 
 module RSCoin.Core.Constants
        ( defaultSecretKeyPath
@@ -14,16 +17,19 @@ module RSCoin.Core.Constants
        , periodReward
        , shardDivider
        , rpcTimeout
+       , bankSecretKey
        ) where
 
 import           Data.Binary            (Binary)
+import           Data.FileEmbed         (embedFile, makeRelativeToProject)
 import           Data.Maybe             (fromJust)
 import           Data.String            (IsString)
 import           Data.Time.Units        (Second)
 import           System.Directory       (getHomeDirectory)
 import           System.FilePath        ((</>))
 
-import           RSCoin.Core.Crypto     (Hash, constructPublicKey, hash)
+import           RSCoin.Core.Crypto     (Hash, SecretKey, constructPublicKey,
+                                         constructSecretKey, hash)
 import           RSCoin.Core.Primitives (Address (Address), Coin)
 
 -- | Path used by default to read/write secret key.
@@ -80,5 +86,11 @@ shardDivider = 3
 
 -- | Timeout for rpc calls in microsecons.
 -- If timeout exceedes TimeoutError is thrown.
-rpcTimeout :: Int
-rpcTimeout = 5000000
+rpcTimeout :: Second
+rpcTimeout = 5
+
+-- | Bank's secret key which can be used to spend coins from genesis transaction.
+-- It's needed only for tests/benchmarks.
+bankSecretKey :: SecretKey
+bankSecretKey =
+    constructSecretKey $ $(makeRelativeToProject "rscoin-key" >>= embedFile)

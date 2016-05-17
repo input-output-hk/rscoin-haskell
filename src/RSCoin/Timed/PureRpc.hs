@@ -10,31 +10,38 @@
 module RSCoin.Timed.PureRpc
     ( PureRpc
     , runPureRpc
+    , runPureRpc_
     , Delays(..)
     ) where
 
 import           Control.Lens            (makeLenses, use, (%=), (.=))
 import           Control.Monad           (forM_)
-import           Control.Monad.Catch     (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Catch     (MonadCatch, MonadMask, MonadThrow,
+                                          throwM)
 import           Control.Monad.Random    (Rand, runRand)
 import           Control.Monad.State     (MonadState (get, put, state), StateT,
                                           evalStateT, get, put)
 import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
 import           Data.Default            (Default, def)
 import           Data.Map                as Map
-import           Data.Maybe              (fromMaybe)
 import           System.Random           (StdGen)
 
 import           Data.MessagePack        (Object)
-import           Data.MessagePack.Object (MessagePack, fromObject)
+import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
 import           RSCoin.Timed.MonadRpc   (Addr, Client (..), Host, Method (..),
-                                          MonadRpc, execClient, methodBody,
-                                          methodName, serve)
-import           RSCoin.Timed.MonadTimed (MicroSeconds, MonadTimed, for,
-                                          localTime, mcs, sec, wait)
-import           RSCoin.Timed.Timed      (TimedT, runTimedT)
+                                          MonadRpc, RpcError (..), execClient,
+                                          methodBody, methodName, serve)
+import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
+                                          localTime, mcs, minute, wait)
+import           RSCoin.Timed.Timed      (TimedT, evalTimedT, runTimedT)
 
+-- | List of known issues:
+--     -) Method, once being declared in net, can't be removed
+--        Even timeout won't help
+--        Status: not relevant in tests for now
+--     -) Connection can't be refused, only be held on much time
+--        Status: not relevant until used with fixed timeout
 
 data RpcStage = Request | Response
 
@@ -44,7 +51,7 @@ newtype Delays = Delays
       --   Nothing otherwise
       -- TODO: more parameters
       -- FIXME: we should handle StdGen with Quickcheck.Arbitrary
-      evalDelay :: RpcStage -> MicroSeconds -> Rand StdGen (Maybe MicroSeconds)
+      evalDelay :: RpcStage -> Microsecond -> Rand StdGen (Maybe Microsecond)
       -- ^ I still think that this function is at right place
       --   We just need to find funny syntax for creating complex description
       --   of network nastinesses.
@@ -91,24 +98,43 @@ instance MonadState s m => MonadState s (PureRpc m) where
     put = lift . put
     state = lift . state
 
--- | Launches rpc scenario
-runPureRpc :: (MonadIO m, MonadCatch m) => StdGen -> Delays -> PureRpc m () -> m ()
+-- | Launches rpc scenario.
+runPureRpc
+    :: (MonadIO m, MonadCatch m)
+    => StdGen -> Delays -> PureRpc m a -> m a
 runPureRpc _randSeed _delays (PureRpc rpc) =
+    evalStateT (evalTimedT (evalStateT rpc "127.0.0.1")) net
+  where
+    net        = NetInfo{..}
+    _listeners = Map.empty
+
+-- | Launches rpc scenario without result. May be slightly more efficient.
+runPureRpc_
+    :: (MonadIO m, MonadCatch m)
+    => StdGen -> Delays -> PureRpc m () -> m ()
+runPureRpc_ _randSeed _delays (PureRpc rpc) =
     evalStateT (runTimedT (evalStateT rpc "127.0.0.1")) net
   where
     net        = NetInfo{..}
     _listeners = Map.empty
 
 -- TODO: use normal exceptions here
-request :: (Monad m, MessagePack a) => Client a -> (Listeners (PureRpc m), Addr) -> PureRpc m a
-request (Client name args) (listeners', addr) = 
+request :: (Monad m, MonadThrow m, MessagePack a)
+        => Client a
+        -> (Listeners (PureRpc m), Addr)
+        -> PureRpc m a
+request (Client name args) (listeners', addr) =
     case Map.lookup (addr, name) listeners' of
-        Nothing -> error $ mconcat
-            ["Method ", name, " is not defined at ", show addr]
-        Just f  -> fromMaybe (error "Answer type mismatch")
-                 . fromObject <$> f args
+        Nothing -> throwM $ ServerError $ toObject $ mconcat
+            ["method \"", name, "\" not found at adress ", show addr]
+        Just f  -> do
+            res <- f args
+            case fromObject res of
+                Nothing -> throwM $ ResultTypeError "type mismatch"
+                Just r  -> return r
 
-instance (Monad m, MonadThrow m) => MonadRpc (PureRpc m) where
+
+instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
     execClient addr cli = PureRpc $ do
         curHost <- get
         unwrapPureRpc $ waitDelay Request
@@ -126,7 +152,7 @@ instance (Monad m, MonadThrow m) => MonadRpc (PureRpc m) where
         lift $ lift $ forM_ methods $ \Method{..} ->
             listeners %= Map.insert ((host, port), methodName) methodBody
 
-waitDelay :: MonadThrow m => RpcStage -> PureRpc m ()
+waitDelay :: (MonadThrow m, MonadIO m, MonadCatch m) => RpcStage -> PureRpc m ()
 waitDelay stage =
     PureRpc $
     do seed <- lift . lift $ use randSeed
@@ -134,4 +160,4 @@ waitDelay stage =
        time <- localTime
        let (delay,nextSeed) = runRand (evalDelay delays' stage time) seed
        lift $ lift $ randSeed .= nextSeed
-       wait $ maybe (for 99999 sec) (`for` mcs) delay-- TODO: throw or eliminate
+       wait $ maybe (for 99999 minute) (`for` mcs) delay

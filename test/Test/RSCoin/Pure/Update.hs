@@ -1,16 +1,15 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
-{-# LANGUAGE ViewPatterns              #-}
 
--- | Bank and Mintette common storage types
+-- | WIP
 
-module Test.RSCoin.Core.Storage
+module Test.RSCoin.Pure.Update
        ( Update (..)
        , execUpdate
        , runUpdate
@@ -18,11 +17,12 @@ module Test.RSCoin.Core.Storage
        , runUpdateSafe
        ) where
 
-import           Control.Exception          (throw, fromException, Exception)
-import           Control.Monad.Catch        (MonadThrow (throwM), SomeException (..))
+import           Control.Exception          (Exception, fromException, throw)
+import           Control.Monad.Catch        (MonadThrow (throwM),
+                                             SomeException (..))
 import           Control.Monad.Except       (runExceptT)
-import           Control.Monad.State        (runState, State, get, modify)
 import           Control.Monad.Reader       (MonadReader (ask, local))
+import           Control.Monad.State        (State, get, modify, runState)
 import           Control.Monad.State.Class  (MonadState)
 import           Control.Monad.Trans.Except (ExceptT, throwE)
 

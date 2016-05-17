@@ -66,7 +66,7 @@ main = do
                 ACID.createCheckpoint st
                 A.closeState st) $
             \st ->
-                 do liftIO $ C.logDebug $
+                 do C.logDebug C.userLoggerName $
                         mconcat ["Called with options: ", (T.pack . show) opts]
                     initialized <- liftIO $ walletInitialized st
                     unless initialized $

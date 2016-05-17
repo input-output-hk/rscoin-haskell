@@ -4,6 +4,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 -- | This module contains MonadRpc providing RPC communication,
 -- and it's implementation using MessagePack.
@@ -26,6 +27,7 @@ module RSCoin.Timed.MonadRpc
        , S.Server
        , S.ServerT
        , S.MethodType
+       , C.RpcError(..)
        , serverTypeRestriction0
        , serverTypeRestriction1
        , serverTypeRestriction2
@@ -41,12 +43,12 @@ import           Control.Monad.Trans.Control (MonadBaseControl, StM,
 import qualified Data.ByteString             as BS
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Maybe                  (fromMaybe)
+import           Data.Time.Units             (TimeUnit, convertUnit)
 
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
 
-import           RSCoin.Timed.MonadTimed     (MicroSeconds,
-                                              MonadTimed (timeout))
+import           RSCoin.Timed.MonadTimed     (MonadTimed (timeout))
 import           RSCoin.Timed.TimedIO        (TimedIO)
 
 import           Data.MessagePack.Object     (MessagePack, Object (..),
@@ -114,12 +116,10 @@ instance MonadRpc m => MonadRpc (ReaderT r m) where
         convert r Method {..} =
             Method methodName (flip runReaderT r . methodBody)
 
-
 execClientTimeout
-    :: (MonadTimed m, MonadRpc m, MessagePack a)
-    => MicroSeconds -> Addr -> Client a -> m a
-execClientTimeout t addr = timeout t . execClient addr
-
+    :: (MonadTimed m, MonadRpc m, MessagePack a, TimeUnit t)
+    => t -> Addr -> Client a -> m a
+execClientTimeout (convertUnit -> t) addr = timeout t . execClient addr
 
 -- * Client part
 
@@ -141,7 +141,6 @@ data Client a where
 
 instance MessagePack o => RpcType (Client o) where
     rpcc name args = Client name (reverse args)
-
 
 -- * Server part
 

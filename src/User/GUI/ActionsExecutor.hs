@@ -8,6 +8,7 @@ import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.STM              (atomically)
 import           Data.Acid                      (query)
 import           Data.Acid.Advanced             (query')
+import           Data.Bifunctor                 (second)
 import           Data.Int                       (Int64)
 import           Data.Maybe                     (fromJust, isJust)
 import           Graphics.UI.Gtk                (labelSetText, postGUIAsync)
@@ -26,7 +27,7 @@ import           GUI.Transactions               (fromTransaction)
 updateUI :: WorkMode m => A.RSCoinUserState -> OutputWidgets -> m ()
 updateUI st ow = do
     a <- query' st A.GetAllAddresses
-    b <- liftIO $ sum <$> mapM (O.getAmount st) a
+    b <- sum <$> mapM (O.getAmount st) a
     x <- liftIO $ concat <$> mapM (query st . A.GetTransactions) a
     t <- mapM fromTransaction x
     liftIO $ postGUIAsync $ do
@@ -36,10 +37,10 @@ updateUI st ow = do
         G.listStoreClear (transactionsList ow)
         forM_ t $ G.listStoreAppend $ transactionsList ow
 
-selectAmounts :: Int64 -> [Int64] -> Maybe [(Int, Int64)]
+selectAmounts :: Int64 -> [Int64] -> Maybe [(Word, Int64)]
 selectAmounts t a = select t a 1
   where
-    select :: Int64 -> [Int64] -> Int -> Maybe [(Int, Int64)]
+    select :: Int64 -> [Int64] -> Word -> Maybe [(Word, Int64)]
     select _ [] _ = Nothing
     select n (x:xs) i
         | n <= 0    = Nothing
@@ -60,8 +61,8 @@ runActionsExecutor st queue ow = run
             Send a c -> do
                 handled queue o ow $ do
                     as <- query' st A.GetAllAddresses
-                    cs <- liftIO $ mapM ((<$>) getCoin . O.getAmount st) as
-                    let is = selectAmounts c cs
+                    cs <- mapM ((<$>) getCoin . O.getAmount st) as
+                    let is = map (second Coin) <$> selectAmounts c cs
                     if isJust is
                         then O.formTransaction st (fromJust is) a $ Coin c
                         else liftIO $ postGUIAsync $ do

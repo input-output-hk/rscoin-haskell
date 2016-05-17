@@ -20,6 +20,22 @@ module RSCoin.Mintette.Storage
        , getUtxoPset
        , getBlocks
        , getLogs
+       -- | Other helper methods
+       , checkIsActive
+       , checkTxSum
+       , pset
+       , logHead
+       , logSize
+       , utxo
+       , pushLogEntry
+       , utxoDeleted
+       , checkPeriodId
+       , mintettes
+       , mintetteId
+       , dpk
+       , logHeads
+       , utxoAdded
+       , txset
        ) where
 
 import           Control.Applicative        ((<|>))

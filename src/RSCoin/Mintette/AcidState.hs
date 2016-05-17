@@ -1,53 +1,37 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
 
 -- | Wrap Storage into AcidState.
 
 module RSCoin.Mintette.AcidState
        ( State
-       , openState
-       , openMemState
-       , closeState
-       , GetUtxoPset (..)
-       , PreviousMintetteId (..)
-       , CheckNotDoubleSpent (..)
-       , CommitTx (..)
-       , FinishPeriod (..)
-       , StartPeriod (..)
-       , FinishEpoch (..)
-       , GetBlocks (..)
-       , GetLogs (..)
+       , getUtxoPset
+       , getBlocks
+       , getLogs
+       , previousMintetteId
+       , checkNotDoubleSpent
+       , commitTx
+       , finishPeriod
+       , startPeriod
+       , finishEpoch
        ) where
 
 import           Control.Exception       (throw)
 import           Control.Monad.Catch     (MonadThrow (throwM))
-import           Data.Acid               (AcidState, Query, Update,
-                                          closeAcidState, makeAcidic,
-                                          openLocalStateFrom)
-import           Data.Acid.Memory        (openMemoryState)
+import           Data.Acid               (AcidState, Query, Update)
 import           Data.SafeCopy           (base, deriveSafeCopy)
 
-import           RSCoin.Core             (AddrId, CheckConfirmation,
+import           RSCoin.Core             (ActionLog, AddrId, CheckConfirmation,
                                           CheckConfirmations,
-                                          CommitConfirmation, MintetteId,
-                                          NewPeriodData, PeriodId, PeriodResult,
-                                          Pset, SecretKey, Signature,
-                                          Transaction, Utxo, LBlock, ActionLog)
+                                          CommitConfirmation, LBlock,
+                                          MintetteId, NewPeriodData, PeriodId,
+                                          PeriodResult, Pset, SecretKey,
+                                          Signature, Transaction, Utxo)
 
 import qualified RSCoin.Mintette.Storage as MS
 
 type State = AcidState MS.Storage
 
 $(deriveSafeCopy 0 'base ''MS.Storage)
-
-openState :: FilePath -> IO State
-openState fp = openLocalStateFrom fp MS.mkStorage
-
-openMemState :: IO State
-openMemState = openMemoryState MS.mkStorage
-
-closeState :: State -> IO ()
-closeState = closeAcidState
 
 instance MonadThrow (Update s) where
     throwM = throw
@@ -87,15 +71,3 @@ startPeriod = MS.startPeriod
 
 finishEpoch :: SecretKey -> Update MS.Storage ()
 finishEpoch = MS.finishEpoch
-
-$(makeAcidic ''MS.Storage
-             [ 'getUtxoPset
-             , 'previousMintetteId
-             , 'checkNotDoubleSpent
-             , 'commitTx
-             , 'finishPeriod
-             , 'startPeriod
-             , 'finishEpoch
-             , 'getBlocks
-             , 'getLogs
-             ])

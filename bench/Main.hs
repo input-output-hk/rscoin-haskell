@@ -11,7 +11,8 @@ import           Data.Int                   (Int64)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 
 import           RSCoin.Core                (PublicKey, SecretKey,
-                                             Severity (Debug), initLogging,
+                                             Severity (..), bankLoggerName,
+                                             initLoggerByName, initLogging,
                                              keyGen)
 import           RSCoin.User.Wallet         (UserAddress)
 
@@ -80,7 +81,8 @@ runTransactions benchDir userAddresses userIds = do
 
 main :: IO ()
 main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
-    -- initLogging Debug
+    initLogging Warning
+    initLoggerByName Info bankLoggerName
 
     establishMintettes benchDir
     establishBank      benchDir

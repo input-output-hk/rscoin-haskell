@@ -10,13 +10,15 @@ import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 import           Control.Exception          (SomeException, fromException)
 
 import           Control.Monad              (forM_)
-import           Control.Monad.Catch        (MonadCatch, MonadThrow, bracket, catch, throwM)
+import           Control.Monad.Catch        (MonadCatch, MonadThrow, bracket,
+                                             catch, throwM)
 import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint, query)
 import           Data.Int                   (Int64)
 
 import           RSCoin.Core                (Coin (..), bankSecretKey)
-import           RSCoin.Mintette            (MintetteError (MEInactive), isMEInactive)
+import           RSCoin.Mintette            (MintetteError (MEInactive),
+                                             isMEInactive)
 
 import qualified RSCoin.User.AcidState      as A
 import           RSCoin.User.Logic          (UserLogicError (..))
@@ -27,7 +29,7 @@ import           RSCoin.Timed               (MsgPackRpc, runRealMode)
 
 import           System.FilePath            ((</>))
 
-import Debug.Trace (trace)
+import           Debug.Trace                (trace)
 
 transactionNum :: Int64
 transactionNum = 1000
@@ -58,7 +60,7 @@ executeTransaction userState coinAmount addrToSend = do
     let outputMoney    = Coin coinAmount
     let inputMoneyInfo = [(1, outputMoney)]
     _ <- updateBlockchain userState False
-    inactiveHandler $ formTransaction userState inputMoneyInfo (W.toAddress addrToSend) outputMoney
+    inactiveHandler $ formTransaction userState False inputMoneyInfo (W.toAddress addrToSend) outputMoney
   where
     inactiveHandler :: (MonadCatch m, MonadThrow m) => m () -> m ()
     inactiveHandler transactionAction = transactionAction `catch` repeatIfInactive transactionAction
@@ -82,7 +84,8 @@ initializeBank userAddresses bankUserState = do
     A.initStateBank bankUserState additionalBankAddreses bankSecretKey
     forM_ userAddresses $ executeTransaction bankUserState transactionNum
 
--- | Start user with provided addresses of other users and do 1000 transactions.
+-- | Start user with provided addresses of other users and do
+-- `transactionNum` transactions.
 benchUserTransactions :: [W.UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
 benchUserTransactions allAddresses userState = do
     myAddress         <- queryMyAddress userState

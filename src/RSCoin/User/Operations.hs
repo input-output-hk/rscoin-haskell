@@ -126,7 +126,7 @@ getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
 getAllPublicAddresses st = map C.Address <$> query' st A.GetPublicAddresses
 
 formTransaction :: WorkMode m =>
-    A.RSCoinUserState -> [(Word, C.Coin)] -> C.Address -> C.Coin -> m ()
+    A.RSCoinUserState -> Bool -> [(Word, C.Coin)] -> C.Address -> C.Coin -> m ()
 formTransaction = formTransactionRetry 1
 
 -- | Forms transaction out of user input and sends it to the net.
@@ -134,15 +134,16 @@ formTransactionRetry
     :: WorkMode m
     => Int
     -> A.RSCoinUserState
+    -> Bool
     -> [(Word, C.Coin)]
     -> C.Address
     -> C.Coin
     -> m ()
-formTransactionRetry _ _ [] _ _ =
+formTransactionRetry _ _ _ [] _ _ =
     commitError "You should enter at least one source input"
-formTransactionRetry tries _ _ _ _ | tries < 1 =
+formTransactionRetry tries _ _ _ _ _ | tries < 1 =
     error "User.Operations.formTransactionRetry shouldn't be called with tries < 1"
-formTransactionRetry tries st inputs outputAddr outputCoin =
+formTransactionRetry tries st verbose inputs outputAddr outputCoin =
     run `catch` catcher
   where
     catcher e@FailedToCommit | tries == 1 = throwM e
@@ -151,7 +152,7 @@ formTransactionRetry tries st inputs outputAddr outputCoin =
             formatSingle'
             "formTransactionRetry failed (FailedToCommit), retries left: {}"
             tries
-        formTransactionRetry (tries-1) st inputs outputAddr outputCoin
+        formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
     catcher e = throwM e
     run = do
         C.logInfo C.userLoggerName $
@@ -202,9 +203,8 @@ formTransactionRetry tries st inputs outputAddr outputCoin =
         (addrPairList,outTr) <-
             liftIO $
             foldl1 mergeTransactions <$> mapM formTransactionMapper accInputs
-        liftIO $
-            TIO.putStrLn $ formatSingle' "Please check your transaction: {}" outTr
-        void $ updateBlockchain st True
+        verboseSay $ formatSingle' "Please check your transaction: {}" outTr
+        void $ updateBlockchain st verbose
         walletHeight <- query' st A.GetLastBlockId
         lastBlockHeight <- pred <$> C.getBlockchainHeight
         when (walletHeight /= lastBlockHeight) $
@@ -246,3 +246,4 @@ formTransactionRetry tries st inputs outputAddr outputCoin =
         , C.Transaction
               (C.txInputs a <> C.txInputs b)
               (nub $ C.txOutputs a <> C.txOutputs b))
+    verboseSay t = when verbose $ liftIO $ TIO.putStrLn t

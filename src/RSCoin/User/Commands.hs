@@ -29,9 +29,8 @@ import           RSCoin.Timed           (WorkMode)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Error      (eWrap)
-import           RSCoin.User.Operations (commitError, formTransaction,
-                                         formTransactionRetry, getAmount,
-                                         updateBlockchain)
+import           RSCoin.User.Operations (commitError, formTransactionRetry,
+                                         getAmount, updateBlockchain)
 import qualified RSCoin.User.Wallet     as W
 
 
@@ -85,7 +84,7 @@ proceedCommand st (FormTransaction inputs outputAddrStr) =
        unless (isJust pubKey) $
            commitError $
            "Provided key can't be exported: " <> outputAddrStr
-       formTransactionRetry 2 st inputs' (fromJust pubKey) $
+       formTransactionRetry 2 st True inputs' (fromJust pubKey) $
            C.Coin (sum $ map snd inputs)
 proceedCommand st UpdateBlockchain =
     eWrap $

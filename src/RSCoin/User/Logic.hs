@@ -33,8 +33,6 @@ import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
 import qualified Data.Text                     as T
-import           Data.Text.Buildable           (Buildable (build))
-import           Debug.Trace                   (trace)
 
 data UserLogicError
     = MajorityRejected T.Text
@@ -69,7 +67,6 @@ validateTransaction tx@Transaction{..} signatures height = do
             formatSingle' "Addrid {} doesn't have owners" addrid
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
         subBundle <-
-            trace ("Owners of addrid: " ++ show owns) $
             mconcat . catMaybes <$> mapM (processMintette addrid) owns
         when (length subBundle < length owns `div` 2) $
             throwUserLogicError $

@@ -26,7 +26,7 @@ benchMintetteNumber :: Int
 benchMintetteNumber = 30
 
 benchUserNumber :: Int64
-benchUserNumber = 25
+benchUserNumber = 2
 
 type KeyPairList = [(SecretKey, PublicKey)]
 

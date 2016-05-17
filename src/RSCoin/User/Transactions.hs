@@ -29,7 +29,7 @@ fromTransaction (Transaction i o) = do
 
 getTransactionAmount :: [UserAddress] -> VerboseTransaction -> Int64
 getTransactionAmount a (VT i o) =
-    calculate (map (\(a, b) -> (Just a, b)) o) - calculate i
+    calculate (map (\(a', b) -> (Just a', b)) o) - calculate i
   where
     calculate [] = 0
     calculate (x:xs) = calculate xs + (if isMy x then getCoin $ snd x else 0)

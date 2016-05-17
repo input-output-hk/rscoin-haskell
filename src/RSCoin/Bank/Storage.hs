@@ -235,8 +235,8 @@ startNewPeriodFinally sk goodMintettes newBlockCtor = do
     newBlock <- newBlockCtor sk <$> use dpk
     updateUtxo $ hbTransactions newBlock
     blocks %= (newBlock:)
-    transactionMap %= (\map -> foldl' (\m t -> MP.insert (hash t) t m)
-        map (hbTransactions newBlock))
+    transactionMap %= (\map' -> foldl' (\m t -> MP.insert (hash t) t m)
+        map' (hbTransactions newBlock))
     return updateIds
 
 updateUtxo :: [Transaction] -> ExceptUpdate ()

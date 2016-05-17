@@ -3,7 +3,7 @@
 module RSCoin.User.ActionsExecutor (runActionsExecutor) where
 
 import           Control.Concurrent.STM.TBQueue (TBQueue, readTBQueue)
-import           Control.Monad                  ((<=<), forM, forM_, when)
+import           Control.Monad                  (forM_, when)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.STM              (atomically)
 import           Data.Acid                      (query)
@@ -19,9 +19,7 @@ import           RSCoin.User.Action             (Action (..))
 import           RSCoin.User.GUIError           (handled)
 import qualified RSCoin.User.Operations         as O
 import           RSCoin.User.OutputWidgets      (OutputWidgets (..))
-import           RSCoin.Core                    (Coin (..), Transaction (..)
-                                                , getBlockchainHeight
-                                                , getTransactionById)
+import           RSCoin.Core                    (Coin (..), getBlockchainHeight)
 import           RSCoin.Timed                   (WorkMode)
 import           RSCoin.User.Transactions       (fromTransaction)
 

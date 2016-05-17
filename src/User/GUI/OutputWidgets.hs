@@ -2,14 +2,14 @@
 
 -- | Data structore to store output GUI widgets.
 
-module RSCoin.User.OutputWidgets
+module GUI.OutputWidgets
     ( OutputWidgets (..)
     , mkOutputWidgets
     ) where
 
-import qualified Graphics.UI.Gtk          as G
+import qualified Graphics.UI.Gtk  as G
 
-import           RSCoin.User.Transactions (VerboseTransaction)
+import           GUI.Transactions (VerboseTransaction)
 
 data OutputWidgets = OutputWidgets
     { balanceLabel         :: G.Label

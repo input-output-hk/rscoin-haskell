@@ -1,7 +1,7 @@
-module RSCoin.User.Action (Action (..)) where
+module GUI.Action (Action (..)) where
 
-import RSCoin.Core (Address)
-import Data.Int    (Int64)
+import           Data.Int    (Int64)
+import           RSCoin.Core (Address)
 
 -- | Actions to be performed by ActionsExecutor
 data Action = Exit

@@ -4,7 +4,8 @@
 
 -- | Contacts list.
 
-module RSCoin.User.Contacts
+-- FIXME Contacts acid helpers in GUI.* namespace...
+module GUI.Contacts
     ( Contact (..)
     , ContactsList (..)
     , ContactsState
@@ -12,11 +13,11 @@ module RSCoin.User.Contacts
     , GetContacts (..)
     ) where
 
-import Control.Monad.Reader (ask)
-import Control.Monad.State  (get, put)
-import Data.Acid            (AcidState, Query, Update, makeAcidic)
-import Data.SafeCopy        (base, deriveSafeCopy)
-import Data.Text            (Text)
+import           Control.Monad.Reader (ask)
+import           Control.Monad.State  (get, put)
+import           Data.Acid            (AcidState, Query, Update, makeAcidic)
+import           Data.SafeCopy        (base, deriveSafeCopy)
+import           Data.Text            (Text)
 
 data Contact = Contact
     { name    :: Text

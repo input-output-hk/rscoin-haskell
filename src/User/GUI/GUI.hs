@@ -1,6 +1,6 @@
 -- | Module intializes and runs graphical user interface.
 
-module RSCoin.User.GUI (runGUI) where
+module GUI.GUI (runGUI) where
 
 import           Control.Concurrent             (forkIO)
 import           Control.Concurrent.STM.TBQueue (TBQueue, writeTBQueue)
@@ -17,15 +17,16 @@ import qualified Graphics.UI.Gtk                as G
 import           Serokell.Util.Text             (readUnsignedDecimal)
 
 import           Paths_rscoin                   (getDataFileName)
-import qualified RSCoin.User.AcidState          as T
-import qualified RSCoin.User.Action             as A
-import qualified RSCoin.User.Contacts           as S
-import qualified RSCoin.User.OutputWidgets      as O
 import qualified RSCoin.Core                    as C
-import           RSCoin.User.Transactions       (VerboseTransaction,
+import qualified RSCoin.User.AcidState          as T
+import           RSCoin.User.Wallet             (UserAddress, publicAddress)
+
+import qualified GUI.Action                     as A
+import qualified GUI.Contacts                   as S
+import qualified GUI.OutputWidgets              as O
+import           GUI.Transactions               (VerboseTransaction,
                                                  getTransactionAmount,
                                                  showTransaction)
-import           RSCoin.User.Wallet             (UserAddress, publicAddress)
 
 onExit :: TBQueue A.Action -> IO ()
 onExit queue = atomically (writeTBQueue queue A.Exit)

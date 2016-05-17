@@ -1,20 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module RSCoin.User.GUIError (handled) where
+module GUI.GUIError (handled) where
 
-import Control.Concurrent.STM.TBQueue (TBQueue, writeTBQueue)
-import Control.Exception              (SomeException (..))
-import Control.Monad.Catch            (catch)
-import Control.Monad.IO.Class         (liftIO)
-import Control.Monad.STM              (atomically)
-import Data.Text                      (isPrefixOf)
+import           Control.Concurrent.STM.TBQueue (TBQueue, writeTBQueue)
+import           Control.Exception              (SomeException (..))
+import           Control.Monad.Catch            (catch)
+import           Control.Monad.IO.Class         (liftIO)
+import           Control.Monad.STM              (atomically)
+import           Data.Text                      (isPrefixOf)
+import           Graphics.UI.Gtk                (labelSetText, postGUIAsync,
+                                                 widgetShowAll)
 
-import Graphics.UI.Gtk                (labelSetText, postGUIAsync, widgetShowAll)
+import           RSCoin.Timed                   (WorkMode)
+import           RSCoin.User.Error              (UserError (..))
 
-import RSCoin.User.Action             (Action (..))
-import RSCoin.User.OutputWidgets      (OutputWidgets (..))
-import RSCoin.Timed                   (WorkMode)
-import RSCoin.User.Error              (UserError (..))
+import           GUI.Action                     (Action (..))
+import           GUI.OutputWidgets              (OutputWidgets (..))
 
 handled ::
     WorkMode m => TBQueue Action -> Action -> OutputWidgets -> m () -> m ()

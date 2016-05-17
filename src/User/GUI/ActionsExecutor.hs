@@ -1,6 +1,6 @@
 -- | ActionsExecutor performs actions with RSCoinUserState.
 
-module RSCoin.User.ActionsExecutor (runActionsExecutor) where
+module GUI.ActionsExecutor (runActionsExecutor) where
 
 import           Control.Concurrent.STM.TBQueue (TBQueue, readTBQueue)
 import           Control.Monad                  (forM_, when)
@@ -10,18 +10,18 @@ import           Data.Acid                      (query)
 import           Data.Acid.Advanced             (query')
 import           Data.Int                       (Int64)
 import           Data.Maybe                     (fromJust, isJust)
-
 import           Graphics.UI.Gtk                (labelSetText, postGUIAsync)
 import qualified Graphics.UI.Gtk                as G
 
-import qualified RSCoin.User.AcidState          as A
-import           RSCoin.User.Action             (Action (..))
-import           RSCoin.User.GUIError           (handled)
-import qualified RSCoin.User.Operations         as O
-import           RSCoin.User.OutputWidgets      (OutputWidgets (..))
 import           RSCoin.Core                    (Coin (..), getBlockchainHeight)
 import           RSCoin.Timed                   (WorkMode)
-import           RSCoin.User.Transactions       (fromTransaction)
+import qualified RSCoin.User.AcidState          as A
+import qualified RSCoin.User.Operations         as O
+
+import           GUI.Action                     (Action (..))
+import           GUI.GUIError                   (handled)
+import           GUI.OutputWidgets              (OutputWidgets (..))
+import           GUI.Transactions               (fromTransaction)
 
 updateUI :: WorkMode m => A.RSCoinUserState -> OutputWidgets -> m ()
 updateUI st ow = do

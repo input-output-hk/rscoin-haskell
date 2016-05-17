@@ -161,9 +161,9 @@ instance Action UserAction where
     doAction (UpdateBlockchain userIndex) = do
         runUserAction userIndex U.UpdateBlockchain
 
-runUserAction :: WorkMode m => UserIndex -> U.UserCommand -> TestEnv m ()
+runUserAction :: WorkMode m => UserIndex -> U.UserAction -> TestEnv m ()
 runUserAction userIndex command =
-    getUser userIndex >>= flip U.proceedCommand command
+    getUser userIndex >>= flip U.processAction command
 
 getUser :: WorkMode m => UserIndex -> TestEnv m U.RSCoinUserState
 getUser Nothing =

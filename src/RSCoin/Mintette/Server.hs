@@ -14,7 +14,7 @@ module RSCoin.Mintette.Server
        ) where
 
 import           Control.Exception         (throwIO, try)
-import           Control.Monad.Catch       (catch)
+import           Control.Monad.Catch       (catch, throwM)
 import           Control.Monad.IO.Class    (MonadIO, liftIO)
 import           Data.Acid.Advanced        (query', update')
 import           Data.Monoid               ((<>))
@@ -32,7 +32,7 @@ import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
                                             PreviousMintetteId (..),
                                             StartPeriod (..))
 import           RSCoin.Mintette.AcidState (State)
-import           RSCoin.Mintette.Error     (MintetteError)
+import           RSCoin.Mintette.Error     (MintetteError (..))
 import           RSCoin.Timed              (ServerT, WorkMode,
                                             serverTypeRestriction0,
                                             serverTypeRestriction1,
@@ -126,7 +126,7 @@ handleCheckTx
     -> C.Transaction
     -> C.AddrId
     -> C.Signature
-    -> ServerT m (Maybe C.CheckConfirmation)
+    -> ServerT m (Either MintetteError C.CheckConfirmation)
 handleCheckTx sk st tx addrId sg =
     toServer $
     do logDebug $
@@ -141,12 +141,12 @@ handleCheckTx sk st tx addrId sg =
   where
     onError (e :: MintetteError) = do
         logWarning $ formatSingle' "CheckTx failed: {}" e
-        return Nothing
+        return $ Left e
     onSuccess res = do
         logInfo $
             format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
         logInfo $ formatSingle' "Confirmation: {}" res
-        return $ Just res
+        return $ Right res
 
 handleCommitTx
     :: WorkMode m
@@ -155,7 +155,7 @@ handleCommitTx
     -> C.Transaction
     -> C.PeriodId
     -> C.CheckConfirmations
-    -> ServerT m (Maybe C.CommitConfirmation)
+    -> ServerT m (Either MintetteError C.CommitConfirmation)
 handleCommitTx sk st tx pId cc =
     toServer $
     do logDebug $
@@ -168,10 +168,10 @@ handleCommitTx sk st tx pId cc =
   where
     onError (e :: MintetteError) = do
         logWarning $ formatSingle' "CommitTx failed: {}" e
-        return Nothing
+        return $ Left e
     onSuccess res = do
         logInfo $ formatSingle' "Successfully committed transaction {}" tx
-        return $ Just res
+        return $ Right res
 
 -- Dumping Mintette state
 

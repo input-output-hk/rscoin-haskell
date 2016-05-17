@@ -13,7 +13,8 @@ import           Control.Monad              (forM_)
 import           Control.Monad.Catch        (MonadCatch, MonadThrow, bracket,
                                              catch, throwM)
 import           Control.Monad.Trans        (liftIO)
-import           Data.Acid                  (createCheckpoint, query)
+import           Data.Acid                  (createCheckpoint)
+import           Data.Acid.Advanced         (query')
 import           Data.Int                   (Int64)
 
 import           RSCoin.Core                (Coin (..), bankSecretKey)
@@ -44,9 +45,7 @@ userThread benchDir userAction userId = runRealMode $ bracket
     userAction
 
 queryMyAddress :: A.RSCoinUserState -> MsgPackRpc W.UserAddress
-queryMyAddress userState = do
-    allAddresess <- liftIO $ query userState A.GetAllAddresses
-    return $ head allAddresess
+queryMyAddress userState = head <$> query' userState A.GetAllAddresses
 
 -- | Create user with 1 address and return it.
 initializeUser :: A.RSCoinUserState -> MsgPackRpc W.UserAddress

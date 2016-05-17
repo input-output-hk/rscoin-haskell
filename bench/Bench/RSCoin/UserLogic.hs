@@ -23,7 +23,8 @@ import           RSCoin.Mintette            (MintetteError (MEInactive),
 
 import qualified RSCoin.User.AcidState      as A
 import           RSCoin.User.Logic          (UserLogicError (..))
-import           RSCoin.User.Operations     (formTransaction, updateBlockchain)
+import           RSCoin.User.Operations     (formTransactionRetry,
+                                             updateBlockchain)
 import qualified RSCoin.User.Wallet         as W
 
 import           RSCoin.Timed               (MsgPackRpc, runRealMode)
@@ -56,25 +57,37 @@ initializeUser userState = do
 
 executeTransaction :: A.RSCoinUserState -> Int64 -> W.UserAddress -> MsgPackRpc ()
 executeTransaction userState coinAmount addrToSend = do
-    let outputMoney    = Coin coinAmount
+    let outputMoney = Coin coinAmount
     let inputMoneyInfo = [(1, outputMoney)]
     _ <- updateBlockchain userState False
-    inactiveHandler $ formTransaction userState False inputMoneyInfo (W.toAddress addrToSend) outputMoney
+    inactiveHandler $
+        formTransactionRetry
+            55
+            userState
+            False
+            inputMoneyInfo
+            (W.toAddress addrToSend)
+            outputMoney
   where
-    inactiveHandler :: (MonadCatch m, MonadThrow m) => m () -> m ()
-    inactiveHandler transactionAction = transactionAction `catch` repeatIfInactive transactionAction
-
-    repeatIfInactive :: (MonadCatch m, MonadThrow m) => m () -> SomeException -> m ()
+    inactiveHandler
+        :: (MonadCatch m, MonadThrow m)
+        => m () -> m ()
+    inactiveHandler transactionAction =
+        transactionAction `catch` repeatIfInactive transactionAction
+    repeatIfInactive
+        :: (MonadCatch m, MonadThrow m)
+        => m () -> SomeException -> m ()
     repeatIfInactive transactionAction e
-        | isMEInactive     e = trace "catch ME!" $ inactiveHandler transactionAction
-        | isUserLogicError e = trace "catch UL!" $ inactiveHandler transactionAction
-        | otherwise          = trace "WAAAAAAT?" $ throwM e
-
+      | isMEInactive e = trace "catch ME!" $ inactiveHandler transactionAction
+      | isUserLogicError e =
+          trace "catch UL!" $ inactiveHandler transactionAction
+      | otherwise = trace "WAAAAAAT?" $ throwM e
     isUserLogicError :: SomeException -> Bool
-    isUserLogicError e = case fromException e of
-        Nothing                   -> False
-        Just FailedToCommit       -> True
-        Just (MajorityRejected _) -> True
+    isUserLogicError e =
+        case fromException e of
+            Nothing -> False
+            Just FailedToCommit -> True
+            Just (MajorityRejected _) -> True
 
 -- | Create user in `bankMode` and send 1000 coins to every user from list.
 initializeBank :: [W.UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()

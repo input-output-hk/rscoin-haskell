@@ -279,7 +279,7 @@ timeoutTimedProp (getNonNegative -> tout) (getNonNegative -> wt) = do
         handler (_ :: SomeException) = do
             liftIO $ print 3
             return $ tout <= wt
-    res <- timeout tout action
+    res <- timeout tout action `catch` handler
     liftIO $ print 4
     liftIO $ print res
     assertTimedT res

@@ -16,10 +16,9 @@ module RSCoin.Timed.Timed
        , ThreadId
        ) where
 
-import           Control.Exception.Base      (Exception)
+import           Control.Exception.Base      (Exception, SomeException (..))
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
-import           Control.Exception           (SomeException)
 import           Control.Exception.Base      (AsyncException (ThreadKilled))
 import           Control.Lens                (makeLenses, to, use, view, (%=),
                                               (%~), (&), (.=), (<&>), (^.))
@@ -241,7 +240,7 @@ runTimedT timed = launchTimedT $ do
         \tid ->
             ThreadCtx
             { _threadId = tid
-            , _handlers = [( Handler threadKilledNotifier
+            , _handlers = [( Handler $ \(SomeException e) -> throwM e
                            , Handler $ \(ContException e) -> throwM e
                            )]
             }

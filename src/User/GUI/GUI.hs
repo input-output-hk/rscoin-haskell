@@ -28,9 +28,6 @@ import           GUI.Transactions               (VerboseTransaction,
                                                  getTransactionAmount,
                                                  showTransaction)
 
-onExit :: TBQueue A.Action -> IO ()
-onExit queue = atomically (writeTBQueue queue A.Exit)
-
 onSend :: TBQueue A.Action -> O.OutputWidgets -> String -> String -> IO ()
 onSend queue ow sendAddress sendAmount = do
     let amount = readUnsignedDecimal $ pack sendAmount
@@ -75,8 +72,10 @@ initializeGUI queue st cs = do
         getWidget = G.builderGetObject builder
 
     window <- getWidget G.castToWindow "Window"
-    void $ window `on` G.deleteEvent $ liftIO (onExit queue >> G.mainQuit)
-        >> return False
+    void $ window `on` G.deleteEvent $ do
+        liftIO $ atomically $ writeTBQueue queue A.Exit
+        liftIO $ G.mainQuit
+        return False
 
     buttons <- forM tabsNames $ getWidget G.castToButton . flip (++) "Button"
     tabs    <- forM (tabsNames ++ ["Contacts"]) $ getWidget G.castToBox

@@ -11,6 +11,7 @@ import qualified Graphics.UI.Gtk  as G
 
 import           GUI.Transactions (VerboseTransaction)
 
+-- | Stores the structures required for showing the user state.
 data OutputWidgets = OutputWidgets
     { balanceLabel         :: G.Label
     , unconfirmedLabel     :: G.Label
@@ -24,6 +25,7 @@ data OutputWidgets = OutputWidgets
     , transactionsList     :: G.ListStore VerboseTransaction
     }
 
+-- | Retrieves the OutputWidgets structure from the Builder.
 mkOutputWidgets :: G.Builder -> IO OutputWidgets
 mkOutputWidgets builder = do
     let getWidget :: G.GObjectClass c => (G.GObject -> c) -> String -> IO c

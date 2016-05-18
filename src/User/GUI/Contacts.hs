@@ -19,21 +19,25 @@ import           Data.Acid            (AcidState, Query, Update, makeAcidic)
 import           Data.SafeCopy        (base, deriveSafeCopy)
 import           Data.Text            (Text)
 
+-- | Contact information.
 data Contact = Contact
     { name    :: Text
     , address :: Text
     }
 
+-- | List of contacts known to the user.
 data ContactsList = ContactsList { list :: [Contact] }
 
 $(deriveSafeCopy 0 'base ''Contact)
 $(deriveSafeCopy 0 'base ''ContactsList)
 
+-- | Adds a contact to the list.
 addContact :: Contact -> Update ContactsList ()
 addContact c = do
     ContactsList l <- get
     put $ ContactsList $ c : l
 
+-- | Gets the list from the database.
 getContacts :: Query ContactsList [Contact]
 getContacts = list <$> ask
 

@@ -11,6 +11,7 @@ import           Data.Acid.Advanced             (query')
 import           Data.Bifunctor                 (second)
 import           Data.Int                       (Int64)
 import           Data.Maybe                     (fromJust, isJust)
+
 import           Graphics.UI.Gtk                (labelSetText, postGUIAsync)
 import qualified Graphics.UI.Gtk                as G
 
@@ -32,8 +33,10 @@ updateUI st ow = do
     t <- mapM fromTransaction x
     liftIO $ postGUIAsync $ do
         labelSetText (balanceLabel ow) $ show $ getCoin b
-        labelSetText (transactionsLabel ow) $ "Transactions: " ++ show (length t)
-        labelSetText (transactionsNumLabel ow) $ "Transactions: " ++ show (length t)
+        labelSetText (transactionsLabel ow) $
+            "Transactions: " ++ show (length t)
+        labelSetText (transactionsNumLabel ow) $
+            "Transactions: " ++ show (length t)
         G.listStoreClear (transactionsList ow)
         forM_ t $ G.listStoreAppend $ transactionsList ow
 

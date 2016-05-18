@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | Simple exception handler for GUI.
+
 module GUI.GUIError (handled) where
 
 import           Control.Concurrent.STM.TBQueue (TBQueue, writeTBQueue)
@@ -8,6 +10,7 @@ import           Control.Monad.Catch            (catch)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.STM              (atomically)
 import           Data.Text                      (isPrefixOf)
+
 import           Graphics.UI.Gtk                (labelSetText, postGUIAsync,
                                                  widgetShowAll)
 
@@ -17,6 +20,9 @@ import           RSCoin.User.Error              (UserError (..))
 import           GUI.Action                     (Action (..))
 import           GUI.OutputWidgets              (OutputWidgets (..))
 
+-- | Performas a job. If the action can't be performed because the blockchain
+-- isn't updated, it is updated and the action is reperformed.
+-- In case of any other exception, information about it is shown in the GUI.
 handled ::
     WorkMode m => TBQueue Action -> Action -> OutputWidgets -> m () -> m ()
 handled queue action ow job = catch (catch job userErrorHandler) handler

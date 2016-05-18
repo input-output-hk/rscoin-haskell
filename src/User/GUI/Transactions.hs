@@ -1,4 +1,4 @@
--- TODO make a description
+-- | Structure and functions used to print transactions.
 
 module GUI.Transactions
     ( VerboseTransaction (..)
@@ -17,11 +17,13 @@ import           RSCoin.Core        (Address (..), Coin (..), Transaction (..),
 import           RSCoin.Timed       (WorkMode)
 import           RSCoin.User.Wallet (UserAddress, publicAddress)
 
+-- | Transaction in a user-printable form.
 data VerboseTransaction = VT
     { vtInputs  :: [(Maybe Address, Coin)]
     , vtOutputs :: [(Address, Coin)]
     }
 
+-- | Transforms a transaction into a user-printable form.
 fromTransaction :: WorkMode m => Transaction -> m VerboseTransaction
 fromTransaction (Transaction i o) = do
     ti <- forM i $ \(tId, x, c) -> do
@@ -30,6 +32,7 @@ fromTransaction (Transaction i o) = do
         return (ua, c)
     return $ VT ti o
 
+-- | Calculates the balance change for the user caused by the transaction.
 getTransactionAmount :: [UserAddress] -> VerboseTransaction -> Int64
 getTransactionAmount a (VT i o) =
     calculate (map (first Just) o) - calculate i
@@ -40,6 +43,7 @@ getTransactionAmount a (VT i o) =
     isMy (Nothing, _) = False
     isMy (Just d, _) = getAddress d `elem` map (^. publicAddress) a
 
+-- | Prints the transaction.
 showTransaction :: VerboseTransaction -> String
 showTransaction (VT i o) = "[" ++ show1 i ++ " -> " ++
     show1 (map (first Just) o)
@@ -49,4 +53,5 @@ showTransaction (VT i o) = "[" ++ show1 i ++ " -> " ++
     show1 (x:xs) = show2 x ++ ", " ++ show1 xs
 
     show2 (Nothing, Coin c) = "(Unrecognized, " ++ show c ++ ")"
-    show2 (Just (Address a), Coin c) = "(" ++ printPublicKey a ++ ", " ++ show c ++ ")"
+    show2 (Just (Address a), Coin c) =
+        "(" ++ printPublicKey a ++ ", " ++ show c ++ ")"

@@ -17,8 +17,8 @@ import           RSCoin.Bank.AcidState  (GetHBlock (..), GetHBlocks (..),
 import           RSCoin.Bank.Error      (BankError)
 
 import           RSCoin.Core            (ActionLog, HBlock, MintetteId,
-                                         Mintettes, PeriodId, bankPort,
-                                         logDebug, logError)
+                                         Mintettes, PeriodId, bankLoggerName,
+                                         bankPort, logDebug, logError)
 import qualified RSCoin.Core.Protocol   as C
 import qualified RSCoin.Timed           as T
 
@@ -41,49 +41,49 @@ toServer :: T.WorkMode m => IO a -> T.ServerT m a
 toServer action = liftIO $ action `catch` handler
   where
     handler (e :: BankError) = do
-        logError $ show' e
+        logError bankLoggerName $ show' e
         throwIO e
 
 serveGetMintettes :: T.WorkMode m => State -> T.ServerT m Mintettes
 serveGetMintettes st =
     toServer $
     do mts <- query' st GetMintettes
-       logDebug $ formatSingle' "Getting list of mintettes: {}" mts
+       logDebug bankLoggerName $ formatSingle' "Getting list of mintettes: {}" mts
        return mts
 
 serveGetHeight :: T.WorkMode m => State -> T.ServerT m PeriodId
 serveGetHeight st =
     toServer $
     do pId <- query' st GetPeriodId
-       logDebug $ formatSingle' "Getting blockchain height: {}" pId
+       logDebug bankLoggerName $ formatSingle' "Getting blockchain height: {}" pId
        return pId
 
-serveGetHBlock :: T.WorkMode m 
+serveGetHBlock :: T.WorkMode m
                => State -> PeriodId -> T.ServerT m (Maybe HBlock)
 serveGetHBlock st pId =
     toServer $
     do mBlock <- query' st (GetHBlock pId)
-       logDebug $
+       logDebug bankLoggerName $
            format' "Getting higher-level block with periodId {}: {}" (pId, mBlock)
        return mBlock
 
 -- Dumping Bank state
 
-serveGetHBlocks :: T.WorkMode m 
+serveGetHBlocks :: T.WorkMode m
                 => State -> PeriodId -> PeriodId -> T.ServerT m [HBlock]
 serveGetHBlocks st from to =
     toServer $
     do blocks <- query' st $ GetHBlocks from to
-       logDebug $
+       logDebug bankLoggerName $
            format' "Getting higher-level blocks between {} and {}"
            (from, to)
        return blocks
 
-serveGetLogs :: T.WorkMode m 
+serveGetLogs :: T.WorkMode m
              => State -> MintetteId -> Int -> Int -> T.ServerT m (Maybe ActionLog)
 serveGetLogs st m from to =
     toServer $
     do mLogs <- query' st (GetLogs m from to)
-       logDebug $
+       logDebug bankLoggerName $
            format' "Getting action logs of mintette {} with range of entries {} to {}: {}" (m, from, to, mLogs)
        return mLogs

@@ -74,6 +74,7 @@ library
                      , data-default
                      , directory
                      , exceptions
+                     , either
                      , file-embed
                      , filepath
                      , hashable
@@ -195,6 +196,7 @@ test-suite rscoin-test
                      , Test.RSCoin.Full.Error
                      , Test.RSCoin.Full.FullSpec
                      , Test.RSCoin.Full.Gen
+                     , Test.RSCoin.Full.Initialization
                      , Test.RSCoin.Full.Mintette
                      , Test.RSCoin.Full.Mintette.Storage
                      , Test.RSCoin.Full.Mintette.Server

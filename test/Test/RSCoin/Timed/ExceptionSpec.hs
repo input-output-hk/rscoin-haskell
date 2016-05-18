@@ -9,7 +9,8 @@ import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (TVar, modifyTVar, newTVarIO,
                                               readTVarIO, writeTVar)
 import           Control.Exception.Base      (ArithException (Overflow),
-                                              AsyncException (ThreadKilled))
+                                              AsyncException (ThreadKilled),
+                                              SomeException)
 import           Control.Monad               (void)
 import           Control.Monad.Catch         (catch, catchAll, throwM)
 import           Control.Monad.IO.Class      (liftIO)
@@ -60,6 +61,9 @@ spec =
                 excDiffCatchInner
             prop "different exceptions, catch outer"
                 excDiffCatchOuter
+        describe "handler error" $
+            prop "throws"
+                handlerThrow
         describe "async error" $
             prop "shouldn't abort the execution"
                 asyncExceptionShouldntAbortExecution
@@ -222,6 +226,19 @@ excDiffCatchOuter seed =
         \checkPoint -> runEmu seed $
             let act = throwM Overflow
                 hnd1 (_ :: AsyncException) = checkPoint (-1)
+                hnd2 (_ :: ArithException) = checkPoint 1
+            in  do
+                act `catch` hnd1 `catch` hnd2
+                checkPoint 2
+
+handlerThrow
+    :: StdGen
+    -> Property
+handlerThrow seed =
+    ioProperty . inSandbox . withCheckPoints $
+        \checkPoint -> runEmu seed $
+            let act = throwM ThreadKilled
+                hnd1 (_ :: SomeException ) = throwM Overflow
                 hnd2 (_ :: ArithException) = checkPoint 1
             in  do
                 act `catch` hnd1 `catch` hnd2

@@ -16,10 +16,12 @@ module RSCoin.Timed.Timed
        , ThreadId
        ) where
 
-import           Control.Exception.Base      (Exception, SomeException (..))
+import           Control.Exception.Base      (Exception (fromException),
+                                              SomeException (..),
+                                              AsyncException (ThreadKilled))
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
-import           Control.Exception.Base      (AsyncException (ThreadKilled))
+
 import           Control.Lens                (makeLenses, to, use, view, (%=),
                                               (%~), (&), (.=), (<&>), (^.))
 import           Control.Monad               (unless, void)
@@ -42,12 +44,13 @@ import qualified Data.PQueue.Min             as PQ
 import qualified Data.Set                    as S
 import           Serokell.Util.Text          (formatSingle')
 
-import           RSCoin.Core.Logging         (logWarning)
+import           RSCoin.Core.Logging         (logDebug, logWarning,
+                                              timedLoggerName)
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
                                               ThreadId (PureThreadId), for,
                                               fork, killThread, localTime, mcs,
-                                             myThreadId, timeout, wait)
+                                              myThreadId, timeout, wait)
 
 type Timestamp = Microsecond
 
@@ -268,9 +271,15 @@ evalTimedT timed = do
     res :: Either SomeException a <- fromJust <$> liftIO (readIORef ref)
     either throwM return res
 
+isThreadKilled :: SomeException -> Bool
+isThreadKilled = maybe False (== ThreadKilled) . fromException
+
 threadKilledNotifier :: MonadIO m => SomeException -> m ()
-threadKilledNotifier e =
-    logWarning $ formatSingle' "Thread killed by exception: {}" $ show e
+threadKilledNotifier e
+  | isThreadKilled e = logDebug timedLoggerName msg
+  | otherwise = logWarning timedLoggerName msg
+  where
+    msg = formatSingle' "Thread killed by exception: {}" $ show e
 
 instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
     localTime = wrapCore $ Core $ use curTime

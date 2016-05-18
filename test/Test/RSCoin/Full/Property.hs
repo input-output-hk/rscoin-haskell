@@ -18,6 +18,7 @@ module Test.RSCoin.Full.Property
 import           Control.Monad.Reader       (ask, runReaderT)
 import           Control.Monad.Trans        (MonadIO, lift)
 import           Data.Default               (def)
+import           Debug.Trace                (trace)
 import           Test.QuickCheck            (Gen, Property, Testable (property),
                                              ioProperty)
 import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, pick)
@@ -29,12 +30,14 @@ import           Test.RSCoin.Full.Action    (Action (doAction))
 import           Test.RSCoin.Full.Context   (MintetteNumber,
                                              Scenario (DefaultScenario),
                                              TestEnv, UserNumber, mkTestContext)
-import           Test.RSCoin.Full.Gen       (genActions)
+import           Test.RSCoin.Full.Gen       (genValidActions)
 
 type FullProperty a = TestEnv (PropertyM (PureRpc IO)) a
 
 launchPure :: MonadIO m => PureRpc IO a -> m a
 launchPure = runEmulationMode def def
+
+doActTrace a = trace ("!Executing " ++ show a) $ doAction a
 
 toTestable :: FullProperty a
            -> MintetteNumber
@@ -42,9 +45,10 @@ toTestable :: FullProperty a
            -> Property
 toTestable fp mNum uNum =
     monadic unwrapProperty $
-    do (acts,t) <- pick genActions
+    do (acts,t) <- pick $ genValidActions uNum
        context <- lift $ mkTestContext mNum uNum t DefaultScenario
-       lift $ runReaderT (mapM_ doAction acts) context
+       _ <- trace ("Actions: " ++ show acts) $ return ()
+       lift $ runReaderT (mapM_ doActTrace acts) context
        runReaderT fp context
   where
     unwrapProperty = ioProperty . launchPure

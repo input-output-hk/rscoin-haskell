@@ -1,18 +1,29 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | All possible runtime errors in Mintette
 
 module RSCoin.Mintette.Error
        ( MintetteError (..)
        ) where
 
-import           Control.Exception   (Exception (..))
-import           Data.Monoid         ((<>))
-import           Data.Text           (Text)
-import           Data.Text.Buildable (Buildable (build))
-import qualified Data.Text.Format    as F
-import           Data.Typeable       (Typeable)
+import           Control.Exception      (Exception (..))
+import           Data.Aeson.TH          (defaultOptions, deriveJSON)
+import           Data.Monoid            ((<>))
+import           Data.Text              (Text)
+import           Data.Text.Buildable    (Buildable (build))
+import qualified Data.Text.Format       as F
+import           Data.Typeable          (Typeable)
 
-import           RSCoin.Core         (PeriodId, rscExceptionToException,
-                                     rscExceptionFromException)
+import           RSCoin.Core.Error      (rscExceptionFromException,
+                                         rscExceptionToException)
+import           RSCoin.Core.Types      (PeriodId)
+
+
+import           Data.MessagePack       (MessagePack (fromObject, toObject))
+import           Data.MessagePack.Aeson (AsMessagePack (AsMessagePack),
+                                         getAsMessagePack)
+
+
 
 data MintetteError
     = MEInternal Text                     -- ^ Should not happen.
@@ -45,3 +56,9 @@ instance Buildable MintetteError where
     build MEInvalidSignature = "failed to verify signature"
     build MENotConfirmed = "transaction doesn't have enough confirmations"
     build MEAlreadyActive = "can't start new period when period is active"
+
+$(deriveJSON defaultOptions ''MintetteError)
+
+instance MessagePack MintetteError where
+    toObject = toObject . AsMessagePack
+    fromObject = fmap getAsMessagePack . fromObject

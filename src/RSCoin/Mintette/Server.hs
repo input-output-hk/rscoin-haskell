@@ -15,9 +15,10 @@ module RSCoin.Mintette.Server
 
 import           Control.Exception         (throwIO, try)
 import           Control.Monad.Catch       (catch)
-import           Control.Monad.IO.Class    (liftIO)
+import           Control.Monad.IO.Class    (MonadIO, liftIO)
 import           Data.Acid.Advanced        (query', update')
 import           Data.Monoid               ((<>))
+import           Data.Text                 (Text)
 
 import           Serokell.Util.Text        (format', formatSingle',
                                             listBuilderJSONIndent, pairBuilder,
@@ -31,11 +32,17 @@ import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
                                             PreviousMintetteId (..),
                                             StartPeriod (..))
 import           RSCoin.Mintette.AcidState (State)
-import           RSCoin.Mintette.Error     (MintetteError)
+import           RSCoin.Mintette.Error     (MintetteError (..))
 import           RSCoin.Timed              (ServerT, WorkMode,
                                             serverTypeRestriction0,
                                             serverTypeRestriction1,
                                             serverTypeRestriction3)
+
+logError, logWarning, logInfo, logDebug :: MonadIO m => Text -> m ()
+logError = C.logError C.mintetteLoggerName
+logWarning = C.logWarning C.mintetteLoggerName
+logInfo = C.logInfo C.mintetteLoggerName
+logDebug = C.logDebug C.mintetteLoggerName
 
 serve :: WorkMode m => Int -> State -> C.SecretKey -> m ()
 serve port st sk = do
@@ -67,7 +74,7 @@ toServer :: WorkMode m => IO a -> ServerT m a
 toServer action = liftIO $ action `catch` handler
   where
     handler (e :: MintetteError) = do
-        C.logError $ show' e
+        logError $ show' e
         throwIO e
 
 handlePeriodFinished
@@ -76,18 +83,18 @@ handlePeriodFinished
 handlePeriodFinished sk st pId =
     toServer $
     do (curUtxo,curPset) <- query' st GetUtxoPset
-       C.logDebug $
+       logDebug $
            format'
                "Before period end utxo is: {}\nCurrent pset is: {}"
                (curUtxo, curPset)
-       C.logInfo $ formatSingle' "Period {} has just finished!" pId
+       logInfo $ formatSingle' "Period {} has just finished!" pId
        res@(_,blks,lgs) <- update' st $ FinishPeriod sk pId
-       C.logInfo $
+       logInfo $
            format'
                "Here is PeriodResult:\n Blocks: {}\n Logs: {}\n"
                (listBuilderJSONIndent 2 blks, lgs)
        (curUtxo', curPset') <- query' st GetUtxoPset
-       C.logDebug $
+       logDebug $
            format'
                "After period end utxo is: {}\nCurrent pset is: {}"
                (curUtxo', curPset')
@@ -100,14 +107,14 @@ handleNewPeriod :: WorkMode m
 handleNewPeriod st npd =
     toServer $
     do prevMid <- query' st PreviousMintetteId
-       C.logInfo $
+       logInfo $
            format'
                ("New period has just started, I am mintette #{} (prevId).\n" <>
                 "Here is new period data:\n {}")
                (prevMid, npd)
        update' st $ StartPeriod npd
        (curUtxo,curPset) <- query' st GetUtxoPset
-       C.logDebug $
+       logDebug $
            format'
                "After start of new period, my utxo: {}\nCurrent pset is: {}"
                (curUtxo, curPset)
@@ -119,13 +126,13 @@ handleCheckTx
     -> C.Transaction
     -> C.AddrId
     -> C.Signature
-    -> ServerT m (Maybe C.CheckConfirmation)
+    -> ServerT m (Either MintetteError C.CheckConfirmation)
 handleCheckTx sk st tx addrId sg =
     toServer $
-    do C.logDebug $
+    do logDebug $
            format' "Checking addrid ({}) from transaction: {}" (addrId, tx)
        (curUtxo,curPset) <- query' st GetUtxoPset
-       C.logDebug $
+       logDebug $
            format'
                "My current utxo is: {}\nCurrent pset is: {}"
                (curUtxo, curPset)
@@ -133,13 +140,13 @@ handleCheckTx sk st tx addrId sg =
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do
-        C.logWarning $ formatSingle' "CheckTx failed: {}" e
-        return Nothing
+        logWarning $ formatSingle' "CheckTx failed: {}" e
+        return $ Left e
     onSuccess res = do
-        C.logInfo $
+        logInfo $
             format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
-        C.logInfo $ formatSingle' "Confirmation: {}" res
-        return $ Just res
+        logInfo $ formatSingle' "Confirmation: {}" res
+        return $ Right res
 
 handleCommitTx
     :: WorkMode m
@@ -148,32 +155,32 @@ handleCommitTx
     -> C.Transaction
     -> C.PeriodId
     -> C.CheckConfirmations
-    -> ServerT m (Maybe C.CommitConfirmation)
+    -> ServerT m (Either MintetteError C.CommitConfirmation)
 handleCommitTx sk st tx pId cc =
     toServer $
-    do C.logDebug $
+    do logDebug $
            format'
                "There is an attempt to commit transaction ({}), provided periodId is {}."
                (tx, pId)
-       C.logDebug $ formatSingle' "Here are confirmations: {}" cc
+       logDebug $ formatSingle' "Here are confirmations: {}" cc
        res <- try $ update' st $ CommitTx sk tx pId cc
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do
-        C.logWarning $ formatSingle' "CommitTx failed: {}" e
-        return Nothing
+        logWarning $ formatSingle' "CommitTx failed: {}" e
+        return $ Left e
     onSuccess res = do
-        C.logInfo $ formatSingle' "Successfully committed transaction {}" tx
-        return $ Just res
+        logInfo $ formatSingle' "Successfully committed transaction {}" tx
+        return $ Right res
 
 -- Dumping Mintette state
 
 handleGetUtxo :: WorkMode m => State -> ServerT m C.Utxo
 handleGetUtxo st =
     toServer $
-    do C.logInfo "Getting utxo"
+    do logInfo "Getting utxo"
        (curUtxo, _) <- query' st GetUtxoPset
-       C.logDebug $ formatSingle' "Corrent utxo is: {}" curUtxo
+       logDebug $ formatSingle' "Corrent utxo is: {}" curUtxo
        return curUtxo
 
 handleGetBlocks :: WorkMode m
@@ -181,7 +188,7 @@ handleGetBlocks :: WorkMode m
 handleGetBlocks st pId =
     toServer $
     do res <- query' st $ GetBlocks pId
-       C.logInfo $
+       logInfo $
             format' "Getting blocks for periodId {}: {}" (pId, listBuilderJSONIndent 2 <$> res)
        return res
 
@@ -191,6 +198,6 @@ handleGetLogs :: WorkMode m
 handleGetLogs st pId =
     toServer $
     do res <- query' st $ GetLogs pId
-       C.logInfo $
+       logInfo $
             format' "Getting logs for periodId {}: {}" (pId, listBuilderJSONIndent 2 . map pairBuilder <$> res)
        return res

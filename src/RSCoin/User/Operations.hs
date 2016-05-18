@@ -7,16 +7,18 @@ module RSCoin.User.Operations
        ( commitError
        , getAmount
        , getAmountByIndex
+       , getAllPublicAddresses
        , updateToBlockHeight
        , updateBlockchain
        , formTransaction
+       , formTransactionRetry
        ) where
 
 import           Control.Exception      (SomeException)
 import           Control.Lens           ((^.))
 import           Control.Monad          (filterM, forM_, unless, void, when)
-import           Control.Monad.Catch    (MonadThrow, throwM, try)
-import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
 import           Data.List              (genericIndex, genericLength, nub,
@@ -33,15 +35,18 @@ import           Serokell.Util.Text     (format', formatSingle',
                                          listBuilderJSONIndent, pairBuilder)
 
 import qualified RSCoin.Core            as C
-import           RSCoin.Timed           (WorkMode)
+import           RSCoin.Timed           (WorkMode, for, mcs, wait)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Error      (UserError (..))
-import           RSCoin.User.Logic      (validateTransaction)
+import           RSCoin.User.Logic      (UserLogicError (FailedToCommit),
+                                         validateTransaction)
 import qualified RSCoin.User.Wallet     as W
 
-commitError :: MonadThrow m => T.Text -> m ()
-commitError = throwM . InputProcessingError
+commitError :: (MonadIO m, MonadThrow m) => T.Text -> m ()
+commitError e = do
+    C.logError C.userLoggerName e
+    throwM . InputProcessingError $ e
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.
@@ -64,6 +69,10 @@ updateBlockchain st verbose = do
             "Current known blockchain's height (last HBLock's id) is {}."
             walletHeight
     lastBlockHeight <- pred <$> C.getBlockchainHeight
+    verboseSay $
+        formatSingle'
+            "Request showed that bank owns height {}."
+            lastBlockHeight
     when (walletHeight > lastBlockHeight) $
         throwM $
         StorageError $
@@ -81,7 +90,7 @@ updateBlockchain st verbose = do
                      verboseSay $ formatSingle' "updated to height {}" h)
     return $ lastBlockHeight /= walletHeight
   where
-    verboseSay t = when verbose $ liftIO $ TIO.putStr t
+    verboseSay t = when verbose $ liftIO $ TIO.putStrLn t
 
 -- | Gets amount of coins on user address
 getAmount :: WorkMode m => A.RSCoinUserState -> W.UserAddress -> m C.Coin
@@ -112,72 +121,112 @@ getAmountByIndex st idx = do
         (getAmount st)
         addr
 
+-- | Returns list of public addresses available
+getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
+getAllPublicAddresses st = map C.Address <$> query' st A.GetPublicAddresses
+
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction :: WorkMode m =>
     A.RSCoinUserState -> [(Word, C.Coin)] -> C.Address -> C.Coin -> m ()
-formTransaction _ [] _ _ =
+formTransaction = formTransactionRetry 1
+
+-- | Forms transaction out of user input and sends it. If failure
+-- occurs, waits for 600 mcs, then retries up to given amout of tries.
+formTransactionRetry
+    :: WorkMode m
+    => Int
+    -> A.RSCoinUserState
+    -> [(Word, C.Coin)]
+    -> C.Address
+    -> C.Coin
+    -> m ()
+formTransactionRetry _ _ [] _ _ =
     commitError "You should enter at least one source input"
-formTransaction st inputs outputAddr outputCoin = do
-    C.logInfo $
-        format' "Form a transaction from {}, to {}, ammount {}" (listBuilderJSONIndent 2 $ map pairBuilder inputs, outputAddr, outputCoin)
-    when
-        (nubBy ((==) `on` fst) inputs /= inputs) $
-        commitError "All input addresses should have distinct IDs."
-    unless (all (> 0) $ map snd inputs) $
-        commitError $
-        formatSingle'
-            "All input values should be positive, but encountered {}, that's not." $
-        head $ filter (<= 0) $ map snd inputs
-    accounts <- query' st GetAllAddresses
-    let notInRange i = i <= 0 || i > genericLength accounts
-    when
-        (any notInRange $ map fst inputs) $
-        commitError $
-        format'
-            "Found an account id ({}) that's not in [1..{}]"
-            ( head $ filter notInRange $ map fst inputs
-            , length accounts)
-    let accInputs :: [(Word, W.UserAddress, C.Coin)]
-        accInputs = map (\(i,c) -> (i, accounts `genericIndex` (i - 1), c)) inputs
-        hasEnoughFunds (i,acc,c) = do
-            amount <- getAmountNoUpdate st acc
-            return $
-                if amount >= c
-                    then Nothing
-                    else Just i
-    overSpentAccounts <-
-        filterM (\a -> isJust <$> hasEnoughFunds a) accInputs
-    unless (null overSpentAccounts) $
-        commitError $
-        (if length overSpentAccounts > 1
-             then "At least the"
-             else "The") <>
-        formatSingle'
-            " following account doesn't have enough coins: {}"
-            (sel1 $ head overSpentAccounts)
-    (addrPairList,outTr) <- liftIO $
-        foldl1 mergeTransactions <$> mapM formTransactionMapper accInputs
-    liftIO $ TIO.putStrLn $
-        formatSingle' "Please check your transaction: {}" outTr
-    void $ updateBlockchain st False
-    walletHeight <- query' st A.GetLastBlockId
-    lastBlockHeight <- pred <$> C.getBlockchainHeight
-    when (walletHeight /= lastBlockHeight) $
-        commitError $
-        format'
-            ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}). " <>
-             "Please synchonize it with blockchain. The transaction wouldn't be sent.")
-            (walletHeight, lastBlockHeight)
-    let signatures =
-            M.fromList $
-            map (\(addrid',address') ->
-                      (addrid', C.sign (address' ^. W.privateAddress) outTr))
-                addrPairList
-    validateTransaction outTr signatures $ lastBlockHeight + 1
-    update' st $ A.AddTemporaryTransaction outTr
+formTransactionRetry tries _ _ _ _ | tries < 1 =
+    error "User.Operations.formTransactionRetry shouldn't be called with tries < 1"
+formTransactionRetry tries st inputs outputAddr outputCoin =
+    run `catch` catcher
   where
-    formTransactionMapper :: (Word, W.UserAddress, C.Coin)
-                          -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)
+    catcher e@FailedToCommit | tries == 1 = throwM e
+    catcher FailedToCommit = do
+        C.logWarning C.userLoggerName $
+            formatSingle'
+            "formTransactionRetry failed (FailedToCommit), retries left: {}"
+            tries
+        wait $ for 600 mcs
+        formTransactionRetry (tries-1) st inputs outputAddr outputCoin
+    catcher e = throwM e
+    run = do
+        C.logInfo C.userLoggerName $
+            format'
+                "Form a transaction from {}, to {}, amount {}"
+                ( listBuilderJSONIndent 2 $ map pairBuilder inputs
+                , outputAddr
+                , outputCoin)
+        when (nubBy ((==) `on` fst) inputs /= inputs) $
+            commitError "All input addresses should have distinct IDs."
+        unless (all (> 0) $ map snd inputs) $
+            commitError $
+            formatSingle'
+                "All input values should be positive, but encountered {}, that's not." $
+            head $ filter (<= 0) $ map snd inputs
+        accounts <- query' st GetAllAddresses
+        let notInRange i = i <= 0 || i > genericLength accounts
+        when (any notInRange $ map fst inputs) $
+            commitError $
+            format'
+                "Found an account id ({}) that's not in [1..{}]"
+                (head $ filter notInRange $ map fst inputs, length accounts)
+        let accInputs :: [(Word, W.UserAddress, C.Coin)]
+            accInputs =
+                map
+                    (\(i,c) ->
+                          (i, accounts `genericIndex` (i - 1), c))
+                    inputs
+            hasEnoughFunds (i,acc,c) = do
+                amount <- getAmountNoUpdate st acc
+                return $
+                    if amount >= c
+                        then Nothing
+                        else Just i
+        overSpentAccounts <-
+            filterM
+                (\a ->
+                      isJust <$> hasEnoughFunds a)
+                accInputs
+        unless (null overSpentAccounts) $
+            commitError $
+            (if length overSpentAccounts > 1
+                 then "At least the"
+                 else "The") <>
+            formatSingle'
+                " following account doesn't have enough coins: {}"
+                (sel1 $ head overSpentAccounts)
+        (addrPairList,outTr) <-
+            liftIO $
+            foldl1 mergeTransactions <$> mapM formTransactionMapper accInputs
+        liftIO $
+            TIO.putStrLn $ formatSingle' "Please check your transaction: {}" outTr
+        void $ updateBlockchain st True
+        walletHeight <- query' st A.GetLastBlockId
+        lastBlockHeight <- pred <$> C.getBlockchainHeight
+        when (walletHeight /= lastBlockHeight) $
+            commitError $
+            format'
+                ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}). " <>
+                 "Please synchonize it with blockchain. The transaction wouldn't be sent.")
+                (walletHeight, lastBlockHeight)
+        let signatures =
+                M.fromList $
+                map
+                    (\(addrid',address') ->
+                          (addrid', C.sign (address' ^. W.privateAddress) outTr))
+                    addrPairList
+        validateTransaction outTr signatures $ lastBlockHeight + 1
+        update' st $ A.AddTemporaryTransaction outTr
+    formTransactionMapper
+        :: (Word, W.UserAddress, C.Coin)
+        -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)
     formTransactionMapper (_,a,c) = do
         (addrids :: [C.AddrId]) <-
             concatMap (C.getAddrIdByAddress $ W.toAddress a) <$>

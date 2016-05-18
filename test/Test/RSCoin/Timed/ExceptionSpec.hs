@@ -50,7 +50,7 @@ spec =
                 excWaitThrow
             prop "(wait + throw) in forked thread - exception doesn't get lost"
                 excWaitThrowForked
-            prop "catch doesn't get handle future exceptions"
+            prop "catch doesn't handle future exceptions"
                 excCatchScope
             prop "different exceptions, catch inner"
                 excDiffCatchInner

@@ -3,9 +3,10 @@
 
 import           Control.Concurrent             (forkIO)
 import           Control.Concurrent.STM.TBQueue (newTBQueueIO)
-import           Control.Monad                  (unless, void)
-import           Control.Monad.Catch            (bracket)
-import           Control.Monad.Trans            (liftIO)
+import           Control.Monad                  (void)
+import           Control.Monad.Catch            (MonadCatch, bracket, catch,
+                                                 throwM)
+import           Control.Monad.Trans            (MonadIO, liftIO)
 import qualified Data.Acid                      as ACID
 import qualified Data.Text                      as T
 
@@ -14,7 +15,7 @@ import           RSCoin.Timed                   (WorkMode, runRealMode)
 import qualified RSCoin.User.AcidState          as A
 import qualified RSCoin.User.Actions            as UA
 import           RSCoin.User.Error              (eWrap)
-import           RSCoin.User.Operations         (walletInitialized)
+import qualified RSCoin.User.Wallet             as W
 
 import           GUI.RSCoin.ActionsExecutor     (runActionsExecutor)
 import           GUI.RSCoin.Contacts            (ContactsList (..))
@@ -68,11 +69,17 @@ main = do
             \st ->
                  do C.logDebug C.userLoggerName $
                         mconcat ["Called with options: ", (T.pack . show) opts]
-                    initialized <- liftIO $ walletInitialized st
-                    unless initialized $
-                        A.initState st addressesNum $
-                            bankKeyPath isBankMode bankModePath
-                    processCommand st userCommand contactsPath
+                    handleUnitialized
+                        (processCommand st userCommand contactsPath)
+                        (A.initState st addressesNum $
+                            bankKeyPath isBankMode bankModePath)
   where
+    handleUnitialized :: (MonadIO m, MonadCatch m) => m () -> m () -> m ()
+    handleUnitialized action initialization =
+        action `catch` handler initialization action
+      where
+        handler i a W.NotInitialized =
+            C.logInfo C.userLoggerName "Initalizing storage..." >> i >> a
+        handler _ _ e = throwM e
     bankKeyPath True  p = Just p
     bankKeyPath False _ = Nothing

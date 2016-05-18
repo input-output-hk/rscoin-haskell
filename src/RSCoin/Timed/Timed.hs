@@ -157,12 +157,14 @@ instance (MonadCatch m, MonadIO m) => MonadCatch (TimedT m) where
             -- If it's throw, rethrow exception inside ContException,
             -- otherwise handle original exception
             \c ->
-                let safeCont x = getCore (c x) `catchAll` (throwM . ContException)
+                let safeCont x = c x `catchAll` (throwM . ContException)
+                    r' = r & handlers %~ (:) (Handler handler', contHandler)
                     act = unwrapCore' r' $ m >>= wrapCore . safeCont
-                    handler' e = unwrapCore' r $ handler e >>= wrapCore . getCore . c
-                    contHandler (ContException e) = throwM e
-                    r' = r & handlers %~ (:) (Handler (Core . handler'), Handler contHandler)
-                in  Core $ act `catches` [Handler handler', Handler contHandler]
+                    handler' e = unwrapCore' r $ handler e >>= wrapCore . c
+                in  act `catches` [contHandler, Handler handler']
+
+contHandler :: MonadThrow m => Handler m ()
+contHandler = Handler $ \(ContException e) -> throwM e
 
 -- Posibly incorrect instance
 instance (MonadIO m, MonadMask m) => MonadMask (TimedT m) where
@@ -179,24 +181,24 @@ instance (MonadIO m, MonadMask m) => MonadMask (TimedT m) where
         q u t = TimedT $ ReaderT $ \r -> ContT $ \c -> u $
             runContT (runReaderT (unwrapTimedT t) r) c
 
-wrapCore :: Monad m => StateT (Scenario (TimedT m) (Core m)) m a -> TimedT m a
-wrapCore = TimedT . lift . lift . Core
+wrapCore :: Monad m => Core m a -> TimedT m a
+wrapCore = TimedT . lift . lift
 
 unwrapCore :: Monad m
            => ThreadCtx (Core m)
            -> (a -> Core m ())
            -> TimedT m a
-           -> StateT (Scenario (TimedT m) (Core m)) m ()
-unwrapCore r c = getCore
-               . flip runContT c
+           -> Core m ()
+unwrapCore r c = flip runContT c
                . flip runReaderT r
                . unwrapTimedT
 
-unwrapCore' :: Monad m => ThreadCtx (Core m) -> TimedT m () -> StateT (Scenario (TimedT m) (Core m)) m ()
+unwrapCore' :: Monad m => ThreadCtx (Core m) -> TimedT m () -> Core m ()
 unwrapCore' r = unwrapCore r return
 
 launchTimedT :: Monad m => TimedT m a -> m ()
 launchTimedT t = flip evalStateT emptyScenario
+               $ getCore
                $ unwrapCore vacuumCtx (void . return) t
   where
     vacuumCtx = error "Access to thread context from nowhere"
@@ -209,16 +211,16 @@ runTimedT timed = launchTimedT $ do
     -- event loop
     whileM_ notDone $ do
         -- take next event
-        nextEv <- wrapCore $ do
+        nextEv <- wrapCore . Core $ do
             (ev, evs') <- fromJust . PQ.minView <$> use events
             events .= evs'
             return ev
-        wrapCore $ curTime .= nextEv ^. timestamp
+        wrapCore . Core $ curTime .= nextEv ^. timestamp
 
 
         let ctx = nextEv ^. threadCtx
             tid = ctx ^. threadId
-        keepAlive <- wrapCore $ use $ aliveThreads . to (S.member tid)
+        keepAlive <- wrapCore $ Core $ use $ aliveThreads . to (S.member tid)
         let -- die if time has come
             maybeDie = unless keepAlive $ throwM ThreadKilled
             act      = maybeDie >> runInSandbox ctx (nextEv ^. action)
@@ -226,11 +228,11 @@ runTimedT timed = launchTimedT $ do
             -- catch which is performed in instance MonadCatch is not enought
             -- cause on "wait" "catch" scope finishes, we need to catch
             -- again here
-        wrapCore . getCore $ (Core (unwrapCore' ctx act)) `catchesSeq` (ctx ^. handlers)
+        wrapCore $ (unwrapCore' ctx act) `catchesSeq` (ctx ^. handlers)
 
   where
     notDone :: Monad m => TimedT m Bool
-    notDone = wrapCore . use $ events . to (not . PQ.null)
+    notDone = wrapCore . Core . use $ events . to (not . PQ.null)
 
     -- put empty continuation to an action (not our own!)
     runInSandbox r = wrapCore . unwrapCore' r
@@ -249,10 +251,10 @@ runTimedT timed = launchTimedT $ do
     catchesSeq = foldl $ \act (h, hc) -> act `catches` [hc, h]
 
 getNextThreadId :: Monad m => TimedT m ThreadId
-getNextThreadId = do
-    tid <- PureThreadId <$> wrapCore (use threadsCounter)
-    wrapCore $ modify $ threadsCounter %~ (+1)
-    wrapCore $ modify $ aliveThreads %~ S.insert tid
+getNextThreadId = wrapCore . Core $ do
+    tid <- PureThreadId <$> (use threadsCounter)
+    modify $ threadsCounter %~ (+1)
+    modify $ aliveThreads %~ S.insert tid
     return tid
 
 -- | Just like runTimedT but makes it possible to get a result.
@@ -272,7 +274,7 @@ threadKilledNotifier e =
     logWarning $ formatSingle' "Thread killed by exception: {}" $ show e
 
 instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
-    localTime = wrapCore $ use curTime
+    localTime = wrapCore $ Core $ use curTime
     -- | Take note, created thread may be killed by timeout
     --   only when it calls "wait"
     fork _action = do
@@ -286,7 +288,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
                                , Handler $ \(ContException e) -> throwM e
                                )]
                 }
-        wrapCore $ events %= PQ.insert Event { .. }
+        wrapCore $ Core $ events %= PQ.insert Event { .. }
         return tid
 
     wait relativeToNow = do
@@ -296,7 +298,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
                 Event
                 { _threadCtx = ctx
                 , _timestamp = cur + relativeToNow cur
-                , _action = wrapCore $ getCore $ following
+                , _action = wrapCore following
                 }
         -- grab our continuation, put it to event queue
         -- and finish execution
@@ -306,7 +308,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
 
     myThreadId = TimedT $ view threadId
 
-    killThread tid = wrapCore $ modify $ aliveThreads %~ S.delete tid
+    killThread tid = wrapCore $ Core $ modify $ aliveThreads %~ S.delete tid
 
     -- TODO: we should probably implement this similar to
     -- http://haddock.stackage.org/lts-5.8/base-4.8.2.0/src/System-Timeout.html#timeout

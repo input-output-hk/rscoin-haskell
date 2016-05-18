@@ -11,8 +11,7 @@ import           Control.Concurrent.STM.TVar (TVar, modifyTVar, newTVarIO,
 import           Control.Exception.Base      (ArithException (Overflow),
                                               AsyncException (ThreadKilled))
 import           Control.Monad               (void)
-import           Control.Monad.Catch         (MonadCatch, catch, catchAll,
-                                              throwM)
+import           Control.Monad.Catch         (catch, catchAll, throwM)
 import           Control.Monad.IO.Class      (liftIO)
 import           Control.Monad.Trans         (MonadIO)
 import           Data.Default                (def)
@@ -22,16 +21,17 @@ import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (NonNegative (..),
                                               Property)
 import           Test.QuickCheck.Monadic     (assert, monadicIO)
-import           Test.QuickCheck.Property    (Result (reason), exception,
+import           Test.QuickCheck.Property    (Result (reason), 
                                               failed, ioProperty, succeeded)
 
 import           RSCoin.Core                 (Severity (Error), initLogging)
 import           RSCoin.Timed                (Delays (..), Microsecond, PureRpc,
-                                              after, for, fork, fork_, invoke,
+                                              after, for, fork_, invoke,
                                               runEmulationMode_, sec, wait, mcs)
 
 import           RSCoin.User.Error           (UserError (InputProcessingError))
 import           Test.RSCoin.Timed.Arbitrary ()
+
 
 spec :: Spec
 spec =
@@ -42,8 +42,10 @@ spec =
                 exceptionShouldAbortExecution
             prop "caught nicely"
                 excCaught
-            prop "exception from main thread caught nicely outside of monad"
+            prop "exception from main thread caught outside of monad"
                 excCaughtOutside
+            prop "exception from main thread caught outside of monad (+ wait)"
+                excCaughtOutsideWithWait
             prop "proper catch order (catch inside catch)"
                 excCatchOrder
             prop "(wait + throw) - exception doesn't get lost"
@@ -102,7 +104,7 @@ excCaught
     :: StdGen
     -> Property
 excCaught seed =
-    ioProperty . inSandbox . withCheckPoints $
+    ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act   = throwM ThreadKilled >> checkPoint (-1)
                 hnd _ = checkPoint 1
@@ -112,17 +114,33 @@ excCaughtOutside
     :: StdGen
     -> Property
 excCaughtOutside seed =
-    ioProperty . inSandbox . withCheckPoints $
+    ioProperty . withCheckPoints $
         \checkPoint ->
-            let act = runEmu seed (throwM ThreadKilled) >> checkPoint (-1)
+            let act = do
+                    runEmu seed $ wait (for 1 sec) >> throwM ThreadKilled 
+                    checkPoint (-1)
                 hnd _ = checkPoint 1
-            in  act `catchAll` hnd
+            in  do  act `catchAll` hnd
+                    checkPoint 2
+
+excCaughtOutsideWithWait
+    :: StdGen
+    -> Property
+excCaughtOutsideWithWait seed =
+    ioProperty . withCheckPoints $
+        \checkPoint ->
+            let act = do
+                    runEmu seed $ throwM ThreadKilled 
+                    checkPoint (-1)
+                hnd _ = checkPoint 1
+            in  do  act `catchAll` hnd
+                    checkPoint 2
 
 excWaitThrow
     :: StdGen
     -> Property
 excWaitThrow seed =
-    ioProperty . inSandbox . withCheckPoints $
+    ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act = do
                     wait (for 1 sec)
@@ -136,7 +154,7 @@ excWaitThrowForked
     :: StdGen
     -> Property
 excWaitThrowForked seed =
-    ioProperty . inSandbox . withCheckPoints $
+    ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act = do
                     wait (for 1 sec)
@@ -150,7 +168,7 @@ excCatchOrder
     :: StdGen
     -> Property
 excCatchOrder seed =
-    ioProperty . inSandbox . withCheckPoints $
+    ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act    = throwM ThreadKilled
                 hnd1 _ = checkPoint 1
@@ -162,7 +180,7 @@ excCatchScope
     :: StdGen
     -> Property
 excCatchScope seed =
-    ioProperty . inSandbox . withCheckPoints $
+    ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act1 = checkPoint 1 `catchAll` const (checkPoint $ -1)
                 act2 = act1 >> throwM ThreadKilled
@@ -173,8 +191,8 @@ excCatchScope seed =
 excCatchScopeWithWait
     :: StdGen
     -> Property
-excCatchScopeWithWait seed =
-    ioProperty . inSandbox . withCheckPoints $
+excCatchScopeWithWait seed = 
+    ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act1 = checkPoint 1 >> wait (for 1 sec)
                 act2 = act1 `catchAll` const (checkPoint $ -1)
@@ -187,7 +205,7 @@ excDiffCatchInner
     :: StdGen
     -> Property
 excDiffCatchInner seed =
-    ioProperty . inSandbox . withCheckPoints $
+    ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act = throwM ThreadKilled
                 hnd1 (_ :: AsyncException) = checkPoint 1
@@ -199,8 +217,8 @@ excDiffCatchInner seed =
 excDiffCatchOuter
     :: StdGen
     -> Property
-excDiffCatchOuter seed =
-    ioProperty . inSandbox . withCheckPoints $
+excDiffCatchOuter seed = 
+    ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act = throwM Overflow
                 hnd1 (_ :: AsyncException) = checkPoint (-1)
@@ -208,7 +226,6 @@ excDiffCatchOuter seed =
             in  do
                 act `catch` hnd1 `catch` hnd2
                 checkPoint 2
-
 
 
 runEmu :: StdGen -> PureRpc IO () -> IO ()
@@ -246,6 +263,3 @@ withCheckPoints act = do
     cp <- initCheckPoints
     _  <- act $ liftIO . visitCheckPoint cp
     assertCheckPoints cp
-
-inSandbox :: MonadCatch m => m Result -> m Result
-inSandbox = flip catchAll $ return . exception "Unexpected exception"

@@ -48,6 +48,8 @@ import           Data.Text.Buildable       (Buildable (build))
 import           Data.Text.Encoding        (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format          as F
 import qualified Data.Text.IO              as TIO
+import           Data.Text.Lazy.Builder    (toLazyText)
+import qualified Data.Text.Lazy            as TL
 import           System.Directory          (createDirectoryIfMissing)
 import           System.FilePath           (takeDirectory)
 import           Test.QuickCheck.Arbitrary (Arbitrary (arbitrary))
@@ -175,7 +177,7 @@ instance Binary PublicKey where
     put = put . exportPubKey True . getPublicKey
 
 printPublicKey :: PublicKey -> String
-printPublicKey = init . drop 8 . show . getPublicKey
+printPublicKey = TL.unpack . toLazyText . build
 
 -- | Generate a hash from a binary data.
 hash :: Binary t => t -> Hash

@@ -7,13 +7,14 @@
 
 module RSCoin.User.Error
        ( UserError (..)
+       , isWalletSyncError
        , UserErrorLike (..)
        , eWrap
        ) where
 
 import qualified RSCoin.User.Wallet  as W
 
-import           Control.Exception   (Exception (..))
+import           Control.Exception   (Exception (..), SomeException)
 import           Control.Monad.Catch (MonadCatch, catch, throwM)
 import qualified Data.Text           as T
 import           Data.Typeable       (Typeable)
@@ -28,8 +29,12 @@ data UserError
     = StorageError W.WalletStorageError -- ^ Database errors
     | InputProcessingError T.Text       -- ^ Input processing errors
                                         -- (wrong user input)
+    | WalletSyncError T.Text            -- ^ Wallet is out of sync
     | NetworkError T.Text               -- ^ Errors related to network
     deriving (Show)
+
+isWalletSyncError :: SomeException -> Bool
+isWalletSyncError = maybe False (\(WalletSyncError _) -> True) . fromException
 
 instance Exception UserError where
     toException = rscExceptionToException

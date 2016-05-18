@@ -38,7 +38,7 @@ import           Debug.Trace                   (trace)
 data UserLogicError
     = MajorityRejected T.Text
     | FailedToCommit
-    deriving (Show)
+    deriving (Show, Eq)
 
 throwUserLogicError :: WorkMode m => UserLogicError -> m a
 throwUserLogicError e = do

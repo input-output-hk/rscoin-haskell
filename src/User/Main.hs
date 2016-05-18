@@ -16,10 +16,10 @@ import qualified RSCoin.User.Actions            as UA
 import           RSCoin.User.Error              (eWrap)
 import           RSCoin.User.Operations         (walletInitialized)
 
-import           GUI.ActionsExecutor            (runActionsExecutor)
-import           GUI.Contacts                   (ContactsList (..))
-import           GUI.GUI                        (runGUI)
-import           GUI.Updater                    (runUpdater)
+import           GUI.RSCoin.ActionsExecutor     (runActionsExecutor)
+import           GUI.RSCoin.Contacts            (ContactsList (..))
+import           GUI.RSCoin.GUI                 (runGUI)
+import           GUI.RSCoin.Updater             (runUpdater)
 import qualified UserOptions                    as O
 
 actionsQueueCapacity :: Int

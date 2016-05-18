@@ -1,6 +1,6 @@
 -- | Structure and functions used to print transactions.
 
-module GUI.Transactions
+module GUI.RSCoin.Transactions
     ( VerboseTransaction (..)
     , fromTransaction
     , getTransactionAmount

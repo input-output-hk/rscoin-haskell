@@ -2,14 +2,14 @@
 
 -- | Data structore to store output GUI widgets.
 
-module GUI.OutputWidgets
+module GUI.RSCoin.OutputWidgets
     ( OutputWidgets (..)
     , mkOutputWidgets
     ) where
 
-import qualified Graphics.UI.Gtk  as G
+import qualified Graphics.UI.Gtk         as G
 
-import           GUI.Transactions (VerboseTransaction)
+import           GUI.RSCoin.Transactions (VerboseTransaction)
 
 -- | Stores the structures required for showing the user state.
 data OutputWidgets = OutputWidgets

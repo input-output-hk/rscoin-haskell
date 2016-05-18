@@ -2,7 +2,7 @@
 
 -- | Simple exception handler for GUI.
 
-module GUI.GUIError (handled) where
+module GUI.RSCoin.GUIError (handled) where
 
 import           Control.Concurrent.STM.TBQueue (TBQueue, writeTBQueue)
 import           Control.Exception              (SomeException (..))
@@ -17,8 +17,8 @@ import           Graphics.UI.Gtk                (labelSetText, postGUIAsync,
 import           RSCoin.Timed                   (WorkMode)
 import           RSCoin.User.Error              (UserError (..))
 
-import           GUI.Action                     (Action (..))
-import           GUI.OutputWidgets              (OutputWidgets (..))
+import           GUI.RSCoin.Action              (Action (..))
+import           GUI.RSCoin.OutputWidgets       (OutputWidgets (..))
 
 -- | Performas a job. If the action can't be performed because the blockchain
 -- isn't updated, it is updated and the action is reperformed.

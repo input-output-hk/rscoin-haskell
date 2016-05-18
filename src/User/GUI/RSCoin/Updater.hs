@@ -1,12 +1,12 @@
 -- | Regularly updates the state of the wallet.
 
-module GUI.Updater (runUpdater) where
+module GUI.RSCoin.Updater (runUpdater) where
 
 import           Control.Concurrent             (threadDelay)
 import           Control.Concurrent.STM.TBQueue (TBQueue, writeTBQueue)
 import           Control.Monad.STM              (atomically)
 
-import           GUI.Action                     (Action (Update))
+import           GUI.RSCoin.Action              (Action (Update))
 
 -- | Regularly requests to perform Update action.
 runUpdater :: TBQueue Action -> IO ()

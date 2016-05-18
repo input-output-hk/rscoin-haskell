@@ -1,6 +1,6 @@
 -- | Data type for actions performed by ActionsExecutor.
 
-module GUI.Action (Action (..)) where
+module GUI.RSCoin.Action (Action (..)) where
 
 import           Data.Int    (Int64)
 

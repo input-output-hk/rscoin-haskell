@@ -5,7 +5,7 @@
 -- | Contacts list.
 
 -- FIXME Contacts acid helpers in GUI.* namespace...
-module GUI.Contacts
+module GUI.RSCoin.Contacts
     ( Contact (..)
     , ContactsList (..)
     , ContactsState

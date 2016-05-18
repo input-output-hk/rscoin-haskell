@@ -1,6 +1,6 @@
 -- | Module intializes and runs graphical user interface.
 
-module GUI.GUI (runGUI) where
+module GUI.RSCoin.GUI (runGUI) where
 
 import           Control.Concurrent             (forkIO)
 import           Control.Concurrent.STM.TBQueue (TBQueue, writeTBQueue)
@@ -21,10 +21,10 @@ import qualified RSCoin.Core                    as C
 import qualified RSCoin.User.AcidState          as T
 import           RSCoin.User.Wallet             (UserAddress, publicAddress)
 
-import qualified GUI.Action                     as A
-import qualified GUI.Contacts                   as S
-import qualified GUI.OutputWidgets              as O
-import           GUI.Transactions               (VerboseTransaction,
+import qualified GUI.RSCoin.Action              as A
+import qualified GUI.RSCoin.Contacts            as S
+import qualified GUI.RSCoin.OutputWidgets       as O
+import           GUI.RSCoin.Transactions        (VerboseTransaction,
                                                  getTransactionAmount,
                                                  showTransaction)
 
@@ -61,7 +61,7 @@ setupTransactionsView a t l = do
 initializeGUI :: TBQueue A.Action ->
     T.RSCoinUserState -> S.ContactsState -> IO O.OutputWidgets
 initializeGUI queue st cs = do
-    layoutFile <- getDataFileName "src/User/GUI/GUI.glade"
+    layoutFile <- getDataFileName "src/User/GUI/RSCoin/GUI.glade"
 
     builder <- G.builderNew
     G.builderAddFromFile builder layoutFile

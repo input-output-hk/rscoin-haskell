@@ -1,6 +1,6 @@
 -- | ActionsExecutor performs actions with RSCoinUserState.
 
-module GUI.ActionsExecutor (runActionsExecutor) where
+module GUI.RSCoin.ActionsExecutor (runActionsExecutor) where
 
 import           Control.Concurrent.STM.TBQueue (TBQueue, readTBQueue)
 import           Control.Monad                  (forM_, when)
@@ -20,10 +20,10 @@ import           RSCoin.Timed                   (WorkMode)
 import qualified RSCoin.User.AcidState          as A
 import qualified RSCoin.User.Operations         as O
 
-import           GUI.Action                     (Action (..))
-import           GUI.GUIError                   (handled)
-import           GUI.OutputWidgets              (OutputWidgets (..))
-import           GUI.Transactions               (fromTransaction)
+import           GUI.RSCoin.Action              (Action (..))
+import           GUI.RSCoin.GUIError            (handled)
+import           GUI.RSCoin.OutputWidgets       (OutputWidgets (..))
+import           GUI.RSCoin.Transactions        (fromTransaction)
 
 updateUI :: WorkMode m => A.RSCoinUserState -> OutputWidgets -> m ()
 updateUI st ow = do

@@ -14,7 +14,7 @@ maintainer:          volhovm.cs@gmail.com
 build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
-data-files:          src/User/GUI/GUI.glade
+data-files:          src/User/GUI/RSCoin/GUI.glade
 
 library
   exposed-modules:     RSCoin.Bank
@@ -150,14 +150,14 @@ executable rscoin-user
   main-is:             Main.hs
   other-modules:       Paths_rscoin
                      , UserOptions
-                     , GUI.Action
-                     , GUI.ActionsExecutor
-                     , GUI.Contacts
-                     , GUI.GUI
-                     , GUI.GUIError
-                     , GUI.OutputWidgets
-                     , GUI.Transactions
-                     , GUI.Updater
+                     , GUI.RSCoin.Action
+                     , GUI.RSCoin.ActionsExecutor
+                     , GUI.RSCoin.Contacts
+                     , GUI.RSCoin.GUI
+                     , GUI.RSCoin.GUIError
+                     , GUI.RSCoin.OutputWidgets
+                     , GUI.RSCoin.Transactions
+                     , GUI.RSCoin.Updater
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
                      , containers >= 0.5.6.2

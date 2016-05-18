@@ -22,7 +22,7 @@ import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (NonNegative (..),
                                               Property)
 import           Test.QuickCheck.Monadic     (assert, monadicIO)
-import           Test.QuickCheck.Property    (Result (reason), 
+import           Test.QuickCheck.Property    (Result (reason),
                                               failed, ioProperty, succeeded)
 
 import           RSCoin.Core                 (Severity (Error), initLogging)
@@ -121,7 +121,7 @@ excCaughtOutside seed =
     ioProperty . withCheckPoints $
         \checkPoint ->
             let act = do
-                    runEmu seed $ wait (for 1 sec) >> throwM ThreadKilled 
+                    runEmu seed $ wait (for 1 sec) >> throwM ThreadKilled
                     checkPoint (-1)
                 hnd _ = checkPoint 1
             in  do  act `catchAll` hnd
@@ -134,7 +134,7 @@ excCaughtOutsideWithWait seed =
     ioProperty . withCheckPoints $
         \checkPoint ->
             let act = do
-                    runEmu seed $ throwM ThreadKilled 
+                    runEmu seed $ throwM ThreadKilled
                     checkPoint (-1)
                 hnd _ = checkPoint 1
             in  do  act `catchAll` hnd
@@ -195,7 +195,7 @@ excCatchScope seed =
 excCatchScopeWithWait
     :: StdGen
     -> Property
-excCatchScopeWithWait seed = 
+excCatchScopeWithWait seed =
     ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act1 = checkPoint 1 >> wait (for 1 sec)
@@ -221,7 +221,7 @@ excDiffCatchInner seed =
 excDiffCatchOuter
     :: StdGen
     -> Property
-excDiffCatchOuter seed = 
+excDiffCatchOuter seed =
     ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act = throwM Overflow
@@ -235,7 +235,7 @@ handlerThrow
     :: StdGen
     -> Property
 handlerThrow seed =
-    ioProperty . inSandbox . withCheckPoints $
+    ioProperty . withCheckPoints $
         \checkPoint -> runEmu seed $
             let act = throwM ThreadKilled
                 hnd1 (_ :: SomeException ) = throwM Overflow

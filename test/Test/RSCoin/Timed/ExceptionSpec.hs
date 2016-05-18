@@ -52,6 +52,8 @@ spec =
                 excWaitThrowForked
             prop "catch doesn't handle future exceptions"
                 excCatchScope
+            prop "catch doesn't handle future exceptions (with wait inside)"
+                excCatchScopeWithWait
             prop "different exceptions, catch inner"
                 excDiffCatchInner
             prop "different exceptions, catch outer"
@@ -166,6 +168,19 @@ excCatchScope seed =
                 act2 = act1 >> throwM ThreadKilled
             in  do
                 act2 `catchAll` const (checkPoint 2)
+                checkPoint 3
+
+excCatchScopeWithWait
+    :: StdGen
+    -> Property
+excCatchScopeWithWait seed =
+    ioProperty . inSandbox . withCheckPoints $
+        \checkPoint -> runEmu seed $
+            let act1 = checkPoint 1 >> wait (for 1 sec)
+                act2 = act1 `catchAll` const (checkPoint $ -1)
+                act3 = act2 >> wait (for 1 sec) >> throwM ThreadKilled
+            in  do
+                act3 `catchAll` const (checkPoint 2)
                 checkPoint 3
 
 excDiffCatchInner

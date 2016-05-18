@@ -23,6 +23,9 @@ import           Control.Concurrent.MVar    (MVar, newMVar, putMVar, takeMVar)
 
 import           Network.MessagePack.Server (ServerT)
 
+import Control.Monad.Catch (throwM, catchAll)
+
+import Control.Exception.Base (ArithException(..))
 
 main :: IO ()
 main = do
@@ -141,3 +144,12 @@ syncronized lock action = do
     _ <- liftIO $ takeMVar lock
     action
     liftIO $ putMVar lock ()
+
+ololo :: IO ()
+ololo = runTimedT $ do
+    let act = do
+            (wait (for 1 sec) >> log "checkpoint") `catchAll` (\e -> liftIO $ putStrLn $ "caught1" ++ show e)
+            log "prepare to throw!"
+            _ <- throwM Overflow
+            wait $ for 1 sec
+    act -- `catchAll` (\e -> liftIO $ print e)

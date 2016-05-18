@@ -11,7 +11,7 @@ module Test.RSCoin.Timed.MonadTimedSpec
        ( spec
        ) where
 
-import           Control.Exception.Base      (Exception)
+import           Control.Exception.Base      (Exception, SomeException)
 import           Control.Concurrent.MVar     (newEmptyMVar, putMVar, takeMVar)
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
@@ -272,7 +272,8 @@ timeoutTimedProp (getNonNegative -> tout) (getNonNegative -> wt) = do
     let action = do
             wait $ for wt mcs
             return $ wt <= tout
-        handler (_ :: MonadTimedError) = return $ tout <= wt
+        handler (_ :: SomeException) = do
+            return $ tout <= wt
     res <- timeout tout action `catch` handler
     assertTimedT res
 

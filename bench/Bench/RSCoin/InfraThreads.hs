@@ -1,6 +1,7 @@
 module Bench.RSCoin.InfraThreads
         ( addMintette
         , bankThread
+        , defaultBenchPeriod
         , mintetteThread
         ) where
 
@@ -21,6 +22,9 @@ import           RSCoin.Timed               (MsgPackRpc, fork, runRealMode)
 
 import           System.FilePath            ((</>))
 
+defaultBenchPeriod :: Second
+defaultBenchPeriod = 5
+
 bankBracket :: FilePath -> (B.State -> MsgPackRpc a) -> IO a
 bankBracket benchDir bankAction = runRealMode $ bracket
     (liftIO $ B.openState $ benchDir </> "bank-db")
@@ -34,7 +38,6 @@ addMintette mintetteId benchDir publicKey = bankBracket benchDir $ \bankState ->
 
 bankThread :: FilePath -> IO ()
 bankThread benchDir = bankBracket benchDir $ \bankState -> do
-    let defaultBenchPeriod = 5 :: Second
     _ <- fork $ B.runWorkerWithPeriod defaultBenchPeriod bankSecretKey bankState
     B.serve bankState
 

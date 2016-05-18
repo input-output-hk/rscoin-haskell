@@ -2,13 +2,14 @@ module Main where
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.InfraThreads  (addMintette, bankThread,
-                                             mintetteThread)
+                                             defaultBenchPeriod, mintetteThread)
 import           Bench.RSCoin.UserLogic     (benchUserTransactions,
                                              initializeBank, initializeUser,
                                              userThread)
 
 import           Data.Int                   (Int64)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           Data.Time.Units            (toMicroseconds)
 
 import           RSCoin.Core                (PublicKey, SecretKey,
                                              Severity (..), bankLoggerName,
@@ -67,7 +68,7 @@ initializeSuperUser benchDir userAddresses = do
     let bankId = 0
     userThread benchDir (initializeBank userAddresses) bankId
     putStrLn "Running user in bankMode and waiting for period end..."
-    threadDelay $ 5 * 10 ^ (6 :: Int)
+    threadDelay $ fromInteger $ toMicroseconds (defaultBenchPeriod + 1)
 
 runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO Int
 runTransactions benchDir userAddresses userIds = do

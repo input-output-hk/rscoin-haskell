@@ -153,6 +153,7 @@ executable rscoin-user
                      , GUI.RSCoin.Action
                      , GUI.RSCoin.ActionsExecutor
                      , GUI.RSCoin.Contacts
+                     , GUI.RSCoin.Glade
                      , GUI.RSCoin.GUI
                      , GUI.RSCoin.GUIError
                      , GUI.RSCoin.OutputWidgets

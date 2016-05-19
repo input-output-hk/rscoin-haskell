@@ -6,19 +6,22 @@
 -- them.
 
 module RSCoin.User.Error
-       ( UserError (..)
+       ( UserLogicError (..)
+       , UserError (..)
        , UserErrorLike (..)
        , eWrap
+       , throwUserLogicError
        ) where
 
+import           RSCoin.Core         (logError, rscExceptionFromException,
+                                      rscExceptionToException, userLoggerName)
+import           RSCoin.Timed        (WorkMode)
 import qualified RSCoin.User.Wallet  as W
 
 import           Control.Exception   (Exception (..))
 import           Control.Monad.Catch (MonadCatch, catch, throwM)
 import qualified Data.Text           as T
 import           Data.Typeable       (Typeable)
-import           RSCoin.Core         (rscExceptionToException,
-                                     rscExceptionFromException)
 
 -- | This datatype describes all errors user side is 'aware of'.
 -- Actually, the purpose of this datatype is wrapping all errors and
@@ -50,6 +53,23 @@ instance Show UserErrorWithClass where
     show (UserErrorWithClass a) = show a
 
 instance Exception UserErrorWithClass
+
+-- | This datatype describes errors that can be produced during
+-- 'RSCoin.User.Logic.validateTransaction' function execution.
+data UserLogicError
+    = MajorityRejected T.Text
+    | FailedToCommit
+    deriving (Eq, Show, Typeable)
+
+instance Exception UserLogicError where
+    toException   = rscExceptionToException
+    fromException = rscExceptionFromException
+
+-- | Throws 'UserLogicError' and logging it.
+throwUserLogicError :: WorkMode m => UserLogicError -> m a
+throwUserLogicError e = do
+    logError userLoggerName $ T.pack $ show e
+    throwM e
 
 -- | Runs the monadic computation replacing any error that has
 -- UserErrorLike instance with UserError.

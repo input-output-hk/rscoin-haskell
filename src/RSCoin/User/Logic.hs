@@ -4,16 +4,11 @@
 -- requests to bank/mintettes and related things.
 
 module RSCoin.User.Logic
-       ( UserLogicError (..)
-       , CC.getBlockByHeight
+       ( CC.getBlockByHeight
        , CC.getBlockchainHeight
        , validateTransaction
        ) where
 
-import           RSCoin.Core                   (logError,
-                                                rscExceptionFromException,
-                                                rscExceptionToException,
-                                                userLoggerName)
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
@@ -21,6 +16,7 @@ import           RSCoin.Core.Primitives        (AddrId, Transaction (..))
 import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitConfirmation, Mintette,
                                                 MintetteId, PeriodId)
+import           RSCoin.User.Error             (UserLogicError (..), throwUserLogicError)
 import           RSCoin.Timed                  (WorkMode)
 
 import           Serokell.Util.Text            (format', formatSingle')
@@ -34,26 +30,16 @@ import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
 import qualified Data.Text                     as T
 
-data UserLogicError
-    = MajorityRejected T.Text
-    | FailedToCommit
-    deriving (Show, Eq)
-
-throwUserLogicError :: WorkMode m => UserLogicError -> m a
-throwUserLogicError e = do
-    logError userLoggerName $ T.pack $ show e
-    throwM e
-
-instance Exception UserLogicError where
-    toException = rscExceptionToException
-    fromException = rscExceptionFromException
-
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction
 -- given. If transaction is confirmed, just returns. If it's not
 -- confirmed, the FailedToCommit is thrown.
-validateTransaction :: WorkMode m =>
-                       Transaction -> M.Map AddrId Signature -> PeriodId -> m ()
+validateTransaction
+    :: WorkMode m
+    => Transaction
+    -> M.Map AddrId Signature
+    -> PeriodId
+    -> m ()
 validateTransaction tx@Transaction{..} signatures height = do
     (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
     commitBundle bundle

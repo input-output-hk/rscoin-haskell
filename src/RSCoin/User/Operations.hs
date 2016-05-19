@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
@@ -14,7 +15,7 @@ module RSCoin.User.Operations
        , formTransactionRetry
        ) where
 
-import           Control.Exception      (SomeException)
+import           Control.Exception      (SomeException, fromException)
 import           Control.Lens           ((^.))
 import           Control.Monad          (filterM, forM_, unless, void, when)
 import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
@@ -35,13 +36,15 @@ import           Serokell.Util.Text     (format', formatSingle',
                                          listBuilderJSONIndent, pairBuilder)
 
 import qualified RSCoin.Core            as C
+import           RSCoin.Mintette        (MintetteError (MEInactive))
 import           RSCoin.Timed           (WorkMode, for, mcs, wait)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
-import           RSCoin.User.Error      (UserError (..))
-import           RSCoin.User.Logic      (UserLogicError (FailedToCommit),
-                                         validateTransaction)
+import           RSCoin.User.Error      (UserError (..), UserLogicError)
+import           RSCoin.User.Logic      (validateTransaction)
 import qualified RSCoin.User.Wallet     as W
+
+import Debug.Trace (trace, traceM)
 
 commitError :: (MonadIO m, MonadThrow m) => T.Text -> m ()
 commitError e = do
@@ -148,15 +151,24 @@ formTransactionRetry tries _ _ _ _ _ | tries < 1 =
 formTransactionRetry tries st verbose inputs outputAddr outputCoin =
     run `catch` catcher
   where
-    catcher e@FailedToCommit | tries == 1 = throwM e
-    catcher FailedToCommit = do
-        C.logWarning C.userLoggerName $
-            formatSingle'
-            "formTransactionRetry failed (FailedToCommit), retries left: {}"
-            tries
-        wait $ for 600 mcs
-        formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
-    catcher e = throwM e
+    catcher :: WorkMode m => SomeException -> m ()
+    catcher e
+        | isRetriableException e && tries > 1 = do
+            C.logWarning C.userLoggerName $
+                formatSingle'
+                "formTransactionRetry failed (FailedToCommit), retries left: {}"
+                tries
+            wait $ for 600 mcs
+            formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
+        | otherwise = trace "IN DA FORM!" $ throwM e
+
+    isRetriableException :: SomeException -> Bool
+    isRetriableException e
+        | Just (_ :: UserLogicError) <- fromException e = True
+        | Just MEInactive            <- fromException e = True
+        | otherwise                                     = False
+
+    run :: WorkMode m => m ()
     run = do
         C.logInfo C.userLoggerName $
             format'

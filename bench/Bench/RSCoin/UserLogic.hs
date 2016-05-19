@@ -1,3 +1,5 @@
+{-# LANGUAGE PatternGuards #-}
+
 module Bench.RSCoin.UserLogic
         ( benchUserTransactions
         , initializeBank
@@ -16,16 +18,15 @@ import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint)
 import           Data.Acid.Advanced         (query')
 import           Data.Int                   (Int64)
+import           Data.Text                  (isPrefixOf)
 
 import           RSCoin.Core                (Coin (..), bankSecretKey)
-import           RSCoin.Mintette            (MintetteError (MEInactive),
-                                             isMEInactive)
 
 import qualified RSCoin.User.AcidState      as A
-import           RSCoin.User.Logic          (UserLogicError (..))
+import           RSCoin.User.Error          (UserError (InputProcessingError))
 import           RSCoin.User.Operations     (formTransactionRetry,
                                              updateBlockchain)
-import qualified RSCoin.User.Wallet         as W
+import           RSCoin.User.Wallet         (UserAddress, toAddress)
 
 import           RSCoin.Timed               (MsgPackRpc, runRealMode)
 
@@ -45,52 +46,49 @@ userThread benchDir userAction userId = runRealMode $ bracket
     )
     userAction
 
-queryMyAddress :: A.RSCoinUserState -> MsgPackRpc W.UserAddress
+queryMyAddress :: A.RSCoinUserState -> MsgPackRpc UserAddress
 queryMyAddress userState = head <$> query' userState A.GetAllAddresses
 
 -- | Create user with 1 address and return it.
-initializeUser :: A.RSCoinUserState -> MsgPackRpc W.UserAddress
+initializeUser :: A.RSCoinUserState -> MsgPackRpc UserAddress
 initializeUser userState = do
     let userAddressesNumber = 1
     A.initState userState userAddressesNumber Nothing
     queryMyAddress userState
 
-executeTransaction :: A.RSCoinUserState -> Int64 -> W.UserAddress -> MsgPackRpc ()
+executeTransaction :: A.RSCoinUserState -> Int64 -> UserAddress -> MsgPackRpc ()
 executeTransaction userState coinAmount addrToSend = do
     let outputMoney = Coin coinAmount
     let inputMoneyInfo = [(1, outputMoney)]
-    _ <- updateBlockchain userState False
-    inactiveHandler $
-        formTransactionRetry
-            55
-            userState
-            False
-            inputMoneyInfo
-            (W.toAddress addrToSend)
-            outputMoney
+
+    let transactionAction = do { _ <- updateBlockchain userState False
+                               ; formTransactionRetry
+                                   maxBound
+                                   userState
+                                   False
+                                   inputMoneyInfo
+                                   (toAddress addrToSend)
+                                   outputMoney
+                                }
+
+    walletHeightHandler transactionAction
   where
-    inactiveHandler
+    walletHeightHandler
         :: (MonadCatch m, MonadThrow m)
         => m () -> m ()
-    inactiveHandler transactionAction =
-        transactionAction `catch` repeatIfInactive transactionAction
-    repeatIfInactive
+    walletHeightHandler transactionAction =
+        transactionAction `catch` repeatIfHeightMismatch transactionAction
+    repeatIfHeightMismatch
         :: (MonadCatch m, MonadThrow m)
         => m () -> SomeException -> m ()
-    repeatIfInactive transactionAction e
-      | isMEInactive e = trace "catch ME!" $ inactiveHandler transactionAction
-      | isUserLogicError e =
-          trace "catch UL!" $ inactiveHandler transactionAction
-      | otherwise = trace "WAAAAAAT?" $ throwM e
-    isUserLogicError :: SomeException -> Bool
-    isUserLogicError e =
-        case fromException e of
-            Nothing -> False
-            Just FailedToCommit -> True
-            Just (MajorityRejected _) -> True
+    repeatIfHeightMismatch transactionAction e
+        | Just (InputProcessingError errText) <- fromException e
+        , "Wallet isn't updated" `isPrefixOf` errText  -- TODO: not so good check
+            = trace "T: wallet height" $ walletHeightHandler transactionAction
+        | otherwise = trace "WAAAAAAT?" $ throwM e
 
 -- | Create user in `bankMode` and send 1000 coins to every user from list.
-initializeBank :: [W.UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
+initializeBank :: [UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
 initializeBank userAddresses bankUserState = do
     let additionalBankAddreses = 0
     A.initStateBank bankUserState additionalBankAddreses bankSecretKey
@@ -98,7 +96,7 @@ initializeBank userAddresses bankUserState = do
 
 -- | Start user with provided addresses of other users and do
 -- `transactionNum` transactions.
-benchUserTransactions :: [W.UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
+benchUserTransactions :: [UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
 benchUserTransactions allAddresses userState = do
     myAddress         <- queryMyAddress userState
 

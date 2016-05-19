@@ -17,10 +17,8 @@ import qualified RSCoin.User.Actions            as UA
 import           RSCoin.User.Error              (eWrap)
 import qualified RSCoin.User.Wallet             as W
 
-import           GUI.RSCoin.ActionsExecutor     (runActionsExecutor)
 import           GUI.RSCoin.Contacts            (ContactsList (..))
-import           GUI.RSCoin.GUI                 (runGUI)
-import           GUI.RSCoin.Updater             (runUpdater)
+import           GUI.RSCoin.GUI                 (startGUI)
 import qualified UserOptions                    as O
 
 actionsQueueCapacity :: Int
@@ -40,11 +38,7 @@ processCommand st O.StartGUI contactsPath = -- TODO Refactor it outside
               liftIO $
               do ACID.createCheckpoint cs
                  ACID.closeAcidState cs)
-        (\cs ->
-              do queue <- liftIO $ newTBQueueIO actionsQueueCapacity
-                 ow <- liftIO $ runGUI queue st cs
-                 liftIO $ void $ forkIO $ runUpdater queue
-                 runActionsExecutor st queue ow)
+        (\cs -> liftIO startGUI)
 
 dumpCommand :: WorkMode m => O.DumpCommand -> m ()
 dumpCommand O.DumpMintettes                = void   C.getMintettes

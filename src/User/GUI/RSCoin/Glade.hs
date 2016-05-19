@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module GUI.RSCoin.Glade
        ( MainWindow (..)
        , importGlade
@@ -5,11 +7,10 @@ module GUI.RSCoin.Glade
 
 import qualified RSCoin.Core     as C
 
-import           Graphics.UI.Gtk (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk as G
 import           Paths_rscoin    (getDataFileName)
 
-data GladeMainWindow = GladeMainWindow
+data MainWindow = MainWindow
     { window                  :: G.Window
     , notebookMain            :: G.Notebook
 
@@ -21,18 +22,21 @@ data GladeMainWindow = GladeMainWindow
     , labelCurrentAccount     :: G.Label
     }
 
-importGlade :: IO GladeMainWindow
+importGlade :: IO MainWindow
 importGlade = do
     C.logDebug C.userLoggerName "Loading Glade layout"
     uiPath <- getDataFileName "resources/RSCoinMain.glade"
-    builder <- G.makeBuilder uiPath
-    let getWindow      = G.builderGetObject builder G.castToWindow
-        getNotebook    = G.builderGetObject builder G.castToNotebook
-        getLabel       = G.builderGetObject builder G.castToLabel
-        getProgressBar = G.builderGetObject builder G.castToProgressBar
-        getButton      = G.builderGetObject builder G.castToButton
-        getView        = G.builderGetObject builder G.castToTreeView
-    GladeMainWindow
+    builder <- G.builderNew
+    G.builderAddFromFile builder uiPath
+    let getWidget :: G.GObjectClass c => (G.GObject -> c) -> String -> IO c
+        getWidget      = G.builderGetObject builder
+        getWindow      = getWidget G.castToWindow
+        getNotebook    = getWidget G.castToNotebook
+        getLabel       = getWidget G.castToLabel
+        getProgressBar = getWidget G.castToProgressBar
+        getButton      = getWidget G.castToButton
+        getView        = getWidget G.castToTreeView
+    MainWindow
         <$> getWindow          "mainWindow"
         <*> getNotebook        "mainNotebook"
         <*> getProgressBar     "updateProgressBar"

@@ -41,8 +41,7 @@ import           RSCoin.Mintette        (MintetteError (MEInactive))
 import           RSCoin.Timed           (WorkMode, for, mcs, wait)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
-import           RSCoin.User.Error      (UserError (..),
-                                         UserLogicError (FailedToCommit),
+import           RSCoin.User.Error      (UserError (..), UserLogicError,
                                          isWalletSyncError)
 import           RSCoin.User.Logic      (validateTransaction)
 import qualified RSCoin.User.Wallet     as W

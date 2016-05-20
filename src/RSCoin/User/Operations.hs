@@ -44,8 +44,6 @@ import           RSCoin.User.Error      (UserError (..), UserLogicError)
 import           RSCoin.User.Logic      (validateTransaction)
 import qualified RSCoin.User.Wallet     as W
 
-import Debug.Trace (trace, traceM)
-
 commitError :: (MonadIO m, MonadThrow m) => T.Text -> m ()
 commitError e = do
     C.logError C.userLoggerName e
@@ -160,7 +158,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
                 tries
             wait $ for 600 mcs
             formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
-        | otherwise = trace "IN DA FORM!" $ throwM e
+        | otherwise = throwM e
 
     isRetriableException :: SomeException -> Bool
     isRetriableException e

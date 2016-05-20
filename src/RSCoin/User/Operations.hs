@@ -38,7 +38,7 @@ import           Serokell.Util          (format', formatSingle',
 
 import qualified RSCoin.Core            as C
 import           RSCoin.Mintette        (MintetteError (MEInactive))
-import           RSCoin.Timed           (WorkMode, for, mcs, wait)
+import           RSCoin.Timed           (WorkMode, for, sec, wait)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Error      (UserError (..), UserLogicError,
@@ -167,7 +167,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
             format'
             "formTransactionRetry failed ({}), retries left: {}"
             (msg, tries - 1)
-        wait $ for 2600 mcs
+        wait $ for 1 sec
         formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
     run :: WorkMode m => m ()
     run = do

@@ -156,7 +156,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
     catcher e
         | isRetriableException e && tries > 1 = do
             logMsgAndRetry e
-            wait $ for 600 mcs
+            wait $ for 2600 mcs
             formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
         | otherwise = throwM e
     isRetriableException :: SomeException -> Bool

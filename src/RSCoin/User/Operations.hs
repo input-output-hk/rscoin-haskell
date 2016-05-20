@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
@@ -27,20 +28,23 @@ import qualified Data.Map               as M
 import           Data.Maybe             (isJust)
 import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
+import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
 import           Data.Tuple.Select      (sel1)
 import           Safe                   (atMay)
 
-import           Serokell.Util.Text     (format', formatSingle',
+import           Serokell.Util          (format', formatSingle',
                                          listBuilderJSONIndent, pairBuilder)
 
 import qualified RSCoin.Core            as C
+import           RSCoin.Mintette        (MintetteError (MEInactive))
 import           RSCoin.Timed           (WorkMode, for, mcs, wait)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
-import           RSCoin.User.Error      (UserError (..), isWalletSyncError)
-import           RSCoin.User.Logic      (UserLogicError (FailedToCommit),
-                                         validateTransaction)
+import           RSCoin.User.Error      (UserError (..),
+                                         UserLogicError (FailedToCommit),
+                                         isWalletSyncError)
+import           RSCoin.User.Logic      (validateTransaction)
 import qualified RSCoin.User.Wallet     as W
 
 commitError :: (MonadIO m, MonadThrow m) => T.Text -> m ()
@@ -127,7 +131,7 @@ getAllPublicAddresses st = map C.Address <$> query' st A.GetPublicAddresses
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction :: WorkMode m =>
-    A.RSCoinUserState -> [(Word, C.Coin)] -> C.Address -> C.Coin -> m ()
+    A.RSCoinUserState -> Bool -> [(Word, C.Coin)] -> C.Address -> C.Coin -> m ()
 formTransaction = formTransactionRetry 1
 
 -- | Forms transaction out of user input and sends it. If failure
@@ -136,31 +140,41 @@ formTransactionRetry
     :: WorkMode m
     => Int
     -> A.RSCoinUserState
+    -> Bool
     -> [(Word, C.Coin)]
     -> C.Address
     -> C.Coin
     -> m ()
-formTransactionRetry _ _ [] _ _ =
+formTransactionRetry _ _ _ [] _ _ =
     commitError "You should enter at least one source input"
-formTransactionRetry tries _ _ _ _ | tries < 1 =
+formTransactionRetry tries _ _ _ _ _ | tries < 1 =
     error "User.Operations.formTransactionRetry shouldn't be called with tries < 1"
-formTransactionRetry tries st inputs outputAddr outputCoin =
+formTransactionRetry tries st verbose inputs outputAddr outputCoin =
     run `catch` catcher
   where
-    catcher e | tries == 1 = throwM e
-              | fromException e == Just FailedToCommit = do
-                    logMsgAndRetry "FailedToCommit"
-              | isWalletSyncError e =
-                    logMsgAndRetry "WalletSyncError"
-    catcher e = throwM e
-    logMsgAndRetry :: WorkMode m => String -> m ()
+    catcher :: WorkMode m => SomeException -> m ()
+    catcher e
+        | isRetriableException e && tries > 1 = do
+            logMsgAndRetry e
+            wait $ for 600 mcs
+            formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
+        | otherwise = throwM e
+    isRetriableException :: SomeException -> Bool
+    isRetriableException e
+        | Just (_ :: UserLogicError) <- fromException e = True
+        | Just MEInactive            <- fromException e = True
+        | Just FailedToCommit        <- fromException e = True
+        | isWalletSyncError e                           = True
+        | otherwise                                     = False
+    logMsgAndRetry :: (WorkMode m, Buildable s) => s -> m ()
     logMsgAndRetry msg = do
         C.logWarning C.userLoggerName $
             format'
             "formTransactionRetry failed ({}), retries left: {}"
-            (msg, tries)
+            (msg, tries - 1)
         wait $ for 600 mcs
-        formTransactionRetry (tries-1) st inputs outputAddr outputCoin
+        formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
+    run :: WorkMode m => m ()
     run = do
         C.logInfo C.userLoggerName $
             format'
@@ -210,9 +224,8 @@ formTransactionRetry tries st inputs outputAddr outputCoin =
         (addrPairList,outTr) <-
             liftIO $
             foldl1 mergeTransactions <$> mapM formTransactionMapper accInputs
-        liftIO $
-            TIO.putStrLn $ formatSingle' "Please check your transaction: {}" outTr
-        void $ updateBlockchain st True
+        verboseSay $ formatSingle' "Please check your transaction: {}" outTr
+        void $ updateBlockchain st verbose
         walletHeight <- query' st A.GetLastBlockId
         lastBlockHeight <- pred <$> C.getBlockchainHeight
         when (walletHeight /= lastBlockHeight) $
@@ -254,3 +267,4 @@ formTransactionRetry tries st inputs outputAddr outputCoin =
         , C.Transaction
               (C.txInputs a <> C.txInputs b)
               (nub $ C.txOutputs a <> C.txOutputs b))
+    verboseSay t = when verbose $ liftIO $ TIO.putStrLn t

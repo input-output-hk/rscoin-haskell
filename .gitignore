@@ -8,3 +8,11 @@ wallet-db/
 bank-db/
 mintette-db/
 tmp/
+
+# heap dumps
+*.hp
+*.ps
+*.aux
+
+# MAC OS X
+.DS_Store

@@ -90,7 +90,8 @@ instance Action UserAction where
         inputs <- toInputs userIndex fromAddresses
         user <- getUser userIndex
         unless (null inputs) $
-            U.formTransactionRetry 5 user inputs address $ sum $ map snd inputs
+            U.formTransactionRetry 5 user False inputs address $
+            sum $ map snd inputs
     doAction (UpdateBlockchain userIndex) =
         runUserAction userIndex U.UpdateBlockchain
 

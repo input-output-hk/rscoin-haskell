@@ -3,10 +3,10 @@
 -- | Worker that checks for the end of epoch.
 
 module RSCoin.Mintette.Worker
-       ( runWorker
+       ( isMEInactive
+       , runWorker
        ) where
 
-import           Control.Exception         (SomeException, fromException)
 import           Control.Monad             (unless)
 import           Control.Monad.Trans       (liftIO)
 import           Data.Acid                 (createCheckpoint, update)
@@ -19,7 +19,7 @@ import           RSCoin.Core               (SecretKey, epochDelta, logError,
 
 import           RSCoin.Mintette.Acidic    (FinishEpoch (..))
 import           RSCoin.Mintette.AcidState (State)
-import           RSCoin.Mintette.Error     (MintetteError (MEInactive))
+import           RSCoin.Mintette.Error     (isMEInactive)
 
 import           RSCoin.Timed              (WorkMode, repeatForever, sec, tu)
 
@@ -35,9 +35,6 @@ runWorker sk st =
                 "Error was caught by worker, restarting in 2 seconds: {}"
                 e
         return $ sec 2
-
-isMEInactive :: SomeException -> Bool
-isMEInactive = maybe False (== MEInactive) . fromException
 
 onEpochFinished :: SecretKey -> State -> IO ()
 onEpochFinished sk st = do

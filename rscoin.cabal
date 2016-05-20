@@ -322,6 +322,7 @@ benchmark rscoin-bench
                      , formatting
                      , mtl
                      , rscoin
+                     , serokell-core
                      , temporary
                      , text
                      , time

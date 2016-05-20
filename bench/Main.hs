@@ -8,7 +8,8 @@ import           Bench.RSCoin.UserLogic     (benchUserTransactions,
                                              userThread)
 
 import           Data.Int                   (Int64)
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           Data.Time.Clock            (NominalDiffTime, diffUTCTime,
+                                             getCurrentTime)
 import           Data.Time.Units            (toMicroseconds)
 
 import           RSCoin.Core                (PublicKey, SecretKey,
@@ -40,9 +41,6 @@ runMintettes benchDir secretKeys
         addMintette mintetteId benchDir publicKey
         void $ forkIO $ mintetteThread mintetteId benchDir secretKey
 
-curTime :: IO Int
-curTime = round <$> getPOSIXTime
-
 establishMintettes :: FilePath -> IO ()
 establishMintettes benchDir = do
     keyPairs <- generateMintetteKeys benchMintetteNumber
@@ -70,15 +68,15 @@ initializeSuperUser benchDir userAddresses = do
     putStrLn "Running user in bankMode and waiting for period end..."
     threadDelay $ fromInteger $ toMicroseconds (defaultBenchPeriod + 1)
 
-runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO Int
+runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO NominalDiffTime
 runTransactions benchDir userAddresses userIds = do
     let benchUserAction = userThread benchDir $ benchUserTransactions userAddresses
 
-    timeBefore <- curTime
+    timeBefore <- getCurrentTime
     _ <- forConcurrently userIds benchUserAction
-    timeAfter <- curTime
+    timeAfter <- getCurrentTime
 
-    return $ timeAfter - timeBefore
+    return $ timeAfter `diffUTCTime` timeBefore
 
 main :: IO ()
 main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do

@@ -23,7 +23,7 @@ import           RSCoin.Timed               (MsgPackRpc, fork, runRealMode)
 import           System.FilePath            ((</>))
 
 defaultBenchPeriod :: Second
-defaultBenchPeriod = 10
+defaultBenchPeriod = 7
 
 bankBracket :: FilePath -> (B.State -> MsgPackRpc a) -> IO a
 bankBracket benchDir bankAction = runRealMode $ bracket

@@ -76,6 +76,7 @@ runTransactions benchDir userAddresses userIds = do
     _ <- forConcurrently userIds benchUserAction
     timeAfter <- getCurrentTime
 
+    threadDelay $ fromInteger $ toMicroseconds (defaultBenchPeriod + 1)
     return $ timeAfter `diffUTCTime` timeBefore
 
 main :: IO ()

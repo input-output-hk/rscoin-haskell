@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GUI.RSCoin.Glade
-       ( MainWindow (..)
+       ( GladeMainWindow (..)
        , importGlade
        ) where
 
@@ -10,7 +10,7 @@ import qualified RSCoin.Core     as C
 import qualified Graphics.UI.Gtk as G
 import           Paths_rscoin    (getDataFileName)
 
-data MainWindow = MainWindow
+data GladeMainWindow = GladeMainWindow
     { window                  :: G.Window
     , notebookMain            :: G.Notebook
 
@@ -29,7 +29,7 @@ makeBuilder path =
      G.builderAddFromFile builder path
      return builder
 
-importGlade :: IO MainWindow
+importGlade :: IO GladeMainWindow
 importGlade = do
     C.logDebug C.userLoggerName "Loading Glade layout"
     uiPath <- getDataFileName "resources/RSCoinMain.glade"
@@ -40,10 +40,9 @@ importGlade = do
         getNotebook    = getWidget G.castToNotebook
         getLabel       = getWidget G.castToLabel
         getProgressBar = getWidget G.castToProgressBar
-        getButton      = getWidget G.castToButton
         getView        = getWidget G.castToTreeView
     C.logDebug C.userLoggerName "Getting widgets out of GTK"
-    MainWindow
+    GladeMainWindow
         <$> getWindow          "mainWindow"
         <*> getNotebook        "mainNotebook"
         <*> getProgressBar     "updateProgressBar"

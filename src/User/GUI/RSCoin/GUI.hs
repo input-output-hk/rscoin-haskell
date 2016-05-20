@@ -7,7 +7,7 @@ import           Graphics.UI.Gtk        (on)
 import           Graphics.UI.Gtk        (AttrOp ((:=)))
 import qualified Graphics.UI.Gtk        as G
 
-import           GUI.RSCoin.Glade       (MainWindow (..), importGlade)
+import           GUI.RSCoin.Glade       (GladeMainWindow (..), importGlade)
 
 data ModelNode = ModelNode
     { mStatus  :: String
@@ -18,23 +18,24 @@ data ModelNode = ModelNode
 type Model = G.ListStore ModelNode
 
 createRandomModel :: G.TreeView -> IO Model
-createRandomModel view =
-  do model <- G.listStoreNew []
-     appendColumn model view "Status" statusSetter
-     appendColumn model view "Time" timeSetter
-     appendColumn model view "Address" addrSetter
-     G.treeViewSetModel view model
-     return model
-  where appendColumn model view title attributesSetter =
-          do column <- G.treeViewColumnNew
-             G.treeViewColumnSetTitle column title
-             renderer <- G.cellRendererTextNew
-             G.cellLayoutPackStart column renderer False
-             G.cellLayoutSetAttributes column renderer model attributesSetter
-             void $ G.treeViewAppendColumn view column
-        statusSetter ModelNode{..} = [G.cellText := mStatus]
-        timeSetter ModelNode{..}   = [G.cellText := mTime]
-        addrSetter ModelNode{..}   = [G.cellText := mAddress]
+createRandomModel view = do
+    model <- G.listStoreNew []
+    appendColumn model "Status" statusSetter
+    appendColumn model "Time" timeSetter
+    appendColumn model "Address" addrSetter
+    G.treeViewSetModel view model
+    return model
+  where
+    appendColumn model title attributesSetter = do
+        column <- G.treeViewColumnNew
+        G.treeViewColumnSetTitle column title
+        renderer <- G.cellRendererTextNew
+        G.cellLayoutPackStart column renderer False
+        G.cellLayoutSetAttributes column renderer model attributesSetter
+        void $ G.treeViewAppendColumn view column
+    statusSetter ModelNode{..} = [G.cellText := mStatus]
+    timeSetter ModelNode{..} = [G.cellText := mTime]
+    addrSetter ModelNode{..} = [G.cellText := mAddress]
 
 addRandomData :: Model -> IO ()
 addRandomData model = mapM_ (G.listStoreAppend model) randomModelData
@@ -49,10 +50,10 @@ addRandomData model = mapM_ (G.listStoreAppend model) randomModelData
 
 startGUI :: IO ()
 startGUI = do
-    G.initGUI
-    MainWindow {..} <- importGlade
+    void G.initGUI
+    GladeMainWindow {..} <- importGlade
     model <- createRandomModel treeViewWallet
     addRandomData model
-    void $ window `on` G.deleteEvent $ liftIO G.mainQuit >> return False
+    void (window `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
     G.widgetShowAll window
     G.mainGUI

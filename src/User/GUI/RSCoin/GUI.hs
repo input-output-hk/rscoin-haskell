@@ -10,10 +10,8 @@ import           GUI.RSCoin.Glade       (MainWindow (..), importGlade)
 
 startGUI :: IO ()
 startGUI = do
+    G.initGUI
     MainWindow {..} <- importGlade
-
     void $ window `on` G.deleteEvent $ liftIO G.mainQuit >> return False
-
     G.widgetShowAll window
-
     G.mainGUI

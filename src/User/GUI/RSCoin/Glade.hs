@@ -22,12 +22,18 @@ data MainWindow = MainWindow
     , labelCurrentAccount     :: G.Label
     }
 
+makeBuilder :: FilePath -> IO G.Builder
+makeBuilder path =
+  do C.logDebug C.userLoggerName "Initializing glade builder"
+     builder <- G.builderNew
+     G.builderAddFromFile builder path
+     return builder
+
 importGlade :: IO MainWindow
 importGlade = do
     C.logDebug C.userLoggerName "Loading Glade layout"
     uiPath <- getDataFileName "resources/RSCoinMain.glade"
-    builder <- G.builderNew
-    G.builderAddFromFile builder uiPath
+    builder <- makeBuilder uiPath
     let getWidget :: G.GObjectClass c => (G.GObject -> c) -> String -> IO c
         getWidget      = G.builderGetObject builder
         getWindow      = getWidget G.castToWindow
@@ -36,6 +42,7 @@ importGlade = do
         getProgressBar = getWidget G.castToProgressBar
         getButton      = getWidget G.castToButton
         getView        = getWidget G.castToTreeView
+    C.logDebug C.userLoggerName "Getting widgets out of GTK"
     MainWindow
         <$> getWindow          "mainWindow"
         <*> getNotebook        "mainNotebook"
@@ -43,5 +50,5 @@ importGlade = do
         <*> getView            "walletTreeView"
         <*> getLabel           "currentBalanceLabel"
         <*> getLabel           "unconfirmedBalanceLabel"
-        <*> getLabel           "trasactionsNumberLabel"
+        <*> getLabel           "transactionsNumberLabel"
         <*> getLabel           "currentAccountLabel"

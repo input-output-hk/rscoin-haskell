@@ -34,7 +34,7 @@ import           RSCoin.User.Wallet         (UserAddress, toAddress)
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 
 transactionNum :: Int64
-transactionNum = 2
+transactionNum = 1000
 
 userThread :: FilePath -> (A.RSCoinUserState -> MsgPackRpc a) -> Int64 -> IO a
 userThread benchDir userAction userId = runRealMode $ bracket

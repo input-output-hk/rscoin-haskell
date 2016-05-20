@@ -154,10 +154,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
   where
     catcher :: WorkMode m => SomeException -> m ()
     catcher e
-        | isRetriableException e && tries > 1 = do
-            logMsgAndRetry e
-            wait $ for 2600 mcs
-            formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
+        | isRetriableException e && tries > 1 = logMsgAndRetry e
         | otherwise = throwM e
     isRetriableException :: SomeException -> Bool
     isRetriableException e
@@ -172,7 +169,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
             format'
             "formTransactionRetry failed ({}), retries left: {}"
             (msg, tries - 1)
-        wait $ for 600 mcs
+        wait $ for 2600 mcs
         formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
     run :: WorkMode m => m ()
     run = do

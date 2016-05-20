@@ -160,7 +160,6 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
     isRetriableException e
         | Just (_ :: UserLogicError) <- fromException e = True
         | Just MEInactive            <- fromException e = True
-        | Just FailedToCommit        <- fromException e = True
         | isWalletSyncError e                           = True
         | otherwise                                     = False
     logMsgAndRetry :: (WorkMode m, Buildable s) => s -> m ()

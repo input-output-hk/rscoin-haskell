@@ -52,7 +52,7 @@ validateTransaction tx@Transaction{..} signatures height = do
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
         subBundle <-
             mconcat . catMaybes <$> mapM (processMintette addrid) owns
-        when (length subBundle < length owns `div` 2) $
+        when (length subBundle <= length owns `div` 2) $
             throwUserLogicError $
             MajorityRejected $
             format'

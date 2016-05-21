@@ -5,15 +5,17 @@
   <object class="GtkWindow" id="AddContactWindow">
     <property name="can_focus">False</property>
     <property name="type">popup</property>
+    <property name="resizable">False</property>
     <child>
       <object class="GtkBox" id="box9">
         <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="margin_left">5</property>
-        <property name="margin_right">5</property>
+        <property name="can_focus">True</property>
+        <property name="margin_left">10</property>
+        <property name="margin_right">10</property>
         <property name="margin_top">5</property>
         <property name="margin_bottom">5</property>
         <property name="orientation">vertical</property>
+        <property name="spacing">5</property>
         <child>
           <object class="GtkBox" id="box11">
             <property name="visible">True</property>
@@ -495,27 +497,6 @@ Network Sync</property>
               </packing>
             </child>
             <child>
-              <object class="GtkLabel" id="label1">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">TODO People data</property>
-              </object>
-              <packing>
-                <property name="position">1</property>
-              </packing>
-            </child>
-            <child type="tab">
-              <object class="GtkLabel" id="peopleTabLabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">People</property>
-              </object>
-              <packing>
-                <property name="position">1</property>
-                <property name="tab_fill">False</property>
-              </packing>
-            </child>
-            <child>
               <object class="GtkBox" id="box2">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
@@ -647,7 +628,7 @@ Network Sync</property>
                 </child>
               </object>
               <packing>
-                <property name="position">2</property>
+                <property name="position">1</property>
               </packing>
             </child>
             <child type="tab">
@@ -657,28 +638,7 @@ Network Sync</property>
                 <property name="label" translatable="yes">Send</property>
               </object>
               <packing>
-                <property name="position">2</property>
-                <property name="tab_fill">False</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="label3">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Do we really need settings?</property>
-              </object>
-              <packing>
-                <property name="position">3</property>
-              </packing>
-            </child>
-            <child type="tab">
-              <object class="GtkLabel" id="settingsTabLabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Addresses</property>
-              </object>
-              <packing>
-                <property name="position">3</property>
+                <property name="position">1</property>
                 <property name="tab_fill">False</property>
               </packing>
             </child>
@@ -754,7 +714,7 @@ Network Sync</property>
                 </child>
               </object>
               <packing>
-                <property name="position">4</property>
+                <property name="position">2</property>
               </packing>
             </child>
             <child type="tab">
@@ -764,7 +724,28 @@ Network Sync</property>
                 <property name="label" translatable="yes">Contacts</property>
               </object>
               <packing>
-                <property name="position">4</property>
+                <property name="position">2</property>
+                <property name="tab_fill">False</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="label3">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Todo place here public addresses, used &amp; unused, generate more button, ....</property>
+              </object>
+              <packing>
+                <property name="position">3</property>
+              </packing>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel" id="addressesTabLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Addresses</property>
+              </object>
+              <packing>
+                <property name="position">3</property>
                 <property name="tab_fill">False</property>
               </packing>
             </child>
@@ -772,7 +753,7 @@ Network Sync</property>
           <packing>
             <property name="expand">True</property>
             <property name="fill">True</property>
-            <property name="position">1</property>
+            <property name="position">3</property>
           </packing>
         </child>
       </object>

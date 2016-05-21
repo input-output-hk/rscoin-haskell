@@ -15,12 +15,19 @@ data GladeMainWindow = GladeMainWindow
     , notebookMain            :: G.Notebook
 
     , progressBarUpdate       :: G.ProgressBar
+
     , treeViewWallet          :: G.TreeView
     , boxWalletHeader         :: G.Box
     , labelCurrentBalance     :: G.Label
     , labelUnconfirmedBalance :: G.Label
     , labelTransactionsNumber :: G.Label
     , labelCurrentAccount     :: G.Label
+
+    , entryPayTo              :: G.Entry
+    , buttonChooseContacts    :: G.Button
+    , spinButtonSendAmount    :: G.SpinButton
+    , buttonConfirmSend       :: G.Button
+    , buttonClearSend         :: G.Button
     }
 
 makeBuilder :: FilePath -> IO G.Builder
@@ -40,6 +47,9 @@ importGlade = do
         getWindow      = getWidget G.castToWindow
         getNotebook    = getWidget G.castToNotebook
         getLabel       = getWidget G.castToLabel
+        getEntry       = getWidget G.castToEntry
+        getButton      = getWidget G.castToButton
+        getSpinButton  = getWidget G.castToSpinButton
         getBox         = getWidget G.castToBox
         getProgressBar = getWidget G.castToProgressBar
         getView        = getWidget G.castToTreeView
@@ -54,3 +64,8 @@ importGlade = do
         <*> getLabel       "unconfirmedBalanceLabel"
         <*> getLabel       "transactionsNumberLabel"
         <*> getLabel       "currentAccountLabel"
+        <*> getEntry       "payToEntry"
+        <*> getButton      "chooseContactsButton"
+        <*> getSpinButton  "sendAmountSpinButton"
+        <*> getButton      "confirmSendButton"
+        <*> getButton      "clearSendButton"

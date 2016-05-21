@@ -19,7 +19,7 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <object class="GtkLabel" id="label7">
+              <object class="GtkLabel" id="label777">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">Address: </property>
@@ -31,7 +31,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkEntry" id="entry2">
+              <object class="GtkEntry" id="entry222">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
               </object>
@@ -53,7 +53,7 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <object class="GtkLabel" id="label6">
+              <object class="GtkLabel" id="label66">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">Name:    </property>
@@ -65,7 +65,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkEntry" id="entry1">
+              <object class="GtkEntry" id="entry122">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
               </object>
@@ -134,9 +134,10 @@
   </object>
   <object class="GtkWindow" id="mainWindow">
     <property name="can_focus">False</property>
-    <property name="resizable">False</property>
+    <property name="title" translatable="yes">RSCoin</property>
     <property name="default_width">700</property>
     <property name="default_height">500</property>
+    <property name="has_resize_grip">True</property>
     <child>
       <object class="GtkBox" id="topLvlBox">
         <property name="visible">True</property>
@@ -556,7 +557,7 @@ Network Sync</property>
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkEntry" id="entry1">
+                      <object class="GtkEntry" id="payToEntry">
                         <property name="width_request">365</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
@@ -569,7 +570,7 @@ Network Sync</property>
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="button3">
+                      <object class="GtkButton" id="chooseContactsButton">
                         <property name="label" translatable="yes">Choose from contacts</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
@@ -581,12 +582,15 @@ Network Sync</property>
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkSpinButton" id="spinbutton1">
-                        <property name="width_request">150</property>
+                      <object class="GtkSpinButton" id="sendAmountSpinButton">
+                        <property name="width_request">180</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="halign">start</property>
                         <property name="placeholder_text" translatable="yes">RSCoin(s)</property>
+                        <property name="climb_rate">1</property>
+                        <property name="snap_to_ticks">True</property>
+                        <property name="numeric">True</property>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -609,7 +613,7 @@ Network Sync</property>
                     <property name="can_focus">False</property>
                     <property name="spacing">10</property>
                     <child>
-                      <object class="GtkButton" id="button1">
+                      <object class="GtkButton" id="confirmSendButton">
                         <property name="label" translatable="yes">Send</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
@@ -622,7 +626,7 @@ Network Sync</property>
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="button2">
+                      <object class="GtkButton" id="clearSendButton">
                         <property name="label" translatable="yes">Clear</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>

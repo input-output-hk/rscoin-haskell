@@ -6,14 +6,13 @@ let
 
   f = { mkDerivation, acid-state, aeson, async, base
       , base64-bytestring, binary, bytestring, cereal, conduit-extra
-      , containers, cryptohash, data-default, directory, exceptions
-      , filepath, hashable, hslogger, hspec, lens, monad-control
-      , monad-loops, MonadRandom, msgpack, msgpack-aeson, msgpack-rpc
-      , mtl, optparse-applicative, pqueue, QuickCheck, random, safe
-      , safecopy, stdenv, stm, text
+      , containers, cryptohash, data-default, directory, ed25519, either
+      , exceptions, file-embed, filepath, hashable, hslogger, hspec, lens
+      , monad-control, monad-loops, MonadRandom, msgpack, msgpack-aeson
+      , msgpack-rpc, mtl, optparse-applicative, pqueue, QuickCheck
+      , random, safe, safecopy, stdenv, stm, text
       , text-format, time, time-units, transformers, transformers-base
       , tuple, unordered-containers, vector
-      , git, zlib, openssh, autoreconfHook
       }:
       mkDerivation {
         pname = "rscoin";
@@ -23,30 +22,28 @@ let
         isExecutable = true;
         libraryHaskellDepends = [
           acid-state aeson base base64-bytestring binary bytestring cereal
-          conduit-extra containers cryptohash data-default directory
-          exceptions filepath hashable hslogger lens monad-control
-          monad-loops MonadRandom msgpack msgpack-aeson msgpack-rpc mtl
-          pqueue QuickCheck random safe safecopy  text
-          text-format time time-units transformers transformers-base tuple
-          unordered-containers vector 
-          autoreconfHook 
+          conduit-extra containers cryptohash data-default directory ed25519
+          either exceptions file-embed filepath hashable hslogger lens
+          monad-control monad-loops MonadRandom msgpack msgpack-aeson
+          msgpack-rpc mtl pqueue QuickCheck random safe safecopy
+           stm text text-format time time-units transformers
+          transformers-base tuple unordered-containers vector
         ];
         executableHaskellDepends = [
           acid-state aeson base base64-bytestring binary bytestring cereal
-          conduit-extra containers cryptohash data-default directory
+          conduit-extra containers cryptohash data-default directory ed25519
           exceptions filepath hashable hslogger hspec lens monad-control
           monad-loops MonadRandom msgpack msgpack-aeson msgpack-rpc mtl
           optparse-applicative pqueue QuickCheck random safe safecopy
-           text text-format time time-units
-          transformers transformers-base tuple unordered-containers vector
-          autoreconfHook
+           stm text text-format time time-units transformers
+          transformers-base tuple unordered-containers vector
         ];
         testHaskellDepends = [
-          async base bytestring containers exceptions hspec lens MonadRandom
-          msgpack msgpack-rpc mtl QuickCheck random stm text transformers
-          vector  
+          acid-state async base bytestring containers data-default exceptions
+          hspec lens MonadRandom msgpack msgpack-rpc mtl QuickCheck random
+          safe safecopy  stm text time-units transformers tuple
+          vector
         ];
-        libraryPkgconfigDepends = [ zlib git openssh autoreconfHook ];
         license = stdenv.lib.licenses.gpl3;
       };
 

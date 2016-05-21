@@ -1,3 +1,5 @@
+{-# LANGUAGE NoOverloadedStrings #-}
+
 -- | This module describes main GUI bindings
 module GUI.RSCoin.GUI (startGUI, red, green) where
 

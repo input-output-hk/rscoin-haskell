@@ -178,7 +178,8 @@ executable rscoin-user
   hs-source-dirs:      src/User
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
-  default-extensions:  RecordWildCards
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 

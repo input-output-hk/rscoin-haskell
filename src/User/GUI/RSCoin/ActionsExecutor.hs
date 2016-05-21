@@ -1,3 +1,5 @@
+{-# LANGUAGE NoOverloadedStrings #-}
+
 -- | ActionsExecutor performs actions with RSCoinUserState.
 
 module GUI.RSCoin.ActionsExecutor (runActionsExecutor) where

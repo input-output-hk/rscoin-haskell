@@ -16,6 +16,7 @@ data GladeMainWindow = GladeMainWindow
 
     , progressBarUpdate       :: G.ProgressBar
     , treeViewWallet          :: G.TreeView
+    , boxWalletHeader         :: G.Box
     , labelCurrentBalance     :: G.Label
     , labelUnconfirmedBalance :: G.Label
     , labelTransactionsNumber :: G.Label
@@ -39,15 +40,17 @@ importGlade = do
         getWindow      = getWidget G.castToWindow
         getNotebook    = getWidget G.castToNotebook
         getLabel       = getWidget G.castToLabel
+        getBox         = getWidget G.castToBox
         getProgressBar = getWidget G.castToProgressBar
         getView        = getWidget G.castToTreeView
     C.logDebug C.userLoggerName "Getting widgets out of GTK"
     GladeMainWindow
-        <$> getWindow          "mainWindow"
-        <*> getNotebook        "mainNotebook"
-        <*> getProgressBar     "updateProgressBar"
-        <*> getView            "walletTreeView"
-        <*> getLabel           "currentBalanceLabel"
-        <*> getLabel           "unconfirmedBalanceLabel"
-        <*> getLabel           "transactionsNumberLabel"
-        <*> getLabel           "currentAccountLabel"
+        <$> getWindow      "mainWindow"
+        <*> getNotebook    "mainNotebook"
+        <*> getProgressBar "updateProgressBar"
+        <*> getView        "walletTreeView"
+        <*> getBox         "walletHeaderBox"
+        <*> getLabel       "currentBalanceLabel"
+        <*> getLabel       "unconfirmedBalanceLabel"
+        <*> getLabel       "transactionsNumberLabel"
+        <*> getLabel       "currentAccountLabel"

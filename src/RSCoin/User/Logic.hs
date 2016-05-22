@@ -13,6 +13,7 @@ module RSCoin.User.Logic
 
 import           Control.Monad                 (guard, unless, when)
 import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
+import           Data.List                     (genericLength)
 import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
@@ -36,7 +37,7 @@ import           RSCoin.User.Error             (UserLogicError (..),
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction
 -- given. If transaction is confirmed, just returns. If it's not
--- confirmed, the FailedToCommit is thrown.
+-- confirmed, the MajorityFailedToCommit is thrown.
 validateTransaction
     :: WorkMode m
     => Transaction
@@ -100,7 +101,10 @@ validateTransaction tx@Transaction{..} signatures height = do
             logWarning userLoggerName $
             commitTxWarningMessage owns commitActions
         when (length succeededCommits <= length owns `div` 2) $
-            throwUserLogicError FailedToCommit
+            throwUserLogicError $
+            MajorityFailedToCommit
+                (genericLength succeededCommits)
+                (genericLength owns)
     commitTxWarningMessage owns =
         formatSingle'
             "some mintettes returned error in response to `commitTx`: {}" .

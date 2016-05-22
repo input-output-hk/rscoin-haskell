@@ -66,7 +66,7 @@ instance Exception UserErrorWithClass
 -- 'RSCoin.User.Logic.validateTransaction' function execution.
 data UserLogicError
     = MajorityRejected T.Text
-    | FailedToCommit
+    | MajorityFailedToCommit Word Word
     deriving (Eq, Show, Typeable)
 
 instance Exception UserLogicError where

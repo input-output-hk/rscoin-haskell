@@ -15,8 +15,10 @@ import           Data.Text.Buildable    (Buildable (build))
 import qualified Data.Text.Format       as F
 import           Data.Typeable          (Typeable)
 
+import           RSCoin.Core.Aeson      ()
 import           RSCoin.Core.Error      (rscExceptionFromException,
                                          rscExceptionToException)
+import           RSCoin.Core.Primitives (AddrId)
 import           RSCoin.Core.Types      (PeriodId)
 
 
@@ -33,7 +35,7 @@ data MintetteError
                                           -- different from the one expected by somebody.
     | MEInvalidTxSums                     -- ^ Mintette received transaction with invalid sums.
     | MEInconsistentRequest Text          -- ^ Inconsistency detected.
-    | MEDoubleSpending                    -- ^ Double spending detected.
+    | MENotUnspent AddrId                 -- ^ Given addrId is not an unspent output.
     | MEInvalidSignature                  -- ^ Signature check failed.
     | MENotConfirmed                      -- ^ Can't deduce that transaction was confirmed.
     | MEAlreadyActive                     -- ^ Can't start new period because mintette
@@ -51,9 +53,11 @@ instance Buildable MintetteError where
         F.build
             "received strange PeriodId: {} (expected {})"
             (received, expected)
-    build MEInvalidTxSums = "sum of transaction outputs is greater than sum of inputs"
+    build MEInvalidTxSums =
+        "sum of transaction outputs is greater than sum of inputs"
     build (MEInconsistentRequest msg) = build msg
-    build MEDoubleSpending = "most likely double spending takes place"
+    build (MENotUnspent a) =
+        F.build "can't deduce that {} is unspent transaction output" $ F.Only a
     build MEInvalidSignature = "failed to verify signature"
     build MENotConfirmed = "transaction doesn't have enough confirmations"
     build MEAlreadyActive = "can't start new period when period is active"

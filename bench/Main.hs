@@ -1,28 +1,24 @@
 module Main where
 
+import           Control.Concurrent         (forkIO, threadDelay)
+import           Control.Concurrent.Async   (forConcurrently)
+import           Control.Monad              (forM_, replicateM, void)
+import           Data.Int                   (Int64)
+import           Data.Time.Clock            (NominalDiffTime, diffUTCTime,
+                                             getCurrentTime)
+import           Data.Time.Units            (toMicroseconds)
+import           System.IO.Temp             (withSystemTempDirectory)
+
+import           RSCoin.Core                (PublicKey, SecretKey,
+                                             Severity (..), initLogging, keyGen)
+import           RSCoin.User.Wallet         (UserAddress)
+
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.InfraThreads  (addMintette, bankThread,
                                              defaultBenchPeriod, mintetteThread)
 import           Bench.RSCoin.UserLogic     (benchUserTransactions,
                                              initializeBank, initializeUser,
                                              userThread)
-
-import           Data.Int                   (Int64)
-import           Data.Time.Clock            (NominalDiffTime, diffUTCTime,
-                                             getCurrentTime)
-import           Data.Time.Units            (toMicroseconds)
-
-import           RSCoin.Core                (PublicKey, SecretKey,
-                                             Severity (..), bankLoggerName,
-                                             initLoggerByName, initLogging,
-                                             keyGen)
-import           RSCoin.User.Wallet         (UserAddress)
-
-import           Control.Concurrent         (forkIO, threadDelay)
-import           Control.Concurrent.Async   (forConcurrently)
-import           Control.Monad              (forM_, replicateM, void)
-
-import           System.IO.Temp             (withSystemTempDirectory)
 
 benchMintetteNumber :: Int
 benchMintetteNumber = 15
@@ -81,8 +77,7 @@ runTransactions benchDir userAddresses userIds = do
 
 main :: IO ()
 main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
-    initLogging Warning
-    initLoggerByName Info bankLoggerName
+    initLogging Error
 
     establishMintettes benchDir
     establishBank      benchDir

@@ -156,10 +156,10 @@ checkNotDoubleSpent sk tx addrId sg = do
   where
     inPsetCase storedTx
       | storedTx == tx = finishCheck
-      | otherwise = throwM $ MEDoubleSpending addrId
+      | otherwise = throwM $ MENotUnspent addrId
     notInPsetCase = do
         addr <- M.lookup addrId <$> use utxo
-        maybe (throwM $ MEDoubleSpending addrId) checkSignatureAndFinish addr
+        maybe (throwM $ MENotUnspent addrId) checkSignatureAndFinish addr
     checkSignatureAndFinish a
       | validateSignature sg a tx = finishCheck
       | otherwise = throwM MEInvalidSignature

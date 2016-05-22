@@ -142,7 +142,8 @@ startGUI = do
     addRandomData model
     loadIcons
     setNotebookIcons notebookMain G.IconSizeSmallToolbar
---    G.widgetModifyBg boxWalletHeader G.StateNormal red
+    sendAmountAdjustment <- G.adjustmentNew 0 0 1000000000 1 1 1
+    G.spinButtonSetAdjustment spinButtonSendAmount sendAmountAdjustment
     void (window `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
     G.widgetShowAll window
     G.mainGUI

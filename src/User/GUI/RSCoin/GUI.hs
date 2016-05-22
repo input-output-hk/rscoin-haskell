@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE NoOverloadedStrings #-}
 
 -- | This module describes main GUI bindings
@@ -6,10 +7,17 @@ module GUI.RSCoin.GUI (startGUI, red, green) where
 import           Control.Monad          (void)
 import           Control.Monad.IO.Class (liftIO)
 
+import           Data.Maybe             (fromJust)
+import qualified Data.Text              as T
+
 import           Graphics.UI.Gtk        (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk        as G
 
 import           GUI.RSCoin.Glade       (GladeMainWindow (..), importGlade)
+
+import           Paths_rscoin           (getDataFileName)
+
+import           System.FilePath        (takeBaseName)
 
 data ModelNode = ModelNode
     { mIsSend      :: Bool
@@ -74,12 +82,66 @@ addRandomData model = mapM_ (G.listStoreAppend model) randomModelData
                 ]
         return $ ModelNode st1 st2 tm addr am
 
+-- ICONS --
+loadIcons :: IO ()
+loadIcons = mapM_ loadIcon iconList
+  where
+    iconList = [ "resources/icons/wallet.png"
+               , "resources/icons/people.png"
+               , "resources/icons/send.png"
+               , "resources/icons/options.png"
+               ]
+    loadIcon path = do
+        icon <- G.iconSourceNew
+        getDataFileName path >>= G.iconSourceSetFilename icon
+        icons <- G.iconSetNew
+        G.iconSetAddSource icons icon
+        iconf <- G.iconFactoryNew
+        G.iconFactoryAdd iconf (T.toLower . T.pack $ takeBaseName path) icons
+        G.iconFactoryAddDefault iconf
+
+notebookGetAllPages :: G.NotebookClass self => self -> IO [G.Widget]
+notebookGetAllPages nb = do
+    npages <- G.notebookGetNPages nb
+    mapM (fmap fromJust . G.notebookGetNthPage nb) [0..npages - 1]
+
+notebookGetAllTabLabelText
+    :: G.NotebookClass self
+    => self
+    -> IO [Maybe T.Text]
+notebookGetAllTabLabelText nb = notebookGetAllPages nb >>= mapM (G.notebookGetTabLabelText nb)
+
+notebookRemoveAllPages
+    :: G.NotebookClass self
+    => self
+    -> IO ()
+notebookRemoveAllPages nb = do
+    npages <- G.notebookGetNPages nb
+    sequence_ . replicate npages $ G.notebookRemovePage nb 0
+
+setNotebookIcons :: G.NotebookClass self => self -> G.IconSize -> IO ()
+setNotebookIcons nb size = do
+    pages <- zip <$> notebookGetAllPages nb <*> notebookGetAllTabLabelText nb
+    notebookRemoveAllPages nb
+    sequence_ $ map (addIconPage nb) pages
+  where
+    addIconPage nb (widget, Nothing) = do
+        noIcon <- G.labelNew $ Just "no label"
+        G.notebookAppendPageMenu nb widget noIcon noIcon
+    addIconPage nb (widget, Just name) = do
+        image <- G.imageNewFromStock (T.toLower name) size
+        G.notebookAppendPageMenu nb widget image image
+
+-- ICONS --
+
 startGUI :: IO ()
 startGUI = do
     void G.initGUI
     GladeMainWindow {..} <- importGlade
     model <- createRandomModel treeViewWallet
     addRandomData model
+    loadIcons
+    setNotebookIcons notebookMain G.IconSizeSmallToolbar
 --    G.widgetModifyBg boxWalletHeader G.StateNormal red
     void (window `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
     G.widgetShowAll window

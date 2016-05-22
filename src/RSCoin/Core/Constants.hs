@@ -66,7 +66,7 @@ genesisAddress :: Address
 genesisAddress =
     Address $
     fromJust $
-    constructPublicKey "AtRoNkuSjCkIPdUz+He0xKqmcH0I0OTLal+4vIRitm4/"
+    constructPublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
 
 -- | This value is sent to genesisAddress in genesis transaction
 genesisValue :: Coin

@@ -11,12 +11,10 @@ module RSCoin.User.Error
        , UserLogicError (..)
        , UserErrorLike (..)
        , eWrap
-       , throwUserLogicError
        ) where
 
-import           RSCoin.Core         (logError, rscExceptionFromException,
-                                      rscExceptionToException, userLoggerName)
-import           RSCoin.Timed        (WorkMode)
+import           RSCoin.Core         (rscExceptionFromException,
+                                      rscExceptionToException)
 import qualified RSCoin.User.Wallet  as W
 
 import           Control.Exception   (Exception (..), SomeException)
@@ -72,12 +70,6 @@ data UserLogicError
 instance Exception UserLogicError where
     toException   = rscExceptionToException
     fromException = rscExceptionFromException
-
--- | Throws 'UserLogicError' and logging it.
-throwUserLogicError :: WorkMode m => UserLogicError -> m a
-throwUserLogicError e = do
-    logError userLoggerName $ T.pack $ show e
-    throwM e
 
 -- | Runs the monadic computation replacing any error that has
 -- UserErrorLike instance with UserError.

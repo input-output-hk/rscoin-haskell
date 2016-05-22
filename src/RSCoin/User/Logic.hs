@@ -12,6 +12,7 @@ module RSCoin.User.Logic
        ) where
 
 import           Control.Monad                 (guard, unless, when)
+import           Control.Monad.Catch           (throwM)
 import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
 import           Data.List                     (genericLength)
 import qualified Data.Map                      as M
@@ -31,8 +32,7 @@ import           RSCoin.Core.Types             (CheckConfirmations,
                                                 MintetteId, PeriodId)
 import           RSCoin.Mintette.Error         (MintetteError)
 import           RSCoin.Timed                  (WorkMode)
-import           RSCoin.User.Error             (UserLogicError (..),
-                                                throwUserLogicError)
+import           RSCoin.User.Error             (UserLogicError (..))
 
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction
@@ -54,13 +54,13 @@ validateTransaction tx@Transaction{..} signatures height = do
     processInput addrid = do
         owns <- CC.getOwnersByAddrid addrid
         when (null owns) $
-            throwUserLogicError $
+            throwM $
             MajorityRejected $
             formatSingle' "Addrid {} doesn't have owners" addrid
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
         subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid) owns
         when (length subBundle <= length owns `div` 2) $
-            throwUserLogicError $
+            throwM $
             MajorityRejected $
             format'
                 ("Couldn't get CheckNotDoubleSpent " <>
@@ -101,7 +101,7 @@ validateTransaction tx@Transaction{..} signatures height = do
             logWarning userLoggerName $
             commitTxWarningMessage owns commitActions
         when (length succeededCommits <= length owns `div` 2) $
-            throwUserLogicError $
+            throwM $
             MajorityFailedToCommit
                 (genericLength succeededCommits)
                 (genericLength owns)

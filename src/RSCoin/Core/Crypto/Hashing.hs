@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns    #-}
 
 -- | Hash-related functions and types.
 
@@ -11,7 +10,7 @@ module RSCoin.Core.Crypto.Hashing
 
 import qualified Crypto.Hash.SHA256     as SHA256
 import           Data.Aeson             (FromJSON (parseJSON), ToJSON (toJSON),
-                                         Value (Object), object, (.:), (.=))
+                                         Value (String))
 import           Data.Binary            (Binary, encode)
 import           Data.ByteString        (ByteString)
 import qualified Data.ByteString.Base64 as B64
@@ -34,13 +33,12 @@ instance Buildable Hash where
     build = build . F.Shown . getHash
 
 instance FromJSON Hash where
-    parseJSON (Object v) =
-        Hash <$>
-        fmap encodeUtf8 (v .: "hash")
-    parseJSON _ = fail "Hash should be an object"
+    parseJSON (String s) = do
+        pure . Hash . encodeUtf8 $ s
+    parseJSON _ = fail "Hash must be string"
 
 instance ToJSON Hash where
-    toJSON (getHash -> h) = object ["hash" .= decodeUtf8 h]
+    toJSON = toJSON . decodeUtf8 . getHash
 
 -- | Hash serializable data.
 hash :: Binary t => t -> Hash

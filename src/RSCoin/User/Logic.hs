@@ -99,7 +99,8 @@ validateTransaction tx@Transaction{..} signatures height = do
         unless (null failures) $
             logWarning userLoggerName $
             commitTxWarningMessage owns commitActions
-        when (null succeededCommits) $ throwUserLogicError FailedToCommit
+        when (length succeededCommits <= length owns `div` 2) $
+            throwUserLogicError FailedToCommit
     commitTxWarningMessage owns =
         formatSingle'
             "some mintettes returned error in response to `commitTx`: {}" .

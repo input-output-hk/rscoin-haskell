@@ -123,12 +123,12 @@ setNotebookIcons :: G.NotebookClass self => self -> G.IconSize -> IO ()
 setNotebookIcons nb size = do
     pages <- zip <$> notebookGetAllPages nb <*> notebookGetAllTabLabelText nb
     notebookRemoveAllPages nb
-    sequence_ $ map (addIconPage nb) pages
+    sequence_ $ map addIconPage pages
   where
-    addIconPage nb (widget, Nothing) = do
-        noIcon <- G.labelNew $ Just "no label"
-        G.notebookAppendPageMenu nb widget noIcon noIcon
-    addIconPage nb (widget, Just name) = do
+    addIconPage (widget, Nothing) = do
+        noLabel <- G.labelNew $ Just "no label"
+        G.notebookAppendPageMenu nb widget noLabel noLabel
+    addIconPage (widget, Just name) = do
         -- TODO: if there is no icon in stock, empty image will be rendered
         -- we should put "no icon" label in that case
         image <- G.imageNewFromStock (T.toLower name) size

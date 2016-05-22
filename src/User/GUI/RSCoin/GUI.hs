@@ -129,6 +129,8 @@ setNotebookIcons nb size = do
         noIcon <- G.labelNew $ Just "no label"
         G.notebookAppendPageMenu nb widget noIcon noIcon
     addIconPage nb (widget, Just name) = do
+        -- TODO: if there is no icon in stock, empty image will be rendered
+        -- we should put "no icon" label in that case
         image <- G.imageNewFromStock (T.toLower name) size
         G.notebookAppendPageMenu nb widget image image
 

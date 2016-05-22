@@ -25,7 +25,7 @@ import           Control.Monad              (forM_, replicateM, void)
 import           System.IO.Temp             (withSystemTempDirectory)
 
 benchMintetteNumber :: Int
-benchMintetteNumber = 1
+benchMintetteNumber = 15
 
 benchUserNumber :: Int64
 benchUserNumber = 2

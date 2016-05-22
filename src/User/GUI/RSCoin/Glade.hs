@@ -11,23 +11,27 @@ import qualified Graphics.UI.Gtk as G
 import           Paths_rscoin    (getDataFileName)
 
 data GladeMainWindow = GladeMainWindow
-    { window                  :: G.Window
-    , notebookMain            :: G.Notebook
+    { gWindow                  :: G.Window
+    , gNotebookMain            :: G.Notebook
 
-    , progressBarUpdate       :: G.ProgressBar
+    , gProgressBarUpdate       :: G.ProgressBar
 
-    , treeViewWallet          :: G.TreeView
-    , boxWalletHeader         :: G.Box
-    , labelCurrentBalance     :: G.Label
-    , labelUnconfirmedBalance :: G.Label
-    , labelTransactionsNumber :: G.Label
-    , labelCurrentAccount     :: G.Label
+    , gTreeViewWallet          :: G.TreeView
+    , gBoxWalletHeader         :: G.Box
+    , gLabelCurrentBalance     :: G.Label
+    , gLabelUnconfirmedBalance :: G.Label
+    , gLabelTransactionsNumber :: G.Label
+    , gLabelCurrentAccount     :: G.Label
 
-    , entryPayTo              :: G.Entry
-    , buttonChooseContacts    :: G.Button
-    , spinButtonSendAmount    :: G.SpinButton
-    , buttonConfirmSend       :: G.Button
-    , buttonClearSend         :: G.Button
+    , gEntryPayTo              :: G.Entry
+    , gButtonChooseContacts    :: G.Button
+    , gSpinButtonSendAmount    :: G.SpinButton
+    , gButtonConfirmSend       :: G.Button
+    , gButtonClearSend         :: G.Button
+
+    , gTreeViewContactsView    :: G.TreeView
+    , gButtonAddContact        :: G.Button
+    , gLabelContactsNum        :: G.Label
     }
 
 makeBuilder :: FilePath -> IO G.Builder
@@ -69,3 +73,6 @@ importGlade = do
         <*> getSpinButton  "sendAmountSpinButton"
         <*> getButton      "confirmSendButton"
         <*> getButton      "clearSendButton"
+        <*> getView        "contactsView"
+        <*> getButton      "addContactButton"
+        <*> getLabel       "contactsNumLabel"

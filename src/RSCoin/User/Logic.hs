@@ -11,6 +11,15 @@ module RSCoin.User.Logic
        , validateTransaction
        ) where
 
+import           Control.Monad                 (guard, unless, when)
+import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
+import qualified Data.Map                      as M
+import           Data.Maybe                    (catMaybes, fromJust)
+import           Data.Monoid                   ((<>))
+
+import           Serokell.Util.Text            (format', formatSingle',
+                                                listBuilderJSON, pairBuilder)
+
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
@@ -23,15 +32,6 @@ import           RSCoin.Mintette.Error         (MintetteError)
 import           RSCoin.Timed                  (WorkMode)
 import           RSCoin.User.Error             (UserLogicError (..),
                                                 throwUserLogicError)
-
-import           Serokell.Util.Text            (format', formatSingle',
-                                                listBuilderJSON, pairBuilder)
-
-import           Control.Monad                 (unless, when)
-import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
-import qualified Data.Map                      as M
-import           Data.Maybe                    (catMaybes, fromJust)
-import           Data.Monoid                   ((<>))
 
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction
@@ -77,8 +77,8 @@ validateTransaction tx@Transaction{..} signatures height = do
         return $
             signedPairMb >>=
             \proof ->
-                 do unless (verifyCheckConfirmation proof tx addrid) $ Nothing
-                    return $ M.singleton (mid, addrid) proof
+                 M.singleton (mid, addrid) proof <$
+                 guard (verifyCheckConfirmation proof tx addrid)
     commitBundle
         :: WorkMode m
         => CheckConfirmations -> m ()

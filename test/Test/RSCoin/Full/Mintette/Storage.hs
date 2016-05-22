@@ -64,10 +64,10 @@ checkNotDoubleSpent conf sk tx addrId sg = do
         maybe notInPsetCase inPsetCase inPset
     inPsetCase storedTx
       | storedTx == tx = finishCheck
-      | otherwise = throwM MEDoubleSpending
+      | otherwise = throwM $ MENotUnspent addrId
     notInPsetCase = do
         addr <- M.lookup addrId <$> use utxo
-        maybe (throwM MEDoubleSpending) checkSignatureAndFinish addr
+        maybe (throwM $ MENotUnspent addrId) checkSignatureAndFinish addr
     checkSignatureAndFinish a
       | validateSignature sg a tx = finishCheck
       | otherwise = throwM MEInvalidSignature
@@ -85,7 +85,7 @@ checkNotDoubleSpent conf sk tx addrId sg = do
         hsh <- uses logHead (snd . fromJust)
         logSz <- use logSize
         if inverseCheckTx conf
-        then throwM MEDoubleSpending
+        then throwM $ MENotUnspent addrId
         else return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
 
 -- | Check that transaction is valid and whether it falls within

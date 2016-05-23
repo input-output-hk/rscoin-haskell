@@ -17,8 +17,8 @@ import qualified RSCoin.User.Actions            as UA
 import           RSCoin.User.Error              (eWrap)
 import qualified RSCoin.User.Wallet             as W
 
-import           GUI.RSCoin.Contacts            (ContactsList (..))
 import           GUI.RSCoin.GUI                 (startGUI)
+import           GUI.RSCoin.GUIAcid             (emptyGUIAcid)
 import qualified UserOptions                    as O
 
 actionsQueueCapacity :: Int
@@ -33,12 +33,12 @@ processCommand st O.UpdateBlockchain _ = UA.processAction st UA.UpdateBlockchain
 processCommand _ (O.Dump command) _ = eWrap $ dumpCommand command
 processCommand st O.StartGUI contactsPath = -- TODO Refactor it outside
     bracket
-        (liftIO $ ACID.openLocalStateFrom contactsPath $ ContactsList [])
+        (liftIO $ ACID.openLocalStateFrom contactsPath emptyGUIAcid)
         (\cs ->
               liftIO $
               do ACID.createCheckpoint cs
                  ACID.closeAcidState cs)
-        (\cs -> liftIO $ startGUI st)
+        (\cs -> liftIO $ startGUI st cs)
 
 dumpCommand :: WorkMode m => O.DumpCommand -> m ()
 dumpCommand O.DumpMintettes                = void   C.getMintettes

@@ -5,7 +5,7 @@
 
 module Main where
 
-import           Control.Concurrent         (forkOS, threadDelay)
+import           Control.Concurrent         (forkIO, threadDelay)
 import           Control.Concurrent.Async   (forConcurrently)
 import           Control.Monad              (forM_, replicateM, void)
 import           Data.Int                   (Int64)
@@ -52,7 +52,7 @@ runMintettes :: FilePath -> KeyPairList -> IO ()
 runMintettes benchDir secretKeys
     = forM_ (zip [1..] secretKeys) $ \(mintetteId, (secretKey, publicKey)) -> do
         addMintette mintetteId benchDir publicKey
-        void $ forkOS $ mintetteThread mintetteId benchDir secretKey
+        void $ forkIO $ mintetteThread mintetteId benchDir secretKey
 
 establishMintettes :: FilePath -> Int -> IO ()
 establishMintettes benchDir mintettesNumber = do
@@ -63,7 +63,7 @@ establishMintettes benchDir mintettesNumber = do
 
 establishBank :: FilePath -> IO ()
 establishBank benchDir = do
-    _ <- forkOS $ bankThread benchDir
+    _ <- forkIO $ bankThread benchDir
     logInfo "Running bank..."
     threadDelay $ 3 * 10 ^ (6 :: Int)
 

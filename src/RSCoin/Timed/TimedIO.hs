@@ -46,7 +46,7 @@ instance MonadTimed TimedIO where
         cur <- localTime
         liftIO $ C.threadDelay $ fromIntegral $ relativeToNow cur
 
-    fork (TimedIO a) = TimedIO $ lift . fmap IOThreadId . C.forkOS . runReaderT a 
+    fork (TimedIO a) = TimedIO $ lift . fmap IOThreadId . C.forkIO . runReaderT a 
         =<< ask
     
     myThreadId = TimedIO $ lift $ IOThreadId <$> C.myThreadId

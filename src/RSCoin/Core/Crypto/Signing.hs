@@ -74,7 +74,9 @@ instance SafeCopy Signature where
     getCopy = getCopyBinary
 
 instance Buildable Signature where
-    build = build . F.Shown . getSignature
+    -- Feel free to change it if you need actual Signature
+    -- build = build . F.Shown . getSignature
+    build _ = "Signature"
 
 instance FromJSON Signature where
     parseJSON (Object v) =

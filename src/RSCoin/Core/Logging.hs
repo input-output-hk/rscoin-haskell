@@ -1,4 +1,6 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE ViewPatterns       #-}
 
 -- | Logging functionality.
 
@@ -22,6 +24,8 @@ module RSCoin.Core.Logging
 
 import           Control.Monad.IO.Class    (MonadIO, liftIO)
 import qualified Data.Text                 as T
+import           Data.Typeable             (Typeable)
+import           GHC.Generics              (Generic)
 import           System.IO                 (stderr, stdout)
 import           System.Log.Formatter      (simpleLogFormatter)
 import           System.Log.Handler        (setFormatter)
@@ -38,7 +42,7 @@ data Severity
     | Info
     | Warning
     | Error
-    deriving (Show, Read, Eq)
+    deriving (Generic, Typeable, Show, Read, Eq)
 
 convertSeverity :: Severity -> Priority
 convertSeverity Debug = DEBUG

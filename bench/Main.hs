@@ -32,10 +32,10 @@ import           Bench.RSCoin.UserLogic     (benchUserTransactions,
                                              userThread)
 
 data BenchOptions = BenchOptions
-    { users         :: Int      <?> "number of users"
-    , mintettes     :: Int      <?> "number of mintettes"
-    , severity      :: Severity <?> "severity for global logger"
-    , benchSeverity :: Severity <?> "severity for bench logger"
+    { users         :: Int            <?> "number of users"
+    , mintettes     :: Int            <?> "number of mintettes"
+    , severity      :: Maybe Severity <?> "severity for global logger"
+    , benchSeverity :: Maybe Severity <?> "severity for bench logger"
     } deriving (Generic, Show)
 
 instance ParseField  Severity
@@ -98,8 +98,8 @@ main = do
     BenchOptions{..} <- getRecord "rscoin-user-bench"
     let mintettesNumber = unHelpful mintettes
     let userNumber      = unHelpful users
-    let globalSeverity  = unHelpful severity
-    let bSeverity       = unHelpful benchSeverity
+    let globalSeverity  = maybe Warning id $ unHelpful severity
+    let bSeverity       = maybe Debug   id $ unHelpful benchSeverity
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity

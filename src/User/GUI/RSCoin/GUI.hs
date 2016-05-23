@@ -15,11 +15,13 @@ import           Graphics.UI.Gtk            (on)
 import qualified Graphics.UI.Gtk            as G
 import           Paths_rscoin               (getDataFileName)
 
+import           GUI.RSCoin.ContactsTab     (createContactsTab, initContactsTab)
 import           GUI.RSCoin.Glade           (GladeMainWindow (..), importGlade)
-import           GUI.RSCoin.MainWindow      (ContactsTab (..), MainWindow (..))
+import           GUI.RSCoin.MainWindow      (MainWindow (..))
 import qualified GUI.RSCoin.MainWindow      as M
-import           GUI.RSCoin.TransactionsTab (initTransactionsTab)
-import           GUI.RSCoin.WalletTab       (initWalletTab)
+import           GUI.RSCoin.TransactionsTab (createTransactionsTab,
+                                             initTransactionsTab)
+import           GUI.RSCoin.WalletTab       (createWalletTab, initWalletTab)
 
 green, red:: G.Color
 green = G.Color 0 65535 0
@@ -82,26 +84,30 @@ setNotebookIcons nb size = do
 startGUI :: IO ()
 startGUI = do
     void G.initGUI
-    mw <- initMainWindow
-    void ((mw ^. M.mainWindow) `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
-    G.widgetShowAll $ mw ^. M.mainWindow
+    mw@MainWindow{..} <- createMainWindow
+    initMainWindow mw
+    void (mainWindow `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
+    G.widgetShowAll mainWindow
     G.mainGUI
 
-initMainWindow :: IO MainWindow
-initMainWindow = do
+createMainWindow :: IO MainWindow
+createMainWindow = do
     (gmw@GladeMainWindow{..}, _) <- importGlade
-    _tabWallet <- initWalletTab gmw
-    _tabTransactions <- initTransactionsTab gmw
-    let _tabContacts =
-            ContactsTab
-            gTreeViewContactsView
-            gButtonAddContact
-            gLabelContactsNum
-        mw = M.MainWindow
-            { _mainWindow = gWindow
-            , _notebookMain = gNotebookMain
-            , _progressBarUpdate = gProgressBarUpdate
-            , .. }
+    tabWallet <- createWalletTab gmw
+    tabTransactions <- createTransactionsTab gmw
+    tabContacts <- createContactsTab gmw
+    return
+        M.MainWindow
+        { mainWindow = gWindow
+        , notebookMain = gNotebookMain
+        , progressBarUpdate = gProgressBarUpdate
+        , ..
+        }
+
+initMainWindow :: MainWindow -> IO ()
+initMainWindow mw@MainWindow{..} = do
+    initWalletTab mw
+    initTransactionsTab mw
+    initContactsTab mw
     loadIcons
-    setNotebookIcons (mw ^. M.notebookMain) G.IconSizeLargeToolbar
-    return mw
+    setNotebookIcons notebookMain G.IconSizeLargeToolbar

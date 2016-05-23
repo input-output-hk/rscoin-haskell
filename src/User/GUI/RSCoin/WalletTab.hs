@@ -21,7 +21,7 @@ type Model = G.ListStore WalletModelNode
 
 createWalletTab :: GladeMainWindow -> IO WalletTab
 createWalletTab GladeMainWindow{..} = do
-    addStyle gBoxWalletHeaderWrapper headerCss
+    G.widgetModifyBg gBoxWalletHeaderWrapper G.StateNormal $ G.Color 52685 9252 9252
     addStyle gBoxWalletHeader headerCss
     model <- createRandomWalletModel gTreeViewWallet
     return $
@@ -35,7 +35,7 @@ createWalletTab GladeMainWindow{..} = do
             gLabelCurrentAccount
   where
     headerCss =
-        ".redWrapper box {\
+        " box {\
            \ color: white;\
            \ margin: 10px;\
            \}\

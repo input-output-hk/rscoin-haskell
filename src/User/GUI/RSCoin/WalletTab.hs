@@ -21,7 +21,8 @@ type Model = G.ListStore WalletModelNode
 
 createWalletTab :: GladeMainWindow -> IO WalletTab
 createWalletTab GladeMainWindow{..} = do
-    addStyle
+    addStyle gBoxWalletHeaderWrapper headerCss
+    addStyle gBoxWalletHeader headerCss
     model <- createRandomWalletModel gTreeViewWallet
     return $
         WalletTab
@@ -33,11 +34,20 @@ createWalletTab GladeMainWindow{..} = do
             gLabelTransactionsNumber
             gLabelCurrentAccount
   where
-    customCss = "* { background-color: #cd2424; color: white; }"
-    addStyle  = do
-        ctx <- G.widgetGetStyleContext gBoxWalletHeader
+    headerCss =
+        ".redWrapper box {\
+           \ color: white;\
+           \ margin: 10px;\
+           \}\
+           \ box { background-color: #cd2424;\
+           \}"
+    wrapperCss =
+        "box { background-color: #cd2424;\
+           \}"
+    addStyle widget css' = do
+        ctx <- G.widgetGetStyleContext widget
         css <- cssProviderGetDefault
-        cssProviderLoadFromString css customCss
+        cssProviderLoadFromString css css'
         styleContextAddProvider ctx css 1
 
 createRandomWalletModel :: G.TreeView -> IO Model

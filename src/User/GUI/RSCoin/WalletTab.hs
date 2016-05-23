@@ -33,7 +33,7 @@ createWalletTab GladeMainWindow{..} = do
             gLabelTransactionsNumber
             gLabelCurrentAccount
   where
-    customCss = "* { background-color: #ff0000; }"
+    customCss = "* { background-color: #cd2424; color: white; }"
     addStyle  = do
         ctx <- G.widgetGetStyleContext gBoxWalletHeader
         css <- cssProviderGetDefault

@@ -8,16 +8,12 @@ module Bench.RSCoin.UserLogic
         ) where
 
 
-import           Control.Exception          (SomeException, fromException)
 import           Control.Monad              (forM_)
-import           Control.Monad.Catch        (MonadCatch, MonadThrow, bracket,
-                                             catch, throwM)
+import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint)
 import           Data.Acid.Advanced         (query')
 import           Data.Int                   (Int64)
-import           Data.Text                  (isPrefixOf)
-import           Debug.Trace                (trace)
 import           System.FilePath            ((</>))
 
 import           Serokell.Util              (indexModulo)
@@ -26,7 +22,6 @@ import           RSCoin.Core                (Coin (..), bankSecretKey)
 
 import           RSCoin.Timed               (MsgPackRpc, runRealMode)
 import qualified RSCoin.User.AcidState      as A
-import           RSCoin.User.Error          (UserError (InputProcessingError))
 import           RSCoin.User.Operations     (formTransactionRetry,
                                              updateBlockchain)
 import           RSCoin.User.Wallet         (UserAddress, toAddress)
@@ -57,33 +52,17 @@ initializeUser userState = do
 
 executeTransaction :: A.RSCoinUserState -> Int64 -> UserAddress -> MsgPackRpc ()
 executeTransaction userState coinAmount addrToSend = do
-    let outputMoney = Coin coinAmount
-    let inputMoneyInfo = [(1, outputMoney)]
-    let transactionAction =
-            updateBlockchain userState False >>
-            formTransactionRetry
-                maxBound
-                userState
-                False
-                inputMoneyInfo
-                (toAddress addrToSend)
-                outputMoney
-    walletHeightHandler transactionAction
+    () <$ updateBlockchain userState False
+    formTransactionRetry
+        maxBound
+        userState
+        False
+        inputMoneyInfo
+        (toAddress addrToSend)
+        outputMoney
   where
-    walletHeightHandler
-        :: (MonadCatch m, MonadThrow m)
-        => m () -> m ()
-    walletHeightHandler transactionAction =
-        transactionAction `catch` repeatIfHeightMismatch transactionAction
-    repeatIfHeightMismatch
-        :: (MonadCatch m, MonadThrow m)
-        => m () -> SomeException -> m ()
-    repeatIfHeightMismatch transactionAction e
-      | Just (InputProcessingError errText) <- fromException e
-      , "Wallet isn't updated" `isPrefixOf` errText  -- TODO: not so good check
-       =
-          trace "T: wallet height" $ walletHeightHandler transactionAction
-      | otherwise = trace "WAAAAAAT?" $ throwM e
+    outputMoney = Coin coinAmount
+    inputMoneyInfo = [(1, outputMoney)]
 
 -- | Create user in `bankMode` and send `transactionNum` coins to
 -- every user from list.

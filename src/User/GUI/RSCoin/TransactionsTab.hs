@@ -1,11 +1,13 @@
 {-# LANGUAGE NoOverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module GUI.RSCoin.TransactionsTab
        ( createTransactionsTab
        , initTransactionsTab
        ) where
 
-import           Control.Monad         (unless, void)
+import           Control.Exception     (SomeException (..), catch)
+import           Control.Monad         (void)
 import qualified Data.Text             as T
 import           Graphics.UI.Gtk       (on)
 import qualified Graphics.UI.Gtk       as G
@@ -32,7 +34,7 @@ createTransactionsTab GladeMainWindow{..} =
 initTransactionsTab :: U.RSCoinUserState -> M.MainWindow -> IO ()
 initTransactionsTab st mw = do
     let tr@TransactionsTab{..} = M.tabTransactions mw
-    sendAmountAdjustment <- G.adjustmentNew 0 0 1000000000 1 1 1
+    sendAmountAdjustment <- G.adjustmentNew 0 0 99999999999 1 1 1
     G.spinButtonSetAdjustment spinButtonSendAmount sendAmountAdjustment
     void (buttonClearSend `on` G.buttonActivated $ onClearButtonPressed tr)
     void (buttonConfirmSend `on` G.buttonActivated $ onSendButtonPressed st mw)
@@ -43,67 +45,48 @@ onClearButtonPressed TransactionsTab{..} = do
     G.entrySetText spinButtonSendAmount ""
 
 onSendButtonPressed :: U.RSCoinUserState -> M.MainWindow -> IO ()
-onSendButtonPressed st M.MainWindow{..} = do
-    let TransactionsTab{..} = tabTransactions
-    userAmount <- runRealMode $ U.getUserTotalAmount st
-    sendAddressPre <- G.entryGetText entryPayTo
-    sendAmount <- readUnsignedDecimal . T.pack <$> G.entryGetText spinButtonSendAmount
-    let sendAddress = C.Address <$> (C.constructPublicKey $ T.pack sendAddressPre)
-        reportSimpleError str = void $ do
-            dialog <- G.messageDialogNew
-                 (Just mainWindow)
-                 [G.DialogDestroyWithParent]
-                 G.MessageError
-                 G.ButtonsClose
-                 str
-            G.dialogRun dialog
-    case (sendAddress, sendAmount) of
-        (Nothing,_) ->
-            reportSimpleError "Couldn't read address, most probably wrong format."
-        (_,Left _) ->
-            reportSimpleError "Wrong amount format -- should be positive integer."
-        (Just _, Right amount) -> do
-            unless (amount > 0) $ reportSimpleError "Amount should be positive."
-            unless (amount <= C.getCoin userAmount) $
-                reportSimpleError $
-                  "Amount exceeds your assets -- you have only " ++
-                  show (C.getCoin userAmount) ++ " coins."
-            dialog <- G.messageDialogNew
-                 (Just mainWindow)
-                 [G.DialogDestroyWithParent]
-                 G.MessageInfo
-                 G.ButtonsOk
-                 "Successfully formed and sent transaction."
-            void $ G.dialogRun dialog
-    return ()
-{-
-    dialog <- G.dialogNew
-    G.set dialog [G.windowTitle := "Enabling all connections"]
-    dialogAddButton dialog stockYes ResponseYes
-    dialogAddButton dialog stockNo ResponseNo
-    upbox <- castToBox <$> dialogGetContentArea dialog
-    lbl <- labelNew $ Just disableFirewallWarning
-    set lbl [widgetMarginLeft := 10, widgetMarginRight := 10]
-    boxPackStart upbox lbl PackGrow 10
-    widgetShowAll upbox
-    response <-
-    widgetDestroy dialog
-    if response == ResponseYes
+onSendButtonPressed st M.MainWindow{..} =
+    act `catch` handler
+  where
+    reportSimpleError str = void $ do
+        dialog <- G.messageDialogNew
+             (Just mainWindow)
+             [G.DialogDestroyWithParent]
+             G.MessageError
+             G.ButtonsClose
+             str
+        void (G.dialogRun dialog)
+        G.widgetDestroy dialog
+    handler (e :: SomeException) =
+        reportSimpleError $ "Exception has happened: " ++ show e
+    act = do
+      let TransactionsTab{..} = tabTransactions
+      sendAddressPre <- G.entryGetText entryPayTo
+      sendAmount <- readUnsignedDecimal . T.pack <$> G.entryGetText spinButtonSendAmount
+      let sendAddress = C.Address <$> C.constructPublicKey (T.pack sendAddressPre)
+      constructDialog sendAddress sendAmount
+    constructDialog Nothing _ =
+        reportSimpleError "Couldn't read address, most probably wrong format."
+    constructDialog _ (Left _) =
+        reportSimpleError "Wrong amount format -- should be positive integer."
+    constructDialog (Just _) (Right amount) | amount <= 0 = do
+        reportSimpleError "Amount should be positive."
+        G.entrySetText (spinButtonSendAmount tabTransactions) ""
+    constructDialog (Just address) (Right amount) = do
+        userAmount <- runRealMode $ U.getUserTotalAmount st
+        if amount > C.getCoin userAmount
         then do
-            labelSetText labelFirewallStatus $ __ "Opening all connections..."
-            void $ forkIO $ disconnectAction gui toEnable
-        else updateVpnGUI gui =<< getCurrentVpnState
--}
-{-
-  where disableFirewallWarning =
-          -- Yeah, long lines is the only way to fit it into translator
-          (__ "This will disable restrictions to create connections only through VPN.\nThat means your connection to the internet could be tracked and somebody may eavesdrop on you.\nAre you sure you
- want to proceed?")
-        disconnectAction gui toEnable = do
-          cProgressBarPid <- startCProgressBar cProgressBar
-          res <- if toEnable then enableVpnFirewall else disableVpnFirewall
-          vpnStateRes <- checkVpnConnection
-          postGUIAsync $ void $ updateVpnGUI gui $ VpnState vpnStateRes res
-          stopCProgressBar cProgressBar cProgressBarPid
-          planFirewallResync gui res
--}
+            reportSimpleError $
+                 "Amount exceeds your assets -- you have only " ++
+                 show (C.getCoin userAmount) ++ " coins."
+            G.entrySetText (spinButtonSendAmount tabTransactions) $ show userAmount
+        else do
+            runRealMode $ U.formTransactionFromAll st address $ C.Coin amount
+            dialog <- G.messageDialogNew
+                (Just mainWindow)
+                [G.DialogDestroyWithParent]
+                G.MessageInfo
+                G.ButtonsOk
+                "Successfully formed and sent transaction."
+            void $ G.dialogRun dialog
+            G.widgetDestroy dialog

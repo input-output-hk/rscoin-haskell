@@ -9,6 +9,7 @@ import           Control.Concurrent         (forkIO, threadDelay)
 import           Control.Concurrent.Async   (forConcurrently)
 import           Control.Monad              (forM_, replicateM, void)
 import           Data.Int                   (Int64)
+import           Data.Maybe                 (fromMaybe)
 import           Data.Time.Clock            (NominalDiffTime, diffUTCTime,
                                              getCurrentTime)
 import           Data.Time.Units            (toMicroseconds)
@@ -97,9 +98,9 @@ main :: IO ()
 main = do
     BenchOptions{..} <- getRecord "rscoin-user-bench"
     let mintettesNumber = unHelpful mintettes
-    let userNumber      = unHelpful users
-    let globalSeverity  = maybe Warning id $ unHelpful severity
-    let bSeverity       = maybe Debug   id $ unHelpful benchSeverity
+        userNumber      = unHelpful users
+        globalSeverity  = fromMaybe Warning $ unHelpful severity
+        bSeverity       = fromMaybe Debug   $ unHelpful benchSeverity
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity

@@ -6,19 +6,22 @@ module GUI.RSCoin.WalletTab
        , initWalletTab
        ) where
 
-import           Control.Monad         (void)
+import           Control.Monad                        (void)
 
-import           Graphics.UI.Gtk       (AttrOp ((:=)))
-import qualified Graphics.UI.Gtk       as G
+import           Graphics.UI.Gtk                      (AttrOp ((:=)))
+import qualified Graphics.UI.Gtk                      as G
+import           Graphics.UI.Gtk.General.CssProvider  (cssProviderGetDefault, cssProviderLoadFromString)
+import           Graphics.UI.Gtk.General.StyleContext (styleContextAddProvider)
 
-import           GUI.RSCoin.Glade      (GladeMainWindow (..))
-import           GUI.RSCoin.MainWindow (WalletModelNode (..), WalletTab (..))
-import qualified GUI.RSCoin.MainWindow as M
+import           GUI.RSCoin.Glade                     (GladeMainWindow (..))
+import           GUI.RSCoin.MainWindow                (WalletModelNode (..), WalletTab (..))
+import qualified GUI.RSCoin.MainWindow                as M
 
 type Model = G.ListStore WalletModelNode
 
 createWalletTab :: GladeMainWindow -> IO WalletTab
 createWalletTab GladeMainWindow{..} = do
+    addStyle
     model <- createRandomWalletModel gTreeViewWallet
     return $
         WalletTab
@@ -29,6 +32,13 @@ createWalletTab GladeMainWindow{..} = do
             gLabelUnconfirmedBalance
             gLabelTransactionsNumber
             gLabelCurrentAccount
+  where
+    customCss = "* { background-color: #ff0000; }"
+    addStyle  = do
+        ctx <- G.widgetGetStyleContext gBoxWalletHeader
+        css <- cssProviderGetDefault
+        cssProviderLoadFromString css customCss
+        styleContextAddProvider ctx css 1
 
 createRandomWalletModel :: G.TreeView -> IO Model
 createRandomWalletModel view = do

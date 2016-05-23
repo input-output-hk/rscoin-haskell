@@ -12,10 +12,10 @@ import           Data.Int                   (Int64)
 import           Data.Time.Clock            (NominalDiffTime, diffUTCTime,
                                              getCurrentTime)
 import           Data.Time.Units            (toMicroseconds)
-import           Formatting     (sformat, shown, (%), build)
+import           Formatting                 (build, sformat, shown, (%))
 
-import           Options.Generic            (Generic, ParseRecord, getRecord,
-                                             unHelpful, (<?>)(..))
+-- workaround to make stylish-haskell work :(
+import           Options.Generic
 
 import           System.IO.Temp             (withSystemTempDirectory)
 

@@ -7,6 +7,7 @@
 module GUI.RSCoin.GUIAcid
     ( Contact (..)
     , GUIState
+    , dummyContacts
     , emptyGUIAcid
     , getContacts
     , addContact
@@ -21,9 +22,13 @@ import           Data.Text            (Text)
 
 -- | Contact information.
 data Contact = Contact
-    { name    :: Text
-    , address :: Text
+    { contactName    :: Text
+    , contactAddress :: Text
     }
+
+dummyContacts :: [Contact]
+dummyContacts =
+    [Contact "aoeu" "kek", Contact "kek" "ahaha", Contact "memasy" "podkatili"]
 
 -- | List of contacts known to the user.
 data ContactsList = ContactsList { list :: [Contact] }

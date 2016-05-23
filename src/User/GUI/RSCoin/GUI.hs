@@ -85,7 +85,7 @@ startGUI :: U.RSCoinUserState -> GUIState -> IO ()
 startGUI st gst = do
     void G.initGUI
     mw@MainWindow{..} <- createMainWindow
-    initMainWindow st mw
+    initMainWindow st gst mw
     void (mainWindow `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
     G.widgetShowAll mainWindow
     G.mainGUI
@@ -104,10 +104,10 @@ createMainWindow = do
         , ..
         }
 
-initMainWindow :: U.RSCoinUserState -> MainWindow -> IO ()
-initMainWindow st mw@MainWindow{..} = do
+initMainWindow :: U.RSCoinUserState -> GUIState -> MainWindow -> IO ()
+initMainWindow st gst mw@MainWindow{..} = do
     initWalletTab mw
-    initTransactionsTab st mw
-    initContactsTab mw
+    initTransactionsTab st gst mw
+    initContactsTab gst mw
     loadIcons
     setNotebookIcons notebookMain G.IconSizeLargeToolbar

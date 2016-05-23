@@ -5,6 +5,7 @@ module GUI.RSCoin.ContactsTab
        ) where
 
 import           GUI.RSCoin.Glade      (GladeMainWindow (..))
+import           GUI.RSCoin.GUIAcid    (GUIState)
 import           GUI.RSCoin.MainWindow (ContactsTab (..))
 import qualified GUI.RSCoin.MainWindow as M
 
@@ -13,5 +14,5 @@ createContactsTab GladeMainWindow{..} =
     return $
     ContactsTab gTreeViewContactsView gButtonAddContact gLabelContactsNum
 
-initContactsTab :: M.MainWindow -> IO ()
-initContactsTab = const $ return ()
+initContactsTab :: GUIState -> M.MainWindow -> IO ()
+initContactsTab _ _ = return ()

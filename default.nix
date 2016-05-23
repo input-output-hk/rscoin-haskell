@@ -6,7 +6,7 @@
 , mtl, optparse-applicative, optparse-generic, pqueue, QuickCheck, random, safe
 , safecopy, serokell-core, stdenv, stm, text, text-format, time
 , time-units, transformers, transformers-base, tuple
-, unordered-containers, vector
+, unordered-containers, vector, msgpack, msgpack-aeson, msgpack-rpc
 }:
 mkDerivation {
   pname = "rscoin";

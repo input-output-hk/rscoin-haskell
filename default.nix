@@ -29,7 +29,7 @@ mkDerivation {
     conduit-extra containers cryptohash data-default directory ed25519
     exceptions filepath hashable hslogger hspec lens monad-control
     monad-loops MonadRandom msgpack msgpack-aeson msgpack-rpc mtl
-    optparse-applicative pqueue QuickCheck random safe safecopy
+    optparse-applicative pqueue QuickCheck random safe safecopy formatting temporary
     serokell-core stm text text-format time time-units transformers
     transformers-base tuple unordered-containers vector
   ];

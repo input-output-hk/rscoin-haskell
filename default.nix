@@ -15,6 +15,8 @@ mkDerivation {
   isLibrary = true;
   isExecutable = true;
   doCheck = false;
+  enableLibraryProfiling = true;
+  enableExecutableProfiling = true;
   libraryHaskellDepends = [
     acid-state aeson base base64-bytestring binary bytestring cereal
     conduit-extra containers cryptohash data-default directory ed25519

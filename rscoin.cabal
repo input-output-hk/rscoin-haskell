@@ -263,6 +263,7 @@ benchmark rscoin-bench
                      , filepath
                      , formatting
                      , mtl
+                     , optparse-generic
                      , rscoin
                      , serokell-core
                      , temporary

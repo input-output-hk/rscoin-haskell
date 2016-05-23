@@ -1,3 +1,8 @@
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeOperators   #-}
+
 module Main where
 
 import           Control.Concurrent         (forkIO, threadDelay)
@@ -7,6 +12,10 @@ import           Data.Int                   (Int64)
 import           Data.Time.Clock            (NominalDiffTime, diffUTCTime,
                                              getCurrentTime)
 import           Data.Time.Units            (toMicroseconds)
+
+import           Options.Generic            (Generic, ParseRecord, getRecord,
+                                             unHelpful, (<?>)(..))
+
 import           System.IO.Temp             (withSystemTempDirectory)
 
 import           RSCoin.Core                (PublicKey, SecretKey,
@@ -20,11 +29,12 @@ import           Bench.RSCoin.UserLogic     (benchUserTransactions,
                                              initializeBank, initializeUser,
                                              userThread)
 
-benchMintetteNumber :: Int
-benchMintetteNumber = 15
+data BenchOptions = BenchOptions
+    { users     :: Int <?> "number of users"
+    , mintettes :: Int <?> "number of mintettes"
+    } deriving (Generic, Show)
 
-benchUserNumber :: Int64
-benchUserNumber = 2
+instance ParseRecord BenchOptions
 
 type KeyPairList = [(SecretKey, PublicKey)]
 
@@ -37,11 +47,11 @@ runMintettes benchDir secretKeys
         addMintette mintetteId benchDir publicKey
         void $ forkIO $ mintetteThread mintetteId benchDir secretKey
 
-establishMintettes :: FilePath -> IO ()
-establishMintettes benchDir = do
-    keyPairs <- generateMintetteKeys benchMintetteNumber
+establishMintettes :: FilePath -> Int -> IO ()
+establishMintettes benchDir mintettesNumber = do
+    keyPairs <- generateMintetteKeys mintettesNumber
     runMintettes benchDir keyPairs
-    putStrLn $ "Running " ++ show benchMintetteNumber ++ " mintettes..."
+    putStrLn $ "Running " ++ show mintettesNumber ++ " mintettes..."
     threadDelay $ 5 * 10 ^ (6 :: Int)
 
 establishBank :: FilePath -> IO ()
@@ -53,7 +63,7 @@ establishBank benchDir = do
 initializeUsers :: FilePath -> [Int64] -> IO [UserAddress]
 initializeUsers benchDir userIds = do
     let initUserAction = userThread benchDir initializeUser
-    putStrLn $ "Initializing " ++ show benchUserNumber ++ " users..."
+    putStrLn $ "Initializing " ++ show (length userIds) ++ " users..."
     mapM initUserAction userIds
 
 initializeSuperUser :: FilePath -> [UserAddress] -> IO ()
@@ -76,15 +86,19 @@ runTransactions benchDir userAddresses userIds = do
     return $ timeAfter `diffUTCTime` timeBefore
 
 main :: IO ()
-main = withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
-    initLogging Error
+main = do
+    BenchOptions{..} <- getRecord "rscoin-user-bench"
+    let mintettesNumber = unHelpful mintettes
+    let userNumber      = unHelpful users
+    withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
+        initLogging Error
 
-    establishMintettes benchDir
-    establishBank      benchDir
+        establishMintettes benchDir mintettesNumber
+        establishBank      benchDir
 
-    let userIds    = [1..benchUserNumber]
-    userAddresses <- initializeUsers benchDir userIds
-    initializeSuperUser benchDir userAddresses
+        let userIds    = [1 .. fromIntegral userNumber]
+        userAddresses <- initializeUsers benchDir userIds
+        initializeSuperUser benchDir userAddresses
 
-    elapsedTime <- runTransactions benchDir userAddresses userIds
-    putStrLn $ "Elapsed time: " ++ show elapsedTime
+        elapsedTime <- runTransactions benchDir userAddresses userIds
+        putStrLn $ "Elapsed time: " ++ show elapsedTime

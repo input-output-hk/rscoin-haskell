@@ -28,6 +28,7 @@ extra-deps:
 - ed25519-0.0.5.0
 - OneTuple-0.2.1
 - tuple-0.3.0.2
+- optparse-generic-1.1.0
 
 # Override default flag values for local packages and extra-deps
 flags: {}

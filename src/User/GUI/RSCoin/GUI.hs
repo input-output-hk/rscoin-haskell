@@ -103,5 +103,5 @@ initMainWindow = do
             , _progressBarUpdate = gProgressBarUpdate
             , .. }
     loadIcons
-    setNotebookIcons (mw ^. M.notebookMain) G.IconSizeSmallToolbar
+    setNotebookIcons (mw ^. M.notebookMain) G.IconSizeLargeToolbar
     return mw

@@ -2,6 +2,7 @@
 
 module GUI.RSCoin.Glade
        ( GladeMainWindow (..)
+       , AddContactWindow (..)
        , importGlade
        ) where
 
@@ -34,6 +35,14 @@ data GladeMainWindow = GladeMainWindow
     , gLabelContactsNum        :: G.Label
     }
 
+data AddContactWindow = AddContactWindow
+    { gPopUpWindow :: G.Window
+    , nameEntry    :: G.Entry
+    , addressEntry :: G.Entry
+    , okButton     :: G.Button
+    , cancelButton :: G.Button
+    }
+
 makeBuilder :: FilePath -> IO G.Builder
 makeBuilder path =
   do C.logDebug C.userLoggerName "Initializing glade builder"
@@ -41,7 +50,7 @@ makeBuilder path =
      G.builderAddFromFile builder path
      return builder
 
-importGlade :: IO GladeMainWindow
+importGlade :: IO (GladeMainWindow, AddContactWindow)
 importGlade = do
     C.logDebug C.userLoggerName "Loading Glade layout"
     uiPath <- getDataFileName "resources/RSCoinMain.glade"
@@ -58,7 +67,7 @@ importGlade = do
         getProgressBar = getWidget G.castToProgressBar
         getView        = getWidget G.castToTreeView
     C.logDebug C.userLoggerName "Getting widgets out of GTK"
-    GladeMainWindow
+    gmw <- GladeMainWindow
         <$> getWindow      "mainWindow"
         <*> getNotebook    "mainNotebook"
         <*> getProgressBar "updateProgressBar"
@@ -76,3 +85,10 @@ importGlade = do
         <*> getView        "contactsView"
         <*> getButton      "addContactButton"
         <*> getLabel       "contactsNumLabel"
+    gpu <- AddContactWindow
+        <$> getWindow "addContactWindow"
+        <*> getEntry  "nameEntry"
+        <*> getEntry  "addressEntry"
+        <*> getButton "okButton"
+        <*> getButton "cancelButton"
+    return (gmw, gpu)

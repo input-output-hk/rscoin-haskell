@@ -89,7 +89,7 @@ startGUI = do
 
 initMainWindow :: IO MainWindow
 initMainWindow = do
-    gmw@GladeMainWindow{..} <- importGlade
+    (gmw@GladeMainWindow{..}, _) <- importGlade
     _tabWallet <- initWalletTab gmw
     _tabTransactions <- initTransactionsTab gmw
     let _tabContacts =

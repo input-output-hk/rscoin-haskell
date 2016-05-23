@@ -2,7 +2,7 @@
 , binary, bytestring, cereal, conduit-extra, containers, cryptohash
 , data-default, directory, ed25519, either, exceptions, file-embed, temporary
 , filepath, hashable, hslogger, hspec, lens, monad-control, formatting
-, monad-loops, MonadRandom, msgpack, msgpack-aeson, msgpack-rpc
+, monad-loops, MonadRandom
 , mtl, optparse-applicative, optparse-generic, pqueue, QuickCheck, random, safe
 , safecopy, serokell-core, stdenv, stm, text, text-format, time
 , time-units, transformers, transformers-base, tuple

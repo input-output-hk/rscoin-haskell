@@ -12,6 +12,7 @@ import           Data.Int                   (Int64)
 import           Data.Time.Clock            (NominalDiffTime, diffUTCTime,
                                              getCurrentTime)
 import           Data.Time.Units            (toMicroseconds)
+import           Formatting     (sformat, shown, (%), build)
 
 import           Options.Generic            (Generic, ParseRecord, getRecord,
                                              unHelpful, (<?>)(..))
@@ -25,6 +26,7 @@ import           RSCoin.User.Wallet         (UserAddress)
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.InfraThreads  (addMintette, bankThread,
                                              defaultBenchPeriod, mintetteThread)
+import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserLogic     (benchUserTransactions,
                                              initializeBank, initializeUser,
                                              userThread)
@@ -51,27 +53,27 @@ establishMintettes :: FilePath -> Int -> IO ()
 establishMintettes benchDir mintettesNumber = do
     keyPairs <- generateMintetteKeys mintettesNumber
     runMintettes benchDir keyPairs
-    putStrLn $ "Running " ++ show mintettesNumber ++ " mintettes..."
+    logInfo $ sformat ("Running " % build % " mintettes…") mintettesNumber
     threadDelay $ 5 * 10 ^ (6 :: Int)
 
 establishBank :: FilePath -> IO ()
 establishBank benchDir = do
     _ <- forkIO $ bankThread benchDir
-    putStrLn "Running bank..."
+    logInfo "Running bank..."
     threadDelay $ 3 * 10 ^ (6 :: Int)
 
 initializeUsers :: FilePath -> [Int64] -> IO [UserAddress]
 initializeUsers benchDir userIds = do
     let initUserAction = userThread benchDir initializeUser
-    putStrLn $ "Initializing " ++ show (length userIds) ++ " users..."
+    logInfo $ sformat ("Initializing " % build % " users…") $ length userIds
     mapM initUserAction userIds
 
 initializeSuperUser :: FilePath -> [UserAddress] -> IO ()
 initializeSuperUser benchDir userAddresses = do
     -- give money to all users
     let bankId = 0
-    userThread benchDir (initializeBank userAddresses) bankId
-    putStrLn "Running user in bankMode and waiting for period end..."
+    userThread benchDir (const $ initializeBank userAddresses) bankId
+    logInfo "Running user in bankMode and waiting for period end…"
     threadDelay $ fromInteger $ toMicroseconds (defaultBenchPeriod + 1)
 
 runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO NominalDiffTime
@@ -92,6 +94,7 @@ main = do
     let userNumber      = unHelpful users
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging Error
+        initBenchLogger Info
 
         establishMintettes benchDir mintettesNumber
         establishBank      benchDir
@@ -101,4 +104,4 @@ main = do
         initializeSuperUser benchDir userAddresses
 
         elapsedTime <- runTransactions benchDir userAddresses userIds
-        putStrLn $ "Elapsed time: " ++ show elapsedTime
+        logInfo $ sformat ("Elapsed time: " % shown) elapsedTime

@@ -27,6 +27,7 @@ library
                      , RSCoin.Core.Error
                      , RSCoin.Core.HBlock
                      , RSCoin.Core.LBlock
+                     , RSCoin.Core.Logging
                      , RSCoin.Core.Owners
                      , RSCoin.Core.Primitives
                      , RSCoin.Core.Transaction
@@ -60,7 +61,6 @@ library
                      , RSCoin.Core.Communication
                      , RSCoin.Core.Crypto.Hashing
                      , RSCoin.Core.Crypto.Signing
-                     , RSCoin.Core.Logging
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
   build-depends:       acid-state
@@ -255,6 +255,7 @@ executable rscoin-bench
   main-is:             Main.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.InfraThreads
+                     , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserLogic
   build-depends:       acid-state
                      , async

@@ -93,7 +93,7 @@ main = do
     let userNumber      = unHelpful users
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging Error
-        initBenchLogger Info
+        initBenchLogger Debug
 
         establishMintettes benchDir mintettesNumber
         establishBank      benchDir

@@ -15,6 +15,7 @@ import           System.FilePath            (takeBaseName)
 
 import           GUI.RSCoin.ContactsTab     (createContactsTab, initContactsTab)
 import           GUI.RSCoin.Glade           (GladeMainWindow (..), importGlade)
+import           GUI.RSCoin.GUIAcid         (GUIState)
 import           GUI.RSCoin.MainWindow      (MainWindow (..))
 import qualified GUI.RSCoin.MainWindow      as M
 import           GUI.RSCoin.TransactionsTab (createTransactionsTab,
@@ -80,8 +81,8 @@ setNotebookIcons nb size = do
 
 -- ICONS --
 
-startGUI :: U.RSCoinUserState -> IO ()
-startGUI st = do
+startGUI :: U.RSCoinUserState -> GUIState -> IO ()
+startGUI st gst = do
     void G.initGUI
     mw@MainWindow{..} <- createMainWindow
     initMainWindow st mw

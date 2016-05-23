@@ -38,7 +38,7 @@ processCommand st O.StartGUI contactsPath = -- TODO Refactor it outside
               liftIO $
               do ACID.createCheckpoint cs
                  ACID.closeAcidState cs)
-        (\cs -> liftIO startGUI)
+        (\cs -> liftIO $ startGUI st)
 
 dumpCommand :: WorkMode m => O.DumpCommand -> m ()
 dumpCommand O.DumpMintettes                = void   C.getMintettes

@@ -4,16 +4,14 @@
 -- | This module describes main GUI bindings
 module GUI.RSCoin.GUI (startGUI, red, green) where
 
-import           Control.Lens               ((^.))
 import           Control.Monad              (replicateM_, void)
 import           Control.Monad.IO.Class     (liftIO)
 import           Data.Maybe                 (fromJust)
 import qualified Data.Text                  as T
-import           System.FilePath            (takeBaseName)
-
 import           Graphics.UI.Gtk            (on)
 import qualified Graphics.UI.Gtk            as G
 import           Paths_rscoin               (getDataFileName)
+import           System.FilePath            (takeBaseName)
 
 import           GUI.RSCoin.ContactsTab     (createContactsTab, initContactsTab)
 import           GUI.RSCoin.Glade           (GladeMainWindow (..), importGlade)
@@ -22,6 +20,7 @@ import qualified GUI.RSCoin.MainWindow      as M
 import           GUI.RSCoin.TransactionsTab (createTransactionsTab,
                                              initTransactionsTab)
 import           GUI.RSCoin.WalletTab       (createWalletTab, initWalletTab)
+import qualified RSCoin.User                as U
 
 green, red:: G.Color
 green = G.Color 0 65535 0
@@ -81,11 +80,11 @@ setNotebookIcons nb size = do
 
 -- ICONS --
 
-startGUI :: IO ()
-startGUI = do
+startGUI :: U.RSCoinUserState -> IO ()
+startGUI st = do
     void G.initGUI
     mw@MainWindow{..} <- createMainWindow
-    initMainWindow mw
+    initMainWindow st mw
     void (mainWindow `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
     G.widgetShowAll mainWindow
     G.mainGUI
@@ -104,10 +103,10 @@ createMainWindow = do
         , ..
         }
 
-initMainWindow :: MainWindow -> IO ()
-initMainWindow mw@MainWindow{..} = do
+initMainWindow :: U.RSCoinUserState -> MainWindow -> IO ()
+initMainWindow st mw@MainWindow{..} = do
     initWalletTab mw
-    initTransactionsTab mw
+    initTransactionsTab st mw
     initContactsTab mw
     loadIcons
     setNotebookIcons notebookMain G.IconSizeLargeToolbar

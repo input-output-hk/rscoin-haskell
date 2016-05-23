@@ -7,6 +7,7 @@
 module RSCoin.User.Operations
        ( walletInitialized
        , commitError
+       , getUserTotalAmount
        , getAmount
        , getAmountByIndex
        , getAllPublicAddresses
@@ -103,6 +104,10 @@ getAmount st userAddress = do
     -- try to update, but silently fail if net is down
     (_ :: Either SomeException Bool) <- try $ updateBlockchain st False
     getAmountNoUpdate st userAddress
+
+-- | Gets current amount on all accounts user posesses
+getUserTotalAmount :: WorkMode m => A.RSCoinUserState -> m C.Coin
+getUserTotalAmount = undefined -- TODO
 
 -- | Get amount without storage update
 getAmountNoUpdate

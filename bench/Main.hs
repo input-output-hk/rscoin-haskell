@@ -77,14 +77,16 @@ initializeSuperUser :: FilePath -> [UserAddress] -> IO ()
 initializeSuperUser benchDir userAddresses = do
     -- give money to all users
     let bankId = 0
+    logInfo "Initializaing user in bankMode…"
     userThread benchDir (const $ initializeBank userAddresses) bankId
-    logInfo "Running user in bankMode and waiting for period end…"
+    logInfo "Initialized user in bankMode, now waiting for the end of the period…"
     threadDelay $ fromInteger $ toMicroseconds (defaultBenchPeriod + 1)
 
 runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO NominalDiffTime
 runTransactions benchDir userAddresses userIds = do
     let benchUserAction = userThread benchDir $ benchUserTransactions userAddresses
 
+    logInfo "Running transactions…"
     timeBefore <- getCurrentTime
     _ <- forConcurrently userIds benchUserAction
     timeAfter <- getCurrentTime

@@ -73,8 +73,11 @@ executeTransaction userState coinAmount addrToSend = do
 initializeBank :: [UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
 initializeBank userAddresses bankUserState = do
     let additionalBankAddreses = 0
+    logDebug "Before initStateBank"
     A.initStateBank bankUserState additionalBankAddreses bankSecretKey
+    logDebug "After initStateBank"
     forM_ userAddresses $ executeTransaction bankUserState transactionNum
+    logDebug "Sent initial coins from bank to users"
 
 -- | Start user with provided addresses of other users and do
 -- `transactionNum` transactions.

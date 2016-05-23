@@ -250,8 +250,8 @@ test-suite rscoin-test
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 
-benchmark rscoin-bench
-  type:                exitcode-stdio-1.0
+executable rscoin-bench
+--  type:                exitcode-stdio-1.0
   main-is:             Main.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.InfraThreads

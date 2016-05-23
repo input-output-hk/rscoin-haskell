@@ -3,7 +3,7 @@
 , data-default, directory, ed25519, either, exceptions, file-embed, temporary
 , filepath, hashable, hslogger, hspec, lens, monad-control, formatting
 , monad-loops, MonadRandom, msgpack, msgpack-aeson, msgpack-rpc
-, mtl, optparse-applicative, pqueue, QuickCheck, random, safe
+, mtl, optparse-applicative, optparse-generic, pqueue, QuickCheck, random, safe
 , safecopy, serokell-core, stdenv, stm, text, text-format, time
 , time-units, transformers, transformers-base, tuple
 , unordered-containers, vector
@@ -28,7 +28,7 @@ mkDerivation {
     acid-state aeson base base64-bytestring binary bytestring cereal
     conduit-extra containers cryptohash data-default directory ed25519
     exceptions filepath hashable hslogger hspec lens monad-control
-    monad-loops MonadRandom msgpack msgpack-aeson msgpack-rpc mtl
+    monad-loops MonadRandom msgpack msgpack-aeson msgpack-rpc mtl optparse-generic
     optparse-applicative pqueue QuickCheck random safe safecopy formatting temporary
     serokell-core stm text text-format time time-units transformers
     transformers-base tuple unordered-containers vector

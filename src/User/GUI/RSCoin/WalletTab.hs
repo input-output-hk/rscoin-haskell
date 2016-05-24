@@ -6,7 +6,7 @@ module GUI.RSCoin.WalletTab
        , initWalletTab
        ) where
 
-import           Control.Monad                        (join, void, liftM5)
+import           Control.Monad                        (join, void)
 
 import           Graphics.UI.Gtk                      (AttrOp ((:=)))
 import qualified Graphics.UI.Gtk                      as G

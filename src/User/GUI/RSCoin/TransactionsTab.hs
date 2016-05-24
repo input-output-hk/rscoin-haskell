@@ -102,8 +102,7 @@ onSendButtonPressed st M.MainWindow{..} =
 
 onChooseContactsButtonPressed :: GUIState -> M.MainWindow -> IO ()
 onChooseContactsButtonPressed gst M.MainWindow{..} = do
---    contacts <- getContacts gst
-    let contacts = dummyContacts -- FIXME it's a stub, use getContacts gst instead
+    contacts <- getContacts gst
     if null contacts
     then reportSimpleError mainWindow "Your contact list is empty -- nothing to choose from."
     else do

@@ -10,9 +10,6 @@ import           Control.Monad                        (join, void)
 
 import           Graphics.UI.Gtk                      (AttrOp ((:=)))
 import qualified Graphics.UI.Gtk                      as G
-import           Graphics.UI.Gtk.General.CssProvider  (cssProviderGetDefault,
-                                                       cssProviderLoadFromString)
-import           Graphics.UI.Gtk.General.StyleContext (styleContextAddProvider)
 
 import           GUI.RSCoin.Glade                     (GladeMainWindow (..))
 import           GUI.RSCoin.MainWindow                (WalletModelNode (..),

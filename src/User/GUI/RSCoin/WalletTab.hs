@@ -1,25 +1,31 @@
 {-# LANGUAGE NoOverloadedStrings #-}
 {-# LANGUAGE RankNTypes          #-}
 
-module GUI.RSCoin.WalletTab (initWalletTab) where
+module GUI.RSCoin.WalletTab
+       ( createWalletTab
+       , initWalletTab
+       ) where
 
-import           Control.Lens          ((^.))
-import           Control.Monad         (void)
+import           Control.Monad                        (void)
 
-import           Graphics.UI.Gtk       (AttrOp ((:=)))
-import qualified Graphics.UI.Gtk       as G
+import           Graphics.UI.Gtk                      (AttrOp ((:=)))
+import qualified Graphics.UI.Gtk                      as G
+import           Graphics.UI.Gtk.General.CssProvider  (cssProviderGetDefault, cssProviderLoadFromString)
+import           Graphics.UI.Gtk.General.StyleContext (styleContextAddProvider)
 
-import           GUI.RSCoin.Glade      (GladeMainWindow (..))
-import qualified GUI.RSCoin.MainWindow as M
+import           GUI.RSCoin.Glade                     (GladeMainWindow (..))
+import           GUI.RSCoin.MainWindow                (WalletModelNode (..), WalletTab (..))
+import qualified GUI.RSCoin.MainWindow                as M
 
-type Model = G.ListStore M.WalletModelNode
+type Model = G.ListStore WalletModelNode
 
-initWalletTab :: GladeMainWindow -> IO M.WalletTab
-initWalletTab GladeMainWindow{..} = do
+createWalletTab :: GladeMainWindow -> IO WalletTab
+createWalletTab GladeMainWindow{..} = do
+    G.widgetModifyBg gBoxWalletHeaderWrapper G.StateNormal $ G.Color 52685 9252 9252
+    addStyle gBoxWalletHeader headerCss
     model <- createRandomWalletModel gTreeViewWallet
-    addRandomData model
     return $
-        M.WalletTab
+        WalletTab
             gTreeViewWallet
             model
             gBoxWalletHeader
@@ -27,6 +33,22 @@ initWalletTab GladeMainWindow{..} = do
             gLabelUnconfirmedBalance
             gLabelTransactionsNumber
             gLabelCurrentAccount
+  where
+    headerCss =
+        " box {\
+           \ color: white;\
+           \ margin: 10px;\
+           \}\
+           \ box { background-color: #cd2424;\
+           \}"
+    wrapperCss =
+        "box { background-color: #cd2424;\
+           \}"
+    addStyle widget css' = do
+        ctx <- G.widgetGetStyleContext widget
+        css <- cssProviderGetDefault
+        cssProviderLoadFromString css css'
+        styleContextAddProvider ctx css 1
 
 createRandomWalletModel :: G.TreeView -> IO Model
 createRandomWalletModel view = do
@@ -49,20 +71,23 @@ createRandomWalletModel view = do
         void $ G.treeViewAppendColumn view column
     statusSetter node =
         [ G.cellText :=
-          if node ^. M.wIsSend
+          if wIsSend node
               then "Out"
               else "In"]
     confirmationSetter node =
         [ G.cellText :=
-          if node ^. M.wIsConfirmed
+          if wIsConfirmed node
               then "Confirmed"
               else "Unconfirmed"]
-    timeSetter node = [G.cellText := node ^. M.wTime]
-    addrSetter node = [G.cellText := node ^. M.wAddress]
-    amountSetter node = [G.cellText := showSigned (node ^. M.wAmount)]
+    timeSetter node = [G.cellText := wTime node]
+    addrSetter node = [G.cellText := wAddress node]
+    amountSetter node = [G.cellText := showSigned (wAmount node)]
     showSigned a
       | a > 0 = "+" ++ show a
       | otherwise = show a
+
+initWalletTab :: M.MainWindow -> IO ()
+initWalletTab M.MainWindow{..} = addRandomData $ walletModel tabWallet
 
 addRandomData :: Model -> IO ()
 addRandomData model = mapM_ (G.listStoreAppend model) randomModelData
@@ -75,4 +100,4 @@ addRandomData model = mapM_ (G.listStoreAppend model) randomModelData
         addr <- [ "A7FUZi67YbBonrD9TrfhX7wnnFxrIRflbMFOpI+r9dOc"
                 , "G7FuzI67zbBbnrD9trfh27anNf2RiRFLBmfBPi+R9DBC"
                 ]
-        return $ M.WalletModelNode st1 st2 tm addr am
+        return $ WalletModelNode st1 st2 tm addr am

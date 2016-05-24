@@ -4,7 +4,6 @@
 -- | This module describes main GUI bindings
 module GUI.RSCoin.GUI (startGUI, red, green) where
 
-import           Control.Lens               ((^.))
 import           Control.Monad              (replicateM_, void)
 import           Control.Monad.IO.Class     (liftIO)
 import           Data.Acid                  (update, query)
@@ -15,14 +14,19 @@ import           System.FilePath            (takeBaseName)
 import           Graphics.UI.Gtk            (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk            as G
 import           Paths_rscoin               (getDataFileName)
+import           System.FilePath            (takeBaseName)
 
 import           GUI.RSCoin.Glade           (AddContactWindow (..)
                                             , GladeMainWindow (..), importGlade)
-import qualified GUI.RSCoin.Contacts        as S
-import           GUI.RSCoin.MainWindow      (ContactsTab (..), MainWindow (..))
+import           GUI.RSCoin.ContactsTab     (createContactsTab, initContactsTab)
+import           GUI.RSCoin.GUIAcid         (GUIState, Contact (..)
+                                            , addContact, getContacts)
+import           GUI.RSCoin.MainWindow      (MainWindow (..))
 import qualified GUI.RSCoin.MainWindow      as M
-import           GUI.RSCoin.TransactionsTab (initTransactionsTab)
-import           GUI.RSCoin.WalletTab       (initWalletTab)
+import           GUI.RSCoin.TransactionsTab (createTransactionsTab,
+                                             initTransactionsTab)
+import           GUI.RSCoin.WalletTab       (createWalletTab, initWalletTab)
+import qualified RSCoin.User                as U
 
 green, red:: G.Color
 green = G.Color 0 65535 0
@@ -82,9 +86,9 @@ setNotebookIcons nb size = do
 
 -- ICONS --
 
-initContacts :: S.ContactsState -> GladeMainWindow -> AddContactWindow -> IO ()
-initContacts cs GladeMainWindow {..} AddContactWindow {..} = do
-    cls <- query cs S.GetContacts
+initContacts :: GUIState -> GladeMainWindow -> AddContactWindow -> IO ()
+initContacts gst GladeMainWindow {..} AddContactWindow {..} = do
+    cls <- getContacts gst
     G.labelSetText gLabelContactsNum $ "Contacts: " ++ show (length cls)
     cl <- G.listStoreNew cls
     G.treeViewSetModel gTreeViewContactsView cl
@@ -96,9 +100,9 @@ initContacts cs GladeMainWindow {..} AddContactWindow {..} = do
     G.cellLayoutPackStart nameCol renderer False
     G.cellLayoutPackStart addressCol renderer False
     G.cellLayoutSetAttributes nameCol renderer cl $ \c ->
-        [G.cellText := (S.name c)]
+        [G.cellText := contactName c]
     G.cellLayoutSetAttributes addressCol renderer cl $ \c ->
-        [G.cellText := (S.address c)]
+        [G.cellText := contactAddress c]
     void $ G.treeViewAppendColumn gTreeViewContactsView nameCol
     void $ G.treeViewAppendColumn gTreeViewContactsView addressCol
     void $ gButtonAddContact `on` G.buttonActivated $ do
@@ -109,37 +113,41 @@ initContacts cs GladeMainWindow {..} AddContactWindow {..} = do
         G.widgetHide addContactWindow
         name <- G.entryGetText nameEntry
         address <- G.entryGetText addressEntry
-        void $ G.listStorePrepend cl $ S.Contact name address
-        update cs $ S.AddContact $ S.Contact name address
-        cls' <- query cs S.GetContacts
+        void $ G.listStorePrepend cl $ Contact name address
+        addContact gst $ Contact name address
+        cls' <- getContacts gst
         G.labelSetText gLabelContactsNum $ "Contacts: " ++ show (length cls')
     void $ cancelButton `on` G.buttonActivated $ do
         G.widgetHide addContactWindow
 
-startGUI :: S.ContactsState -> IO ()
-startGUI cs = do
+startGUI :: U.RSCoinUserState -> GUIState -> IO ()
+startGUI st gst = do
     void G.initGUI
-    mw <- initMainWindow cs
-    void ((mw ^. M.mainWindow) `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
-    G.widgetShowAll $ mw ^. M.mainWindow
+    (gmw, acw) <- importGlade
+    mw@MainWindow{..} <- createMainWindow gmw
+    initContacts gst gmw acw
+    initMainWindow st gst mw
+    void (mainWindow `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
+    G.widgetShowAll mainWindow
     G.mainGUI
 
-initMainWindow :: S.ContactsState -> IO MainWindow
-initMainWindow cs = do
-    (gmw@GladeMainWindow{..}, acw) <- importGlade
-    initContacts cs gmw acw
-    _tabWallet <- initWalletTab gmw
-    _tabTransactions <- initTransactionsTab gmw
-    let _tabContacts =
-            ContactsTab
-            gTreeViewContactsView
-            gButtonAddContact
-            gLabelContactsNum
-        mw = M.MainWindow
-            { _mainWindow = gWindow
-            , _notebookMain = gNotebookMain
-            , _progressBarUpdate = gProgressBarUpdate
-            , .. }
+createMainWindow :: GladeMainWindow -> IO MainWindow
+createMainWindow gmw@GladeMainWindow {..} = do
+    tabWallet <- createWalletTab gmw
+    tabTransactions <- createTransactionsTab gmw
+    tabContacts <- createContactsTab gmw
+    return
+        M.MainWindow
+        { mainWindow = gWindow
+        , notebookMain = gNotebookMain
+        , progressBarUpdate = gProgressBarUpdate
+        , ..
+        }
+
+initMainWindow :: U.RSCoinUserState -> GUIState -> MainWindow -> IO ()
+initMainWindow st gst mw@MainWindow{..} = do
+    initWalletTab mw
+    initTransactionsTab st gst mw
+    initContactsTab gst mw
     loadIcons
-    setNotebookIcons (mw ^. M.notebookMain) G.IconSizeSmallToolbar
-    return mw
+    setNotebookIcons notebookMain G.IconSizeLargeToolbar

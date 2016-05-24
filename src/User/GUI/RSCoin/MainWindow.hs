@@ -5,6 +5,7 @@ module GUI.RSCoin.MainWindow
        , WalletTab (..)
        , TransactionsTab (..)
        , ContactsTab (..)
+       , AddContactWindow (..)
        ) where
 
 import qualified Graphics.UI.Gtk as G
@@ -49,4 +50,12 @@ data ContactsTab = ContactsTab
     { treeViewContactsView :: G.TreeView
     , buttonAddContact     :: G.Button
     , labelContactsNum     :: G.Label
+    }
+
+data AddContactWindow = AddContactWindow
+    { addContactWindow    :: G.Window
+    , entryContactName    :: G.Entry
+    , entryContactAddress :: G.Entry
+    , buttonContactOk     :: G.Button
+    , buttonContactCancel :: G.Button
     }

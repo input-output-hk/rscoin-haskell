@@ -6,10 +6,11 @@ module GUI.RSCoin.Glade
        , importGlade
        ) where
 
-import qualified RSCoin.Core     as C
+import           GUI.RSCoin.MainWindow (AddContactWindow (..))
+import qualified RSCoin.Core           as C
 
-import qualified Graphics.UI.Gtk as G
-import           Paths_rscoin    (getDataFileName)
+import qualified Graphics.UI.Gtk       as G
+import           Paths_rscoin          (getDataFileName)
 
 data GladeMainWindow = GladeMainWindow
     { gWindow                  :: G.Window
@@ -35,14 +36,6 @@ data GladeMainWindow = GladeMainWindow
     , gTreeViewContactsView    :: G.TreeView
     , gButtonAddContact        :: G.Button
     , gLabelContactsNum        :: G.Label
-    }
-
-data AddContactWindow = AddContactWindow
-    { addContactWindow :: G.Window
-    , nameEntry        :: G.Entry
-    , addressEntry     :: G.Entry
-    , okButton         :: G.Button
-    , cancelButton     :: G.Button
     }
 
 makeBuilder :: FilePath -> IO G.Builder
@@ -89,10 +82,10 @@ importGlade = do
         <*> getView        "contactsView"
         <*> getButton      "addContactButton"
         <*> getLabel       "contactsNumLabel"
-    gpu <- AddContactWindow
+    acw <- AddContactWindow
         <$> getWindow "addContactWindow"
         <*> getEntry  "nameEntry"
         <*> getEntry  "addressEntry"
         <*> getButton "okButton"
         <*> getButton "cancelButton"
-    return (gmw, gpu)
+    return (gmw, acw)

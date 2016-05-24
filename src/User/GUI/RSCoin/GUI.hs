@@ -6,7 +6,7 @@ module GUI.RSCoin.GUI (startGUI, red, green) where
 
 import           Control.Monad              (replicateM_, void)
 import           Control.Monad.IO.Class     (liftIO)
-import           Data.Acid                  (update, query)
+import           Data.Acid                  (query, update)
 import           Data.Maybe                 (fromJust)
 import qualified Data.Text                  as T
 import           System.FilePath            (takeBaseName)
@@ -16,11 +16,11 @@ import qualified Graphics.UI.Gtk            as G
 import           Paths_rscoin               (getDataFileName)
 import           System.FilePath            (takeBaseName)
 
-import           GUI.RSCoin.Glade           (AddContactWindow (..)
-                                            , GladeMainWindow (..), importGlade)
 import           GUI.RSCoin.ContactsTab     (createContactsTab, initContactsTab)
-import           GUI.RSCoin.GUIAcid         (GUIState, Contact (..)
-                                            , addContact, getContacts)
+import           GUI.RSCoin.Glade           (AddContactWindow (..),
+                                             GladeMainWindow (..), importGlade)
+import           GUI.RSCoin.GUIAcid         (Contact (..), GUIState, addContact,
+                                             getContacts)
 import           GUI.RSCoin.MainWindow      (MainWindow (..))
 import qualified GUI.RSCoin.MainWindow      as M
 import           GUI.RSCoin.TransactionsTab (createTransactionsTab,
@@ -86,47 +86,13 @@ setNotebookIcons nb size = do
 
 -- ICONS --
 
-initContacts :: GUIState -> GladeMainWindow -> AddContactWindow -> IO ()
-initContacts gst GladeMainWindow {..} AddContactWindow {..} = do
-    cls <- getContacts gst
-    G.labelSetText gLabelContactsNum $ "Contacts: " ++ show (length cls)
-    cl <- G.listStoreNew cls
-    G.treeViewSetModel gTreeViewContactsView cl
-    nameCol <- G.treeViewColumnNew
-    G.treeViewColumnSetTitle nameCol "Name"
-    addressCol <- G.treeViewColumnNew
-    G.treeViewColumnSetTitle addressCol "Address"
-    renderer <-G.cellRendererTextNew
-    G.cellLayoutPackStart nameCol renderer False
-    G.cellLayoutPackStart addressCol renderer False
-    G.cellLayoutSetAttributes nameCol renderer cl $ \c ->
-        [G.cellText := contactName c]
-    G.cellLayoutSetAttributes addressCol renderer cl $ \c ->
-        [G.cellText := contactAddress c]
-    void $ G.treeViewAppendColumn gTreeViewContactsView nameCol
-    void $ G.treeViewAppendColumn gTreeViewContactsView addressCol
-    void $ gButtonAddContact `on` G.buttonActivated $ do
-        G.widgetShowAll addContactWindow
-        G.entrySetText nameEntry ""
-        G.entrySetText addressEntry ""
-    void $ okButton `on` G.buttonActivated $ do
-        G.widgetHide addContactWindow
-        name <- G.entryGetText nameEntry
-        address <- G.entryGetText addressEntry
-        void $ G.listStorePrepend cl $ Contact name address
-        addContact gst $ Contact name address
-        cls' <- getContacts gst
-        G.labelSetText gLabelContactsNum $ "Contacts: " ++ show (length cls')
-    void $ cancelButton `on` G.buttonActivated $ do
-        G.widgetHide addContactWindow
 
 startGUI :: U.RSCoinUserState -> GUIState -> IO ()
 startGUI st gst = do
     void G.initGUI
     (gmw, acw) <- importGlade
     mw@MainWindow{..} <- createMainWindow gmw
-    initContacts gst gmw acw
-    initMainWindow st gst mw
+    initMainWindow st gst mw acw
     void (mainWindow `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
     G.widgetShowAll mainWindow
     G.mainGUI
@@ -144,10 +110,14 @@ createMainWindow gmw@GladeMainWindow {..} = do
         , ..
         }
 
-initMainWindow :: U.RSCoinUserState -> GUIState -> MainWindow -> IO ()
-initMainWindow st gst mw@MainWindow{..} = do
+initMainWindow :: U.RSCoinUserState
+               -> GUIState
+               -> MainWindow
+               -> AddContactWindow
+               -> IO ()
+initMainWindow st gst mw@MainWindow{..} acw = do
     initWalletTab mw
     initTransactionsTab st gst mw
-    initContactsTab gst mw
+    initContactsTab gst mw acw
     loadIcons
     setNotebookIcons notebookMain G.IconSizeLargeToolbar

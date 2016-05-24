@@ -18,6 +18,7 @@ data GladeMainWindow = GladeMainWindow
     , gProgressBarUpdate       :: G.ProgressBar
 
     , gTreeViewWallet          :: G.TreeView
+    , gBoxRSCoinLogo           :: G.Box
     , gBoxWalletHeaderWrapper  :: G.Box
     , gBoxWalletHeader         :: G.Box
     , gLabelCurrentBalance     :: G.Label
@@ -73,6 +74,7 @@ importGlade = do
         <*> getNotebook    "mainNotebook"
         <*> getProgressBar "updateProgressBar"
         <*> getView        "walletTreeView"
+        <*> getBox         "rscoinLogo"
         <*> getBox         "walletHeaderWrapper"
         <*> getBox         "walletHeaderBox"
         <*> getLabel       "currentBalanceLabel"

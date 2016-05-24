@@ -134,12 +134,47 @@
             <property name="margin_right">12</property>
             <property name="spacing">12</property>
             <child>
-              <object class="GtkLabel" id="rscoinLogo">
+              <object class="GtkBox" id="rscoinLogo">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="margin_left">15</property>
-                <property name="margin_right">15</property>
-                <property name="label" translatable="yes">RS | COIN</property>
+                <property name="margin_top">9</property>
+                <property name="margin_bottom">9</property>
+                <property name="spacing">2</property>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">RS</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkSeparator">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">COIN</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -155,7 +190,7 @@
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">True</property>
-                <property name="position">1</property>
+                <property name="position">2</property>
               </packing>
             </child>
             <child>
@@ -169,7 +204,7 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">2</property>
+                <property name="position">3</property>
               </packing>
             </child>
             <child>
@@ -183,7 +218,7 @@ Network Sync</property>
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">3</property>
+                <property name="position">4</property>
               </packing>
             </child>
             <child>
@@ -195,7 +230,7 @@ Network Sync</property>
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">4</property>
+                <property name="position">5</property>
               </packing>
             </child>
           </object>
@@ -225,6 +260,10 @@ Network Sync</property>
                         <property name="height_request">44</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="margin_left">10</property>
+                        <property name="margin_right">10</property>
+                        <property name="margin_top">10</property>
+                        <property name="margin_bottom">10</property>
                         <property name="spacing">12</property>
                         <child>
                           <object class="GtkLabel" id="walletHeaderNameLabel">

@@ -22,7 +22,8 @@ type Model = G.ListStore WalletModelNode
 createWalletTab :: GladeMainWindow -> IO WalletTab
 createWalletTab GladeMainWindow{..} = do
     makeHeaderRed
-    makeSeparatorsWhite
+    containerSeparatorColor gBoxRSCoinLogo redColor
+    containerSeparatorColor gBoxWalletHeader whiteColor
     model <- createRandomWalletModel gTreeViewWallet
     return $
         WalletTab
@@ -36,16 +37,11 @@ createWalletTab GladeMainWindow{..} = do
   where
     makeHeaderRed = do
         G.widgetModifyBg gBoxWalletHeaderWrapper G.StateNormal redColor
-        addStyle gBoxWalletHeader headerCss
-    makeSeparatorsWhite =
-        join $ sequence_ . map (\w -> G.widgetModifyBg w G.StateNormal whiteColor) . map snd . filter (odd . fst) . zip [0..] <$> G.containerGetChildren gBoxWalletHeader
+        G.widgetModifyFg gBoxWalletHeaderWrapper G.StateNormal whiteColor
+    containerSeparatorColor widget color =
+        join $ sequence_ . map (\w -> G.widgetModifyBg w G.StateNormal color) . map snd . filter (odd . fst) . zip [0..] <$> G.containerGetChildren widget
     whiteColor = G.Color 65535 65535 65535
     redColor = G.Color 52685 9252 9252
-    headerCss =
-        " box {\
-           \ color: white;\
-           \ margin: 10px;\
-           \}"
     addStyle widget css' = do
         ctx <- G.widgetGetStyleContext widget
         css <- cssProviderGetDefault

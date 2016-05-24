@@ -19,13 +19,6 @@ data-files:            resources/RSCoinMain.glade
                      , resources/icons/people.png
                      , resources/icons/send.png
                      , resources/icons/options.png
-                     , resources/icons/sync.png
-                     , resources/icons/network.png
-                     , resources/icons/notification_on.png
-                     , resources/icons/notification_off.png
-                     , resources/icons/withdraw.png
-                     , resources/icons/deposit.png
-                     , resources/icons/profile.png
 
 library
   exposed-modules:     RSCoin.Bank
@@ -164,6 +157,7 @@ executable rscoin-user
                      , GUI.RSCoin.Action
                      , GUI.RSCoin.ActionsExecutor
                      , GUI.RSCoin.ContactsTab
+                     , GUI.RSCoin.ErrorMessage
                      , GUI.RSCoin.Glade
                      , GUI.RSCoin.GUI
                      , GUI.RSCoin.GUIAcid

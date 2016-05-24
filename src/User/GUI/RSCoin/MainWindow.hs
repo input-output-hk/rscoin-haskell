@@ -49,6 +49,7 @@ data TransactionsTab = TransactionsTab
 data ContactsTab = ContactsTab
     { treeViewContactsView :: G.TreeView
     , buttonAddContact     :: G.Button
+    , buttonRemoveContact  :: G.Button
     , labelContactsNum     :: G.Label
     }
 

@@ -6,19 +6,20 @@ module GUI.RSCoin.TransactionsTab
        , initTransactionsTab
        ) where
 
-import           Control.Exception     (SomeException (..), catch)
-import           Control.Monad         (void, when)
-import qualified Data.Text             as T
-import           Graphics.UI.Gtk       (AttrOp ((:=)), on)
-import qualified Graphics.UI.Gtk       as G
+import           Control.Exception       (SomeException (..), catch)
+import           Control.Monad           (void, when)
+import qualified Data.Text               as T
+import           Graphics.UI.Gtk         (AttrOp ((:=)), on)
+import qualified Graphics.UI.Gtk         as G
 
-import           GUI.RSCoin.Glade      (GladeMainWindow (..))
-import           GUI.RSCoin.GUIAcid    (Contact (..), GUIState, getContacts)
-import           GUI.RSCoin.MainWindow (TransactionsTab (..))
-import qualified GUI.RSCoin.MainWindow as M
-import qualified RSCoin.Core           as C
-import           RSCoin.Timed          (runRealMode)
-import qualified RSCoin.User           as U
+import           GUI.RSCoin.ErrorMessage (reportSimpleError)
+import           GUI.RSCoin.Glade        (GladeMainWindow (..))
+import           GUI.RSCoin.GUIAcid      (Contact (..), GUIState, getContacts)
+import           GUI.RSCoin.MainWindow   (TransactionsTab (..))
+import qualified GUI.RSCoin.MainWindow   as M
+import qualified RSCoin.Core             as C
+import           RSCoin.Timed            (runRealMode)
+import qualified RSCoin.User             as U
 
 import           Serokell.Util.Text    (readUnsignedDecimal)
 
@@ -48,18 +49,6 @@ onClearButtonPressed :: TransactionsTab -> IO ()
 onClearButtonPressed TransactionsTab{..} = do
     G.entrySetText entryPayTo ""
     G.entrySetText spinButtonSendAmount ""
-
-reportSimpleError :: G.Window -> String -> IO ()
-reportSimpleError mw str = void $ do
-    dialog <- G.messageDialogNew
-         (Just mw)
-         [G.DialogDestroyWithParent]
-         G.MessageError
-         G.ButtonsClose
-         str
-    G.set dialog [G.windowTitle := "RSCoin error"]
-    void (G.dialogRun dialog)
-    G.widgetDestroy dialog
 
 onSendButtonPressed :: U.RSCoinUserState -> M.MainWindow -> IO ()
 onSendButtonPressed st M.MainWindow{..} =

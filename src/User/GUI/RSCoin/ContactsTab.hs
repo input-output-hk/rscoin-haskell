@@ -7,20 +7,25 @@ module GUI.RSCoin.ContactsTab
        , initContactsTab
        ) where
 
-import           Control.Monad         (void)
-import           Graphics.UI.Gtk       (AttrOp ((:=)), on)
-import qualified Graphics.UI.Gtk       as G
+import           Control.Monad           (void, when)
+import           Data.Maybe              (isJust)
+import           Graphics.UI.Gtk         (AttrOp ((:=)), on)
+import qualified Graphics.UI.Gtk         as G
 
-import           GUI.RSCoin.Glade      (GladeMainWindow (..))
-import           GUI.RSCoin.GUIAcid    (Contact (..), GUIState, addContact,
-                                        getContacts)
-import           GUI.RSCoin.MainWindow (AddContactWindow (..), ContactsTab (..))
-import qualified GUI.RSCoin.MainWindow as M
+import           GUI.RSCoin.ErrorMessage (reportSimpleError)
+import           GUI.RSCoin.Glade        (GladeMainWindow (..))
+import           GUI.RSCoin.GUIAcid      (Contact (..), GUIState, addContact,
+                                          removeContact, getContacts)
+import           GUI.RSCoin.MainWindow   (AddContactWindow (..),
+                                          ContactsTab (..))
+import qualified GUI.RSCoin.MainWindow   as M
+import qualified RSCoin.Core             as C
 
 createContactsTab :: GladeMainWindow -> IO ContactsTab
 createContactsTab GladeMainWindow{..} =
     return $
-    ContactsTab gTreeViewContactsView gButtonAddContact gLabelContactsNum
+    ContactsTab gTreeViewContactsView gButtonAddContact
+        gButtonRemoveContact gLabelContactsNum
 
 initContactsTab :: GUIState -> M.MainWindow -> AddContactWindow -> IO ()
 initContactsTab gst M.MainWindow{..} AddContactWindow{..} = do
@@ -50,12 +55,35 @@ initContactsTab gst M.MainWindow{..} AddContactWindow{..} = do
         G.entrySetText entryContactAddress ""
         G.widgetShowAll addContactWindow
     void $ buttonContactOk `on` G.buttonActivated $ do
-        G.widgetHide addContactWindow
         name <- G.entryGetText entryContactName
         address <- G.entryGetText entryContactAddress
-        void $ G.listStorePrepend model $ Contact name address
-        addContact gst $ Contact name address
-        contacts' <- getContacts gst
-        G.labelSetText labelContactsNum $ "Contacts: " ++ show (length contacts')
+        let ma = C.Address <$> C.constructPublicKey address
+        if isJust ma then do
+            void $ G.listStorePrepend model $ Contact name address
+            addContact gst $ Contact name address
+            contacts' <- getContacts gst
+            G.labelSetText labelContactsNum $ "Contacts: " ++ show (length contacts')
+            G.widgetHide addContactWindow
+        else reportSimpleError mainWindow "Bad address format!"
     void $ buttonContactCancel `on` G.buttonActivated $
         G.widgetHide addContactWindow
+    void $ buttonRemoveContact `on` G.buttonActivated $ do
+        sel <- G.treeViewGetSelection treeViewContactsView
+        selNum <- G.treeSelectionCountSelectedRows sel
+        rows <- G.treeSelectionGetSelectedRows sel
+        when (selNum /= 0) $ do
+            dialog <- G.messageDialogNew
+                (Just mainWindow)
+                [G.DialogDestroyWithParent]
+                G.MessageQuestion
+                G.ButtonsOkCancel
+                "Do you really want to remove the contact?"
+            response <- G.dialogRun dialog
+            when (response == G.ResponseOk) $ do
+                let i = head $ head rows
+                removeContact gst i
+                G.listStoreRemove model i
+                contacts' <- getContacts gst
+                G.labelSetText labelContactsNum $
+                    "Contacts: " ++ show (length contacts')
+            G.widgetDestroy dialog

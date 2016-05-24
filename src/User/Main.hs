@@ -1,8 +1,6 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-import           Control.Concurrent             (forkIO)
-import           Control.Concurrent.STM.TBQueue (newTBQueueIO)
 import           Control.Monad                  (void)
 import           Control.Monad.Catch            (MonadCatch, bracket, catch,
                                                  throwM)
@@ -20,9 +18,6 @@ import qualified RSCoin.User.Wallet             as W
 import           GUI.RSCoin.GUI                 (startGUI)
 import           GUI.RSCoin.GUIAcid             (emptyGUIAcid)
 import qualified UserOptions                    as O
-
-actionsQueueCapacity :: Int
-actionsQueueCapacity = 10
 
 -- | Processes command line user command
 processCommand

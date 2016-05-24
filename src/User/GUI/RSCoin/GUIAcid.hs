@@ -11,6 +11,7 @@ module GUI.RSCoin.GUIAcid
     , emptyGUIAcid
     , getContacts
     , addContact
+    , removeContact
     ) where
 
 import           Control.Monad.Reader (ask)
@@ -45,16 +46,25 @@ addContact' c = do
     ContactsList l <- get
     put $ ContactsList $ c : l
 
+-- | Removes a contact from the list.
+removeContact' :: Int -> Update ContactsList ()
+removeContact' i = do
+    ContactsList l <- get
+    put $ ContactsList $ take i l ++ drop (i + 1) l
+
 -- | Gets the list from the database.
 getContacts' :: Query ContactsList [Contact]
 getContacts' = list <$> ask
 
 type GUIState = AcidState ContactsList
 
-$(makeAcidic ''ContactsList ['addContact', 'getContacts'])
+$(makeAcidic ''ContactsList ['addContact', 'removeContact', 'getContacts'])
 
 getContacts :: GUIState -> IO [Contact]
 getContacts st = query st GetContacts'
 
 addContact :: GUIState -> Contact -> IO ()
 addContact st c = update st $ AddContact' c
+
+removeContact :: GUIState -> Int -> IO ()
+removeContact st i = update st $ RemoveContact' i

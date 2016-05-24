@@ -24,7 +24,7 @@ import           Data.Text            (Text)
 data Contact = Contact
     { contactName    :: Text
     , contactAddress :: Text
-    }
+    } deriving (Show)
 
 dummyContacts :: [Contact]
 dummyContacts =

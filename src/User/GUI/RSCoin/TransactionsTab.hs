@@ -124,8 +124,10 @@ onChooseContactsButtonPressed gst M.MainWindow{..} = do
             rows <- G.treeSelectionGetSelectedRows sel
             if selNum == 0
             then reportSimpleError mainWindow "No contacts were selected."
-            else reportSimpleError mainWindow $
-                        "TODO do something with chosen rows: " ++ show rows
+            else do
+                let row = head $ head rows
+                    elem = contactAddress $ contacts !! row
+                G.entrySetText (M.entryPayTo tabTransactions) elem
         G.widgetDestroy dialog
   where
     setupModel view = do

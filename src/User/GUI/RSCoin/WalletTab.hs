@@ -6,15 +6,17 @@ module GUI.RSCoin.WalletTab
        , initWalletTab
        ) where
 
-import           Control.Monad                        (void, join)
+import           Control.Monad                        (join, void)
 
 import           Graphics.UI.Gtk                      (AttrOp ((:=)))
 import qualified Graphics.UI.Gtk                      as G
-import           Graphics.UI.Gtk.General.CssProvider  (cssProviderGetDefault, cssProviderLoadFromString)
+import           Graphics.UI.Gtk.General.CssProvider  (cssProviderGetDefault,
+                                                       cssProviderLoadFromString)
 import           Graphics.UI.Gtk.General.StyleContext (styleContextAddProvider)
 
 import           GUI.RSCoin.Glade                     (GladeMainWindow (..))
-import           GUI.RSCoin.MainWindow                (WalletModelNode (..), WalletTab (..))
+import           GUI.RSCoin.MainWindow                (WalletModelNode (..),
+                                                       WalletTab (..))
 import qualified GUI.RSCoin.MainWindow                as M
 
 type Model = G.ListStore WalletModelNode
@@ -39,14 +41,21 @@ createWalletTab GladeMainWindow{..} = do
         G.widgetModifyBg gBoxWalletHeaderWrapper G.StateNormal redColor
         G.widgetModifyFg gBoxWalletHeaderWrapper G.StateNormal whiteColor
     containerSeparatorColor widget color =
-        join $ sequence_ . map (\w -> G.widgetModifyBg w G.StateNormal color) . map snd . filter (odd . fst) . zip [0..] <$> G.containerGetChildren widget
+        join $
+        mapM_
+            (\w ->
+                  G.widgetModifyBg w G.StateNormal color) .
+        map snd .
+        filter (odd . fst) . zip [(0 :: Integer) ..] <$>
+        G.containerGetChildren widget
     whiteColor = G.Color 65535 65535 65535
     redColor = G.Color 52685 9252 9252
-    addStyle widget css' = do
-        ctx <- G.widgetGetStyleContext widget
-        css <- cssProviderGetDefault
-        cssProviderLoadFromString css css'
-        styleContextAddProvider ctx css 1
+-- What's that? Not used anywhere.
+--    addStyle widget css' = do
+--        ctx <- G.widgetGetStyleContext widget
+--        css <- cssProviderGetDefault
+--        cssProviderLoadFromString css css'
+--        styleContextAddProvider ctx css 1
 
 createRandomWalletModel :: G.TreeView -> IO Model
 createRandomWalletModel view = do

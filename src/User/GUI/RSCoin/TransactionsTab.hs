@@ -13,8 +13,7 @@ import           Graphics.UI.Gtk       (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk       as G
 
 import           GUI.RSCoin.Glade      (GladeMainWindow (..))
-import           GUI.RSCoin.GUIAcid    (Contact (..), GUIState, dummyContacts,
-                                        getContacts)
+import           GUI.RSCoin.GUIAcid    (Contact (..), GUIState, getContacts)
 import           GUI.RSCoin.MainWindow (TransactionsTab (..))
 import qualified GUI.RSCoin.MainWindow as M
 import qualified RSCoin.Core           as C
@@ -125,8 +124,8 @@ onChooseContactsButtonPressed gst M.MainWindow{..} = do
             then reportSimpleError mainWindow "No contacts were selected."
             else do
                 let row = head $ head rows
-                    elem = contactAddress $ contacts !! row
-                G.entrySetText (M.entryPayTo tabTransactions) elem
+                    e = contactAddress $ contacts !! row
+                G.entrySetText (M.entryPayTo tabTransactions) e
         G.widgetDestroy dialog
   where
     setupModel view = do

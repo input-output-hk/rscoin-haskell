@@ -2,35 +2,28 @@
 {-# LANGUAGE RankNTypes          #-}
 
 -- | This module describes main GUI bindings
-module GUI.RSCoin.GUI (startGUI, red, green) where
+module GUI.RSCoin.GUI (startGUI) where
 
 import           Control.Monad              (replicateM_, void)
 import           Control.Monad.IO.Class     (liftIO)
-import           Data.Acid                  (query, update)
 import           Data.Maybe                 (fromJust)
 import qualified Data.Text                  as T
 import           System.FilePath            (takeBaseName)
 
-import           Graphics.UI.Gtk            (AttrOp ((:=)), on)
+import           Graphics.UI.Gtk            (on)
 import qualified Graphics.UI.Gtk            as G
 import           Paths_rscoin               (getDataFileName)
-import           System.FilePath            (takeBaseName)
 
 import           GUI.RSCoin.ContactsTab     (createContactsTab, initContactsTab)
 import           GUI.RSCoin.Glade           (AddContactWindow (..),
                                              GladeMainWindow (..), importGlade)
-import           GUI.RSCoin.GUIAcid         (Contact (..), GUIState, addContact,
-                                             getContacts)
+import           GUI.RSCoin.GUIAcid         (GUIState)
 import           GUI.RSCoin.MainWindow      (MainWindow (..))
 import qualified GUI.RSCoin.MainWindow      as M
 import           GUI.RSCoin.TransactionsTab (createTransactionsTab,
                                              initTransactionsTab)
 import           GUI.RSCoin.WalletTab       (createWalletTab, initWalletTab)
 import qualified RSCoin.User                as U
-
-green, red:: G.Color
-green = G.Color 0 65535 0
-red = G.Color 51199 8960 8960
 
 -- ICONS --
 loadIcons :: IO ()

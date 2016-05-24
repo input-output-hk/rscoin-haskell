@@ -7,15 +7,18 @@ module GUI.RSCoin.GUI (startGUI, red, green) where
 import           Control.Lens               ((^.))
 import           Control.Monad              (replicateM_, void)
 import           Control.Monad.IO.Class     (liftIO)
+import           Data.Acid                  (update, query)
 import           Data.Maybe                 (fromJust)
 import qualified Data.Text                  as T
 import           System.FilePath            (takeBaseName)
 
-import           Graphics.UI.Gtk            (on)
+import           Graphics.UI.Gtk            (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk            as G
 import           Paths_rscoin               (getDataFileName)
 
-import           GUI.RSCoin.Glade           (GladeMainWindow (..), importGlade)
+import           GUI.RSCoin.Glade           (AddContactWindow (..)
+                                            , GladeMainWindow (..), importGlade)
+import qualified GUI.RSCoin.Contacts        as S
 import           GUI.RSCoin.MainWindow      (ContactsTab (..), MainWindow (..))
 import qualified GUI.RSCoin.MainWindow      as M
 import           GUI.RSCoin.TransactionsTab (initTransactionsTab)
@@ -79,17 +82,52 @@ setNotebookIcons nb size = do
 
 -- ICONS --
 
-startGUI :: IO ()
-startGUI = do
+initContacts :: S.ContactsState -> GladeMainWindow -> AddContactWindow -> IO ()
+initContacts cs GladeMainWindow {..} AddContactWindow {..} = do
+    cls <- query cs S.GetContacts
+    G.labelSetText gLabelContactsNum $ "Contacts: " ++ show (length cls)
+    cl <- G.listStoreNew cls
+    G.treeViewSetModel gTreeViewContactsView cl
+    nameCol <- G.treeViewColumnNew
+    G.treeViewColumnSetTitle nameCol "Name"
+    addressCol <- G.treeViewColumnNew
+    G.treeViewColumnSetTitle addressCol "Address"
+    renderer <-G.cellRendererTextNew
+    G.cellLayoutPackStart nameCol renderer False
+    G.cellLayoutPackStart addressCol renderer False
+    G.cellLayoutSetAttributes nameCol renderer cl $ \c ->
+        [G.cellText := (S.name c)]
+    G.cellLayoutSetAttributes addressCol renderer cl $ \c ->
+        [G.cellText := (S.address c)]
+    void $ G.treeViewAppendColumn gTreeViewContactsView nameCol
+    void $ G.treeViewAppendColumn gTreeViewContactsView addressCol
+    void $ gButtonAddContact `on` G.buttonActivated $ do
+        G.widgetShowAll addContactWindow
+        G.entrySetText nameEntry ""
+        G.entrySetText addressEntry ""
+    void $ okButton `on` G.buttonActivated $ do
+        G.widgetHide addContactWindow
+        name <- G.entryGetText nameEntry
+        address <- G.entryGetText addressEntry
+        void $ G.listStorePrepend cl $ S.Contact name address
+        update cs $ S.AddContact $ S.Contact name address
+        cls' <- query cs S.GetContacts
+        G.labelSetText gLabelContactsNum $ "Contacts: " ++ show (length cls')
+    void $ cancelButton `on` G.buttonActivated $ do
+        G.widgetHide addContactWindow
+
+startGUI :: S.ContactsState -> IO ()
+startGUI cs = do
     void G.initGUI
-    mw <- initMainWindow
+    mw <- initMainWindow cs
     void ((mw ^. M.mainWindow) `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
     G.widgetShowAll $ mw ^. M.mainWindow
     G.mainGUI
 
-initMainWindow :: IO MainWindow
-initMainWindow = do
-    (gmw@GladeMainWindow{..}, _) <- importGlade
+initMainWindow :: S.ContactsState -> IO MainWindow
+initMainWindow cs = do
+    (gmw@GladeMainWindow{..}, acw) <- importGlade
+    initContacts cs gmw acw
     _tabWallet <- initWalletTab gmw
     _tabTransactions <- initTransactionsTab gmw
     let _tabContacts =

@@ -36,11 +36,11 @@ data GladeMainWindow = GladeMainWindow
     }
 
 data AddContactWindow = AddContactWindow
-    { gPopUpWindow :: G.Window
-    , nameEntry    :: G.Entry
-    , addressEntry :: G.Entry
-    , okButton     :: G.Button
-    , cancelButton :: G.Button
+    { addContactWindow :: G.Window
+    , nameEntry        :: G.Entry
+    , addressEntry     :: G.Entry
+    , okButton         :: G.Button
+    , cancelButton     :: G.Button
     }
 
 makeBuilder :: FilePath -> IO G.Builder

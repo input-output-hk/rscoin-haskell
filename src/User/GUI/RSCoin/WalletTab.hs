@@ -6,7 +6,7 @@ module GUI.RSCoin.WalletTab
        , initWalletTab
        ) where
 
-import           Control.Monad                        (join, void)
+import           Control.Monad                        (join, void, liftM5)
 
 import           Graphics.UI.Gtk                      (AttrOp ((:=)))
 import qualified Graphics.UI.Gtk                      as G
@@ -57,27 +57,32 @@ createWalletTab GladeMainWindow{..} = do
 createRandomWalletModel :: G.TreeView -> IO Model
 createRandomWalletModel view = do
     model <- G.listStoreNew []
-    appendColumn model True "Status" statusSetter
-    appendColumn model True "Confirmation" confirmationSetter
-    appendColumn model True "Time" timeSetter
-    appendColumn model True "Address" addrSetter
-    appendColumn model True "Amount" amountSetter
+    appendPixbufColumn model True "Status" statusSetter
+    appendTextColumn model True "Confirmation" confirmationSetter
+    appendTextColumn model True "Time" timeSetter
+    appendTextColumn model True "Address" addrSetter
+    appendTextColumn model True "Amount" amountSetter
     G.treeViewSetModel view model
     return model
   where
-    appendColumn model expand title attributesSetter = do
+    appendPixbufColumn model expand title attributesSetter = do
+        renderer <- G.cellRendererPixbufNew
+        appendColumn renderer model expand title attributesSetter
+    appendTextColumn model expand title attributesSetter = do
+        renderer <- G.cellRendererTextNew
+        appendColumn renderer model expand title attributesSetter
+    appendColumn renderer model expand title attributesSetter = do
         column <- G.treeViewColumnNew
         G.treeViewColumnSetTitle column title
         G.treeViewColumnSetExpand column expand
-        renderer <- G.cellRendererTextNew
         G.cellLayoutPackStart column renderer False
         G.cellLayoutSetAttributes column renderer model attributesSetter
         void $ G.treeViewAppendColumn view column
     statusSetter node =
-        [ G.cellText :=
+        [ G.cellPixbufStockId :=
           if wIsSend node
-              then "Out"
-              else "In"]
+              then "withdraw"
+              else "deposit"]
     confirmationSetter node =
         [ G.cellText :=
           if wIsConfirmed node

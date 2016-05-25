@@ -31,7 +31,7 @@ import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 import           Bench.RSCoin.Logging       (logDebug, logInfo)
 
 transactionNum :: Int64
-transactionNum = 1000
+transactionNum = 200
 
 userThread :: FilePath -> (Int64 -> A.RSCoinUserState -> MsgPackRpc a) -> Int64 -> IO a
 userThread benchDir userAction userId = runRealMode $ bracket

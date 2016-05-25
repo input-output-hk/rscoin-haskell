@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-import           Control.Monad                  (void)
+import           Control.Monad                  (void, when)
 import           Control.Monad.Catch            (MonadCatch, bracket, catch,
                                                  throwM)
 import           Control.Monad.Trans            (MonadIO, liftIO)
@@ -55,20 +55,13 @@ main = do
             (\st -> liftIO $ do
                 ACID.createCheckpoint st
                 A.closeState st) $
-            \st ->
-                 do C.logDebug C.userLoggerName $
-                        mconcat ["Called with options: ", (T.pack . show) opts]
-                    handleUnitialized
-                        (processCommand st userCommand contactsPath)
-                        (A.initState st addressesNum $
-                            bankKeyPath isBankMode bankModePath)
+            \st -> do
+                i <- liftIO $ ACID.query st A.IsInitialized
+                when (not i) $ A.initState st addressesNum $
+                    bankKeyPath isBankMode bankModePath
+                C.logDebug C.userLoggerName $
+                    mconcat ["Called with options: ", (T.pack . show) opts]
+                processCommand st userCommand contactsPath
   where
-    handleUnitialized :: (MonadIO m, MonadCatch m) => m () -> m () -> m ()
-    handleUnitialized action initialization =
-        action `catch` handler initialization action
-      where
-        handler i a W.NotInitialized =
-            C.logInfo C.userLoggerName "Initalizing storage..." >> i >> a
-        handler _ _ e = throwM e
     bankKeyPath True  p = Just p
     bankKeyPath False _ = Nothing

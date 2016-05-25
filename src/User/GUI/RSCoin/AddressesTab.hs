@@ -1,3 +1,5 @@
+{-# LANGUAGE NoOverloadedStrings #-}
+
 module GUI.RSCoin.AddressesTab
     ( createAddressesTab
     , initAddressesTab
@@ -29,6 +31,7 @@ initAddressesTab st gst MainWindow{..} = do
     addressesList <- G.listStoreNew addresses
     G.treeViewSetModel treeViewAddressesView addressesList
     addressesCol <- G.treeViewColumnNew
+    G.treeViewColumnSetTitle addressesCol "Address"
     renderer <- G.cellRendererTextNew
     G.cellLayoutPackStart addressesCol renderer False
     G.cellLayoutSetAttributes addressesCol renderer addressesList $ \a ->

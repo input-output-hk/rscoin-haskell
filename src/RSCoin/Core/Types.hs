@@ -168,11 +168,11 @@ instance Buildable ActionLog where
 -- formed throughout the epoch and the hashes it has received from other
 -- mintettes.
 data LBlock = LBlock
-    { lbHash         :: !Hash           -- ^ hash of
-                                        -- (h^(i-1)_bank, h^m_(j-1), hashes, transactions)
-    , lbTransactions :: [Transaction]   -- ^ txset
-    , lbSignature    :: !Signature      -- ^ signature given by mintette for hash
-    , lbHeads        :: ActionLogHeads  -- ^ heads received from other mintettes
+    { lbHash         :: !Hash            -- ^ hash of
+                                         -- (h^(i-1)_bank, h^m_(j-1), hashes, transactions)
+    , lbTransactions :: ![Transaction]   -- ^ txset
+    , lbSignature    :: !Signature       -- ^ signature given by mintette for hash
+    , lbHeads        :: !ActionLogHeads  -- ^ heads received from other mintettes
     } deriving (Show)
 
 $(deriveSafeCopy 0 'base ''LBlock)
@@ -220,9 +220,9 @@ instance Buildable Dpk where
 -- from mintettes and simply merges them after checking validity.
 data HBlock = HBlock
     { hbHash         :: !Hash
-    , hbTransactions :: [Transaction]
+    , hbTransactions :: ![Transaction]
     , hbSignature    :: !Signature
-    , hbDpk          :: Dpk
+    , hbDpk          :: !Dpk
     } deriving (Show)
 
 $(deriveSafeCopy 0 'base ''HBlock)
@@ -246,13 +246,13 @@ instance Buildable HBlock where
 -- | Data sent by server on new period start. If mintette id changes,
 -- bank *must* include npdNewIdPayload.
 data NewPeriodData = NewPeriodData
-    { npdPeriodId     :: PeriodId                 -- ^ Id of a new period
-    , npdMintettes    :: Mintettes                -- ^ Mintettes list
-    , npdHBlock       :: HBlock                   -- ^ Last processed HBlock (needed to
-                                                  -- update local mintette's utxo)
-    , npdNewIdPayload :: Maybe (MintetteId, Utxo) -- ^ Data needed for mintette to
-                                                  -- restore state if it's Id changes
-    , npdDpk          :: Dpk                      -- ^ Dpk
+    { npdPeriodId     :: !PeriodId                   -- ^ Id of a new period
+    , npdMintettes    :: !Mintettes                  -- ^ Mintettes list
+    , npdHBlock       :: !HBlock                     -- ^ Last processed HBlock (needed to
+                                                     -- update local mintette's utxo)
+    , npdNewIdPayload :: !(Maybe (MintetteId, Utxo)) -- ^ Data needed for mintette to
+                                                     -- restore state if it's Id changes
+    , npdDpk          :: !Dpk                        -- ^ Dpk
     } deriving (Show)
 
 instance Buildable (AddrId, Address) where

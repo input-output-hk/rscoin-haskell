@@ -57,8 +57,8 @@ instance Buildable (TransactionId, Int, Coin) where
 -- | Transaction represents act of transfering units of currency from
 -- set of inputs to set of outputs.
 data Transaction = Transaction
-    { txInputs  :: [AddrId]
-    , txOutputs :: [(Address, Coin)]
+    { txInputs  :: ![AddrId]
+    , txOutputs :: ![(Address, Coin)]
     } deriving (Show, Eq)
 
 instance Binary Transaction where

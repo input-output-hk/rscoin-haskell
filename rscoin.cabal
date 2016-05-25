@@ -26,6 +26,7 @@ data-files:            resources/RSCoinMain.glade
                      , resources/icons/withdraw.png
                      , resources/icons/deposit.png
                      , resources/icons/profile.png
+                     , resources/icons/addresses.png
 
 library
   exposed-modules:     RSCoin.Bank

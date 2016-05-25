@@ -42,6 +42,7 @@ loadIcons = mapM_ loadIcon iconList
                , "resources/icons/withdraw.png"
                , "resources/icons/deposit.png"
                , "resources/icons/profile.png"
+               , "resources/icons/addresses.png"
                ]
     loadIcon path = do
         icon <- G.iconSourceNew

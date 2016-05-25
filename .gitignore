@@ -4,7 +4,7 @@
 #*
 TAGS
 stats
-wallet-db/
+wallet-db*
 bank-db/
 mintette-db/
 tmp/

@@ -20,6 +20,7 @@ module RSCoin.User.AcidState
        , GetPublicAddresses (..)
        , GetTransactions (..)
        , GetLastBlockId (..)
+       , GetTransactionsHistory (..)
 
        -- * Updates
        , WithBlockchainUpdate (..)
@@ -41,9 +42,12 @@ import qualified RSCoin.Core         as C
 import           RSCoin.Core.Crypto  (keyGen)
 import           RSCoin.Timed        (WorkMode)
 import           RSCoin.User.Logic   (getBlockchainHeight)
-import           RSCoin.User.Wallet  (UserAddress, WalletStorage)
+import           RSCoin.User.Wallet  (TxHStatus, TxHistoryRecord, UserAddress,
+                                      WalletStorage)
 import qualified RSCoin.User.Wallet  as W
 
+$(deriveSafeCopy 0 'base ''TxHStatus)
+$(deriveSafeCopy 0 'base ''TxHistoryRecord)
 $(deriveSafeCopy 0 'base ''UserAddress)
 $(deriveSafeCopy 0 'base ''WalletStorage)
 
@@ -74,12 +78,14 @@ getAllAddresses :: A.Query WalletStorage [UserAddress]
 getPublicAddresses :: A.Query WalletStorage [C.PublicKey]
 getTransactions :: UserAddress -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
+getTransactionsHistory :: A.Query WalletStorage [TxHistoryRecord]
 
 isInitialized = W.isInitialized
 getAllAddresses = W.getAllAddresses
 getPublicAddresses = W.getPublicAddresses
 getTransactions = W.getTransactions
 getLastBlockId = W.getLastBlockId
+getTransactionsHistory = W.getTransactionsHistory
 
 withBlockchainUpdate :: Int -> [C.Transaction] -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.Transaction -> A.Update WalletStorage ()
@@ -98,6 +104,7 @@ $(makeAcidic
       , 'getPublicAddresses
       , 'getTransactions
       , 'getLastBlockId
+      , 'getTransactionsHistory
       , 'withBlockchainUpdate
       , 'addTemporaryTransaction
       , 'addAddresses

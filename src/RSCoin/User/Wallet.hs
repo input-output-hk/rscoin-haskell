@@ -15,6 +15,8 @@ module RSCoin.User.Wallet
        , makeUserAddress
        , toAddress
        , validateUserAddress
+       , TxHStatus (..)
+       , TxHistoryRecord (..)
        , WalletStorageError (..)
        , WalletStorage
        , emptyWalletStorage
@@ -24,6 +26,7 @@ module RSCoin.User.Wallet
        , addTemporaryTransaction
        , getTransactions
        , getLastBlockId
+       , getTransactionsHistory
        , withBlockchainUpdate
        , addAddresses
        , initWallet
@@ -37,10 +40,12 @@ import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
-import           Data.List                  (delete, find, nub)
+import           Data.List                  (delete, find, nub, (\\))
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust, isJust)
 import           Data.Monoid                ((<>))
+import           Data.Ord                   (comparing)
+import qualified Data.Set                   as S
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Text.Lazy.Builder     (fromString)
@@ -86,21 +91,42 @@ validateUserAddress :: UserAddress -> Bool
 validateUserAddress uaddr =
     C.checkKeyPair (uaddr ^. privateAddress, uaddr ^. publicAddress)
 
+-- | This datatype represents the status of transaction in
+-- history. Rejected transactions are those who were "sent"
+-- successfully but didn't get into blockchain.
+data TxHStatus = TxHConfirmed | TxHUnconfirmed | TxHRejected
+                 deriving (Show, Eq)
+
+-- | Record of a certain transaction in history
+data TxHistoryRecord = TxHistoryRecord
+    { txhTransaction :: Transaction
+    , txhHeight      :: Int  -- we don't have transaction /time/ as date,
+                             -- so let's indicate it with height
+    , txhStatus      :: TxHStatus
+    } deriving (Show, Eq)
+
+instance Ord TxHistoryRecord where
+    compare = comparing $ \TxHistoryRecord{..} ->
+                          (txhHeight, C.hash txhTransaction)
+
 -- | Wallet, that holdls all information needed for the user to 'own'
 -- bitcoins. Plus some meta-information that's crucially needed for
 -- this implementation to work.
-
 type TrAddrId = (Transaction, AddrId)
 data WalletStorage = WalletStorage
     { _userAddresses     :: [UserAddress]                -- ^ Addresses that user owns
     , _inputAddressesTxs :: M.Map UserAddress [TrAddrId] -- ^ Transactions that user is aware
                                                          -- of and that reference user
                                                          -- addresses, that were not spent
-    , _periodDeleted     :: [(UserAddress, TrAddrId)]    -- ^ support list for deleted events
-    , _periodAdded       :: [(UserAddress, TrAddrId)]    -- ^ support list for added events
+                                                         -- (utxo basically)
+    , _periodDeleted     :: [(UserAddress, TrAddrId)]    -- ^ Support list for deleted events
+    , _periodAdded       :: [(UserAddress, TrAddrId)]    -- ^ Support list for added events
     , _lastBlockId       :: Maybe PeriodId               -- ^ Last blochain height known
                                                          -- to user (if known)
-    } deriving ((Show))
+
+    , _historyTxs        :: S.Set TxHistoryRecord        -- ^ History of all transactions
+                                                         -- being made (incomes + outcomes)
+    } deriving (Show)
 
 $(L.makeLenses ''WalletStorage)
 
@@ -115,7 +141,7 @@ instance Exception WalletStorageError
 
 -- | Creates empty WalletStorage. Uninitialized.
 emptyWalletStorage :: WalletStorage
-emptyWalletStorage = WalletStorage [] M.empty [] [] Nothing
+emptyWalletStorage = WalletStorage [] M.empty [] [] Nothing S.empty
 
 -- Queries
 
@@ -166,6 +192,8 @@ getTransactions addr = checkInitR $ do
 getLastBlockId :: ExceptQuery Int
 getLastBlockId = checkInitR $ L.views lastBlockId fromJust
 
+getTransactionsHistory :: ExceptQuery [TxHistoryRecord]
+getTransactionsHistory = L.views historyTxs S.toList
 
 -- Updates
 
@@ -213,6 +241,42 @@ addTemporaryTransaction tx@Transaction{..} = do
                inputAddressesTxs %=
                    M.insertWith (++) userAddr [(tx, addrid)]
                periodAdded <>= [(userAddr, (tx,addrid))]
+    historyTxs %= S.insert (TxHistoryRecord tx (-1) TxHUnconfirmed)
+
+-- | Called from withBlockchainUpdate. Takes all transactions with
+-- unconfirmed status, modifies them either to confirmed or rejected
+-- depending on if they are in period transaction list. Also updates
+-- their height to current blockchain height.
+putHistoryRecords :: PeriodId -> [Transaction] -> ExceptUpdate ()
+putHistoryRecords newHeight transactions = do
+    unconfirmed <-
+        S.toList <$>
+        L.uses
+            historyTxs
+            (S.filter $ \TxHistoryRecord{..} -> txhStatus == TxHUnconfirmed)
+    historyTxs %= S.difference (S.fromList unconfirmed)
+    let inList =
+            filter
+                (\TxHistoryRecord{..} ->
+                      txhTransaction `elem` transactions)
+                unconfirmed
+        nonInList = unconfirmed \\ inList
+        confirmed = map setConfirmed inList
+        rejected = map setRejected nonInList
+    historyTxs %= S.union (S.fromList $ confirmed ++ rejected)
+  where
+    setConfirmed TxHistoryRecord{..} =
+        TxHistoryRecord
+        { txhHeight = newHeight
+        , txhStatus = TxHConfirmed
+        , ..
+        }
+    setRejected TxHistoryRecord{..} =
+        TxHistoryRecord
+        { txhHeight = newHeight
+        , txhStatus = TxHRejected
+        , ..
+        }
 
 -- | Update state with bunch of transactions from new unobserved
 -- blockchain blocks. Sum validation for transactions
@@ -233,7 +297,10 @@ withBlockchainUpdate newHeight transactions =
                ("New blockchain height {} should be exactly {} + 1. " <>
                 "Only incremental updates are available.")
                (newHeight, currentHeight)
+
        restoreTransactions
+       putHistoryRecords newHeight transactions
+
        ownedAddressesRaw <- L.use userAddresses
        ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
        let addSomeTransactions tx@Transaction{..} =

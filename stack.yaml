@@ -16,7 +16,6 @@ packages:
   subdirs:
     - msgpack
     - msgpack-rpc
-    - msgpack-aeson
 
 nix:
     enable: false

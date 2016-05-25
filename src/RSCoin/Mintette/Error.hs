@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | All possible runtime errors in Mintette
 
 module RSCoin.Mintette.Error
@@ -7,26 +5,20 @@ module RSCoin.Mintette.Error
        , isMEInactive
        ) where
 
-import           Control.Exception      (Exception (..), SomeException)
-import           Data.Aeson.TH          (defaultOptions, deriveJSON)
-import           Data.Monoid            ((<>))
-import           Data.Text              (Text)
-import           Data.Text.Buildable    (Buildable (build))
-import qualified Data.Text.Format       as F
-import           Data.Typeable          (Typeable)
+import           Control.Exception       (Exception (..), SomeException)
+import           Data.MessagePack        (MessagePack (fromObject, toObject),
+                                          Object)
+import           Data.Monoid             ((<>))
+import           Data.Text               (Text)
+import           Data.Text.Buildable     (Buildable (build))
+import qualified Data.Text.Format        as F
+import           Data.Typeable           (Typeable)
 
-import           RSCoin.Core.Aeson      ()
-import           RSCoin.Core.Error      (rscExceptionFromException,
-                                         rscExceptionToException)
-import           RSCoin.Core.Primitives (AddrId)
-import           RSCoin.Core.Types      (PeriodId)
-
-
-import           Data.MessagePack       (MessagePack (fromObject, toObject))
-import           Data.MessagePack.Aeson (AsMessagePack (AsMessagePack),
-                                         getAsMessagePack)
-
-
+import           RSCoin.Core.Error       (rscExceptionFromException,
+                                          rscExceptionToException)
+import           RSCoin.Core.MessagePack ()
+import           RSCoin.Core.Primitives  (AddrId)
+import           RSCoin.Core.Types       (PeriodId)
 
 data MintetteError
     = MEInternal Text                     -- ^ Should not happen.
@@ -62,11 +54,34 @@ instance Buildable MintetteError where
     build MENotConfirmed = "transaction doesn't have enough confirmations"
     build MEAlreadyActive = "can't start new period when period is active"
 
-$(deriveJSON defaultOptions ''MintetteError)
+toObj
+    :: MessagePack a
+    => (Int, a) -> Object
+toObj = toObject
 
 instance MessagePack MintetteError where
-    toObject = toObject . AsMessagePack
-    fromObject = fmap getAsMessagePack . fromObject
+    toObject (MEInternal t) = toObj (0, t)
+    toObject MEInactive = toObj (1, ())
+    toObject (MEPeriodMismatch p1 p2) = toObj (2, (p1, p2))
+    toObject MEInvalidTxSums = toObj (3, ())
+    toObject (MEInconsistentRequest t) = toObj (4, t)
+    toObject (MENotUnspent a) = toObj (5, a)
+    toObject MEInvalidSignature = toObj (6, ())
+    toObject MENotConfirmed = toObj (7, ())
+    toObject MEAlreadyActive = toObj (8, ())
+    fromObject obj = do
+        (i,payload) <- fromObject obj
+        case (i :: Int) of
+            0 -> MEInternal <$> fromObject payload
+            1 -> pure MEInactive
+            2 -> uncurry MEPeriodMismatch <$> fromObject payload
+            3 -> pure MEInvalidTxSums
+            4 -> MEInconsistentRequest <$> fromObject payload
+            5 -> MENotUnspent <$> fromObject payload
+            6 -> pure MEInvalidSignature
+            7 -> pure MENotConfirmed
+            8 -> pure MEAlreadyActive
+            _ -> Nothing
 
 isMEInactive :: SomeException -> Bool
 isMEInactive = maybe False (== MEInactive) . fromException

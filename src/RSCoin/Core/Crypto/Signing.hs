@@ -20,12 +20,7 @@ module RSCoin.Core.Crypto.Signing
        , checkKeyPair
        ) where
 
-import           Control.Monad              (mzero)
 import qualified Crypto.Sign.Ed25519        as E
-import           Data.Aeson                 (FromJSON (parseJSON),
-                                             ToJSON (toJSON),
-                                             Value (Object, String), object,
-                                             (.:), (.=))
 import           Data.Bifunctor             (bimap)
 import           Data.Binary                (Binary (get, put), decodeOrFail,
                                              encode)
@@ -78,16 +73,6 @@ instance Buildable Signature where
     -- build = build . F.Shown . getSignature
     build _ = "Signature"
 
-instance FromJSON Signature where
-    parseJSON (Object v) =
-        Signature <$>
-        fmap (E.Signature . read) (v .: "signature")
-    parseJSON _ = fail "Signature should be an object"
-
-instance ToJSON Signature where
-    toJSON (getSignature -> sig) =
-        object ["signature" .= show (E.unSignature sig)]
-
 instance MessagePack Signature where
     toObject = toObject . E.unSignature . getSignature
     fromObject obj = Signature . E.Signature <$> fromObject obj
@@ -136,13 +121,6 @@ instance Binary PublicKey where
 instance SafeCopy PublicKey where
     putCopy = putCopyBinary
     getCopy = getCopyBinary
-
-instance FromJSON PublicKey where
-    parseJSON (String s) = maybe mzero return . constructPublicKey $ s
-    parseJSON _ = fail "PublicKey must be String"
-
-instance ToJSON PublicKey where
-    toJSON = toJSON . show'
 
 instance MessagePack PublicKey where
     toObject = toObject . E.unPublicKey . getPublicKey

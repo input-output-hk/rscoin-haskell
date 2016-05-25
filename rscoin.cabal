@@ -261,6 +261,7 @@ executable rscoin-bench
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
+                     , clock
                      , exceptions
                      , filepath
                      , formatting
@@ -270,7 +271,6 @@ executable rscoin-bench
                      , serokell-core
                      , temporary
                      , text
-                     , time
                      , time-units
                      , transformers
   hs-source-dirs:      bench

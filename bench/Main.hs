@@ -10,10 +10,10 @@ import           Control.Concurrent.Async   (forConcurrently)
 import           Control.Monad              (forM_, replicateM, void)
 import           Data.Int                   (Int64)
 import           Data.Maybe                 (fromMaybe)
-import           Data.Time.Clock            (NominalDiffTime, diffUTCTime,
-                                             getCurrentTime)
 import           Data.Time.Units            (toMicroseconds)
 import           Formatting                 (build, sformat, shown, (%))
+import           System.Clock               (Clock (..), TimeSpec, diffTimeSpec,
+                                             getTime)
 
 -- workaround to make stylish-haskell work :(
 import           Options.Generic
@@ -83,16 +83,19 @@ initializeSuperUser benchDir userAddresses = do
     logInfo "Initialized user in bankMode, now waiting for the end of the period…"
     threadDelay $ fromInteger $ toMicroseconds (defaultBenchPeriod + 1)
 
-runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO NominalDiffTime
+runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO (TimeSpec, TimeSpec)
 runTransactions benchDir userAddresses userIds = do
-    let benchUserAction = userThread benchDir $ benchUserTransactions userAddresses
-
+    let benchUserAction =
+            userThread benchDir $ benchUserTransactions userAddresses
     logInfo "Running transactions…"
-    timeBefore <- getCurrentTime
+    cpuTimeBefore <- getTime ProcessCPUTime
+    wallTimeBefore <- getTime Realtime
     _ <- forConcurrently userIds benchUserAction
-    timeAfter <- getCurrentTime
-
-    return $ timeAfter `diffUTCTime` timeBefore
+    wallTimeAfter <- getTime Realtime
+    cpuTimeAfter <- getTime ProcessCPUTime
+    return
+        ( cpuTimeAfter `diffTimeSpec` cpuTimeBefore
+        , wallTimeAfter `diffTimeSpec` wallTimeBefore)
 
 main :: IO ()
 main = do
@@ -112,5 +115,6 @@ main = do
         userAddresses <- initializeUsers benchDir userIds
         initializeSuperUser benchDir userAddresses
 
-        elapsedTime <- runTransactions benchDir userAddresses userIds
-        logInfo $ sformat ("Elapsed time: " % shown) elapsedTime
+        (cpuTime, wallTime) <- runTransactions benchDir userAddresses userIds
+        logInfo $ sformat ("Elapsed CPU time: " % shown) cpuTime
+        logInfo $ sformat ("Elapsed wall-clock time: " % shown) wallTime

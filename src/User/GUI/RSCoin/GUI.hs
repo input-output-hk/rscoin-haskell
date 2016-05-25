@@ -14,20 +14,21 @@ import           Graphics.UI.Gtk            (on)
 import qualified Graphics.UI.Gtk            as G
 import           Paths_rscoin               (getDataFileName)
 
+import           GUI.RSCoin.AddressesTab    (createAddressesTab,
+                                             initAddressesTab)
 import           GUI.RSCoin.ContactsTab     (createContactsTab, initContactsTab)
 import           GUI.RSCoin.Glade           (AddContactWindow (..),
                                              GladeMainWindow (..), importGlade)
 import           GUI.RSCoin.GUIAcid         (GUIState)
 import           GUI.RSCoin.MainWindow      (MainWindow (..))
 import qualified GUI.RSCoin.MainWindow      as M
-import           GUI.RSCoin.AddressesTab    (createAddressesTab,
-                                             initAddressesTab)
 import           GUI.RSCoin.TransactionsTab (createTransactionsTab,
                                              initTransactionsTab)
 import           GUI.RSCoin.WalletTab       (createWalletTab, initWalletTab)
 import qualified RSCoin.User                as U
 
--- ICONS --
+---- ICONS ----
+
 loadIcons :: IO ()
 loadIcons = mapM_ loadIcon iconList
   where
@@ -87,8 +88,7 @@ setNotebookIcons nb size = do
         image <- G.imageNewFromStock (T.toLower name) size
         G.notebookAppendPageMenu nb widget image image
 
--- ICONS --
-
+---------------
 
 startGUI :: U.RSCoinUserState -> GUIState -> IO ()
 startGUI st gst = do
@@ -120,9 +120,9 @@ initMainWindow :: U.RSCoinUserState
                -> AddContactWindow
                -> IO ()
 initMainWindow st gst mw@MainWindow{..} acw = do
-    initWalletTab mw
+    initWalletTab st gst mw
     initTransactionsTab st gst mw
     initContactsTab gst mw acw
-    initAddressesTab st gst mw
+    initAddressesTab st mw
     loadIcons
     setNotebookIcons notebookMain G.IconSizeLargeToolbar

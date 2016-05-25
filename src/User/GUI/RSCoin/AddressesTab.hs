@@ -3,29 +3,28 @@
 module GUI.RSCoin.AddressesTab
     ( createAddressesTab
     , initAddressesTab
+    , updateAddressTab
     ) where
 
 import           Control.Lens          ((^.))
 import           Control.Monad         (void)
-import           Data.Acid             (update, query)
+import           Data.Acid             (query)
 
 import           Graphics.UI.Gtk       (AttrOp ((:=)))
 import qualified Graphics.UI.Gtk       as G
 
+import           GUI.RSCoin.Glade      (GladeMainWindow (..))
+import           GUI.RSCoin.MainWindow (AddressesTab (..), MainWindow (..))
 import qualified RSCoin.Core           as C
 import           RSCoin.User           (RSCoinUserState)
 import           RSCoin.User.AcidState (GetAllAddresses (..))
 import           RSCoin.User.Wallet    (publicAddress)
 
-import           GUI.RSCoin.Glade      (GladeMainWindow (..))
-import           GUI.RSCoin.GUIAcid    (GUIState)
-import           GUI.RSCoin.MainWindow (MainWindow (..), AddressesTab (..))
-
 createAddressesTab :: GladeMainWindow -> AddressesTab
 createAddressesTab GladeMainWindow{..} = AddressesTab gTreeViewAddressesView
 
-initAddressesTab :: RSCoinUserState -> GUIState -> MainWindow -> IO ()
-initAddressesTab st gst MainWindow{..} = do
+initAddressesTab :: RSCoinUserState -> MainWindow -> IO ()
+initAddressesTab st mw@MainWindow{..} = do
     let AddressesTab{..} = tabAddresses
     addresses <- query st GetAllAddresses
     addressesList <- G.listStoreNew addresses
@@ -37,3 +36,7 @@ initAddressesTab st gst MainWindow{..} = do
     G.cellLayoutSetAttributes addressesCol renderer addressesList $ \a ->
         [G.cellText := C.printPublicKey (a ^. publicAddress)]
     void $ G.treeViewAppendColumn treeViewAddressesView addressesCol
+    updateAddressTab st mw
+
+updateAddressTab :: RSCoinUserState -> MainWindow -> IO ()
+updateAddressTab _ _ = return ()

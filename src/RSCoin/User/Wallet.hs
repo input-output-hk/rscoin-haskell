@@ -26,7 +26,7 @@ module RSCoin.User.Wallet
        , addTemporaryTransaction
        , getTransactions
        , getLastBlockId
-       , getTransactionsHistory
+       , getTxsHistory
        , withBlockchainUpdate
        , addAddresses
        , initWallet
@@ -192,8 +192,8 @@ getTransactions addr = checkInitR $ do
 getLastBlockId :: ExceptQuery Int
 getLastBlockId = checkInitR $ L.views lastBlockId fromJust
 
-getTransactionsHistory :: ExceptQuery [TxHistoryRecord]
-getTransactionsHistory = L.views historyTxs S.toList
+getTxsHistory :: ExceptQuery [TxHistoryRecord]
+getTxsHistory = L.views historyTxs S.toList
 
 -- Updates
 

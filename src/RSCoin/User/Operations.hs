@@ -11,6 +11,7 @@ module RSCoin.User.Operations
        , getAmount
        , getAmountByIndex
        , getAllPublicAddresses
+       , getTransactionsHistory
        , updateToBlockHeight
        , updateBlockchain
        , formTransactionFromAll
@@ -137,6 +138,10 @@ getAmountByIndex st idx = do
 -- | Returns list of public addresses available
 getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
 getAllPublicAddresses st = map C.Address <$> query' st A.GetPublicAddresses
+
+-- | Returns transaction history that wallet holds
+getTransactionsHistory :: WorkMode m => A.RSCoinUserState -> m [W.TxHistoryRecord]
+getTransactionsHistory st = query' st A.GetTxsHistory
 
 -- | Forms transaction given just amount of money to use. Tries to
 -- spend coins from accounts that have the least amount of money.

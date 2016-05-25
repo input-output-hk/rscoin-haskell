@@ -9,6 +9,8 @@ module GUI.RSCoin.MainWindow
        , AddContactWindow (..)
        ) where
 
+import           Data.Int        (Int64)
+
 import qualified Graphics.UI.Gtk as G
 
 -- | Main window, the whole gui -- all elements we're interested in.
@@ -25,9 +27,9 @@ data MainWindow = MainWindow
 data WalletModelNode = WalletModelNode
     { wIsSend      :: Bool
     , wIsConfirmed :: Bool
-    , wTime        :: String
+    , wHeight      :: Int
     , wAddress     :: String
-    , wAmount      :: Integer
+    , wAmount      :: Int64
     }
 
 data WalletTab = WalletTab

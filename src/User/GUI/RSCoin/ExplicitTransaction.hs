@@ -1,10 +1,9 @@
 -- | Structure and functions used to print transactions.
 
-module GUI.RSCoin.Transactions
-    ( VerboseTransaction (..)
+module GUI.RSCoin.ExplicitTransaction
+    ( ExplicitTransaction (..)
     , fromTransaction
     , getTransactionAmount
-    , showTransaction
     ) where
 
 import           Control.Lens       ((^.))
@@ -13,28 +12,28 @@ import           Data.Bifunctor     (first)
 import           Data.Int           (Int64)
 
 import           RSCoin.Core        (Address (..), Coin (..), Transaction (..),
-                                     getTransactionById, printPublicKey)
+                                     getTransactionById)
 import           RSCoin.Timed       (WorkMode)
 import           RSCoin.User.Wallet (UserAddress, publicAddress)
 
 -- | Transaction in a user-printable form.
-data VerboseTransaction = VT
+data ExplicitTransaction = ExplicitTransaction
     { vtInputs  :: [(Maybe Address, Coin)]
     , vtOutputs :: [(Address, Coin)]
     }
 
 -- | Transforms a transaction into a user-printable form.
-fromTransaction :: WorkMode m => Transaction -> m VerboseTransaction
+fromTransaction :: WorkMode m => Transaction -> m ExplicitTransaction
 fromTransaction (Transaction i o) = do
     ti <- forM i $ \(tId, x, c) -> do
         pt <- getTransactionById tId
         let ua = (\a -> fst (txOutputs a !! x)) <$> pt
         return (ua, c)
-    return $ VT ti o
+    return $ ExplicitTransaction ti o
 
 -- | Calculates the balance change for the user caused by the transaction.
-getTransactionAmount :: [UserAddress] -> VerboseTransaction -> Int64
-getTransactionAmount a (VT i o) =
+getTransactionAmount :: [UserAddress] -> ExplicitTransaction -> Int64
+getTransactionAmount a (ExplicitTransaction i o) =
     calculate (map (first Just) o) - calculate i
   where
     calculate [] = 0
@@ -42,16 +41,3 @@ getTransactionAmount a (VT i o) =
 
     isMy (Nothing, _) = False
     isMy (Just d, _) = getAddress d `elem` map (^. publicAddress) a
-
--- | Prints the transaction.
-showTransaction :: VerboseTransaction -> String
-showTransaction (VT i o) = "[" ++ show1 i ++ " -> " ++
-    show1 (map (first Just) o)
-  where
-    show1 [] = "]"
-    show1 [x] = show2 x ++ "]"
-    show1 (x:xs) = show2 x ++ ", " ++ show1 xs
-
-    show2 (Nothing, Coin c) = "(Unrecognized, " ++ show c ++ ")"
-    show2 (Just (Address a), Coin c) =
-        "(" ++ printPublicKey a ++ ", " ++ show c ++ ")"

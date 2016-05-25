@@ -4,17 +4,22 @@
 module GUI.RSCoin.WalletTab
        ( createWalletTab
        , initWalletTab
+       , updateWalletTab
        ) where
 
-import           Control.Monad                        (join, void)
+import           Control.Monad         (join, void)
+import           Graphics.UI.Gtk       (AttrOp ((:=)))
+import qualified Graphics.UI.Gtk       as G
 
-import           Graphics.UI.Gtk                      (AttrOp ((:=)))
-import qualified Graphics.UI.Gtk                      as G
+import qualified RSCoin.Core           as C
+import           RSCoin.Timed          (runRealMode)
+import           RSCoin.User           (RSCoinUserState)
+import qualified RSCoin.User           as U
 
-import           GUI.RSCoin.Glade                     (GladeMainWindow (..))
-import           GUI.RSCoin.MainWindow                (WalletModelNode (..),
-                                                       WalletTab (..))
-import qualified GUI.RSCoin.MainWindow                as M
+import           GUI.RSCoin.Glade      (GladeMainWindow (..))
+import           GUI.RSCoin.GUIAcid    (GUIState)
+import           GUI.RSCoin.MainWindow (WalletModelNode (..), WalletTab (..))
+import qualified GUI.RSCoin.MainWindow as M
 
 type Model = G.ListStore WalletModelNode
 
@@ -23,7 +28,7 @@ createWalletTab GladeMainWindow{..} = do
     makeHeaderRed
     containerSeparatorColor gBoxRSCoinLogo redColor
     containerSeparatorColor gBoxWalletHeader whiteColor
-    model <- createRandomWalletModel gTreeViewWallet
+    model <- createWalletModel gTreeViewWallet
     return $
         WalletTab
             gTreeViewWallet
@@ -54,12 +59,12 @@ createWalletTab GladeMainWindow{..} = do
 --        cssProviderLoadFromString css css'
 --        styleContextAddProvider ctx css 1
 
-createRandomWalletModel :: G.TreeView -> IO Model
-createRandomWalletModel view = do
+createWalletModel :: G.TreeView -> IO Model
+createWalletModel view = do
     model <- G.listStoreNew []
     appendPixbufColumn model True "Status" statusSetter
     appendTextColumn model True "Confirmation" confirmationSetter
-    appendTextColumn model True "Time" timeSetter
+    appendTextColumn model True "At height" heightSetter
     appendTextColumn model True "Address" addrSetter
     appendTextColumn model True "Amount" amountSetter
     G.treeViewSetModel view model
@@ -88,25 +93,32 @@ createRandomWalletModel view = do
           if wIsConfirmed node
               then "Confirmed"
               else "Unconfirmed"]
-    timeSetter node = [G.cellText := wTime node]
+    heightSetter node = [G.cellText := show (wHeight node)]
     addrSetter node = [G.cellText := wAddress node]
     amountSetter node = [G.cellText := showSigned (wAmount node)]
     showSigned a
       | a > 0 = "+" ++ show a
       | otherwise = show a
 
-initWalletTab :: M.MainWindow -> IO ()
-initWalletTab M.MainWindow{..} = addRandomData $ walletModel tabWallet
+initWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
+initWalletTab = updateWalletTab
 
-addRandomData :: Model -> IO ()
-addRandomData model = mapM_ (G.listStoreAppend model) randomModelData
-  where
-    randomModelData = do
-        tm <- ["2:20", "6:42", "12:31"]
-        st2 <- [True, False]
-        am <- [123, -3456, 12345, -45323]
-        st1 <- [True, False]
-        addr <- [ "A7FUZi67YbBonrD9TrfhX7wnnFxrIRflbMFOpI+r9dOc"
-                , "G7FuzI67zbBbnrD9trfh27anNf2RiRFLBmfBPi+R9DBC"
-                ]
-        return $ WalletModelNode st1 st2 tm addr am
+toNodeMapper :: U.TxHistoryRecord -> IO WalletModelNode
+toNodeMapper U.TxHistoryRecord{..} =
+    -- FIXME it's a stub, fix using cast to ExplicitTransaction,...
+    return $ WalletModelNode False False 123 "AOEUAOEUAOEUAOEU" 45
+
+updateWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
+updateWalletTab st _ M.MainWindow{..} = do
+    let WalletTab{..} = tabWallet
+    userAmount <- runRealMode $ U.getUserTotalAmount st
+    G.labelSetText labelCurrentBalance $ show $ C.getCoin userAmount
+    transactionsHist <- runRealMode $ U.getTransactionsHistory st
+    let unconfirmed =
+            filter
+                (\U.TxHistoryRecord{..} -> txhStatus == U.TxHUnconfirmed)
+                transactionsHist
+    G.labelSetText labelTransactionsNumber $ show $ length unconfirmed
+    nodes <- mapM toNodeMapper transactionsHist
+    G.listStoreClear walletModel
+    mapM_ (G.listStoreAppend walletModel) nodes

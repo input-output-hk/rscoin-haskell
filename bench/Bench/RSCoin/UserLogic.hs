@@ -88,7 +88,7 @@ benchUserTransactions allAddresses userId userState = do
         loggingStep = transactionNum `div` 5
     forM_ [0 .. transactionNum - 1] $
         \i ->
-             do when (i `mod` loggingStep == 0) $
+             do when (i /= 0 && i `mod` loggingStep == 0) $
                     logInfo $
                     sformat
                         ("User " % int % " has executed " % int %

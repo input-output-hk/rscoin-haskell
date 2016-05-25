@@ -1,6 +1,9 @@
 {-# LANGUAGE NoOverloadedStrings #-}
 
-module GUI.RSCoin.ErrorMessage (reportSimpleError) where
+module GUI.RSCoin.ErrorMessage
+       ( reportSimpleError
+       , reportSimpleErrorNoWindow
+       ) where
 
 import           Control.Monad   (void)
 
@@ -8,9 +11,15 @@ import           Graphics.UI.Gtk (AttrOp ((:=)))
 import qualified Graphics.UI.Gtk as G
 
 reportSimpleError :: G.Window -> String -> IO ()
-reportSimpleError mw message = do
+reportSimpleError mw = simpleError (Just mw)
+
+reportSimpleErrorNoWindow :: String -> IO ()
+reportSimpleErrorNoWindow = simpleError Nothing
+
+simpleError :: Maybe G.Window -> String -> IO ()
+simpleError maybeW message = do
     dialog <- G.messageDialogNew
-        (Just mw)
+        maybeW
         [G.DialogDestroyWithParent]
         G.MessageError
         G.ButtonsClose

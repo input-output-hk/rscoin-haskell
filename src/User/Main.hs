@@ -1,39 +1,62 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-import           Control.Monad                  (void, when)
-import           Control.Monad.Catch            (MonadCatch, bracket, catch,
-                                                 throwM)
-import           Control.Monad.Trans            (MonadIO, liftIO)
-import qualified Data.Acid                      as ACID
-import qualified Data.Text                      as T
+import           Control.Concurrent      (threadDelay)
+import           Control.Exception       (SomeException)
+import           Control.Monad           (unless, void)
+import           Control.Monad.Catch     (MonadCatch, bracket, catch, throwM)
+import           Control.Monad.Trans     (MonadIO, liftIO)
+import qualified Data.Acid               as ACID
+import           Data.Acid.Advanced      (query')
+import qualified Data.Text               as T
+import qualified Graphics.UI.Gtk         as G
 
-import qualified RSCoin.Core                    as C
-import           RSCoin.Timed                   (WorkMode, runRealMode)
-import qualified RSCoin.User.AcidState          as A
-import qualified RSCoin.User.Actions            as UA
-import           RSCoin.User.Error              (eWrap)
-import qualified RSCoin.User.Wallet             as W
+import qualified RSCoin.Core             as C
+import           RSCoin.Timed            (WorkMode, runRealMode)
+import qualified RSCoin.User.AcidState   as A
+import qualified RSCoin.User.Actions     as UA
+import           RSCoin.User.Error       (eWrap)
+import qualified RSCoin.User.Wallet      as W
 
-import           GUI.RSCoin.GUI                 (startGUI)
-import           GUI.RSCoin.GUIAcid             (emptyGUIAcid)
-import qualified UserOptions                    as O
+import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
+import           GUI.RSCoin.GUI          (startGUI)
+import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
+import qualified UserOptions             as O
+
+initializeStorage st O.UserOptions{..} =
+    A.initState st addressesNum $ bankKeyPath isBankMode bankModePath
+  where
+    bankKeyPath True p = Just p
+    bankKeyPath False _ = Nothing
 
 -- | Processes command line user command
 processCommand
-    :: WorkMode m => A.RSCoinUserState -> O.UserCommand -> FilePath -> m ()
+    :: WorkMode m
+    => A.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ = UA.processAction st UA.ListAddresses
 processCommand st (O.FormTransaction i o) _ = UA.processAction st $ UA.FormTransaction i o
 processCommand st O.UpdateBlockchain _ = UA.processAction st UA.UpdateBlockchain
 processCommand _ (O.Dump command) _ = eWrap $ dumpCommand command
-processCommand st O.StartGUI contactsPath = -- TODO Refactor it outside
-    bracket
-        (liftIO $ ACID.openLocalStateFrom contactsPath emptyGUIAcid)
-        (\cs ->
-              liftIO $
-              do ACID.createCheckpoint cs
-                 ACID.closeAcidState cs)
-        (\cs -> liftIO $ startGUI st cs)
+processCommand st O.StartGUI opts@O.UserOptions{..} = do
+    initialized <- query' st A.IsInitialized
+    unless initialized $ liftIO G.initGUI >> initLoop
+    liftIO $ bracket
+        (ACID.openLocalStateFrom contactsPath emptyGUIAcid)
+        (\cs -> do ACID.createCheckpoint cs
+                   ACID.closeAcidState cs)
+        (\cs -> startGUI st cs)
+  where
+    initLoop =
+        initializeStorage st opts `catch`
+        (\(e :: SomeException) ->
+              do liftIO $
+                     reportSimpleErrorNoWindow $
+                     "Couldn't initialize rscoin. Check connection, close this " ++
+                     "dialog and we'll try again. Error: "
+                     ++ show e
+                 liftIO $ threadDelay $ 500 * 1000 -- wait for 0.5 sec
+                 initLoop)
 
 dumpCommand :: WorkMode m => O.DumpCommand -> m ()
 dumpCommand O.DumpMintettes                = void   C.getMintettes
@@ -55,13 +78,17 @@ main = do
             (\st -> liftIO $ do
                 ACID.createCheckpoint st
                 A.closeState st) $
-            \st -> do
-                i <- liftIO $ ACID.query st A.IsInitialized
-                when (not i) $ A.initState st addressesNum $
-                    bankKeyPath isBankMode bankModePath
-                C.logDebug C.userLoggerName $
-                    mconcat ["Called with options: ", (T.pack . show) opts]
-                processCommand st userCommand contactsPath
+            \st ->
+                 do C.logDebug C.userLoggerName $
+                        mconcat ["Called with options: ", (T.pack . show) opts]
+                    handleUnitialized
+                        (processCommand st userCommand opts)
+                        (initializeStorage st opts)
   where
-    bankKeyPath True  p = Just p
-    bankKeyPath False _ = Nothing
+    handleUnitialized :: (MonadIO m, MonadCatch m) => m () -> m () -> m ()
+    handleUnitialized action initialization =
+        action `catch` handler initialization action
+      where
+        handler i a W.NotInitialized =
+            C.logInfo C.userLoggerName "Initalizing storage..." >> i >> a
+        handler _ _ e = throwM e

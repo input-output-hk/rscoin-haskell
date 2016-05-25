@@ -99,8 +99,8 @@ main = do
     BenchOptions{..} <- getRecord "rscoin-user-bench"
     let mintettesNumber = unHelpful mintettes
         userNumber      = unHelpful users
-        globalSeverity  = fromMaybe Warning $ unHelpful severity
-        bSeverity       = fromMaybe Debug   $ unHelpful benchSeverity
+        globalSeverity  = fromMaybe Error $ unHelpful severity
+        bSeverity       = fromMaybe Info   $ unHelpful benchSeverity
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity

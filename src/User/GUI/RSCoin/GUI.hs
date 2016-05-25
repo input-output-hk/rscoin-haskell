@@ -20,6 +20,8 @@ import           GUI.RSCoin.Glade           (AddContactWindow (..),
 import           GUI.RSCoin.GUIAcid         (GUIState)
 import           GUI.RSCoin.MainWindow      (MainWindow (..))
 import qualified GUI.RSCoin.MainWindow      as M
+import           GUI.RSCoin.AddressesTab    (createAddressesTab,
+                                             initAddressesTab)
 import           GUI.RSCoin.TransactionsTab (createTransactionsTab,
                                              initTransactionsTab)
 import           GUI.RSCoin.WalletTab       (createWalletTab, initWalletTab)
@@ -100,8 +102,9 @@ startGUI st gst = do
 createMainWindow :: GladeMainWindow -> IO MainWindow
 createMainWindow gmw@GladeMainWindow {..} = do
     tabWallet <- createWalletTab gmw
-    tabTransactions <- createTransactionsTab gmw
-    tabContacts <- createContactsTab gmw
+    let tabTransactions = createTransactionsTab gmw
+        tabContacts     = createContactsTab gmw
+        tabAddresses    = createAddressesTab gmw
     return
         M.MainWindow
         { mainWindow = gWindow
@@ -119,5 +122,6 @@ initMainWindow st gst mw@MainWindow{..} acw = do
     initWalletTab mw
     initTransactionsTab st gst mw
     initContactsTab gst mw acw
+    initAddressesTab st gst mw
     loadIcons
     setNotebookIcons notebookMain G.IconSizeLargeToolbar

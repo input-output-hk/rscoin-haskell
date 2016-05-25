@@ -21,9 +21,8 @@ import           GUI.RSCoin.MainWindow   (AddContactWindow (..),
 import qualified GUI.RSCoin.MainWindow   as M
 import qualified RSCoin.Core             as C
 
-createContactsTab :: GladeMainWindow -> IO ContactsTab
+createContactsTab :: GladeMainWindow -> ContactsTab
 createContactsTab GladeMainWindow{..} =
-    return $
     ContactsTab gTreeViewContactsView gButtonAddContact
         gButtonRemoveContact gLabelContactsNum
 

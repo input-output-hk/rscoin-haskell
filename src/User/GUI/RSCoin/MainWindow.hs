@@ -5,6 +5,7 @@ module GUI.RSCoin.MainWindow
        , WalletTab (..)
        , TransactionsTab (..)
        , ContactsTab (..)
+       , AddressesTab (..)
        , AddContactWindow (..)
        ) where
 
@@ -18,6 +19,7 @@ data MainWindow = MainWindow
     , tabWallet         :: WalletTab
     , tabTransactions   :: TransactionsTab
     , tabContacts       :: ContactsTab
+    , tabAddresses      :: AddressesTab
     }
 
 data WalletModelNode = WalletModelNode
@@ -51,6 +53,10 @@ data ContactsTab = ContactsTab
     , buttonAddContact     :: G.Button
     , buttonRemoveContact  :: G.Button
     , labelContactsNum     :: G.Label
+    }
+
+data AddressesTab = AddressesTab
+    { treeViewAddressesView :: G.TreeView
     }
 
 data AddContactWindow = AddContactWindow

@@ -163,6 +163,7 @@ executable rscoin-user
                      , UserOptions
                      , GUI.RSCoin.Action
                      , GUI.RSCoin.ActionsExecutor
+                     , GUI.RSCoin.AddressesTab
                      , GUI.RSCoin.ContactsTab
                      , GUI.RSCoin.ErrorMessage
                      , GUI.RSCoin.Glade

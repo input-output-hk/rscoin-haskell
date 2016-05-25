@@ -37,6 +37,8 @@ data GladeMainWindow = GladeMainWindow
     , gButtonAddContact        :: G.Button
     , gButtonRemoveContact     :: G.Button
     , gLabelContactsNum        :: G.Label
+
+    , gTreeViewAddressesView   :: G.TreeView
     }
 
 makeBuilder :: FilePath -> IO G.Builder
@@ -84,6 +86,7 @@ importGlade = do
         <*> getButton      "addContactButton"
         <*> getButton      "removeContactButton"
         <*> getLabel       "contactsNumLabel"
+        <*> getView        "addressesView"
     acw <- AddContactWindow
         <$> getWindow "addContactWindow"
         <*> getEntry  "nameEntry"

@@ -23,9 +23,8 @@ import qualified RSCoin.User             as U
 
 import           Serokell.Util.Text    (readUnsignedDecimal)
 
-createTransactionsTab :: GladeMainWindow -> IO TransactionsTab
+createTransactionsTab :: GladeMainWindow -> TransactionsTab
 createTransactionsTab GladeMainWindow{..} =
-    return $
     TransactionsTab
         gEntryPayTo
         gButtonChooseContacts

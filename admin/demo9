@@ -21,7 +21,7 @@ _session="rscoin-demo"
 tmux start-server\; has-session -t "$_session" 2>/dev/null
 
 _wd="$(pwd)"
-_post_hook_maybe=$([ -f "shell.nix" ] && echo "nix-shell")
+#_post_hook_maybe=$([ -f "shell.nix" ] && echo "nix-shell")
 
 TMUX="$(tmux new-session -d -s "$_session" -n project)"
 tmux new-window -c "$_wd" -t "${_session}:1" -n build

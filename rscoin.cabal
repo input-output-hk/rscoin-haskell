@@ -162,9 +162,6 @@ executable rscoin-user
   main-is:             Main.hs
   other-modules:       Paths_rscoin
                      , UserOptions
-                     , GUI.RSCoin.Action
-                     , GUI.RSCoin.ActionsExecutor
-                     , GUI.RSCoin.Addresses
                      , GUI.RSCoin.AddressesTab
                      , GUI.RSCoin.ContactsTab
                      , GUI.RSCoin.ErrorMessage
@@ -174,10 +171,9 @@ executable rscoin-user
                      , GUI.RSCoin.GUIAcid
                      , GUI.RSCoin.GUIError
                      , GUI.RSCoin.MainWindow
-                     , GUI.RSCoin.OutputWidgets
                      , GUI.RSCoin.TransactionsTab
                      , GUI.RSCoin.WalletTab
-                     , GUI.RSCoin.Updater
+                     , GUI.RSCoin.Worker
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
                      , containers >= 0.5.6.2

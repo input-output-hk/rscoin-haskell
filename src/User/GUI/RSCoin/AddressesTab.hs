@@ -7,10 +7,10 @@ module GUI.RSCoin.AddressesTab
     ) where
 
 import           Control.Lens          ((^.))
-import           Control.Monad         (forM_, void)
+import           Control.Monad         (forM_, void, when)
 import           Data.Acid             (query)
 
-import           Graphics.UI.Gtk       (AttrOp ((:=)))
+import           Graphics.UI.Gtk       (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk       as G
 
 import           GUI.RSCoin.Addresses  (VerboseAddress (..), getAddresses)
@@ -23,7 +23,10 @@ import           RSCoin.User.Wallet    (publicAddress)
 
 createAddressesTab :: GladeMainWindow -> IO AddressesTab
 createAddressesTab GladeMainWindow{..} =
-    AddressesTab gTreeViewAddressesView <$> G.listStoreNew []
+    AddressesTab
+        gButtonCopyAddress
+        gTreeViewAddressesView
+    <$> G.listStoreNew []
 
 initAddressesTab :: RSCoinUserState -> MainWindow -> IO ()
 initAddressesTab st mw@MainWindow{..} = do
@@ -42,6 +45,14 @@ initAddressesTab st mw@MainWindow{..} = do
         [G.cellText := show (balance a)]
     void $ G.treeViewAppendColumn treeViewAddressesView addressesCol
     void $ G.treeViewAppendColumn treeViewAddressesView balanceCol
+    void $ copyAddressButton `on` G.buttonActivated $ do
+        sel <- G.treeViewGetSelection treeViewAddressesView
+        selNum <- G.treeSelectionCountSelectedRows sel
+        rows <- G.treeSelectionGetSelectedRows sel
+        when (selNum /= 0) $ do
+            a <- G.listStoreGetValue addressesModel $ head $ head rows
+            c <- G.clipboardGet G.selectionClipboard
+            G.clipboardSetText c $ C.printPublicKey $ address a
     updateAddressTab st mw
 
 updateAddressTab :: RSCoinUserState -> MainWindow -> IO ()

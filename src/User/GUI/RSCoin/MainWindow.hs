@@ -60,7 +60,8 @@ data ContactsTab = ContactsTab
     }
 
 data AddressesTab = AddressesTab
-    { treeViewAddressesView :: G.TreeView
+    { copyAddressButton     :: G.Button
+    , treeViewAddressesView :: G.TreeView
     , addressesModel        :: G.ListStore VerboseAddress
     }
 

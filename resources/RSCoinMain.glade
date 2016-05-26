@@ -198,29 +198,14 @@
               </packing>
             </child>
             <child>
-              <object class="GtkProgressBar" id="updateProgressBar">
-                <property name="width_request">450</property>
-                <property name="height_request">10</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="valign">center</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">2</property>
-              </packing>
-            </child>
-            <child>
               <object class="GtkImage" id="syncImage">
-                <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="stock">sync</property>
               </object>
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">3</property>
+                <property name="position">2</property>
               </packing>
             </child>
             <child>
@@ -233,43 +218,21 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
+                <property name="position">3</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkProgressBar" id="updateProgressBar">
+                <property name="width_request">450</property>
+                <property name="height_request">10</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="valign">center</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
                 <property name="position">4</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkImage" id="networkIcon">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="stock">network</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">5</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkImage" id="notificationOnIcon">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="stock">notification_on</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">6</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkImage" id="profileIcon">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="stock">profile</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">7</property>
               </packing>
             </child>
           </object>

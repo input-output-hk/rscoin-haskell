@@ -191,7 +191,7 @@ toNodeMapper st gst txhr@U.TxHistoryRecord{..} = do
     if isIncome
     then do
         (from :: T.Text) <- case firstFromAddress of
-                    Nothing -> return "Unknown"
+                    Nothing -> return "Emission/Fees"
                     Just addr -> do
                         name <- replaceWithName gst addr
                         return $ format' (maybe "{}{}" (const "{} ({})") name)

@@ -1,3 +1,3 @@
-stack $NIX_STACK exec rscoin-user -- --bank-mode update
-stack $NIX_STACK exec rscoin-user -- --bank-mode list
+rscoin-user -- --bank-mode update
+rscoin-user -- --bank-mode list
 

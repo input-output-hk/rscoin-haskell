@@ -1,6 +1,8 @@
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
+
 -- | This module provides high-abstraction functions to exchange data
 -- within user/mintette/bank.
 
@@ -8,6 +10,7 @@ module RSCoin.Core.Communication
        ( CommunicationError (..)
        , getBlockchainHeight
        , getBlockByHeight
+       , getTransactionById
        , getGenesisBlock
        , checkNotDoubleSpent
        , commitTx
@@ -140,6 +143,13 @@ getBlockByHeight pId =
     onSuccess res =
         logDebug $
             format' "Successfully got block with height {}: {}" (pId, res)
+
+getTransactionById :: WorkMode m => TransactionId -> m (Maybe Transaction)
+getTransactionById tId =
+    withResult
+        (logInfo $ formatSingle' "Getting transaction by id {}" tId)
+        (\t -> logInfo $ format' "Successfully got transaction by id {}: {}" (tId, t))
+        $ callBank $ P.call (P.RSCBank P.GetTransaction) tId
 
 getGenesisBlock :: WorkMode m => m HBlock
 getGenesisBlock = do

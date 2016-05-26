@@ -13,6 +13,7 @@ let
       , random, safe, safecopy, stdenv, stm, text
       , text-format, time, time-units, transformers, transformers-base
       , tuple, unordered-containers, vector
+      , git, zlib, openssh, autoreconfHook, pkgconfig, cairo, gtk3
       }:
       mkDerivation {
         pname = "rscoin";
@@ -44,6 +45,8 @@ let
           safe safecopy  stm text time-units transformers tuple
           vector
         ];
+        libraryPkgconfigDepends =
+          [ zlib git openssh autoreconfHook pkgconfig cairo gtk3];
         license = stdenv.lib.licenses.gpl3;
       };
 

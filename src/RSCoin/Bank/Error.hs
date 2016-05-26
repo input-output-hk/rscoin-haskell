@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- | All possible runtime errors in Bank
 
 module RSCoin.Bank.Error

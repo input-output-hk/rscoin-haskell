@@ -127,6 +127,6 @@ getUser (Just index) = do
     mUser <- view $ users . to (`indexModuloMay` index)
     maybe (throwM $ TestError "No user in context") (return . view state) mUser
 
-runUserAction :: WorkMode m => UserIndex -> U.UserCommand -> TestEnv m ()
+runUserAction :: WorkMode m => UserIndex -> U.UserAction -> TestEnv m ()
 runUserAction userIndex command =
-    getUser userIndex >>= flip U.proceedCommand command
+    getUser userIndex >>= flip U.processAction command

@@ -13,6 +13,7 @@ module RSCoin.Bank.AcidState
        , GetPeriodId (..)
        , GetHBlock (..)
        , GetHBlocks (..)
+       , GetTransaction (..)
        , GetLogs (..)
        , AddMintette (..)
        , StartNewPeriod (..)
@@ -28,7 +29,8 @@ import           Data.SafeCopy       (base, deriveSafeCopy)
 
 import           RSCoin.Core         (ActionLog, HBlock, Mintette, MintetteId,
                                       Mintettes, NewPeriodData, PeriodId,
-                                      PeriodResult, PublicKey, SecretKey)
+                                      PeriodResult, PublicKey, SecretKey,
+                                      Transaction, TransactionId)
 
 import qualified RSCoin.Bank.Storage as BS
 
@@ -58,6 +60,9 @@ getPeriodId = view BS.getPeriodId
 getHBlock :: PeriodId -> Query BS.Storage (Maybe HBlock)
 getHBlock = view . BS.getHBlock
 
+getTransaction :: TransactionId -> Query BS.Storage (Maybe Transaction)
+getTransaction = view . BS.getTransaction
+
 -- Dumping Bank state
 
 getHBlocks :: PeriodId -> PeriodId -> Query BS.Storage [HBlock]
@@ -82,6 +87,7 @@ $(makeAcidic ''BS.Storage
              , 'getPeriodId
              , 'getHBlock
              , 'getHBlocks
+             , 'getTransaction
              , 'getLogs
              , 'addMintette
              , 'startNewPeriod

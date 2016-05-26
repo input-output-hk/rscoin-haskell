@@ -56,13 +56,18 @@ getAddrIdByAddress addr transaction@Transaction{..} =
 -- addrids with smaller amount of money first.
 chooseAddresses :: [AddrId] -> Coin -> ([AddrId], Coin)
 chooseAddresses addrids value =
-    assert (sum (map sel3 addrids) >= value) $
+    chooseOptimal addrids sel3 value
+
+chooseOptimal :: [a] -> (a -> Coin) -> Coin -> ([a], Coin)
+chooseOptimal addrids getC value =
+    assert (sum (map getC addrids) >= value) $
     let (_,chosenAIds,Just whatsLeft) =
-            foldl foldFoo (0, [], Nothing) $ sortBy (comparing sel3) addrids
+            foldl foldFoo (0, [], Nothing) $ sortBy (comparing getC) addrids
         foldFoo o@(_,_,Just _) _ = o
-        foldFoo (accum,values,Nothing) addrid@(_,_,aval) =
-            let newAccum = accum + aval
-                newValues = addrid : values
+        foldFoo (accum,values,Nothing) e =
+            let val = getC e
+                newAccum = accum + val
+                newValues = e : values
             in ( newAccum
                , newValues
                , if newAccum >= value

@@ -19,9 +19,6 @@ import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
 
-import           Serokell.Util.Text            (format', formatSingle',
-                                                listBuilderJSON, pairBuilder)
-
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
@@ -33,6 +30,9 @@ import           RSCoin.Core.Types             (CheckConfirmations,
 import           RSCoin.Mintette.Error         (MintetteError)
 import           RSCoin.Timed                  (WorkMode)
 import           RSCoin.User.Error             (UserLogicError (..))
+
+import           Serokell.Util.Text            (format', formatSingle',
+                                                listBuilderJSON, pairBuilder)
 
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction

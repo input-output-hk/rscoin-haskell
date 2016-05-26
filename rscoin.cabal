@@ -14,6 +14,19 @@ maintainer:          volhovm.cs@gmail.com
 build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
+data-files:            resources/RSCoinMain.glade
+                     , resources/icons/wallet.png
+                     , resources/icons/people.png
+                     , resources/icons/send.png
+                     , resources/icons/options.png
+                     , resources/icons/sync.png
+                     , resources/icons/network.png
+                     , resources/icons/notification_on.png
+                     , resources/icons/notification_off.png
+                     , resources/icons/withdraw.png
+                     , resources/icons/deposit.png
+                     , resources/icons/profile.png
+                     , resources/icons/addresses.png
 
 library
   exposed-modules:     RSCoin.Bank
@@ -41,11 +54,11 @@ library
                      , RSCoin.Mintette.Worker
                      , RSCoin.User
                      , RSCoin.User.AcidState
-                     , RSCoin.User.Commands
+                     , RSCoin.User.Actions
                      , RSCoin.User.Error
-                     , RSCoin.User.Wallet
                      , RSCoin.User.Logic
                      , RSCoin.User.Operations
+                     , RSCoin.User.Wallet
                      , RSCoin.Timed
                      , RSCoin.Timed.MonadTimed
                      , RSCoin.Timed.MonadRpc
@@ -53,7 +66,8 @@ library
                      , RSCoin.Timed.Timed
                      , RSCoin.Timed.TimedIO
                      , RSCoin.Timed.Misc
-  other-modules:       RSCoin.Bank.AcidState
+  other-modules:       Paths_rscoin
+                     , RSCoin.Bank.AcidState
                      , RSCoin.Bank.Server
                      , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
@@ -78,6 +92,7 @@ library
                      , ed25519
                      , file-embed
                      , filepath
+                     , gtk3 >= 0.14
                      , hashable
                      , hslogger
                      , lens
@@ -107,8 +122,8 @@ library
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -O2
                        -fno-warn-orphans -fwarn-typed-holes
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
+  default-extensions:  RecordWildCards
+                     , OverloadedStrings
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 
@@ -147,21 +162,37 @@ executable rscoin-keygen
 
 executable rscoin-user
   main-is:             Main.hs
-  other-modules:       UserOptions
+  other-modules:       Paths_rscoin
+                     , UserOptions
+                     , GUI.RSCoin.AddressesTab
+                     , GUI.RSCoin.ContactsTab
+                     , GUI.RSCoin.ErrorMessage
+                     , GUI.RSCoin.ExplicitTransaction
+                     , GUI.RSCoin.Glade
+                     , GUI.RSCoin.GUI
+                     , GUI.RSCoin.GUIAcid
+                     , GUI.RSCoin.GUIError
+                     , GUI.RSCoin.MainWindow
+                     , GUI.RSCoin.TransactionsTab
+                     , GUI.RSCoin.WalletTab
+                     , GUI.RSCoin.Worker
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
                      , containers >= 0.5.6.2
                      , exceptions >= 0.8.2.1
+                     , gtk3 >= 0.14.2
                      , lens >= 4.13
                      , mtl >= 2.2.1
                      , optparse-applicative >= 0.12.0.0
                      , rscoin
                      , safecopy >= 0.9.0.1
                      , serokell-core
+                     , stm
                      , text >= 1.2.2.0
                      , text-format >= 0.3.1.1
                      , transformers >= 0.4.2.0
                      , tuple >= 0.3.0.2
+                     , filepath
   hs-source-dirs:      src/User
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -O2

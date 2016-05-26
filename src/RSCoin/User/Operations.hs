@@ -5,12 +5,16 @@
 -- | Basic operations with wallet.
 
 module RSCoin.User.Operations
-       ( commitError
+       ( walletInitialized
+       , commitError
+       , getUserTotalAmount
        , getAmount
        , getAmountByIndex
        , getAllPublicAddresses
+       , getTransactionsHistory
        , updateToBlockHeight
        , updateBlockchain
+       , formTransactionFromAll
        , formTransaction
        , formTransactionRetry
        ) where
@@ -23,7 +27,7 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
 import           Data.List              (genericIndex, genericLength, nub,
-                                         nubBy)
+                                         nubBy, sortOn)
 import qualified Data.Map               as M
 import           Data.Maybe             (isJust)
 import           Data.Monoid            ((<>))
@@ -46,6 +50,9 @@ import           RSCoin.User.Error      (UserError (..), UserLogicError,
 import           RSCoin.User.Logic      (validateTransaction)
 import qualified RSCoin.User.Wallet     as W
 
+walletInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
+walletInitialized st = query' st A.IsInitialized
+
 commitError :: (MonadIO m, MonadThrow m) => T.Text -> m ()
 commitError e = do
     C.logError C.userLoggerName e
@@ -66,7 +73,7 @@ updateToBlockHeight st newHeight = do
 -- updated and it's ok (already at max height)
 updateBlockchain :: WorkMode m => A.RSCoinUserState -> Bool -> m Bool
 updateBlockchain st verbose = do
-    walletHeight <- liftIO $ query' st A.GetLastBlockId
+    walletHeight <- query' st A.GetLastBlockId
     verboseSay $
         formatSingle'
             "Current known blockchain's height (last HBLock's id) is {}."
@@ -102,6 +109,13 @@ getAmount st userAddress = do
     (_ :: Either SomeException Bool) <- try $ updateBlockchain st False
     getAmountNoUpdate st userAddress
 
+-- | Gets current amount on all accounts user posesses
+getUserTotalAmount :: WorkMode m => A.RSCoinUserState -> m C.Coin
+getUserTotalAmount st = do
+    addrs <- query' st A.GetAllAddresses
+    void $ updateBlockchain st False
+    sum <$> mapM (getAmountNoUpdate st) addrs
+
 -- | Get amount without storage update
 getAmountNoUpdate
     :: WorkMode m
@@ -118,8 +132,7 @@ getAmountByIndex st idx = do
     void $ updateBlockchain st False
     addr <- flip atMay idx <$> query' st A.GetAllAddresses
     maybe
-        (liftIO $
-         throwM $
+        (throwM $
          InputProcessingError "invalid index was given to getAmountByIndex")
         (getAmount st)
         addr
@@ -128,9 +141,48 @@ getAmountByIndex st idx = do
 getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
 getAllPublicAddresses st = map C.Address <$> query' st A.GetPublicAddresses
 
+-- | Returns transaction history that wallet holds
+getTransactionsHistory :: WorkMode m => A.RSCoinUserState -> m [W.TxHistoryRecord]
+getTransactionsHistory st = query' st A.GetTxsHistory
+
+-- | Forms transaction given just amount of money to use. Tries to
+-- spend coins from accounts that have the least amount of money.
+formTransactionFromAll
+    :: WorkMode m
+    => A.RSCoinUserState -> C.Address -> C.Coin -> m ()
+formTransactionFromAll st addressTo amount = do
+    addrs <- query' st A.GetAllAddresses
+    (amountsWithCoins :: [(Word, C.Coin)]) <-
+        filter ((>= 0) . snd) <$>
+        mapM (\i -> (fromInteger $ toInteger i+1,)
+                    <$> getAmountByIndex st i) [0..length addrs-1]
+    totalAmount <- getUserTotalAmount st
+    when (amount > totalAmount) $
+        throwM $
+        InputProcessingError $
+        format'
+            "Tried to form transaction with amount ({}) greater than available ({})."
+            (amount, totalAmount)
+    let discoverAmount _ r@(left,_) | left <= 0 = r
+        discoverAmount e@(i,c) (left, results) =
+            let newLeft = left - c
+            in if newLeft < 0
+               then (newLeft, (i,left) : results)
+               else (newLeft, e : results)
+        (_, chosen) =
+            foldr discoverAmount (amount, []) $ sortOn snd amountsWithCoins
+    liftIO $ putStrLn ("Transaction chosen: " ++ show chosen)
+    formTransactionRetry 3 st True chosen addressTo amount
+
 -- | Forms transaction out of user input and sends it to the net.
-formTransaction :: WorkMode m =>
-    A.RSCoinUserState -> Bool -> [(Word, C.Coin)] -> C.Address -> C.Coin -> m ()
+formTransaction
+    :: WorkMode m
+    => A.RSCoinUserState
+    -> Bool
+    -> [(Word, C.Coin)]
+    -> C.Address
+    -> C.Coin
+    -> m ()
 formTransaction = formTransactionRetry 1
 
 -- | Forms transaction out of user input and sends it. If failure
@@ -236,7 +288,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
                           (addrid', C.sign (address' ^. W.privateAddress) outTr))
                     addrPairList
         validateTransaction outTr signatures $ lastBlockHeight + 1
-        update' st $ A.AddTemporaryTransaction outTr
+        update' st $ A.AddTemporaryTransaction (lastBlockHeight + 1) outTr
     formTransactionMapper
         :: (Word, W.UserAddress, C.Coin)
         -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)

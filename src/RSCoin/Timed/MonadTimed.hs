@@ -1,9 +1,10 @@
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE Rank2Types             #-}
-{-# LANGUAGE TemplateHaskell        #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE ViewPatterns           #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | This module contains time management monad and it's implementation for IO.
 module RSCoin.Timed.MonadTimed
@@ -31,9 +32,9 @@ import           Control.Exception    (Exception (..))
 import           Control.Monad        (void)
 import           Control.Monad.Catch  (MonadThrow)
 import           Control.Monad.Loops  (whileM)
-import           Control.Monad.Trans  (MonadIO, lift, liftIO)
-import           Control.Monad.Reader (ReaderT(..), runReaderT, ask)
+import           Control.Monad.Reader (ReaderT (..), ask, runReaderT)
 import           Control.Monad.State  (StateT, evalStateT, get)
+import           Control.Monad.Trans  (MonadIO, lift, liftIO)
 
 import           Data.IORef           (newIORef, readIORef, writeIORef)
 import           Data.Monoid          ((<>))

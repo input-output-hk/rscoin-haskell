@@ -28,7 +28,7 @@ import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Base64     as B64
 import           Data.Hashable              (Hashable (hashWithSalt))
 import           Data.Maybe                 (fromMaybe)
-import           Data.MessagePack           (MessagePack (toObject, fromObject))
+import           Data.MessagePack           (MessagePack (fromObject, toObject))
 import           Data.SafeCopy              (Contained,
                                              SafeCopy (getCopy, putCopy),
                                              contain, safeGet, safePut)

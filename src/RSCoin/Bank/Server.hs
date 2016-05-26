@@ -1,4 +1,6 @@
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Server implementation for Bank
 
 module RSCoin.Bank.Server
@@ -13,11 +15,12 @@ import           Serokell.Util.Text     (format', formatSingle', show')
 
 import           RSCoin.Bank.AcidState  (GetHBlock (..), GetHBlocks (..),
                                          GetLogs (..), GetMintettes (..),
-                                         GetPeriodId (..), State)
+                                         GetPeriodId (..), GetTransaction (..),
+                                         State)
 import           RSCoin.Bank.Error      (BankError)
-
 import           RSCoin.Core            (ActionLog, HBlock, MintetteId,
-                                         Mintettes, PeriodId, bankLoggerName,
+                                         Mintettes, PeriodId, Transaction,
+                                         TransactionId, bankLoggerName,
                                          bankPort, logDebug, logError)
 import qualified RSCoin.Core.Protocol   as C
 import qualified RSCoin.Timed           as T
@@ -27,14 +30,16 @@ serve st = do
     idr1 <- T.serverTypeRestriction0
     idr2 <- T.serverTypeRestriction0
     idr3 <- T.serverTypeRestriction1
-    idr4 <- T.serverTypeRestriction2
-    idr5 <- T.serverTypeRestriction3
+    idr4 <- T.serverTypeRestriction1
+    idr5 <- T.serverTypeRestriction2
+    idr6 <- T.serverTypeRestriction3
     C.serve bankPort
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
         , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight st
         , C.method (C.RSCBank C.GetHBlock) $ idr3 $ serveGetHBlock st
-        , C.method (C.RSCDump C.GetHBlocks) $ idr4 $ serveGetHBlocks st
-        , C.method (C.RSCDump C.GetHBlocks) $ idr5 $ serveGetLogs st
+        , C.method (C.RSCBank C.GetTransaction) $ idr4 $ serveGetTransaction st
+        , C.method (C.RSCDump C.GetHBlocks) $ idr5 $ serveGetHBlocks st
+        , C.method (C.RSCDump C.GetHBlocks) $ idr6 $ serveGetLogs st
         ]
 
 toServer :: T.WorkMode m => IO a -> T.ServerT m a
@@ -66,6 +71,15 @@ serveGetHBlock st pId =
        logDebug bankLoggerName $
            format' "Getting higher-level block with periodId {}: {}" (pId, mBlock)
        return mBlock
+
+serveGetTransaction :: T.WorkMode m
+                    => State -> TransactionId -> T.ServerT m (Maybe Transaction)
+serveGetTransaction st tId =
+    toServer $
+    do t <- query' st (GetTransaction tId)
+       logDebug bankLoggerName $
+           format' "Getting transaction with id {}: {}" (tId, t)
+       return t
 
 -- Dumping Bank state
 

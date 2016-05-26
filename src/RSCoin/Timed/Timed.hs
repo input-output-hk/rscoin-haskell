@@ -16,11 +16,11 @@ module RSCoin.Timed.Timed
        , ThreadId
        ) where
 
-import           Control.Exception.Base      (Exception (fromException),
-                                              SomeException (..),
-                                              AsyncException (ThreadKilled))
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
+import           Control.Exception.Base      (AsyncException (ThreadKilled),
+                                              Exception (fromException),
+                                              SomeException (..))
 
 import           Control.Lens                (makeLenses, to, use, view, (%=),
                                               (%~), (&), (.=), (<&>), (^.))

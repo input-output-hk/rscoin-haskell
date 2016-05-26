@@ -1,12 +1,12 @@
-{ mkDerivation, acid-state, aeson, async, base, base64-bytestring
-, binary, bytestring, cereal, conduit-extra, containers, cryptohash
-, data-default, directory, ed25519, either, exceptions, file-embed, temporary
-, filepath, hashable, hslogger, hspec, lens, monad-control, formatting
-, monad-loops, MonadRandom
-, mtl, optparse-applicative, optparse-generic, pqueue, QuickCheck, random, safe
-, safecopy, serokell-core, stdenv, stm, text, text-format, time
-, time-units, transformers, transformers-base, tuple
-, unordered-containers, vector, msgpack, msgpack-aeson, msgpack-rpc
+{ mkDerivation, acid-state, async, base, base64-bytestring, binary
+, blake2, bytestring, cereal, clock, conduit-extra, containers
+, data-default, directory, ed25519, either, exceptions, file-embed
+, filepath, formatting, gtk3, hashable, hslogger, hspec, lens
+, monad-control, monad-loops, MonadRandom, msgpack, msgpack-rpc
+, mtl, optparse-applicative, optparse-generic, pqueue, QuickCheck
+, random, safe, safecopy, serokell-core, stdenv, stm, temporary
+, text, text-format, time, time-units, transformers
+, transformers-base, tuple, unordered-containers, vector
 }:
 mkDerivation {
   pname = "rscoin";
@@ -16,22 +16,19 @@ mkDerivation {
   isExecutable = true;
   doCheck = false;
   libraryHaskellDepends = [
-    acid-state aeson base base64-bytestring binary bytestring cereal
-    conduit-extra containers cryptohash data-default directory ed25519
-    either exceptions file-embed filepath hashable hslogger lens
-    monad-control monad-loops MonadRandom msgpack msgpack-aeson
-    msgpack-rpc mtl pqueue QuickCheck random safe safecopy
-    serokell-core stm text text-format time time-units transformers
-    transformers-base tuple unordered-containers vector
+    acid-state base base64-bytestring binary blake2 bytestring cereal
+    conduit-extra containers data-default directory ed25519 either
+    exceptions file-embed filepath gtk3 hashable hslogger lens
+    monad-control monad-loops MonadRandom msgpack msgpack-rpc mtl
+    pqueue QuickCheck random safe safecopy serokell-core stm text
+    text-format time time-units transformers transformers-base tuple
+    unordered-containers vector
   ];
   executableHaskellDepends = [
-    acid-state aeson base base64-bytestring binary bytestring cereal
-    conduit-extra containers cryptohash data-default directory ed25519
-    exceptions filepath hashable hslogger hspec lens monad-control
-    monad-loops MonadRandom msgpack msgpack-aeson msgpack-rpc mtl optparse-generic
-    optparse-applicative pqueue QuickCheck random safe safecopy formatting temporary
-    serokell-core stm text text-format time time-units transformers
-    transformers-base tuple unordered-containers vector
+    acid-state async base clock containers exceptions filepath
+    formatting gtk3 lens mtl optparse-applicative optparse-generic
+    safecopy serokell-core stm temporary text text-format time-units
+    transformers tuple
   ];
   testHaskellDepends = [
     acid-state async base bytestring containers data-default exceptions

@@ -64,7 +64,7 @@ tmux split-window -h -t "${_session}:7"
 tmux send-keys       -t "${_session}:7" "sleep 12; admin/watchBlockchainUpdates.sh" C-m
 
 # TODO: Spawn UI attached to wallet located at ./wallet-db-user down here ```````````````````````v
-tmux send-keys       -t "${_session}:8" "sleep 11; admin/initDemoUser.sh && admin/initBankUser.sh" C-m
+tmux send-keys       -t "${_session}:8" "sleep 11; admin/initDemoUser.sh && admin/initBankUser.sh && GTK_THEME=Vertex-Dark rscoin-user start-gui" C-m
 tmux split-window -h -t "${_session}:8"
 tmux send-keys       -t "${_session}:8" "sleep 10; stack $NIX_STACK exec rscoin-bank serve" C-m
 

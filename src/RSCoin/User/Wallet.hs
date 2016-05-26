@@ -220,9 +220,10 @@ restoreTransactions = do
 
 -- | Temporary adds transaction to wallet state. Should be used, when
 -- transaction is commited by mintette and "thought" to drop into
--- blockchain eventually.
-addTemporaryTransaction :: Transaction -> ExceptUpdate ()
-addTemporaryTransaction tx@Transaction{..} = do
+-- blockchain eventually. PeriodId here stands for the "next" period
+-- which we expect to see tx in.
+addTemporaryTransaction :: PeriodId -> Transaction -> ExceptUpdate ()
+addTemporaryTransaction periodId tx@Transaction{..} = do
     ownedAddressesRaw <- L.use userAddresses
     ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
     ownedTransactions <- L.uses inputAddressesTxs M.assocs
@@ -241,7 +242,7 @@ addTemporaryTransaction tx@Transaction{..} = do
                inputAddressesTxs %=
                    M.insertWith (++) userAddr [(tx, addrid)]
                periodAdded <>= [(userAddr, (tx,addrid))]
-    historyTxs %= S.insert (TxHistoryRecord tx (-1) TxHUnconfirmed)
+    historyTxs %= S.insert (TxHistoryRecord tx periodId TxHUnconfirmed)
 
 -- | Called from withBlockchainUpdate. Takes all transactions with
 -- unconfirmed status, modifies them either to confirmed or rejected

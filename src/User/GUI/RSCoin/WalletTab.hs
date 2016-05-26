@@ -10,9 +10,7 @@ module GUI.RSCoin.WalletTab
 import           Control.Monad                  (join, void)
 import           Data.Maybe                     (mapMaybe)
 import qualified Data.Text                      as T
-import           Data.Text.Buildable            (build)
-import           Data.Text.Lazy.Builder         (toLazyText)
-import           Graphics.UI.Gtk                (AttrOp ((:=)))
+import           Graphics.UI.Gtk                (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk                as G
 
 import qualified RSCoin.Core                    as C
@@ -72,7 +70,7 @@ createWalletTab GladeMainWindow{..} = do
 createWalletModel :: G.TreeView -> IO Model
 createWalletModel view = do
     model <- G.listStoreNew []
-    appendPixbufColumn model True (sid "In/out") isSendSetter
+    appendPixbufColumn model False (sid "In/out") isSendSetter
     appendTextColumn model True (sid "Status") statusSetter
     appendTextColumn model True (sid "At height") heightSetter
     appendTextColumn model True (sid "Address") addrSetter
@@ -119,27 +117,34 @@ toNodeMapper :: RSCoinUserState
              -> GUIState
              -> U.TxHistoryRecord
              -> IO WalletModelNode
-toNodeMapper st gst U.TxHistoryRecord{..} = do
+toNodeMapper st gst txhr@U.TxHistoryRecord{..} = do
     eTx <- runRealMode $ fromTransaction txhTransaction
     addrs <- runRealMode $ U.getAllPublicAddresses st
     let amountDiff = getTransactionAmount addrs eTx
         isIncome = amountDiff > 0
         headMaybe [] = Nothing
         headMaybe (x:_) = Just x
-        notOurs x = x `notElem` addrs
-        firstFromAddress :: Maybe C.Address
-        firstFromAddress = headMaybe $ filter notOurs $ mapMaybe fst $ vtInputs eTx
-        firstOutAddress :: Maybe C.Address
-        firstOutAddress = headMaybe $ filter notOurs $ map fst $ vtOutputs eTx
+        firstFromAddress = headMaybe $ filter (`notElem` addrs) $ mapMaybe fst $ vtInputs eTx
+        outputs = (map fst $ vtOutputs eTx)
+        firstOutAddress = head $ filter (`notElem` addrs) outputs ++
+                                 filter (`elem` addrs) outputs
     if isIncome
     then do
         (from :: T.Text) <- case firstFromAddress of
                     Nothing -> return "Unknown"
                     Just addr -> do
                         name <- replaceWithName gst addr
-                        return $ format' "{} ({})" (name, addr)
-        return $ WalletModelNode False txhStatus txhHeight from amountDiff
-    else undefined
+                        return $ format' (maybe "{}{}" (const "{} ({})") name)
+                                         (name, firstOutAddress)
+        return $ WalletModelNode False txhStatus txhHeight from amountDiff txhr
+    else do
+        (out :: T.Text) <- do
+            name <- if firstOutAddress `elem` addrs
+                    then return (Just "To you")
+                    else replaceWithName gst firstOutAddress
+            return $ format' (maybe "{}{}" (const "{} ({})") name)
+                             (name, firstOutAddress)
+        return $ WalletModelNode True txhStatus txhHeight out amountDiff txhr
 
 updateWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
 updateWalletTab st gst M.MainWindow{..} = do
@@ -162,3 +167,28 @@ updateWalletTab st gst M.MainWindow{..} = do
     nodes <- mapM (toNodeMapper st gst) transactionsHist
     G.listStoreClear walletModel
     mapM_ (G.listStoreAppend walletModel) $ reverse nodes
+    let sid = (id :: String -> String)
+        dialogWithIndex i = do
+            dialog <- G.dialogNew
+            G.set dialog [ G.windowTitle := sid "Transaction info"]
+            void $ G.dialogAddButton dialog (sid "Ok") G.ResponseOk
+            upbox <- G.castToBox <$> G.dialogGetContentArea dialog
+            label <- G.labelNew (Nothing :: Maybe String)
+            G.set label [ G.labelText := "Information about transaction: \n" ++
+                                        show (wTxHR $ reverse nodes !! i)
+                        , G.labelSelectable := True
+                        , G.labelWrap := True ]
+            G.set upbox [ G.widgetMarginLeft := 5
+                        , G.widgetMarginRight := 5
+                        , G.widgetMarginTop := 5
+                        , G.widgetMarginBottom := 5 ]
+            G.boxPackStart upbox label G.PackGrow 10
+            G.widgetShowAll upbox
+            void $ G.dialogRun dialog
+            G.windowResize dialog 300 500
+            void $ G.widgetDestroy dialog
+    void $ treeViewWallet `on` G.rowActivated $
+        \l _ -> case l of
+            (i:_) -> dialogWithIndex i
+            _ -> return ()
+    return ()

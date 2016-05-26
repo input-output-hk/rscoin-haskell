@@ -17,11 +17,12 @@ import           GUI.RSCoin.Glade        (GladeMainWindow (..))
 import           GUI.RSCoin.GUIAcid      (Contact (..), GUIState, getContacts)
 import           GUI.RSCoin.MainWindow   (TransactionsTab (..))
 import qualified GUI.RSCoin.MainWindow   as M
+import           GUI.RSCoin.WalletTab    (updateWalletTab)
 import qualified RSCoin.Core             as C
 import           RSCoin.Timed            (runRealMode)
 import qualified RSCoin.User             as U
 
-import           Serokell.Util.Text    (readUnsignedDecimal)
+import           Serokell.Util.Text      (readUnsignedDecimal)
 
 createTransactionsTab :: GladeMainWindow -> TransactionsTab
 createTransactionsTab GladeMainWindow{..} =
@@ -40,7 +41,7 @@ initTransactionsTab st gst mw = do
     void (buttonClearSend `on`
           G.buttonActivated $ onClearButtonPressed tr)
     void (buttonConfirmSend `on`
-          G.buttonActivated $ onSendButtonPressed st mw)
+          G.buttonActivated $ onSendButtonPressed st gst mw)
     void (buttonChooseContacts `on`
           G.buttonActivated $ onChooseContactsButtonPressed gst mw)
 
@@ -49,8 +50,8 @@ onClearButtonPressed TransactionsTab{..} = do
     G.entrySetText entryPayTo ""
     G.entrySetText spinButtonSendAmount ""
 
-onSendButtonPressed :: U.RSCoinUserState -> M.MainWindow -> IO ()
-onSendButtonPressed st M.MainWindow{..} =
+onSendButtonPressed :: U.RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
+onSendButtonPressed st gst mw@M.MainWindow{..} =
     act `catch` handler
   where
     handler (e :: SomeException) =
@@ -86,6 +87,7 @@ onSendButtonPressed st M.MainWindow{..} =
                 "Successfully formed and sent transaction."
             void $ G.dialogRun dialog
             G.widgetDestroy dialog
+            updateWalletTab st gst mw
 
 onChooseContactsButtonPressed :: GUIState -> M.MainWindow -> IO ()
 onChooseContactsButtonPressed gst M.MainWindow{..} = do

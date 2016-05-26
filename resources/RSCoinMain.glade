@@ -662,7 +662,7 @@ Network Sync</property>
                     </child>
                     <child>
                       <object class="GtkEntry" id="payToEntry">
-                        <property name="width_request">365</property>
+                        <property name="width_request">380</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="halign">start</property>

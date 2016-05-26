@@ -271,7 +271,7 @@ formTransactionRetry tries st inputs outputAddr outputCoin =
                           (addrid', C.sign (address' ^. W.privateAddress) outTr))
                     addrPairList
         validateTransaction outTr signatures $ lastBlockHeight + 1
-        update' st $ A.AddTemporaryTransaction outTr
+        update' st $ A.AddTemporaryTransaction (lastBlockHeight + 1) outTr
     formTransactionMapper
         :: (Word, W.UserAddress, C.Coin)
         -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)

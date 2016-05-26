@@ -14,7 +14,7 @@ import qualified Data.Text            as T
 
 import qualified Graphics.UI.Gtk      as G
 
-import           RSCoin.User.Wallet   (TxHStatus)
+import           RSCoin.User.Wallet   (TxHStatus, TxHistoryRecord)
 
 import           GUI.RSCoin.Addresses (VerboseAddress (..))
 
@@ -35,6 +35,7 @@ data WalletModelNode = WalletModelNode
     , wHeight  :: Int
     , wAddress :: T.Text
     , wAmount  :: Int64
+    , wTxHR    :: TxHistoryRecord
     }
 
 data WalletTab = WalletTab

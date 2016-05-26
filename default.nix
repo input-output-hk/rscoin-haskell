@@ -38,11 +38,11 @@ mkDerivation {
     vector
   ];
   executableToolDepends = [ makeWrapper theme-vertex ];
+  executableSystemDepends = [ gtk3 theme-vertex ];
   buildDepends = [ makeWrapper ];
   postInstall = ''
     wrapProgram $out/bin/rscoin-user \
-      --set GTK_THEME "Vertex-Dark" \
-      --set GTK3_THEME : "${theme-vertex}/share/themes/Vertex-Dark/gtk-3.0/gtk.css" 
+      --set GTK_THEME "Vertex-Dark"
   '';
   license = stdenv.lib.licenses.gpl3;
 }

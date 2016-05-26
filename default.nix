@@ -37,9 +37,11 @@ mkDerivation {
     safe safecopy serokell-core stm text time-units transformers tuple
     vector
   ];
+  executableToolDepends = [ makeWrapper theme-vertex ];
+  buildDepends = [ makeWrapper ];
   postInstall = ''
     wrapProgram $out/bin/rscoin-user \
-      --set GTK_THEME "Vertex-Dark"
+      --set GTK_THEME "Vertex-Dark" \
       --set GTK3_THEME : "${theme-vertex}/share/themes/Vertex-Dark/gtk-3.0/gtk.css" 
   '';
   license = stdenv.lib.licenses.gpl3;

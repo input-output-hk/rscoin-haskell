@@ -7,6 +7,7 @@
 , random, safe, safecopy, serokell-core, stdenv, stm, temporary
 , text, text-format, time, time-units, transformers
 , transformers-base, tuple, unordered-containers, vector
+, theme-vertex
 }:
 mkDerivation {
   pname = "rscoin";
@@ -36,5 +37,10 @@ mkDerivation {
     safe safecopy serokell-core stm text time-units transformers tuple
     vector
   ];
+  postInstall = ''
+    wrapProgram $out/bin/rscoin-user \
+      --set GTK_THEME "Vertex-Dark"
+      --prefix PATH : "${theme-vertex}" 
+  '';
   license = stdenv.lib.licenses.gpl3;
 }

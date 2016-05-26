@@ -113,6 +113,7 @@ createMainWindow gmw@GladeMainWindow {..} = do
         { mainWindow        = gWindow
         , notebookMain      = gNotebookMain
         , progressBarUpdate = gProgressBarUpdate
+        , labelSync         = gLabelSync
         , ..
         }
 

@@ -7,18 +7,23 @@ module GUI.RSCoin.WalletTab
        , updateWalletTab
        ) where
 
-import           Control.Monad                  (join, void)
+import           Control.Monad                  (join, void, when)
 import           Data.Maybe                     (mapMaybe)
+import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
+import           Data.Text.Buildable            (Buildable (build))
+import qualified Data.Text.Lazy.Builder         as B
 import           Graphics.UI.Gtk                (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk                as G
 
 import qualified RSCoin.Core                    as C
 import           RSCoin.Timed                   (runRealMode)
-import           RSCoin.User                    (RSCoinUserState)
+import           RSCoin.User                    (RSCoinUserState,
+                                                 TxHStatus (..),
+                                                 TxHistoryRecord (..))
 import qualified RSCoin.User                    as U
 
-import           Serokell.Util.Text             (format')
+import           Serokell.Util.Text             (format', formatSingle')
 
 import           GUI.RSCoin.ExplicitTransaction (ExplicitTransaction (..),
                                                  fromTransaction,
@@ -110,8 +115,63 @@ createWalletModel view = do
       | a > 0 = "+" ++ show a
       | otherwise = show a
 
+
+instance Buildable TxHStatus where
+    build TxHConfirmed = B.fromString "Confirmed"
+    build TxHUnconfirmed = B.fromString "Unconfirmed"
+    build TxHRejected = B.fromString "Rejected"
+
+buildTransactionIndent :: C.Transaction -> B.Builder
+buildTransactionIndent C.Transaction{..} =
+    mconcat [ "Inputs: "
+            , mconcat $ map (\x -> "\n-> " <> build x) txInputs
+            , "\nOutputs: "
+            , mconcat $ map (\(a,c) -> "\n<- " <> build a <>
+                                       ", " <> build c) txOutputs ]
+
+instance Buildable TxHistoryRecord where
+    build TxHistoryRecord{..} =
+        mconcat
+            [ "Transaction: \n"
+            , buildTransactionIndent txhTransaction
+            , "\nAt height: "
+            , build txhHeight
+            , "\nStatus: "
+            , build txhStatus]
+
 initWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
-initWalletTab = updateWalletTab
+initWalletTab st gst mw@M.MainWindow{..} = do
+    void ((M.treeViewWallet tabWallet) `on` G.rowActivated $
+        \l _ -> case l of
+            (i:_) -> do
+                sz <- G.listStoreGetSize $ M.walletModel tabWallet
+                when (i < sz) $ dialogWithIndex i
+            _ -> return ())
+    updateWalletTab st gst mw
+  where
+    sid = (id :: String -> String)
+    dialogWithIndex i = do
+        dialog <- G.dialogNew
+        node <- G.listStoreGetValue (M.walletModel tabWallet) i
+        G.set dialog [ G.windowTitle := sid "Transaction info"]
+        void $ G.dialogAddButton dialog (sid "Ok") G.ResponseOk
+        upbox <- G.castToBox <$> G.dialogGetContentArea dialog
+        scrolled <- G.scrolledWindowNew Nothing Nothing
+        label <- G.labelNew (Nothing :: Maybe String)
+        G.scrolledWindowAddWithViewport scrolled label
+        G.set label [ G.labelText := formatSingle'
+                      "Information about transaction: \n{}" (wTxHR node)
+                    , G.labelSelectable := True
+                    , G.labelWrap := True ]
+        G.set upbox [ G.widgetMarginLeft := 5
+                    , G.widgetMarginRight := 5
+                    , G.widgetMarginTop := 5
+                    , G.widgetMarginBottom := 5 ]
+        G.boxPackStart upbox scrolled G.PackGrow 10
+        G.widgetShowAll upbox
+        void $ G.dialogRun dialog
+        G.windowResize dialog 300 500
+        void $ G.widgetDestroy dialog
 
 toNodeMapper :: RSCoinUserState
              -> GUIState
@@ -167,28 +227,3 @@ updateWalletTab st gst M.MainWindow{..} = do
     nodes <- mapM (toNodeMapper st gst) transactionsHist
     G.listStoreClear walletModel
     mapM_ (G.listStoreAppend walletModel) $ reverse nodes
-    let sid = (id :: String -> String)
-        dialogWithIndex i = do
-            dialog <- G.dialogNew
-            G.set dialog [ G.windowTitle := sid "Transaction info"]
-            void $ G.dialogAddButton dialog (sid "Ok") G.ResponseOk
-            upbox <- G.castToBox <$> G.dialogGetContentArea dialog
-            label <- G.labelNew (Nothing :: Maybe String)
-            G.set label [ G.labelText := "Information about transaction: \n" ++
-                                        show (wTxHR $ reverse nodes !! i)
-                        , G.labelSelectable := True
-                        , G.labelWrap := True ]
-            G.set upbox [ G.widgetMarginLeft := 5
-                        , G.widgetMarginRight := 5
-                        , G.widgetMarginTop := 5
-                        , G.widgetMarginBottom := 5 ]
-            G.boxPackStart upbox label G.PackGrow 10
-            G.widgetShowAll upbox
-            void $ G.dialogRun dialog
-            G.windowResize dialog 300 500
-            void $ G.widgetDestroy dialog
-    void $ treeViewWallet `on` G.rowActivated $
-        \l _ -> case l of
-            (i:_) -> dialogWithIndex i
-            _ -> return ()
-    return ()

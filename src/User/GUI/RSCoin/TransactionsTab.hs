@@ -87,6 +87,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
                 "Successfully formed and sent transaction."
             void $ G.dialogRun dialog
             G.widgetDestroy dialog
+            onClearButtonPressed tabTransactions
             updateWalletTab st gst mw
 
 onChooseContactsButtonPressed :: GUIState -> M.MainWindow -> IO ()

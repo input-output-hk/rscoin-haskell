@@ -52,6 +52,8 @@
           <object class="GtkAlignment" id="alignment1">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="margin_left">5</property>
+            <property name="margin_right">5</property>
             <property name="xscale">0</property>
             <property name="yscale">0</property>
             <child>
@@ -93,6 +95,7 @@
                 </child>
                 <child>
                   <object class="GtkEntry" id="addressEntry">
+                    <property name="width_request">400</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                   </object>
@@ -224,8 +227,7 @@
               <object class="GtkLabel" id="syncLabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">246 week left
-Network Sync</property>
+                <property name="label" translatable="yes">Offline</property>
                 <property name="lines">2</property>
               </object>
               <packing>
@@ -662,7 +664,7 @@ Network Sync</property>
                     </child>
                     <child>
                       <object class="GtkEntry" id="payToEntry">
-                        <property name="width_request">380</property>
+                        <property name="width_request">400</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="halign">start</property>

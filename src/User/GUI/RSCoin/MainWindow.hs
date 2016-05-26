@@ -11,18 +11,17 @@ module GUI.RSCoin.MainWindow
 
 import           Data.Int             (Int64)
 import qualified Data.Text            as T
-
 import qualified Graphics.UI.Gtk      as G
 
-import           RSCoin.User.Wallet   (TxHStatus, TxHistoryRecord)
-
 import           GUI.RSCoin.Addresses (VerboseAddress (..))
+import           RSCoin.User.Wallet   (TxHStatus (..), TxHistoryRecord (..))
 
 -- | Main window, the whole gui -- all elements we're interested in.
 data MainWindow = MainWindow
     { mainWindow        :: G.Window
     , notebookMain      :: G.Notebook
     , progressBarUpdate :: G.ProgressBar
+    , labelSync         :: G.Label
     , tabWallet         :: WalletTab
     , tabTransactions   :: TransactionsTab
     , tabContacts       :: ContactsTab

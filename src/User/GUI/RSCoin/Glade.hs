@@ -17,6 +17,7 @@ data GladeMainWindow = GladeMainWindow
     , gNotebookMain            :: G.Notebook
 
     , gProgressBarUpdate       :: G.ProgressBar
+    , gLabelSync               :: G.Label
 
     , gTreeViewWallet          :: G.TreeView
     , gBoxRSCoinLogo           :: G.Box
@@ -70,6 +71,7 @@ importGlade = do
         <$> getWindow      "mainWindow"
         <*> getNotebook    "mainNotebook"
         <*> getProgressBar "updateProgressBar"
+        <*> getLabel       "syncLabel"
         <*> getView        "walletTreeView"
         <*> getBox         "rscoinLogo"
         <*> getBox         "walletHeaderWrapper"

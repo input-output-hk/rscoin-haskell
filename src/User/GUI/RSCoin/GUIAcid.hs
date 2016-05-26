@@ -12,19 +12,23 @@ module GUI.RSCoin.GUIAcid
     , getContacts
     , addContact
     , removeContact
+    , replaceWithName
     ) where
 
 import           Control.Monad.Reader (ask)
 import           Control.Monad.State  (get, put)
 import           Data.Acid            (AcidState, Query, Update, makeAcidic,
                                        query, update)
+import           Data.List            (find)
 import           Data.SafeCopy        (base, deriveSafeCopy)
-import           Data.Text            (Text)
+import qualified Data.Text            as T
+
+import qualified RSCoin.Core          as C
 
 -- | Contact information.
 data Contact = Contact
-    { contactName    :: Text
-    , contactAddress :: Text
+    { contactName    :: T.Text
+    , contactAddress :: T.Text
     } deriving (Show)
 
 dummyContacts :: [Contact]
@@ -32,7 +36,7 @@ dummyContacts =
     [Contact "aoeu" "kek", Contact "kek" "ahaha", Contact "memasy" "podkatili"]
 
 -- | List of contacts known to the user.
-data ContactsList = ContactsList { list :: [Contact] }
+data ContactsList = ContactsList { unContactsList :: [Contact] }
 
 emptyGUIAcid :: ContactsList
 emptyGUIAcid = ContactsList []
@@ -43,22 +47,31 @@ $(deriveSafeCopy 0 'base ''ContactsList)
 -- | Adds a contact to the list.
 addContact' :: Contact -> Update ContactsList ()
 addContact' c = do
-    ContactsList l <- get
+    l <- unContactsList <$> get
     put $ ContactsList $ c : l
 
 -- | Removes a contact from the list.
 removeContact' :: Int -> Update ContactsList ()
 removeContact' i = do
-    ContactsList l <- get
+    l <- unContactsList <$> get
     put $ ContactsList $ take i l ++ drop (i + 1) l
 
 -- | Gets the list from the database.
 getContacts' :: Query ContactsList [Contact]
-getContacts' = list <$> ask
+getContacts' = unContactsList <$> ask
+
+replaceWithName' :: C.Address -> Query ContactsList (Maybe T.Text)
+replaceWithName' addr = do
+    list <- unContactsList <$> ask
+    let e = find (\x -> contactAddress x ==
+                        T.pack (C.printPublicKey $ C.getAddress addr)) list
+    return $ contactName <$> e
 
 type GUIState = AcidState ContactsList
 
-$(makeAcidic ''ContactsList ['addContact', 'removeContact', 'getContacts'])
+$(makeAcidic
+      ''ContactsList
+      ['addContact', 'removeContact', 'getContacts', 'replaceWithName'])
 
 getContacts :: GUIState -> IO [Contact]
 getContacts st = query st GetContacts'
@@ -68,3 +81,6 @@ addContact st c = update st $ AddContact' c
 
 removeContact :: GUIState -> Int -> IO ()
 removeContact st i = update st $ RemoveContact' i
+
+replaceWithName :: GUIState -> C.Address -> IO (Maybe T.Text)
+replaceWithName st addr = query st $ ReplaceWithName' addr

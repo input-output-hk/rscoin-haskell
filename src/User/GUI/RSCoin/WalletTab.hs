@@ -1,5 +1,5 @@
-{-# LANGUAGE NoOverloadedStrings #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module GUI.RSCoin.WalletTab
        ( createWalletTab
@@ -7,19 +7,29 @@ module GUI.RSCoin.WalletTab
        , updateWalletTab
        ) where
 
-import           Control.Monad         (join, void)
-import           Graphics.UI.Gtk       (AttrOp ((:=)))
-import qualified Graphics.UI.Gtk       as G
+import           Control.Monad                  (join, void)
+import           Data.Maybe                     (mapMaybe)
+import qualified Data.Text                      as T
+import           Data.Text.Buildable            (build)
+import           Data.Text.Lazy.Builder         (toLazyText)
+import           Graphics.UI.Gtk                (AttrOp ((:=)))
+import qualified Graphics.UI.Gtk                as G
 
-import qualified RSCoin.Core           as C
-import           RSCoin.Timed          (runRealMode)
-import           RSCoin.User           (RSCoinUserState)
-import qualified RSCoin.User           as U
+import qualified RSCoin.Core                    as C
+import           RSCoin.Timed                   (runRealMode)
+import           RSCoin.User                    (RSCoinUserState)
+import qualified RSCoin.User                    as U
 
-import           GUI.RSCoin.Glade      (GladeMainWindow (..))
-import           GUI.RSCoin.GUIAcid    (GUIState)
-import           GUI.RSCoin.MainWindow (WalletModelNode (..), WalletTab (..))
-import qualified GUI.RSCoin.MainWindow as M
+import           Serokell.Util.Text             (format')
+
+import           GUI.RSCoin.ExplicitTransaction (ExplicitTransaction (..),
+                                                 fromTransaction,
+                                                 getTransactionAmount)
+import           GUI.RSCoin.Glade               (GladeMainWindow (..))
+import           GUI.RSCoin.GUIAcid             (GUIState, replaceWithName)
+import           GUI.RSCoin.MainWindow          (WalletModelNode (..),
+                                                 WalletTab (..))
+import qualified GUI.RSCoin.MainWindow          as M
 
 type Model = G.ListStore WalletModelNode
 
@@ -62,14 +72,16 @@ createWalletTab GladeMainWindow{..} = do
 createWalletModel :: G.TreeView -> IO Model
 createWalletModel view = do
     model <- G.listStoreNew []
-    appendPixbufColumn model True "Status" statusSetter
-    appendTextColumn model True "Confirmation" confirmationSetter
-    appendTextColumn model True "At height" heightSetter
-    appendTextColumn model True "Address" addrSetter
-    appendTextColumn model True "Amount" amountSetter
+    appendPixbufColumn model True (sid "In/out") isSendSetter
+    appendTextColumn model True (sid "Status") statusSetter
+    appendTextColumn model True (sid "At height") heightSetter
+    appendTextColumn model True (sid "Address") addrSetter
+    appendTextColumn model True (sid "Amount") amountSetter
     G.treeViewSetModel view model
     return model
   where
+    sid :: String -> String
+    sid = id -- overloaded strings...
     appendPixbufColumn model expand title attributesSetter = do
         renderer <- G.cellRendererPixbufNew
         appendColumn renderer model expand title attributesSetter
@@ -83,16 +95,16 @@ createWalletModel view = do
         G.cellLayoutPackStart column renderer False
         G.cellLayoutSetAttributes column renderer model attributesSetter
         void $ G.treeViewAppendColumn view column
-    statusSetter node =
+    isSendSetter node =
         [ G.cellPixbufStockId :=
           if wIsSend node
-              then "withdraw"
+              then sid "withdraw"
               else "deposit"]
-    confirmationSetter node =
-        [ G.cellText :=
-          if wIsConfirmed node
-              then "Confirmed"
-              else "Unconfirmed"]
+    statusSetter node =
+        [ G.cellText := case wStatus node of
+              U.TxHConfirmed -> sid "Confirmed"
+              U.TxHUnconfirmed -> "Unconfirmed"
+              U.TxHRejected -> "Rejected" ]
     heightSetter node = [G.cellText := show (wHeight node)]
     addrSetter node = [G.cellText := wAddress node]
     amountSetter node = [G.cellText := showSigned (wAmount node)]
@@ -103,22 +115,50 @@ createWalletModel view = do
 initWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
 initWalletTab = updateWalletTab
 
-toNodeMapper :: U.TxHistoryRecord -> IO WalletModelNode
-toNodeMapper U.TxHistoryRecord{..} =
-    -- FIXME it's a stub, fix using cast to ExplicitTransaction,...
-    return $ WalletModelNode False False 123 "AOEUAOEUAOEUAOEU" 45
+toNodeMapper :: RSCoinUserState
+             -> GUIState
+             -> U.TxHistoryRecord
+             -> IO WalletModelNode
+toNodeMapper st gst U.TxHistoryRecord{..} = do
+    eTx <- runRealMode $ fromTransaction txhTransaction
+    addrs <- runRealMode $ U.getAllPublicAddresses st
+    let amountDiff = getTransactionAmount addrs eTx
+        isIncome = amountDiff > 0
+        headMaybe [] = Nothing
+        headMaybe (x:_) = Just x
+        notOurs x = x `notElem` addrs
+        firstFromAddress :: Maybe C.Address
+        firstFromAddress = headMaybe $ filter notOurs $ mapMaybe fst $ vtInputs eTx
+        firstOutAddress :: Maybe C.Address
+        firstOutAddress = headMaybe $ filter notOurs $ map fst $ vtOutputs eTx
+    if isIncome
+    then do
+        (from :: T.Text) <- case firstFromAddress of
+                    Nothing -> return "Unknown"
+                    Just addr -> do
+                        name <- replaceWithName gst addr
+                        return $ format' "{} ({})" (name, addr)
+        return $ WalletModelNode False txhStatus txhHeight from amountDiff
+    else undefined
 
 updateWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
-updateWalletTab st _ M.MainWindow{..} = do
+updateWalletTab st gst M.MainWindow{..} = do
     let WalletTab{..} = tabWallet
+    addrs <- runRealMode $ U.getAllPublicAddresses st
     userAmount <- runRealMode $ U.getUserTotalAmount st
-    G.labelSetText labelCurrentBalance $ show $ C.getCoin userAmount
     transactionsHist <- runRealMode $ U.getTransactionsHistory st
     let unconfirmed =
             filter
                 (\U.TxHistoryRecord{..} -> txhStatus == U.TxHUnconfirmed)
                 transactionsHist
+        unconfirmedSum = do
+            txs <- mapM (runRealMode . fromTransaction . U.txhTransaction)
+                        unconfirmed
+            return $ sum $ map (getTransactionAmount addrs) txs
+    G.labelSetText labelCurrentBalance $ show $ C.getCoin userAmount
     G.labelSetText labelTransactionsNumber $ show $ length unconfirmed
-    nodes <- mapM toNodeMapper transactionsHist
+    G.labelSetText labelUnconfirmedBalance . show =<< unconfirmedSum
+    G.labelSetText labelCurrentAccount $ C.printPublicKey $ C.getAddress $ head addrs
+    nodes <- mapM (toNodeMapper st gst) transactionsHist
     G.listStoreClear walletModel
-    mapM_ (G.listStoreAppend walletModel) nodes
+    mapM_ (G.listStoreAppend walletModel) $ reverse nodes

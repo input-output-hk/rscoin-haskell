@@ -6,15 +6,13 @@ module GUI.RSCoin.ExplicitTransaction
     , getTransactionAmount
     ) where
 
-import           Control.Lens       ((^.))
-import           Control.Monad      (forM)
-import           Data.Bifunctor     (first)
-import           Data.Int           (Int64)
+import           Control.Monad  (forM)
+import           Data.Bifunctor (first)
+import           Data.Int       (Int64)
 
-import           RSCoin.Core        (Address (..), Coin (..), Transaction (..),
-                                     getTransactionById)
-import           RSCoin.Timed       (WorkMode)
-import           RSCoin.User.Wallet (UserAddress, publicAddress)
+import           RSCoin.Core    (Address (..), Coin (..), Transaction (..),
+                                 getTransactionById)
+import           RSCoin.Timed   (WorkMode)
 
 -- | Transaction in a user-printable form.
 data ExplicitTransaction = ExplicitTransaction
@@ -32,12 +30,12 @@ fromTransaction (Transaction i o) = do
     return $ ExplicitTransaction ti o
 
 -- | Calculates the balance change for the user caused by the transaction.
-getTransactionAmount :: [UserAddress] -> ExplicitTransaction -> Int64
-getTransactionAmount a (ExplicitTransaction i o) =
+getTransactionAmount :: [Address] -> ExplicitTransaction -> Int64
+getTransactionAmount addrs (ExplicitTransaction i o) =
     calculate (map (first Just) o) - calculate i
   where
     calculate [] = 0
     calculate (x:xs) = calculate xs + (if isMy x then getCoin $ snd x else 0)
 
     isMy (Nothing, _) = False
-    isMy (Just d, _) = getAddress d `elem` map (^. publicAddress) a
+    isMy (Just d, _) = getAddress d `elem` map getAddress addrs

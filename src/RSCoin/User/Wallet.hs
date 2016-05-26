@@ -254,7 +254,7 @@ putHistoryRecords newHeight transactions = do
         L.uses
             historyTxs
             (S.filter $ \TxHistoryRecord{..} -> txhStatus == TxHUnconfirmed)
-    historyTxs %= S.difference (S.fromList unconfirmed)
+    historyTxs %= (`S.difference` S.fromList unconfirmed)
     let inList =
             filter
                 (\TxHistoryRecord{..} ->
@@ -264,6 +264,12 @@ putHistoryRecords newHeight transactions = do
         confirmed = map setConfirmed inList
         rejected = map setRejected nonInList
     historyTxs %= S.union (S.fromList $ confirmed ++ rejected)
+    addrs <- L.uses userAddresses $ map toAddress
+    -- suppose nobody ever spends your output, i.e.
+    -- outcome transactions are always sent by you
+    let incomes = filter (\tx -> any (`elem` addrs) (map fst (C.txOutputs tx))) transactions
+        mapped = map (\tx -> TxHistoryRecord tx newHeight TxHConfirmed) incomes
+    historyTxs %= S.union (S.fromList mapped)
   where
     setConfirmed TxHistoryRecord{..} =
         TxHistoryRecord

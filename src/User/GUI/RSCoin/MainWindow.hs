@@ -10,8 +10,11 @@ module GUI.RSCoin.MainWindow
        ) where
 
 import           Data.Int             (Int64)
+import qualified Data.Text            as T
 
 import qualified Graphics.UI.Gtk      as G
+
+import           RSCoin.User.Wallet   (TxHStatus)
 
 import           GUI.RSCoin.Addresses (VerboseAddress (..))
 
@@ -27,11 +30,11 @@ data MainWindow = MainWindow
     }
 
 data WalletModelNode = WalletModelNode
-    { wIsSend      :: Bool
-    , wIsConfirmed :: Bool
-    , wHeight      :: Int
-    , wAddress     :: String
-    , wAmount      :: Int64
+    { wIsSend  :: Bool
+    , wStatus  :: TxHStatus
+    , wHeight  :: Int
+    , wAddress :: T.Text
+    , wAmount  :: Int64
     }
 
 data WalletTab = WalletTab

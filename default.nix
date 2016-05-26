@@ -7,7 +7,7 @@
 , random, safe, safecopy, serokell-core, stdenv, stm, temporary
 , text, text-format, time, time-units, transformers
 , transformers-base, tuple, unordered-containers, vector
-, theme-vertex
+, makeWrapper, theme-vertex
 }:
 mkDerivation {
   pname = "rscoin";
@@ -40,7 +40,7 @@ mkDerivation {
   postInstall = ''
     wrapProgram $out/bin/rscoin-user \
       --set GTK_THEME "Vertex-Dark"
-      --prefix PATH : "${theme-vertex}" 
+      --set GTK3_THEME : "${theme-vertex}/share/themes/Vertex-Dark/gtk-3.0/gtk.css" 
   '';
   license = stdenv.lib.licenses.gpl3;
 }

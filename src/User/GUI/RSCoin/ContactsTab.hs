@@ -15,19 +15,21 @@ import qualified Graphics.UI.Gtk         as G
 import           GUI.RSCoin.ErrorMessage (reportSimpleError)
 import           GUI.RSCoin.Glade        (GladeMainWindow (..))
 import           GUI.RSCoin.GUIAcid      (Contact (..), GUIState, addContact,
-                                          removeContact, getContacts)
+                                          getContacts, removeContact)
 import           GUI.RSCoin.MainWindow   (AddContactWindow (..),
                                           ContactsTab (..))
 import qualified GUI.RSCoin.MainWindow   as M
+import           GUI.RSCoin.WalletTab    (updateWalletTab)
 import qualified RSCoin.Core             as C
+import           RSCoin.User             (RSCoinUserState)
 
 createContactsTab :: GladeMainWindow -> ContactsTab
 createContactsTab GladeMainWindow{..} =
     ContactsTab gTreeViewContactsView gButtonAddContact
         gButtonRemoveContact gLabelContactsNum
 
-initContactsTab :: GUIState -> M.MainWindow -> AddContactWindow -> IO ()
-initContactsTab gst M.MainWindow{..} AddContactWindow{..} = do
+initContactsTab :: RSCoinUserState -> GUIState -> M.MainWindow -> AddContactWindow -> IO ()
+initContactsTab st gst mw@M.MainWindow{..} AddContactWindow{..} = do
     let ContactsTab{..} = tabContacts
     contacts <- getContacts gst
     G.labelSetText labelContactsNum $
@@ -63,6 +65,7 @@ initContactsTab gst M.MainWindow{..} AddContactWindow{..} = do
             contacts' <- getContacts gst
             G.labelSetText labelContactsNum $ "Contacts: " ++ show (length contacts')
             G.widgetHide addContactWindow
+            updateWalletTab st gst mw
         else reportSimpleError mainWindow "Bad address format!"
     void $ buttonContactCancel `on` G.buttonActivated $
         G.widgetHide addContactWindow
@@ -85,4 +88,5 @@ initContactsTab gst M.MainWindow{..} AddContactWindow{..} = do
                 contacts' <- getContacts gst
                 G.labelSetText labelContactsNum $
                     "Contacts: " ++ show (length contacts')
+                updateWalletTab st gst mw
             G.widgetDestroy dialog

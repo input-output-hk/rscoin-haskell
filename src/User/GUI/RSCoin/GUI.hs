@@ -25,6 +25,7 @@ import qualified GUI.RSCoin.MainWindow      as M
 import           GUI.RSCoin.TransactionsTab (createTransactionsTab,
                                              initTransactionsTab)
 import           GUI.RSCoin.WalletTab       (createWalletTab, initWalletTab)
+import           GUI.RSCoin.Worker          (startWorker)
 import qualified RSCoin.User                as U
 
 ---- ICONS ----
@@ -98,6 +99,7 @@ startGUI st gst = do
     initMainWindow st gst mw acw
     void (mainWindow `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
     G.widgetShowAll mainWindow
+    startWorker st gst mw
     G.mainGUI
 
 createMainWindow :: GladeMainWindow -> IO MainWindow
@@ -122,7 +124,7 @@ initMainWindow :: U.RSCoinUserState
 initMainWindow st gst mw@MainWindow{..} acw = do
     initWalletTab st gst mw
     initTransactionsTab st gst mw
-    initContactsTab gst mw acw
+    initContactsTab st gst mw acw
     initAddressesTab st mw
     loadIcons
     setNotebookIcons notebookMain G.IconSizeLargeToolbar

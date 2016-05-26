@@ -9,9 +9,11 @@ module GUI.RSCoin.MainWindow
        , AddContactWindow (..)
        ) where
 
-import           Data.Int        (Int64)
+import           Data.Int             (Int64)
 
-import qualified Graphics.UI.Gtk as G
+import qualified Graphics.UI.Gtk      as G
+
+import           GUI.RSCoin.Addresses (VerboseAddress (..))
 
 -- | Main window, the whole gui -- all elements we're interested in.
 data MainWindow = MainWindow
@@ -59,6 +61,7 @@ data ContactsTab = ContactsTab
 
 data AddressesTab = AddressesTab
     { treeViewAddressesView :: G.TreeView
+    , addressesModel        :: G.ListStore VerboseAddress
     }
 
 data AddContactWindow = AddContactWindow

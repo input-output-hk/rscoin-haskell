@@ -102,14 +102,14 @@ startGUI st gst = do
 
 createMainWindow :: GladeMainWindow -> IO MainWindow
 createMainWindow gmw@GladeMainWindow {..} = do
-    tabWallet <- createWalletTab gmw
+    tabWallet    <- createWalletTab gmw
+    tabAddresses <- createAddressesTab gmw
     let tabTransactions = createTransactionsTab gmw
         tabContacts     = createContactsTab gmw
-        tabAddresses    = createAddressesTab gmw
     return
         M.MainWindow
-        { mainWindow = gWindow
-        , notebookMain = gNotebookMain
+        { mainWindow        = gWindow
+        , notebookMain      = gNotebookMain
         , progressBarUpdate = gProgressBarUpdate
         , ..
         }

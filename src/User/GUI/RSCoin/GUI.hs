@@ -97,9 +97,9 @@ startGUI st gst = do
     (gmw, acw) <- importGlade
     mw@MainWindow{..} <- createMainWindow gmw
     initMainWindow st gst mw acw
+    startWorker st gst mw
     void (mainWindow `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
     G.widgetShowAll mainWindow
-    startWorker st gst mw
     G.mainGUI
 
 createMainWindow :: GladeMainWindow -> IO MainWindow

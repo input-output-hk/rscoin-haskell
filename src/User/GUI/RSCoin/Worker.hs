@@ -67,8 +67,8 @@ updateBlockchainWithProgress st M.MainWindow{..} =
 
 startWorker :: U.RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
 startWorker st gst mw@M.MainWindow{..} = void $ forkIO $ forever $ do
-    threadDelay $ 3 * 1000000
     updated <- runRealMode $ updateBlockchainWithProgress st mw
     when updated $ do
         G.postGUIAsync $ updateWalletTab st gst mw
         G.postGUIAsync $ updateAddressTab st mw
+    threadDelay $ 3 * 1000000

@@ -8,7 +8,7 @@ module Options
 import           Options.Applicative (Parser, auto, execParser, fullDesc, help,
                                       helper, info, long, metavar, option,
                                       progDesc, short, showDefault, strOption,
-                                      value, (<>))
+                                      switch, value, (<>))
 
 import           RSCoin.Core         (Severity (Info), defaultPort,
                                       defaultSecretKeyPath)
@@ -18,6 +18,7 @@ data Options = Options
     , cloPath          :: FilePath
     , cloSecretKeyPath :: FilePath
     , cloLogSeverity   :: Severity
+    , cloMemMode       :: Bool
     }
 
 optionsParser :: FilePath -> Parser Options
@@ -29,7 +30,8 @@ optionsParser defaultSKPath =
          help "Path to database") <*>
     strOption
         (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault) <*>
-    option auto (long "log-severity" <> value Info <> showDefault)
+    option auto (long "log-severity" <> value Info <> showDefault) <*>
+    switch (short 'm' <> long "memory-mode" <> help "Run in memory mode")
 
 getOptions :: IO Options
 getOptions = do

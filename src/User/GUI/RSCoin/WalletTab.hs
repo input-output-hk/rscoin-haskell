@@ -153,7 +153,6 @@ initWalletTab st gst mw@M.MainWindow{..} = do
     dialogWithIndex i = do
         dialog <- G.dialogNew
         node <- G.listStoreGetValue (M.walletModel tabWallet) i
-        G.set dialog [ G.windowTitle := sid "Transaction info"]
         void $ G.dialogAddButton dialog (sid "Ok") G.ResponseOk
         upbox <- G.castToBox <$> G.dialogGetContentArea dialog
         scrolled <- G.scrolledWindowNew Nothing Nothing
@@ -167,10 +166,14 @@ initWalletTab st gst mw@M.MainWindow{..} = do
                     , G.widgetMarginRight := 5
                     , G.widgetMarginTop := 5
                     , G.widgetMarginBottom := 5 ]
-        G.boxPackStart upbox scrolled G.PackGrow 10
+        G.set scrolled [ G.scrolledWindowMinContentHeight := 300
+                       , G.scrolledWindowMinContentWidth := 500
+                       ]
+        G.boxPackStart upbox scrolled G.PackNatural 0
+        G.set dialog [ G.windowTitle := sid "Transaction info"
+                     , G.windowResizable := False ]
         G.widgetShowAll upbox
         void $ G.dialogRun dialog
-        G.windowResize dialog 300 500
         void $ G.widgetDestroy dialog
 
 toNodeMapper :: RSCoinUserState

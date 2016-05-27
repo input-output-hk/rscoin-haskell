@@ -170,7 +170,6 @@ executable rscoin-user
                      , GUI.RSCoin.Glade
                      , GUI.RSCoin.GUI
                      , GUI.RSCoin.GUIAcid
-                     , GUI.RSCoin.GUIError
                      , GUI.RSCoin.MainWindow
                      , GUI.RSCoin.TransactionsTab
                      , GUI.RSCoin.WalletTab

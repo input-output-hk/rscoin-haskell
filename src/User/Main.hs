@@ -1,3 +1,4 @@
+{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -5,7 +6,8 @@
 import           Control.Concurrent      (threadDelay)
 import           Control.Exception       (SomeException)
 import           Control.Monad           (unless, void)
-import           Control.Monad.Catch     (MonadCatch, bracket, catch, throwM)
+import           Control.Monad.Catch     (MonadCatch, bracket, catch, throwM,
+                                          MonadMask)
 import           Control.Monad.Trans     (MonadIO, liftIO)
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
@@ -13,7 +15,8 @@ import qualified Data.Text               as T
 import qualified Graphics.UI.Gtk         as G
 
 import qualified RSCoin.Core             as C
-import           RSCoin.Timed            (WorkMode, runRealMode)
+import           RSCoin.Timed            (WorkMode, runRealMode, MonadRpc,
+                                          MonadTimed)
 import qualified RSCoin.User.AcidState   as A
 import qualified RSCoin.User.Actions     as UA
 import           RSCoin.User.Error       (eWrap)
@@ -24,6 +27,12 @@ import           GUI.RSCoin.GUI          (startGUI)
 import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
 import qualified UserOptions             as O
 
+initializeStorage
+    :: forall (m :: * -> *).
+       (MonadIO m, MonadMask m, MonadTimed m, MonadRpc m)
+    => A.RSCoinUserState
+    -> O.UserOptions
+    -> m ()
 initializeStorage st O.UserOptions{..} =
     A.initState st addressesNum $ bankKeyPath isBankMode bankModePath
   where

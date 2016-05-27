@@ -46,7 +46,7 @@ Installation
 At the moment, RSCoin has binary distribution served from our servers
 through Nix package manager²³. To perform automatic installation, please
 run the script which you can find in this repository under
-``admin/install``.
+``admin/install.sh``.
 
 To build from source, clone this repository, navigate to the directory
 into which the project was cloned and run ``stack build`` there.

@@ -282,13 +282,43 @@ test-suite rscoin-test
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 
-executable rscoin-bench
---  type:                exitcode-stdio-1.0
+benchmark rscoin-bench
+  type:                exitcode-stdio-1.0
   main-is:             Main.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.InfraThreads
                      , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserLogic
+  build-depends:       acid-state
+                     , async
+                     , base >=4.8 && <4.9
+                     , clock
+                     , exceptions
+                     , filepath
+                     , formatting
+                     , mtl
+                     , optparse-generic
+                     , rscoin
+                     , serokell-core
+                     , temporary
+                     , text
+                     , time-units
+                     , transformers
+  hs-source-dirs:      bench
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -with-rtsopts=-N
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:  OverloadedStrings
+
+benchmark rscoin-bench-single-user
+  type:                exitcode-stdio-1.0
+  main-is:             MainSingleUser.hs
+  other-modules:       BenchSingleUser.RSCoin.FilePathUtils
+                     , BenchSingleUser.RSCoin.Logging
+                     , BenchSingleUser.RSCoin.UserLogic
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9

@@ -37,7 +37,7 @@ loadIcons = mapM_ loadIcon iconList
                , "resources/icons/people.png"
                , "resources/icons/send.png"
                , "resources/icons/options.png"
---               , "resources/icons/sync.png"
+               , "resources/icons/sync.png"
 --               , "resources/icons/network.png"
 --               , "resources/icons/notification_on.png"
                , "resources/icons/notification_off.png"

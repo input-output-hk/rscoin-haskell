@@ -342,3 +342,33 @@ benchmark rscoin-bench-single-user
                        -fno-warn-orphans
                        -O2
   default-extensions:  OverloadedStrings
+
+benchmark rscoin-bench-only-users
+  type:                exitcode-stdio-1.0
+  main-is:             MainOnlyUsers.hs
+  other-modules:       BenchOnlyUsers.RSCoin.FilePathUtils
+                     , BenchOnlyUsers.RSCoin.Logging
+                     , BenchOnlyUsers.RSCoin.UserLogic
+  build-depends:       acid-state
+                     , async
+                     , base >=4.8 && <4.9
+                     , clock
+                     , exceptions
+                     , filepath
+                     , formatting
+                     , mtl
+                     , optparse-generic
+                     , rscoin
+                     , serokell-core
+                     , temporary
+                     , text
+                     , time-units
+                     , transformers
+  hs-source-dirs:      bench
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -with-rtsopts=-N
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+  default-extensions:  OverloadedStrings

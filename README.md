@@ -65,6 +65,8 @@ one user and nine mintettes, please refer to script ``admin/demo9``.
 #### References
 
 ¹ — G. Danezis and S. Meiklejohn, “[Centrally Banked Cryptocurrencies](https://eprint.iacr.org/2015/502.pdf)”
+
 ² — NixOS Foundation, [Nix Package Manager](https://nixos.org/nix/)
+
 ³ — E. Dolstra et al,
 [Nix: A Safe and Policy-Free System for Software Deployment](http://nixos.org/~eelco/pubs/nspfssd-lisa2004-final.pdf)

@@ -18,6 +18,7 @@ module RSCoin.Core.Crypto.Signing
        , readSecretKey
        , derivePublicKey
        , checkKeyPair
+       , printPublicKey
        ) where
 
 import qualified Crypto.Sign.Ed25519        as E
@@ -38,6 +39,8 @@ import           Data.Text.Buildable        (Buildable (build))
 import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format           as F
 import qualified Data.Text.IO               as TIO
+import           Data.Text.Lazy.Builder     (toLazyText)
+import qualified Data.Text.Lazy             as TL
 import           Data.Tuple                 (swap)
 import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            (takeDirectory)
@@ -190,3 +193,7 @@ derivePublicKey (getSecretKey -> sk) =
 -- | Validate the sk to be the secret key of pk
 checkKeyPair :: (SecretKey, PublicKey) -> Bool
 checkKeyPair (sk, pk) = pk == derivePublicKey sk
+
+-- | String representation of key
+printPublicKey :: PublicKey -> String
+printPublicKey = TL.unpack . toLazyText . build

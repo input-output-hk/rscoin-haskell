@@ -5,6 +5,7 @@ module GUI.RSCoin.AddressesTab
     ) where
 
 import           Control.Monad         (forM_, void, when)
+import           Data.Acid             (update)
 
 import           Graphics.UI.Gtk       (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk       as G
@@ -14,11 +15,15 @@ import           Serokell.Util.Text    (formatSingle')
 import           GUI.RSCoin.Addresses  (VerboseAddress (..), getAddresses)
 import           GUI.RSCoin.Glade      (GladeMainWindow (..))
 import           GUI.RSCoin.MainWindow (AddressesTab (..), MainWindow (..))
-import           RSCoin.User           (RSCoinUserState)
+
+import qualified RSCoin.Core           as C
+import           RSCoin.User           (RSCoinUserState, AddAddresses (..),
+                                        makeUserAddress)
 
 createAddressesTab :: GladeMainWindow -> IO AddressesTab
 createAddressesTab GladeMainWindow{..} =
     AddressesTab
+        gButtonGenerateAddress
         gButtonCopyAddress
         gTreeViewAddressesView
     <$> G.listStoreNew []
@@ -47,7 +52,11 @@ initAddressesTab st mw@MainWindow{..} = do
         when (selNum /= 0) $ do
             a <- G.listStoreGetValue addressesModel $ head $ head rows
             c <- G.clipboardGet G.selectionClipboard
-            G.clipboardSetText c $ formatSingle' "{}" $ address a
+            G.clipboardSetText c $ C.printPublicKey $ address a
+    void $ generateAddressButton `on` G.buttonActivated $ do
+        (sk, pk) <- C.keyGen
+        update st $ AddAddresses (makeUserAddress sk pk) []
+        updateAddressTab st mw
     updateAddressTab st mw
 
 updateAddressTab :: RSCoinUserState -> MainWindow -> IO ()

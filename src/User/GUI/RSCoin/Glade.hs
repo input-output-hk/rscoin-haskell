@@ -40,6 +40,7 @@ data GladeMainWindow = GladeMainWindow
     , gLabelContactsNum        :: G.Label
 
     , gTreeViewAddressesView   :: G.TreeView
+    , gButtonGenerateAddress   :: G.Button
     , gButtonCopyAddress       :: G.Button
     }
 
@@ -90,6 +91,7 @@ importGlade = do
         <*> getButton      "removeContactButton"
         <*> getLabel       "contactsNumLabel"
         <*> getView        "addressesView"
+        <*> getButton      "generateAddressButton"
         <*> getButton      "copyAddressButton"
     acw <- AddContactWindow
         <$> getWindow "addContactWindow"

@@ -162,6 +162,7 @@ executable rscoin-user
   main-is:             Main.hs
   other-modules:       Paths_rscoin
                      , UserOptions
+                     , GUI.RSCoin.Addresses
                      , GUI.RSCoin.AddressesTab
                      , GUI.RSCoin.ContactsTab
                      , GUI.RSCoin.ErrorMessage

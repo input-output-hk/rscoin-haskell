@@ -44,7 +44,7 @@ Installation
 ---
 
 At the moment, RSCoin has binary distribution served from our servers
-through Nix package manager²³. To perform automatic installation, please
+through Nix² package manager³. To perform automatic installation, please
 run the script which you can find in this repository under
 ``admin/install.sh``.
 
@@ -66,7 +66,7 @@ one user and nine mintettes, please refer to script ``admin/demo9``.
 
 ¹ — G. Danezis and S. Meiklejohn, “[Centrally Banked Cryptocurrencies](https://eprint.iacr.org/2015/502.pdf)”
 
-² — NixOS Foundation, [Nix Package Manager](https://nixos.org/nix/)
-
-³ — E. Dolstra et al,
+² — E. Dolstra et al,
 “[Nix: A Safe and Policy-Free System for Software Deployment](http://nixos.org/~eelco/pubs/nspfssd-lisa2004-final.pdf)”
+
+³ — NixOS Foundation, [Nix Package Manager](https://nixos.org/nix/)

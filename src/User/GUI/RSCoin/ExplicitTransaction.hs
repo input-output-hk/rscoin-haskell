@@ -6,13 +6,16 @@ module GUI.RSCoin.ExplicitTransaction
     , getTransactionAmount
     ) where
 
-import           Control.Monad  (forM)
-import           Data.Bifunctor (first)
-import           Data.Int       (Int64)
+import           Control.Monad          (forM)
+import           Control.Monad.IO.Class (liftIO)
+import           Data.Bifunctor         (first)
+import           Data.Int               (Int64)
 
-import           RSCoin.Core    (Address (..), Coin (..), Transaction (..),
-                                 getTransactionById)
-import           RSCoin.Timed   (WorkMode)
+import           GUI.RSCoin.GUIAcid     (GUIState,
+                                         addTransaction, getTransaction)
+import           RSCoin.Core            (Address (..), Coin (..),
+                                         Transaction (..), getTransactionById)
+import           RSCoin.Timed           (WorkMode)
 
 -- | Transaction in a user-printable form.
 data ExplicitTransaction = ExplicitTransaction
@@ -21,13 +24,23 @@ data ExplicitTransaction = ExplicitTransaction
     }
 
 -- | Transforms a transaction into a user-printable form.
-fromTransaction :: WorkMode m => Transaction -> m ExplicitTransaction
-fromTransaction (Transaction i o) = do
+fromTransaction
+    :: WorkMode m => GUIState -> Transaction -> m ExplicitTransaction
+fromTransaction st (Transaction i o) = do
     ti <- forM i $ \(tId, x, c) -> do
-        pt <- getTransactionById tId
+        pt <- getTransactionWithDB tId
         let ua = (\a -> fst (txOutputs a !! x)) <$> pt
         return (ua, c)
     return $ ExplicitTransaction ti o
+  where
+    getTransactionWithDB tId = do
+        mt <- liftIO $ getTransaction st tId
+        case mt of
+            Nothing -> do
+                pt <- getTransactionById tId
+                liftIO $ addTransaction st tId pt
+                return pt
+            Just t -> return t
 
 -- | Calculates the balance change for the user caused by the transaction.
 getTransactionAmount :: [Address] -> ExplicitTransaction -> Int64

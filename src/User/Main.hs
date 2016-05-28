@@ -51,7 +51,7 @@ processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- query' st A.IsInitialized
     unless initialized $ liftIO G.initGUI >> initLoop
     liftIO $ bracket
-        (ACID.openLocalStateFrom contactsPath emptyGUIAcid)
+        (ACID.openLocalStateFrom guidbPath emptyGUIAcid)
         (\cs -> do ACID.createCheckpoint cs
                    ACID.closeAcidState cs)
         (\cs -> startGUI st cs)

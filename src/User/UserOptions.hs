@@ -61,7 +61,7 @@ data UserOptions = UserOptions
     , bankModePath :: FilePath    -- ^ Path to bank's secret key
     , addressesNum :: Int         -- ^ Number of addresses to create initially
     , walletPath   :: FilePath    -- ^ Path to the wallet
-    , contactsPath :: FilePath    -- ^ Path to the contacts list
+    , guidbPath    :: FilePath    -- ^ Path to the gui database.
     , logSeverity  :: Severity    -- ^ Logging severity
     } deriving (Show)
 
@@ -189,8 +189,8 @@ userOptionsParser dskp =
          value "wallet-db" <>
          showDefault) <*>
     strOption
-        (long "contacts-path" <> help "Path to contacts database" <>
-         value "contacts-db" <>
+        (long "guidb-path" <> help "Path to gui database" <>
+         value "gui-db" <>
          showDefault) <*>
     option auto (long "log-severity" <> value Info <> showDefault)
 

@@ -13,6 +13,8 @@ module GUI.RSCoin.GUIAcid
     , addContact
     , removeContact
     , replaceWithName
+    , addTransaction
+    , getTransaction
     ) where
 
 import           Control.Monad.Reader (ask)
@@ -20,6 +22,7 @@ import           Control.Monad.State  (get, put)
 import           Data.Acid            (AcidState, Query, Update, makeAcidic,
                                        query, update)
 import           Data.List            (find)
+import           Data.Map             (Map, empty, insert, lookup)
 import           Data.SafeCopy        (base, deriveSafeCopy)
 import qualified Data.Text            as T
 
@@ -38,41 +41,55 @@ dummyContacts =
     [Contact "aoeu" "kek", Contact "kek" "ahaha", Contact "memasy" "podkatili"]
 
 -- | List of contacts known to the user.
-data ContactsList = ContactsList { unContactsList :: [Contact] }
+data GUIDB = GUIDB
+    { contactsList      :: [Contact]
+    , transactionsCache :: Map C.TransactionId (Maybe C.Transaction)
+    }
 
-emptyGUIAcid :: ContactsList
-emptyGUIAcid = ContactsList []
+emptyGUIAcid :: GUIDB
+emptyGUIAcid = GUIDB [] empty
 
 $(deriveSafeCopy 0 'base ''Contact)
-$(deriveSafeCopy 0 'base ''ContactsList)
+$(deriveSafeCopy 0 'base ''GUIDB)
 
 -- | Adds a contact to the list.
-addContact' :: Contact -> Update ContactsList ()
+addContact' :: Contact -> Update GUIDB ()
 addContact' c = do
-    l <- unContactsList <$> get
-    put $ ContactsList $ c : l
+    GUIDB l m <- get
+    put $ GUIDB (c : l) m
 
 -- | Removes a contact from the list.
-removeContact' :: Int -> Update ContactsList ()
+removeContact' :: Int -> Update GUIDB ()
 removeContact' i = do
-    l <- unContactsList <$> get
-    put $ ContactsList $ take i l ++ drop (i + 1) l
+    GUIDB l m <- get
+    put $ GUIDB (take i l ++ drop (i + 1) l) m
 
 -- | Gets the list from the database.
-getContacts' :: Query ContactsList [Contact]
-getContacts' = unContactsList <$> ask
+getContacts' :: Query GUIDB [Contact]
+getContacts' = contactsList <$> ask
 
-replaceWithName' :: C.Address -> Query ContactsList (Maybe T.Text)
+replaceWithName' :: C.Address -> Query GUIDB (Maybe T.Text)
 replaceWithName' addr = do
-    list <- unContactsList <$> ask
+    list <- contactsList <$> ask
     let e = find (\x -> contactAddress x == formatSingle' "{}" addr) list
     return $ contactName <$> e
 
-type GUIState = AcidState ContactsList
+addTransaction' :: C.TransactionId -> Maybe C.Transaction -> Update GUIDB ()
+addTransaction' tId mt = do
+    GUIDB l m <- get
+    put $ GUIDB l $ insert tId mt m
+
+getTransaction' :: C.TransactionId -> Query GUIDB (Maybe (Maybe C.Transaction))
+getTransaction' tId = do
+    map <- transactionsCache <$> ask
+    return $ Data.Map.lookup tId map
+
+type GUIState = AcidState GUIDB
 
 $(makeAcidic
-      ''ContactsList
-      ['addContact', 'removeContact', 'getContacts', 'replaceWithName'])
+      ''GUIDB
+      ['addContact', 'removeContact', 'getContacts'
+      , 'replaceWithName', 'addTransaction', 'getTransaction'])
 
 getContacts :: GUIState -> IO [Contact]
 getContacts st = query st GetContacts'
@@ -85,3 +102,10 @@ removeContact st i = update st $ RemoveContact' i
 
 replaceWithName :: GUIState -> C.Address -> IO (Maybe T.Text)
 replaceWithName st addr = query st $ ReplaceWithName' addr
+
+addTransaction :: GUIState -> C.TransactionId -> Maybe C.Transaction -> IO ()
+addTransaction st tId mt = update st $ AddTransaction' tId mt
+
+getTransaction
+    :: GUIState -> C.TransactionId -> IO (Maybe (Maybe C.Transaction))
+getTransaction st tId = query st $ GetTransaction' tId

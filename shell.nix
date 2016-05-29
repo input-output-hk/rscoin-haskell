@@ -13,7 +13,7 @@ let
       , random, safe, safecopy, stdenv, stm, text
       , text-format, time, time-units, transformers, transformers-base
       , tuple, unordered-containers, vector
-      , git, zlib, openssh, autoreconfHook, pkgconfig, cairo, gtk3
+      , pkgconfig, cairo, gtk3
       }:
       mkDerivation {
         pname = "rscoin";
@@ -46,7 +46,8 @@ let
           vector
         ];
         libraryPkgconfigDepends =
-          [ zlib git openssh autoreconfHook pkgconfig cairo gtk3];
+          (with nixpkgs; [zlib git openssh autoreconfHook]) ++
+          [pkgconfig cairo gtk3];
         license = stdenv.lib.licenses.gpl3;
       };
 
@@ -54,7 +55,7 @@ let
                        then pkgs.haskellPackages
                        else pkgs.haskell.packages.${compiler};
 
-  drv = haskellPackages.callPackage f {};
+  drv = haskellPackages.callPackage f { };
 
 in
 

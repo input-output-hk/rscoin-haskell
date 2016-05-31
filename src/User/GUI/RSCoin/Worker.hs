@@ -43,6 +43,8 @@ updateBlockchainWithProgress st M.MainWindow{..} =
       when (lastBlockHeight /= walletHeight) $ do
           let diff = toInteger $ lastBlockHeight - walletHeight
               step = 1.0 / fromInteger diff
+              idleTime = round $ 100 / toRational diff
+              idleTimeShort = round $ 40 / toRational diff
           postGUI $ do
             G.progressBarSetFraction progressBarUpdate 0
             G.labelSetText labelSync $ formatSingle' "Syncing 0/{}" diff
@@ -53,9 +55,10 @@ updateBlockchainWithProgress st M.MainWindow{..} =
                       G.labelSetText labelSync $
                       format' "Syncing {}/{}" (h - walletHeight, diff)
                   increasePG (step/2)
-                  liftIO $ threadDelay $ 2000 * 1000
+                  liftIO $ threadDelay $ idleTime * 1000
                   U.updateToBlockHeight st h
-                  increasePG (step/2))
+                  increasePG (step/2)
+                  liftIO $ threadDelay $ idleTimeShort * 1000)
       postGUI $ do
           G.progressBarSetFraction progressBarUpdate 1
           G.labelSetText labelSync $ formatSingle' "Synced at height {}" lastBlockHeight
@@ -67,8 +70,9 @@ updateBlockchainWithProgress st M.MainWindow{..} =
 
 startWorker :: U.RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
 startWorker st gst mw@M.MainWindow{..} = void $ forkIO $ forever $ do
+    threadDelay $ 1 * 1000000
     updated <- runRealMode $ updateBlockchainWithProgress st mw
     when updated $ do
         G.postGUIAsync $ updateWalletTab st gst mw
         G.postGUIAsync $ updateAddressTab st mw
-    threadDelay $ 3 * 1000000
+    threadDelay $ 2 * 1000000

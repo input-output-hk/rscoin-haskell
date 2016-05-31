@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Structure and functions used to print transactions.
 
 module GUI.RSCoin.ExplicitTransaction
@@ -6,13 +7,15 @@ module GUI.RSCoin.ExplicitTransaction
     , getTransactionAmount
     ) where
 
+import           Control.Exception      (SomeException)
 import           Control.Monad          (forM)
+import           Control.Monad.Catch    (catch)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Bifunctor         (first)
 import           Data.Int               (Int64)
 
-import           GUI.RSCoin.GUIAcid     (GUIState,
-                                         addTransaction, getTransaction)
+import           GUI.RSCoin.GUIAcid     (GUIState, addTransaction,
+                                         getTransaction)
 import           RSCoin.Core            (Address (..), Coin (..),
                                          Transaction (..), getTransactionById)
 import           RSCoin.Timed           (WorkMode)
@@ -33,13 +36,16 @@ fromTransaction st (Transaction i o) = do
         return (ua, c)
     return $ ExplicitTransaction ti o
   where
+    performRequest tId = do
+        pt <- getTransactionById tId
+        liftIO $ addTransaction st tId pt
+        return pt
     getTransactionWithDB tId = do
         mt <- liftIO $ getTransaction st tId
         case mt of
-            Nothing -> do
-                pt <- getTransactionById tId
-                liftIO $ addTransaction st tId pt
-                return pt
+            Nothing -> performRequest tId
+                           `catch`
+                           (\(_ :: SomeException) -> return Nothing)
             Just t -> return t
 
 -- | Calculates the balance change for the user caused by the transaction.

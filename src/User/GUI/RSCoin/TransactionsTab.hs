@@ -70,7 +70,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
         reportSimpleError mainWindow "Amount should be positive."
         G.entrySetText (spinButtonSendAmount tabTransactions) ""
     constructDialog (Just address) (Right amount) = do
-        userAmount <- runRealMode $ U.getUserTotalAmount st
+        userAmount <- runRealMode $ U.getUserTotalAmount True st
         if amount > C.getCoin userAmount
         then do
             reportSimpleError mainWindow $

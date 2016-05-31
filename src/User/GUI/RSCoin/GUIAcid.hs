@@ -81,8 +81,8 @@ addTransaction' tId mt = do
 
 getTransaction' :: C.TransactionId -> Query GUIDB (Maybe (Maybe C.Transaction))
 getTransaction' tId = do
-    map <- transactionsCache <$> ask
-    return $ Data.Map.lookup tId map
+    map' <- transactionsCache <$> ask
+    return $ Data.Map.lookup tId map'
 
 type GUIState = AcidState GUIDB
 

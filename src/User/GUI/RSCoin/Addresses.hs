@@ -10,8 +10,8 @@ import           Data.Int      (Int64)
 
 import           RSCoin.Core   (Coin (..), PublicKey)
 import           RSCoin.Timed  (runRealMode)
-import           RSCoin.User   (RSCoinUserState, GetAllAddresses (..),
-                                getAmount, publicAddress)
+import           RSCoin.User   (GetAllAddresses (..), RSCoinUserState,
+                                getAmountNoUpdate, publicAddress)
 
 data VerboseAddress = VA
     { address :: PublicKey
@@ -22,5 +22,5 @@ getAddresses :: RSCoinUserState -> IO [VerboseAddress]
 getAddresses st = do
     as <- query st GetAllAddresses
     forM as $ \a -> runRealMode $ do
-        b <- getAmount st a
+        b <- getAmountNoUpdate st a
         return $ VA (a ^. publicAddress) (getCoin b)

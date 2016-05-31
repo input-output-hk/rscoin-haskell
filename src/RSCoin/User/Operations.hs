@@ -9,6 +9,7 @@ module RSCoin.User.Operations
        , commitError
        , getUserTotalAmount
        , getAmount
+       , getAmountNoUpdate
        , getAmountByIndex
        , getAllPublicAddresses
        , getTransactionsHistory
@@ -109,11 +110,12 @@ getAmount st userAddress = do
     (_ :: Either SomeException Bool) <- try $ updateBlockchain st False
     getAmountNoUpdate st userAddress
 
--- | Gets current amount on all accounts user posesses
-getUserTotalAmount :: WorkMode m => A.RSCoinUserState -> m C.Coin
-getUserTotalAmount st = do
+-- | Gets current amount on all accounts user posesses. Boolean flag
+-- stands for "if update blockchain inside"
+getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m C.Coin
+getUserTotalAmount upd st = do
     addrs <- query' st A.GetAllAddresses
-    void $ updateBlockchain st False
+    when upd $ void $ updateBlockchain st False
     sum <$> mapM (getAmountNoUpdate st) addrs
 
 -- | Get amount without storage update
@@ -156,7 +158,7 @@ formTransactionFromAll st addressTo amount = do
         filter ((>= 0) . snd) <$>
         mapM (\i -> (fromInteger $ toInteger i+1,)
                     <$> getAmountByIndex st i) [0..length addrs-1]
-    totalAmount <- getUserTotalAmount st
+    totalAmount <- getUserTotalAmount True st
     when (amount > totalAmount) $
         throwM $
         InputProcessingError $

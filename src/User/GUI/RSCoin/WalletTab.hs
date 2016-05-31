@@ -213,8 +213,8 @@ updateWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
 updateWalletTab st gst M.MainWindow{..} = do
     let WalletTab{..} = tabWallet
     addrs <- runRealMode $ U.getAllPublicAddresses st
-    userAmount <- runRealMode $ U.getUserTotalAmount st
     transactionsHist <- runRealMode $ U.getTransactionsHistory st
+    userAmount <- runRealMode $ U.getUserTotalAmount False st
     let unconfirmed =
             filter
                 (\U.TxHistoryRecord{..} -> txhStatus == U.TxHUnconfirmed)
@@ -230,3 +230,4 @@ updateWalletTab st gst M.MainWindow{..} = do
     nodes <- mapM (toNodeMapper st gst) transactionsHist
     G.listStoreClear walletModel
     mapM_ (G.listStoreAppend walletModel) $ reverse nodes
+    return ()

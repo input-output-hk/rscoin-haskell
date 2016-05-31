@@ -1,13 +1,13 @@
-{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import           Control.Concurrent      (threadDelay)
 import           Control.Exception       (SomeException)
 import           Control.Monad           (unless, void)
-import           Control.Monad.Catch     (MonadCatch, bracket, catch, throwM,
-                                          MonadMask)
+import           Control.Monad.Catch     (MonadCatch, MonadMask, bracket, catch,
+                                          throwM)
 import           Control.Monad.Trans     (MonadIO, liftIO)
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
@@ -15,8 +15,8 @@ import qualified Data.Text               as T
 import qualified Graphics.UI.Gtk         as G
 
 import qualified RSCoin.Core             as C
-import           RSCoin.Timed            (WorkMode, runRealMode, MonadRpc,
-                                          MonadTimed)
+import           RSCoin.Timed            (MonadRpc, MonadTimed, WorkMode,
+                                          runRealMode)
 import qualified RSCoin.User.AcidState   as A
 import qualified RSCoin.User.Actions     as UA
 import           RSCoin.User.Error       (eWrap)
@@ -54,7 +54,8 @@ processCommand st O.StartGUI opts@O.UserOptions{..} = do
         (ACID.openLocalStateFrom guidbPath emptyGUIAcid)
         (\cs -> do ACID.createCheckpoint cs
                    ACID.closeAcidState cs)
-        (\cs -> startGUI st cs)
+        (\cs -> do
+          startGUI st cs)
   where
     initLoop =
         initializeStorage st opts `catch`

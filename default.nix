@@ -7,7 +7,8 @@
 , random, safe, safecopy, serokell-core, stdenv, stm, temporary
 , text, text-format, time, time-units, transformers
 , transformers-base, tuple, unordered-containers, vector
-, makeWrapper, theme-vertex
+#, makeWrapper, theme-vertex
+ , makeWrapper 
 }:
 mkDerivation {
   pname = "rscoin";
@@ -37,12 +38,14 @@ mkDerivation {
     safe safecopy serokell-core stm text time-units transformers tuple
     vector
   ];
-  executableToolDepends = [ makeWrapper theme-vertex ];
-  executableSystemDepends = [ gtk3 theme-vertex ];
+#  executableToolDepends = [ makeWrapper theme-vertex ];
+  executableToolDepends = [ makeWrapper ];
+#  executableSystemDepends = [ gtk3 theme-vertex ];
+  executableSystemDepends = [ gtk3 ];
   buildDepends = [ makeWrapper ];
-  postInstall = ''
-    wrapProgram $out/bin/rscoin-user \
-      --set GTK_THEME "Vertex-Dark"
-  '';
+#  postInstall = ''
+#    wrapProgram $out/bin/rscoin-user \
+#      --set GTK_THEME "Vertex-Dark"
+#  '';
   license = stdenv.lib.licenses.gpl3;
 }

@@ -8,13 +8,15 @@ module GUI.RSCoin.TransactionsTab
 
 import           Control.Exception       (SomeException (..), catch)
 import           Control.Monad           (void, when)
+import           Control.Monad.IO.Class  (liftIO)
 import qualified Data.Text               as T
 import           Graphics.UI.Gtk         (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk         as G
 
 import           GUI.RSCoin.ErrorMessage (reportSimpleError)
 import           GUI.RSCoin.Glade        (GladeMainWindow (..))
-import           GUI.RSCoin.GUIAcid      (Contact (..), GUIState, getContacts)
+import           GUI.RSCoin.GUIAcid      (Contact (..), GUIState,
+                                          addTransaction, getContacts)
 import           GUI.RSCoin.MainWindow   (TransactionsTab (..))
 import qualified GUI.RSCoin.MainWindow   as M
 import           GUI.RSCoin.WalletTab    (updateWalletTab)
@@ -78,7 +80,9 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
                  show (C.getCoin userAmount) ++ " coins."
             G.entrySetText (spinButtonSendAmount tabTransactions) $ show userAmount
         else do
-            runRealMode $ U.formTransactionFromAll st address $ C.Coin amount
+            tr <- runRealMode $
+                U.formTransactionFromAll st address $ C.Coin amount
+            liftIO $ addTransaction gst (C.hash tr) (Just tr)
             dialog <- G.messageDialogNew
                 (Just mainWindow)
                 [G.DialogDestroyWithParent]

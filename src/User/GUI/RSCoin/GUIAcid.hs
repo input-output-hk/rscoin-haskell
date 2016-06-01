@@ -7,7 +7,6 @@
 module GUI.RSCoin.GUIAcid
     ( Contact (..)
     , GUIState
-    , dummyContacts
     , emptyGUIAcid
     , getContacts
     , addContact
@@ -35,10 +34,6 @@ data Contact = Contact
     { contactName    :: T.Text
     , contactAddress :: T.Text
     } deriving (Show)
-
-dummyContacts :: [Contact]
-dummyContacts =
-    [Contact "aoeu" "kek", Contact "kek" "ahaha", Contact "memasy" "podkatili"]
 
 -- | List of contacts known to the user.
 data GUIDB = GUIDB

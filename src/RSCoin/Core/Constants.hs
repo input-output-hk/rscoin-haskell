@@ -52,7 +52,7 @@ bankPort :: Num a => a
 bankPort = defaultPort
 
 periodDelta :: Second
-periodDelta = 50
+periodDelta = 100
 
 epochDelta :: Second
 epochDelta = 5

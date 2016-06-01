@@ -54,7 +54,7 @@ import qualified RSCoin.User.Wallet     as W
 walletInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
 walletInitialized st = query' st A.IsInitialized
 
-commitError :: (MonadIO m, MonadThrow m) => T.Text -> m ()
+commitError :: (MonadIO m, MonadThrow m) => T.Text -> m a
 commitError e = do
     C.logError C.userLoggerName e
     throwM . InputProcessingError $ e
@@ -151,7 +151,7 @@ getTransactionsHistory st = query' st A.GetTxsHistory
 -- spend coins from accounts that have the least amount of money.
 formTransactionFromAll
     :: WorkMode m
-    => A.RSCoinUserState -> C.Address -> C.Coin -> m ()
+    => A.RSCoinUserState -> C.Address -> C.Coin -> m C.Transaction
 formTransactionFromAll st addressTo amount = do
     addrs <- query' st A.GetAllAddresses
     (amountsWithCoins :: [(Word, C.Coin)]) <-
@@ -184,7 +184,7 @@ formTransaction
     -> [(Word, C.Coin)]
     -> C.Address
     -> C.Coin
-    -> m ()
+    -> m C.Transaction
 formTransaction = formTransactionRetry 1
 
 -- | Forms transaction out of user input and sends it. If failure
@@ -197,7 +197,7 @@ formTransactionRetry
     -> [(Word, C.Coin)]
     -> C.Address
     -> C.Coin
-    -> m ()
+    -> m C.Transaction
 formTransactionRetry _ _ _ [] _ _ =
     commitError "You should enter at least one source input"
 formTransactionRetry tries _ _ _ _ _ | tries < 1 =
@@ -205,7 +205,7 @@ formTransactionRetry tries _ _ _ _ _ | tries < 1 =
 formTransactionRetry tries st verbose inputs outputAddr outputCoin =
     run `catch` catcher
   where
-    catcher :: WorkMode m => SomeException -> m ()
+    catcher :: WorkMode m => SomeException -> m C.Transaction
     catcher e
         | isRetriableException e && tries > 1 = logMsgAndRetry e
         | otherwise = throwM e
@@ -215,7 +215,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
         | Just MEInactive            <- fromException e = True
         | isWalletSyncError e                           = True
         | otherwise                                     = False
-    logMsgAndRetry :: (WorkMode m, Buildable s) => s -> m ()
+    logMsgAndRetry :: (WorkMode m, Buildable s) => s -> m C.Transaction
     logMsgAndRetry msg = do
         C.logWarning C.userLoggerName $
             format'
@@ -223,7 +223,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
             (msg, tries - 1)
         wait $ for 1 sec
         formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
-    run :: WorkMode m => m ()
+    run :: WorkMode m => m C.Transaction
     run = do
         C.logInfo C.userLoggerName $
             format'
@@ -291,6 +291,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
                     addrPairList
         validateTransaction outTr signatures $ lastBlockHeight + 1
         update' st $ A.AddTemporaryTransaction (lastBlockHeight + 1) outTr
+        return outTr
     formTransactionMapper
         :: (Word, W.UserAddress, C.Coin)
         -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)

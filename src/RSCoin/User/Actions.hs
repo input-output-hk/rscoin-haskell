@@ -14,7 +14,7 @@ import           Data.Int               (Int64)
 import           Data.Text              (Text)
 
 import           Control.Lens           ((^.))
-import           Control.Monad          (unless)
+import           Control.Monad          (unless, void)
 import           Control.Monad.Trans    (liftIO)
 import           Data.Acid.Advanced     (query')
 import           Data.Bifunctor         (bimap)
@@ -72,7 +72,7 @@ processAction st (FormTransaction inputs outputAddrStr) =
        unless (isJust pubKey) $
            P.commitError $
            "Provided key can't be exported: " <> outputAddrStr
-       formTransactionRetry 2 st True inputs' (fromJust pubKey) $
+       void $ formTransactionRetry 2 st True inputs' (fromJust pubKey) $
            C.Coin (sum $ map snd inputs)
 processAction st UpdateBlockchain =
     eWrap $

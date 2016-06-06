@@ -1,7 +1,7 @@
 # For more information, see: http://docs.haskellstack.org/en/stable/yaml_configuration.html
 
 # Specifies the GHC version and set of packages available (e.g., lts-3.5, nightly-2015-09-21, ghc-7.10.2)
-resolver: lts-5.14
+resolver: lts-6.1
 
 # Local packages, usually specified by relative directory name
 packages:
@@ -11,7 +11,7 @@ packages:
     commit: 92e28f366bcf3692df6c7c0f291cd8fc16958aa4
 - location:
     git: https://github.com/serokell/msgpack-haskell.git
-    commit: dcd11b93c1cbfd7fb589f1b78d9b812c847860c0
+    commit: b0331cf7b567ec2a6798a5c27866d94528d96a29
   extra-dep: false
   subdirs:
     - msgpack
@@ -26,6 +26,7 @@ nix:
 extra-deps:
 - ed25519-0.0.5.0
 - OneTuple-0.2.1
+- pqueue-1.3.1.1
 - tuple-0.3.0.2
 - optparse-generic-1.1.0
 

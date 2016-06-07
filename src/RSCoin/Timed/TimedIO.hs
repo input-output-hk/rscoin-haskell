@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -47,11 +46,11 @@ instance MonadTimed TimedIO where
         cur <- localTime
         liftIO $ C.threadDelay $ fromIntegral $ relativeToNow cur
 
-    fork (TimedIO a) = TimedIO $ lift . fmap IOThreadId . C.forkIO . runReaderT a 
+    fork (TimedIO a) = TimedIO $ lift . fmap IOThreadId . C.forkIO . runReaderT a
         =<< ask
-    
+
     myThreadId = TimedIO $ lift $ IOThreadId <$> C.myThreadId
-    
+
     killThread (IOThreadId tid) = TimedIO $ lift $ C.killThread $ tid
     killThread _ = error "Inproper ThreadId object (expected IOThreadId)"
 

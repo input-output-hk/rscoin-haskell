@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE Rank2Types#-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
+
 -- | Protocol implements all low level communication between
 -- entities (User, Bank, Mintette).
 
@@ -111,27 +112,27 @@ execMintetteSafe m = (>>=) . callMintetteSafe m
 
 -- | Send a request to a Bank.
 callBank :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
-callBank action = 
-    T.execClient (BS.pack bankHost, bankPort) action 
+callBank action =
+    T.execClient (BS.pack bankHost, bankPort) action
 
 -- | Send a request to a Mintette.
-callMintette :: (MessagePack a, T.WorkMode m) 
+callMintette :: (MessagePack a, T.WorkMode m)
              => Mintette -> T.Client a -> m a
-callMintette Mintette {..} action = 
-    T.execClient (BS.pack mintetteHost, mintettePort) action 
+callMintette Mintette {..} action =
+    T.execClient (BS.pack mintetteHost, mintettePort) action
 
 -- | Send a request to a Bank.
 -- Rises an exception if Bank doesn't respond in rpcTimeout time.
 callBankSafe :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
-callBankSafe action = 
-    T.execClientTimeout rpcTimeout (BS.pack bankHost, bankPort) action 
+callBankSafe action =
+    T.execClientTimeout rpcTimeout (BS.pack bankHost, bankPort) action
 
 -- | Send a request to a Mintette.
 -- Rises an exception if Mintette doesn't respond in rpcTimeout time.
-callMintetteSafe :: (MessagePack a, T.WorkMode m) 
+callMintetteSafe :: (MessagePack a, T.WorkMode m)
              => Mintette -> T.Client a -> m a
-callMintetteSafe Mintette {..} action = 
-    T.execClientTimeout rpcTimeout (BS.pack mintetteHost, mintettePort) action 
+callMintetteSafe Mintette {..} action =
+    T.execClientTimeout rpcTimeout (BS.pack mintetteHost, mintettePort) action
 
 -- | Reverse Continuation passing style (CPS) transformation
 unCps :: forall a m . MonadIO m => ((a -> m ()) -> m ()) -> m a

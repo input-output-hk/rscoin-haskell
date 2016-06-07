@@ -442,6 +442,7 @@ benchmark rscoin-bench-remote
   main-is:             MainRemote.hs
   other-modules:       Bench.RSCoin.Logging
                        Bench.RSCoin.RemoteConfig
+                       Bench.RSCoin.StageRestriction
   build-depends:       aeson
                      , base >=4.8 && <4.9
                      , file-embed

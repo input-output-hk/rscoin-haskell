@@ -15,7 +15,8 @@ import qualified Turtle                    as T
 import qualified RSCoin.Core               as C
 
 import           Bench.RSCoin.Logging      (initBenchLogger, logInfo)
-import           Bench.RSCoin.RemoteConfig (RemoteConfig (..), readRemoteConfig)
+import           Bench.RSCoin.RemoteConfig (MintetteData (..),
+                                            RemoteConfig (..), readRemoteConfig)
 
 data RemoteBenchOptions = RemoteBenchOptions
     { rboConfigFile    :: Maybe FilePath
@@ -128,8 +129,8 @@ genMintetteKey hostName = do
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
         runSshStrict hostName mintetteCatKeyCommand
 
-runMintette :: (Bool, T.Text) -> IO ThreadId
-runMintette (hasRSCoin,hostName) = do
+runMintette :: MintetteData -> IO ThreadId
+runMintette (MintetteData hasRSCoin hostName) = do
     unless hasRSCoin $ installRSCoin hostName
     forkIO $ runSsh hostName mintetteRunCommand
 
@@ -148,16 +149,16 @@ main = do
         readRemoteConfig $ fromMaybe "remote.yaml" $ rboConfigFile
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
-    mintetteKeys <- mapM (genMintetteKey . snd) mintettes
-    mintetteThreads <- mapM runMintette mintettes
+    mintetteKeys <- mapM (genMintetteKey . mdHost) rcMintettes
+    mintetteThreads <- mapM runMintette rcMintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 3
     logInfo "Launching bank…"
-    bankThread <- runBank (map snd mintettes) mintetteKeys True
+    bankThread <- runBank (map mdHost rcMintettes) mintetteKeys True
     logInfo "Launched bank, waiting…"
     T.sleep 5
     logInfo "Running users…"
-    runUsers users usersNum
+    runUsers users rcUsersNum
     logInfo "Ran users"
     killThread bankThread
     logInfo "Killed bank thread"
@@ -165,11 +166,7 @@ main = do
     logInfo "Stopped bank"
     mapM_ killThread mintetteThreads
     logInfo "Killed mintette threads"
-    mapM_ stopMintette $ map snd mintettes
+    mapM_ stopMintette $ map mdHost rcMintettes
     logInfo "Stopped mintettes"
   where
-    mintettes
-        :: T.IsString s
-        => [(Bool, s)]
-    mintettes = [(True, "52.28.80.85")]
     users = (True, "52.28.239.209")

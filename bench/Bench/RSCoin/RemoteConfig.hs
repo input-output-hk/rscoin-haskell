@@ -4,18 +4,29 @@
 
 module Bench.RSCoin.RemoteConfig
        ( RemoteConfig (..)
+       , MintetteData (..)
        , readRemoteConfig
        ) where
 
-import qualified Data.Aeson.TH as A
-import           Data.Maybe    (fromMaybe)
-import qualified Data.Yaml     as Y
+import qualified Data.Aeson.TH                 as A
+import           Data.Maybe                    (fromMaybe)
+import           Data.Text                     (Text)
+import qualified Data.Yaml                     as Y
+
+import           Bench.RSCoin.StageRestriction (defaultOptions)
 
 data RemoteConfig = RemoteConfig
-    { usersNum :: Word
+    { rcUsersNum  :: !Word
+    , rcMintettes :: ![MintetteData]
     } deriving (Show)
 
-$(A.deriveJSON A.defaultOptions ''RemoteConfig)
+data MintetteData = MintetteData
+    { mdHasRSCoin :: !Bool
+    , mdHost      :: !Text
+    } deriving (Show)
+
+$(A.deriveJSON defaultOptions ''RemoteConfig)
+$(A.deriveJSON defaultOptions ''MintetteData)
 
 readRemoteConfig :: FilePath -> IO RemoteConfig
 readRemoteConfig fp =

@@ -439,14 +439,12 @@ benchmark rscoin-bench-clients
 
 benchmark rscoin-bench-remote
   type:                exitcode-stdio-1.0
-  main-is:             BenchSeparated/MainRemote.hs
-  -- other-modules:       Bench.RSCoin.FilePathUtils
-                     -- , Bench.RSCoin.InfraThreads
-                     -- , Bench.RSCoin.Logging
-                     -- , Bench.RSCoin.UserLogic
+  main-is:             MainRemote.hs
   build-depends:       base >=4.8 && <4.9
+                     , file-embed
                      , formatting
-                     , time
+                     , rscoin
+                     , text
                      , turtle
   hs-source-dirs:      bench
   default-language:    Haskell2010

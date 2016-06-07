@@ -5,6 +5,7 @@
 module Bench.RSCoin.RemoteConfig
        ( RemoteConfig (..)
        , MintetteData (..)
+       , UsersData (..)
        , readRemoteConfig
        ) where
 
@@ -19,6 +20,7 @@ data RemoteConfig = RemoteConfig
     { rcUsersNum        :: !Word
     , rcTransactionsNum :: !Word
     , rcMintettes       :: ![MintetteData]
+    , rcUsers           :: !UsersData
     } deriving (Show)
 
 data MintetteData = MintetteData
@@ -26,8 +28,14 @@ data MintetteData = MintetteData
     , mdHost      :: !Text
     } deriving (Show)
 
+data UsersData = UsersData
+    { udHasRSCoin :: !Bool
+    , udHost      :: !Text
+    } deriving (Show)
+
 $(A.deriveJSON defaultOptions ''RemoteConfig)
 $(A.deriveJSON defaultOptions ''MintetteData)
+$(A.deriveJSON defaultOptions ''UsersData)
 
 readRemoteConfig :: FilePath -> IO RemoteConfig
 readRemoteConfig fp =

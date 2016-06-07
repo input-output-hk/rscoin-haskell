@@ -16,7 +16,8 @@ import qualified RSCoin.Core               as C
 
 import           Bench.RSCoin.Logging      (initBenchLogger, logInfo)
 import           Bench.RSCoin.RemoteConfig (MintetteData (..),
-                                            RemoteConfig (..), readRemoteConfig)
+                                            RemoteConfig (..), UsersData (..),
+                                            readRemoteConfig)
 
 data RemoteBenchOptions = RemoteBenchOptions
     { rboConfigFile    :: Maybe FilePath
@@ -147,8 +148,8 @@ runMintette (MintetteData hasRSCoin hostName) = do
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
 
-runUsers :: (Bool, T.Text) -> Word -> Word -> IO ()
-runUsers (hasRSCoin,hostName) u t = do
+runUsers :: UsersData -> Word -> Word -> IO ()
+runUsers (UsersData hasRSCoin hostName) u t = do
     unless hasRSCoin $ installRSCoin hostName
     runSsh hostName $ usersCommand u t
 
@@ -168,7 +169,7 @@ main = do
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
-    runUsers users rcUsersNum rcTransactionsNum
+    runUsers rcUsers rcUsersNum rcTransactionsNum
     logInfo "Ran users"
     killThread bankThread
     logInfo "Killed bank thread"
@@ -178,5 +179,3 @@ main = do
     logInfo "Killed mintette threads"
     mapM_ stopMintette $ map mdHost rcMintettes
     logInfo "Stopped mintettes"
-  where
-    users = (True, "52.28.239.209")

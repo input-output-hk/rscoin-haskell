@@ -14,12 +14,17 @@ import qualified Turtle                    as T
 
 import qualified RSCoin.Core               as C
 
+import           Bench.RSCoin.Logging      (initBenchLogger, logInfo)
 import           Bench.RSCoin.RemoteConfig (RemoteConfig (..), readRemoteConfig)
 
 data RemoteBenchOptions = RemoteBenchOptions
-    { rboConfigFile :: Maybe FilePath
+    { rboConfigFile    :: Maybe FilePath
+    , rboBenchSeverity :: Maybe C.Severity
     } deriving (Show, OG.Generic)
 
+instance OG.ParseField  C.Severity
+instance OG.ParseFields C.Severity
+instance OG.ParseRecord C.Severity
 instance OG.ParseRecord RemoteBenchOptions
 
 userName :: T.IsString s => s
@@ -141,16 +146,27 @@ main = do
     RemoteBenchOptions{..} <- OG.getRecord "rscoin-bench-remote"
     RemoteConfig{..} <-
         readRemoteConfig $ fromMaybe "remote.yaml" $ rboConfigFile
+    C.initLogging C.Error
+    initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
     mintetteKeys <- mapM (genMintetteKey . snd) mintettes
     mintetteThreads <- mapM runMintette mintettes
-    T.sleep 2
+    logInfo "Launched mintettes, waiting…"
+    T.sleep 3
+    logInfo "Launching bank…"
     bankThread <- runBank (map snd mintettes) mintetteKeys True
+    logInfo "Launched bank, waiting…"
     T.sleep 5
+    logInfo "Running users…"
     runUsers users usersNum
+    logInfo "Ran users"
     killThread bankThread
+    logInfo "Killed bank thread"
     stopBank
+    logInfo "Stopped bank"
     mapM_ killThread mintetteThreads
+    logInfo "Killed mintette threads"
     mapM_ stopMintette $ map snd mintettes
+    logInfo "Stopped mintettes"
   where
     mintettes
         :: T.IsString s

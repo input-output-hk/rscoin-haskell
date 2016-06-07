@@ -440,11 +440,13 @@ benchmark rscoin-bench-clients
 benchmark rscoin-bench-remote
   type:                exitcode-stdio-1.0
   main-is:             MainRemote.hs
-  other-modules:       Bench.RSCoin.RemoteConfig
+  other-modules:       Bench.RSCoin.Logging
+                       Bench.RSCoin.RemoteConfig
   build-depends:       aeson
                      , base >=4.8 && <4.9
                      , file-embed
                      , formatting
+                     , mtl
                      , optparse-generic
                      , rscoin
                      , text

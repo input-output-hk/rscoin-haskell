@@ -5,10 +5,10 @@ module Bench.RSCoin.UserLogic
         , initializeBank
         , initializeUser
         , userThread
+        , runBankUser
         ) where
 
-
-import           Control.Monad              (forM_, when)
+import           Control.Monad              (forM_, replicateM, when)
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint)
@@ -19,7 +19,8 @@ import           System.FilePath            ((</>))
 
 import           Serokell.Util              (indexModulo)
 
-import           RSCoin.Core                (Coin (..), bankSecretKey)
+import           RSCoin.Core                (Address (..), Coin (..),
+                                             bankSecretKey, keyGen)
 
 import           RSCoin.Timed               (MsgPackRpc, runRealMode)
 import qualified RSCoin.User.AcidState      as A
@@ -30,7 +31,7 @@ import           RSCoin.User.Wallet         (UserAddress, toAddress)
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 import           Bench.RSCoin.Logging       (logDebug, logInfo)
 
-transactionNum :: Int64
+transactionNum :: Num a => a
 transactionNum = 1000
 
 userThread :: FilePath -> (Int64 -> A.RSCoinUserState -> MsgPackRpc a) -> Int64 -> IO a
@@ -54,16 +55,17 @@ initializeUser userId userState = do
     queryMyAddress userState <*
         logDebug (sformat ("Initialized user " % int % "…") userId)
 
-executeTransaction :: A.RSCoinUserState -> Int64 -> UserAddress -> MsgPackRpc ()
+executeTransaction :: A.RSCoinUserState -> Int64 -> Address -> MsgPackRpc ()
 executeTransaction userState coinAmount addrToSend = do
     () <$ updateBlockchain userState False
-    formTransactionRetry
-        maxBound
-        userState
-        False
-        inputMoneyInfo
-        (toAddress addrToSend)
-        outputMoney
+    () <$
+        formTransactionRetry
+            maxBound
+            userState
+            False
+            inputMoneyInfo
+            addrToSend
+            outputMoney
   where
     outputMoney = Coin coinAmount
     inputMoneyInfo = [(1, outputMoney)]
@@ -76,7 +78,8 @@ initializeBank userAddresses bankUserState = do
     logDebug "Before initStateBank"
     A.initStateBank bankUserState additionalBankAddreses bankSecretKey
     logDebug "After initStateBank"
-    forM_ userAddresses $ executeTransaction bankUserState transactionNum
+    forM_ userAddresses $
+        executeTransaction bankUserState transactionNum . toAddress
     logDebug "Sent initial coins from bank to users"
 
 -- | Start user with provided addresses of other users and do
@@ -86,7 +89,7 @@ benchUserTransactions allAddresses userId userState = do
     myAddress <- queryMyAddress userState
     let otherAddresses = filter (/= myAddress) allAddresses
         loggingStep = transactionNum `div` 5
-    forM_ [0 .. transactionNum - 1] $
+    forM_ [(0 :: Int) .. transactionNum - 1] $
         \i ->
              do when (i /= 0 && i `mod` loggingStep == 0) $
                     logInfo $
@@ -95,4 +98,20 @@ benchUserTransactions allAddresses userId userState = do
                          " transactions")
                         userId
                         i
-                executeTransaction userState 1 . (otherAddresses `indexModulo`) $ i
+                executeTransaction userState 1 .
+                    toAddress . (otherAddresses `indexModulo`) $
+                    i
+
+runBankUser :: A.RSCoinUserState -> MsgPackRpc ()
+runBankUser bankUserState = do
+    addresses <-
+        map (Address . snd) <$> replicateM transactionNum (liftIO keyGen)
+    let additionalBankAddreses = 0
+    logDebug "Before initStateBank"
+    A.initStateBank bankUserState additionalBankAddreses bankSecretKey
+    logDebug "After initStateBank"
+    forM_ (zip [(1 :: Int) ..] addresses) $
+        \(i,addr) ->
+             do executeTransaction bankUserState transactionNum addr
+                when (i `mod` (transactionNum `div` 5) == 0) $
+                    logInfo $ sformat ("Executed " % int % " transactions") i

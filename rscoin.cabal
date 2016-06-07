@@ -316,9 +316,9 @@ benchmark rscoin-bench
 benchmark rscoin-bench-single-user
   type:                exitcode-stdio-1.0
   main-is:             MainSingleUser.hs
-  other-modules:       BenchSingleUser.RSCoin.FilePathUtils
-                     , BenchSingleUser.RSCoin.Logging
-                     , BenchSingleUser.RSCoin.UserLogic
+  other-modules:       Bench.RSCoin.FilePathUtils
+                     , Bench.RSCoin.Logging
+                     , Bench.RSCoin.UserLogic
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
@@ -346,9 +346,9 @@ benchmark rscoin-bench-single-user
 benchmark rscoin-bench-only-users
   type:                exitcode-stdio-1.0
   main-is:             MainOnlyUsers.hs
-  other-modules:       BenchOnlyUsers.RSCoin.FilePathUtils
-                     , BenchOnlyUsers.RSCoin.Logging
-                     , BenchOnlyUsers.RSCoin.UserLogic
+  other-modules:       Bench.RSCoin.FilePathUtils
+                     , Bench.RSCoin.Logging
+                     , Bench.RSCoin.UserLogic
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9

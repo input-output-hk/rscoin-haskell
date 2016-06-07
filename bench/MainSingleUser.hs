@@ -5,23 +5,22 @@
 
 module Main where
 
-import           Data.Maybe                           (fromMaybe)
-import           Formatting                           (sformat, shown, (%))
-import           System.Clock                         (Clock (..), TimeSpec,
-                                                       diffTimeSpec, getTime)
+import           Data.Maybe                 (fromMaybe)
+import           Formatting                 (sformat, shown, (%))
+import           System.Clock               (Clock (..), TimeSpec, diffTimeSpec,
+                                             getTime)
 
 -- workaround to make stylish-haskell work :(
 import           Options.Generic
 
-import           System.IO.Temp                       (withSystemTempDirectory)
+import           System.IO.Temp             (withSystemTempDirectory)
 
-import           RSCoin.Core                          (PublicKey, SecretKey,
-                                                       Severity (..),
-                                                       initLogging)
+import           RSCoin.Core                (PublicKey, SecretKey,
+                                             Severity (..), initLogging)
 
-import           BenchSingleUser.RSCoin.FilePathUtils (tempBenchDirectory)
-import           BenchSingleUser.RSCoin.Logging       (initBenchLogger, logInfo)
-import           BenchSingleUser.RSCoin.UserLogic     (runBankUser, userThread)
+import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
+import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
+import           Bench.RSCoin.UserLogic     (runBankUser, userThread)
 
 data BenchOptions = BenchOptions
     { severity      :: Maybe Severity <?> "severity for global logger"
@@ -40,7 +39,7 @@ initializeSuperUser benchDir = do
     logInfo "Initializaing user in bankMode…"
     cpuTimeBefore <- getTime ProcessCPUTime
     wallTimeBefore <- getTime Realtime
-    userThread benchDir runBankUser 0
+    userThread benchDir (const runBankUser) 0
     wallTimeAfter <- getTime Realtime
     cpuTimeAfter <- getTime ProcessCPUTime
     return

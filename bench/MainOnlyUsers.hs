@@ -3,34 +3,29 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators   #-}
 
-module Main where
-
-import           Control.Concurrent                  (threadDelay)
-import           Control.Concurrent.Async            (forConcurrently)
-import           Data.Int                            (Int64)
-import           Data.Maybe                          (fromMaybe)
-import           Data.Time.Units                     (toMicroseconds)
-import           Formatting                          (build, sformat, shown,
-                                                      (%))
-import           System.Clock                        (Clock (..), TimeSpec,
-                                                      diffTimeSpec, getTime)
+import           Control.Concurrent         (threadDelay)
+import           Control.Concurrent.Async   (forConcurrently)
+import           Data.Int                   (Int64)
+import           Data.Maybe                 (fromMaybe)
+import           Data.Time.Units            (toMicroseconds)
+import           Formatting                 (build, sformat, shown, (%))
+import           System.Clock               (Clock (..), TimeSpec, diffTimeSpec,
+                                             getTime)
 
 -- workaround to make stylish-haskell work :(
 import           Options.Generic
 
-import           System.IO.Temp                      (withSystemTempDirectory)
+import           System.IO.Temp             (withSystemTempDirectory)
 
-import           RSCoin.Core                         (PublicKey, SecretKey,
-                                                      Severity (..),
-                                                      initLogging, periodDelta)
-import           RSCoin.User.Wallet                  (UserAddress)
+import           RSCoin.Core                (Severity (..), initLogging,
+                                             periodDelta)
+import           RSCoin.User.Wallet         (UserAddress)
 
-import           BenchOnlyUsers.RSCoin.FilePathUtils (tempBenchDirectory)
-import           BenchOnlyUsers.RSCoin.Logging       (initBenchLogger, logInfo)
-import           BenchOnlyUsers.RSCoin.UserLogic     (benchUserTransactions,
-                                                      initializeBank,
-                                                      initializeUser,
-                                                      userThread)
+import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
+import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
+import           Bench.RSCoin.UserLogic     (benchUserTransactions,
+                                             initializeBank, initializeUser,
+                                             userThread)
 
 data BenchOptions = BenchOptions
     { users         :: Int            <?> "number of users"
@@ -42,8 +37,6 @@ instance ParseField  Severity
 instance ParseFields Severity
 instance ParseRecord Severity
 instance ParseRecord BenchOptions
-
-type KeyPairList = [(SecretKey, PublicKey)]
 
 initializeUsers :: FilePath -> [Int64] -> IO [UserAddress]
 initializeUsers benchDir userIds = do

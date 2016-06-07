@@ -16,8 +16,9 @@ import qualified Data.Yaml                     as Y
 import           Bench.RSCoin.StageRestriction (defaultOptions)
 
 data RemoteConfig = RemoteConfig
-    { rcUsersNum  :: !Word
-    , rcMintettes :: ![MintetteData]
+    { rcUsersNum        :: !Word
+    , rcTransactionsNum :: !Word
+    , rcMintettes       :: ![MintetteData]
     } deriving (Show)
 
 data MintetteData = MintetteData

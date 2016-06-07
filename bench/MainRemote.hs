@@ -90,13 +90,15 @@ mintetteRunCommand =
 mintetteStopCommand :: T.Text
 mintetteStopCommand = "killall rscoin-mintette"
 
-usersCommand :: Word -> T.Text
-usersCommand n =
+usersCommand :: Word -> Word -> T.Text
+usersCommand u t =
     T.unlines
         [ cdCommand
         , "git pull --ff-only"
         , sformat
               ("stack bench rscoin:rscoin-bench-only-users --benchmark-arguments \"--users " %
+               int %
+               " --transactions " %
                int %
                " +RTS -qg\"")
               n]
@@ -145,10 +147,10 @@ runMintette (MintetteData hasRSCoin hostName) = do
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
 
-runUsers :: (Bool, T.Text) -> Word -> IO ()
-runUsers (hasRSCoin,hostName) n = do
+runUsers :: (Bool, T.Text) -> Word -> Word -> IO ()
+runUsers (hasRSCoin,hostName) u t = do
     unless hasRSCoin $ installRSCoin hostName
-    runSsh hostName $ usersCommand n
+    runSsh hostName $ usersCommand u t
 
 main :: IO ()
 main = do
@@ -166,7 +168,7 @@ main = do
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
-    runUsers users rcUsersNum
+    runUsers users rcUsersNum rcTransactionsNum
     logInfo "Ran users"
     killThread bankThread
     logInfo "Killed bank thread"

@@ -46,7 +46,7 @@ defaultPort :: Num a => a
 defaultPort = 3000
 
 bankHost :: IsString s => s
-bankHost = "127.0.0.1"
+bankHost = "52.58.26.146"
 
 bankPort :: Num a => a
 bankPort = defaultPort

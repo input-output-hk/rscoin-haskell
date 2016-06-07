@@ -1,15 +1,27 @@
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-import           Control.Concurrent (forkIO)
-import           Control.Monad      (unless)
-import           Data.FileEmbed     (embedStringFile, makeRelativeToProject)
-import           Data.Functor       (void)
-import           Data.Maybe         (fromMaybe)
-import qualified Data.Text          as T (unlines)
-import           Formatting         (build, int, sformat, (%))
-import qualified Turtle             as T
+import           Control.Concurrent        (forkIO)
+import           Control.Monad             (unless)
+import           Data.FileEmbed            (embedStringFile,
+                                            makeRelativeToProject)
+import           Data.Functor              (void)
+import           Data.Maybe                (fromMaybe)
+import qualified Data.Text                 as T (unlines)
+import           Formatting                (build, int, sformat, (%))
+import qualified Options.Generic           as OG
+import qualified Turtle                    as T
 
-import qualified RSCoin.Core        as C
+import qualified RSCoin.Core               as C
+
+import           Bench.RSCoin.RemoteConfig (RemoteConfig (..), readRemoteConfig)
+
+data RemoteBenchOptions = RemoteBenchOptions
+    { rboConfigFile :: Maybe FilePath
+    } deriving (Show, OG.Generic)
+
+instance OG.ParseRecord RemoteBenchOptions
 
 userName :: T.IsString s => s
 userName = "ubuntu"
@@ -115,6 +127,9 @@ runUsers (hasRSCoin,hostName) n = do
 
 main :: IO ()
 main = do
+    RemoteBenchOptions{..} <- OG.getRecord "rscoin-bench-remote"
+    RemoteConfig{..} <-
+        readRemoteConfig $ fromMaybe "remote.yaml" $ rboConfigFile
     mintetteKeys <- mapM (genMintetteKey . snd) mintettes
     T.echo "Generated and deployed new mintette keys"
     mapM_ runMintette mintettes
@@ -123,7 +138,7 @@ main = do
     runBank (map snd mintettes) mintetteKeys True
     T.echo "Launched bank"
     T.sleep 5
-    runUsers users 5
+    runUsers users usersNum
     T.echo "Launched users"
   where
     mintettes

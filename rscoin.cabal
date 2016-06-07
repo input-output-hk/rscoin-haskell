@@ -440,12 +440,16 @@ benchmark rscoin-bench-clients
 benchmark rscoin-bench-remote
   type:                exitcode-stdio-1.0
   main-is:             MainRemote.hs
-  build-depends:       base >=4.8 && <4.9
+  other-modules:       Bench.RSCoin.RemoteConfig
+  build-depends:       aeson
+                     , base >=4.8 && <4.9
                      , file-embed
                      , formatting
+                     , optparse-generic
                      , rscoin
                      , text
                      , turtle
+                     , yaml
   hs-source-dirs:      bench
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -454,3 +458,6 @@ benchmark rscoin-bench-remote
                        -fno-warn-orphans
                        -O2
   default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving

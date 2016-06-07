@@ -84,12 +84,16 @@ initializeBank userAddresses bankUserState = do
 
 -- | Start user with provided addresses of other users and do
 -- `transactionNum` transactions.
-benchUserTransactions :: [UserAddress] -> Int64 -> A.RSCoinUserState -> MsgPackRpc ()
-benchUserTransactions allAddresses userId userState = do
+benchUserTransactions :: Word
+                      -> [UserAddress]
+                      -> Int64
+                      -> A.RSCoinUserState
+                      -> MsgPackRpc ()
+benchUserTransactions txNum allAddresses userId userState = do
     myAddress <- queryMyAddress userState
     let otherAddresses = filter (/= myAddress) allAddresses
-        loggingStep = transactionNum `div` 5
-    forM_ [(0 :: Int) .. transactionNum - 1] $
+        loggingStep = txNum `div` 5
+    forM_ [0 .. txNum - 1] $
         \i ->
              do when (i /= 0 && i `mod` loggingStep == 0) $
                     logInfo $

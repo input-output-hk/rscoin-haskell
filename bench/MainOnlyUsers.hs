@@ -29,10 +29,12 @@ import           Bench.RSCoin.UserLogic     (benchUserTransactions,
 
 data BenchOptions = BenchOptions
     { users         :: Int            <?> "number of users"
+    , transactions  :: Maybe Word     <?> "number of transactions per user"
     , severity      :: Maybe Severity <?> "severity for global logger"
     , benchSeverity :: Maybe Severity <?> "severity for bench logger"
     } deriving (Generic, Show)
 
+instance ParseField  Word
 instance ParseField  Severity
 instance ParseFields Severity
 instance ParseRecord Severity
@@ -53,10 +55,11 @@ initializeSuperUser benchDir userAddresses = do
     logInfo "Initialized user in bankMode, now waiting for the end of the period…"
     threadDelay $ fromInteger $ toMicroseconds (periodDelta + 1)
 
-runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO (TimeSpec, TimeSpec)
-runTransactions benchDir userAddresses userIds = do
+runTransactions :: Word -> FilePath -> [UserAddress] -> [Int64] -> IO (TimeSpec, TimeSpec)
+runTransactions transactionNum benchDir userAddresses userIds = do
     let benchUserAction =
-            userThread benchDir $ benchUserTransactions userAddresses
+            userThread benchDir $
+            benchUserTransactions transactionNum userAddresses
     logInfo "Running transactions…"
     cpuTimeBefore <- getTime ProcessCPUTime
     wallTimeBefore <- getTime Realtime
@@ -72,7 +75,8 @@ main = do
     BenchOptions{..} <- getRecord "rscoin-bench-only-users"
     let userNumber      = unHelpful users
         globalSeverity  = fromMaybe Error $ unHelpful severity
-        bSeverity       = fromMaybe Info   $ unHelpful benchSeverity
+        bSeverity       = fromMaybe Info $ unHelpful benchSeverity
+        transactionNum  = fromMaybe 1000 $ unHelpful transactions
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity
@@ -81,6 +85,7 @@ main = do
         userAddresses <- initializeUsers benchDir userIds
         initializeSuperUser benchDir userAddresses
 
-        (cpuTime, wallTime) <- runTransactions benchDir userAddresses userIds
+        (cpuTime, wallTime) <-
+            runTransactions transactionNum benchDir userAddresses userIds
         logInfo $ sformat ("Elapsed CPU time: " % shown) cpuTime
         logInfo $ sformat ("Elapsed wall-clock time: " % shown) wallTime

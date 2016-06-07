@@ -37,16 +37,18 @@ sshKeyPath = "~/.ssh/rscointest.pem"
 installCommand :: T.IsString s => s
 installCommand = $(makeRelativeToProject "bench/install.sh" >>= embedStringFile)
 
-bankRunCommand :: [T.Text] -> [C.PublicKey] -> T.Text
-bankRunCommand mHosts mKeys =
+cdCommand :: T.Text
+cdCommand = "cd \"$HOME/rscoin\""
+
+bankSetupCommand :: [T.Text] -> [C.PublicKey] -> T.Text
+bankSetupCommand mHosts mKeys =
     T.unlines
-        [ "cd \"$HOME/rscoin\""
+        [ cdCommand
         , bankStopCommand
         , "rm -rf bank-db"
         , "git pull --ff-only"
         , "stack build rscoin"
-        , mconcat $ map (uncurry addMintetteCommand) $ zip mHosts mKeys
-        , "stack exec -- rscoin-bank serve --log-severity Warning +RTS -qg -RTS"]
+        , mconcat $ map (uncurry addMintetteCommand) $ zip mHosts mKeys]
   where
     addMintetteCommand =
         sformat
@@ -57,13 +59,20 @@ bankRunCommand mHosts mKeys =
              build)
             (C.defaultPort :: Int)
 
+bankRunCommand :: T.Text
+bankRunCommand =
+    T.unlines
+        [ cdCommand
+        , "stack exec -- rscoin-bank serve --log-severity Warning +RTS -qg -RTS"]
+
 bankStopCommand :: T.Text
 bankStopCommand = "killall rscoin-bank"
 
 mintetteKeyGenCommand :: T.Text
 mintetteKeyGenCommand =
     T.unlines
-        [ "cd \"$HOME/rscoin\""
+        [ cdCommand
+        , mintetteStopCommand
         , "rm -rf mintette-db"
         , "git pull --ff-only"
         , "stack build rscoin"
@@ -75,9 +84,7 @@ mintetteCatKeyCommand = "cat \"$HOME\"/.rscoin/key.pub\n"
 mintetteRunCommand :: T.Text
 mintetteRunCommand =
     T.unlines
-        [ "cd \"$HOME/rscoin\""
-        , mintetteStopCommand
-        , "rm -rf mintette-db"
+        [ cdCommand
         , "stack exec -- rscoin-mintette --log-severity Error +RTS -qg-RTS"]
 
 mintetteStopCommand :: T.Text
@@ -86,7 +93,7 @@ mintetteStopCommand = "killall rscoin-mintette"
 usersCommand :: Word -> T.Text
 usersCommand n =
     T.unlines
-        [ "cd \"$HOME/rscoin\""
+        [ cdCommand
         , "git pull --ff-only"
         , sformat
               ("stack bench rscoin:rscoin-bench-only-users --benchmark-arguments \"--users " %
@@ -118,7 +125,8 @@ installRSCoin = flip runSsh installCommand
 runBank :: [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
 runBank mintetteHosts mintetteKeys hasRSCoin = do
     unless hasRSCoin $ installRSCoin C.bankHost
-    forkIO $ runSsh C.bankHost $ bankRunCommand mintetteHosts mintetteKeys
+    runSsh C.bankHost $ bankSetupCommand mintetteHosts mintetteKeys
+    forkIO $ runSsh C.bankHost bankRunCommand
 
 stopBank :: IO ()
 stopBank = runSsh C.bankHost bankStopCommand
@@ -152,11 +160,11 @@ main = do
     mintetteKeys <- mapM (genMintetteKey . mdHost) rcMintettes
     mintetteThreads <- mapM runMintette rcMintettes
     logInfo "Launched mintettes, waiting…"
-    T.sleep 3
+    T.sleep 2
     logInfo "Launching bank…"
     bankThread <- runBank (map mdHost rcMintettes) mintetteKeys True
     logInfo "Launched bank, waiting…"
-    T.sleep 5
+    T.sleep 3
     logInfo "Running users…"
     runUsers users rcUsersNum
     logInfo "Ran users"

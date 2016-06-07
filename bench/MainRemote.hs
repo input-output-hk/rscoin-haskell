@@ -110,10 +110,9 @@ installRSCoin :: T.Text -> IO ()
 installRSCoin = flip runSsh installCommand
 
 runBank :: [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
-runBank mintetteHosts mintetteKeys hasRSCoin =
-    forkIO $
-    do unless hasRSCoin $ installRSCoin C.bankHost
-       runSsh C.bankHost $ bankRunCommand mintetteHosts mintetteKeys
+runBank mintetteHosts mintetteKeys hasRSCoin = do
+    unless hasRSCoin $ installRSCoin C.bankHost
+    forkIO $ runSsh C.bankHost $ bankRunCommand mintetteHosts mintetteKeys
 
 stopBank :: IO ()
 stopBank = runSsh C.bankHost bankStopCommand
@@ -125,10 +124,9 @@ genMintetteKey hostName = do
         runSshStrict hostName mintetteCatKeyCommand
 
 runMintette :: (Bool, T.Text) -> IO ThreadId
-runMintette (hasRSCoin,hostName) =
-    forkIO $
-    do unless hasRSCoin $ installRSCoin hostName
-       runSsh hostName mintetteRunCommand
+runMintette (hasRSCoin,hostName) = do
+    unless hasRSCoin $ installRSCoin hostName
+    forkIO $ runSsh hostName mintetteRunCommand
 
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand

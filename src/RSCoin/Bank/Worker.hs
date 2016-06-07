@@ -26,7 +26,7 @@ import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            SecretKey, announceNewPeriod,
                                            bankLoggerName, formatNewPeriodData,
                                            logDebug, logError, logInfo,
-                                           logWarning, periodDelta,
+                                           logWarning, defaultPeriodDelta,
                                            sendPeriodFinished)
 
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
@@ -35,11 +35,11 @@ import           RSCoin.Timed             (WorkMode, minute, repeatForever, tu)
 
 -- | Start worker which runs appropriate action when a period finishes
 runWorker :: WorkMode m => SecretKey -> State -> m ()
-runWorker = runWorkerWithPeriod periodDelta
+runWorker = runWorkerWithPeriod defaultPeriodDelta
 
 -- | Start worker with provided period. Used in benchmarks. Also see 'runWorker'.
 runWorkerWithPeriod :: (TimeUnit t, WorkMode m) => t -> SecretKey -> State -> m ()
-runWorkerWithPeriod period sk st = repeatForever (tu period) handler $
+runWorkerWithPeriod periodDelta sk st = repeatForever (tu periodDelta) handler $
     onPeriodFinished sk st
   where
     handler e = do

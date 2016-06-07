@@ -9,7 +9,7 @@ module RSCoin.Core.Constants
        , defaultPort
        , bankHost
        , bankPort
-       , periodDelta
+       , defaultPeriodDelta
        , epochDelta
        , emissionHash
        , genesisAddress
@@ -51,8 +51,8 @@ bankHost = "127.0.0.1"
 bankPort :: Num a => a
 bankPort = defaultPort
 
-periodDelta :: Second
-periodDelta = 100
+defaultPeriodDelta :: Second
+defaultPeriodDelta = 100
 
 epochDelta :: Second
 epochDelta = 5

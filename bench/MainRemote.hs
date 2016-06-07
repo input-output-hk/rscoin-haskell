@@ -81,6 +81,7 @@ usersCommand :: Word -> T.Text
 usersCommand n =
     T.unlines
         [ "cd \"$HOME/rscoin\""
+        , "git pull --ff-only"
         , sformat
               ("stack bench rscoin:rscoin-bench-only-users --benchmark-arguments \"--users " %
                int %

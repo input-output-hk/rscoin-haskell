@@ -101,7 +101,7 @@ usersCommand u t =
                " --transactions " %
                int %
                " +RTS -qg\"")
-              n]
+              u t]
 
 runSsh :: T.Text -> T.Text -> IO ()
 runSsh hostName command = do

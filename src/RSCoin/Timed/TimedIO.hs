@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -9,11 +8,9 @@
 module RSCoin.Timed.TimedIO
        ( TimedIO
        , runTimedIO
-       , runTimedIO_
        ) where
 
 import qualified Control.Concurrent          as C
-import           Control.Monad               (void)
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadCatch, MonadThrow, MonadMask,
                                               throwM)
@@ -47,11 +44,11 @@ instance MonadTimed TimedIO where
         cur <- localTime
         liftIO $ C.threadDelay $ fromIntegral $ relativeToNow cur
 
-    fork (TimedIO a) = TimedIO $ lift . fmap IOThreadId . C.forkIO . runReaderT a 
+    fork (TimedIO a) = TimedIO $ lift . fmap IOThreadId . C.forkIO . runReaderT a
         =<< ask
-    
+
     myThreadId = TimedIO $ lift $ IOThreadId <$> C.myThreadId
-    
+
     killThread (IOThreadId tid) = TimedIO $ lift $ C.killThread $ tid
     killThread _ = error "Inproper ThreadId object (expected IOThreadId)"
 
@@ -62,10 +59,6 @@ instance MonadTimed TimedIO where
 -- | Launches this timed action
 runTimedIO :: TimedIO a -> IO a
 runTimedIO = (curTime >>= ) . runReaderT . getTimedIO
-
--- | Launches this timed action, ignoring the result
-runTimedIO_ ::  TimedIO a -> IO ()
-runTimedIO_ = void . runTimedIO
 
 curTime :: IO Microsecond
 curTime = round . ( * 1000000) <$> getPOSIXTime

@@ -6,7 +6,7 @@
 import           Control.Concurrent      (threadDelay)
 import           Control.Exception       (SomeException)
 import           Control.Monad           (unless, void)
-import           Control.Monad.Catch     (MonadCatch, MonadMask, bracket, catch,
+import           Control.Monad.Catch     (MonadCatch, bracket, catch,
                                           throwM)
 import           Control.Monad.Trans     (MonadIO, liftIO)
 import qualified Data.Acid               as ACID
@@ -15,8 +15,7 @@ import qualified Data.Text               as T
 import qualified Graphics.UI.Gtk         as G
 
 import qualified RSCoin.Core             as C
-import           RSCoin.Timed            (MonadRpc, MonadTimed, WorkMode,
-                                          runRealMode)
+import           RSCoin.Timed            (WorkMode, runRealMode)
 import qualified RSCoin.User.AcidState   as A
 import qualified RSCoin.User.Actions     as UA
 import           RSCoin.User.Error       (eWrap)
@@ -29,7 +28,7 @@ import qualified UserOptions             as O
 
 initializeStorage
     :: forall (m :: * -> *).
-       (MonadIO m, MonadMask m, MonadTimed m, MonadRpc m)
+       (WorkMode m)
     => A.RSCoinUserState
     -> O.UserOptions
     -> m ()
@@ -82,7 +81,7 @@ main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     C.initLogging logSeverity
-    runRealMode $
+    runRealMode bankHost $
         bracket
             (liftIO $ A.openState walletPath)
             (\st -> liftIO $ do

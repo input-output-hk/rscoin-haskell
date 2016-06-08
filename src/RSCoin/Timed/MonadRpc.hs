@@ -14,6 +14,7 @@ module RSCoin.Timed.MonadRpc
        , Host
        , Addr
        , MonadRpc
+       , BankSettings (..)
        , MsgPackRpc
        , runMsgPackRpc
        , RpcType
@@ -36,7 +37,8 @@ module RSCoin.Timed.MonadRpc
 
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader        (ReaderT (..), runReaderT)
+import           Control.Monad.Reader        (MonadReader, ReaderT (..),
+                                              runReaderT)
 import           Control.Monad.Trans         (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl, StM,
                                               liftBaseWith, restoreM)
@@ -80,9 +82,12 @@ class MonadThrow r => MonadRpc r where
 
 -- Implementation for MessagePack
 
-newtype MsgPackRpc a = MsgPackRpc { runMsgPackRpc :: TimedIO a }
+newtype BankSettings = BankSettings { getHost :: Host }
+
+newtype MsgPackRpc a = MsgPackRpc { runMsgPackRpc :: ReaderT BankSettings TimedIO a }
     deriving (Functor, Applicative, Monad, MonadIO, MonadBase IO,
-              MonadThrow, MonadCatch, MonadMask, MonadTimed)
+              MonadThrow, MonadCatch, MonadMask, MonadTimed,
+              MonadReader BankSettings)
 
 instance MonadBaseControl IO MsgPackRpc where
     type StM MsgPackRpc a = a

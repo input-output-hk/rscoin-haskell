@@ -1,3 +1,7 @@
+{-# LANGUAGE FlexibleContexts    #-}
+
+module Main where
+
 import           Control.Monad.Catch (bracket)
 import           Control.Monad.Trans (liftIO)
 import           Data.Acid           (update)
@@ -15,7 +19,7 @@ main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
-    runRealMode $
+    runRealMode cloHost $
         bracket (liftIO $ B.openState cloPath) (liftIO . B.closeState)
             $ run cloCommand
   where

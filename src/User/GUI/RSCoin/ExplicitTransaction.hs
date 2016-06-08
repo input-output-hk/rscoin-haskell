@@ -1,4 +1,6 @@
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Structure and functions used to print transactions.
 
 module GUI.RSCoin.ExplicitTransaction

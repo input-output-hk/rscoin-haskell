@@ -7,10 +7,11 @@ module UserOptions
        , getUserOptions
        ) where
 
-import           RSCoin.Core            (MintetteId, PeriodId, Severity (Info),
-                                         defaultAccountsNumber,
+import           RSCoin.Core            (MintetteId, PeriodId, Severity (Error),
+                                         defaultAccountsNumber, defaultBankHost,
                                          defaultSecretKeyPath)
 
+import           Data.ByteString        (ByteString)
 import           Data.Int               (Int64)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -63,6 +64,7 @@ data UserOptions = UserOptions
     , walletPath   :: FilePath    -- ^ Path to the wallet
     , guidbPath    :: FilePath    -- ^ Path to the gui database.
     , logSeverity  :: Severity    -- ^ Logging severity
+    , bankHost     :: ByteString
     } deriving (Show)
 
 userCommandParser :: Parser UserCommand
@@ -192,7 +194,12 @@ userOptionsParser dskp =
         (long "guidb-path" <> help "Path to gui database" <>
          value "gui-db" <>
          showDefault) <*>
-    option auto (long "log-severity" <> value Info <> showDefault)
+    option auto
+        (long "log-severity" <> value Error <> showDefault <>
+         help "Logging severity") <*>
+    option auto
+        (long "bankHost" <> value defaultBankHost <> showDefault <>
+         help "Host name for bank")
 
 -- | IO call that retrieves command line options
 getUserOptions :: IO UserOptions

@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
 -- | This module contains all constants in rscoin.
@@ -7,9 +6,9 @@ module RSCoin.Core.Constants
        ( defaultSecretKeyPath
        , defaultAccountsNumber
        , defaultPort
-       , bankHost
+       , defaultBankHost
        , bankPort
-       , periodDelta
+       , defaultPeriodDelta
        , epochDelta
        , emissionHash
        , genesisAddress
@@ -45,14 +44,14 @@ defaultAccountsNumber = 5
 defaultPort :: Num a => a
 defaultPort = 3000
 
-bankHost :: IsString s => s
-bankHost = "52.58.26.146"
+defaultBankHost :: IsString s => s
+defaultBankHost = "127.0.0.1"
 
 bankPort :: Num a => a
 bankPort = defaultPort
 
-periodDelta :: Second
-periodDelta = 10
+defaultPeriodDelta :: Second
+defaultPeriodDelta = 100
 
 epochDelta :: Second
 epochDelta = 5

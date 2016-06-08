@@ -1,4 +1,5 @@
 {-# LANGUAGE ExistentialQuantification #-}
+
 module RSCoin.Core.Error
        ( RSCoinError
        , rscExceptionToException

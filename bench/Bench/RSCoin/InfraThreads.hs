@@ -46,9 +46,7 @@ addMintette mintetteId benchDir publicKey =
             update bankState $ B.AddMintette mintette publicKey
 
 bankThread :: FilePath -> IO ()
-bankThread benchDir = bankBracket benchDir $ \bankState -> do
-    _ <- fork $ B.runWorkerWithPeriod defaultBenchPeriod bankSecretKey bankState
-    B.serve bankState
+bankThread benchDir = B.launchBank (benchDir </> "bank-db") bankSecretKey
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir secretKey =

@@ -11,23 +11,24 @@ import           Control.Monad              (forM_, replicateM, void)
 import           Data.Int                   (Int64)
 import           Data.Maybe                 (fromMaybe)
 import           Data.String                (IsString)
-import           Data.Time.Units            (toMicroseconds)
 import           Formatting                 (build, sformat, shown, (%))
 import           System.Clock               (Clock (..), TimeSpec, diffTimeSpec,
                                              getTime)
+import           System.IO.Temp             (withSystemTempDirectory)
 
 -- workaround to make stylish-haskell work :(
 import           Options.Generic
 
-import           System.IO.Temp             (withSystemTempDirectory)
-
 import           RSCoin.Core                (PublicKey, SecretKey,
-                                             Severity (..), initLogging, keyGen)
+                                             Severity (..), bankLoggerName,
+                                             finishPeriod, initLoggerByName,
+                                             initLogging, keyGen)
+import           RSCoin.Timed               (runRealModeLocal)
 import           RSCoin.User.Wallet         (UserAddress)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.InfraThreads  (addMintette, bankThread,
-                                             defaultBenchPeriod, mintetteThread)
+                                             mintetteThread)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserLogic     (benchUserTransactions,
                                              initializeBank, initializeUser,
@@ -87,7 +88,8 @@ initializeSuperUser benchDir userAddresses = do
     userThread bankHost benchDir (const $ initializeBank userAddresses) bankId
     logInfo
         "Initialized user in bankMode, now waiting for the end of the period…"
-    threadDelay $ fromInteger $ toMicroseconds (defaultBenchPeriod + 1)
+    runRealModeLocal $ finishPeriod undefined
+    threadDelay $ 3 * 10 ^ (6 :: Int)
 
 runTransactions :: Word
                 -> FilePath

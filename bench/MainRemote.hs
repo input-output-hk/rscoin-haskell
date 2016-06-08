@@ -82,11 +82,14 @@ mintetteKeyGenCommand =
 mintetteCatKeyCommand :: T.Text
 mintetteCatKeyCommand = "cat \"$HOME\"/.rscoin/key.pub\n"
 
-mintetteRunCommand :: T.Text
-mintetteRunCommand =
+mintetteRunCommand :: T.Text -> T.Text
+mintetteRunCommand bankHost =
     T.unlines
         [ cdCommand
-        , "stack exec -- rscoin-mintette --log-severity Error +RTS -qg-RTS"]
+        , sformat
+              ("stack exec -- rscoin-mintette --log-severity Error +RTS -qg-RTS --bank-host " %
+               build)
+              bankHost]
 
 mintetteStopCommand :: T.Text
 mintetteStopCommand = "killall rscoin-mintette"
@@ -125,14 +128,14 @@ runSshStrict hostName command = do
 installRSCoin :: T.Text -> IO ()
 installRSCoin = flip runSsh installCommand
 
-runBank :: [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
-runBank mintetteHosts mintetteKeys hasRSCoin = do
-    unless hasRSCoin $ installRSCoin C.bankHost
-    runSsh C.bankHost $ bankSetupCommand mintetteHosts mintetteKeys
-    forkIO $ runSsh C.bankHost bankRunCommand
+runBank :: T.Text -> [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
+runBank bankHost mintetteHosts mintetteKeys hasRSCoin = do
+    unless hasRSCoin $ installRSCoin bankHost
+    runSsh bankHost $ bankSetupCommand mintetteHosts mintetteKeys
+    forkIO $ runSsh bankHost bankRunCommand
 
-stopBank :: IO ()
-stopBank = runSsh C.bankHost bankStopCommand
+stopBank :: T.Text -> IO ()
+stopBank bankHost = runSsh bankHost bankStopCommand
 
 genMintetteKey :: T.Text -> IO C.PublicKey
 genMintetteKey hostName = do
@@ -140,10 +143,10 @@ genMintetteKey hostName = do
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
         runSshStrict hostName mintetteCatKeyCommand
 
-runMintette :: MintetteData -> IO ThreadId
-runMintette (MintetteData hasRSCoin hostName) = do
+runMintette :: T.Text -> MintetteData -> IO ThreadId
+runMintette bankHost (MintetteData hasRSCoin hostName) = do
     unless hasRSCoin $ installRSCoin hostName
-    forkIO $ runSsh hostName mintetteRunCommand
+    forkIO $ runSsh hostName $ mintetteRunCommand bankHost
 
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
@@ -161,11 +164,11 @@ main = do
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
     mintetteKeys <- mapM (genMintetteKey . mdHost) rcMintettes
-    mintetteThreads <- mapM runMintette rcMintettes
+    mintetteThreads <- mapM (runMintette rcBank) rcMintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2
     logInfo "Launching bank…"
-    bankThread <- runBank (map mdHost rcMintettes) mintetteKeys True
+    bankThread <- runBank rcBank (map mdHost rcMintettes) mintetteKeys True
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
@@ -173,7 +176,7 @@ main = do
     logInfo "Ran users"
     killThread bankThread
     logInfo "Killed bank thread"
-    stopBank
+    stopBank rcBank
     logInfo "Stopped bank"
     mapM_ killThread mintetteThreads
     logInfo "Killed mintette threads"

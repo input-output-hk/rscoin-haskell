@@ -19,6 +19,7 @@ import           Bench.RSCoin.StageRestriction (defaultOptions)
 data RemoteConfig = RemoteConfig
     { rcUsersNum        :: !Word
     , rcTransactionsNum :: !Word
+    , rcBank            :: Text
     , rcMintettes       :: ![MintetteData]
     , rcUsers           :: !UsersData
     } deriving (Show)

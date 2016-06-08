@@ -12,7 +12,8 @@ import           Control.Monad.Trans   (liftIO)
 import           Data.Acid.Advanced    (update')
 
 import           RSCoin.Core           (Mintette, PublicKey, SecretKey)
-import           RSCoin.Timed          (MsgPackRpc, fork_, runRealModeLocal)
+import           RSCoin.Timed          (MsgPackRpc, fork, killThread,
+                                        runRealModeLocal)
 
 import           RSCoin.Bank.AcidState (AddMintette (AddMintette), State,
                                         closeState, openState)
@@ -28,8 +29,11 @@ launchBank :: FilePath -> SecretKey -> IO ()
 launchBank storagePath sk = bankWrapper storagePath launch
   where
     launch st = do
-        fork_ $ runWorker sk st
-        serve st
+        workerThread <- fork $ runWorker sk st
+        serve st workerThread $ restartWorkerAction st
+    restartWorkerAction st tId = do
+        killThread tId
+        fork $ runWorker sk st
 
 addMintetteIO :: FilePath -> Mintette -> PublicKey -> IO ()
 addMintetteIO storagePath m k =

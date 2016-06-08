@@ -57,6 +57,7 @@ data BankMethod
     | GetBlockchainHeight
     | GetHBlock
     | GetTransaction
+    | FinishPeriod
     deriving (Show)
 
 -- | Requests processed by a Mintette.

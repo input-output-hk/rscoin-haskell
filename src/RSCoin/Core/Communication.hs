@@ -12,6 +12,7 @@ module RSCoin.Core.Communication
        , getBlockByHeight
        , getTransactionById
        , getGenesisBlock
+       , finishPeriod
        , checkNotDoubleSpent
        , commitTx
        , sendPeriodFinished
@@ -44,7 +45,7 @@ import           Serokell.Util.Text         (format', formatSingle',
                                              listBuilderJSONIndent, mapBuilder,
                                              pairBuilder, show')
 
-import           RSCoin.Core.Crypto         (Signature, hash)
+import           RSCoin.Core.Crypto         (SecretKey, Signature, hash)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
@@ -157,6 +158,13 @@ getGenesisBlock = do
     block <- getBlockByHeight 0
     liftIO $ logDebug "Successfully got genesis block"
     return block
+
+finishPeriod :: WorkMode m => SecretKey -> m ()
+finishPeriod _ =
+    withResult
+        (logInfo "Finishing period")
+        (const $ logDebug "Successfully finished period") $
+    callBank (P.call $ P.RSCBank P.FinishPeriod)
 
 getOwnersByHash :: WorkMode m => TransactionId -> m [(Mintette, MintetteId)]
 getOwnersByHash tId =

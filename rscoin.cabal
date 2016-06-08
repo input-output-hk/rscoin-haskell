@@ -68,6 +68,7 @@ library
                      , RSCoin.Timed.Misc
   other-modules:       Paths_rscoin
                      , RSCoin.Bank.AcidState
+                     , RSCoin.Bank.Launcher
                      , RSCoin.Bank.Server
                      , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
@@ -130,10 +131,7 @@ library
 executable rscoin-bank
   main-is:             Main.hs
   other-modules:       Options
-  build-depends:       acid-state
-                     , base >= 4.8 && < 4.9
-                     , bytestring
-                     , exceptions
+  build-depends:       base >= 4.8 && < 4.9
                      , mtl
                      , optparse-applicative
                      , rscoin

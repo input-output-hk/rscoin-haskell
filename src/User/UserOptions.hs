@@ -198,7 +198,7 @@ userOptionsParser dskp =
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity") <*>
     option auto
-        (long "bankHost" <> value defaultBankHost <> showDefault <>
+        (long "bank-host" <> value defaultBankHost <> showDefault <>
          help "Host name for bank")
 
 -- | IO call that retrieves command line options

@@ -38,7 +38,7 @@ optionsParser defaultSKPath =
          help "Logging severity") <*>
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
     option auto
-        (long "bankHost" <> value defaultBankHost <> showDefault <>
+        (long "bank-host" <> value defaultBankHost <> showDefault <>
          help "Host name for bank")
 
 getOptions :: IO Options

@@ -295,6 +295,7 @@ benchmark rscoin-bench
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
+                     , bytestring
                      , clock
                      , exceptions
                      , filepath
@@ -325,6 +326,7 @@ benchmark rscoin-bench-single-user
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
+                     , bytestring
                      , clock
                      , exceptions
                      , filepath
@@ -355,6 +357,7 @@ benchmark rscoin-bench-only-users
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
+                     , bytestring
                      , clock
                      , exceptions
                      , filepath
@@ -375,70 +378,9 @@ benchmark rscoin-bench-only-users
                        -fno-warn-orphans
                        -O2
   default-extensions:  OverloadedStrings
-
-benchmark rscoin-bench-servers
-  type:                exitcode-stdio-1.0
-  main-is:             BenchSeparated/MainServers.hs
-  other-modules:       Bench.RSCoin.FilePathUtils
-                     , Bench.RSCoin.InfraThreads
-                     , Bench.RSCoin.Logging
-                     , Bench.RSCoin.UserLogic
-  build-depends:       acid-state
-                     , async
-                     , base >=4.8 && <4.9
-                     , clock
-                     , exceptions
-                     , filepath
-                     , formatting
-                     , mtl
-                     , optparse-generic
-                     , rscoin
-                     , serokell-core
-                     , temporary
-                     , text
-                     , time-units
-                     , transformers
-                     , turtle
-  hs-source-dirs:      bench
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -with-rtsopts=-N
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
-
-benchmark rscoin-bench-clients
-  type:                exitcode-stdio-1.0
-  main-is:             BenchSeparated/MainClients.hs
-  other-modules:       Bench.RSCoin.FilePathUtils
-                     , Bench.RSCoin.InfraThreads
-                     , Bench.RSCoin.Logging
-                     , Bench.RSCoin.UserLogic
-  build-depends:       acid-state
-                     , async
-                     , base >=4.8 && <4.9
-                     , clock
-                     , exceptions
-                     , filepath
-                     , formatting
-                     , mtl
-                     , optparse-generic
-                     , rscoin
-                     , serokell-core
-                     , time
-                     , temporary
-                     , text
-                     , time-units
-                     , transformers
-  hs-source-dirs:      bench
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -with-rtsopts=-N
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
 
 benchmark rscoin-bench-remote
   type:                exitcode-stdio-1.0

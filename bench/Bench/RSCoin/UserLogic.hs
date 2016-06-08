@@ -13,6 +13,7 @@ import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint)
 import           Data.Acid.Advanced         (query')
+import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
@@ -34,14 +35,21 @@ import           Bench.RSCoin.Logging       (logDebug, logInfo)
 transactionNum :: Num a => a
 transactionNum = 1000
 
-userThread :: FilePath -> (Int64 -> A.RSCoinUserState -> MsgPackRpc a) -> Int64 -> IO a
-userThread benchDir userAction userId = runRealMode $ bracket
-    (liftIO $ A.openState $ benchDir </> dbFormatPath "wallet-db" userId)
-    (\userState -> liftIO $ do
-        createCheckpoint userState
-        A.closeState userState
-    )
-    (userAction userId)
+userThread
+    :: ByteString
+    -> FilePath
+    -> (Int64 -> A.RSCoinUserState -> MsgPackRpc a)
+    -> Int64
+    -> IO a
+userThread bankHost benchDir userAction userId =
+    runRealMode bankHost $
+    bracket
+        (liftIO $ A.openState $ benchDir </> dbFormatPath "wallet-db" userId)
+        (\userState ->
+              liftIO $
+              do createCheckpoint userState
+                 A.closeState userState)
+        (userAction userId)
 
 queryMyAddress :: A.RSCoinUserState -> MsgPackRpc UserAddress
 queryMyAddress userState = head <$> query' userState A.GetAllAddresses

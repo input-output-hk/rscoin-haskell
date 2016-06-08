@@ -5,13 +5,15 @@ module Options
        , getOptions
        ) where
 
+import           Data.ByteString     (ByteString)
+
 import           Options.Applicative (Parser, auto, execParser, fullDesc, help,
                                       helper, info, long, metavar, option,
                                       progDesc, short, showDefault, strOption,
                                       switch, value, (<>))
 
-import           RSCoin.Core         (Severity (Info), defaultPort,
-                                      defaultSecretKeyPath)
+import           RSCoin.Core         (Severity (Error), defaultBankHost,
+                                      defaultPort, defaultSecretKeyPath)
 
 data Options = Options
     { cloPort          :: Int
@@ -19,6 +21,7 @@ data Options = Options
     , cloSecretKeyPath :: FilePath
     , cloLogSeverity   :: Severity
     , cloMemMode       :: Bool
+    , cloBankHost      :: ByteString
     }
 
 optionsParser :: FilePath -> Parser Options
@@ -30,8 +33,13 @@ optionsParser defaultSKPath =
          help "Path to database") <*>
     strOption
         (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault) <*>
-    option auto (long "log-severity" <> value Info <> showDefault) <*>
-    switch (short 'm' <> long "memory-mode" <> help "Run in memory mode")
+    option auto
+        (long "log-severity" <> value Error <> showDefault <>
+         help "Logging severity") <*>
+    switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
+    option auto
+        (long "bankHost" <> value defaultBankHost <> showDefault <>
+         help "Host name for bank")
 
 getOptions :: IO Options
 getOptions = do

@@ -15,7 +15,7 @@ main = do
             if cloMemMode
                 then M.openMemState
                 else M.openState cloPath
-    runRealMode $
+    runRealMode cloBankHost $
         bracket (liftIO open) (liftIO . M.closeState) $
         \st ->
              do fork_ $ M.runWorker sk st

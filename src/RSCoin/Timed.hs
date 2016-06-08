@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -6,8 +7,10 @@
 module RSCoin.Timed
        ( module Exports
        , WorkMode
-       , runRealMode, runRealMode_
-       , runEmulationMode, runEmulationMode_
+       , runRealMode
+       , runRealModeLocal
+       , runEmulationMode
+       , runEmulationMode_
        ) where
 
 import           RSCoin.Timed.Misc       as Exports
@@ -19,20 +22,24 @@ import           RSCoin.Timed.TimedIO    as Exports
 
 import           Control.Monad           (join)
 import           Control.Monad.Catch     (MonadMask)
+import           Control.Monad.Reader    (MonadReader, runReaderT)
 import           Control.Monad.Trans     (MonadIO, liftIO)
+import           Data.ByteString         (ByteString)
+import           RSCoin.Core.Constants   (defaultBankHost)
 import           System.Random           (StdGen, getStdGen)
 
 class (MonadTimed m, MonadRpc m, MonadIO m,
-       MonadMask m) => WorkMode m where
+       MonadMask m, MonadReader BankSettings m) => WorkMode m where
 
 instance (MonadTimed m, MonadRpc m, MonadIO m,
-       MonadMask m) => WorkMode m
+       MonadMask m, MonadReader BankSettings m) => WorkMode m
 
-runRealMode :: MsgPackRpc a -> IO a
-runRealMode = runTimedIO . runMsgPackRpc
+runRealMode :: ByteString -> MsgPackRpc a -> IO a
+runRealMode bankHost
+    = runTimedIO . flip runReaderT (BankSettings bankHost) . runMsgPackRpc
 
-runRealMode_ :: MsgPackRpc a -> IO ()
-runRealMode_ = runTimedIO_ . runMsgPackRpc
+runRealModeLocal :: MsgPackRpc a -> IO a
+runRealModeLocal = runRealMode defaultBankHost
 
 runEmulationMode :: MonadIO m => Maybe StdGen -> Delays -> PureRpc IO a -> m a
 runEmulationMode genMaybe delays m =

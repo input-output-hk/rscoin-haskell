@@ -6,7 +6,7 @@ module RSCoin.Core.Constants
        ( defaultSecretKeyPath
        , defaultAccountsNumber
        , defaultPort
-       , bankHost
+       , defaultBankHost
        , bankPort
        , defaultPeriodDelta
        , epochDelta
@@ -44,8 +44,8 @@ defaultAccountsNumber = 5
 defaultPort :: Num a => a
 defaultPort = 3000
 
-bankHost :: IsString s => s
-bankHost = "127.0.0.1"
+defaultBankHost :: IsString s => s
+defaultBankHost = "127.0.0.1"
 
 bankPort :: Num a => a
 bankPort = defaultPort

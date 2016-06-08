@@ -17,7 +17,7 @@ import           Graphics.UI.Gtk                (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk                as G
 
 import qualified RSCoin.Core                    as C
-import           RSCoin.Timed                   (runRealMode)
+import           RSCoin.Timed                   (runRealModeLocal)
 import           RSCoin.User                    (RSCoinUserState,
                                                  TxHStatus (..),
                                                  TxHistoryRecord (..))
@@ -181,8 +181,8 @@ toNodeMapper :: RSCoinUserState
              -> U.TxHistoryRecord
              -> IO WalletModelNode
 toNodeMapper st gst txhr@U.TxHistoryRecord{..} = do
-    eTx <- runRealMode $ fromTransaction gst txhTransaction
-    addrs <- runRealMode $ U.getAllPublicAddresses st
+    eTx <- runRealModeLocal $ fromTransaction gst txhTransaction
+    addrs <- runRealModeLocal $ U.getAllPublicAddresses st
     let amountDiff = getTransactionAmount addrs eTx
         isIncome = amountDiff > 0
         headMaybe [] = Nothing
@@ -212,15 +212,15 @@ toNodeMapper st gst txhr@U.TxHistoryRecord{..} = do
 updateWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
 updateWalletTab st gst M.MainWindow{..} = do
     let WalletTab{..} = tabWallet
-    addrs <- runRealMode $ U.getAllPublicAddresses st
-    transactionsHist <- runRealMode $ U.getTransactionsHistory st
-    userAmount <- runRealMode $ U.getUserTotalAmount False st
+    addrs <- runRealModeLocal $ U.getAllPublicAddresses st
+    transactionsHist <- runRealModeLocal $ U.getTransactionsHistory st
+    userAmount <- runRealModeLocal $ U.getUserTotalAmount False st
     let unconfirmed =
             filter
                 (\U.TxHistoryRecord{..} -> txhStatus == U.TxHUnconfirmed)
                 transactionsHist
         unconfirmedSum = do
-            txs <- mapM (runRealMode . fromTransaction gst . U.txhTransaction)
+            txs <- mapM (runRealModeLocal . fromTransaction gst . U.txhTransaction)
                         unconfirmed
             return $ sum $ map (getTransactionAmount addrs) txs
     G.labelSetText labelCurrentBalance $ show $ C.getCoin userAmount

@@ -9,7 +9,7 @@ import           Data.Acid     (query)
 import           Data.Int      (Int64)
 
 import           RSCoin.Core   (Coin (..), PublicKey)
-import           RSCoin.Timed  (runRealMode)
+import           RSCoin.Timed  (runRealModeLocal)
 import           RSCoin.User   (GetAllAddresses (..), RSCoinUserState,
                                 getAmountNoUpdate, publicAddress)
 
@@ -21,6 +21,6 @@ data VerboseAddress = VA
 getAddresses :: RSCoinUserState -> IO [VerboseAddress]
 getAddresses st = do
     as <- query st GetAllAddresses
-    forM as $ \a -> runRealMode $ do
+    forM as $ \a -> runRealModeLocal $ do
         b <- getAmountNoUpdate st a
         return $ VA (a ^. publicAddress) (getCoin b)

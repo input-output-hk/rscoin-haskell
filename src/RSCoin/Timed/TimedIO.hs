@@ -8,11 +8,9 @@
 module RSCoin.Timed.TimedIO
        ( TimedIO
        , runTimedIO
-       , runTimedIO_
        ) where
 
 import qualified Control.Concurrent          as C
-import           Control.Monad               (void)
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadCatch, MonadThrow, MonadMask,
                                               throwM)
@@ -61,10 +59,6 @@ instance MonadTimed TimedIO where
 -- | Launches this timed action
 runTimedIO :: TimedIO a -> IO a
 runTimedIO = (curTime >>= ) . runReaderT . getTimedIO
-
--- | Launches this timed action, ignoring the result
-runTimedIO_ ::  TimedIO a -> IO ()
-runTimedIO_ = void . runTimedIO
 
 curTime :: IO Microsecond
 curTime = round . ( * 1000000) <$> getPOSIXTime

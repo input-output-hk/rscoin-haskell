@@ -14,8 +14,7 @@ import           Options.Generic
 
 import           System.IO.Temp             (withSystemTempDirectory)
 
-import           RSCoin.Core                (PublicKey, SecretKey,
-                                             Severity (..), initLogging)
+import           RSCoin.Core                (Severity (..), initLogging)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)

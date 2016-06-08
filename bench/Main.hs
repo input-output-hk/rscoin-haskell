@@ -10,6 +10,7 @@ import           Control.Concurrent.Async   (forConcurrently)
 import           Control.Monad              (forM_, replicateM, void)
 import           Data.Int                   (Int64)
 import           Data.Maybe                 (fromMaybe)
+import           Data.String                (IsString)
 import           Data.Time.Units            (toMicroseconds)
 import           Formatting                 (build, sformat, shown, (%))
 import           System.Clock               (Clock (..), TimeSpec, diffTimeSpec,
@@ -34,17 +35,22 @@ import           Bench.RSCoin.UserLogic     (benchUserTransactions,
 
 data BenchOptions = BenchOptions
     { users         :: Int            <?> "number of users"
+    , transactions  :: Maybe Word     <?> "number of transactions per user"
     , mintettes     :: Int            <?> "number of mintettes"
     , severity      :: Maybe Severity <?> "severity for global logger"
     , benchSeverity :: Maybe Severity <?> "severity for bench logger"
     } deriving (Generic, Show)
 
+instance ParseField  Word
 instance ParseField  Severity
 instance ParseFields Severity
 instance ParseRecord Severity
 instance ParseRecord BenchOptions
 
 type KeyPairList = [(SecretKey, PublicKey)]
+
+bankHost :: IsString s => s
+bankHost = "127.0.0.1"
 
 generateMintetteKeys :: Int -> IO KeyPairList
 generateMintetteKeys n = replicateM n keyGen
@@ -70,23 +76,28 @@ establishBank benchDir = do
 
 initializeUsers :: FilePath -> [Int64] -> IO [UserAddress]
 initializeUsers benchDir userIds = do
-    let initUserAction = userThread benchDir initializeUser
+    let initUserAction = userThread bankHost benchDir initializeUser
     logInfo $ sformat ("Initializing " % build % " users…") $ length userIds
     mapM initUserAction userIds
 
 initializeSuperUser :: FilePath -> [UserAddress] -> IO ()
 initializeSuperUser benchDir userAddresses = do
-    -- give money to all users
     let bankId = 0
     logInfo "Initializaing user in bankMode…"
-    userThread benchDir (const $ initializeBank userAddresses) bankId
-    logInfo "Initialized user in bankMode, now waiting for the end of the period…"
+    userThread bankHost benchDir (const $ initializeBank userAddresses) bankId
+    logInfo
+        "Initialized user in bankMode, now waiting for the end of the period…"
     threadDelay $ fromInteger $ toMicroseconds (defaultBenchPeriod + 1)
 
-runTransactions :: FilePath -> [UserAddress] -> [Int64] -> IO (TimeSpec, TimeSpec)
-runTransactions benchDir userAddresses userIds = do
+runTransactions :: Word
+                -> FilePath
+                -> [UserAddress]
+                -> [Int64]
+                -> IO (TimeSpec, TimeSpec)
+runTransactions txNum benchDir userAddresses userIds = do
     let benchUserAction =
-            userThread benchDir $ benchUserTransactions userAddresses
+            userThread bankHost benchDir $
+            benchUserTransactions txNum userAddresses
     logInfo "Running transactions…"
     cpuTimeBefore <- getTime ProcessCPUTime
     wallTimeBefore <- getTime Realtime
@@ -102,8 +113,9 @@ main = do
     BenchOptions{..} <- getRecord "rscoin-user-bench"
     let mintettesNumber = unHelpful mintettes
         userNumber      = unHelpful users
-        globalSeverity  = fromMaybe Error $ unHelpful severity
-        bSeverity       = fromMaybe Info   $ unHelpful benchSeverity
+        transactionNum  = fromMaybe 1000 $ unHelpful transactions
+        globalSeverity  = fromMaybe Error$ unHelpful severity
+        bSeverity       = fromMaybe Info $ unHelpful benchSeverity
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity
@@ -115,6 +127,7 @@ main = do
         userAddresses <- initializeUsers benchDir userIds
         initializeSuperUser benchDir userAddresses
 
-        (cpuTime, wallTime) <- runTransactions benchDir userAddresses userIds
+        (cpuTime, wallTime) <-
+            runTransactions transactionNum benchDir userAddresses userIds
         logInfo $ sformat ("Elapsed CPU time: " % shown) cpuTime
         logInfo $ sformat ("Elapsed wall-clock time: " % shown) wallTime

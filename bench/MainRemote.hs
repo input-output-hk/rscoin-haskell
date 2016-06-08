@@ -1,15 +1,33 @@
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-import           Control.Concurrent (forkIO)
-import           Control.Monad      (unless)
-import           Data.FileEmbed     (embedStringFile, makeRelativeToProject)
-import           Data.Functor       (void)
-import           Data.Maybe         (fromMaybe)
-import qualified Data.Text          as T (unlines)
-import           Formatting         (build, int, sformat, (%))
-import qualified Turtle             as T
+import           Control.Concurrent        (ThreadId, forkIO, killThread)
+import           Control.Monad             (unless)
+import           Data.FileEmbed            (embedStringFile,
+                                            makeRelativeToProject)
+import           Data.Maybe                (fromMaybe)
+import qualified Data.Text                 as T (unlines)
+import           Formatting                (build, int, sformat, (%))
+import qualified Options.Generic           as OG
+import qualified Turtle                    as T
 
-import qualified RSCoin.Core        as C
+import qualified RSCoin.Core               as C
+
+import           Bench.RSCoin.Logging      (initBenchLogger, logInfo)
+import           Bench.RSCoin.RemoteConfig (MintetteData (..),
+                                            RemoteConfig (..), UsersData (..),
+                                            readRemoteConfig)
+
+data RemoteBenchOptions = RemoteBenchOptions
+    { rboConfigFile    :: Maybe FilePath
+    , rboBenchSeverity :: Maybe C.Severity
+    } deriving (Show, OG.Generic)
+
+instance OG.ParseField  C.Severity
+instance OG.ParseFields C.Severity
+instance OG.ParseRecord C.Severity
+instance OG.ParseRecord RemoteBenchOptions
 
 userName :: T.IsString s => s
 userName = "ubuntu"
@@ -20,16 +38,18 @@ sshKeyPath = "~/.ssh/rscointest.pem"
 installCommand :: T.IsString s => s
 installCommand = $(makeRelativeToProject "bench/install.sh" >>= embedStringFile)
 
-bankCommand :: [T.Text] -> [C.PublicKey] -> T.Text
-bankCommand mHosts mKeys =
+cdCommand :: T.Text
+cdCommand = "cd \"$HOME/rscoin\""
+
+bankSetupCommand :: [T.Text] -> [C.PublicKey] -> T.Text
+bankSetupCommand mHosts mKeys =
     T.unlines
-        [ "cd \"$HOME/rscoin\""
-        , "killall rscoin-bank"
+        [ cdCommand
+        , bankStopCommand
         , "rm -rf bank-db"
         , "git pull --ff-only"
         , "stack build rscoin"
-        , mconcat $ map (uncurry addMintetteCommand) $ zip mHosts mKeys
-        , "stack exec -- rscoin-bank serve --log-severity Warning +RTS -qg -RTS"]
+        , mconcat $ map (uncurry addMintetteCommand) $ zip mHosts mKeys]
   where
     addMintetteCommand =
         sformat
@@ -40,10 +60,20 @@ bankCommand mHosts mKeys =
              build)
             (C.defaultPort :: Int)
 
+bankRunCommand :: T.Text
+bankRunCommand =
+    T.unlines
+        [ cdCommand
+        , "stack exec -- rscoin-bank serve --log-severity Warning +RTS -qg -RTS"]
+
+bankStopCommand :: T.Text
+bankStopCommand = "killall rscoin-bank"
+
 mintetteKeyGenCommand :: T.Text
 mintetteKeyGenCommand =
     T.unlines
-        [ "cd \"$HOME/rscoin\""
+        [ cdCommand
+        , mintetteStopCommand
         , "rm -rf mintette-db"
         , "git pull --ff-only"
         , "stack build rscoin"
@@ -52,23 +82,30 @@ mintetteKeyGenCommand =
 mintetteCatKeyCommand :: T.Text
 mintetteCatKeyCommand = "cat \"$HOME\"/.rscoin/key.pub\n"
 
-mintetteRunCommand :: T.Text
-mintetteRunCommand =
+mintetteRunCommand :: T.Text -> T.Text
+mintetteRunCommand bankHost =
     T.unlines
-        [ "cd \"$HOME/rscoin\""
-        , "killall rscoin-mintette"
-        , "rm -rf mintette-db"
-        , "stack exec -- rscoin-mintette --log-severity Error +RTS -qg-RTS"]
+        [ cdCommand
+        , sformat
+              ("stack exec -- rscoin-mintette --log-severity Error +RTS -qg-RTS --bank-host " %
+               build)
+              bankHost]
 
-usersCommand :: Word -> T.Text
-usersCommand n =
+mintetteStopCommand :: T.Text
+mintetteStopCommand = "killall rscoin-mintette"
+
+usersCommand :: Word -> Word -> T.Text
+usersCommand u t =
     T.unlines
-        [ "cd \"$HOME/rscoin\""
+        [ cdCommand
+        , "git pull --ff-only"
         , sformat
               ("stack bench rscoin:rscoin-bench-only-users --benchmark-arguments \"--users " %
                int %
+               " --transactions " %
+               int %
                " +RTS -qg\"")
-              n]
+              u t]
 
 runSsh :: T.Text -> T.Text -> IO ()
 runSsh hostName command = do
@@ -91,11 +128,14 @@ runSshStrict hostName command = do
 installRSCoin :: T.Text -> IO ()
 installRSCoin = flip runSsh installCommand
 
-runBank :: [T.Text] -> [C.PublicKey] -> Bool -> IO ()
-runBank mintetteHosts mintetteKeys hasRSCoin =
-    void . forkIO $
-    do unless hasRSCoin $ installRSCoin C.bankHost
-       runSsh C.bankHost $ bankCommand mintetteHosts mintetteKeys
+runBank :: T.Text -> [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
+runBank bankHost mintetteHosts mintetteKeys hasRSCoin = do
+    unless hasRSCoin $ installRSCoin bankHost
+    runSsh bankHost $ bankSetupCommand mintetteHosts mintetteKeys
+    forkIO $ runSsh bankHost bankRunCommand
+
+stopBank :: T.Text -> IO ()
+stopBank bankHost = runSsh bankHost bankStopCommand
 
 genMintetteKey :: T.Text -> IO C.PublicKey
 genMintetteKey hostName = do
@@ -103,31 +143,42 @@ genMintetteKey hostName = do
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
         runSshStrict hostName mintetteCatKeyCommand
 
-runMintette :: (Bool, T.Text) -> IO ()
-runMintette (hasRSCoin, hostName) = void . forkIO $
-   do unless hasRSCoin $ installRSCoin hostName
-      runSsh hostName mintetteRunCommand
-
-runUsers :: (Bool, T.Text) -> Word -> IO ()
-runUsers (hasRSCoin,hostName) n = do
+runMintette :: T.Text -> MintetteData -> IO ThreadId
+runMintette bankHost (MintetteData hasRSCoin hostName) = do
     unless hasRSCoin $ installRSCoin hostName
-    runSsh hostName $ usersCommand n
+    forkIO $ runSsh hostName $ mintetteRunCommand bankHost
+
+stopMintette :: T.Text -> IO ()
+stopMintette host = runSsh host mintetteStopCommand
+
+runUsers :: UsersData -> Word -> Word -> IO ()
+runUsers (UsersData hasRSCoin hostName) u t = do
+    unless hasRSCoin $ installRSCoin hostName
+    runSsh hostName $ usersCommand u t
 
 main :: IO ()
 main = do
-    mintetteKeys <- mapM (genMintetteKey . snd) mintettes
-    T.echo "Generated and deployed new mintette keys"
-    mapM_ runMintette mintettes
-    T.echo "Launched mintettes"
+    RemoteBenchOptions{..} <- OG.getRecord "rscoin-bench-remote"
+    RemoteConfig{..} <-
+        readRemoteConfig $ fromMaybe "remote.yaml" $ rboConfigFile
+    C.initLogging C.Error
+    initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
+    mintetteKeys <- mapM (genMintetteKey . mdHost) rcMintettes
+    mintetteThreads <- mapM (runMintette rcBank) rcMintettes
+    logInfo "Launched mintettes, waiting…"
     T.sleep 2
-    runBank (map snd mintettes) mintetteKeys True
-    T.echo "Launched bank"
-    T.sleep 5
-    runUsers users 5
-    T.echo "Launched users"
-  where
-    mintettes
-        :: T.IsString s
-        => [(Bool, s)]
-    mintettes = [(True, "52.28.80.85")]
-    users = (True, "52.28.239.209")
+    logInfo "Launching bank…"
+    bankThread <- runBank rcBank (map mdHost rcMintettes) mintetteKeys True
+    logInfo "Launched bank, waiting…"
+    T.sleep 3
+    logInfo "Running users…"
+    runUsers rcUsers rcUsersNum rcTransactionsNum
+    logInfo "Ran users"
+    killThread bankThread
+    logInfo "Killed bank thread"
+    stopBank rcBank
+    logInfo "Stopped bank"
+    mapM_ killThread mintetteThreads
+    logInfo "Killed mintette threads"
+    mapM_ stopMintette $ map mdHost rcMintettes
+    logInfo "Stopped mintettes"

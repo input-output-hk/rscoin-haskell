@@ -13,6 +13,7 @@ sudo apt-get install stack -y
 cd "$HOME"
 git clone https://github.com/serokell/rscoin.git
 cd rscoin
+git checkout -b bench origin/bench
 stack setup
 stack bench rscoin --no-run-benchmarks
 

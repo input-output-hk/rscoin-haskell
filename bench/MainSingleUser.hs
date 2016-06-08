@@ -3,8 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators   #-}
 
-module Main where
-
+import           Data.ByteString            (ByteString)
 import           Data.Maybe                 (fromMaybe)
 import           Formatting                 (sformat, shown, (%))
 import           System.Clock               (Clock (..), TimeSpec, diffTimeSpec,
@@ -25,6 +24,7 @@ import           Bench.RSCoin.UserLogic     (runBankUser, userThread)
 data BenchOptions = BenchOptions
     { severity      :: Maybe Severity <?> "severity for global logger"
     , benchSeverity :: Maybe Severity <?> "severity for bench logger"
+    , bank          :: ByteString     <?> "bank host"
     } deriving (Generic, Show)
 
 instance ParseField  Severity
@@ -32,14 +32,12 @@ instance ParseFields Severity
 instance ParseRecord Severity
 instance ParseRecord BenchOptions
 
-type KeyPairList = [(SecretKey, PublicKey)]
-
-initializeSuperUser :: FilePath -> IO (TimeSpec, TimeSpec)
-initializeSuperUser benchDir = do
+initializeSuperUser :: ByteString -> FilePath -> IO (TimeSpec, TimeSpec)
+initializeSuperUser bankHost benchDir = do
     logInfo "Initializaing user in bankMode…"
     cpuTimeBefore <- getTime ProcessCPUTime
     wallTimeBefore <- getTime Realtime
-    userThread benchDir (const runBankUser) 0
+    userThread bankHost benchDir (const runBankUser) 0
     wallTimeAfter <- getTime Realtime
     cpuTimeAfter <- getTime ProcessCPUTime
     return
@@ -50,10 +48,11 @@ main :: IO ()
 main = do
     BenchOptions{..} <- getRecord "rscoin-bench-single-user"
     let globalSeverity  = fromMaybe Error $ unHelpful severity
-        bSeverity       = fromMaybe Info   $ unHelpful benchSeverity
+        bSeverity       = fromMaybe Info $ unHelpful benchSeverity
+        bankHost        = unHelpful bank
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity
-        (cpuTime, wallTime) <- initializeSuperUser benchDir
+        (cpuTime, wallTime) <- initializeSuperUser bankHost benchDir
         logInfo $ sformat ("Elapsed CPU time: " % shown) cpuTime
         logInfo $ sformat ("Elapsed wall-clock time: " % shown) wallTime

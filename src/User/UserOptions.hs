@@ -197,7 +197,7 @@ userOptionsParser dskp =
     option auto
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity") <*>
-    option auto
+    strOption
         (long "bank-host" <> value defaultBankHost <> showDefault <>
          help "Host name for bank")
 

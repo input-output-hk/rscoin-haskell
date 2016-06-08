@@ -5,15 +5,16 @@ module Options
        , getOptions
        ) where
 
-import           Data.ByteString     (ByteString)
+import           Data.ByteString        (ByteString)
+import           Options.Applicative    (Parser, auto, execParser, fullDesc,
+                                         help, helper, info, long, metavar,
+                                         option, progDesc, short, showDefault,
+                                         switch, value, (<>))
 
-import           Options.Applicative (Parser, auto, execParser, fullDesc, help,
-                                      helper, info, long, metavar, option,
-                                      progDesc, short, showDefault, strOption,
-                                      switch, value, (<>))
+import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core         (Severity (Error), defaultBankHost,
-                                      defaultPort, defaultSecretKeyPath)
+import           RSCoin.Core            (Severity (Error), defaultBankHost,
+                                         defaultPort, defaultSecretKeyPath)
 
 data Options = Options
     { cloPort          :: Int
@@ -37,7 +38,7 @@ optionsParser defaultSKPath =
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity") <*>
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
-    option auto
+    strOption
         (long "bank-host" <> value defaultBankHost <> showDefault <>
          help "Host name for bank")
 

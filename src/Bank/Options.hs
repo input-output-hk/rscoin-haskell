@@ -58,7 +58,7 @@ commandParser defaultSKPath =
 optionsParser :: FilePath -> Parser Options
 optionsParser defaultSKPath =
     Options <$> commandParser defaultSKPath <*>
-    option auto
+    strOption
         (long "host" <> value defaultBankHost <> showDefault <>
          help "Host name for bank") <*>
     strOption

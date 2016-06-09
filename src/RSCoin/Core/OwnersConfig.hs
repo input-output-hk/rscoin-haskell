@@ -7,6 +7,7 @@ module RSCoin.Core.OwnersConfig
     , getShardFunction
     ) where
 
+import           Data.String           (IsString)
 import           System.Environment    (getEnvironment)
 
 import           Language.Haskell.TH   (Exp, Q, runIO)
@@ -14,7 +15,7 @@ import           Language.Haskell.TH   (Exp, Q, runIO)
 import           RSCoin.Core.Constants (shardDivider)
 
 -- | Environment option to use during compilation.
-shardSizeOption :: String  -- using String here because of 'getEnvironment'
+shardSizeOption :: IsString s => s
 shardSizeOption = "SHARD_SIZE"
 
 -- | Defines how many mintettes are responsible for one address (shard

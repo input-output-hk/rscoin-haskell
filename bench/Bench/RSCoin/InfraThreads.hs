@@ -11,7 +11,7 @@ import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (update)
 import           Data.String                (IsString)
-import           Data.Time.Units            (Second)
+import           Data.Time.Units            (TimeUnit, Second)
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (Mintette), PublicKey,
@@ -45,8 +45,9 @@ addMintette mintetteId benchDir publicKey =
          do let mintette = Mintette localhost (defaultPort + mintetteId)
             update bankState $ B.AddMintette mintette publicKey
 
-bankThread :: FilePath -> IO ()
-bankThread benchDir = B.launchBank (benchDir </> "bank-db") bankSecretKey
+bankThread :: (TimeUnit t) => t -> FilePath -> IO ()
+bankThread periodDelta benchDir
+    = B.launchBank periodDelta (benchDir </> "bank-db") bankSecretKey
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir secretKey =

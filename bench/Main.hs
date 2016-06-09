@@ -20,9 +20,8 @@ import           System.IO.Temp             (withSystemTempDirectory)
 import           Options.Generic
 
 import           RSCoin.Core                (PublicKey, SecretKey,
-                                             Severity (..), bankLoggerName,
-                                             finishPeriod, initLoggerByName,
-                                             initLogging, keyGen)
+                                             Severity (..), defaultPeriodDelta,
+                                             finishPeriod, initLogging, keyGen)
 import           RSCoin.Timed               (runRealModeLocal)
 import           RSCoin.User.Wallet         (UserAddress)
 
@@ -71,7 +70,7 @@ establishMintettes benchDir mintettesNumber = do
 
 establishBank :: FilePath -> IO ()
 establishBank benchDir = do
-    _ <- forkIO $ bankThread benchDir
+    _ <- forkIO $ bankThread defaultPeriodDelta benchDir
     logInfo "Running bank..."
     threadDelay $ 3 * 10 ^ (6 :: Int)
 

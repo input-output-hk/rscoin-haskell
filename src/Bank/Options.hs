@@ -14,7 +14,8 @@ import           Options.Applicative    (Parser, auto, command, execParser,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultSecretKeyPath)
+import           RSCoin.Core            (Severity (Error), defaultPeriodDelta,
+                                         defaultSecretKeyPath)
 
 data Command
     = Serve FilePath
@@ -23,6 +24,7 @@ data Command
 data Options = Options
     { cloCommand     :: Command
     , cloPath        :: FilePath
+    , cloPeriodDelta :: Integer
     , cloLogSeverity :: Severity
     }
 
@@ -58,6 +60,10 @@ optionsParser defaultSKPath =
     strOption
         (long "path" <> value "bank-db" <> showDefault <>
          help "Path to database") <*>
+    option
+        auto
+        (long "period-delta" <> value (toInteger defaultPeriodDelta) <>
+         showDefault <> help "Period length in seconds") <*>
     option
         auto
         (long "log-severity" <> value Error <> showDefault <>

@@ -41,5 +41,5 @@ getShardFunction :: Q Exp
 getShardFunction = do
     mShardSize <- lookupCompileEnv shardSizeOption
     case mShardSize of
-         Just _  -> [| const $ constShardSize 3 |]
-         Nothing -> [| shardSizeScaled          |]
+         Just _  -> [| constShardSize 3 |]
+         Nothing -> [| shardSizeScaled  |]

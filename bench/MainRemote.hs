@@ -8,7 +8,7 @@ import           Data.FileEmbed            (embedStringFile,
                                             makeRelativeToProject)
 import           Data.Maybe                (fromMaybe)
 import qualified Data.Text                 as T (unlines)
-import           Formatting                (build, int, sformat, (%))
+import           Formatting                (build, int, sformat, text, (%))
 import qualified Options.Generic           as OG
 import qualified Turtle                    as T
 
@@ -43,7 +43,7 @@ cdCommand = "cd \"$HOME/rscoin\""
 
 exportCommand :: Word -> T.Text
 exportCommand shardSize =
-    sformat ("export " % build % "=" % int) C.shardSizeOption shardSize
+    sformat ("export " % text % "=" % int) C.shardSizeOption shardSize
 
 bankSetupCommand :: Word -> [T.Text] -> [C.PublicKey] -> T.Text
 bankSetupCommand shardSize mHosts mKeys =
@@ -65,11 +65,14 @@ bankSetupCommand shardSize mHosts mKeys =
              build)
             (C.defaultPort :: Int)
 
-bankRunCommand :: T.Text
-bankRunCommand =
+bankRunCommand :: Word -> T.Text
+bankRunCommand periodDelta =
     T.unlines
         [ cdCommand
-        , "stack exec -- rscoin-bank serve --log-severity Warning +RTS -qg -RTS"]
+        , sformat
+              ("stack exec -- rscoin-bank serve --log-severity Warning +RTS -qg -RTS --period-delta " %
+               int)
+              periodDelta]
 
 bankStopCommand :: T.Text
 bankStopCommand = "killall rscoin-bank"
@@ -139,11 +142,11 @@ runSshStrict hostName command = do
 installRSCoin :: T.Text -> IO ()
 installRSCoin = flip runSsh installCommand
 
-runBank :: Word -> T.Text -> [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
-runBank shardSize bankHost mintetteHosts mintetteKeys hasRSCoin = do
+runBank :: Word -> Word -> T.Text -> [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
+runBank periodDelta shardSize bankHost mintetteHosts mintetteKeys hasRSCoin = do
     unless hasRSCoin $ installRSCoin bankHost
     runSsh bankHost $ bankSetupCommand shardSize mintetteHosts mintetteKeys
-    forkIO $ runSsh bankHost bankRunCommand
+    forkIO $ runSsh bankHost $ bankRunCommand periodDelta
 
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
@@ -180,7 +183,7 @@ main = do
     T.sleep 2
     logInfo "Launching bank…"
     bankThread <-
-        runBank rcShard rcBank (map mdHost rcMintettes) mintetteKeys True
+        runBank rcPeriod rcShard rcBank (map mdHost rcMintettes) mintetteKeys True
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"

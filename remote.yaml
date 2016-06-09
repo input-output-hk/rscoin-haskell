@@ -8,4 +8,5 @@ users:
   hasRSCoin: True
   host: 52.28.239.209
 shard: 3
+period: 10
 

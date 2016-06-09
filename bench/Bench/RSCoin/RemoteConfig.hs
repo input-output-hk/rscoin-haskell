@@ -23,6 +23,7 @@ data RemoteConfig = RemoteConfig
     , rcMintettes       :: ![MintetteData]
     , rcUsers           :: !UsersData
     , rcShard           :: !Word
+    , rcPeriod          :: !Word
     } deriving (Show)
 
 data MintetteData = MintetteData

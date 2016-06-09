@@ -8,6 +8,7 @@ import qualified Data.ByteString.Lazy   as BSL
 import           Data.Int               (Int64)
 import           Data.MessagePack       (MessagePack (toObject, fromObject),
                                          Object (ObjectExt), pack, unpack)
+import           Data.Ratio             (Ratio, numerator, denominator, (%))
 import           Data.Tuple.Curry       (uncurryN)
 
 import           RSCoin.Core.Crypto     ()
@@ -38,6 +39,14 @@ instance MessagePack Int64 where
     toObject = toObject . toInt
     fromObject = fmap fromInt . fromObject
 
+instance MessagePack Integer where
+    toObject = toObject . toInteger
+    fromObject = fmap fromInteger . fromObject
+
+instance (Integral a, MessagePack a) => MessagePack (Ratio a) where
+    toObject r = toObject (denominator r, numerator r)
+    fromObject = fmap (uncurry (%)) . fromObject
+
 instance (MessagePack a, MessagePack b) => MessagePack (Either a b) where
     toObject (Left a) = ObjectExt 0 $ BSL.toStrict $ pack a
     toObject (Right b) = ObjectExt 1 $ BSL.toStrict $ pack b
@@ -46,8 +55,8 @@ instance (MessagePack a, MessagePack b) => MessagePack (Either a b) where
     fromObject _ = Nothing
 
 instance MessagePack C.Coin where
-    toObject (C.Coin c) = toObject c
-    fromObject = fmap C.Coin . fromObject
+    toObject (C.Coin c t) = toObject (c, t)
+    fromObject = fmap (uncurry C.Coin) . fromObject
 
 instance MessagePack C.Address where
     toObject (C.Address c) = toObject c

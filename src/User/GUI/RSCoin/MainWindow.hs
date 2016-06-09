@@ -9,7 +9,7 @@ module GUI.RSCoin.MainWindow
        , AddContactWindow (..)
        ) where
 
-import           Data.Int             (Int64)
+-- import           Data.Int             (Int64)
 import qualified Data.Text            as T
 import qualified Graphics.UI.Gtk      as G
 
@@ -33,7 +33,7 @@ data WalletModelNode = WalletModelNode
     , wStatus  :: TxHStatus
     , wHeight  :: Int
     , wAddress :: T.Text
-    , wAmount  :: Int64
+    , wAmount  :: Rational
     , wTxHR    :: TxHistoryRecord
     }
 

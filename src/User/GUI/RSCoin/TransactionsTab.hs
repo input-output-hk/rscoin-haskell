@@ -24,7 +24,7 @@ import qualified RSCoin.Core             as C
 import           RSCoin.Timed            (runRealModeLocal)
 import qualified RSCoin.User             as U
 
-import           Serokell.Util.Text      (readUnsignedDecimal)
+import           Serokell.Util.Text      (readFractional)
 
 createTransactionsTab :: GladeMainWindow -> TransactionsTab
 createTransactionsTab GladeMainWindow{..} =
@@ -61,7 +61,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
     act = do
       let TransactionsTab{..} = tabTransactions
       sendAddressPre <- G.entryGetText entryPayTo
-      sendAmount <- readUnsignedDecimal . T.pack <$> G.entryGetText spinButtonSendAmount
+      sendAmount <- readFractional . T.pack <$> G.entryGetText spinButtonSendAmount
       let sendAddress = C.Address <$> C.constructPublicKey (T.pack sendAddressPre)
       constructDialog sendAddress sendAmount
     constructDialog Nothing _ =
@@ -81,7 +81,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
             G.entrySetText (spinButtonSendAmount tabTransactions) $ show userAmount
         else do
             tr <- runRealModeLocal $
-                U.formTransactionFromAll st address $ C.Coin amount
+                U.formTransactionFromAll st address $ C.Coin amount 0 -- FIXME: allow sending coin with some color
             liftIO $ addTransaction gst (C.hash tr) (Just tr)
             dialog <- G.messageDialogNew
                 (Just mainWindow)

@@ -51,7 +51,7 @@ fromTransaction st (Transaction i o) = do
             Just t -> return t
 
 -- | Calculates the balance change for the user caused by the transaction.
-getTransactionAmount :: [Address] -> ExplicitTransaction -> Int64
+getTransactionAmount :: [Address] -> ExplicitTransaction -> Rational
 getTransactionAmount addrs (ExplicitTransaction i o) =
     calculate (map (first Just) o) - calculate i
   where

@@ -67,12 +67,12 @@ processAction st ListAddresses =
 processAction st (FormTransaction inputs outputAddrStr) =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr
-           inputs' = map (bimap fromIntegral C.Coin) inputs
+           inputs' = map (bimap fromIntegral fromIntegral) inputs
        unless (isJust pubKey) $
            P.commitError $
            "Provided key can't be exported: " <> outputAddrStr
        void $ formTransactionRetry 2 st True inputs' (fromJust pubKey) $
-           C.Coin (sum $ map snd inputs)
+           fromIntegral . sum $ map snd inputs
 processAction st UpdateBlockchain =
     eWrap $
     do res <- updateBlockchain st True

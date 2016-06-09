@@ -15,9 +15,10 @@ import           RSCoin.User   (GetAllAddresses (..), RSCoinUserState,
 
 data VerboseAddress = VA
     { address :: PublicKey
-    , balance :: Int64
+    , balance :: Rational
     }
 
+-- FIXME: this is used only in gui. Now that we are using Rational in Coin I am not sure what is correct way to implement this. For now I will just round the value.
 getAddresses :: RSCoinUserState -> IO [VerboseAddress]
 getAddresses st = do
     as <- query st GetAllAddresses

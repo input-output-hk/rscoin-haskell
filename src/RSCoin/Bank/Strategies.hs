@@ -41,7 +41,8 @@ allocateCoinsDefault _ actionLogs = (bankReward, mintetteRewards)
         S.fromList . map fst . filter (not . null . snd) $
         zip [0 ..] actionLogs
     awardedCnt = fromIntegral $ S.size awarded
-    mintetteReward = C.periodReward `div` (awardedCnt + 1)
+    -- FIXME: is this ok?
+    mintetteReward = fromIntegral . floor $ C.getCoin C.periodReward / C.getCoin (awardedCnt + 1)
     bankReward = C.periodReward - awardedCnt * mintetteReward
     mintetteRewards =
         map

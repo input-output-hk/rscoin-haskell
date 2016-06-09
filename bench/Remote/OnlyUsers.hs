@@ -15,8 +15,7 @@ import           System.IO.Temp             (withSystemTempDirectory)
 import           Options.Generic
 
 import           RSCoin.Core                (Severity (..), bankSecretKey,
-                                             defaultPeriodDelta, finishPeriod,
-                                             initLogging)
+                                             finishPeriod, initLogging)
 import           RSCoin.Timed               (runRealMode)
 import           RSCoin.User.Wallet         (UserAddress)
 

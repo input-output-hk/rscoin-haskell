@@ -25,12 +25,32 @@ import           RSCoin.Core.Crypto  (Hash, PublicKey)
 
 -- | Coin is the least possible unit of currency.
 -- We use very simple model at this point.
-newtype Coin = Coin
-    { getCoin :: Int64
-    } deriving (Show, Binary, Num, Eq, Ord, Hashable, Integral, Enum, Real)
+data Coin = Coin
+    { getCoin  :: Int64
+    , getColor :: Int
+    } deriving (Show, Eq, Ord)
+
+instance Binary Coin where
+    put Coin{..} = put (getCoin, getColor)
+    get = uncurry Coin <$> get
+
+instance Hashable Coin where
+    hashWithSalt s Coin{..} = hashWithSalt s (getCoin, getColor)
 
 instance Buildable Coin where
-    build (Coin c) = mconcat [build c, " coin(s)"]
+    build (Coin c col) = mconcat [build c, " coin(s) of color", build col]
+
+instance Num Coin where
+    (+) (Coin c col) (Coin c' col') | col==col' = Coin (c+c') col
+                                    | otherwise = error "Error: coins with different colors!"
+    (*) (Coin c col) (Coin c' col') | col==col' = Coin (c*c') col
+                                    | otherwise = error "Error: coins with different colors!"
+    (-) (Coin c col) (Coin c' col') | col==col' = Coin (max 0 $ c-c') col
+                                    | otherwise = error "Error: coins with different colors!"
+    abs = id
+    signum (Coin c col) = Coin (signum c) col
+    fromInteger c = Coin (fromInteger c) 0
+
 
 -- | Address can serve as input or output to transactions.
 -- It is simply a public key.

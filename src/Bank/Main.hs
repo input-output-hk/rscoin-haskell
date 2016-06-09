@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-import           Data.Text       as T
+import qualified Data.Text       as T
 import           Data.Time.Units (Second)
 
 import qualified RSCoin.Bank     as B

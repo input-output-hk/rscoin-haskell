@@ -38,16 +38,16 @@ instance Hashable Coin where
     hashWithSalt s Coin{..} = hashWithSalt s (getCoin, getColor)
 
 instance Buildable Coin where
-    build (Coin c col) = mconcat [build c, " coin(s) of color", build col]
+    build (Coin c col) = mconcat [build c, " coin(s) of color ", build col]
 
 instance Num Coin where
-    (+) (Coin c col) (Coin c' col') | col==col' = Coin (c+c') col
-                                    | otherwise = error "Error: coins with different colors!"
-    (*) (Coin c col) (Coin c' col') | col==col' = Coin (c*c') col
-                                    | otherwise = error "Error: coins with different colors!"
-    (-) (Coin c col) (Coin c' col') | col==col' = Coin (max 0 $ c-c') col
-                                    | otherwise = error "Error: coins with different colors!"
-    abs = id
+    (+) (Coin c col) (Coin c' col') | col == col' = Coin (c + c') col
+                                    | otherwise = error "Error: sum of coins with different colors!"
+    (*) (Coin c col) (Coin c' col') | col == col' = Coin (c * c') col
+                                    | otherwise = error "Error: product of coins with different colors!"
+    (-) (Coin c col) (Coin c' col') | col == col' = Coin (c - c') col
+                                    | otherwise = error "Error: subtraction of coins with different colors!"
+    abs (Coin a b) = Coin (abs a) b
     signum (Coin c col) = Coin (signum c) col
     fromInteger c = Coin (fromInteger c) 0
 

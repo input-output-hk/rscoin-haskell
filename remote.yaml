@@ -1,0 +1,11 @@
+usersNum: 3
+transactionsNum: 100
+bank: 52.58.26.146
+mintettes:
+- hasRSCoin: True
+  host: 52.28.80.85
+users:
+  hasRSCoin: True
+  host: 52.28.239.209
+shard: 3
+

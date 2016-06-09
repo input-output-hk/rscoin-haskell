@@ -366,6 +366,7 @@ benchmark rscoin-bench-only-users
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserLogic
+                     , Bench.RSCoin.Util
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9

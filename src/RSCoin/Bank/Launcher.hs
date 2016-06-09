@@ -3,7 +3,8 @@
 -- | Functions launching Bank.
 
 module RSCoin.Bank.Launcher
-       ( launchBank
+       ( bankWrapper
+       , launchBank
        , addMintetteIO
        ) where
 
@@ -21,7 +22,7 @@ import           RSCoin.Bank.AcidState (AddMintette (AddMintette), State,
 import           RSCoin.Bank.Server    (serve)
 import           RSCoin.Bank.Worker    (runWorkerWithPeriod)
 
-bankWrapper :: FilePath -> (State -> MsgPackRpc ()) -> IO ()
+bankWrapper :: FilePath -> (State -> MsgPackRpc a) -> IO a
 bankWrapper storagePath =
     runRealModeLocal .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)

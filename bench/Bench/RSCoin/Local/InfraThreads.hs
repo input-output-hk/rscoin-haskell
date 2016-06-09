@@ -1,49 +1,34 @@
-module Bench.RSCoin.InfraThreads
+module Bench.RSCoin.Local.InfraThreads
         ( addMintette
         , bankThread
-        , defaultBenchPeriod
         , mintetteThread
         ) where
 
-import           Bench.RSCoin.FilePathUtils (dbFormatPath)
-
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
-import           Data.Acid                  (update)
 import           Data.String                (IsString)
-import           Data.Time.Units            (TimeUnit, Second)
+import           Data.Time.Units            (TimeUnit)
+import           System.FilePath            ((</>))
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (Mintette), PublicKey,
                                              SecretKey, bankSecretKey,
                                              defaultPort)
 import qualified RSCoin.Mintette            as M
+import           RSCoin.Timed               (fork, runRealModeLocal)
 
-import           RSCoin.Timed               (MsgPackRpc, fork, runRealModeLocal)
-
-import           System.FilePath            ((</>))
-
-defaultBenchPeriod :: Second
-defaultBenchPeriod = 7
+import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 
 localhost :: IsString s => s
 localhost = "127.0.0.1"
 
-bankBracket :: FilePath -> (B.State -> MsgPackRpc a) -> IO a
-bankBracket benchDir bankAction =
-    runRealModeLocal $
-    bracket
-        (liftIO $ B.openState $ benchDir </> "bank-db")
-        (liftIO . B.closeState)
-        bankAction
+bankDir :: FilePath -> FilePath
+bankDir = (</> "bank-db")
 
 addMintette :: Int -> FilePath -> PublicKey -> IO ()
-addMintette mintetteId benchDir publicKey =
-    bankBracket benchDir $
-    \bankState ->
-         liftIO $
-         do let mintette = Mintette localhost (defaultPort + mintetteId)
-            update bankState $ B.AddMintette mintette publicKey
+addMintette mintetteId benchDir = B.addMintetteIO (bankDir benchDir) mintette
+  where
+    mintette = Mintette localhost (defaultPort + mintetteId)
 
 bankThread :: (TimeUnit t) => t -> FilePath -> IO ()
 bankThread periodDelta benchDir

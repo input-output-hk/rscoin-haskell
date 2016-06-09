@@ -1,6 +1,6 @@
 -- | GHC stage restriction.
 
-module Bench.RSCoin.StageRestriction
+module Bench.RSCoin.Remote.StageRestriction
        ( defaultOptions
        ) where
 

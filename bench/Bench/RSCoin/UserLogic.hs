@@ -5,10 +5,10 @@ module Bench.RSCoin.UserLogic
         , initializeBank
         , initializeUser
         , userThread
-        , runBankUser
+        , runSingleUser
         ) where
 
-import           Control.Monad              (forM_, replicateM, when)
+import           Control.Monad              (forM_, when)
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint)
@@ -31,9 +31,6 @@ import           RSCoin.User.Wallet         (UserAddress, toAddress)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 import           Bench.RSCoin.Logging       (logDebug, logInfo)
-
-transactionNum :: Num a => a
-transactionNum = 1000
 
 userThread
     :: ByteString
@@ -78,16 +75,16 @@ executeTransaction userState coinAmount addrToSend = do
     outputMoney = Coin coinAmount
     inputMoneyInfo = [(1, outputMoney)]
 
--- | Create user in `bankMode` and send `transactionNum` coins to
--- every user from list.
-initializeBank :: [UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
-initializeBank userAddresses bankUserState = do
+-- | Create user in `bankMode` and send coins to every user.
+initializeBank :: Word -> [UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
+initializeBank transactionNum userAddresses bankUserState = do
     let additionalBankAddreses = 0
     logDebug "Before initStateBank"
     A.initStateBank bankUserState additionalBankAddreses bankSecretKey
     logDebug "After initStateBank"
     forM_ userAddresses $
-        executeTransaction bankUserState transactionNum . toAddress
+        executeTransaction bankUserState (fromIntegral transactionNum) .
+        toAddress
     logDebug "Sent initial coins from bank to users"
 
 -- | Start user with provided addresses of other users and do
@@ -114,16 +111,15 @@ benchUserTransactions txNum allAddresses userId userState = do
                     toAddress . (otherAddresses `indexModulo`) $
                     i
 
-runBankUser :: A.RSCoinUserState -> MsgPackRpc ()
-runBankUser bankUserState = do
-    addresses <-
-        map (Address . snd) <$> replicateM transactionNum (liftIO keyGen)
+runSingleUser :: Word -> A.RSCoinUserState -> MsgPackRpc ()
+runSingleUser txNum bankUserState = do
+    address <- Address . snd <$> liftIO keyGen
     let additionalBankAddreses = 0
     logDebug "Before initStateBank"
     A.initStateBank bankUserState additionalBankAddreses bankSecretKey
     logDebug "After initStateBank"
-    forM_ (zip [(1 :: Int) ..] addresses) $
-        \(i,addr) ->
-             do executeTransaction bankUserState transactionNum addr
-                when (i `mod` (transactionNum `div` 5) == 0) $
+    forM_ [1 .. txNum] $
+        \i ->
+             do executeTransaction bankUserState 1 address
+                when (i `mod` (txNum `div` 5) == 0) $
                     logInfo $ sformat ("Executed " % int % " transactions") i

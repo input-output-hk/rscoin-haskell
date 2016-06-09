@@ -287,13 +287,14 @@ test-suite rscoin-test
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 
-benchmark rscoin-bench
+benchmark rscoin-bench-local
   type:                exitcode-stdio-1.0
-  main-is:             Main.hs
+  main-is:             Local/Main.hs
   other-modules:       Bench.RSCoin.FilePathUtils
-                     , Bench.RSCoin.InfraThreads
+                     , Bench.RSCoin.Local.InfraThreads
                      , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserLogic
+                     , Bench.RSCoin.Util
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
@@ -308,6 +309,7 @@ benchmark rscoin-bench
                      , serokell-core
                      , temporary
                      , text
+                     , text-format
                      , time-units
                      , transformers
   hs-source-dirs:      bench
@@ -318,13 +320,17 @@ benchmark rscoin-bench
                        -fno-warn-orphans
                        -O2
   default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
 
 benchmark rscoin-bench-single-user
   type:                exitcode-stdio-1.0
-  main-is:             MainSingleUser.hs
+  main-is:             Remote/SingleUser.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserLogic
+                     , Bench.RSCoin.Util
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
@@ -339,6 +345,7 @@ benchmark rscoin-bench-single-user
                      , serokell-core
                      , temporary
                      , text
+                     , text-format
                      , time-units
                      , transformers
   hs-source-dirs:      bench
@@ -349,10 +356,13 @@ benchmark rscoin-bench-single-user
                        -fno-warn-orphans
                        -O2
   default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
 
 benchmark rscoin-bench-only-users
   type:                exitcode-stdio-1.0
-  main-is:             MainOnlyUsers.hs
+  main-is:             Remote/OnlyUsers.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserLogic
@@ -370,6 +380,7 @@ benchmark rscoin-bench-only-users
                      , serokell-core
                      , temporary
                      , text
+                     , text-format
                      , time-units
                      , transformers
   hs-source-dirs:      bench
@@ -386,10 +397,10 @@ benchmark rscoin-bench-only-users
 
 benchmark rscoin-bench-remote
   type:                exitcode-stdio-1.0
-  main-is:             MainRemote.hs
+  main-is:             Remote/Wrapper.hs
   other-modules:       Bench.RSCoin.Logging
-                       Bench.RSCoin.RemoteConfig
-                       Bench.RSCoin.StageRestriction
+                       Bench.RSCoin.Remote.StageRestriction
+                       Bench.RSCoin.Remote.Config
   build-depends:       aeson
                      , base >=4.8 && <4.9
                      , file-embed

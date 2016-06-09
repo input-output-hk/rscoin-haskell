@@ -8,18 +8,16 @@ import           Control.Concurrent.Async   (forConcurrently)
 import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
 import           Data.Maybe                 (fromMaybe)
-import           Data.Time.Units            (Second, toMicroseconds)
-import           Formatting                 (build, sformat, shown, (%))
-import           System.Clock               (Clock (..), TimeSpec, diffTimeSpec,
-                                             getTime)
+import           Formatting                 (build, int, sformat, (%))
+import           System.IO.Temp             (withSystemTempDirectory)
 
 -- workaround to make stylish-haskell work :(
 import           Options.Generic
 
-import           System.IO.Temp             (withSystemTempDirectory)
-
-import           RSCoin.Core                (Severity (..), defaultPeriodDelta,
+import           RSCoin.Core                (Severity (..), bankSecretKey,
+                                             defaultPeriodDelta, finishPeriod,
                                              initLogging)
+import           RSCoin.Timed               (runRealMode)
 import           RSCoin.User.Wallet         (UserAddress)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
@@ -27,13 +25,13 @@ import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserLogic     (benchUserTransactions,
                                              initializeBank, initializeUser,
                                              userThread)
+import           Bench.RSCoin.Util          (ElapsedTime, measureTime_)
 
 data BenchOptions = BenchOptions
     { users         :: Int            <?> "number of users"
     , transactions  :: Maybe Word     <?> "number of transactions per user"
     , severity      :: Maybe Severity <?> "severity for global logger"
     , benchSeverity :: Maybe Severity <?> "severity for bench logger"
-    , period        :: Maybe Word     <?> "period delta (seconds)"
     , bank          :: ByteString     <?> "bank host"
     } deriving (Generic, Show)
 
@@ -46,22 +44,23 @@ instance ParseRecord BenchOptions
 initializeUsers :: ByteString -> FilePath -> [Int64] -> IO [UserAddress]
 initializeUsers bankHost benchDir userIds = do
     let initUserAction = userThread bankHost benchDir initializeUser
-    logInfo $ sformat ("Initializing " % build % " users…") $ length userIds
+    logInfo $ sformat ("Initializing " % int % " users…") $ length userIds
     mapM initUserAction userIds
 
-initializeSuperUser :: ByteString
-                    -> Second
+initializeSuperUser :: Word
+                    -> ByteString
                     -> FilePath
                     -> [UserAddress]
                     -> IO ()
-initializeSuperUser bankHost periodDelta benchDir userAddresses = do
+initializeSuperUser txNum bankHost benchDir userAddresses = do
     -- give money to all users
     let bankId = 0
     logInfo "Initializaing user in bankMode…"
-    userThread bankHost benchDir (const $ initializeBank userAddresses) bankId
+    userThread bankHost benchDir (const $ initializeBank txNum userAddresses) bankId
     logInfo
-        "Initialized user in bankMode, now waiting for the end of the period…"
-    threadDelay $ fromInteger $ toMicroseconds (periodDelta + 1)
+        "Initialized user in bankMode, finishing period"
+    runRealMode bankHost $ finishPeriod bankSecretKey
+    threadDelay $ 1 * 10 ^ (6 :: Int)
 
 runTransactions
     :: ByteString
@@ -69,20 +68,13 @@ runTransactions
     -> FilePath
     -> [UserAddress]
     -> [Int64]
-    -> IO (TimeSpec, TimeSpec)
+    -> IO ElapsedTime
 runTransactions bankHost transactionNum benchDir userAddresses userIds = do
     let benchUserAction =
             userThread bankHost benchDir $
             benchUserTransactions transactionNum userAddresses
     logInfo "Running transactions…"
-    cpuTimeBefore <- getTime ProcessCPUTime
-    wallTimeBefore <- getTime Realtime
-    _ <- forConcurrently userIds benchUserAction
-    wallTimeAfter <- getTime Realtime
-    cpuTimeAfter <- getTime ProcessCPUTime
-    return
-        ( cpuTimeAfter `diffTimeSpec` cpuTimeBefore
-        , wallTimeAfter `diffTimeSpec` wallTimeBefore)
+    measureTime_ $ forConcurrently userIds benchUserAction
 
 main :: IO ()
 main = do
@@ -91,8 +83,6 @@ main = do
         globalSeverity  = fromMaybe Error $ unHelpful severity
         bSeverity       = fromMaybe Info $ unHelpful benchSeverity
         transactionNum  = fromMaybe 1000 $ unHelpful transactions
-        periodDelta     = fromMaybe defaultPeriodDelta $
-                          fromIntegral <$> unHelpful period
         bankHost        = unHelpful bank
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
@@ -100,9 +90,7 @@ main = do
 
         let userIds    = [1 .. fromIntegral userNumber]
         userAddresses <- initializeUsers bankHost benchDir userIds
-        initializeSuperUser bankHost periodDelta benchDir userAddresses
+        initializeSuperUser transactionNum bankHost benchDir userAddresses
 
-        (cpuTime, wallTime) <-
+        logInfo . sformat ("Elapsed time: " % build) =<<
             runTransactions bankHost transactionNum benchDir userAddresses userIds
-        logInfo $ sformat ("Elapsed CPU time: " % shown) cpuTime
-        logInfo $ sformat ("Elapsed wall-clock time: " % shown) wallTime

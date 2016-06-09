@@ -2,22 +2,22 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-import           Control.Concurrent        (ThreadId, forkIO, killThread)
-import           Control.Monad             (unless)
-import           Data.FileEmbed            (embedStringFile,
-                                            makeRelativeToProject)
-import           Data.Maybe                (fromMaybe)
-import qualified Data.Text                 as T (unlines)
-import           Formatting                (build, int, sformat, text, (%))
-import qualified Options.Generic           as OG
-import qualified Turtle                    as T
+import           Control.Concurrent         (ThreadId, forkIO, killThread)
+import           Control.Monad              (unless)
+import           Data.FileEmbed             (embedStringFile,
+                                             makeRelativeToProject)
+import           Data.Maybe                 (fromMaybe)
+import qualified Data.Text                  as T (unlines)
+import           Formatting                 (build, int, sformat, text, (%))
+import qualified Options.Generic            as OG
+import qualified Turtle                     as T
 
-import qualified RSCoin.Core               as C
+import qualified RSCoin.Core                as C
 
-import           Bench.RSCoin.Logging      (initBenchLogger, logInfo)
-import           Bench.RSCoin.RemoteConfig (MintetteData (..),
-                                            RemoteConfig (..), UsersData (..),
-                                            readRemoteConfig)
+import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
+import           Bench.RSCoin.Remote.Config (MintetteData (..),
+                                             RemoteConfig (..), UsersData (..),
+                                             readRemoteConfig)
 
 data RemoteBenchOptions = RemoteBenchOptions
     { rboConfigFile    :: Maybe FilePath

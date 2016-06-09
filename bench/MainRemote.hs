@@ -41,10 +41,15 @@ installCommand = $(makeRelativeToProject "bench/install.sh" >>= embedStringFile)
 cdCommand :: T.Text
 cdCommand = "cd \"$HOME/rscoin\""
 
-bankSetupCommand :: [T.Text] -> [C.PublicKey] -> T.Text
-bankSetupCommand mHosts mKeys =
+exportCommand :: Word -> T.Text
+exportCommand shardSize =
+    sformat ("export " % build % "=" % int) C.shardSizeOption shardSize
+
+bankSetupCommand :: Word -> [T.Text] -> [C.PublicKey] -> T.Text
+bankSetupCommand shardSize mHosts mKeys =
     T.unlines
         [ cdCommand
+        , exportCommand shardSize
         , bankStopCommand
         , "rm -rf bank-db"
         , "git pull --ff-only"
@@ -69,10 +74,11 @@ bankRunCommand =
 bankStopCommand :: T.Text
 bankStopCommand = "killall rscoin-bank"
 
-mintetteKeyGenCommand :: T.Text
-mintetteKeyGenCommand =
+mintetteKeyGenCommand :: Word -> T.Text
+mintetteKeyGenCommand shardSize =
     T.unlines
         [ cdCommand
+        , exportCommand shardSize
         , mintetteStopCommand
         , "rm -rf mintette-db"
         , "git pull --ff-only"
@@ -94,10 +100,11 @@ mintetteRunCommand bankHost =
 mintetteStopCommand :: T.Text
 mintetteStopCommand = "killall rscoin-mintette"
 
-usersCommand :: T.Text -> Word -> Word -> T.Text
-usersCommand bankHost u t =
+usersCommand :: Word -> T.Text -> Word -> Word -> T.Text
+usersCommand shardSize bankHost u t =
     T.unlines
         [ cdCommand
+        , exportCommand shardSize
         , "git pull --ff-only"
         , sformat
               ("stack bench rscoin:rscoin-bench-only-users --benchmark-arguments \"--users " %
@@ -132,18 +139,18 @@ runSshStrict hostName command = do
 installRSCoin :: T.Text -> IO ()
 installRSCoin = flip runSsh installCommand
 
-runBank :: T.Text -> [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
-runBank bankHost mintetteHosts mintetteKeys hasRSCoin = do
+runBank :: Word -> T.Text -> [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
+runBank shardSize bankHost mintetteHosts mintetteKeys hasRSCoin = do
     unless hasRSCoin $ installRSCoin bankHost
-    runSsh bankHost $ bankSetupCommand mintetteHosts mintetteKeys
+    runSsh bankHost $ bankSetupCommand shardSize mintetteHosts mintetteKeys
     forkIO $ runSsh bankHost bankRunCommand
 
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
 
-genMintetteKey :: T.Text -> IO C.PublicKey
-genMintetteKey hostName = do
-    runSsh hostName mintetteKeyGenCommand
+genMintetteKey :: Word -> T.Text -> IO C.PublicKey
+genMintetteKey shardSize hostName = do
+    runSsh hostName $ mintetteKeyGenCommand shardSize
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
         runSshStrict hostName mintetteCatKeyCommand
 
@@ -155,10 +162,10 @@ runMintette bankHost (MintetteData hasRSCoin hostName) = do
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
 
-runUsers :: T.Text -> UsersData -> Word -> Word -> IO ()
-runUsers bankHost (UsersData hasRSCoin hostName) u t = do
+runUsers :: Word -> T.Text -> UsersData -> Word -> Word -> IO ()
+runUsers shardSize bankHost (UsersData hasRSCoin hostName) u t = do
     unless hasRSCoin $ installRSCoin hostName
-    runSsh hostName $ usersCommand bankHost u t
+    runSsh hostName $ usersCommand shardSize bankHost u t
 
 main :: IO ()
 main = do
@@ -167,16 +174,17 @@ main = do
         readRemoteConfig $ fromMaybe "remote.yaml" $ rboConfigFile
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
-    mintetteKeys <- mapM (genMintetteKey . mdHost) rcMintettes
+    mintetteKeys <- mapM (genMintetteKey rcShard . mdHost) rcMintettes
     mintetteThreads <- mapM (runMintette rcBank) rcMintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2
     logInfo "Launching bank…"
-    bankThread <- runBank rcBank (map mdHost rcMintettes) mintetteKeys True
+    bankThread <-
+        runBank rcShard rcBank (map mdHost rcMintettes) mintetteKeys True
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
-    runUsers rcBank rcUsers rcUsersNum rcTransactionsNum
+    runUsers rcShard rcBank rcUsers rcUsersNum rcTransactionsNum
     logInfo "Ran users"
     killThread bankThread
     logInfo "Killed bank thread"

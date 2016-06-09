@@ -3,7 +3,8 @@
 -- Functions that work with compile-time configuration.
 
 module RSCoin.Core.OwnersConfig
-    ( getShardFunction
+    ( shardSizeOption
+    , getShardFunction
     ) where
 
 import           System.Environment    (getEnvironment)

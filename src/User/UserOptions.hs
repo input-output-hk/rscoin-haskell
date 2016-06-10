@@ -26,7 +26,7 @@ import           Serokell.Util.OptParse (strOption)
 -- | Command that describes single action from command-line interface
 -- POV
 data UserCommand
-    = StartGUI                         -- ^ Start graphical user interface
+    = StartGUI                       -- ^ Start graphical user interface
     | ListAddresses                  -- ^ List all addresses in wallet,
                                      -- starting with 1
     | UpdateBlockchain               -- ^ Query bank to update wallet

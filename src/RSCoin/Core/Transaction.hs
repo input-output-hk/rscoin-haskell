@@ -12,13 +12,13 @@ module RSCoin.Core.Transaction
        ) where
 
 import           Control.Exception      (assert)
-import           Data.List              (sortBy, groupBy)
 import           Data.Function          (on)
+import           Data.List              (groupBy, sortBy)
 import           Data.Ord               (comparing)
 import           Data.Tuple.Select      (sel3)
 
 import           RSCoin.Core.Crypto     (Signature, hash, verify)
-import           RSCoin.Core.Primitives (AddrId, Address (..), Coin,
+import           RSCoin.Core.Primitives (AddrId, Address (..), Coin (..),
                                          Transaction (..))
 
 instance Ord Transaction where
@@ -27,9 +27,15 @@ instance Ord Transaction where
 -- | Validates that sum of inputs for each color isn't greater than sum of outputs.
 validateSum :: Transaction -> Bool
 validateSum Transaction{..} =
-    let inputSums = map sum $ groupBy ((==) `on` getColor) $ sortBy (compare `on` getColor) $ map sel3 txInputs
-        outputSums = map sum $ groupBy ((==) `on` getColor) $ sortBy (compare `on` getColor) $ map snd txOutputs in
-    and $ zipWith ((>=) `on` getCoin) inputSums outputSums
+    let inputSums =
+            map sum $
+            groupBy ((==) `on` getColor) $
+            sortBy (compare `on` getColor) $ map sel3 txInputs
+        outputSums =
+            map sum $
+            groupBy ((==) `on` getColor) $
+            sortBy (compare `on` getColor) $ map snd txOutputs
+    in and $ zipWith ((>=) `on` getCoin) inputSums outputSums
 
 -- | Validates that signature is issued by public key associated with given
 -- address for the transaction.

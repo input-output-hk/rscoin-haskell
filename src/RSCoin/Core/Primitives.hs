@@ -13,7 +13,6 @@ module RSCoin.Core.Primitives
 
 import           Data.Binary         (Binary (get, put))
 import           Data.Hashable       (Hashable (hashWithSalt))
-import           Data.Int            (Int64)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 import           Data.Text.Buildable (Buildable (build))
 import qualified Data.Text.Format    as F
@@ -41,16 +40,18 @@ instance Buildable Coin where
     build (Coin c col) = mconcat [build c, " coin(s) of color ", build col]
 
 instance Num Coin where
-    (+) (Coin c col) (Coin c' col') | col == col' = Coin (c + c') col
-                                    | otherwise = error "Error: sum of coins with different colors!"
-    (*) (Coin c col) (Coin c' col') | col == col' = Coin (c * c') col
-                                    | otherwise = error "Error: product of coins with different colors!"
-    (-) (Coin c col) (Coin c' col') | col == col' = Coin (c - c') col
-                                    | otherwise = error "Error: subtraction of coins with different colors!"
+    (+) (Coin c col) (Coin c' col')
+      | col == col' = Coin (c + c') col
+      | otherwise = error "Error: sum of coins with different colors!"
+    (*) (Coin c col) (Coin c' col')
+      | col == col' = Coin (c * c') col
+      | otherwise = error "Error: product of coins with different colors!"
+    (-) (Coin c col) (Coin c' col')
+      | col == col' = Coin (c - c') col
+      | otherwise = error "Error: subtraction of coins with different colors!"
     abs (Coin a b) = Coin (abs a) b
     signum (Coin c col) = Coin (signum c) col
     fromInteger c = Coin (fromInteger c) 0
-
 
 -- | Address can serve as input or output to transactions.
 -- It is simply a public key.

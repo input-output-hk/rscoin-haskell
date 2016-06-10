@@ -4,6 +4,7 @@
 
 module Bench.RSCoin.Remote.Config
        ( RemoteConfig (..)
+       , BankData (..)
        , MintetteData (..)
        , UsersData (..)
        , readRemoteConfig
@@ -21,13 +22,19 @@ import           Bench.RSCoin.Remote.StageRestriction (defaultOptions)
 data RemoteConfig = RemoteConfig
     { rcUsersNum        :: !Word
     , rcTransactionsNum :: !Word
-    , rcBank            :: !Text
+    , rcBank            :: !BankData
     , rcMintettes       :: ![MintetteData]
     , rcMintettesNum    :: !(Maybe Word)
     , rcUsers           :: !UsersData
     , rcShardDivider    :: !Word
     , rcShardDelta      :: !Word
     , rcPeriod          :: !Word
+    } deriving (Show)
+
+data BankData = BankData
+    { bdHasRSCoin :: !Bool
+    , bdHost      :: !Text
+    , bdProfiling :: !Bool
     } deriving (Show)
 
 data MintetteData = MintetteData
@@ -50,6 +57,7 @@ data UsersData = UsersData
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''RemoteConfig)
+$(A.deriveJSON defaultOptions ''BankData)
 $(A.deriveJSON defaultOptions ''MintetteData)
 $(A.deriveJSON defaultOptions ''UsersData)
 

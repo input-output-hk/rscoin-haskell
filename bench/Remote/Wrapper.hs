@@ -18,7 +18,7 @@ import           Serokell.Util              (listBuilderJSON)
 import qualified RSCoin.Core                as C
 
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
-import           Bench.RSCoin.Remote.Config (MintetteData (..),
+import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
                                              RemoteConfig (..), UsersData (..),
                                              readRemoteConfig)
 
@@ -35,6 +35,13 @@ instance OG.ParseRecord RemoteBenchOptions
 data ShardParams = ShardParams
     { spDivider :: !Word
     , spDelta   :: !Word
+    } deriving (Show)
+
+data BankParams = BankParams
+    { bpPeriodDelta :: !Word
+    , bpShardParams :: !ShardParams
+    , bpProfiling   :: !Bool
+    , bpHasRSCoin   :: !Bool
     } deriving (Show)
 
 userName :: T.IsString s => s
@@ -63,15 +70,23 @@ setupConfigCommand :: ShardParams -> T.Text
 setupConfigCommand =
     sformat ("echo '" % stext % "' > rscoin.yaml") . configYaml
 
-bankSetupCommand :: ShardParams -> [T.Text] -> [C.PublicKey] -> T.Text
-bankSetupCommand shardParams mHosts mKeys =
+profilingBuildArgs :: Bool -> T.Text
+profilingBuildArgs True = " --profile --executable-profiling --library-profiling "
+profilingBuildArgs False = ""
+
+profilingRunArgs :: Bool -> T.Text
+profilingRunArgs True = " +RTS -p -RTS "
+profilingRunArgs False = ""
+
+bankSetupCommand :: BankParams -> [T.Text] -> [C.PublicKey] -> T.Text
+bankSetupCommand BankParams {..} mHosts mKeys =
     T.unlines
         [ cdCommand
         , bankStopCommand
         , "rm -rf bank-db"
         , updateRepoCommand
-        , setupConfigCommand shardParams
-        , "stack build rscoin"
+        , setupConfigCommand bpShardParams
+        , mconcat ["stack build rscoin", profilingBuildArgs bpProfiling]
         , T.unlines $ map (uncurry addMintetteCommand) $ zip mHosts mKeys]
   where
     addMintetteCommand =
@@ -83,14 +98,16 @@ bankSetupCommand shardParams mHosts mKeys =
              build)
             (C.defaultPort :: Int)
 
-bankRunCommand :: Word -> T.Text
-bankRunCommand periodDelta =
+bankRunCommand :: Word -> Bool -> T.Text
+bankRunCommand periodDelta profiling =
     T.unlines
         [ cdCommand
         , sformat
               ("stack exec -- rscoin-bank serve --log-severity Warning +RTS -qg -RTS --period-delta " %
-               int)
-              periodDelta]
+               int %
+               stext)
+              periodDelta
+              (profilingRunArgs profiling)]
 
 bankStopCommand :: T.Text
 bankStopCommand = "killall rscoin-bank"
@@ -161,11 +178,11 @@ runSshStrict hostName command = do
 installRSCoin :: T.Text -> IO ()
 installRSCoin = flip runSsh installCommand
 
-runBank :: Word -> ShardParams -> T.Text -> [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
-runBank periodDelta shardParams bankHost mintetteHosts mintetteKeys hasRSCoin = do
-    unless hasRSCoin $ installRSCoin bankHost
-    runSsh bankHost $ bankSetupCommand shardParams mintetteHosts mintetteKeys
-    forkIO $ runSsh bankHost $ bankRunCommand periodDelta
+runBank :: BankParams -> T.Text -> [T.Text] -> [C.PublicKey] -> IO ThreadId
+runBank bp@BankParams{..} bankHost mintetteHosts mintetteKeys = do
+    unless bpHasRSCoin $ installRSCoin bankHost
+    runSsh bankHost $ bankSetupCommand bp mintetteHosts mintetteKeys
+    forkIO $ runSsh bankHost $ bankRunCommand bpPeriodDelta bpProfiling
 
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
@@ -195,25 +212,32 @@ main = do
     RemoteConfig{..} <-
         readRemoteConfig $ fromMaybe "remote.yaml" $ rboConfigFile
     let sp = ShardParams rcShardDivider rcShardDelta
+        bp =
+            BankParams
+            { bpPeriodDelta = rcPeriod
+            , bpShardParams = sp
+            , bpProfiling = bdProfiling rcBank
+            , bpHasRSCoin = bdHasRSCoin rcBank
+            }
+        bankHost = bdHost rcBank
         mintettes = genericTake (fromMaybe maxBound rcMintettesNum) rcMintettes
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
     logInfo $ sformat ("Mintettes: " % build) $ listBuilderJSON mintettes
     mintetteKeys <- mapM (genMintetteKey sp . mdHost) mintettes
-    mintetteThreads <- mapM (runMintette rcBank) mintettes
+    mintetteThreads <- mapM (runMintette bankHost) mintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2
     logInfo "Launching bank…"
-    bankThread <-
-        runBank rcPeriod sp rcBank (map mdHost mintettes) mintetteKeys True
+    bankThread <- runBank bp bankHost (map mdHost mintettes) mintetteKeys
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
-    runUsers sp rcBank rcUsers rcUsersNum rcTransactionsNum
+    runUsers sp bankHost rcUsers rcUsersNum rcTransactionsNum
     logInfo "Ran users"
     killThread bankThread
     logInfo "Killed bank thread"
-    stopBank rcBank
+    stopBank bankHost
     logInfo "Stopped bank"
     mapM_ killThread mintetteThreads
     logInfo "Killed mintette threads"

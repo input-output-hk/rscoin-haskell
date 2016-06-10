@@ -1,6 +1,9 @@
 usersNum: 3
 transactionsNum: 100
-bank: 52.58.26.146
+bank:
+  hasRSCoin: True
+  host: 52.58.26.146
+  profiling: False
 mintettes:
 - hasRSCoin: True
   host: 52.28.80.85

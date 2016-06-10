@@ -173,9 +173,8 @@ sshArgs hostName =
     , mconcat [userName, "@", hostName]]
 
 runSsh :: T.Text -> T.Text -> IO ()
-runSsh hostName command = do
-    T.ExitSuccess <- T.proc "ssh" (sshArgs hostName ++ [command]) mempty
-    return ()
+runSsh hostName command =
+    () <$ T.proc "ssh" (sshArgs hostName ++ [command]) mempty
 
 runSshStrict :: T.Text -> T.Text -> IO T.Text
 runSshStrict hostName command = do
@@ -243,11 +242,11 @@ main = do
     logInfo "Running users…"
     runUsers sp bankHost rcUsers rcUsersNum rcTransactionsNum
     logInfo "Ran users"
-    killThread bankThread
-    logInfo "Killed bank thread"
     stopBank bankHost
     logInfo "Stopped bank"
-    mapM_ killThread mintetteThreads
-    logInfo "Killed mintette threads"
     mapM_ stopMintette $ map mdHost mintettes
     logInfo "Stopped mintettes"
+    killThread bankThread
+    logInfo "Killed bank thread"
+    mapM_ killThread mintetteThreads
+    logInfo "Killed mintette threads"

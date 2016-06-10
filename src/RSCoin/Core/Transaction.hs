@@ -46,7 +46,7 @@ validateSignature signature (Address pk) = verify pk signature
 -- transaction transfers to address.
 getAmountByAddress :: Address -> Transaction -> Coin
 getAmountByAddress addr Transaction{..} =
-    sum $ map snd $ filter ((==) addr . fst) txOutputs
+    sum $ map (getCoin . snd) $ filter ((==) addr . fst) txOutputs
 
 -- | Given address a and transaction returns all addrids that have
 -- address equal to a.

@@ -59,7 +59,11 @@ cdCommand = "cd \"$HOME/rscoin\""
 
 updateRepoCommand :: T.Text
 updateRepoCommand =
-    T.unlines ["git checkout .", "git checkout master -q", "git pull --ff-only"]
+    T.unlines
+        [ cdCommand
+        , "git checkout . -q"
+        , "git checkout master -q"
+        , "git pull --ff-only -q"]
 
 configYaml :: ShardParams -> T.Text
 configYaml ShardParams{..} =
@@ -114,7 +118,7 @@ bankRunCommand periodDelta profiling =
               (profilingRunArgs profiling)]
 
 bankStopCommand :: T.Text
-bankStopCommand = "killall rscoin-bank"
+bankStopCommand = "killall rscoin-bank 2> /dev/null"
 
 mintetteKeyGenCommand :: ShardParams -> T.Text
 mintetteKeyGenCommand shardParams =
@@ -140,7 +144,7 @@ mintetteRunCommand bankHost =
               bankHost]
 
 mintetteStopCommand :: T.Text
-mintetteStopCommand = "killall rscoin-mintette"
+mintetteStopCommand = "killall rscoin-mintette 2> /dev/null"
 
 usersCommand :: ShardParams -> T.Text -> Word -> Word -> T.Text
 usersCommand shardParams bankHost u t =

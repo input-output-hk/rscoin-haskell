@@ -20,7 +20,7 @@ data ElapsedTime = ElapsedTime
 instance Buildable ElapsedTime where
     build ElapsedTime{..} =
         bprint
-            ("(CPU time = " % shown % ", wall time = " % shown)
+            ("(CPU time = " % shown % ", wall time = " % shown % ")")
             elapsedCpuTime
             elapsedWallTime
 

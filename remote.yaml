@@ -4,6 +4,24 @@ bank: 52.58.26.146
 mintettes:
 - hasRSCoin: True
   host: 52.28.80.85
+- hasRSCoin: True
+  host: 52.58.28.224
+- hasRSCoin: True
+  host: 52.28.247.158
+- hasRSCoin: True
+  host: 52.58.149.213
+- hasRSCoin: True
+  host: 52.29.173.36
+- hasRSCoin: True
+  host: 52.58.145.135
+- hasRSCoin: True
+  host: 52.28.69.231
+- hasRSCoin: True
+  host: 52.28.78.214
+- hasRSCoin: True
+  host: 52.58.188.110
+- hasRSCoin: True
+  host: 52.29.237.85
 users:
   hasRSCoin: True
   host: 52.28.239.209

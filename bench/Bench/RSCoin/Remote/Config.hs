@@ -12,7 +12,9 @@ module Bench.RSCoin.Remote.Config
 import qualified Data.Aeson.TH                        as A
 import           Data.Maybe                           (fromMaybe)
 import           Data.Text                            (Text)
+import           Data.Text.Buildable                  (Buildable (build))
 import qualified Data.Yaml                            as Y
+import           Formatting                           (bprint, stext, (%))
 
 import           Bench.RSCoin.Remote.StageRestriction (defaultOptions)
 
@@ -21,6 +23,7 @@ data RemoteConfig = RemoteConfig
     , rcTransactionsNum :: !Word
     , rcBank            :: !Text
     , rcMintettes       :: ![MintetteData]
+    , rcMintettesNum    :: !(Maybe Word)
     , rcUsers           :: !UsersData
     , rcShardDivider    :: !Word
     , rcShardDelta      :: !Word
@@ -31,6 +34,15 @@ data MintetteData = MintetteData
     { mdHasRSCoin :: !Bool
     , mdHost      :: !Text
     } deriving (Show)
+
+instance Buildable MintetteData where
+    build MintetteData{..} =
+        bprint
+            ("Mintette `" % stext % "` (" % stext % " rscoin)")
+            mdHost
+            (if mdHasRSCoin
+                 then "has"
+                 else "doesn't have")
 
 data UsersData = UsersData
     { udHasRSCoin :: !Bool

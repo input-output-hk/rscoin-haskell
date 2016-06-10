@@ -410,7 +410,9 @@ benchmark rscoin-bench-remote
                      , mtl
                      , optparse-generic
                      , rscoin
+                     , serokell-core
                      , text
+                     , text-format
                      , turtle
                      , yaml
   hs-source-dirs:      bench

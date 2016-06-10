@@ -6,11 +6,14 @@ import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Monad              (unless)
 import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
+import           Data.List                  (genericTake)
 import           Data.Maybe                 (fromMaybe)
 import qualified Data.Text                  as T (unlines)
 import           Formatting                 (build, int, sformat, stext, (%))
 import qualified Options.Generic            as OG
 import qualified Turtle                     as T
+
+import           Serokell.Util              (listBuilderJSON)
 
 import qualified RSCoin.Core                as C
 
@@ -192,15 +195,17 @@ main = do
     RemoteConfig{..} <-
         readRemoteConfig $ fromMaybe "remote.yaml" $ rboConfigFile
     let sp = ShardParams rcShardDivider rcShardDelta
+        mintettes = genericTake (fromMaybe maxBound rcMintettesNum) rcMintettes
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
-    mintetteKeys <- mapM (genMintetteKey sp . mdHost) rcMintettes
-    mintetteThreads <- mapM (runMintette rcBank) rcMintettes
+    logInfo $ sformat ("Mintettes: " % build) $ listBuilderJSON mintettes
+    mintetteKeys <- mapM (genMintetteKey sp . mdHost) mintettes
+    mintetteThreads <- mapM (runMintette rcBank) mintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2
     logInfo "Launching bank…"
     bankThread <-
-        runBank rcPeriod sp rcBank (map mdHost rcMintettes) mintetteKeys True
+        runBank rcPeriod sp rcBank (map mdHost mintettes) mintetteKeys True
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
@@ -212,5 +217,5 @@ main = do
     logInfo "Stopped bank"
     mapM_ killThread mintetteThreads
     logInfo "Killed mintette threads"
-    mapM_ stopMintette $ map mdHost rcMintettes
+    mapM_ stopMintette $ map mdHost mintettes
     logInfo "Stopped mintettes"

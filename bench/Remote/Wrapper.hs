@@ -6,7 +6,7 @@ import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Monad              (unless)
 import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
-import           Data.List                  (genericTake)
+import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe)
 import qualified Data.Text                  as T (unlines)
 import           Formatting                 (build, int, sformat, stext, (%))
@@ -43,6 +43,13 @@ data BankParams = BankParams
     , bpShardParams :: !ShardParams
     , bpProfiling   :: !(Maybe ProfilingType)
     , bpHasRSCoin   :: !Bool
+    } deriving (Show)
+
+data UsersParams = UsersParams
+    { upUsersNumber        :: !Word
+    , upMintettesNumber    :: !Word
+    , upTransactionsNumber :: !Word
+    , upShardParams        :: !ShardParams
     } deriving (Show)
 
 userName :: T.IsString s => s
@@ -146,23 +153,27 @@ mintetteRunCommand bankHost =
 mintetteStopCommand :: T.Text
 mintetteStopCommand = "killall rscoin-mintette 2> /dev/null"
 
-usersCommand :: ShardParams -> T.Text -> Word -> Word -> T.Text
-usersCommand shardParams bankHost u t =
+usersCommand :: UsersParams -> T.Text -> T.Text
+usersCommand UsersParams{..} bankHost =
     T.unlines
         [ cdCommand
         , updateRepoCommand
-        , setupConfigCommand shardParams
+        , setupConfigCommand upShardParams
         , sformat
               ("stack bench rscoin:rscoin-bench-only-users --benchmark-arguments \"--users " %
                int %
-               " --bank " %
-               build %
+               " --mintettes " %
+               int %
                " --transactions " %
                int %
+               " --output out.txt" %
+               " --bank " %
+               stext %
                " +RTS -qg -RTS\"")
-              u
-              bankHost
-              t]
+              upUsersNumber
+              upMintettesNumber
+              upTransactionsNumber
+              bankHost]
 
 sshArgs :: T.Text -> [T.Text]
 sshArgs hostName =
@@ -208,10 +219,10 @@ runMintette bankHost (MintetteData hasRSCoin hostName) = do
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
 
-runUsers :: ShardParams -> T.Text -> UsersData -> Word -> Word -> IO ()
-runUsers sp bankHost (UsersData hasRSCoin hostName) u t = do
+runUsers :: UsersParams -> T.Text -> UsersData -> IO ()
+runUsers up bankHost (UsersData hasRSCoin hostName) = do
     unless hasRSCoin $ installRSCoin hostName
-    runSsh hostName $ usersCommand sp bankHost u t
+    runSsh hostName $ usersCommand up bankHost
 
 main :: IO ()
 main = do
@@ -228,6 +239,13 @@ main = do
             }
         bankHost = bdHost rcBank
         mintettes = genericTake (fromMaybe maxBound rcMintettesNum) rcMintettes
+        up =
+            UsersParams
+            { upUsersNumber = rcUsersNum
+            , upMintettesNumber = genericLength mintettes
+            , upTransactionsNumber = rcTransactionsNum
+            , upShardParams = sp
+            }
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
     logInfo $ sformat ("Mintettes: " % build) $ listBuilderJSON mintettes
@@ -240,7 +258,7 @@ main = do
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
-    runUsers sp bankHost rcUsers rcUsersNum rcTransactionsNum
+    runUsers up bankHost rcUsers
     logInfo "Ran users"
     stopBank bankHost
     logInfo "Stopped bank"

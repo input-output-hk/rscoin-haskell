@@ -184,8 +184,8 @@ usersCommand UsersParams{..} bankHost profiling =
                stext %
                " --bank " %
                stext %
-               " +RTS -qg -RTS\"" %
-               stext)
+               stext %
+               " +RTS -qg -RTS\"")
               (profilingBuildArgs profiling)
               upUsersNumber
               upMintettesNumber

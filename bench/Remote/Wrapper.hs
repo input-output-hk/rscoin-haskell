@@ -69,13 +69,13 @@ bankSetupCommand shardParams mHosts mKeys =
         , updateRepoCommand
         , setupConfigCommand shardParams
         , "stack build rscoin"
-        , mconcat $ map (uncurry addMintetteCommand) $ zip mHosts mKeys]
+        , T.unlines $ map (uncurry addMintetteCommand) $ zip mHosts mKeys]
   where
     addMintetteCommand =
         sformat
             ("stack exec -- rscoin-bank add-mintette --port " % int %
              " --host " %
-             build %
+             stext %
              " --key " %
              build)
             (C.defaultPort :: Int)

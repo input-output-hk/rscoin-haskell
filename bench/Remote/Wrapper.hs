@@ -136,22 +136,23 @@ usersCommand shardParams bankHost u t =
               bankHost
               t]
 
+sshArgs :: T.Text -> [T.Text]
+sshArgs hostName =
+    [ "-i"
+    , sshKeyPath
+    , "-o"
+    , "StrictHostKeyChecking=no"
+    , mconcat [userName, "@", hostName]]
+
 runSsh :: T.Text -> T.Text -> IO ()
 runSsh hostName command = do
-    T.ExitSuccess <-
-        T.proc
-            "ssh"
-            ["-i", sshKeyPath, mconcat [userName, "@", hostName], command]
-            mempty
+    T.ExitSuccess <- T.proc "ssh" (sshArgs hostName ++ [command]) mempty
     return ()
 
 runSshStrict :: T.Text -> T.Text -> IO T.Text
 runSshStrict hostName command = do
-    (T.ExitSuccess, res) <-
-        T.procStrict
-            "ssh"
-            ["-i", sshKeyPath, mconcat [userName, "@", hostName], command]
-            mempty
+    (T.ExitSuccess,res) <-
+        T.procStrict "ssh" (sshArgs hostName ++ [command]) mempty
     return res
 
 installRSCoin :: T.Text -> IO ()

@@ -47,6 +47,7 @@ data BankData = BankData
 data MintetteData = MintetteData
     { mdHasRSCoin :: !Bool
     , mdHost      :: !Text
+    , mdProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 
 instance Buildable MintetteData where
@@ -61,6 +62,7 @@ instance Buildable MintetteData where
 data UsersData = UsersData
     { udHasRSCoin :: !Bool
     , udHost      :: !Text
+    , udProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''RemoteConfig)

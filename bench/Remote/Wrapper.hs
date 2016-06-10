@@ -132,28 +132,32 @@ bankRunCommand periodDelta profiling =
 bankStopCommand :: T.Text
 bankStopCommand = "killall -s SIGINT rscoin-bank 2> /dev/null"
 
-mintetteKeyGenCommand :: ShardParams -> T.Text
-mintetteKeyGenCommand shardParams =
+mintetteSetupCommand :: ShardParams -> Maybe ProfilingType -> T.Text
+mintetteSetupCommand shardParams profiling =
     T.unlines
         [ cdCommand
         , mintetteStopCommand
         , "rm -rf mintette-db"
         , updateRepoCommand
         , setupConfigCommand shardParams
-        , "stack build rscoin"
+        , sformat
+              ("stack build rscoin " % stext)
+              (profilingBuildArgs profiling)
         , "stack exec -- rscoin-keygen"]
 
 mintetteCatKeyCommand :: T.Text
 mintetteCatKeyCommand = "cat \"$HOME\"/.rscoin/key.pub\n"
 
-mintetteRunCommand :: T.Text -> T.Text
-mintetteRunCommand bankHost =
+mintetteRunCommand :: T.Text -> Maybe ProfilingType -> T.Text
+mintetteRunCommand bankHost profiling =
     T.unlines
         [ cdCommand
         , sformat
               ("stack exec -- rscoin-mintette --log-severity Error +RTS -qg -RTS --bank-host " %
-               build)
-              bankHost]
+               stext %
+               stext)
+              bankHost
+              (profilingRunArgs profiling)]
 
 mintetteStopCommand :: T.Text
 mintetteStopCommand = "killall -s SIGINT rscoin-mintette 2> /dev/null"
@@ -161,15 +165,16 @@ mintetteStopCommand = "killall -s SIGINT rscoin-mintette 2> /dev/null"
 mkStatsDirCommand :: T.Text
 mkStatsDirCommand = sformat ("mkdir -p " % stext) statsDir
 
-usersCommand :: UsersParams -> T.Text -> T.Text
-usersCommand UsersParams{..} bankHost =
+usersCommand :: UsersParams -> T.Text -> Maybe ProfilingType -> T.Text
+usersCommand UsersParams{..} bankHost profiling =
     T.unlines
         [ cdCommand
         , updateRepoCommand
         , setupConfigCommand upShardParams
         , mkStatsDirCommand
         , sformat
-              ("stack bench rscoin:rscoin-bench-only-users --benchmark-arguments \"--users " %
+              ("stack bench rscoin:rscoin-bench-only-users " % stext %
+               " --benchmark-arguments \"--users " %
                int %
                " --mintettes " %
                int %
@@ -179,12 +184,15 @@ usersCommand UsersParams{..} bankHost =
                stext %
                " --bank " %
                stext %
-               " +RTS -qg -RTS\"")
+               " +RTS -qg -RTS\"" %
+               stext)
+              (profilingBuildArgs profiling)
               upUsersNumber
               upMintettesNumber
               upTransactionsNumber
               (mconcat [statsDir, "/", statsId, ".stats"])
               bankHost
+              (profilingRunArgs profiling)
         , sformat
               ("echo '" % stext % "' > " % stext)
               upConfigStr
@@ -222,24 +230,24 @@ runBank bp@BankParams{..} bankHost mintetteHosts mintetteKeys = do
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
 
-genMintetteKey :: ShardParams -> T.Text -> IO C.PublicKey
-genMintetteKey sp hostName = do
-    runSsh hostName $ mintetteKeyGenCommand sp
+genMintetteKey :: ShardParams -> MintetteData -> IO C.PublicKey
+genMintetteKey sp (MintetteData _ hostName profiling) = do
+    runSsh hostName $ mintetteSetupCommand sp profiling
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
         runSshStrict hostName mintetteCatKeyCommand
 
 runMintette :: T.Text -> MintetteData -> IO ThreadId
-runMintette bankHost (MintetteData hasRSCoin hostName) = do
+runMintette bankHost (MintetteData hasRSCoin hostName profiling) = do
     unless hasRSCoin $ installRSCoin hostName
-    forkIO $ runSsh hostName $ mintetteRunCommand bankHost
+    forkIO $ runSsh hostName $ mintetteRunCommand bankHost profiling
 
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
 
 runUsers :: UsersParams -> T.Text -> UsersData -> IO ()
-runUsers up bankHost (UsersData hasRSCoin hostName) = do
+runUsers up bankHost (UsersData hasRSCoin hostName profiling) = do
     unless hasRSCoin $ installRSCoin hostName
-    runSsh hostName $ usersCommand up bankHost
+    runSsh hostName $ usersCommand up bankHost profiling
 
 main :: IO ()
 main = do
@@ -267,8 +275,10 @@ main = do
             }
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
-    logInfo $ sformat ("Mintettes: " % build) $ listBuilderJSON mintettes
-    mintetteKeys <- mapM (genMintetteKey sp . mdHost) mintettes
+    logInfo $
+        sformat ("Setting up and launching mintettes " % build % "…") $
+        listBuilderJSON mintettes
+    mintetteKeys <- mapM (genMintetteKey sp) mintettes
     mintetteThreads <- mapM (runMintette bankHost) mintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2

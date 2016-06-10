@@ -15,7 +15,7 @@ import           System.IO.Temp             (withSystemTempDirectory)
 -- workaround to make stylish-haskell work :(
 import           Options.Generic
 
-import           Serokell.Util.Text         (show')
+import           Serokell.Util.Text         (listBuilderCSV, show')
 
 import           RSCoin.Core                (Severity (..), bankSecretKey,
                                              finishPeriod, initLogging)
@@ -38,6 +38,8 @@ data BenchOptions = BenchOptions
     , bank          :: ByteString     <?> "bank host"
     , output        :: Maybe FilePath <?> "optional path to dump statistics"
     , mintettes     :: Maybe Word     <?> "number of mintettes (only for statistics)"
+    , csv           :: Maybe FilePath <?> "optional path to dump statistics as csv"
+    , csvPrefix     :: Maybe Text     <?> "extra values to prepend to csv"
     } deriving (Generic, Show)
 
 instance ParseField  Word
@@ -81,14 +83,20 @@ runTransactions bankHost transactionNum benchDir userAddresses userIds = do
     logInfo "Running transactions…"
     measureTime_ $ forConcurrently userIds benchUserAction
 
-dumpStatistics :: Word
-               -> Maybe Word
-               -> Word
-               -> Double
-               -> ElapsedTime
-               -> FilePath
-               -> IO ()
-dumpStatistics usersNum mintettesNum txNum tps elapsedTime fp =
+data Statistics = Statistics
+    { sUsersNum     :: !Word
+    , sMintettesNum :: !(Maybe Word)
+    , sTxNum        :: !Word
+    , sTps          :: !Double
+    , sElapsedTime  :: !ElapsedTime
+    } deriving (Show)
+
+mintettesNumStr :: Maybe Word -> Text
+mintettesNumStr Nothing = "<unknown>"
+mintettesNumStr (Just n) = show' n
+
+dumpStatistics :: Statistics -> FilePath -> IO ()
+dumpStatistics Statistics {..} fp =
     TIO.writeFile fp $
     sformat
         ("rscoin-bench-only-users statistics:\n" % "tps: " % fixed 2 %
@@ -103,37 +111,62 @@ dumpStatistics usersNum mintettesNum txNum tps elapsedTime fp =
          "\nelapsed time: " %
          build %
          "\n")
-        tps
-        usersNum
-        mintettesNumStr
-        txNum
-        (txNum * usersNum)
-        elapsedTime
-  where
-    mintettesNumStr = maybe "<unknown>" show' mintettesNum
+        sTps
+        sUsersNum
+        (mintettesNumStr sMintettesNum)
+        sTxNum
+        (sTxNum * sUsersNum)
+        sElapsedTime
+
+dumpCsv :: Statistics -> Text -> FilePath -> IO ()
+dumpCsv Statistics{..} prefix fp =
+    TIO.writeFile fp $
+    sformat (stext % build) prefix $
+    listBuilderCSV
+        [ sformat (fixed 3) sTps
+        , show' sUsersNum
+        , mintettesNumStr sMintettesNum
+        , show' sTxNum
+        , show' (sTxNum * sUsersNum)]
 
 main :: IO ()
 main = do
     BenchOptions{..} <- getRecord "rscoin-bench-only-users"
-    let userNumber      = fromIntegral $ unHelpful users
-        globalSeverity  = fromMaybe Error $ unHelpful severity
-        bSeverity       = fromMaybe Info $ unHelpful benchSeverity
-        transactionNum  = fromMaybe 1000 $ unHelpful transactions
-        bankHost        = unHelpful bank
-    withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
-        initLogging globalSeverity
-        initBenchLogger bSeverity
-
-        let userIds    = [1 .. userNumber]
-        userAddresses <- initializeUsers bankHost benchDir userIds
-        initializeSuperUser transactionNum bankHost benchDir userAddresses
-
-        t <- runTransactions bankHost transactionNum benchDir userAddresses userIds
-        logInfo . sformat ("Elapsed time: " % build) $ t
-        let txTotal = transactionNum * userNumber
-            tps = perSecond txTotal $ elapsedWallTime t
-        logInfo . sformat ("TPS: " % fixed 2) $ tps
-        maybe
-            (return ())
-            (dumpStatistics userNumber (unHelpful mintettes) transactionNum tps t) $
-            unHelpful output
+    let userNumber = fromIntegral $ unHelpful users
+        globalSeverity = fromMaybe Error $ unHelpful severity
+        bSeverity = fromMaybe Info $ unHelpful benchSeverity
+        transactionNum = fromMaybe 1000 $ unHelpful transactions
+        bankHost = unHelpful bank
+        csvPref = fromMaybe "" $ unHelpful csvPrefix
+    withSystemTempDirectory tempBenchDirectory $
+        \benchDir ->
+             do initLogging globalSeverity
+                initBenchLogger bSeverity
+                let userIds = [1 .. userNumber]
+                userAddresses <- initializeUsers bankHost benchDir userIds
+                initializeSuperUser
+                    transactionNum
+                    bankHost
+                    benchDir
+                    userAddresses
+                t <-
+                    runTransactions
+                        bankHost
+                        transactionNum
+                        benchDir
+                        userAddresses
+                        userIds
+                logInfo . sformat ("Elapsed time: " % build) $ t
+                let txTotal = transactionNum * userNumber
+                    tps = perSecond txTotal $ elapsedWallTime t
+                    statistics =
+                        Statistics
+                        { sUsersNum = userNumber
+                        , sMintettesNum = unHelpful mintettes
+                        , sTxNum = transactionNum
+                        , sTps = tps
+                        , sElapsedTime = t
+                        }
+                logInfo . sformat ("TPS: " % fixed 2) $ tps
+                maybe (return ()) (dumpStatistics statistics) $ unHelpful output
+                maybe (return ()) (dumpCsv statistics csvPref) $ unHelpful csv

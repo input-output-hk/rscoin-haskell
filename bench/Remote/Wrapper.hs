@@ -58,7 +58,7 @@ cdCommand = "cd \"$HOME/rscoin\""
 
 updateRepoCommand :: T.Text
 updateRepoCommand =
-    T.unlines ["git checkout .", "git checkout master", "git pull --ff-only"]
+    T.unlines ["git checkout .", "git checkout master -q", "git pull --ff-only"]
 
 configYaml :: ShardParams -> T.Text
 configYaml ShardParams{..} =

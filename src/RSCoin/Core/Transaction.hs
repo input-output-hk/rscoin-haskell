@@ -31,11 +31,11 @@ validateSum Transaction{..} =
     let inputSums =
             map sum $
             groupBy ((==) `on` getColor) $
-            sortBy (compare `on` getColor) $ map sel3 txInputs
+            sortBy (comparing getColor) $ map sel3 txInputs
         outputSums =
             map sum $
             groupBy ((==) `on` getColor) $
-            sortBy (compare `on` getColor) $ map snd txOutputs
+            sortBy (comparing getColor) $ map snd txOutputs
     in and $ zipWith ((>=) `on` getCoin) inputSums outputSums
 
 -- | Validates that signature is issued by public key associated with given

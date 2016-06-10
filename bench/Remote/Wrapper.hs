@@ -8,7 +8,7 @@ import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
 import           Data.Maybe                 (fromMaybe)
 import qualified Data.Text                  as T (unlines)
-import           Formatting                 (build, int, sformat, text, (%))
+import           Formatting                 (build, int, sformat, stext, (%))
 import qualified Options.Generic            as OG
 import qualified Turtle                     as T
 
@@ -29,6 +29,11 @@ instance OG.ParseFields C.Severity
 instance OG.ParseRecord C.Severity
 instance OG.ParseRecord RemoteBenchOptions
 
+data ShardParams = ShardParams
+    { spDivider :: !Word
+    , spDelta   :: !Word
+    } deriving (Show)
+
 userName :: T.IsString s => s
 userName = "ubuntu"
 
@@ -45,18 +50,24 @@ updateRepoCommand :: T.Text
 updateRepoCommand =
     T.unlines ["git checkout .", "git checkout master", "git pull --ff-only"]
 
-exportCommand :: Word -> T.Text
-exportCommand shardSize =
-    sformat ("export " % text % "=" % int) C.shardSizeOption shardSize
+configYaml :: ShardParams -> T.Text
+configYaml ShardParams{..} =
+    T.unlines
+        [ sformat ("shardDivider: " % int) spDivider
+        , sformat ("shardDelta: " % int) spDelta]
 
-bankSetupCommand :: Word -> [T.Text] -> [C.PublicKey] -> T.Text
-bankSetupCommand shardSize mHosts mKeys =
+setupConfigCommand :: ShardParams -> T.Text
+setupConfigCommand =
+    sformat ("echo '" % stext % "' > rscoin.yaml") . configYaml
+
+bankSetupCommand :: ShardParams -> [T.Text] -> [C.PublicKey] -> T.Text
+bankSetupCommand shardParams mHosts mKeys =
     T.unlines
         [ cdCommand
-        , exportCommand shardSize
         , bankStopCommand
         , "rm -rf bank-db"
         , updateRepoCommand
+        , setupConfigCommand shardParams
         , "stack build rscoin"
         , mconcat $ map (uncurry addMintetteCommand) $ zip mHosts mKeys]
   where
@@ -81,14 +92,14 @@ bankRunCommand periodDelta =
 bankStopCommand :: T.Text
 bankStopCommand = "killall rscoin-bank"
 
-mintetteKeyGenCommand :: Word -> T.Text
-mintetteKeyGenCommand shardSize =
+mintetteKeyGenCommand :: ShardParams -> T.Text
+mintetteKeyGenCommand shardParams =
     T.unlines
         [ cdCommand
-        , exportCommand shardSize
         , mintetteStopCommand
         , "rm -rf mintette-db"
         , updateRepoCommand
+        , setupConfigCommand shardParams
         , "stack build rscoin"
         , "stack exec -- rscoin-keygen"]
 
@@ -107,12 +118,12 @@ mintetteRunCommand bankHost =
 mintetteStopCommand :: T.Text
 mintetteStopCommand = "killall rscoin-mintette"
 
-usersCommand :: Word -> T.Text -> Word -> Word -> T.Text
-usersCommand shardSize bankHost u t =
+usersCommand :: ShardParams -> T.Text -> Word -> Word -> T.Text
+usersCommand shardParams bankHost u t =
     T.unlines
         [ cdCommand
-        , exportCommand shardSize
         , updateRepoCommand
+        , setupConfigCommand shardParams
         , sformat
               ("stack bench rscoin:rscoin-bench-only-users --benchmark-arguments \"--users " %
                int %
@@ -146,18 +157,18 @@ runSshStrict hostName command = do
 installRSCoin :: T.Text -> IO ()
 installRSCoin = flip runSsh installCommand
 
-runBank :: Word -> Word -> T.Text -> [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
-runBank periodDelta shardSize bankHost mintetteHosts mintetteKeys hasRSCoin = do
+runBank :: Word -> ShardParams -> T.Text -> [T.Text] -> [C.PublicKey] -> Bool -> IO ThreadId
+runBank periodDelta shardParams bankHost mintetteHosts mintetteKeys hasRSCoin = do
     unless hasRSCoin $ installRSCoin bankHost
-    runSsh bankHost $ bankSetupCommand shardSize mintetteHosts mintetteKeys
+    runSsh bankHost $ bankSetupCommand shardParams mintetteHosts mintetteKeys
     forkIO $ runSsh bankHost $ bankRunCommand periodDelta
 
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
 
-genMintetteKey :: Word -> T.Text -> IO C.PublicKey
-genMintetteKey shardSize hostName = do
-    runSsh hostName $ mintetteKeyGenCommand shardSize
+genMintetteKey :: ShardParams -> T.Text -> IO C.PublicKey
+genMintetteKey sp hostName = do
+    runSsh hostName $ mintetteKeyGenCommand sp
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
         runSshStrict hostName mintetteCatKeyCommand
 
@@ -169,29 +180,30 @@ runMintette bankHost (MintetteData hasRSCoin hostName) = do
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
 
-runUsers :: Word -> T.Text -> UsersData -> Word -> Word -> IO ()
-runUsers shardSize bankHost (UsersData hasRSCoin hostName) u t = do
+runUsers :: ShardParams -> T.Text -> UsersData -> Word -> Word -> IO ()
+runUsers sp bankHost (UsersData hasRSCoin hostName) u t = do
     unless hasRSCoin $ installRSCoin hostName
-    runSsh hostName $ usersCommand shardSize bankHost u t
+    runSsh hostName $ usersCommand sp bankHost u t
 
 main :: IO ()
 main = do
     RemoteBenchOptions{..} <- OG.getRecord "rscoin-bench-remote"
     RemoteConfig{..} <-
         readRemoteConfig $ fromMaybe "remote.yaml" $ rboConfigFile
+    let sp = ShardParams rcShardDivider rcShardDelta
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
-    mintetteKeys <- mapM (genMintetteKey rcShard . mdHost) rcMintettes
+    mintetteKeys <- mapM (genMintetteKey sp . mdHost) rcMintettes
     mintetteThreads <- mapM (runMintette rcBank) rcMintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2
     logInfo "Launching bank…"
     bankThread <-
-        runBank rcPeriod rcShard rcBank (map mdHost rcMintettes) mintetteKeys True
+        runBank rcPeriod sp rcBank (map mdHost rcMintettes) mintetteKeys True
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
-    runUsers rcShard rcBank rcUsers rcUsersNum rcTransactionsNum
+    runUsers sp rcBank rcUsers rcUsersNum rcTransactionsNum
     logInfo "Ran users"
     killThread bankThread
     logInfo "Killed bank thread"

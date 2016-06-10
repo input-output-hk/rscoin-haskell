@@ -22,7 +22,8 @@ data RemoteConfig = RemoteConfig
     , rcBank            :: !Text
     , rcMintettes       :: ![MintetteData]
     , rcUsers           :: !UsersData
-    , rcShard           :: !Word
+    , rcShardDivider    :: !Word
+    , rcShardDelta      :: !Word
     , rcPeriod          :: !Word
     } deriving (Show)
 

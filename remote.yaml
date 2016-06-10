@@ -7,6 +7,7 @@ mintettes:
 users:
   hasRSCoin: True
   host: 52.28.239.209
-shard: 3
+shardDivider : 0
+shardDelta: 3
 period: 10
 

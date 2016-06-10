@@ -16,6 +16,7 @@ import           Data.Function          (on)
 import           Data.List              (groupBy, sortBy)
 import           Data.Ord               (comparing)
 import           Data.Tuple.Select      (sel3)
+import           Data.Map.Strict        (Map, fromListWith)
 
 import           RSCoin.Core.Crypto     (Signature, hash, verify)
 import           RSCoin.Core.Primitives (AddrId, Address (..), Coin (..),
@@ -44,9 +45,10 @@ validateSignature signature (Address pk) = verify pk signature
 
 -- | Given address and transaction returns total amount of money
 -- transaction transfers to address.
-getAmountByAddress :: Address -> Transaction -> Coin
+getAmountByAddress :: Address -> Transaction -> Map Int Rational
 getAmountByAddress addr Transaction{..} =
-    sum $ map (getCoin . snd) $ filter ((==) addr . fst) txOutputs
+    let pair c = (getColor c, getCoin c) in
+    fromListWith (+) $ map (pair . snd) $ filter ((==) addr . fst) txOutputs
 
 -- | Given address a and transaction returns all addrids that have
 -- address equal to a.

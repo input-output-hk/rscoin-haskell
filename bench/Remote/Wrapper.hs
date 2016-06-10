@@ -130,7 +130,7 @@ bankRunCommand periodDelta profiling =
               (profilingRunArgs profiling)]
 
 bankStopCommand :: T.Text
-bankStopCommand = "killall rscoin-bank 2> /dev/null"
+bankStopCommand = "killall -s SIGINT rscoin-bank 2> /dev/null"
 
 mintetteKeyGenCommand :: ShardParams -> T.Text
 mintetteKeyGenCommand shardParams =
@@ -156,7 +156,7 @@ mintetteRunCommand bankHost =
               bankHost]
 
 mintetteStopCommand :: T.Text
-mintetteStopCommand = "killall rscoin-mintette 2> /dev/null"
+mintetteStopCommand = "killall -s SIGINT rscoin-mintette 2> /dev/null"
 
 mkStatsDirCommand :: T.Text
 mkStatsDirCommand = sformat ("mkdir -p " % stext) statsDir

@@ -180,8 +180,7 @@ usersCommand UsersParams{..} bankHost profiling =
                int %
                " --transactions " %
                int %
-               " --output " %
-               stext %
+               " --output bench-tmp.txt" %
                " --bank " %
                stext %
                stext %
@@ -190,9 +189,11 @@ usersCommand UsersParams{..} bankHost profiling =
               upUsersNumber
               upMintettesNumber
               upTransactionsNumber
-              (mconcat [statsDir, "/", statsId, ".stats"])
               bankHost
               (profilingRunArgs profiling)
+        , sformat
+              ("mv bench-tmp.txt " % stext)
+              (mconcat [statsDir, "/", statsId, ".stats"])
         , sformat
               ("echo '" % stext % "' > " % stext)
               upConfigStr

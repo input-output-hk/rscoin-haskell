@@ -9,6 +9,7 @@ import           Data.FileEmbed             (embedStringFile,
 import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe)
 import qualified Data.Text                  as T (unlines)
+import qualified Data.Text.IO               as TIO
 import           Formatting                 (build, int, sformat, stext, (%))
 import qualified Options.Generic            as OG
 import qualified Turtle                     as T
@@ -50,10 +51,14 @@ data UsersParams = UsersParams
     , upMintettesNumber    :: !Word
     , upTransactionsNumber :: !Word
     , upShardParams        :: !ShardParams
+    , upConfigStr          :: !T.Text
     } deriving (Show)
 
 userName :: T.IsString s => s
 userName = "ubuntu"
+
+statsDir :: T.IsString s => s
+statsDir = "\"$HOME\"/rscoin-stats"
 
 sshKeyPath :: T.IsString s => s
 sshKeyPath = "~/.ssh/rscointest.pem"
@@ -153,12 +158,16 @@ mintetteRunCommand bankHost =
 mintetteStopCommand :: T.Text
 mintetteStopCommand = "killall rscoin-mintette 2> /dev/null"
 
+mkStatsDirCommand :: T.Text
+mkStatsDirCommand = sformat ("mkdir -p " % stext) statsDir
+
 usersCommand :: UsersParams -> T.Text -> T.Text
 usersCommand UsersParams{..} bankHost =
     T.unlines
         [ cdCommand
         , updateRepoCommand
         , setupConfigCommand upShardParams
+        , mkStatsDirCommand
         , sformat
               ("stack bench rscoin:rscoin-bench-only-users --benchmark-arguments \"--users " %
                int %
@@ -166,14 +175,22 @@ usersCommand UsersParams{..} bankHost =
                int %
                " --transactions " %
                int %
-               " --output out.txt" %
+               " --output " %
+               stext %
                " --bank " %
                stext %
                " +RTS -qg -RTS\"")
               upUsersNumber
               upMintettesNumber
               upTransactionsNumber
-              bankHost]
+              (mconcat [statsDir, "/", statsId, ".stats"])
+              bankHost
+        , sformat
+              ("echo '" % stext % "' > " % stext)
+              upConfigStr
+              (mconcat [statsDir, "/", statsId, ".yaml"])]
+  where
+    statsId = "`date +\"%m.%d-%H:%M:%S\"`"
 
 sshArgs :: T.Text -> [T.Text]
 sshArgs hostName =
@@ -227,8 +244,9 @@ runUsers up bankHost (UsersData hasRSCoin hostName) = do
 main :: IO ()
 main = do
     RemoteBenchOptions{..} <- OG.getRecord "rscoin-bench-remote"
-    RemoteConfig{..} <-
-        readRemoteConfig $ fromMaybe "remote.yaml" $ rboConfigFile
+    let configPath = fromMaybe "remote.yaml" $ rboConfigFile
+    RemoteConfig{..} <- readRemoteConfig configPath
+    configStr <- TIO.readFile configPath
     let sp = ShardParams rcShardDivider rcShardDelta
         bp =
             BankParams
@@ -245,6 +263,7 @@ main = do
             , upMintettesNumber = genericLength mintettes
             , upTransactionsNumber = rcTransactionsNum
             , upShardParams = sp
+            , upConfigStr = configStr
             }
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity

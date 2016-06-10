@@ -4,6 +4,7 @@
 
 module Bench.RSCoin.Remote.Config
        ( RemoteConfig (..)
+       , ProfilingType (..)
        , BankData (..)
        , MintetteData (..)
        , UsersData (..)
@@ -31,10 +32,16 @@ data RemoteConfig = RemoteConfig
     , rcPeriod          :: !Word
     } deriving (Show)
 
+data ProfilingType
+    = PTStandard      -- ^ '-p'
+    | PTDetailed      -- ^ '-P'
+    | PTMostDetailed  -- ^ '-pa'
+    deriving (Show)
+
 data BankData = BankData
     { bdHasRSCoin :: !Bool
     , bdHost      :: !Text
-    , bdProfiling :: !Bool
+    , bdProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 
 data MintetteData = MintetteData
@@ -57,6 +64,7 @@ data UsersData = UsersData
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''RemoteConfig)
+$(A.deriveJSON defaultOptions ''ProfilingType)
 $(A.deriveJSON defaultOptions ''BankData)
 $(A.deriveJSON defaultOptions ''MintetteData)
 $(A.deriveJSON defaultOptions ''UsersData)

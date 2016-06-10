@@ -19,6 +19,7 @@ import qualified RSCoin.Core                as C
 
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
+                                             ProfilingType (..),
                                              RemoteConfig (..), UsersData (..),
                                              readRemoteConfig)
 
@@ -40,7 +41,7 @@ data ShardParams = ShardParams
 data BankParams = BankParams
     { bpPeriodDelta :: !Word
     , bpShardParams :: !ShardParams
-    , bpProfiling   :: !Bool
+    , bpProfiling   :: !(Maybe ProfilingType)
     , bpHasRSCoin   :: !Bool
     } deriving (Show)
 
@@ -70,13 +71,16 @@ setupConfigCommand :: ShardParams -> T.Text
 setupConfigCommand =
     sformat ("echo '" % stext % "' > rscoin.yaml") . configYaml
 
-profilingBuildArgs :: Bool -> T.Text
-profilingBuildArgs True = " --profile --executable-profiling --library-profiling "
-profilingBuildArgs False = ""
+profilingBuildArgs :: Maybe ProfilingType -> T.Text
+profilingBuildArgs Nothing = ""
+profilingBuildArgs (Just _) =
+    " --profile --executable-profiling --library-profiling "
 
-profilingRunArgs :: Bool -> T.Text
-profilingRunArgs True = " +RTS -p -RTS "
-profilingRunArgs False = ""
+profilingRunArgs :: Maybe ProfilingType -> T.Text
+profilingRunArgs Nothing = ""
+profilingRunArgs (Just PTStandard) = " +RTS -p -RTS "
+profilingRunArgs (Just PTDetailed) = " +RTS -P -RTS "
+profilingRunArgs (Just PTMostDetailed) = " +RTS -pa -RTS "
 
 bankSetupCommand :: BankParams -> [T.Text] -> [C.PublicKey] -> T.Text
 bankSetupCommand BankParams {..} mHosts mKeys =
@@ -98,7 +102,7 @@ bankSetupCommand BankParams {..} mHosts mKeys =
              build)
             (C.defaultPort :: Int)
 
-bankRunCommand :: Word -> Bool -> T.Text
+bankRunCommand :: Word -> Maybe ProfilingType -> T.Text
 bankRunCommand periodDelta profiling =
     T.unlines
         [ cdCommand

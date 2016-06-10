@@ -3,7 +3,6 @@ transactionsNum: 100
 bank:
   hasRSCoin: True
   host: 52.58.26.146
-  profiling: False
 mintettes:
 - hasRSCoin: True
   host: 52.28.80.85

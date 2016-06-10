@@ -41,6 +41,10 @@ installCommand = $(makeRelativeToProject "bench/install.sh" >>= embedStringFile)
 cdCommand :: T.Text
 cdCommand = "cd \"$HOME/rscoin\""
 
+updateRepoCommand :: T.Text
+updateRepoCommand =
+    T.unlines ["git checkout .", "git checkout master", "git pull --ff-only"]
+
 exportCommand :: Word -> T.Text
 exportCommand shardSize =
     sformat ("export " % text % "=" % int) C.shardSizeOption shardSize
@@ -52,7 +56,7 @@ bankSetupCommand shardSize mHosts mKeys =
         , exportCommand shardSize
         , bankStopCommand
         , "rm -rf bank-db"
-        , "git pull --ff-only"
+        , updateRepoCommand
         , "stack build rscoin"
         , mconcat $ map (uncurry addMintetteCommand) $ zip mHosts mKeys]
   where
@@ -84,7 +88,7 @@ mintetteKeyGenCommand shardSize =
         , exportCommand shardSize
         , mintetteStopCommand
         , "rm -rf mintette-db"
-        , "git pull --ff-only"
+        , updateRepoCommand
         , "stack build rscoin"
         , "stack exec -- rscoin-keygen"]
 
@@ -108,7 +112,7 @@ usersCommand shardSize bankHost u t =
     T.unlines
         [ cdCommand
         , exportCommand shardSize
-        , "git pull --ff-only"
+        , updateRepoCommand
         , sformat
               ("stack bench rscoin:rscoin-bench-only-users --benchmark-arguments \"--users " %
                int %
@@ -116,7 +120,7 @@ usersCommand shardSize bankHost u t =
                build %
                " --transactions " %
                int %
-               " +RTS -qg\"")
+               " +RTS -qg -RTS\"")
               u
               bankHost
               t]

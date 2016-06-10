@@ -172,6 +172,12 @@ mkStatsDirCommand = sformat ("mkdir -p " % stext) statsDir
 statsTmpFileName :: T.IsString s => s
 statsTmpFileName = "bench-tmp.txt"
 
+csvStatsTmpFileName :: T.IsString s => s
+csvStatsTmpFileName = "bench-tmp.csv"
+
+csvStatsFileName :: (Monoid s, T.IsString s) => s
+csvStatsFileName = mconcat [statsDir, "/", "stats.csv"]
+
 usersCommand :: UsersParams -> T.Text -> Maybe ProfilingType -> T.Text
 usersCommand UsersParams{..} bankHost profiling =
     T.unlines
@@ -180,6 +186,7 @@ usersCommand UsersParams{..} bankHost profiling =
          , updateTimezoneCommand
          , setupConfigCommand upShardParams
          , mkStatsDirCommand
+         , sformat ("touch " % stext) csvStatsFileName
          , sformat
                ("stack bench rscoin:rscoin-bench-only-users " % stext %
                 " --benchmark-arguments \"--users " %
@@ -190,6 +197,10 @@ usersCommand UsersParams{..} bankHost profiling =
                 int %
                 " --output " %
                 stext %
+                " --csv " %
+                stext %
+                " --csvPrefix " %
+                stext %
                 " --bank " %
                 stext %
                 stext %
@@ -199,21 +210,37 @@ usersCommand UsersParams{..} bankHost profiling =
                upMintettesNumber
                upTransactionsNumber
                statsTmpFileName
+               csvStatsTmpFileName
+               csvPrefix
                bankHost
                (profilingRunArgs profiling)] ++
          dealWithStats)
   where
     statsId = "`date +\"%m.%d-%H:%M:%S\"`"
+    csvPrefix =
+        sformat
+            ("\\\"" % stext % ",`git show-ref --abbrev -s HEAD`,\\\"")
+            statsId
     dealWithStats
       | upDumpStats =
           [ sformat
-                ("mv bench-tmp.txt " % stext)
+                ("mv " % stext % " " % stext)
+                statsTmpFileName
                 (mconcat [statsDir, "/", statsId, ".stats"])
+          , sformat
+                ("echo `cat " % stext % "` >> " % stext)
+                csvStatsTmpFileName
+                csvStatsFileName
+          , sformat ("rm -f " % stext) csvStatsTmpFileName
           , sformat
                 ("echo '" % stext % "' > " % stext)
                 upConfigStr
                 (mconcat [statsDir, "/", statsId, ".yaml"])]
-      | otherwise = [sformat ("rm -f " % stext) statsTmpFileName]
+      | otherwise =
+          [ sformat
+                ("rm -f " % stext % " " % stext)
+                statsTmpFileName
+                csvStatsTmpFileName]
 
 sshArgs :: T.Text -> [T.Text]
 sshArgs hostName =

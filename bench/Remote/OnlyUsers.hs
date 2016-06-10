@@ -6,7 +6,6 @@
 import           Control.Concurrent         (threadDelay)
 import           Control.Concurrent.Async   (forConcurrently)
 import           Data.ByteString            (ByteString)
-import           Data.Int                   (Int64)
 import           Data.Maybe                 (fromMaybe)
 import           Formatting                 (build, fixed, int, sformat, (%))
 import           System.IO.Temp             (withSystemTempDirectory)
@@ -24,8 +23,8 @@ import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserLogic     (benchUserTransactions,
                                              initializeBank, initializeUser,
                                              userThread)
-import           Bench.RSCoin.Util          (ElapsedTime (..), measureTime_,
-                                             perSecond)
+import           Bench.RSCoin.Util          (ElapsedTime (elapsedWallTime),
+                                             measureTime_, perSecond)
 
 data BenchOptions = BenchOptions
     { users         :: Int            <?> "number of users"
@@ -41,7 +40,7 @@ instance ParseFields Severity
 instance ParseRecord Severity
 instance ParseRecord BenchOptions
 
-initializeUsers :: ByteString -> FilePath -> [Int64] -> IO [UserAddress]
+initializeUsers :: ByteString -> FilePath -> [Word] -> IO [UserAddress]
 initializeUsers bankHost benchDir userIds = do
     let initUserAction = userThread bankHost benchDir initializeUser
     logInfo $ sformat ("Initializing " % int % " users…") $ length userIds
@@ -67,7 +66,7 @@ runTransactions
     -> Word
     -> FilePath
     -> [UserAddress]
-    -> [Int64]
+    -> [Word]
     -> IO ElapsedTime
 runTransactions bankHost transactionNum benchDir userAddresses userIds = do
     let benchUserAction =
@@ -79,7 +78,7 @@ runTransactions bankHost transactionNum benchDir userAddresses userIds = do
 main :: IO ()
 main = do
     BenchOptions{..} <- getRecord "rscoin-bench-only-users"
-    let userNumber      = unHelpful users
+    let userNumber      = fromIntegral $ unHelpful users
         globalSeverity  = fromMaybe Error $ unHelpful severity
         bSeverity       = fromMaybe Info $ unHelpful benchSeverity
         transactionNum  = fromMaybe 1000 $ unHelpful transactions
@@ -88,7 +87,7 @@ main = do
         initLogging globalSeverity
         initBenchLogger bSeverity
 
-        let userIds    = [1 .. fromIntegral userNumber]
+        let userIds    = [1 .. userNumber]
         userAddresses <- initializeUsers bankHost benchDir userIds
         initializeSuperUser transactionNum bankHost benchDir userAddresses
 

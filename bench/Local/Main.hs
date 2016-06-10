@@ -8,7 +8,6 @@ module Main where
 import           Control.Concurrent              (forkIO, threadDelay)
 import           Control.Concurrent.Async        (forConcurrently)
 import           Control.Monad                   (forM_, replicateM, void)
-import           Data.Int                        (Int64)
 import           Data.Maybe                      (fromMaybe)
 import           Data.String                     (IsString)
 import           Data.Time.Units                 (Second)
@@ -78,7 +77,7 @@ establishBank benchDir periodDelta = do
     logInfo "Bank is launched"
     threadDelay $ 2 * 10 ^ (6 :: Int)
 
-initializeUsers :: FilePath -> [Int64] -> IO [UserAddress]
+initializeUsers :: FilePath -> [Word] -> IO [UserAddress]
 initializeUsers benchDir userIds = do
     let initUserAction = userThread bankHost benchDir initializeUser
     logInfo $ sformat ("Initializing " % int % " users…") $ length userIds
@@ -101,7 +100,7 @@ initializeSuperUser txNum benchDir userAddresses = do
 runTransactions :: Word
                 -> FilePath
                 -> [UserAddress]
-                -> [Int64]
+                -> [Word]
                 -> IO ElapsedTime
 runTransactions txNum benchDir userAddresses userIds = do
     let benchUserAction =

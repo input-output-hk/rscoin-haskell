@@ -35,8 +35,8 @@ import           Bench.RSCoin.Logging       (logDebug, logInfo)
 userThread
     :: ByteString
     -> FilePath
-    -> (Int64 -> A.RSCoinUserState -> MsgPackRpc a)
-    -> Int64
+    -> (Word -> A.RSCoinUserState -> MsgPackRpc a)
+    -> Word
     -> IO a
 userThread bankHost benchDir userAction userId =
     runRealMode bankHost $
@@ -52,7 +52,7 @@ queryMyAddress :: A.RSCoinUserState -> MsgPackRpc UserAddress
 queryMyAddress userState = head <$> query' userState A.GetAllAddresses
 
 -- | Create user with 1 address and return it.
-initializeUser :: Int64 -> A.RSCoinUserState -> MsgPackRpc UserAddress
+initializeUser :: Word -> A.RSCoinUserState -> MsgPackRpc UserAddress
 initializeUser userId userState = do
     let userAddressesNumber = 1
     logDebug $ sformat ("Initializing user " % int % "…") userId
@@ -91,7 +91,7 @@ initializeBank transactionNum userAddresses bankUserState = do
 -- `transactionNum` transactions.
 benchUserTransactions :: Word
                       -> [UserAddress]
-                      -> Int64
+                      -> Word
                       -> A.RSCoinUserState
                       -> MsgPackRpc ()
 benchUserTransactions txNum allAddresses userId userState = do

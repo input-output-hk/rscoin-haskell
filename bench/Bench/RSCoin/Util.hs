@@ -1,7 +1,7 @@
 -- | Benchmark related utils.
 
 module Bench.RSCoin.Util
-       ( ElapsedTime
+       ( ElapsedTime (..)
        , measureTime
        , measureTime_
        , perSecond
@@ -42,4 +42,5 @@ measureTime_ :: IO a -> IO ElapsedTime
 measureTime_ = fmap fst . measureTime
 
 perSecond :: (Real a, Fractional b) => a -> TimeSpec -> b
-perSecond n time = fromRational $ toRational n / toNanoSecs time * 1.0e9
+perSecond n time =
+    fromRational $ toRational n / (fromIntegral $ toNanoSecs time) * 1.0e9

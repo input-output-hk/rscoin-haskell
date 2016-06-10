@@ -8,7 +8,7 @@ import           Control.Concurrent.Async   (forConcurrently)
 import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
 import           Data.Maybe                 (fromMaybe)
-import           Formatting                 (build, int, sformat, (%))
+import           Formatting                 (build, fixed, int, sformat, (%))
 import           System.IO.Temp             (withSystemTempDirectory)
 
 -- workaround to make stylish-haskell work :(
@@ -24,7 +24,8 @@ import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserLogic     (benchUserTransactions,
                                              initializeBank, initializeUser,
                                              userThread)
-import           Bench.RSCoin.Util          (ElapsedTime, measureTime_)
+import           Bench.RSCoin.Util          (ElapsedTime (..), measureTime_,
+                                             perSecond)
 
 data BenchOptions = BenchOptions
     { users         :: Int            <?> "number of users"
@@ -91,5 +92,9 @@ main = do
         userAddresses <- initializeUsers bankHost benchDir userIds
         initializeSuperUser transactionNum bankHost benchDir userAddresses
 
-        logInfo . sformat ("Elapsed time: " % build) =<<
-            runTransactions bankHost transactionNum benchDir userAddresses userIds
+        t <- runTransactions bankHost transactionNum benchDir userAddresses userIds
+        logInfo . sformat ("Elapsed time: " % build) $ t
+        let txTotal = transactionNum * userNumber
+            tps :: Double
+            tps = perSecond txTotal $ elapsedWallTime t
+        logInfo . sformat ("TPS: " % fixed 2) $ tps

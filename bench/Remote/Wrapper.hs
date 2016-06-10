@@ -77,6 +77,9 @@ updateRepoCommand =
         , "git checkout master -q"
         , "git pull --ff-only -q"]
 
+updateTimezoneCommand :: T.Text
+updateTimezoneCommand = "sudo timedatectl set-timezone Europe/Moscow"
+
 configYaml :: ShardParams -> T.Text
 configYaml ShardParams{..} =
     T.unlines
@@ -170,6 +173,7 @@ usersCommand UsersParams{..} bankHost profiling =
     T.unlines
         [ cdCommand
         , updateRepoCommand
+        , updateTimezoneCommand
         , setupConfigCommand upShardParams
         , mkStatsDirCommand
         , sformat

@@ -23,4 +23,5 @@ rscoin_bench:
   script:
     - mkdir -p `pwd`/___restore
     - ln -s `pwd`/___restore /root/.stack
-    - stack --no-terminal bench rscoin
+    - stack --no-terminal bench rscoin --no-run-benchmarks
+    - stack --no-terminal bench rscoin:rscoin-bench-local --benchmark-arguments '--users 4 --mintettes 3'

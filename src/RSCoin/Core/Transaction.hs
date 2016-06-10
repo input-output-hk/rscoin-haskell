@@ -29,7 +29,7 @@ validateSum :: Transaction -> Bool
 validateSum Transaction{..} =
     let inputSums = map sum $ groupBy ((==) `on` getColor) $ sortBy (compare `on` getColor) $ map sel3 txInputs
         outputSums = map sum $ groupBy ((==) `on` getColor) $ sortBy (compare `on` getColor) $ map snd txOutputs in
-    foldl (uncurry (>=)) True $ zip inputSums outputSums
+    and $ zipWith ((>=) `on` getCoin) inputSums outputSums
 
 -- | Validates that signature is issued by public key associated with given
 -- address for the transaction.

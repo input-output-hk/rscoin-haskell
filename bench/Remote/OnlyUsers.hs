@@ -7,11 +7,15 @@ import           Control.Concurrent         (threadDelay)
 import           Control.Concurrent.Async   (forConcurrently)
 import           Data.ByteString            (ByteString)
 import           Data.Maybe                 (fromMaybe)
-import           Formatting                 (build, fixed, int, sformat, (%))
+import qualified Data.Text.IO               as TIO
+import           Formatting                 (build, fixed, int, sformat, stext,
+                                             (%))
 import           System.IO.Temp             (withSystemTempDirectory)
 
 -- workaround to make stylish-haskell work :(
 import           Options.Generic
+
+import           Serokell.Util.Text         (show')
 
 import           RSCoin.Core                (Severity (..), bankSecretKey,
                                              finishPeriod, initLogging)
@@ -32,6 +36,8 @@ data BenchOptions = BenchOptions
     , severity      :: Maybe Severity <?> "severity for global logger"
     , benchSeverity :: Maybe Severity <?> "severity for bench logger"
     , bank          :: ByteString     <?> "bank host"
+    , output        :: Maybe FilePath <?> "optional path to dump statistics"
+    , mintettes     :: Maybe Word     <?> "number of mintettes (only for statistics)"
     } deriving (Generic, Show)
 
 instance ParseField  Word
@@ -75,6 +81,37 @@ runTransactions bankHost transactionNum benchDir userAddresses userIds = do
     logInfo "Running transactions…"
     measureTime_ $ forConcurrently userIds benchUserAction
 
+dumpStatistics :: Word
+               -> Maybe Word
+               -> Word
+               -> Double
+               -> ElapsedTime
+               -> FilePath
+               -> IO ()
+dumpStatistics usersNum mintettesNum txNum tps elapsedTime fp =
+    TIO.writeFile fp $
+    sformat
+        ("rscoin-bench-only-users statistics:\n" % "tps: " % fixed 2 %
+         "\nusers: " %
+         int %
+         "\nmintettes: " %
+         stext %
+         "\ntransactions per user: " %
+         int %
+         "\ntransactions total: " %
+         int %
+         "\nelapsed time: " %
+         build %
+         "\n")
+        tps
+        usersNum
+        mintettesNumStr
+        txNum
+        (txNum * usersNum)
+        elapsedTime
+  where
+    mintettesNumStr = maybe "<unknown>" show' mintettesNum
+
 main :: IO ()
 main = do
     BenchOptions{..} <- getRecord "rscoin-bench-only-users"
@@ -94,6 +131,9 @@ main = do
         t <- runTransactions bankHost transactionNum benchDir userAddresses userIds
         logInfo . sformat ("Elapsed time: " % build) $ t
         let txTotal = transactionNum * userNumber
-            tps :: Double
             tps = perSecond txTotal $ elapsedWallTime t
         logInfo . sformat ("TPS: " % fixed 2) $ tps
+        maybe
+            (return ())
+            (dumpStatistics userNumber (unHelpful mintettes) transactionNum tps t) $
+            unHelpful output

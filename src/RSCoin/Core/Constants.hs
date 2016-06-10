@@ -15,21 +15,24 @@ module RSCoin.Core.Constants
        , genesisValue
        , periodReward
        , shardDivider
+       , shardDelta
        , rpcTimeout
        , bankSecretKey
        ) where
 
-import           Data.Binary            (Binary)
-import           Data.FileEmbed         (embedFile, makeRelativeToProject)
-import           Data.Maybe             (fromJust)
-import           Data.String            (IsString)
-import           Data.Time.Units        (Second)
-import           System.Directory       (getHomeDirectory)
-import           System.FilePath        ((</>))
+import           Data.Binary                (Binary)
+import           Data.FileEmbed             (embedFile, makeRelativeToProject)
+import           Data.Maybe                 (fromJust)
+import           Data.String                (IsString)
+import           Data.Time.Units            (Second)
+import           Language.Haskell.TH.Syntax (Lift (lift))
+import           System.Directory           (getHomeDirectory)
+import           System.FilePath            ((</>))
 
-import           RSCoin.Core.Crypto     (Hash, SecretKey, constructPublicKey,
-                                         constructSecretKey, hash)
-import           RSCoin.Core.Primitives (Address (Address), Coin)
+import qualified RSCoin.Core.CompileConfig  as CC
+import           RSCoin.Core.Crypto         (Hash, SecretKey, constructPublicKey,
+                                             constructSecretKey, hash)
+import           RSCoin.Core.Primitives     (Address (Address), Coin)
 
 -- | Path used by default to read/write secret key.
 defaultSecretKeyPath :: IO FilePath
@@ -81,7 +84,11 @@ periodReward = 1000
 -- | The amount of mintettes divided my shardDivider equals to shard
 -- size.
 shardDivider :: Int
-shardDivider = 3
+shardDivider = $(lift $ CC.shardDivider CC.readRSCoinConfig)
+
+-- | The amount of mintettes to be added to shard size.
+shardDelta :: Int
+shardDelta = $(lift $ CC.shardDelta CC.readRSCoinConfig)
 
 -- | Timeout for rpc calls in microsecons.
 -- If timeout exceedes TimeoutError is thrown.

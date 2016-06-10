@@ -16,7 +16,6 @@ import           RSCoin.Core.LBlock            as Exports
 import           RSCoin.Core.Logging           as Exports
 import           RSCoin.Core.MessagePack       ()
 import           RSCoin.Core.Owners            as Exports
-import           RSCoin.Core.OwnersConfig      as Exports (shardSizeOption)
 import           RSCoin.Core.Primitives        as Exports
 import           RSCoin.Core.Protocol          as Exports
 import           RSCoin.Core.Transaction       as Exports

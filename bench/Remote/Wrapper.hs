@@ -7,7 +7,7 @@ import           Control.Monad              (unless)
 import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
 import           Data.List                  (genericLength, genericTake)
-import           Data.Maybe                 (fromMaybe)
+import           Data.Maybe                 (fromMaybe, isJust)
 import qualified Data.Text                  as T (unlines)
 import qualified Data.Text.IO               as TIO
 import           Formatting                 (build, int, sformat, stext, (%))
@@ -51,6 +51,7 @@ data UsersParams = UsersParams
     , upMintettesNumber    :: !Word
     , upTransactionsNumber :: !Word
     , upShardParams        :: !ShardParams
+    , upDumpStats          :: !Bool
     , upConfigStr          :: !T.Text
     } deriving (Show)
 
@@ -168,42 +169,51 @@ mintetteStopCommand = "killall -s SIGINT rscoin-mintette 2> /dev/null"
 mkStatsDirCommand :: T.Text
 mkStatsDirCommand = sformat ("mkdir -p " % stext) statsDir
 
+statsTmpFileName :: T.IsString s => s
+statsTmpFileName = "bench-tmp.txt"
+
 usersCommand :: UsersParams -> T.Text -> Maybe ProfilingType -> T.Text
 usersCommand UsersParams{..} bankHost profiling =
     T.unlines
-        [ cdCommand
-        , updateRepoCommand
-        , updateTimezoneCommand
-        , setupConfigCommand upShardParams
-        , mkStatsDirCommand
-        , sformat
-              ("stack bench rscoin:rscoin-bench-only-users " % stext %
-               " --benchmark-arguments \"--users " %
-               int %
-               " --mintettes " %
-               int %
-               " --transactions " %
-               int %
-               " --output bench-tmp.txt" %
-               " --bank " %
-               stext %
-               stext %
-               " +RTS -qg -RTS\"")
-              (profilingBuildArgs profiling)
-              upUsersNumber
-              upMintettesNumber
-              upTransactionsNumber
-              bankHost
-              (profilingRunArgs profiling)
-        , sformat
-              ("mv bench-tmp.txt " % stext)
-              (mconcat [statsDir, "/", statsId, ".stats"])
-        , sformat
-              ("echo '" % stext % "' > " % stext)
-              upConfigStr
-              (mconcat [statsDir, "/", statsId, ".yaml"])]
+        ([ cdCommand
+         , updateRepoCommand
+         , updateTimezoneCommand
+         , setupConfigCommand upShardParams
+         , mkStatsDirCommand
+         , sformat
+               ("stack bench rscoin:rscoin-bench-only-users " % stext %
+                " --benchmark-arguments \"--users " %
+                int %
+                " --mintettes " %
+                int %
+                " --transactions " %
+                int %
+                " --output " %
+                stext %
+                " --bank " %
+                stext %
+                stext %
+                " +RTS -qg -RTS\"")
+               (profilingBuildArgs profiling)
+               upUsersNumber
+               upMintettesNumber
+               upTransactionsNumber
+               statsTmpFileName
+               bankHost
+               (profilingRunArgs profiling)] ++
+         dealWithStats)
   where
     statsId = "`date +\"%m.%d-%H:%M:%S\"`"
+    dealWithStats
+      | upDumpStats =
+          [ sformat
+                ("mv bench-tmp.txt " % stext)
+                (mconcat [statsDir, "/", statsId, ".stats"])
+          , sformat
+                ("echo '" % stext % "' > " % stext)
+                upConfigStr
+                (mconcat [statsDir, "/", statsId, ".yaml"])]
+      | otherwise = [sformat ("rm -f " % stext) statsTmpFileName]
 
 sshArgs :: T.Text -> [T.Text]
 sshArgs hostName =
@@ -270,12 +280,18 @@ main = do
             }
         bankHost = bdHost rcBank
         mintettes = genericTake (fromMaybe maxBound rcMintettesNum) rcMintettes
+        noStats =
+            any
+                isJust
+                (bpProfiling bp :
+                 udProfiling rcUsers : map mdProfiling mintettes)
         up =
             UsersParams
             { upUsersNumber = rcUsersNum
             , upMintettesNumber = genericLength mintettes
             , upTransactionsNumber = rcTransactionsNum
             , upShardParams = sp
+            , upDumpStats = not noStats
             , upConfigStr = configStr
             }
     C.initLogging C.Error

@@ -99,13 +99,12 @@ initializeSuperUser txNum benchDir userAddresses = do
 
 runTransactions :: Word
                 -> FilePath
-                -> [UserAddress]
                 -> [Word]
                 -> IO ElapsedTime
-runTransactions txNum benchDir userAddresses userIds = do
+runTransactions txNum benchDir userIds = do
     let benchUserAction =
             userThread bankHost benchDir $
-            benchUserTransactions txNum userAddresses
+            benchUserTransactions txNum
     logInfo "Running transactions…"
     measureTime_ $ forConcurrently userIds benchUserAction
 
@@ -131,4 +130,4 @@ main = do
         initializeSuperUser txNum benchDir userAddresses
 
         logInfo . sformat ("Elapsed time: " % build) =<<
-            runTransactions txNum benchDir userAddresses userIds
+            runTransactions txNum benchDir userIds

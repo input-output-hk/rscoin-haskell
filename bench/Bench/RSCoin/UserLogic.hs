@@ -18,8 +18,6 @@ import           Data.Int                   (Int64)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
-import           Serokell.Util              (indexModulo)
-
 import           RSCoin.Core                (Address (..), Coin (..),
                                              bankSecretKey, keyGen)
 
@@ -85,17 +83,14 @@ initializeBank transactionNum userAddresses bankUserState = do
         toAddress
     logDebug "Sent initial coins from bank to users"
 
--- | Start user with provided addresses of other users and do
--- `transactionNum` transactions.
+-- | Do `txNum` transactions to random address.
 benchUserTransactions :: Word
-                      -> [UserAddress]
                       -> Word
                       -> A.RSCoinUserState
                       -> MsgPackRpc ()
-benchUserTransactions txNum allAddresses userId userState = do
-    myAddress <- queryMyAddress userState
-    let otherAddresses = filter (/= myAddress) allAddresses
-        loggingStep = txNum `div` 5
+benchUserTransactions txNum userId userState = do
+    let loggingStep = txNum `div` 5
+    addr <- Address . snd <$> liftIO keyGen
     forM_ [0 .. txNum - 1] $
         \i ->
              do when (i /= 0 && i `mod` loggingStep == 0) $
@@ -105,9 +100,7 @@ benchUserTransactions txNum allAddresses userId userState = do
                          " transactions")
                         userId
                         i
-                executeTransaction userState 1 .
-                    toAddress . (otherAddresses `indexModulo`) $
-                    i
+                executeTransaction userState 1 addr
 
 runSingleUser :: Word -> A.RSCoinUserState -> MsgPackRpc ()
 runSingleUser txNum bankUserState = do

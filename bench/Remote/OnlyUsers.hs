@@ -73,13 +73,11 @@ runTransactions
     :: ByteString
     -> Word
     -> FilePath
-    -> [UserAddress]
     -> [Word]
     -> IO ElapsedTime
-runTransactions bankHost transactionNum benchDir userAddresses userIds = do
+runTransactions bankHost transactionNum benchDir userIds = do
     let benchUserAction =
-            userThread bankHost benchDir $
-            benchUserTransactions transactionNum userAddresses
+            userThread bankHost benchDir $ benchUserTransactions transactionNum
     logInfo "Running transactions…"
     measureTime_ $ forConcurrently userIds benchUserAction
 
@@ -154,7 +152,6 @@ main = do
                         bankHost
                         transactionNum
                         benchDir
-                        userAddresses
                         userIds
                 logInfo . sformat ("Elapsed time: " % build) $ t
                 let txTotal = transactionNum * userNumber

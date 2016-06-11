@@ -67,10 +67,10 @@ chooseAddresses :: [AddrId] -> Coin -> ([AddrId], Coin)
 chooseAddresses addrids value =
     chooseOptimal addrids sel3 value
 
---chooseOptimal :: [a] -> (a -> Coin) -> Coin -> ([a], Coin)
-chooseOptimal :: [a] -> (a -> Coin) -> Map Int Rational -> Map Int ([a], Rational)
-chooseOptimal addrids getC valueMap =
-    let coinList = map sum $
+chooseOptimal :: [a] -> (a -> Coin) -> Coin -> ([a], Coin)
+--chooseOptimal :: [a] -> (a -> Coin) -> Map Int Rational -> Map Int ([a], Rational)
+chooseOptimal addrids getC valueMap = undefined
+    {-let coinList = map sum $
                    groupBy ((==) `on` (getColor . getC)) $
                    sortBy (comparing (getColor . getC)) addrids
         valueList = map (uncurry $ flip Coin) $
@@ -89,7 +89,7 @@ chooseOptimal addrids getC valueMap =
                  , if newAccum >= value
                        then Just $ newAccum - value
                        else Nothing)
-      in (chosenAIds, whatsLeft)
+      in (chosenAIds, whatsLeft)-}
 
 -- | This function creates for every address ∈ S_{out} a pair
 -- (addr,addrid), where addrid is exactly a usage of this address in

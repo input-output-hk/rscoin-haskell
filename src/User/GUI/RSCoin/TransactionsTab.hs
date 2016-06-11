@@ -81,7 +81,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
             G.entrySetText (spinButtonSendAmount tabTransactions) $ show userAmount
         else do
             tr <- runRealModeLocal $
-                U.formTransactionFromAll st address $ C.Coin amount
+                U.formTransactionFromAll st Nothing address $ C.Coin amount
             liftIO $ addTransaction gst (C.hash tr) (Just tr)
             dialog <- G.messageDialogNew
                 (Just mainWindow)

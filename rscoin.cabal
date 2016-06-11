@@ -55,6 +55,7 @@ library
                      , RSCoin.User
                      , RSCoin.User.AcidState
                      , RSCoin.User.Actions
+                     , RSCoin.User.Cache
                      , RSCoin.User.Error
                      , RSCoin.User.Logic
                      , RSCoin.User.Operations

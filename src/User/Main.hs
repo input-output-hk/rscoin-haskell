@@ -6,8 +6,7 @@
 import           Control.Concurrent      (threadDelay)
 import           Control.Exception       (SomeException)
 import           Control.Monad           (unless, void)
-import           Control.Monad.Catch     (MonadCatch, bracket, catch,
-                                          throwM)
+import           Control.Monad.Catch     (MonadCatch, bracket, catch, throwM)
 import           Control.Monad.Trans     (MonadIO, liftIO)
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
@@ -43,7 +42,8 @@ processCommand
     :: WorkMode m
     => A.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ = UA.processAction st UA.ListAddresses
-processCommand st (O.FormTransaction i o) _ = UA.processAction st $ UA.FormTransaction i o
+processCommand st (O.FormTransaction i o) _ =
+    UA.processAction st $ UA.FormTransaction i o Nothing
 processCommand st O.UpdateBlockchain _ = UA.processAction st UA.UpdateBlockchain
 processCommand _ (O.Dump command) _ = eWrap $ dumpCommand command
 processCommand st O.StartGUI opts@O.UserOptions{..} = do

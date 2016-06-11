@@ -17,8 +17,7 @@ module RSCoin.Core.Communication
        , commitTx
        , sendPeriodFinished
        , announceNewPeriod
-       , getOwnersByAddrid
-       , getOwnersByTx
+       , getMintettesList
        , P.unCps
        , getBlocks
        , getMintettes
@@ -36,20 +35,19 @@ import           Data.MessagePack           (MessagePack)
 import           Data.Monoid                ((<>))
 import           Data.Text                  (Text, pack)
 import           Data.Text.Buildable        (Buildable (build))
-import           Data.Tuple.Select          (sel1)
 import           Data.Typeable              (Typeable)
 import qualified Network.MessagePack.Client as MP (RpcError (..))
 
 import           Safe                       (atMay)
 import           Serokell.Util.Text         (format', formatSingle',
-                                             listBuilderJSONIndent, mapBuilder,
-                                             pairBuilder, show')
+                                             listBuilderJSON,
+                                             listBuilderJSONIndent, pairBuilder,
+                                             show')
 
-import           RSCoin.Core.Crypto         (SecretKey, Signature, hash)
+import           RSCoin.Core.Crypto         (SecretKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
-import           RSCoin.Core.Owners         (owners)
 import           RSCoin.Core.Primitives     (AddrId, Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
 import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
@@ -166,33 +164,13 @@ finishPeriod _ =
         (const $ logDebug "Successfully finished period") $
     callBank (P.call $ P.RSCBank P.FinishPeriod)
 
-getOwnersByHash :: WorkMode m => TransactionId -> m [(Mintette, MintetteId)]
-getOwnersByHash tId =
+getMintettesList :: WorkMode m => m [Mintette]
+getMintettesList =
     withResult
-        (logDebug $ formatSingle' "Getting owners by transaction id {}" tId)
-        (logDebug . format' "Successfully got owners by hash {}: {}" . (tId,) . mapBuilder)
-        $ toOwners <$> callBank (P.call $ P.RSCBank P.GetMintettes)
-  where
-    toOwners mts =
-        map
-            (\i -> (mts !! i, i)) $
-        owners mts tId
-
--- | Gets owners from Transaction
-getOwnersByTx :: WorkMode m => Transaction -> m [(Mintette, MintetteId)]
-getOwnersByTx tx =
-    withResult
-        (logDebug $ formatSingle' "Getting owners by transaction {}" tx)
-        (const $ logDebug "Successfully got owners by transaction")
-        $ getOwnersByHash $ hash tx
-
--- | Gets owners from Addrid
-getOwnersByAddrid :: WorkMode m => AddrId -> m [(Mintette, MintetteId)]
-getOwnersByAddrid aId =
-    withResult
-        (logDebug $ formatSingle' "Getting owners by addrid {}" aId)
-        (const $ logDebug "Successfully got owners by addrid")
-        $ getOwnersByHash $ sel1 aId
+        (logDebug "Getting mintettes list")
+        (logDebug .
+         formatSingle' "Successfully got mintettes list: {}" . listBuilderJSON) $
+    callBank (P.call $ P.RSCBank P.GetMintettes)
 
 logFunction :: MonadIO m => MintetteError -> Text -> m ()
 logFunction MEInactive = logInfo

@@ -10,7 +10,8 @@ import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe, isJust)
 import qualified Data.Text                  as T (unlines)
 import qualified Data.Text.IO               as TIO
-import           Formatting                 (build, int, sformat, stext, (%))
+import           Formatting                 (build, int, sformat, shown, stext,
+                                             (%))
 import qualified Options.Generic            as OG
 import qualified Turtle                     as T
 
@@ -53,6 +54,7 @@ data UsersParams = UsersParams
     , upShardParams        :: !ShardParams
     , upDumpStats          :: !Bool
     , upConfigStr          :: !T.Text
+    , upSeverity           :: !C.Severity
     } deriving (Show)
 
 userName :: T.IsString s => s
@@ -195,6 +197,8 @@ usersCommand UsersParams{..} bankHost profiling =
                 int %
                 " --transactions " %
                 int %
+                " --severity " %
+                shown %
                 " --output " %
                 stext %
                 " --csv " %
@@ -209,6 +213,7 @@ usersCommand UsersParams{..} bankHost profiling =
                upUsersNumber
                upMintettesNumber
                upTransactionsNumber
+               upSeverity
                statsTmpFileName
                csvStatsTmpFileName
                csvPrefix
@@ -287,7 +292,7 @@ stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
 
 runUsers :: UsersParams -> T.Text -> UsersData -> IO ()
-runUsers up bankHost (UsersData hasRSCoin hostName profiling) = do
+runUsers up bankHost (UsersData hasRSCoin hostName profiling _) = do
     unless hasRSCoin $ installRSCoin hostName
     runSsh hostName $ usersCommand up bankHost profiling
 
@@ -320,6 +325,7 @@ main = do
             , upShardParams = sp
             , upDumpStats = not noStats
             , upConfigStr = configStr
+            , upSeverity = fromMaybe C.Warning $ udSeverity rcUsers
             }
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity

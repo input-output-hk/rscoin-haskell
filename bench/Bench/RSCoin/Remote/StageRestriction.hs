@@ -2,6 +2,7 @@
 
 module Bench.RSCoin.Remote.StageRestriction
        ( defaultOptions
+       , leaveTagOptions
        ) where
 
 import qualified Data.Aeson.TH as A
@@ -31,3 +32,7 @@ defaultOptions =
     { A.fieldLabelModifier = headToLower . stripFieldPrefix . dropPunctuation
     , A.constructorTagModifier = headToLower . stripConstructorPrefix
     }
+
+-- | These options don't modify constructor tags
+leaveTagOptions :: A.Options
+leaveTagOptions = defaultOptions { A.constructorTagModifier = id }

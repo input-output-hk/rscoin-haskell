@@ -18,7 +18,10 @@ import           Data.Text.Buildable                  (Buildable (build))
 import qualified Data.Yaml                            as Y
 import           Formatting                           (bprint, stext, (%))
 
-import           Bench.RSCoin.Remote.StageRestriction (defaultOptions)
+import           RSCoin.Core                          (Severity)
+
+import           Bench.RSCoin.Remote.StageRestriction (defaultOptions,
+                                                       leaveTagOptions)
 
 data RemoteConfig = RemoteConfig
     { rcUsersNum        :: !Word
@@ -63,6 +66,7 @@ data UsersData = UsersData
     { udHasRSCoin :: !Bool
     , udHost      :: !Text
     , udProfiling :: !(Maybe ProfilingType)
+    , udSeverity  :: !(Maybe Severity)
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''RemoteConfig)
@@ -70,6 +74,7 @@ $(A.deriveJSON defaultOptions ''ProfilingType)
 $(A.deriveJSON defaultOptions ''BankData)
 $(A.deriveJSON defaultOptions ''MintetteData)
 $(A.deriveJSON defaultOptions ''UsersData)
+$(A.deriveJSON leaveTagOptions ''Severity)
 
 readRemoteConfig :: FilePath -> IO RemoteConfig
 readRemoteConfig fp =

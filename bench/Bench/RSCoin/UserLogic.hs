@@ -25,8 +25,7 @@ import           RSCoin.Core                (Address (..), Coin (..),
 
 import           RSCoin.Timed               (MsgPackRpc, runRealMode)
 import qualified RSCoin.User.AcidState      as A
-import           RSCoin.User.Operations     (formTransactionRetry,
-                                             updateBlockchain)
+import           RSCoin.User.Operations     (formTransactionRetry)
 import           RSCoin.User.Wallet         (UserAddress, toAddress)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
@@ -61,16 +60,15 @@ initializeUser userId userState = do
         logDebug (sformat ("Initialized user " % int % "…") userId)
 
 executeTransaction :: A.RSCoinUserState -> Int64 -> Address -> MsgPackRpc ()
-executeTransaction userState coinAmount addrToSend = do
-    () <$ updateBlockchain userState False
+executeTransaction userState coinAmount addrToSend =
     () <$
-        formTransactionRetry
-            maxBound
-            userState
-            False
-            inputMoneyInfo
-            addrToSend
-            outputMoney
+    formTransactionRetry
+        maxBound
+        userState
+        False
+        inputMoneyInfo
+        addrToSend
+        outputMoney
   where
     outputMoney = Coin coinAmount
     inputMoneyInfo = [(1, outputMoney)]

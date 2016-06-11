@@ -226,6 +226,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
         formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
     run :: WorkMode m => m C.Transaction
     run = do
+        () <$ updateBlockchain st verbose
         C.logInfo C.userLoggerName $
             format'
                 "Form a transaction from {}, to {}, amount {}"
@@ -275,7 +276,6 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
             liftIO $
             foldl1 mergeTransactions <$> mapM formTransactionMapper accInputs
         verboseSay $ formatSingle' "Please check your transaction: {}" outTr
-        void $ updateBlockchain st verbose
         walletHeight <- query' st A.GetLastBlockId
         lastBlockHeight <- pred <$> C.getBlockchainHeight
         when (walletHeight /= lastBlockHeight) $

@@ -43,4 +43,5 @@ measureTime_ = fmap fst . measureTime
 
 perSecond :: (Real a, Fractional b) => a -> TimeSpec -> b
 perSecond n time =
-    fromRational $ toRational n / (fromIntegral $ toNanoSecs time) * 1.0e9
+    fromRational $
+    toRational n / (fromIntegral $ (max 1 $ toNanoSecs time)) * 1.0e9

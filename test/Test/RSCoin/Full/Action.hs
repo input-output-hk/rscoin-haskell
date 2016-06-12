@@ -92,8 +92,9 @@ instance Action UserAction where
         unless (null inputs) $
             U.formTransactionRetry 5 user False inputs address $
             sum $ map snd inputs
-    doAction (UpdateBlockchain userIndex) =
-        runUserAction userIndex U.UpdateBlockchain
+    doAction (UpdateBlockchain userIndex) = do
+        user <- getUser userIndex
+        U.updateBlockchain user False
 
 toAddress :: WorkMode m => ToAddress -> TestEnv m Address
 toAddress =
@@ -126,7 +127,3 @@ getUser Nothing =
 getUser (Just index) = do
     mUser <- view $ users . to (`indexModuloMay` index)
     maybe (throwM $ TestError "No user in context") (return . view state) mUser
-
-runUserAction :: WorkMode m => UserIndex -> U.UserAction -> TestEnv m ()
-runUserAction userIndex command =
-    getUser userIndex >>= flip U.processAction command

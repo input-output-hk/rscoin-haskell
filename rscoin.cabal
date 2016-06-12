@@ -54,7 +54,6 @@ library
                      , RSCoin.Mintette.Worker
                      , RSCoin.User
                      , RSCoin.User.AcidState
-                     , RSCoin.User.Actions
                      , RSCoin.User.Error
                      , RSCoin.User.Logic
                      , RSCoin.User.Operations
@@ -165,6 +164,7 @@ executable rscoin-user
   main-is:             Main.hs
   other-modules:       Paths_rscoin
                      , UserOptions
+                     , Actions
                      , GUI.RSCoin.Addresses
                      , GUI.RSCoin.AddressesTab
                      , GUI.RSCoin.ContactsTab

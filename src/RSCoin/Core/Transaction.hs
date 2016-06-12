@@ -11,12 +11,11 @@ module RSCoin.Core.Transaction
        , computeOutputAddrids
        ) where
 
-import           Control.Exception      (assert)
 import           Data.Function          (on)
 import           Data.List              (groupBy, sortBy)
+import           Data.Map.Strict        (Map, fromListWith)
 import           Data.Ord               (comparing)
 import           Data.Tuple.Select      (sel3)
-import           Data.Map.Strict        (Map, fromListWith)
 
 import           RSCoin.Core.Crypto     (Signature, hash, verify)
 import           RSCoin.Core.Primitives (AddrId, Address (..), Coin (..),

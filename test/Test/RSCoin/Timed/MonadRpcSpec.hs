@@ -17,12 +17,12 @@ import           Test.QuickCheck            (Arbitrary (..), Property, generate,
                                              ioProperty)
 import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, run)
 
+import           RSCoin.Timed               (runRealModeLocal)
 import           RSCoin.Timed.MonadRpc      (Addr, Client (..), Host,
                                              MonadRpc (..), MsgPackRpc (..),
                                              Port, call, method)
-import           RSCoin.Timed.MonadTimed    (MonadTimed (..), fork_, for, ms)
+import           RSCoin.Timed.MonadTimed    (MonadTimed (..), for, fork_, ms)
 import           RSCoin.Timed.PureRpc       (Delays (..), PureRpc, runPureRpc)
-import           RSCoin.Timed.TimedIO       (runTimedIO)
 
 import           Network.MessagePack.Server (ServerT)
 
@@ -63,7 +63,7 @@ assertPure :: Bool -> PureRpcProp ()
 assertPure b = modify (b &&)
 
 runMsgPackRpcProp :: PropertyM MsgPackRpc () -> Property
-runMsgPackRpcProp = monadic $ ioProperty . runTimedIO . runMsgPackRpc
+runMsgPackRpcProp = monadic $ ioProperty . runRealModeLocal
 
 runPureRpcProp :: StdGen -> Delays -> PureRpcProp () -> Property
 runPureRpcProp gen delays test =

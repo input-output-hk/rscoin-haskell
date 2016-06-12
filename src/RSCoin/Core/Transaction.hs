@@ -12,9 +12,12 @@ module RSCoin.Core.Transaction
        , computeOutputAddrids
        ) where
 
+import           Control.Arrow          ((&&&))
+import           Control.Exception      (assert)
 import           Data.Function          (on)
 import           Data.List              (groupBy, sortBy)
-import           Data.Map.Strict        (Map, fromListWith)
+import           Data.Map.Strict        (Map, fromList, fromListWith,
+                                         mapWithKey, toList, (!))
 import           Data.Ord               (comparing)
 import           Data.Tuple.Select      (sel3)
 
@@ -47,6 +50,10 @@ validateSignature signature (Address pk) = verify pk signature
 -- transaction transfers to address.
 getAmountByAddress :: Address -> Transaction -> Map Color Rational
 getAmountByAddress addr Transaction{..} =
+    sum $ map snd $ filter ((==) addr . fst) txOutputs
+
+getAmountByAddress' :: Address -> Transaction -> Map Int Rational
+getAmountByAddress' addr Transaction{..} =
     let pair c = (getColor c, getCoin c) in
     fromListWith (+) $ map (pair . snd) $ filter ((==) addr . fst) txOutputs
 
@@ -73,28 +80,52 @@ chooseAddresses addrids value =
     chooseOptimal addrids sel3 value
 
 chooseOptimal :: [a] -> (a -> Coin) -> Coin -> ([a], Coin)
---chooseOptimal :: [a] -> (a -> Coin) -> Map Int Rational -> Map Int ([a], Rational)
-chooseOptimal addrids getC valueMap = undefined
-    {-let coinList = map sum $
-                   groupBy ((==) `on` (getColor . getC)) $
+chooseOptimal addrids getC value =
+    assert (sum (map getC addrids) >= value) $
+    let (_,chosenAIds,Just whatsLeft) =
+            foldl foldFoo (0, [], Nothing) $ sortBy (comparing getC) addrids
+        foldFoo o@(_,_,Just _) _ = o
+        foldFoo (accum,values,Nothing) e =
+            let val = getC e
+                newAccum = accum + val
+                newValues = e : values
+            in ( newAccum
+               , newValues
+               , if newAccum >= value
+                     then Just $ newAccum - value
+                     else Nothing)
+    in (chosenAIds, whatsLeft)
+
+
+chooseAddresses' :: [AddrId] -> Map Int Rational -> Map Int ([AddrId], Rational)
+chooseAddresses' addrids =
+    chooseOptimal' addrids sel3
+
+chooseOptimal' :: [a] -> (a -> Coin) -> Map Int Rational -> Map Int ([a], Rational)
+chooseOptimal' addrids getC valueMap =
+    let addrList = groupBy ((==) `on` (getColor . getC)) $
+                   sortBy (comparing (getCoin . getC)) $
                    sortBy (comparing (getColor . getC)) addrids
-        valueList = map (uncurry $ flip Coin) $
+        valueList = map (uncurry Coin) $
                     toList valueMap
-        addrList = sortBy (comparing getC) addrids
-    in assert (coinList ++ repeat (Coin 0 0) >= valueList) $
-      let newMap =
-              map (\value -> foldl foldFoo (0, [], Nothing) addrList) valueMap
-          foldFoo o@(_,_,Just _) _ = o
-          foldFoo (accum,values,Nothing) e =
-              let val = getC e
-                  newAccum = accum + val
-                  newValues = e : values
-              in ( newAccum
-                 , newValues
-                 , if newAccum >= value
-                       then Just $ newAccum - value
-                       else Nothing)
-      in (chosenAIds, whatsLeft)-}
+        chooseHelper list value =
+            let (_,chosenAIds,Just whatsLeft) =
+                    foldl foldFoo (0, [], Nothing) list
+                foldFoo o@(_,_,Just _) _ = o
+                foldFoo (accum,values,Nothing) e =
+                    let val = getC e
+                        newAccum = accum + val
+                        newValues = e : values
+                    in ( newAccum
+                       , newValues
+                       , if newAccum >= value
+                             then Just $ newAccum - value
+                             else Nothing)
+            in (chosenAIds, getCoin whatsLeft)
+    in assert (map (sum . map getC) addrList ++ repeat (Coin 0 0) >= valueList) $
+           let addrMap = fromList $
+                         map ((getColor . getC . head) &&& id) addrList
+           in mapWithKey (\color value-> chooseHelper (addrMap!color) (Coin color value)) valueMap
 
 -- | This function creates for every address ∈ S_{out} a pair
 -- (addr,addrid), where addrid is exactly a usage of this address in

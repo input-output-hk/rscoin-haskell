@@ -64,13 +64,34 @@ getAddrIdByAddress addr transaction@Transaction{..} =
 -- or equal to given value. Here 'optimal' stands for 'trying to
 -- include as many addrids as possible', so that means function takes
 -- addrids with smaller amount of money first.
-chooseAddresses :: [AddrId] -> Map Int Rational -> Map Int ([AddrId], Rational)
-chooseAddresses addrids =
-    chooseOptimal addrids sel3
+chooseAddresses :: [AddrId] -> Coin -> ([AddrId], Coin)
+chooseAddresses addrids value =
+    chooseOptimal addrids sel3 value
 
---chooseOptimal :: [a] -> (a -> Coin) -> Coin -> ([a], Coin)
-chooseOptimal :: [a] -> (a -> Coin) -> Map Int Rational -> Map Int ([a], Rational)
-chooseOptimal addrids getC valueMap =
+chooseOptimal :: [a] -> (a -> Coin) -> Coin -> ([a], Coin)
+chooseOptimal addrids getC value =
+    assert (sum (map getC addrids) >= value) $
+    let (_,chosenAIds,Just whatsLeft) =
+            foldl foldFoo (0, [], Nothing) $ sortBy (comparing getC) addrids
+        foldFoo o@(_,_,Just _) _ = o
+        foldFoo (accum,values,Nothing) e =
+            let val = getC e
+                newAccum = accum + val
+                newValues = e : values
+            in ( newAccum
+               , newValues
+               , if newAccum >= value
+                     then Just $ newAccum - value
+                     else Nothing)
+    in (chosenAIds, whatsLeft)
+
+
+chooseAddresses' :: [AddrId] -> Map Int Rational -> Map Int ([AddrId], Rational)
+chooseAddresses' addrids =
+    chooseOptimal' addrids sel3
+
+chooseOptimal' :: [a] -> (a -> Coin) -> Map Int Rational -> Map Int ([a], Rational)
+chooseOptimal' addrids getC valueMap =
     let addrList = groupBy ((==) `on` (getColor . getC)) $
                    sortBy (comparing (getCoin . getC)) $
                    sortBy (comparing (getColor . getC)) addrids

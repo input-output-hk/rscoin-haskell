@@ -4,7 +4,8 @@
 -- | The most basic primitives from the paper.
 
 module RSCoin.Core.Primitives
-       ( Coin (..)
+       ( Color
+       , Coin (..)
        , Address (..)
        , AddrId
        , Transaction (..)
@@ -22,10 +23,12 @@ import           Serokell.Util.Text  (listBuilderJSON, pairBuilder,
 
 import           RSCoin.Core.Crypto  (Hash, PublicKey)
 
+type Color = Int
+
 -- | Coin is the least possible unit of currency.
 -- We use very simple model at this point.
 data Coin = Coin
-    { getColor :: Int
+    { getColor :: Color
     , getCoin  :: Rational
     } deriving (Show, Eq, Ord)
 

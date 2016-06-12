@@ -123,10 +123,10 @@ getUserTotalAmount upd st = do
 getAmountNoUpdate
     :: WorkMode m
     => A.RSCoinUserState -> W.UserAddress -> m C.Coin
-getAmountNoUpdate st userAddress = undefined
-    {-sum . map getValue <$> query' st (A.GetTransactions userAddress)
+getAmountNoUpdate st userAddress =
+    sum . map getValue <$> query' st (A.GetTransactions userAddress)
   where
-    getValue = C.getAmountByAddress $ W.toAddress userAddress-}
+    getValue = C.getAmountByAddress $ W.toAddress userAddress
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
 -- n is the number of accounts stored in wallet)

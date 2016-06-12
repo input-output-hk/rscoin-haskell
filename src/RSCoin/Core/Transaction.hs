@@ -46,8 +46,13 @@ validateSignature signature (Address pk) = verify pk signature
 
 -- | Given address and transaction returns total amount of money
 -- transaction transfers to address.
-getAmountByAddress :: Address -> Transaction -> Map Int Rational
+
+getAmountByAddress :: Address -> Transaction -> Coin
 getAmountByAddress addr Transaction{..} =
+    sum $ map snd $ filter ((==) addr . fst) txOutputs
+
+getAmountByAddress' :: Address -> Transaction -> Map Int Rational
+getAmountByAddress' addr Transaction{..} =
     let pair c = (getColor c, getCoin c) in
     fromListWith (+) $ map (pair . snd) $ filter ((==) addr . fst) txOutputs
 

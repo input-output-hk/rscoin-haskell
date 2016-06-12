@@ -126,7 +126,7 @@ getAmountNoUpdate
 getAmountNoUpdate st userAddress =
     C.mergeCoinsMaps . map getCoins <$> query' st (A.GetTransactions userAddress)
   where
-    getCoins = C.getCoinsByAddress $ W.toAddress userAddress
+    getCoins = C.getAmountByAddress $ W.toAddress userAddress
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
 -- n is the number of accounts stored in wallet)

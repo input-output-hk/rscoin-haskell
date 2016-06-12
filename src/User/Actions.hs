@@ -19,6 +19,7 @@ import           Control.Monad.Trans     (liftIO)
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
 import           Data.Bifunctor          (bimap)
+import qualified Data.Map                as M
 import           Data.Maybe              (fromJust, isJust)
 import           Data.Monoid             ((<>))
 import qualified Data.Text.IO            as TIO
@@ -62,7 +63,8 @@ processCommand st O.ListAddresses _ =
     eWrap $
     do addresses <- query' st GetAllAddresses
        (wallets :: [(C.PublicKey, C.Coin)]) <-
-           mapM (\w -> (w ^. W.publicAddress, ) <$> getAmount st w) addresses
+           mapM (\w -> (w ^. W.publicAddress, ) . M.findWithDefault 0 0
+                             <$> getAmount st w) addresses
        liftIO $
            do TIO.putStrLn "Here's the list of your accounts:"
               TIO.putStrLn
@@ -94,8 +96,7 @@ processCommand st O.StartGUI opts@O.UserOptions{..} = do
         (ACID.openLocalStateFrom guidbPath emptyGUIAcid)
         (\cs -> do ACID.createCheckpoint cs
                    ACID.closeAcidState cs)
-        (\cs -> do
-          startGUI st cs)
+        (\cs -> startGUI st cs)
   where
     initLoop =
         initializeStorage st opts `catch`

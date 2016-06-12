@@ -105,7 +105,7 @@ updateBlockchain st verbose = do
     verboseSay t = when verbose $ liftIO $ TIO.putStrLn t
 
 -- | Gets amount of coins on user address
-getAmount :: WorkMode m => A.RSCoinUserState -> W.UserAddress -> m C.Coin
+getAmount :: WorkMode m => A.RSCoinUserState -> W.UserAddress -> m (M.Map C.Color C.Coin)
 getAmount st userAddress = do
     -- try to update, but silently fail if net is down
     (_ :: Either SomeException Bool) <- try $ updateBlockchain st False
@@ -113,24 +113,24 @@ getAmount st userAddress = do
 
 -- | Gets current amount on all accounts user posesses. Boolean flag
 -- stands for "if update blockchain inside"
-getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m C.Coin
+getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m (M.Map C.Color C.Coin)
 getUserTotalAmount upd st = do
     addrs <- query' st A.GetAllAddresses
     when upd $ void $ updateBlockchain st False
-    sum <$> mapM (getAmountNoUpdate st) addrs
+    C.mergeCoinsMaps <$> mapM (getAmountNoUpdate st) addrs
 
 -- | Get amount without storage update
 getAmountNoUpdate
     :: WorkMode m
-    => A.RSCoinUserState -> W.UserAddress -> m C.Coin
-getAmountNoUpdate st userAddress = undefined
-    {-sum . map getValue <$> query' st (A.GetTransactions userAddress)
+    => A.RSCoinUserState -> W.UserAddress -> m (M.Map C.Color C.Coin)
+getAmountNoUpdate st userAddress =
+    C.mergeCoinsMaps . map getCoins <$> query' st (A.GetTransactions userAddress)
   where
-    getValue = C.getAmountByAddress $ W.toAddress userAddress-}
+    getCoins = C.getCoinsByAddress $ W.toAddress userAddress
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
 -- n is the number of accounts stored in wallet)
-getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m C.Coin
+getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m (M.Map C.Color C.Coin)
 getAmountByIndex st idx = do
     void $ updateBlockchain st False
     addr <- flip atMay idx <$> query' st A.GetAllAddresses
@@ -150,16 +150,17 @@ getTransactionsHistory st = query' st A.GetTxsHistory
 
 -- | Forms transaction given just amount of money to use. Tries to
 -- spend coins from accounts that have the least amount of money.
+-- Supports uncolored coins only TODO
 formTransactionFromAll
     :: WorkMode m
     => A.RSCoinUserState -> C.Address -> C.Coin -> m C.Transaction
 formTransactionFromAll st addressTo amount = do
     addrs <- query' st A.GetAllAddresses
-    (amountsWithCoins :: [(Word, C.Coin)]) <-
-        filter ((>= 0) . snd) <$>
+    (amountsWithCoins :: [(Word, M.Map C.Color C.Coin)]) <-
+        filter ((>= 0) . M.findWithDefault 0 0 . snd ) <$>
         mapM (\i -> (fromInteger $ toInteger i+1,)
                     <$> getAmountByIndex st i) [0..length addrs-1]
-    totalAmount <- getUserTotalAmount True st
+    totalAmount <- M.findWithDefault 0 0 <$> getUserTotalAmount True st
     when (amount > totalAmount) $
         throwM $
         InputProcessingError $
@@ -173,7 +174,8 @@ formTransactionFromAll st addressTo amount = do
                then (newLeft, (i,left) : results)
                else (newLeft, e : results)
         (_, chosen) =
-            foldr discoverAmount (amount, []) $ sortOn snd amountsWithCoins
+            foldr discoverAmount (amount, []) $
+                sortOn snd $ map (\(a, b) -> (a, M.findWithDefault 0 0 b)) amountsWithCoins
     liftIO $ putStrLn ("Transaction chosen: " ++ show chosen)
     formTransactionRetry 3 st True chosen addressTo amount
 
@@ -252,8 +254,9 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
                     (\(i,c) ->
                           (i, accounts `genericIndex` (i - 1), c))
                     inputs
+--            hasEnoughFunds :: (Word, W.UserAddress, C.Coin) -> Maybe Word
             hasEnoughFunds (i,acc,c) = do
-                amount <- getAmountNoUpdate st acc
+                amount <- M.findWithDefault 0 0 <$> getAmountNoUpdate st acc
                 return $
                     if amount >= c
                         then Nothing

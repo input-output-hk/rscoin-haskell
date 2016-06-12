@@ -8,6 +8,7 @@ module GUI.RSCoin.WalletTab
        ) where
 
 import           Control.Monad                  (join, void, when)
+import qualified Data.Map                       as M
 import           Data.Maybe                     (mapMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
@@ -214,7 +215,8 @@ updateWalletTab st gst M.MainWindow{..} = do
     let WalletTab{..} = tabWallet
     addrs <- runRealModeLocal $ U.getAllPublicAddresses st
     transactionsHist <- runRealModeLocal $ U.getTransactionsHistory st
-    userAmount <- runRealModeLocal $ U.getUserTotalAmount False st
+    userAmount <- runRealModeLocal
+        (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)
     let unconfirmed =
             filter
                 (\U.TxHistoryRecord{..} -> txhStatus == U.TxHUnconfirmed)

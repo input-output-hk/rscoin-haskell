@@ -4,7 +4,7 @@ module RSCoin.Core.Coin
        ( onColor
        , groupCoinsList
        , coinsMapConsistent
-       , mergeCoinsMap
+       , mergeCoinsMaps
        ) where
 
 import           Control.Exception      (assert)
@@ -35,8 +35,8 @@ coinsMapConsistent coins = all keyValid $ M.keys coins
                  in getColor coin == k
 
 -- | Given a empty list of coin maps (map
-mergeCoinsMap :: [M.Map Color Coin] -> M.Map Color Coin
-mergeCoinsMap [] = M.empty
-mergeCoinsMap coinMaps =
+mergeCoinsMaps :: [M.Map Color Coin] -> M.Map Color Coin
+mergeCoinsMaps [] = M.empty
+mergeCoinsMaps coinMaps =
     assert (all coinsMapConsistent coinMaps) $
     foldr1 (M.unionWith (+)) coinMaps

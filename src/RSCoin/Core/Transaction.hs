@@ -6,6 +6,7 @@ module RSCoin.Core.Transaction
        ( validateSum
        , validateSignature
        , getAmountByAddress
+       , getCoinsByAddress
        , getAddrIdByAddress
        , chooseAddresses
        , computeOutputAddrids
@@ -18,7 +19,7 @@ import           Data.Ord               (comparing)
 import           Data.Tuple.Select      (sel3)
 
 import           RSCoin.Core.Crypto     (Signature, hash, verify)
-import           RSCoin.Core.Primitives (AddrId, Address (..), Coin (..),
+import           RSCoin.Core.Primitives (AddrId, Address (..), Coin (..), Color,
                                          Transaction (..))
 
 instance Ord Transaction where
@@ -44,10 +45,15 @@ validateSignature signature (Address pk) = verify pk signature
 
 -- | Given address and transaction returns total amount of money
 -- transaction transfers to address.
-getAmountByAddress :: Address -> Transaction -> Map Int Rational
+getAmountByAddress :: Address -> Transaction -> Map Color Rational
 getAmountByAddress addr Transaction{..} =
     let pair c = (getColor c, getCoin c) in
     fromListWith (+) $ map (pair . snd) $ filter ((==) addr . fst) txOutputs
+
+-- | Same as getAmountByAddress but returns Coin inside the map
+-- TODO rewrite getAmountByAddress to have signature of this function
+getCoinsByAddress :: Address -> Transaction -> Map Color Coin
+getCoinsByAddress a t = undefined (getAmountByAddress a t)
 
 -- | Given address a and transaction returns all addrids that have
 -- address equal to a.

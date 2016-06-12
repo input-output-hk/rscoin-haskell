@@ -7,6 +7,7 @@ import           Control.Lens  ((^.))
 import           Control.Monad (forM)
 import           Data.Acid     (query)
 import           Data.Int      (Int64)
+import qualified Data.Map      as M
 
 import           RSCoin.Core   (Coin (..), PublicKey)
 import           RSCoin.Timed  (runRealModeLocal)
@@ -23,5 +24,5 @@ getAddresses :: RSCoinUserState -> IO [VerboseAddress]
 getAddresses st = do
     as <- query st GetAllAddresses
     forM as $ \a -> runRealModeLocal $ do
-        b <- getAmountNoUpdate st a
+        b <- M.findWithDefault 0 0 <$> getAmountNoUpdate st a
         return $ VA (a ^. publicAddress) (getCoin b)

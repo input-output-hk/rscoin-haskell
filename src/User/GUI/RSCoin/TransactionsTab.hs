@@ -9,6 +9,7 @@ module GUI.RSCoin.TransactionsTab
 import           Control.Exception       (SomeException (..), catch)
 import           Control.Monad           (void, when)
 import           Control.Monad.IO.Class  (liftIO)
+import qualified Data.Map                as M
 import qualified Data.Text               as T
 import           Graphics.UI.Gtk         (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk         as G
@@ -72,7 +73,8 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
         reportSimpleError mainWindow "Amount should be positive."
         G.entrySetText (spinButtonSendAmount tabTransactions) ""
     constructDialog (Just address) (Right amount) = do
-        userAmount <- runRealModeLocal $ U.getUserTotalAmount True st
+        userAmount <- runRealModeLocal
+            (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)
         if amount > C.getCoin userAmount
         then do
             reportSimpleError mainWindow $

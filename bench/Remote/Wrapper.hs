@@ -45,6 +45,7 @@ data BankParams = BankParams
     , bpShardParams :: !ShardParams
     , bpProfiling   :: !(Maybe ProfilingType)
     , bpHasRSCoin   :: !Bool
+    , bpBranch      :: !T.Text
     } deriving (Show)
 
 data UsersParams = UsersParams
@@ -55,10 +56,14 @@ data UsersParams = UsersParams
     , upDumpStats          :: !Bool
     , upConfigStr          :: !T.Text
     , upSeverity           :: !C.Severity
+    , upBranch             :: !T.Text
     } deriving (Show)
 
 userName :: T.IsString s => s
 userName = "ubuntu"
+
+defaultBranch :: T.IsString s => s
+defaultBranch = "master"
 
 statsDir :: T.IsString s => s
 statsDir = "\"$HOME\"/rscoin-stats"
@@ -72,13 +77,22 @@ installCommand = $(makeRelativeToProject "bench/install.sh" >>= embedStringFile)
 cdCommand :: T.Text
 cdCommand = "cd \"$HOME/rscoin\""
 
-updateRepoCommand :: T.Text
-updateRepoCommand =
+updateRepoCommand :: T.Text -> T.Text
+updateRepoCommand branchName =
     T.unlines
         [ cdCommand
         , "git checkout . -q"
-        , "git checkout master -q"
-        , "git pull --ff-only -q"]
+        , "git fetch"
+        , sformat
+              ("git checkout -q -b " % stext % " " % stext %
+               " 2> /dev/null || git checkout -q " %
+               stext)
+              branchName
+              originBranchName
+              branchName
+        , sformat ("git pull --ff-only -q origin " % stext) branchName]
+  where
+    originBranchName = sformat ("origin/" % stext) branchName
 
 updateTimezoneCommand :: T.Text
 updateTimezoneCommand = "sudo timedatectl set-timezone Europe/Moscow"
@@ -110,7 +124,7 @@ bankSetupCommand BankParams {..} mHosts mKeys =
         [ cdCommand
         , bankStopCommand
         , "rm -rf bank-db"
-        , updateRepoCommand
+        , updateRepoCommand bpBranch
         , setupConfigCommand bpShardParams
         , mconcat ["stack build rscoin", profilingBuildArgs bpProfiling]
         , T.unlines $ map (uncurry addMintetteCommand) $ zip mHosts mKeys]
@@ -138,13 +152,13 @@ bankRunCommand periodDelta profiling =
 bankStopCommand :: T.Text
 bankStopCommand = "killall -s SIGINT rscoin-bank 2> /dev/null"
 
-mintetteSetupCommand :: ShardParams -> Maybe ProfilingType -> T.Text
-mintetteSetupCommand shardParams profiling =
+mintetteSetupCommand :: T.Text -> ShardParams -> Maybe ProfilingType -> T.Text
+mintetteSetupCommand branchName shardParams profiling =
     T.unlines
         [ cdCommand
         , mintetteStopCommand
         , "rm -rf mintette-db"
-        , updateRepoCommand
+        , updateRepoCommand branchName
         , setupConfigCommand shardParams
         , sformat
               ("stack build rscoin " % stext)
@@ -184,7 +198,7 @@ usersCommand :: UsersParams -> T.Text -> Maybe ProfilingType -> T.Text
 usersCommand UsersParams{..} bankHost profiling =
     T.unlines
         ([ cdCommand
-         , updateRepoCommand
+         , updateRepoCommand upBranch
          , updateTimezoneCommand
          , setupConfigCommand upShardParams
          , mkStatsDirCommand
@@ -277,9 +291,9 @@ runBank bp@BankParams{..} bankHost mintetteHosts mintetteKeys = do
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
 
-genMintetteKey :: ShardParams -> MintetteData -> IO C.PublicKey
-genMintetteKey sp (MintetteData _ hostName profiling) = do
-    runSsh hostName $ mintetteSetupCommand sp profiling
+genMintetteKey :: T.Text -> ShardParams -> MintetteData -> IO C.PublicKey
+genMintetteKey branchName sp (MintetteData _ hostName profiling) = do
+    runSsh hostName $ mintetteSetupCommand branchName sp profiling
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
         runSshStrict hostName mintetteCatKeyCommand
 
@@ -303,12 +317,14 @@ main = do
     RemoteConfig{..} <- readRemoteConfig configPath
     configStr <- TIO.readFile configPath
     let sp = ShardParams rcShardDivider rcShardDelta
+        globalBranch = fromMaybe defaultBranch rcBranch
         bp =
             BankParams
             { bpPeriodDelta = rcPeriod
             , bpShardParams = sp
             , bpProfiling = bdProfiling rcBank
             , bpHasRSCoin = bdHasRSCoin rcBank
+            , bpBranch = fromMaybe globalBranch $ bdBranch rcBank
             }
         bankHost = bdHost rcBank
         mintettes = genericTake (fromMaybe maxBound rcMintettesNum) rcMintettes
@@ -326,13 +342,14 @@ main = do
             , upDumpStats = not noStats
             , upConfigStr = configStr
             , upSeverity = fromMaybe C.Warning $ udSeverity rcUsers
+            , upBranch = globalBranch
             }
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
     logInfo $
         sformat ("Setting up and launching mintettes " % build % "…") $
         listBuilderJSON mintettes
-    mintetteKeys <- mapM (genMintetteKey sp) mintettes
+    mintetteKeys <- mapM (genMintetteKey globalBranch sp) mintettes
     mintetteThreads <- mapM (runMintette bankHost) mintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2

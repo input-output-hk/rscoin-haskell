@@ -33,6 +33,7 @@ data RemoteConfig = RemoteConfig
     , rcShardDivider    :: !Word
     , rcShardDelta      :: !Word
     , rcPeriod          :: !Word
+    , rcBranch          :: !(Maybe Text)
     } deriving (Show)
 
 data ProfilingType
@@ -45,6 +46,7 @@ data BankData = BankData
     { bdHasRSCoin :: !Bool
     , bdHost      :: !Text
     , bdProfiling :: !(Maybe ProfilingType)
+    , bdBranch    :: !(Maybe Text)
     } deriving (Show)
 
 data MintetteData = MintetteData

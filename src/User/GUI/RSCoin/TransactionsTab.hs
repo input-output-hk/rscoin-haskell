@@ -81,7 +81,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
             G.entrySetText (spinButtonSendAmount tabTransactions) $ show userAmount
         else do
             tr <- runRealModeLocal $
-                U.formTransactionFromAll st address $ C.Coin amount 0 -- FIXME: allow sending coin with some color
+                U.formTransactionFromAll st address $ C.Coin 0 amount -- FIXME: allow sending coin with some color
             liftIO $ addTransaction gst (C.hash tr) (Just tr)
             dialog <- G.messageDialogNew
                 (Just mainWindow)

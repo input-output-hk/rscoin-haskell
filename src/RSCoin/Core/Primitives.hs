@@ -25,8 +25,8 @@ import           RSCoin.Core.Crypto  (Hash, PublicKey)
 -- | Coin is the least possible unit of currency.
 -- We use very simple model at this point.
 data Coin = Coin
-    { getCoin  :: Rational
-    , getColor :: Int
+    { getColor :: Int
+    , getCoin  :: Rational
     } deriving (Show, Eq, Ord)
 
 instance Binary Coin where

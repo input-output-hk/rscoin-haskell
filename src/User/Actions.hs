@@ -60,11 +60,9 @@ processCommand
     => A.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ =
     eWrap $
-    do (wallets :: [(C.PublicKey, C.Coin)]) <-
-           mapM
-               (\w ->
-                     (w ^. W.publicAddress, ) <$> getAmount st w) =<<
-           query' st GetAllAddresses
+    do addresses <- query' st GetAllAddresses
+       (wallets :: [(C.PublicKey, C.Coin)]) <-
+           mapM (\w -> (w ^. W.publicAddress, ) <$> getAmount st w) addresses
        liftIO $
            do TIO.putStrLn "Here's the list of your accounts:"
               TIO.putStrLn

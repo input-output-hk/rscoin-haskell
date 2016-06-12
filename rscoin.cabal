@@ -36,6 +36,7 @@ library
                      , RSCoin.Core.ActionLog
                      , RSCoin.Core.CheckConfirmation
                      , RSCoin.Core.Constants
+                     , RSCoin.Core.Coin
                      , RSCoin.Core.Crypto
                      , RSCoin.Core.Error
                      , RSCoin.Core.HBlock

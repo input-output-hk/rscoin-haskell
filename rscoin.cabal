@@ -235,7 +235,7 @@ test-suite rscoin-test
                      , Test.RSCoin.Full.Action
                      , Test.RSCoin.Full.Context
                      , Test.RSCoin.Full.Error
-                     , Test.RSCoin.Full.FullSpec
+                     -- , Test.RSCoin.Full.FullSpec
                      , Test.RSCoin.Full.Gen
                      , Test.RSCoin.Full.Initialization
                      , Test.RSCoin.Full.Mintette

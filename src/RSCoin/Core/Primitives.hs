@@ -43,18 +43,18 @@ instance Buildable Coin where
     build (Coin c col) = mconcat [build c, " coin(s) of color ", build col]
 
 instance Num Coin where
-    (+) (Coin c col) (Coin c' col')
-      | col == col' = Coin (c + c') col
+    (+) (Coin col c) (Coin col' c')
+      | col == col' = Coin col (c + c')
       | otherwise = error "Error: sum of coins with different colors!"
-    (*) (Coin c col) (Coin c' col')
-      | col == col' = Coin (c * c') col
+    (*) (Coin col c) (Coin col' c')
+      | col == col' = Coin col (c * c')
       | otherwise = error "Error: product of coins with different colors!"
-    (-) (Coin c col) (Coin c' col')
-      | col == col' = Coin (c - c') col
+    (-) (Coin col c) (Coin col' c')
+      | col == col' = Coin col (c - c')
       | otherwise = error "Error: subtraction of coins with different colors!"
-    abs (Coin a b) = Coin (abs a) b
-    signum (Coin c col) = Coin (signum c) col
-    fromInteger c = Coin (fromInteger c) 0
+    abs (Coin a b) = Coin a (abs b)
+    signum (Coin col c) = Coin col (signum c)
+    fromInteger c = Coin 0 (fromInteger c)
 
 -- | Address can serve as input or output to transactions.
 -- It is simply a public key.

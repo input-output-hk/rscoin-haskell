@@ -24,9 +24,9 @@ import           Serokell.Util.Text       (formatSingle')
 
 import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            SecretKey, announceNewPeriod,
-                                           bankLoggerName, formatNewPeriodData,
-                                           logDebug, logError, logInfo,
-                                           logWarning, defaultPeriodDelta,
+                                           bankLoggerName, defaultPeriodDelta,
+                                           formatNewPeriodData, logDebug,
+                                           logError, logInfo, logWarning,
                                            sendPeriodFinished)
 
 import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),

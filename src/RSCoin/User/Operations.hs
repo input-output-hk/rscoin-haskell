@@ -28,8 +28,7 @@ import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
-import           Data.List              (genericIndex, genericLength, nub,
-                                         nubBy, sortOn)
+import           Data.List              (genericIndex, genericLength, nubBy)
 import qualified Data.Map               as M
 import           Data.Maybe             (isJust)
 import           Data.Monoid            ((<>))
@@ -40,7 +39,8 @@ import           Data.Tuple.Select      (sel1)
 import           Safe                   (atMay)
 
 import           Serokell.Util          (format', formatSingle',
-                                         listBuilderJSONIndent, pairBuilder)
+                                         listBuilderJSON, listBuilderJSONIndent,
+                                         pairBuilder)
 
 import qualified RSCoin.Core            as C
 import           RSCoin.Mintette        (MintetteError (MEInactive))
@@ -154,7 +154,7 @@ getTransactionsHistory st = query' st A.GetTxsHistory
 formTransactionFromAll
     :: WorkMode m
     => A.RSCoinUserState -> C.Address -> [C.Coin] -> m C.Transaction
-formTransactionFromAll st addressTo amounts = undefined
+formTransactionFromAll st addressTo amounts = undefined st addressTo amounts
 --    addrs <- query' st A.GetAllAddresses
 --    (amountsWithCoins :: [(Word, M.Map C.Color C.Coin)]) <-
 --        filter ((>= 0) . M.findWithDefault 0 0 . snd ) <$>
@@ -228,12 +228,13 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
         formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
     run :: WorkMode m => m C.Transaction
     run = do
---        C.logInfo C.userLoggerName $
---            format'
---                "Form a transaction from {}, to {}, amount {}"
---                ( listBuilderJSONIndent 2 $ map pairBuilder inputs
---                , outputAddr
---                , listBuilderJSONIndent 2 $ outputCoin)
+        C.logInfo C.userLoggerName $
+            format'
+                "Form a transaction from {}, to {}, amount {}"
+                ( listBuilderJSONIndent 2 $
+                      map (\(a, b) -> pairBuilder (a, listBuilderJSON b)) inputs
+                , outputAddr
+                , listBuilderJSONIndent 2 $ outputCoin)
         when (nubBy ((==) `on` fst) inputs /= inputs) $
             commitError "All input addresses should have distinct IDs."
         unless (all (> 0) $ concatMap snd inputs) $
@@ -272,10 +273,21 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
             formatSingle'
                 " following account doesn't have enough coins: {}"
                 (sel1 $ head overSpentAccounts)
-        (addrPairList,outTr) <-
+        (addrPairList,inputAddrids,outputs) <-
             liftIO $
-            foldl1 mergeTransactions <$>
-            mapM formTransactionMapper (map (\(a,b,c) -> (b,c)) accInputs)
+            foldl1 pair3merge <$>
+            mapM formTransactionMapper (map (\(_,b,c) -> (b,c)) accInputs)
+        let outTr = C.Transaction { txInputs = inputAddrids
+                                  , txOutputs = outputs ++ (map (outputAddr,) outputCoin)
+                                  }
+        when (not (null outputCoin) && not (C.validateSum outTr)) $
+            commitError $
+            formatSingle' "Your transaction doesn't pass validity check: {}" outTr
+        when (null outputCoin && not (C.validateSum outTr)) $
+            commitError $
+            formatSingle'
+                "Our code is broken and our auto-generated transaction is invalid: {}"
+                outTr
         verboseSay $ formatSingle' "Please check your transaction: {}" outTr
         void $ updateBlockchain st verbose
         walletHeight <- query' st A.GetLastBlockId
@@ -295,34 +307,36 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
         validateTransaction outTr signatures $ lastBlockHeight + 1
         update' st $ A.AddTemporaryTransaction (lastBlockHeight + 1) outTr
         return outTr
-    -- for given address and coins to send from it it returns a
+    -- For given address and coins to send from it it returns a
     -- pair. First element is chosen addrids with user addresses to
-    -- make signature map afterwards, and the second is partial
-    -- transaction, that would be merged.
+    -- make signature map afterwards. The second is inputs of
+    -- transaction, third is change outputs
     formTransactionMapper
         :: (W.UserAddress, M.Map C.Color C.Coin)
-        -> IO ([(C.AddrId, W.UserAddress)], C.Transaction)
-    formTransactionMapper (address,requestedCoins) = undefined
---        do
---        (addrids :: [C.AddrId]) <-
---            concatMap (C.getAddrIdByAddress $ W.toAddress a) <$>
---            query' st (A.GetTransactions a)
---        let (chosen,leftCoin) = C.chooseAddresses addrids c
---            transaction =
---                C.Transaction chosen $
---                (outputAddr, outputCoin) :
---                (if leftCoin == 0
---                     then []
---                     else [(W.toAddress a, leftCoin)])
---            addrPairList = map (, a) chosen
---        return (addrPairList, transaction)
-    mergeTransactions
-        :: ([(C.AddrId, W.UserAddress)], C.Transaction)
-        -> ([(C.AddrId, W.UserAddress)], C.Transaction)
-        -> ([(C.AddrId, W.UserAddress)], C.Transaction)
-    mergeTransactions (s1,a) (s2,b) =
-        ( nub $ s1 <> s2
-        , C.Transaction
-              (C.txInputs a <> C.txInputs b)
-              (nub $ C.txOutputs a <> C.txOutputs b))
+        -> IO ([(C.AddrId, W.UserAddress)], [C.AddrId], [(C.Address, C.Coin)])
+    formTransactionMapper (address, requestedCoins) = do
+        (addrids :: [C.AddrId]) <-
+            concatMap (C.getAddrIdByAddress $ W.toAddress address) <$>
+            query' st (A.GetTransactions address)
+        let -- Pairs of chosen addrids and change for each color
+            chosenMap :: [([C.AddrId], C.Coin)]
+            chosenMap = M.elems $ C.chooseAddresses addrids requestedCoins
+            -- All addrids from chosenMap
+            inputAddrids = concatMap fst chosenMap
+            -- Non-null changes (coins) from chosenMap
+            changesValues :: [C.Coin]
+            changesValues = filter (/= 0) $ map snd chosenMap
+            changes :: [(C.Address, C.Coin)]
+            changes = map (W.toAddress address,) changesValues
+            autoGeneratedOutputs :: [(C.Address, C.Coin)]
+            autoGeneratedOutputs =
+                if null outputCoin
+                then map (outputAddr,) $ C.coinsToList requestedCoins
+                else []
+        return ( map (,address) inputAddrids
+               , inputAddrids
+               , changes ++ autoGeneratedOutputs
+               )
+    pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])
+    pair3merge (a,b,c) (d,e,f) = (a++d, b++e, c++f)
     verboseSay t = when verbose $ liftIO $ TIO.putStrLn t

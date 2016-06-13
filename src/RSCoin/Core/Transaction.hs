@@ -8,7 +8,6 @@ module RSCoin.Core.Transaction
        , getAmountByAddress
        , getAddrIdByAddress
        , chooseAddresses
-       , chooseAddresses'
        , computeOutputAddrids
        ) where
 
@@ -69,6 +68,7 @@ getAddrIdByAddress addr transaction@Transaction{..} =
     map (\(i,(_,c)) -> (h,i,c)) $
         filter ((==) addr . fst . snd) $ [(0 :: Int)..] `zip` txOutputs
 
+{-
 -- | Computes optimal (?) usage of addrids to pay the given amount of
 -- coins from address. Sum of coins of those addrids should be greater
 -- or equal to given value. Here 'optimal' stands for 'trying to
@@ -94,34 +94,43 @@ chooseOptimal addrids getC value =
                      then Just $ newAccum - value
                      else Nothing)
     in (chosenAIds, whatsLeft)
+-}
 
 -- | For each color, computes optimal usage of addrids to pay the given amount of
 -- coins. Sum of coins of those addrids should be greater
 -- or equal to given value, for each color. Here 'optimal' stands for 'trying to
 -- include as many addrids as possible', so that means function takes
 -- addrids with smaller amount of money first.
-chooseAddresses' :: [AddrId] -> M.Map Color Coin -> M.Map Color ([AddrId], Coin)
-chooseAddresses' addrids =
-    chooseOptimal' addrids sel3
+chooseAddresses :: [AddrId] -> M.Map Color Coin -> M.Map Color ([AddrId], Coin)
+chooseAddresses addrids =
+    chooseOptimal addrids sel3
 
-chooseOptimal' :: [a]
+chooseOptimal :: [a]
                -> (a -> Coin)
-               -> M.Map Color Coin        --Map with amount of coins for each color
-               -> M.Map Color ([a], Coin) --Map with chosen addrids and change for each color
-chooseOptimal' addrids getC valueMap =
-    assert (map (sum . map getC) addrList ++ repeat (Coin 0 0) >= valueList) $  --in case there are less colors in addrList than in valueList
-    M.mapWithKey                                                                --filler coins are added to shortc-circuit the comparison of lists
+               -> M.Map Color Coin        -- ^ Map with amount of coins for each color
+               -> M.Map Color ([a], Coin) -- ^ Map with chosen addrids and change for each color
+chooseOptimal addrids getC valueMap =
+    -- In case there are less colors in addrList than in valueList
+    -- filler coins are added to shortc-circuit the comparison of lists.
+    assert
+        (map (sum . map getC) addrList ++ repeat (Coin 0 0) >= valueList) $
+    M.mapWithKey
         (\color value ->
               chooseHelper (addrMap M.! color) value)
         valueMap
   where
-    addrList =                                                --List of lists of addrids - each l ∈ addrList has coins of a single color
-        groupBy ((==) `on` (getColor . getC)) $               --and is ordered by amount; addrList is sorted by the coins' colors
+    -- List of lists of addrids - each l ∈ addrList has coins of a
+    -- single color and is ordered by amount; addrList is sorted by
+    -- the coins' colors.
+    addrList =
+        groupBy ((==) `on` (getColor . getC)) $
         sortBy (comparing (getCoin . getC)) $
         sortBy (comparing (getColor . getC)) addrids
     valueList = map snd $ M.toList valueMap
-    chooseHelper list value =                                                     --This function goes through a list of addrids and calculates the optimal
-        let (_,chosenAIds,Just whatsLeft) = foldl foldFoo (0, [], Nothing) list   --choice of addrids and the coins that are left
+    -- This function goes through a list of addrids and calculates the optimal
+    chooseHelper list value =
+        -- choice of addrids and the coins that are left
+        let (_,chosenAIds,Just whatsLeft) = foldl foldFoo (0, [], Nothing) list
             foldFoo o@(_,_,Just _) _ = o
             foldFoo (accum,values,Nothing) e =
                 let val = getC e
@@ -133,7 +142,8 @@ chooseOptimal' addrids getC valueMap =
                          then Just $ newAccum - value
                          else Nothing)
         in (chosenAIds, whatsLeft)
-    addrMap = M.fromList $ map ((getColor . getC . head) &&& id) addrList  --Map from each color to addrids with a coin of that color
+    -- Map from each color to addrids with a coin of that color
+    addrMap = M.fromList $ map ((getColor . getC . head) &&& id) addrList
 
 -- | This function creates for every address ∈ S_{out} a pair
 -- (addr,addrid), where addrid is exactly a usage of this address in

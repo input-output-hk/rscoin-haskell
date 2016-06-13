@@ -14,7 +14,6 @@ import           Control.Monad          (forM)
 import           Control.Monad.Catch    (catch)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Bifunctor         (first)
-import           Data.Int               (Int64)
 
 import           GUI.RSCoin.GUIAcid     (GUIState, addTransaction,
                                          getTransaction)

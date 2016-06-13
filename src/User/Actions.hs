@@ -18,12 +18,11 @@ import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
-import           Data.Bifunctor          (bimap)
-import qualified Data.Map                as M
+import           Data.Function           (on)
+import           Data.List               (groupBy)
 import           Data.Maybe              (fromJust, isJust)
 import           Data.Monoid             ((<>))
 import qualified Data.Text.IO            as TIO
-import           Data.Tuple.Select       (sel1)
 import qualified Graphics.UI.Gtk         as G
 
 import           Serokell.Util.Text      (format', formatSingle', show')
@@ -84,13 +83,14 @@ processCommand st O.ListAddresses _ =
 processCommand st (O.FormTransaction inputs outputAddrStr outputCoins) _ =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr
-           inputs' = map (\(i, o, c) -> (fromIntegral i, fromIntegral o, c)) inputs
+           inputs' = map (foldr1 (\(a, b) (_, d) -> (a, b++d))) $
+                     groupBy ((==) `on` snd) $
+                     map (\(w, o, c) -> (w, [Coin c (toRational o)])) inputs
            outputs' = map (\(amount, color) -> Coin color (toRational amount)) outputCoins
        unless (isJust pubKey) $
            P.commitError $ "Provided key can't be exported: " <> outputAddrStr
        void $
-           formTransactionRetry 2 st True inputs' (fromJust pubKey) $
-           fromIntegral . sum $ map sel1 inputs
+           formTransactionRetry 2 st True inputs' (fromJust pubKey) outputs'
 processCommand st O.UpdateBlockchain _ =
     eWrap $
     do res <- updateBlockchain st True

@@ -32,7 +32,7 @@ data UserCommand
     | UpdateBlockchain               -- ^ Query bank to update wallet
                                      -- state according to blockchain
                                      -- status
-    | FormTransaction [(Int, Int64, Int)]
+    | FormTransaction [(Word, Int64, Int)]
                       Text
                       [(Int64, Int)] -- ^ First argument represents
                                      -- inputs -- pairs (a,b,c), where a

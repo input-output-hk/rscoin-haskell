@@ -6,7 +6,6 @@ module GUI.RSCoin.Addresses
 import           Control.Lens  ((^.))
 import           Control.Monad (forM)
 import           Data.Acid     (query)
-import           Data.Int      (Int64)
 import qualified Data.Map      as M
 
 import           RSCoin.Core   (Coin (..), PublicKey)
@@ -19,7 +18,9 @@ data VerboseAddress = VA
     , balance :: Rational
     }
 
--- FIXME: this is used only in gui. Now that we are using Rational in Coin I am not sure what is correct way to implement this. For now I will just round the value.
+-- FIXME: this is used only in gui. Now that we are using Rational in
+-- Coin I am not sure what is correct way to implement this. For now I
+-- will just round the value.
 getAddresses :: RSCoinUserState -> IO [VerboseAddress]
 getAddresses st = do
     as <- query st GetAllAddresses

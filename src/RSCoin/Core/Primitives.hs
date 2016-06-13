@@ -33,11 +33,11 @@ data Coin = Coin
     } deriving (Show, Eq, Ord)
 
 instance Binary Coin where
-    put Coin{..} = put (getCoin, getColor)
+    put Coin{..} = put (getColor, getCoin)
     get = uncurry Coin <$> get
 
 instance Hashable Coin where
-    hashWithSalt s Coin{..} = hashWithSalt s (getCoin, getColor)
+    hashWithSalt s Coin{..} = hashWithSalt s (getColor, getCoin)
 
 instance Buildable Coin where
     build (Coin c col) = mconcat [build c, " coin(s) of color ", build col]

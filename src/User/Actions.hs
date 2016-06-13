@@ -13,7 +13,7 @@ module Actions
 import           Control.Concurrent      (threadDelay)
 import           Control.Exception       (SomeException)
 import           Control.Lens            ((^.))
-import           Control.Monad           (unless, void)
+import           Control.Monad           (forM_, unless, void)
 import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
 import qualified Data.Acid               as ACID
@@ -25,7 +25,7 @@ import           Data.Monoid             ((<>))
 import qualified Data.Text.IO            as TIO
 import qualified Graphics.UI.Gtk         as G
 
-import           Serokell.Util.Text      (format')
+import           Serokell.Util.Text      (format', formatSingle', show')
 
 import           RSCoin.Core             as C
 import           RSCoin.Timed            (WorkMode)
@@ -62,15 +62,23 @@ processCommand
 processCommand st O.ListAddresses _ =
     eWrap $
     do addresses <- query' st GetAllAddresses
-       (wallets :: [(C.PublicKey, C.Coin)]) <-
-           mapM (\w -> (w ^. W.publicAddress, ) . M.findWithDefault 0 0
-                             <$> getAmount st w) addresses
+       (wallets :: [(C.PublicKey, [C.Coin])]) <-
+           mapM (\w -> (w ^. W.publicAddress, ) . C.coinsToList
+                       <$> getAmount st w) addresses
        liftIO $
            do TIO.putStrLn "Here's the list of your accounts:"
               TIO.putStrLn
                   "# | Public ID                                    | Amount"
-              mapM_ (TIO.putStrLn . format' "{}.  {} : {}") $
+              mapM_ formatAddressEntry $
                   uncurry (zip3 [(1 :: Integer) ..]) $ unzip wallets
+  where
+    formatAddressEntry :: (Integer, C.PublicKey, [C.Coin]) -> IO ()
+    formatAddressEntry (i, key, coins) = do
+       TIO.putStr $ format' "{}.  {} : " (i, key)
+       unless (null coins) $ TIO.putStrLn $ show' $ head coins
+       unless (length coins < 2) $
+           forM_ (tail coins)
+                 (TIO.putStrLn . formatSingle' "                    {}")
 
 processCommand st (O.FormTransaction inputs outputAddrStr) _ =
     eWrap $

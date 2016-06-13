@@ -3,6 +3,7 @@
 module RSCoin.Core.Coin
        ( onColor
        , groupCoinsList
+       , coinsToList
        , coinsMapConsistent
        , mergeCoinsMaps
        ) where
@@ -26,6 +27,10 @@ groupCoinsList coins = sortBy onColor $ map sum $ groupBy sameColor coins
   where
     sameColor :: Coin -> Coin -> Bool
     sameColor a b = EQ == onColor a b
+
+-- | Translates a map of coins to the list, sorted by color
+coinsToList :: M.Map Color Coin -> [Coin]
+coinsToList coinsMap = groupCoinsList $ M.elems coinsMap
 
 -- | Checks a consistency of map from color to coin
 coinsMapConsistent :: M.Map Color Coin -> Bool

@@ -13,7 +13,7 @@ module Actions
 import           Control.Concurrent      (threadDelay)
 import           Control.Exception       (SomeException)
 import           Control.Lens            ((^.))
-import           Control.Monad           (forM_, unless, void)
+import           Control.Monad           (forM_, unless, void, when)
 import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
 import qualified Data.Acid               as ACID
@@ -75,11 +75,11 @@ processCommand st O.ListAddresses _ =
     formatAddressEntry :: (Integer, C.PublicKey, [C.Coin]) -> IO ()
     formatAddressEntry (i, key, coins) = do
        TIO.putStr $ format' "{}.  {} : " (i, key)
+       when (null coins) $ putStrLn "empty"
        unless (null coins) $ TIO.putStrLn $ show' $ head coins
        unless (length coins < 2) $
            forM_ (tail coins)
                  (TIO.putStrLn . formatSingle' "                    {}")
-
 processCommand st (O.FormTransaction inputs outputAddrStr) _ =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr

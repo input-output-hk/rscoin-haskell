@@ -34,11 +34,12 @@ data UserCommand
                                      -- status
     | FormTransaction [(Int, Int64, Int)]
                       Text          -- ^ First argument represents
-                                    -- inputs -- pairs (a,b), where a
+                                    -- inputs -- pairs (a,b,c), where a
                                     -- is index (starting from 1) of
                                     -- address in wallet, b is
                                     -- positive integer representing
-                                    -- value to send.  Second argument
+                                    -- value to send. c is color.
+                                    -- Second argument
                                     -- represents the address to send,
                                     -- and amount
     | Dump DumpCommand

@@ -21,14 +21,15 @@ module RSCoin.User.Operations
        , formTransactionRetry
        ) where
 
-import           Control.Exception      (SomeException, fromException)
+import           Control.Exception      (SomeException, assert, fromException)
 import           Control.Lens           ((^.))
 import           Control.Monad          (filterM, forM_, unless, void, when)
 import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
-import           Data.List              (genericIndex, genericLength, nubBy)
+import           Data.List              (genericIndex, genericLength, nubBy,
+                                         sortOn)
 import qualified Data.Map               as M
 import           Data.Maybe             (isJust)
 import           Data.Monoid            ((<>))
@@ -150,34 +151,36 @@ getTransactionsHistory st = query' st A.GetTxsHistory
 
 -- | Forms transaction given just amount of money to use. Tries to
 -- spend coins from accounts that have the least amount of money.
--- Supports uncolored coins only TODO
+-- Supports uncolored coins only (by design)
 formTransactionFromAll
     :: WorkMode m
-    => A.RSCoinUserState -> C.Address -> [C.Coin] -> m C.Transaction
-formTransactionFromAll st addressTo amounts = undefined st addressTo amounts
---    addrs <- query' st A.GetAllAddresses
---    (amountsWithCoins :: [(Word, M.Map C.Color C.Coin)]) <-
---        filter ((>= 0) . M.findWithDefault 0 0 . snd ) <$>
---        mapM (\i -> (fromInteger $ toInteger i+1,)
---                    <$> getAmountByIndex st i) [0..length addrs-1]
---    totalAmount <- M.findWithDefault 0 0 <$> getUserTotalAmount True st
---    when (amount > totalAmount) $
---        throwM $
---        InputProcessingError $
---        format'
---            "Tried to form transaction with amount ({}) greater than available ({})."
---            (amount, totalAmount)
---    let discoverAmount _ r@(left,_) | left <= 0 = r
---        discoverAmount e@(i,c) (left, results) =
---            let newLeft = left - c
---            in if newLeft < 0
---               then (newLeft, (i,left) : results)
---               else (newLeft, e : results)
---        (_, chosen) =
---            foldr discoverAmount (amount, []) $
---                sortOn snd $ map (\(a, b) -> (a, M.findWithDefault 0 0 b)) amountsWithCoins
---    liftIO $ putStrLn ("Transaction chosen: " ++ show chosen)
---    formTransactionRetry 3 st True (map (\(a,b) -> (a,b,0)) chosen) addressTo amount
+    => A.RSCoinUserState -> C.Address -> C.Coin -> m C.Transaction
+formTransactionFromAll st addressTo amount =
+    assert (C.getColor amount == 0) $ do
+    addrs <- query' st A.GetAllAddresses
+    (indecesWithCoins :: [(Word, C.Coin)]) <-
+        filter ((>= 0) . snd) <$>
+        mapM (\i -> (fromInteger $ toInteger i+1,) .
+                    M.findWithDefault 0 0 <$>
+                    getAmountByIndex st i)
+             [0..length addrs-1]
+    let totalAmount = sum $ map snd indecesWithCoins
+    when (amount > totalAmount) $
+        throwM $
+        InputProcessingError $
+        format'
+            "Tried to form transaction with amount ({}) greater than available ({})."
+            (amount, totalAmount)
+    let discoverAmount _ r@(left,_) | left <= 0 = r
+        discoverAmount e@(i,c) (left, results) =
+            let newLeft = left - c
+            in if newLeft < 0
+               then (newLeft, (i,left) : results)
+               else (newLeft, e : results)
+        (_, chosen) =
+            foldr discoverAmount (amount, []) $ sortOn snd indecesWithCoins
+    liftIO $ putStrLn ("Transaction chosen: " ++ show chosen)
+    formTransactionRetry 3 st True (map (\(a,b) -> (a,[b])) chosen) addressTo [amount]
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction

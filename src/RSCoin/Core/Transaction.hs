@@ -101,30 +101,31 @@ chooseAddresses' addrids =
 
 chooseOptimal' :: [a] -> (a -> Coin) -> M.Map Int Rational -> M.Map Int ([a], Rational)
 chooseOptimal' addrids getC valueMap =
-    let addrList = groupBy ((==) `on` (getColor . getC)) $
-                   sortBy (comparing (getCoin . getC)) $
-                   sortBy (comparing (getColor . getC)) addrids
-        valueList = map (uncurry Coin) $
-                    M.toList valueMap
-        chooseHelper list value =
-            let (_,chosenAIds,Just whatsLeft) =
-                    foldl foldFoo (0, [], Nothing) list
-                foldFoo o@(_,_,Just _) _ = o
-                foldFoo (accum,values,Nothing) e =
-                    let val = getC e
-                        newAccum = accum + val
-                        newValues = e : values
-                    in ( newAccum
-                       , newValues
-                       , if newAccum >= value
-                             then Just $ newAccum - value
-                             else Nothing)
-            in (chosenAIds, getCoin whatsLeft)
-    in assert (map (sum . map getC) addrList ++ repeat (Coin 0 0) >= valueList) $
-           let addrMap = M.fromList $
-                         map ((getColor . getC . head) &&& id) addrList
-           in M.mapWithKey (\color value ->
-                             chooseHelper (addrMap M.! color) (Coin color value)) valueMap
+    assert (map (sum . map getC) addrList ++ repeat (Coin 0 0) >= valueList) $
+    M.mapWithKey
+        (\color value ->
+              chooseHelper (addrMap M.! color) (Coin color value))
+        valueMap
+  where
+    addrList =
+        groupBy ((==) `on` (getColor . getC)) $
+        sortBy (comparing (getCoin . getC)) $
+        sortBy (comparing (getColor . getC)) addrids
+    valueList = map (uncurry Coin) $ M.toList valueMap
+    chooseHelper list value =
+        let (_,chosenAIds,Just whatsLeft) = foldl foldFoo (0, [], Nothing) list
+            foldFoo o@(_,_,Just _) _ = o
+            foldFoo (accum,values,Nothing) e =
+                let val = getC e
+                    newAccum = accum + val
+                    newValues = e : values
+                in ( newAccum
+                   , newValues
+                   , if newAccum >= value
+                         then Just $ newAccum - value
+                         else Nothing)
+        in (chosenAIds, getCoin whatsLeft)
+    addrMap = M.fromList $ map ((getColor . getC . head) &&& id) addrList
 
 -- | This function creates for every address ∈ S_{out} a pair
 -- (addr,addrid), where addrid is exactly a usage of this address in

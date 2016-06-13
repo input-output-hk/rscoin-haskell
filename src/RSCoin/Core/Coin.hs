@@ -26,9 +26,14 @@ sameColor a b = EQ == onColor a b
 
 -- | Given a list of arbitrary coins, it sums the coins with the same
 -- color and returns list of coins of distinct color sorted by the
--- color
+-- color. Also deletes negative coins.
 groupCoinsList :: [Coin] -> [Coin]
-groupCoinsList coins = sortBy onColor $ map sum $ groupBy sameColor coins
+groupCoinsList coins =
+    sortBy onColor $
+    map sum $
+    groupBy sameColor $
+    filter ((> 0) . getCoin)
+    coins
 
 -- | Translates a map of coins to the list, sorted by color
 coinsToList :: M.Map Color Coin -> [Coin]
@@ -36,7 +41,7 @@ coinsToList coinsMap = groupCoinsList $ M.elems coinsMap
 
 -- | Translates a list of coins to the map
 coinsToMap :: [Coin] -> M.Map Color Coin
-coinsToMap = M.fromList . map (\c -> (getColor c, c))
+coinsToMap = M.fromList . map (\c -> (getColor c, c)) . groupCoinsList
 
 -- | Checks a consistency of map from color to coin
 coinsMapConsistent :: M.Map Color Coin -> Bool

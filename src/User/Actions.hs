@@ -81,10 +81,11 @@ processCommand st O.ListAddresses _ =
        unless (length coins < 2) $
            forM_ (tail coins)
                  (TIO.putStrLn . formatSingle' "                    {}")
-processCommand st (O.FormTransaction inputs outputAddrStr) _ =
+processCommand st (O.FormTransaction inputs outputAddrStr outputCoins) _ =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr
            inputs' = map (\(i, o, c) -> (fromIntegral i, fromIntegral o, c)) inputs
+           outputs' = map (\(amount, color) -> Coin color (toRational amount)) outputCoins
        unless (isJust pubKey) $
            P.commitError $ "Provided key can't be exported: " <> outputAddrStr
        void $

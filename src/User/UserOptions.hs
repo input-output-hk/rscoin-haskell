@@ -17,9 +17,9 @@ import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
 import           Options.Applicative    (Parser, argument, auto, command,
                                          execParser, fullDesc, help, helper,
-                                         info, long, metavar, option, progDesc,
-                                         showDefault, some, subparser, switch,
-                                         value)
+                                         info, long, many, metavar, option,
+                                         progDesc, showDefault, some, subparser,
+                                         switch, value)
 
 import           Serokell.Util.OptParse (strOption)
 
@@ -33,15 +33,16 @@ data UserCommand
                                      -- state according to blockchain
                                      -- status
     | FormTransaction [(Int, Int64, Int)]
-                      Text          -- ^ First argument represents
-                                    -- inputs -- pairs (a,b,c), where a
-                                    -- is index (starting from 1) of
-                                    -- address in wallet, b is
-                                    -- positive integer representing
-                                    -- value to send. c is color.
-                                    -- Second argument
-                                    -- represents the address to send,
-                                    -- and amount
+                      Text
+                      [(Int64, Int)] -- ^ First argument represents
+                                     -- inputs -- pairs (a,b,c), where a
+                                     -- is index (starting from 1) of
+                                     -- address in wallet, b is
+                                     -- positive integer representing
+                                     -- value to send. c is color.
+                                     -- Second argument
+                                     -- represents the address to send,
+                                     -- and amount
     | Dump DumpCommand
     deriving (Show)
 
@@ -171,7 +172,15 @@ userCommandParser =
                    "'b' is integer -- amount of coins to send, " <>
                    "'c' is the color (0 for uncolored), any uncolored ~ colored."))) <*>
         strOption
-                 (long "to" <> help "Address to send coins to.")
+                 (long "toaddr" <> help "Address to send coins to.") <*>
+        many (
+         option
+             auto
+             (long "tocoin" <>
+              help
+                  ("Pairs (a,b) where " <>
+                   "'a' is amount of coins to send, " <>
+                   "'b' is the color of that coin")))
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

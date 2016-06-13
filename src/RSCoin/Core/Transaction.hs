@@ -8,6 +8,7 @@ module RSCoin.Core.Transaction
        , getAmountByAddress
        , getAddrIdByAddress
        , chooseAddresses
+       , chooseAddresses'
        , computeOutputAddrids
        ) where
 
@@ -85,7 +86,6 @@ chooseOptimal addrids getC value =
                      then Just $ newAccum - value
                      else Nothing)
     in (chosenAIds, whatsLeft)
-
 
 chooseAddresses' :: [AddrId] -> Map Int Rational -> Map Int ([AddrId], Rational)
 chooseAddresses' addrids =

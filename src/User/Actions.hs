@@ -23,6 +23,7 @@ import qualified Data.Map                as M
 import           Data.Maybe              (fromJust, isJust)
 import           Data.Monoid             ((<>))
 import qualified Data.Text.IO            as TIO
+import           Data.Tuple.Select       (sel1)
 import qualified Graphics.UI.Gtk         as G
 
 import           Serokell.Util.Text      (format', formatSingle', show')
@@ -83,12 +84,12 @@ processCommand st O.ListAddresses _ =
 processCommand st (O.FormTransaction inputs outputAddrStr) _ =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr
-           inputs' = map (bimap fromIntegral fromIntegral) inputs
+           inputs' = map (\(i, o, c) -> (fromIntegral i, fromIntegral o, c)) inputs
        unless (isJust pubKey) $
            P.commitError $ "Provided key can't be exported: " <> outputAddrStr
        void $
            formTransactionRetry 2 st True inputs' (fromJust pubKey) $
-           fromIntegral . sum $ map snd inputs
+           fromIntegral . sum $ map sel1 inputs
 processCommand st O.UpdateBlockchain _ =
     eWrap $
     do res <- updateBlockchain st True

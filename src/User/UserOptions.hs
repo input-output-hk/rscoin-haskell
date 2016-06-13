@@ -32,7 +32,7 @@ data UserCommand
     | UpdateBlockchain               -- ^ Query bank to update wallet
                                      -- state according to blockchain
                                      -- status
-    | FormTransaction [(Int, Int64)]
+    | FormTransaction [(Int, Int64, Int)]
                       Text          -- ^ First argument represents
                                     -- inputs -- pairs (a,b), where a
                                     -- is index (starting from 1) of
@@ -141,16 +141,20 @@ userCommandParser =
              "dump-mintette-blocks"
              (info
                   (fmap Dump . DumpMintetteBlocks
-                      <$> argument auto (metavar "MINTETTE_ID" <> help "Dump blocks of mintette with this id.")
-                      <*> argument auto (metavar "PERIOD_ID" <> help "Dump blocks with this period id.")
+                      <$> argument auto (metavar "MINTETTE_ID" <>
+                                         help "Dump blocks of mintette with this id.")
+                      <*> argument auto (metavar "PERIOD_ID" <>
+                                         help "Dump blocks with this period id.")
                   )
                   (progDesc "Dump blocks of corresponding mintette and periodId.")) <>
          command
              "dump-mintette-logs"
              (info
                   (fmap Dump . DumpMintetteLogs
-                      <$> argument auto (metavar "MINTETTE_ID" <> help "Dump logs of mintette with this id.")
-                      <*> argument auto (metavar "PERIOD_ID" <> help "Dump logs with this period id.")
+                      <$> argument auto (metavar "MINTETTE_ID" <>
+                                         help "Dump logs of mintette with this id.")
+                      <*> argument auto (metavar "PERIOD_ID" <>
+                                         help "Dump logs with this period id.")
                   )
                   (progDesc "Dump logs of corresponding mintette and periodId.")))
   where
@@ -161,8 +165,10 @@ userCommandParser =
              auto
              (long "from" <>
               help
-                  ("Pairs (a,b) where 'a' is id of address as numbered in list-wallets " <>
-                   "output, 'b' is integer -- amount of coins to send."))) <*>
+                  ("Pairs (a,b,c) where " <>
+                   "'a' is id of address as numbered in list-wallets output, " <>
+                   "'b' is integer -- amount of coins to send, " <>
+                   "'c' is the color (0 for uncolored), any uncolored ~ colored."))) <*>
         strOption
                  (long "to" <> help "Address to send coins to.")
 

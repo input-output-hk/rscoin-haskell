@@ -177,14 +177,14 @@ formTransactionFromAll st addressTo amount = do
             foldr discoverAmount (amount, []) $
                 sortOn snd $ map (\(a, b) -> (a, M.findWithDefault 0 0 b)) amountsWithCoins
     liftIO $ putStrLn ("Transaction chosen: " ++ show chosen)
-    formTransactionRetry 3 st True chosen addressTo amount
+    formTransactionRetry 3 st True (map (\(a,b) -> (a,b,0)) chosen) addressTo amount
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction
     :: WorkMode m
     => A.RSCoinUserState
     -> Bool
-    -> [(Word, C.Coin)]
+    -> [(Word, C.Coin, C.Color)]
     -> C.Address
     -> C.Coin
     -> m C.Transaction
@@ -197,7 +197,7 @@ formTransactionRetry
     => Int
     -> A.RSCoinUserState
     -> Bool
-    -> [(Word, C.Coin)]
+    -> [(Word, C.Coin, C.Color)]
     -> C.Address
     -> C.Coin
     -> m C.Transaction
@@ -205,9 +205,10 @@ formTransactionRetry _ _ _ [] _ _ =
     commitError "You should enter at least one source input"
 formTransactionRetry tries _ _ _ _ _ | tries < 1 =
     error "User.Operations.formTransactionRetry shouldn't be called with tries < 1"
-formTransactionRetry tries st verbose inputs outputAddr outputCoin =
+formTransactionRetry tries st verbose inputs0 outputAddr outputCoin =
     run `catch` catcher
   where
+    inputs = map (\(a,b,c) -> (a,b)) inputs0
     catcher :: WorkMode m => SomeException -> m C.Transaction
     catcher e
         | isRetriableException e && tries > 1 = logMsgAndRetry e
@@ -225,7 +226,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
             "formTransactionRetry failed ({}), retries left: {}"
             (msg, tries - 1)
         wait $ for 1 sec
-        formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
+        formTransactionRetry (tries-1) st verbose inputs0 outputAddr outputCoin
     run :: WorkMode m => m C.Transaction
     run = do
         C.logInfo C.userLoggerName $

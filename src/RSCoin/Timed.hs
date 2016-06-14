@@ -25,7 +25,6 @@ import           Control.Monad.Catch     (MonadMask)
 import           Control.Monad.Reader    (MonadReader, runReaderT)
 import           Control.Monad.Trans     (MonadIO, liftIO)
 import           Data.ByteString         (ByteString)
-import           RSCoin.Core.Constants   (defaultBankHost)
 import           System.Random           (StdGen, getStdGen)
 
 class (MonadTimed m, MonadRpc m, MonadIO m,
@@ -39,7 +38,7 @@ runRealMode bankHost
     = runTimedIO . flip runReaderT (BankSettings bankHost) . runMsgPackRpc
 
 runRealModeLocal :: MsgPackRpc a -> IO a
-runRealModeLocal = runRealMode defaultBankHost
+runRealModeLocal = runRealMode "127.0.0.1"
 
 runEmulationMode :: MonadIO m => Maybe StdGen -> Delays -> PureRpc IO a -> m a
 runEmulationMode genMaybe delays m =

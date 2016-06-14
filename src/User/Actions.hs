@@ -80,7 +80,7 @@ processCommand st O.ListAddresses _ =
        unless (length coins < 2) $
            forM_ (tail coins)
                  (TIO.putStrLn . formatSingle' "                    {}")
-processCommand st (O.FormTransaction inputs outputAddrStr outputCoins) _ =
+processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr
            inputs' = map (foldr1 (\(a, b) (_, d) -> (a, b++d))) $
@@ -90,7 +90,7 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins) _ =
        unless (isJust pubKey) $
            P.commitError $ "Provided key can't be exported: " <> outputAddrStr
        void $
-           formTransactionRetry 2 st True inputs' (fromJust pubKey) outputs'
+           formTransactionRetry 2 st cache True inputs' (fromJust pubKey) outputs'
 processCommand st O.UpdateBlockchain _ =
     eWrap $
     do res <- updateBlockchain st True

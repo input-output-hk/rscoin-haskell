@@ -13,6 +13,7 @@ module RSCoin.User.Logic
 
 import           Control.Monad                 (guard, unless, when)
 import           Control.Monad.Catch           (throwM)
+import           Control.Monad.Trans           (liftIO)
 import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
 import           Data.List                     (genericLength)
 import qualified Data.Map                      as M
@@ -29,6 +30,9 @@ import           RSCoin.Core.Types             (CheckConfirmations,
                                                 MintetteId, PeriodId)
 import           RSCoin.Mintette.Error         (MintetteError)
 import           RSCoin.Timed                  (WorkMode)
+import           RSCoin.User.Cache             (UserCache, getOwnersByAddrid,
+                                                getOwnersByTx,
+                                                invalidateUserCache)
 import           RSCoin.User.Error             (UserLogicError (..))
 
 import           Serokell.Util.Text            (format', formatSingle',
@@ -40,11 +44,12 @@ import           Serokell.Util.Text            (format', formatSingle',
 -- confirmed, the MajorityFailedToCommit is thrown.
 validateTransaction
     :: WorkMode m
-    => Transaction
+    => Maybe UserCache
+    -> Transaction
     -> M.Map AddrId Signature
     -> PeriodId
     -> m ()
-validateTransaction tx@Transaction{..} signatures height = do
+validateTransaction cache tx@Transaction{..} signatures height = do
     (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
     commitBundle bundle
   where
@@ -52,7 +57,7 @@ validateTransaction tx@Transaction{..} signatures height = do
         :: WorkMode m
         => AddrId -> m CheckConfirmations
     processInput addrid = do
-        owns <- CC.getOwnersByAddrid addrid
+        owns <- getOwnersByAddrid cache height addrid
         when (null owns) $
             throwM $
             MajorityRejected $
@@ -60,12 +65,13 @@ validateTransaction tx@Transaction{..} signatures height = do
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
         subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid) owns
         when (length subBundle <= length owns `div` 2) $
-            throwM $
-            MajorityRejected $
-            format'
-                ("Couldn't get CheckNotDoubleSpent " <>
-                 "from majority of mintettes: only {}/{} confirmed {} is not double-spent.")
-                (length subBundle, length owns, addrid)
+            do invalidateCache
+               throwM $
+                   MajorityRejected $
+                   format'
+                       ("Couldn't get CheckNotDoubleSpent " <>
+                        "from majority of mintettes: only {}/{} confirmed {} is not double-spent.")
+                       (length subBundle, length owns, addrid)
         return subBundle
     processMintette
         :: WorkMode m
@@ -84,7 +90,7 @@ validateTransaction tx@Transaction{..} signatures height = do
         :: WorkMode m
         => CheckConfirmations -> m ()
     commitBundle bundle = do
-        owns <- CC.getOwnersByTx tx
+        owns <- getOwnersByTx cache height tx
         commitActions <-
             mapM
                 (\(mintette,_) ->
@@ -101,10 +107,10 @@ validateTransaction tx@Transaction{..} signatures height = do
             logWarning userLoggerName $
             commitTxWarningMessage owns commitActions
         when (length succeededCommits <= length owns `div` 2) $
-            throwM $
-            MajorityFailedToCommit
-                (genericLength succeededCommits)
-                (genericLength owns)
+            do throwM $
+                   MajorityFailedToCommit
+                       (genericLength succeededCommits)
+                       (genericLength owns)
     commitTxWarningMessage owns =
         formatSingle'
             "some mintettes returned error in response to `commitTx`: {}" .
@@ -117,3 +123,7 @@ validateTransaction tx@Transaction{..} signatures height = do
         map sndFromLeft . filter (isLeft . snd) . zip (map fst owns)
     sndFromLeft :: (a, Either MintetteError b) -> (a, MintetteError)
     sndFromLeft (a,b) = (a, fromLeft' b)
+    invalidateCache
+        :: WorkMode m
+        => m ()
+    invalidateCache = liftIO $ maybe (return ()) invalidateUserCache cache

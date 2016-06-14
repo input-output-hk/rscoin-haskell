@@ -6,7 +6,6 @@ module Options
        , getOptions
        ) where
 
-import           Data.ByteString        (ByteString)
 import qualified Data.Text              as T
 import           Options.Applicative    (Parser, auto, command, execParser,
                                          fullDesc, help, helper, info, long,
@@ -15,7 +14,7 @@ import           Options.Applicative    (Parser, auto, command, execParser,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultBankHost,
+import           RSCoin.Core            (Severity (Error), defaultPeriodDelta,
                                          defaultSecretKeyPath)
 
 data Command
@@ -24,8 +23,8 @@ data Command
 
 data Options = Options
     { cloCommand     :: Command
-    , cloHost        :: ByteString
     , cloPath        :: FilePath
+    , cloPeriodDelta :: Integer
     , cloLogSeverity :: Severity
     }
 
@@ -59,12 +58,14 @@ optionsParser :: FilePath -> Parser Options
 optionsParser defaultSKPath =
     Options <$> commandParser defaultSKPath <*>
     strOption
-        (long "host" <> value defaultBankHost <> showDefault <>
-         help "Host name for bank") <*>
-    strOption
         (long "path" <> value "bank-db" <> showDefault <>
          help "Path to database") <*>
-    option auto
+    option
+        auto
+        (long "period-delta" <> value (toInteger defaultPeriodDelta) <>
+         showDefault <> help "Period length in seconds") <*>
+    option
+        auto
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity")
 

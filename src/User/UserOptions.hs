@@ -10,6 +10,7 @@ module UserOptions
 import           RSCoin.Core            (MintetteId, PeriodId, Severity (Error),
                                          defaultAccountsNumber, defaultBankHost,
                                          defaultSecretKeyPath)
+import           RSCoin.User.Cache      (UserCache, mkUserCache)
 
 import           Data.ByteString        (ByteString)
 import           Data.Int               (Int64)
@@ -34,15 +35,16 @@ data UserCommand
                                      -- status
     | FormTransaction [(Word, Int64, Int)]
                       Text
-                      [(Int64, Int)] -- ^ First argument represents
-                                     -- inputs -- pairs (a,b,c), where a
-                                     -- is index (starting from 1) of
-                                     -- address in wallet, b is
-                                     -- positive integer representing
-                                     -- value to send. c is color.
-                                     -- Second argument
-                                     -- represents the address to send,
-                                     -- and amount
+                      [(Int64, Int)]
+                      (Maybe UserCache) -- ^ First argument represents
+                                        -- inputs -- pairs (a,b,c), where a
+                                        -- is index (starting from 1) of
+                                        -- address in wallet, b is
+                                        -- positive integer representing
+                                        -- value to send. c is color.
+                                        -- Second argument
+                                        -- represents the address to send,
+                                        -- and amount. Forth argument is optional cache
     | Dump DumpCommand
     deriving (Show)
 
@@ -181,6 +183,8 @@ userCommandParser =
                   ("Pairs (a,b) where " <>
                    "'a' is amount of coins to send, " <>
                    "'b' is the color of that coin")))
+          -- FIXME: should we do caching here or not?
+          <*> pure Nothing
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

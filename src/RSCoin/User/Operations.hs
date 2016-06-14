@@ -48,6 +48,7 @@ import           RSCoin.Mintette        (MintetteError (MEInactive))
 import           RSCoin.Timed           (WorkMode, for, sec, wait)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
+import           RSCoin.User.Cache      (UserCache)
 import           RSCoin.User.Error      (UserError (..), UserLogicError,
                                          isWalletSyncError)
 import           RSCoin.User.Logic      (validateTransaction)
@@ -154,8 +155,12 @@ getTransactionsHistory st = query' st A.GetTxsHistory
 -- Supports uncolored coins only (by design)
 formTransactionFromAll
     :: WorkMode m
-    => A.RSCoinUserState -> C.Address -> C.Coin -> m C.Transaction
-formTransactionFromAll st addressTo amount =
+    => A.RSCoinUserState
+    -> Maybe UserCache
+    -> C.Address
+    -> C.Coin
+    -> m C.Transaction
+formTransactionFromAll st maybeCache addressTo amount =
     assert (C.getColor amount == 0) $ do
     addrs <- query' st A.GetAllAddresses
     (indecesWithCoins :: [(Word, C.Coin)]) <-
@@ -171,8 +176,9 @@ formTransactionFromAll st addressTo amount =
         format'
             "Tried to form transaction with amount ({}) greater than available ({})."
             (amount, totalAmount)
-    let discoverAmount _ r@(left,_) | left <= 0 = r
-        discoverAmount e@(i,c) (left, results) =
+    let discoverAmount _ r@(left,_)
+          | left <= 0 = r
+        discoverAmount e@(i,c) (left,results) =
             let newLeft = left - c
             in if newLeft < 0
                then (newLeft, (i,left) : results)
@@ -180,12 +186,13 @@ formTransactionFromAll st addressTo amount =
         (_, chosen) =
             foldr discoverAmount (amount, []) $ sortOn snd indecesWithCoins
     liftIO $ putStrLn ("Transaction chosen: " ++ show chosen)
-    formTransactionRetry 3 st True (map (\(a,b) -> (a,[b])) chosen) addressTo [amount]
+    formTransactionRetry 3 st maybeCache True (map (\(a,b) -> (a,[b])) chosen) addressTo [amount]
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction
     :: WorkMode m
     => A.RSCoinUserState
+    -> Maybe UserCache
     -> Bool
     -> [(Word, [C.Coin])]
     -> C.Address
@@ -199,38 +206,53 @@ formTransactionRetry
     :: WorkMode m
     => Int                 -- ^ Number of retries
     -> A.RSCoinUserState   -- ^ RSCoin user state (acid)
+    -> Maybe UserCache
     -> Bool                -- ^ Verbosity flag
     -> [(Word, [C.Coin])]  -- ^ Inputs as (wallet # ∈ [1..], list of coins (nonempty!)
     -> C.Address           -- ^ Address to send money to
     -> [C.Coin]            -- ^ List of coins to send, mb empty, then will be calculated from inputs
     -> m C.Transaction
-formTransactionRetry _ _ _ [] _ _ =
+formTransactionRetry _ _ _ _ [] _ _ =
     commitError "You should enter at least one source input"
-formTransactionRetry tries _ _ _ _ _ | tries < 1 =
+formTransactionRetry tries _ _ _ _ _ _ | tries < 1 =
     error "User.Operations.formTransactionRetry shouldn't be called with tries < 1"
-formTransactionRetry tries st verbose inputs outputAddr outputCoin =
+formTransactionRetry tries st maybeCache verbose inputs outputAddr outputCoin =
     run `catch` catcher
   where
-    catcher :: WorkMode m => SomeException -> m C.Transaction
+    catcher
+        :: WorkMode m
+        => SomeException -> m C.Transaction
     catcher e
-        | isRetriableException e && tries > 1 = logMsgAndRetry e
-        | otherwise = throwM e
+      | isRetriableException e && tries > 1 = logMsgAndRetry e
+      | otherwise = throwM e
     isRetriableException :: SomeException -> Bool
     isRetriableException e
-        | Just (_ :: UserLogicError) <- fromException e = True
-        | Just MEInactive            <- fromException e = True
-        | isWalletSyncError e                           = True
-        | otherwise                                     = False
-    logMsgAndRetry :: (WorkMode m, Buildable s) => s -> m C.Transaction
+      | Just (_ :: UserLogicError) <- fromException e = True
+      | Just MEInactive <- fromException e = True
+      | isWalletSyncError e = True
+      | otherwise = False
+    logMsgAndRetry
+        :: (WorkMode m, Buildable s)
+        => s -> m C.Transaction
     logMsgAndRetry msg = do
         C.logWarning C.userLoggerName $
             format'
-            "formTransactionRetry failed ({}), retries left: {}"
-            (msg, tries - 1)
+                "formTransactionRetry failed ({}), retries left: {}"
+                (msg, tries - 1)
         wait $ for 1 sec
-        formTransactionRetry (tries-1) st verbose inputs outputAddr outputCoin
-    run :: WorkMode m => m C.Transaction
+        formTransactionRetry
+            (tries - 1)
+            st
+            maybeCache
+            verbose
+            inputs
+            outputAddr
+            outputCoin
+    run
+        :: WorkMode m
+        => m C.Transaction
     run = do
+        () <$ updateBlockchain st verbose
         C.logInfo C.userLoggerName $
             format'
                 "Form a transaction from {}, to {}, amount {}"
@@ -292,11 +314,11 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
                 "Our code is broken and our auto-generated transaction is invalid: {}"
                 outTr
         verboseSay $ formatSingle' "Please check your transaction: {}" outTr
-        void $ updateBlockchain st verbose
         walletHeight <- query' st A.GetLastBlockId
         lastBlockHeight <- pred <$> C.getBlockchainHeight
         when (walletHeight /= lastBlockHeight) $
-            throwM $ WalletSyncError $
+            throwM $
+            WalletSyncError $
             format'
                 ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}). " <>
                  "Please synchonize it with blockchain. The transaction wouldn't be sent.")
@@ -307,7 +329,7 @@ formTransactionRetry tries st verbose inputs outputAddr outputCoin =
                     (\(addrid',address') ->
                           (addrid', C.sign (address' ^. W.privateAddress) outTr))
                     addrPairList
-        validateTransaction outTr signatures $ lastBlockHeight + 1
+        validateTransaction maybeCache outTr signatures $ lastBlockHeight + 1
         update' st $ A.AddTemporaryTransaction (lastBlockHeight + 1) outTr
         return outTr
     -- For given address and coins to send from it it returns a

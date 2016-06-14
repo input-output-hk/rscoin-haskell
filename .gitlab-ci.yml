@@ -1,18 +1,18 @@
 image: haskell:7.10.3
 
 before_script:
-    - RC=1; while [ $RC -eq 1 ]; do apt-get update -y; apt-get install -y -qq git-core dh-autoreconf; RC=$?; done
+    - RC=1; while [ $RC -eq 1 ]; do apt-get update -y; apt-get install -y -qq git-core dh-autoreconf pkg-config libgtk-3-dev; RC=$?; done
 
-rscoin_test:
-  cache:
-    untracked: true
-    paths:
-      - .stack-work
-      - ___restore
-  script:
-    - mkdir -p `pwd`/___restore
-    - ln -s `pwd`/___restore /root/.stack
-    - stack --no-terminal test rscoin
+#rscoin_test:
+#  cache:
+#    untracked: true
+#    paths:
+#      - .stack-work
+#      - ___restore
+#  script:
+#    - mkdir -p `pwd`/___restore
+#    - ln -s `pwd`/___restore /root/.stack
+#    - stack --no-terminal test rscoin
 
 rscoin_bench:
   cache:
@@ -23,4 +23,5 @@ rscoin_bench:
   script:
     - mkdir -p `pwd`/___restore
     - ln -s `pwd`/___restore /root/.stack
-    - stack --no-terminal bench rscoin
+    - stack --no-terminal bench rscoin --no-run-benchmarks
+    - stack --no-terminal bench rscoin:rscoin-bench-local --benchmark-arguments '--users 4 --mintettes 3'

@@ -9,7 +9,7 @@ import           Test.QuickCheck (Arbitrary (arbitrary))
 import qualified RSCoin.Core     as C
 
 instance Arbitrary C.Coin where
-    arbitrary = C.Coin <$> arbitrary
+    arbitrary = C.Coin <$> arbitrary <*> arbitrary
 
 instance Arbitrary C.Mintette where
     arbitrary = C.Mintette <$> arbitrary <*> arbitrary

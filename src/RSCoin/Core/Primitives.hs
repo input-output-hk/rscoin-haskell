@@ -40,7 +40,7 @@ instance Hashable Coin where
     hashWithSalt s Coin{..} = hashWithSalt s (getColor, getCoin)
 
 instance Buildable Coin where
-    build (Coin c col) = mconcat [build c, " coin(s) of color ", build col]
+    build (Coin col c) = mconcat [build c, " coin(s) of color ", build col]
 
 instance Num Coin where
     (+) (Coin col c) (Coin col' c')

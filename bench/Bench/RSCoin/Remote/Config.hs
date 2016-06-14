@@ -12,7 +12,6 @@ module Bench.RSCoin.Remote.Config
        ) where
 
 import qualified Data.Aeson.TH                        as A
-import           Data.Maybe                           (fromMaybe)
 import           Data.Text                            (Text)
 import           Data.Text.Buildable                  (Buildable (build))
 import qualified Data.Yaml                            as Y
@@ -79,5 +78,5 @@ $(A.deriveJSON defaultOptions ''UsersData)
 $(A.deriveJSON leaveTagOptions ''Severity)
 
 readRemoteConfig :: FilePath -> IO RemoteConfig
-readRemoteConfig fp =
-    fromMaybe (error "FATAL: failed to parse config") <$> Y.decodeFile fp
+readRemoteConfig fp
+    = either (error . show) id <$> Y.decodeFileEither fp

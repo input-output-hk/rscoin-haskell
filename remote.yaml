@@ -1,4 +1,3 @@
-usersNum: 4
 transactionsNum: 1000
 bank:
   hasRSCoin: True
@@ -28,6 +27,7 @@ mintettes:
 users:
   hasRSCoin: True
   host: 52.28.239.209
+  number: 4
 shardDivider : 0
 shardDelta: 3
 period: 100000

@@ -23,8 +23,7 @@ import           Bench.RSCoin.Remote.StageRestriction (defaultOptions,
                                                        leaveTagOptions)
 
 data RemoteConfig = RemoteConfig
-    { rcUsersNum        :: !Word
-    , rcTransactionsNum :: !Word
+    { rcTransactionsNum :: !Word
     , rcBank            :: !BankData
     , rcMintettes       :: ![MintetteData]
     , rcMintettesNum    :: !(Maybe Word)
@@ -68,6 +67,7 @@ data UsersData = UsersData
     , udHost      :: !Text
     , udProfiling :: !(Maybe ProfilingType)
     , udSeverity  :: !(Maybe Severity)
+    , udNumber    :: !Word
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''RemoteConfig)

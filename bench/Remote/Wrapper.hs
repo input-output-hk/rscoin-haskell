@@ -57,6 +57,10 @@ data UsersParams = UsersParams
     , upConfigStr          :: !T.Text
     , upSeverity           :: !C.Severity
     , upBranch             :: !T.Text
+    , upHasRSCoin          :: !Bool
+    , upHostName           :: !T.Text
+    , upBankHostName       :: !T.Text
+    , upProfiling          :: !(Maybe ProfilingType)
     } deriving (Show)
 
 userName :: T.IsString s => s
@@ -194,8 +198,8 @@ csvStatsTmpFileName = "bench-tmp.csv"
 csvStatsFileName :: (Monoid s, T.IsString s) => s
 csvStatsFileName = mconcat [statsDir, "/", "stats.csv"]
 
-usersCommand :: UsersParams -> T.Text -> Maybe ProfilingType -> T.Text
-usersCommand UsersParams{..} bankHost profiling =
+usersCommand :: UsersParams -> T.Text
+usersCommand UsersParams{..} =
     T.unlines
         ([ cdCommand
          , updateRepoCommand upBranch
@@ -223,7 +227,7 @@ usersCommand UsersParams{..} bankHost profiling =
                 stext %
                 stext %
                 " +RTS -qg -RTS\"")
-               (profilingBuildArgs profiling)
+               (profilingBuildArgs upProfiling)
                upUsersNumber
                upMintettesNumber
                upTransactionsNumber
@@ -231,8 +235,8 @@ usersCommand UsersParams{..} bankHost profiling =
                statsTmpFileName
                csvStatsTmpFileName
                csvPrefix
-               bankHost
-               (profilingRunArgs profiling)] ++
+               upBankHostName
+               (profilingRunArgs upProfiling)] ++
          dealWithStats)
   where
     statsId = "`date +\"%m.%d-%H:%M:%S\"`"
@@ -305,10 +309,10 @@ runMintette bankHost (MintetteData hasRSCoin hostName profiling) = do
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
 
-runUsers :: UsersParams -> T.Text -> UsersData -> IO ()
-runUsers up bankHost (UsersData hasRSCoin hostName profiling _) = do
-    unless hasRSCoin $ installRSCoin hostName
-    runSsh hostName $ usersCommand up bankHost profiling
+runUsers :: UsersParams -> IO ()
+runUsers up@UsersParams {..} = do
+    unless upHasRSCoin $ installRSCoin upHostName
+    runSsh upHostName $ usersCommand up
 
 main :: IO ()
 main = do
@@ -335,7 +339,7 @@ main = do
                  udProfiling rcUsers : map mdProfiling mintettes)
         up =
             UsersParams
-            { upUsersNumber = rcUsersNum
+            { upUsersNumber = udNumber rcUsers
             , upMintettesNumber = genericLength mintettes
             , upTransactionsNumber = rcTransactionsNum
             , upShardParams = sp
@@ -343,6 +347,10 @@ main = do
             , upConfigStr = configStr
             , upSeverity = fromMaybe C.Warning $ udSeverity rcUsers
             , upBranch = globalBranch
+            , upHasRSCoin = udHasRSCoin rcUsers
+            , upHostName = udHost rcUsers
+            , upBankHostName = bankHost
+            , upProfiling = udProfiling rcUsers
             }
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
@@ -358,7 +366,7 @@ main = do
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
-    runUsers up bankHost rcUsers
+    runUsers up
     logInfo "Ran users"
     stopBank bankHost
     logInfo "Stopped bank"

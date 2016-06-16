@@ -23,14 +23,20 @@ import           Bench.RSCoin.Remote.StageRestriction (defaultOptions,
                                                        leaveTagOptions)
 
 data RemoteConfig = RemoteConfig
-    { rcTransactionsNum :: !Word
+    { -- | Number of transactions per user (not total).
+      rcTransactionsNum :: !Word
     , rcBank            :: !BankData
     , rcMintettes       :: ![MintetteData]
+      -- | Optional field which can be used to run only part of
+      -- mintettes.
     , rcMintettesNum    :: !(Maybe Word)
     , rcUsers           :: !UsersData
     , rcShardDivider    :: !Word
     , rcShardDelta      :: !Word
     , rcPeriod          :: !Word
+      -- | By default `master` branch is used. This setting allows to
+      -- use different branch by all entities. Branch can all
+      -- specified on per-entity basis (only for bank now).
     , rcBranch          :: !(Maybe Text)
     } deriving (Show)
 

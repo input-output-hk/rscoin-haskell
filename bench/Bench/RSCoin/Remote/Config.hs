@@ -58,6 +58,7 @@ data MintetteData = MintetteData
     { mdHasRSCoin :: !Bool
     , mdHost      :: !Text
     , mdProfiling :: !(Maybe ProfilingType)
+    , mdSeverity  :: !(Maybe Severity)
     } deriving (Show)
 
 instance Buildable MintetteData where

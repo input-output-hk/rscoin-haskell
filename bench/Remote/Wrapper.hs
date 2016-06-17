@@ -181,16 +181,20 @@ mintetteSetupCommand branchName shardParams profiling =
               (profilingBuildArgs profiling)
         , keyGenCommand]
 
-mintetteRunCommand :: T.Text -> Maybe ProfilingType -> T.Text
-mintetteRunCommand bankHost profiling =
+mintetteRunCommand :: T.Text -> Maybe ProfilingType -> Maybe C.Severity-> T.Text
+mintetteRunCommand bankHost profiling severity =
     T.unlines
         [ cdCommand
         , sformat
-              ("stack exec -- rscoin-mintette --log-severity Error +RTS -qg -RTS --bank-host " %
+              ("stack exec -- rscoin-mintette +RTS -qg -RTS --bank-host " %
                stext %
+               " " %
+               stext %
+               " " %
                stext)
               bankHost
-              (profilingRunArgs profiling)]
+              (profilingRunArgs profiling)
+              (maybe "" (sformat ("--log-severity " % shown)) severity)]
 
 mintetteStopCommand :: T.Text
 mintetteStopCommand = "killall -s SIGINT rscoin-mintette 2> /dev/null"
@@ -295,8 +299,7 @@ userUpdateCommand bankHost =
               bankHost]
 
 userRunCommand :: UserData -> T.Text
-userRunCommand _ =
-    T.unlines [ "stack exec -- rscoin-user list" ]
+userRunCommand _ = T.unlines [cdCommand, "stack exec -- rscoin-user list"]
 
 sshArgs :: T.Text -> [T.Text]
 sshArgs hostName =
@@ -329,15 +332,15 @@ stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
 
 genMintetteKey :: T.Text -> ShardParams -> MintetteData -> IO C.PublicKey
-genMintetteKey branchName sp (MintetteData _ hostName profiling) = do
+genMintetteKey branchName sp (MintetteData _ hostName profiling _) = do
     runSsh hostName $ mintetteSetupCommand branchName sp profiling
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
         runSshStrict hostName catKeyCommand
 
 runMintette :: T.Text -> MintetteData -> IO ThreadId
-runMintette bankHost (MintetteData hasRSCoin hostName profiling) = do
+runMintette bankHost (MintetteData hasRSCoin hostName profiling sev) = do
     unless hasRSCoin $ installRSCoin hostName
-    forkIO $ runSsh hostName $ mintetteRunCommand bankHost profiling
+    forkIO $ runSsh hostName $ mintetteRunCommand bankHost profiling sev
 
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand

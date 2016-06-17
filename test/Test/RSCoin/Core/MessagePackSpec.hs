@@ -31,6 +31,10 @@ spec =
                 \(a :: C.Mintette) -> a === mid a
             prop "Hash" $
                 \(a :: C.Hash) -> a === mid a
+            prop "Integer" $
+                \(a :: Integer) -> a === mid a
+            prop "Rational" $
+                \(a :: Rational) -> a === mid a
             -- TODO: write the rest of Core.MessagePack instances
 
 mid :: MessagePack a => a -> a

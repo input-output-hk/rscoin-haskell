@@ -4,10 +4,11 @@ module RSCoin.Core.MessagePack
        (
        ) where
 
+import           Data.Binary            (encode, decode)
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Int               (Int64)
 import           Data.MessagePack       (MessagePack (toObject, fromObject),
-                                         Object (ObjectExt), pack, unpack)
+                                         Object (ObjectExt, ObjectBin), pack, unpack)
 import           Data.Ratio             (Ratio, numerator, denominator, (%))
 import           Data.Tuple.Curry       (uncurryN)
 
@@ -40,8 +41,9 @@ instance MessagePack Int64 where
     fromObject = fmap fromInt . fromObject
 
 instance MessagePack Integer where
-    toObject = toObject . toInteger
-    fromObject = fmap fromInteger . fromObject
+    toObject = ObjectBin . BSL.toStrict . encode
+    fromObject (ObjectBin b) = decode $ BSL.fromStrict b -- FIXME: use decodeOrFail here
+    fromObject _             = fail "Expecting Integer to be encoded as Binary"
 
 instance (Integral a, MessagePack a) => MessagePack (Ratio a) where
     toObject r = toObject (numerator r, denominator r)

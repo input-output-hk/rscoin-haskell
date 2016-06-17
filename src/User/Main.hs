@@ -83,7 +83,7 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
     void $ C.getMintetteBlocks mId pId
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
-    liftIO . TIO.putStrLn . show' . (`genericIndex` idx) =<< query' st A.GetPublicAddresses
+    liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<< query' st A.GetPublicAddresses
 
 main :: IO ()
 main = do

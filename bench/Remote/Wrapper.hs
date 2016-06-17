@@ -94,7 +94,8 @@ catKeyCommand :: T.Text
 catKeyCommand = "cat \"$HOME\"/.rscoin/key.pub\n"
 
 catAddressCommand :: T.Text
-catAddressCommand = "stack exec -- rscoin-user dump-address 1"
+catAddressCommand =
+    T.unlines [cdCommand, "stack exec -- rscoin-user dump-address 1"]
 
 updateRepoCommand :: T.Text -> T.Text
 updateRepoCommand branchName =

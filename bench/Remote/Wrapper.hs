@@ -310,8 +310,27 @@ userUpdateCommand bankHost =
               ("stack exec -- rscoin-user update --bank-host " % stext)
               bankHost]
 
-userRunCommand :: UserData -> T.Text
-userRunCommand _ = T.unlines [cdCommand, "stack exec -- rscoin-user list"]
+userRunCommand :: T.Text -> Word -> UserData -> T.Text
+userRunCommand bankHost txNum UserData{..} =
+    T.unlines
+        [ cdCommand
+        , sformat
+              ("stack bench  rscoin:rscoin-bench-single-user --benchmark-arguments \"" %
+               stext %
+               "\"")
+              benchmarkArguments]
+  where
+    benchmarkArguments =
+        sformat
+            ("--walletDb wallet-db --bank " % stext % stext %
+             " --transactions " %
+             int %
+             " +RTS -qg -RTS")
+            bankHost
+            severityArg
+            txNum
+    severityArg =
+        maybe "" (sformat (" --log-severity " % shown % " ")) udSeverity
 
 sshArgs :: T.Text -> [T.Text]
 sshArgs hostName =
@@ -389,8 +408,9 @@ sendInitialCoins txNum (encodeUtf8 -> bankHost) (map C.Address -> userAddresses)
 updateUser :: T.Text -> UserData -> IO ()
 updateUser bankHost UserData {..} = runSsh udHost $ userUpdateCommand bankHost
 
-runUser :: UserData -> IO ()
-runUser ud@UserData {..} = runSsh udHost $ userRunCommand ud
+runUser :: T.Text -> Word -> UserData -> IO ()
+runUser bankHost txNum ud@UserData{..} =
+    runSsh udHost $ userRunCommand bankHost txNum ud
 
 main :: IO ()
 main = do
@@ -458,11 +478,10 @@ main = do
             }
         runUsers (Just UDMultiple{..}) = do
             let datas = genericTake (fromMaybe maxBound udmNumber) udmUsers
-            pks <-
-                mapConcurrently (genUserKey bankHost globalBranch sp) datas
+            pks <- mapConcurrently (genUserKey bankHost globalBranch sp) datas
             sendInitialCoins udmTransactionsNum bankHost pks
             () <$ mapConcurrently (updateUser bankHost) datas
-            () <$ mapConcurrently runUser datas
+            () <$ mapConcurrently (runUser bankHost udmTransactionsNum) datas
         finishMintettesAndBank = do
             logInfo "Ran users"
             stopBank bankHost

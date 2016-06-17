@@ -22,8 +22,8 @@ import qualified RSCoin.Core                as C
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
                                              ProfilingType (..),
-                                             RemoteConfig (..), UsersData (..),
-                                             readRemoteConfig)
+                                             RemoteConfig (..), UserData (..),
+                                             UsersData (..), readRemoteConfig)
 
 data RemoteBenchOptions = RemoteBenchOptions
     { rboConfigFile    :: Maybe FilePath
@@ -48,19 +48,19 @@ data BankParams = BankParams
     , bpBranch      :: !T.Text
     } deriving (Show)
 
-data UsersParams = UsersParams
-    { upUsersNumber        :: !Word
-    , upMintettesNumber    :: !Word
-    , upTransactionsNumber :: !Word
-    , upShardParams        :: !ShardParams
-    , upDumpStats          :: !Bool
-    , upConfigStr          :: !T.Text
-    , upSeverity           :: !C.Severity
-    , upBranch             :: !T.Text
-    , upHasRSCoin          :: !Bool
-    , upHostName           :: !T.Text
-    , upBankHostName       :: !T.Text
-    , upProfiling          :: !(Maybe ProfilingType)
+data UsersParamsSingle = UsersParamsSingle
+    { upsUsersNumber        :: !Word
+    , upsMintettesNumber    :: !Word
+    , upsTransactionsNumber :: !Word
+    , upsShardParams        :: !ShardParams
+    , upsDumpStats          :: !Bool
+    , upsConfigStr          :: !T.Text
+    , upsSeverity           :: !C.Severity
+    , upsBranch             :: !T.Text
+    , upsHasRSCoin          :: !Bool
+    , upsHostName           :: !T.Text
+    , upsBankHostName       :: !T.Text
+    , upsProfiling          :: !(Maybe ProfilingType)
     } deriving (Show)
 
 userName :: T.IsString s => s
@@ -198,13 +198,13 @@ csvStatsTmpFileName = "bench-tmp.csv"
 csvStatsFileName :: (Monoid s, T.IsString s) => s
 csvStatsFileName = mconcat [statsDir, "/", "stats.csv"]
 
-usersCommand :: UsersParams -> T.Text
-usersCommand UsersParams{..} =
+usersCommandSingle :: UsersParamsSingle -> T.Text
+usersCommandSingle UsersParamsSingle{..} =
     T.unlines
         ([ cdCommand
-         , updateRepoCommand upBranch
+         , updateRepoCommand upsBranch
          , updateTimezoneCommand
-         , setupConfigCommand upShardParams
+         , setupConfigCommand upsShardParams
          , mkStatsDirCommand
          , sformat ("touch " % stext) csvStatsFileName
          , sformat
@@ -227,16 +227,16 @@ usersCommand UsersParams{..} =
                 stext %
                 stext %
                 " +RTS -qg -RTS\"")
-               (profilingBuildArgs upProfiling)
-               upUsersNumber
-               upMintettesNumber
-               upTransactionsNumber
-               upSeverity
+               (profilingBuildArgs upsProfiling)
+               upsUsersNumber
+               upsMintettesNumber
+               upsTransactionsNumber
+               upsSeverity
                statsTmpFileName
                csvStatsTmpFileName
                csvPrefix
-               upBankHostName
-               (profilingRunArgs upProfiling)] ++
+               upsBankHostName
+               (profilingRunArgs upsProfiling)] ++
          dealWithStats)
   where
     statsId = "`date +\"%m.%d-%H:%M:%S\"`"
@@ -245,7 +245,7 @@ usersCommand UsersParams{..} =
             ("\\\"" % stext % ",`git show-ref --abbrev -s HEAD`,\\\"")
             statsId
     dealWithStats
-      | upDumpStats =
+      | upsDumpStats =
           [ sformat
                 ("mv " % stext % " " % stext)
                 statsTmpFileName
@@ -257,7 +257,7 @@ usersCommand UsersParams{..} =
           , sformat ("rm -f " % stext) csvStatsTmpFileName
           , sformat
                 ("echo '" % stext % "' > " % stext)
-                upConfigStr
+                upsConfigStr
                 (mconcat [statsDir, "/", statsId, ".yaml"])]
       | otherwise =
           [ sformat
@@ -309,10 +309,10 @@ runMintette bankHost (MintetteData hasRSCoin hostName profiling) = do
 stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
 
-runUsers :: UsersParams -> IO ()
-runUsers up@UsersParams {..} = do
-    unless upHasRSCoin $ installRSCoin upHostName
-    runSsh upHostName $ usersCommand up
+runUsersSingle :: UsersParamsSingle -> IO ()
+runUsersSingle ups@UsersParamsSingle{..} = do
+    unless upsHasRSCoin $ installRSCoin upsHostName
+    runSsh upsHostName $ usersCommandSingle ups
 
 main :: IO ()
 main = do
@@ -332,26 +332,15 @@ main = do
             }
         bankHost = bdHost rcBank
         mintettes = genericTake (fromMaybe maxBound rcMintettesNum) rcMintettes
+        userDatas Nothing = []
+        userDatas (Just (UDSingle{..})) = [udsData]
+        userDatas (Just (UDMultiple{..})) = udmUsers
         noStats =
             any
                 isJust
                 (bpProfiling bp :
-                 udProfiling rcUsers : map mdProfiling mintettes)
-        up =
-            UsersParams
-            { upUsersNumber = udNumber rcUsers
-            , upMintettesNumber = genericLength mintettes
-            , upTransactionsNumber = rcTransactionsNum
-            , upShardParams = sp
-            , upDumpStats = not noStats
-            , upConfigStr = configStr
-            , upSeverity = fromMaybe C.Warning $ udSeverity rcUsers
-            , upBranch = globalBranch
-            , upHasRSCoin = udHasRSCoin rcUsers
-            , upHostName = udHost rcUsers
-            , upBankHostName = bankHost
-            , upProfiling = udProfiling rcUsers
-            }
+                 (map udProfiling (userDatas rcUsers) ++
+                  map mdProfiling mintettes))
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
     logInfo $
@@ -366,13 +355,36 @@ main = do
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
-    runUsers up
-    logInfo "Ran users"
-    stopBank bankHost
-    logInfo "Stopped bank"
-    mapM_ stopMintette $ map mdHost mintettes
-    logInfo "Stopped mintettes"
-    killThread bankThread
-    logInfo "Killed bank thread"
-    mapM_ killThread mintetteThreads
-    logInfo "Killed mintette threads"
+    let runUsersAndFinish :: Maybe UsersData -> IO ()
+        runUsersAndFinish Nothing =
+            logInfo
+                "Running users was disabled in config. I have finished, RSCoin is ready to be used"
+        runUsersAndFinish (Just UDSingle{..}) = do
+            runUsersSingle $
+                UsersParamsSingle
+                { upsUsersNumber = udsNumber
+                , upsMintettesNumber = genericLength mintettes
+                , upsTransactionsNumber = udsTransactionsNum
+                , upsShardParams = sp
+                , upsDumpStats = not noStats
+                , upsConfigStr = configStr
+                , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
+                , upsBranch = fromMaybe globalBranch $ udBranch udsData
+                , upsHasRSCoin = udHasRSCoin udsData
+                , upsHostName = udHost udsData
+                , upsBankHostName = bankHost
+                , upsProfiling = udProfiling udsData
+                }
+            finishMintettesAndBank
+        runUsersAndFinish (Just UDMultiple{..}) = undefined
+        finishMintettesAndBank = do
+            logInfo "Ran users"
+            stopBank bankHost
+            logInfo "Stopped bank"
+            mapM_ stopMintette $ map mdHost mintettes
+            logInfo "Stopped mintettes"
+            killThread bankThread
+            logInfo "Killed bank thread"
+            mapM_ killThread mintetteThreads
+            logInfo "Killed mintette threads"
+    runUsersAndFinish rcUsers

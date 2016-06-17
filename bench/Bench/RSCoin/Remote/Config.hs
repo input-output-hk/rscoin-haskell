@@ -8,6 +8,7 @@ module Bench.RSCoin.Remote.Config
        , BankData (..)
        , MintetteData (..)
        , UsersData (..)
+       , UserData (..)
        , readRemoteConfig
        ) where
 
@@ -23,21 +24,21 @@ import           Bench.RSCoin.Remote.StageRestriction (defaultOptions,
                                                        leaveTagOptions)
 
 data RemoteConfig = RemoteConfig
-    { -- | Number of transactions per user (not total).
-      rcTransactionsNum :: !Word
-    , rcBank            :: !BankData
-    , rcMintettes       :: ![MintetteData]
+    { rcBank         :: !BankData
+    , rcMintettes    :: ![MintetteData]
+    ,
       -- | Optional field which can be used to run only part of
       -- mintettes.
-    , rcMintettesNum    :: !(Maybe Word)
-    , rcUsers           :: !UsersData
-    , rcShardDivider    :: !Word
-    , rcShardDelta      :: !Word
-    , rcPeriod          :: !Word
+      rcMintettesNum :: !(Maybe Word)
+    , rcUsers        :: !(Maybe UsersData)
+    , rcShardDivider :: !Word
+    , rcShardDelta   :: !Word
+    , rcPeriod       :: !Word
+    ,
       -- | By default `master` branch is used. This setting allows to
       -- use different branch by all entities. Branch can also be
-      -- specified on per-entity basis (only for bank now).
-    , rcBranch          :: !(Maybe Text)
+      -- specified on per-entity basis (only for bank and user now).
+      rcBranch       :: !(Maybe Text)
     } deriving (Show)
 
 data ProfilingType
@@ -68,21 +69,36 @@ instance Buildable MintetteData where
                  then "has"
                  else "doesn't have")
 
-data UsersData = UsersData
+data UsersData
+    = UDSingle  -- ^ Means that users should be run on a single machine
+       { udsData            :: !UserData
+       ,
+         -- ^ Number of users to run
+         udsNumber          :: !Word
+       ,
+         -- | Number of transactions per user (not total).
+         udsTransactionsNum :: !Word}
+    | UDMultiple -- ^ Means that each user is run on separate machine
+       { udmUsers :: ![UserData]}
+    deriving (Show)
+
+data UserData = UserData
     { udHasRSCoin :: !Bool
     , udHost      :: !Text
     , udProfiling :: !(Maybe ProfilingType)
     , udSeverity  :: !(Maybe Severity)
-    , udNumber    :: !Word
+    , udBranch    :: !(Maybe Text)
     } deriving (Show)
 
+$(A.deriveJSON leaveTagOptions ''Severity)
 $(A.deriveJSON defaultOptions ''RemoteConfig)
 $(A.deriveJSON defaultOptions ''ProfilingType)
 $(A.deriveJSON defaultOptions ''BankData)
 $(A.deriveJSON defaultOptions ''MintetteData)
 $(A.deriveJSON defaultOptions ''UsersData)
-$(A.deriveJSON leaveTagOptions ''Severity)
+$(A.deriveJSON defaultOptions ''UserData)
 
 readRemoteConfig :: FilePath -> IO RemoteConfig
-readRemoteConfig fp
-    = either (error . show) id <$> Y.decodeFileEither fp
+readRemoteConfig fp =
+    either (error . ("[FATAL] Failed to parse config: " ++) . show) id <$>
+    Y.decodeFileEither fp

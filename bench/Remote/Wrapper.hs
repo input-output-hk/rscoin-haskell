@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns    #-}
 
 import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
@@ -11,10 +12,12 @@ import           Data.FileEmbed             (embedStringFile,
 import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe, isJust)
 import qualified Data.Text                  as T (unlines)
+import           Data.Text.Encoding         (encodeUtf8)
 import qualified Data.Text.IO               as TIO
 import           Formatting                 (build, int, sformat, shown, stext,
                                              (%))
 import qualified Options.Generic            as OG
+import           System.IO.Temp             (withSystemTempDirectory)
 import qualified Turtle                     as T
 
 import           Serokell.Util              (listBuilderJSON)
@@ -26,6 +29,7 @@ import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
                                              ProfilingType (..),
                                              RemoteConfig (..), UserData (..),
                                              UsersData (..), readRemoteConfig)
+import           Bench.RSCoin.UserLogic     (initializeBank, userThread)
 
 data RemoteBenchOptions = RemoteBenchOptions
     { rboConfigFile    :: Maybe FilePath
@@ -82,6 +86,12 @@ installCommand = $(makeRelativeToProject "bench/install.sh" >>= embedStringFile)
 
 cdCommand :: T.Text
 cdCommand = "cd \"$HOME/rscoin\""
+
+keyGenCommand :: T.Text
+keyGenCommand = "stack exec -- rscoin-keygen\n"
+
+catKeyCommand :: T.Text
+catKeyCommand = "cat \"$HOME\"/.rscoin/key.pub\n"
 
 updateRepoCommand :: T.Text -> T.Text
 updateRepoCommand branchName =
@@ -169,10 +179,7 @@ mintetteSetupCommand branchName shardParams profiling =
         , sformat
               ("stack build rscoin " % stext)
               (profilingBuildArgs profiling)
-        , "stack exec -- rscoin-keygen"]
-
-mintetteCatKeyCommand :: T.Text
-mintetteCatKeyCommand = "cat \"$HOME\"/.rscoin/key.pub\n"
+        , keyGenCommand]
 
 mintetteRunCommand :: T.Text -> Maybe ProfilingType -> T.Text
 mintetteRunCommand bankHost profiling =
@@ -267,6 +274,30 @@ usersCommandSingle UsersParamsSingle{..} =
                 statsTmpFileName
                 csvStatsTmpFileName]
 
+userSetupCommand :: T.Text -> ShardParams -> Maybe ProfilingType -> T.Text
+userSetupCommand branchName shardParams profiling =
+    T.unlines
+        [ cdCommand
+        , "rm -rf wallet-db"
+        , updateRepoCommand branchName
+        , setupConfigCommand shardParams
+        , sformat
+              ("stack bench rscoin --no-run-benchmarks " % stext)
+              (profilingBuildArgs profiling)
+        , keyGenCommand]
+
+userUpdateCommand :: T.Text -> T.Text
+userUpdateCommand bankHost =
+    T.unlines
+        [ cdCommand
+        , sformat
+              ("stack exec -- rscoin-user update --bank-host " % stext)
+              bankHost]
+
+userRunCommand :: UserData -> T.Text
+userRunCommand _ =
+    T.unlines [ "stack exec -- rscoin-user list" ]
+
 sshArgs :: T.Text -> [T.Text]
 sshArgs hostName =
     [ "-i"
@@ -301,7 +332,7 @@ genMintetteKey :: T.Text -> ShardParams -> MintetteData -> IO C.PublicKey
 genMintetteKey branchName sp (MintetteData _ hostName profiling) = do
     runSsh hostName $ mintetteSetupCommand branchName sp profiling
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
-        runSshStrict hostName mintetteCatKeyCommand
+        runSshStrict hostName catKeyCommand
 
 runMintette :: T.Text -> MintetteData -> IO ThreadId
 runMintette bankHost (MintetteData hasRSCoin hostName profiling) = do
@@ -315,6 +346,30 @@ runUsersSingle :: UsersParamsSingle -> IO ()
 runUsersSingle ups@UsersParamsSingle{..} = do
     unless upsHasRSCoin $ installRSCoin upsHostName
     runSsh upsHostName $ usersCommandSingle ups
+
+genUserKey :: T.Text -> ShardParams -> UserData -> IO C.PublicKey
+genUserKey globalBranch sp UserData{..} = do
+    runSsh udHost $ userSetupCommand (fromMaybe globalBranch udBranch) sp udProfiling
+    fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
+        runSshStrict udHost catKeyCommand
+
+sendInitialCoins :: Word -> T.Text -> [C.PublicKey] -> IO ()
+sendInitialCoins txNum (encodeUtf8 -> bankHost) (map C.Address -> userAddresses) = do
+    withSystemTempDirectory "tmp" impl
+  where
+    bankId = 0
+    impl dir =
+        userThread
+            bankHost
+            dir
+            (const $ initializeBank txNum userAddresses)
+            bankId
+
+updateUser :: T.Text -> UserData -> IO ()
+updateUser bankHost UserData {..} = runSsh udHost $ userUpdateCommand bankHost
+
+runUser :: UserData -> IO ()
+runUser ud@UserData {..} = runSsh udHost $ userRunCommand ud
 
 main :: IO ()
 main = do
@@ -357,14 +412,14 @@ main = do
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"
-    let runUsersAndFinish :: Maybe UsersData -> IO ()
-        runUsersAndFinish Nothing = do
+    let runUsers :: Maybe UsersData -> IO ()
+        runUsers Nothing = do
             logInfo
-                "Running users was disabled in config. I have finished, RSCoin is ready to be used"
+                "Running users was disabled in config. I have finished, RSCoin is ready to be used."
             logInfo
                 "Have fun now. I am going to sleep, you can wish me good night."
             T.sleep 100500
-        runUsersAndFinish (Just UDSingle{..}) =
+        runUsers (Just UDSingle{..}) =
             runUsersSingle $
             UsersParamsSingle
             { upsUsersNumber = udsNumber
@@ -380,7 +435,11 @@ main = do
             , upsBankHostName = bankHost
             , upsProfiling = udProfiling udsData
             }
-        runUsersAndFinish (Just UDMultiple{..}) = undefined
+        runUsers (Just UDMultiple{..}) = do
+            pks <- mapConcurrently (genUserKey globalBranch sp) udmUsers
+            sendInitialCoins udmTransactionsNum bankHost pks
+            () <$ mapConcurrently (updateUser bankHost) udmUsers
+            () <$ mapConcurrently runUser udmUsers
         finishMintettesAndBank = do
             logInfo "Ran users"
             stopBank bankHost
@@ -391,4 +450,4 @@ main = do
             logInfo "Killed bank thread"
             mapM_ killThread mintetteThreads
             logInfo "Killed mintette threads"
-    runUsersAndFinish rcUsers `finally` finishMintettesAndBank
+    runUsers rcUsers `finally` finishMintettesAndBank

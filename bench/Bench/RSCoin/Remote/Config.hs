@@ -79,7 +79,8 @@ data UsersData
          -- | Number of transactions per user (not total).
          udsTransactionsNum :: !Word}
     | UDMultiple -- ^ Means that each user is run on separate machine
-       { udmUsers :: ![UserData]}
+       { udmUsers           :: ![UserData]
+       , udmTransactionsNum :: !Word}
     deriving (Show)
 
 data UserData = UserData

@@ -401,18 +401,25 @@ benchmark rscoin-bench-only-users
 benchmark rscoin-bench-remote
   type:                exitcode-stdio-1.0
   main-is:             Remote/Wrapper.hs
-  other-modules:       Bench.RSCoin.Logging
-                       Bench.RSCoin.Remote.StageRestriction
-                       Bench.RSCoin.Remote.Config
-  build-depends:       aeson
+  other-modules:       Bench.RSCoin.FilePathUtils
+                     , Bench.RSCoin.Logging
+                     , Bench.RSCoin.Remote.StageRestriction
+                     , Bench.RSCoin.Remote.Config
+                     , Bench.RSCoin.UserLogic
+  build-depends:       acid-state
+                     , aeson
                      , async
                      , base >=4.8 && <4.9
+                     , bytestring
+                     , exceptions
                      , file-embed
+                     , filepath
                      , formatting
                      , mtl
                      , optparse-generic
                      , rscoin
                      , serokell-core
+                     , temporary
                      , text
                      , text-format
                      , turtle

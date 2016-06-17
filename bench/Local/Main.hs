@@ -16,13 +16,11 @@ import           System.IO.Temp                  (withSystemTempDirectory)
 -- workaround to make stylish-haskell work :(
 import           Options.Generic
 
-import           RSCoin.Core                     (PublicKey, SecretKey,
-                                                  Severity (..), bankSecretKey,
+import           RSCoin.Core                     (Address, PublicKey, SecretKey,
+                                                  Severity (..),
                                                   defaultPeriodDelta,
-                                                  finishPeriod, initLogging,
-                                                  keyGen)
-import           RSCoin.Timed                    (runRealModeLocal)
-import           RSCoin.User.Wallet              (UserAddress)
+                                                  initLogging, keyGen)
+import           RSCoin.User                     (toAddress)
 
 import           Bench.RSCoin.FilePathUtils      (tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
@@ -77,25 +75,20 @@ establishBank benchDir periodDelta = do
     logInfo "Bank is launched"
     threadDelay $ 2 * 10 ^ (6 :: Int)
 
-initializeUsers :: FilePath -> [Word] -> IO [UserAddress]
+initializeUsers :: FilePath -> [Word] -> IO [Address]
 initializeUsers benchDir userIds = do
     let initUserAction = userThread bankHost benchDir initializeUser
     logInfo $ sformat ("Initializing " % int % " users…") $ length userIds
-    mapM initUserAction userIds
+    map toAddress <$> mapM initUserAction userIds
 
-initializeSuperUser :: Word -> FilePath -> [UserAddress] -> IO ()
+initializeSuperUser :: Word -> FilePath -> [Address] -> IO ()
 initializeSuperUser txNum benchDir userAddresses = do
     let bankId = 0
-    logInfo "Initializaing user in bankMode…"
     userThread
         bankHost
         benchDir
         (const $ initializeBank txNum userAddresses)
         bankId
-    logInfo
-        "Initialized user in bankMode, finishing period"
-    runRealModeLocal $ finishPeriod bankSecretKey
-    threadDelay $ 1 * 10 ^ (6 :: Int)
 
 runTransactions :: Word
                 -> FilePath

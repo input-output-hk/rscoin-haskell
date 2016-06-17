@@ -19,13 +19,15 @@ import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
 import           RSCoin.Core                (Address (..), Coin (..),
-                                             bankSecretKey, keyGen)
+                                             bankSecretKey, finishPeriod,
+                                             keyGen)
 
-import           RSCoin.Timed               (MsgPackRpc, runRealMode)
+import           RSCoin.Timed               (MsgPackRpc, for, runRealMode, sec,
+                                             wait)
 import qualified RSCoin.User.AcidState      as A
 import           RSCoin.User.Cache          (UserCache, mkUserCache)
 import           RSCoin.User.Operations     (formTransactionRetry)
-import           RSCoin.User.Wallet         (UserAddress, toAddress)
+import           RSCoin.User.Wallet         (UserAddress)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 import           Bench.RSCoin.Logging       (logDebug, logInfo)
@@ -78,17 +80,21 @@ executeTransaction userState cache coinAmount addrToSend =
     inputMoneyInfo = [(1, outputMoney)]
 
 -- | Create user in `bankMode` and send coins to every user.
-initializeBank :: Word -> [UserAddress] -> A.RSCoinUserState -> MsgPackRpc ()
-initializeBank transactionNum userAddresses bankUserState = do
+initializeBank :: Word -> [Address] -> A.RSCoinUserState -> MsgPackRpc ()
+initializeBank coinsNum userAddresses bankUserState = do
+    logInfo "Initializaing user in bankMode…"
     let additionalBankAddreses = 0
     logDebug "Before initStateBank"
     A.initStateBank bankUserState additionalBankAddreses bankSecretKey
     logDebug "After initStateBank"
     cache <- liftIO mkUserCache
     forM_ userAddresses $
-        executeTransaction bankUserState cache (fromIntegral transactionNum) .
-        toAddress
+        executeTransaction bankUserState cache (fromIntegral coinsNum)
     logDebug "Sent initial coins from bank to users"
+    logInfo
+        "Initialized user in bankMode, finishing period"
+    finishPeriod bankSecretKey
+    wait $ for 1 sec
 
 -- | Do `txNum` transactions to random address.
 benchUserTransactions :: Word

@@ -44,7 +44,7 @@ instance MessagePack Integer where
     fromObject = fmap fromInteger . fromObject
 
 instance (Integral a, MessagePack a) => MessagePack (Ratio a) where
-    toObject r = toObject (denominator r, numerator r)
+    toObject r = toObject (numerator r, denominator r)
     fromObject = fmap (uncurry (%)) . fromObject
 
 instance (MessagePack a, MessagePack b) => MessagePack (Either a b) where

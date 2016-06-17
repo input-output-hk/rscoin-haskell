@@ -1,15 +1,18 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns        #-}
 -- | MessagePack serialization/deserialization for Core types
 
 module RSCoin.Core.MessagePack
        (
        ) where
 
-import           Data.Binary            (encode, decode)
+import           Data.Binary            (encode, decodeOrFail)
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Int               (Int64)
 import           Data.MessagePack       (MessagePack (toObject, fromObject),
-                                         Object (ObjectExt, ObjectBin), pack, unpack)
+                                         Object (ObjectExt, ObjectBin, ObjectInt), pack, unpack)
 import           Data.Ratio             (Ratio, numerator, denominator, (%))
+import           Data.Tuple.Select      (sel3)
 import           Data.Tuple.Curry       (uncurryN)
 
 import           RSCoin.Core.Crypto     ()
@@ -41,8 +44,12 @@ instance MessagePack Int64 where
     fromObject = fmap fromInt . fromObject
 
 instance MessagePack Integer where
-    toObject = ObjectBin . BSL.toStrict . encode
-    fromObject (ObjectBin b) = Just . decode $ BSL.fromStrict b -- FIXME: use decodeOrFail here
+    toObject i
+        | fromInt minBound <= i && i <= fromInt maxBound = ObjectInt $ toInt i
+        | otherwise = ObjectBin . BSL.toStrict $ encode i
+    fromObject (ObjectInt i) = Just $ fromInt i
+    fromObject (ObjectBin b) =
+        either (const Nothing) (Just . sel3) . decodeOrFail $ BSL.fromStrict b
     fromObject _             = Nothing
 
 instance (Integral a, MessagePack a) => MessagePack (Ratio a) where

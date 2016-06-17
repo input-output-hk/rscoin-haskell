@@ -453,11 +453,12 @@ main = do
             , upsProfiling = udProfiling udsData
             }
         runUsers (Just UDMultiple{..}) = do
+            let datas = genericTake (fromMaybe maxBound udmNumber) udmUsers
             pks <-
-                mapConcurrently (genUserKey bankHost globalBranch sp) udmUsers
+                mapConcurrently (genUserKey bankHost globalBranch sp) datas
             sendInitialCoins udmTransactionsNum bankHost pks
-            () <$ mapConcurrently (updateUser bankHost) udmUsers
-            () <$ mapConcurrently runUser udmUsers
+            () <$ mapConcurrently (updateUser bankHost) datas
+            () <$ mapConcurrently runUser datas
         finishMintettesAndBank = do
             logInfo "Ran users"
             stopBank bankHost

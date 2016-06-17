@@ -29,6 +29,7 @@ users:
         host: 52.28.78.214
       - hasRSCoin: True
         host: 52.58.188.110
+    number: 4
     transactionsNum: 1000
 shardDivider : 0
 shardDelta: 3

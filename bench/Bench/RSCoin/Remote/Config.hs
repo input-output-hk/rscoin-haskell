@@ -35,7 +35,7 @@ data RemoteConfig = RemoteConfig
     , rcShardDelta      :: !Word
     , rcPeriod          :: !Word
       -- | By default `master` branch is used. This setting allows to
-      -- use different branch by all entities. Branch can all
+      -- use different branch by all entities. Branch can also be
       -- specified on per-entity basis (only for bank now).
     , rcBranch          :: !(Maybe Text)
     } deriving (Show)

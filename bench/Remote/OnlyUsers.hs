@@ -3,7 +3,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators   #-}
 
-import           Control.Concurrent         (threadDelay)
 import           Control.Concurrent.Async   (forConcurrently)
 import           Data.ByteString            (ByteString)
 import           Data.Maybe                 (fromMaybe)
@@ -17,10 +16,9 @@ import           Options.Generic
 
 import           Serokell.Util.Text         (listBuilderCSV, show')
 
-import           RSCoin.Core                (Severity (..), bankSecretKey,
-                                             finishPeriod, initLogging)
-import           RSCoin.Timed               (runRealMode)
-import           RSCoin.User.Wallet         (UserAddress)
+import           RSCoin.Core                (Address, Severity (..),
+                                             initLogging)
+import           RSCoin.User                (toAddress)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
@@ -48,26 +46,24 @@ instance ParseFields Severity
 instance ParseRecord Severity
 instance ParseRecord BenchOptions
 
-initializeUsers :: ByteString -> FilePath -> [Word] -> IO [UserAddress]
+initializeUsers :: ByteString -> FilePath -> [Word] -> IO [Address]
 initializeUsers bankHost benchDir userIds = do
     let initUserAction = userThread bankHost benchDir initializeUser
     logInfo $ sformat ("Initializing " % int % " users…") $ length userIds
-    mapM initUserAction userIds
+    map toAddress <$> mapM initUserAction userIds
 
 initializeSuperUser :: Word
                     -> ByteString
                     -> FilePath
-                    -> [UserAddress]
+                    -> [Address]
                     -> IO ()
 initializeSuperUser txNum bankHost benchDir userAddresses = do
-    -- give money to all users
     let bankId = 0
-    logInfo "Initializaing user in bankMode…"
-    userThread bankHost benchDir (const $ initializeBank txNum userAddresses) bankId
-    logInfo
-        "Initialized user in bankMode, finishing period"
-    runRealMode bankHost $ finishPeriod bankSecretKey
-    threadDelay $ 1 * 10 ^ (6 :: Int)
+    userThread
+        bankHost
+        benchDir
+        (const $ initializeBank txNum userAddresses)
+        bankId
 
 runTransactions
     :: ByteString

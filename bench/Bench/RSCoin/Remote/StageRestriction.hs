@@ -31,6 +31,7 @@ defaultOptions =
     A.defaultOptions
     { A.fieldLabelModifier = headToLower . stripFieldPrefix . dropPunctuation
     , A.constructorTagModifier = headToLower . stripConstructorPrefix
+    , A.sumEncoding = A.ObjectWithSingleField
     }
 
 -- | These options don't modify constructor tags

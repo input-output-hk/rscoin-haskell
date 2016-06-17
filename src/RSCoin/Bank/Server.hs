@@ -6,10 +6,10 @@ module RSCoin.Bank.Server
        ( serve
        ) where
 
+import           Control.Concurrent    (MVar, newMVar, takeMVar, putMVar)
 import           Control.Monad.Catch   (catch, throwM)
 import           Control.Monad.Trans   (lift, liftIO)
 import           Data.Acid.Advanced    (query')
-import           Data.IORef            (IORef, newIORef, readIORef, writeIORef)
 
 import           Serokell.Util.Text    (format', formatSingle', show')
 
@@ -29,7 +29,7 @@ serve
     :: T.WorkMode m
     => State -> T.ThreadId -> (T.ThreadId -> m T.ThreadId) -> m ()
 serve st workerThread restartWorkerAction = do
-    threadIdRef <- liftIO $ newIORef workerThread
+    threadIdMVar <- liftIO $ newMVar workerThread
     idr1 <- T.serverTypeRestriction0
     idr2 <- T.serverTypeRestriction0
     idr3 <- T.serverTypeRestriction1
@@ -44,7 +44,7 @@ serve st workerThread restartWorkerAction = do
         , C.method (C.RSCBank C.GetHBlock) $ idr3 $ serveGetHBlock st
         , C.method (C.RSCBank C.GetTransaction) $ idr4 $ serveGetTransaction st
         , C.method (C.RSCBank C.FinishPeriod) $
-          idr5 $ serveFinishPeriod threadIdRef restartWorkerAction
+          idr5 $ serveFinishPeriod threadIdMVar restartWorkerAction
         , C.method (C.RSCDump C.GetHBlocks) $ idr6 $ serveGetHBlocks st
         , C.method (C.RSCDump C.GetHBlocks) $ idr7 $ serveGetLogs st]
 
@@ -92,12 +92,13 @@ serveGetTransaction st tId =
 
 serveFinishPeriod
     :: T.WorkMode m
-    => IORef T.ThreadId -> (T.ThreadId -> m T.ThreadId) -> T.ServerT m ()
-serveFinishPeriod threadIdRef restartAction =
+    => MVar T.ThreadId -> (T.ThreadId -> m T.ThreadId) -> T.ServerT m ()
+serveFinishPeriod threadIdMVar restartAction =
     toServer $
     do logInfo bankLoggerName $ "Forced finish of period was requested"
-       liftIO (readIORef threadIdRef) >>= restartAction >>=
-           liftIO . writeIORef threadIdRef
+       -- TODO: consider using modifyMVar_ here
+       liftIO (takeMVar threadIdMVar) >>= restartAction >>=
+           liftIO . putMVar threadIdMVar
 
 -- Dumping Bank state
 

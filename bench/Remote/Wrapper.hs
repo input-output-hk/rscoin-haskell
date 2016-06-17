@@ -4,6 +4,7 @@
 
 import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
+import           Control.Exception          (finally)
 import           Control.Monad              (unless)
 import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
@@ -357,26 +358,28 @@ main = do
     T.sleep 3
     logInfo "Running users…"
     let runUsersAndFinish :: Maybe UsersData -> IO ()
-        runUsersAndFinish Nothing =
+        runUsersAndFinish Nothing = do
             logInfo
                 "Running users was disabled in config. I have finished, RSCoin is ready to be used"
-        runUsersAndFinish (Just UDSingle{..}) = do
+            logInfo
+                "Have fun now. I am going to sleep, you can wish me good night."
+            T.sleep 100500
+        runUsersAndFinish (Just UDSingle{..}) =
             runUsersSingle $
-                UsersParamsSingle
-                { upsUsersNumber = udsNumber
-                , upsMintettesNumber = genericLength mintettes
-                , upsTransactionsNumber = udsTransactionsNum
-                , upsShardParams = sp
-                , upsDumpStats = not noStats
-                , upsConfigStr = configStr
-                , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
-                , upsBranch = fromMaybe globalBranch $ udBranch udsData
-                , upsHasRSCoin = udHasRSCoin udsData
-                , upsHostName = udHost udsData
-                , upsBankHostName = bankHost
-                , upsProfiling = udProfiling udsData
-                }
-            finishMintettesAndBank
+            UsersParamsSingle
+            { upsUsersNumber = udsNumber
+            , upsMintettesNumber = genericLength mintettes
+            , upsTransactionsNumber = udsTransactionsNum
+            , upsShardParams = sp
+            , upsDumpStats = not noStats
+            , upsConfigStr = configStr
+            , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
+            , upsBranch = fromMaybe globalBranch $ udBranch udsData
+            , upsHasRSCoin = udHasRSCoin udsData
+            , upsHostName = udHost udsData
+            , upsBankHostName = bankHost
+            , upsProfiling = udProfiling udsData
+            }
         runUsersAndFinish (Just UDMultiple{..}) = undefined
         finishMintettesAndBank = do
             logInfo "Ran users"
@@ -388,4 +391,4 @@ main = do
             logInfo "Killed bank thread"
             mapM_ killThread mintetteThreads
             logInfo "Killed mintette threads"
-    runUsersAndFinish rcUsers
+    runUsersAndFinish rcUsers `finally` finishMintettesAndBank

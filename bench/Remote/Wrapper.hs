@@ -95,7 +95,7 @@ updateRepoCommand branchName =
               branchName
               originBranchName
               branchName
-        , sformat ("git pull --ff-only -q origin " % stext) branchName]
+        , sformat ("git pull -f -q origin " % stext) branchName]
   where
     originBranchName = sformat ("origin/" % stext) branchName
 

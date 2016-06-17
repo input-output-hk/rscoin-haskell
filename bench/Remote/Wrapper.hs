@@ -93,6 +93,9 @@ keyGenCommand = "stack exec -- rscoin-keygen\n"
 catKeyCommand :: T.Text
 catKeyCommand = "cat \"$HOME\"/.rscoin/key.pub\n"
 
+catAddressCommand :: T.Text
+catAddressCommand = "stack exec -- rscoin-user dump-address 1"
+
 updateRepoCommand :: T.Text -> T.Text
 updateRepoCommand branchName =
     T.unlines
@@ -278,8 +281,8 @@ usersCommandSingle UsersParamsSingle{..} =
                 statsTmpFileName
                 csvStatsTmpFileName]
 
-userSetupCommand :: T.Text -> ShardParams -> Maybe ProfilingType -> T.Text
-userSetupCommand branchName shardParams profiling =
+userSetupCommand :: T.Text -> T.Text -> ShardParams -> Maybe ProfilingType -> T.Text
+userSetupCommand bankHost branchName shardParams profiling =
     T.unlines
         [ cdCommand
         , "rm -rf wallet-db"
@@ -288,7 +291,10 @@ userSetupCommand branchName shardParams profiling =
         , sformat
               ("stack bench rscoin --no-run-benchmarks " % stext)
               (profilingBuildArgs profiling)
-        , keyGenCommand]
+        , sformat
+              ("stack exec -- rscoin-user list --addresses-num 1 --bank-host " %
+               stext)
+              bankHost]
 
 userUpdateCommand :: T.Text -> T.Text
 userUpdateCommand bankHost =
@@ -350,11 +356,11 @@ runUsersSingle ups@UsersParamsSingle{..} = do
     unless upsHasRSCoin $ installRSCoin upsHostName
     runSsh upsHostName $ usersCommandSingle ups
 
-genUserKey :: T.Text -> ShardParams -> UserData -> IO C.PublicKey
-genUserKey globalBranch sp UserData{..} = do
-    runSsh udHost $ userSetupCommand (fromMaybe globalBranch udBranch) sp udProfiling
+genUserKey :: T.Text -> T.Text -> ShardParams -> UserData -> IO C.PublicKey
+genUserKey bankHost globalBranch sp UserData{..} = do
+    runSsh udHost $ userSetupCommand bankHost (fromMaybe globalBranch udBranch) sp udProfiling
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
-        runSshStrict udHost catKeyCommand
+        runSshStrict udHost catAddressCommand
 
 sendInitialCoins :: Word -> T.Text -> [C.PublicKey] -> IO ()
 sendInitialCoins txNum (encodeUtf8 -> bankHost) (map C.Address -> userAddresses) = do
@@ -439,7 +445,8 @@ main = do
             , upsProfiling = udProfiling udsData
             }
         runUsers (Just UDMultiple{..}) = do
-            pks <- mapConcurrently (genUserKey globalBranch sp) udmUsers
+            pks <-
+                mapConcurrently (genUserKey bankHost globalBranch sp) udmUsers
             sendInitialCoins udmTransactionsNum bankHost pks
             () <$ mapConcurrently (updateUser bankHost) udmUsers
             () <$ mapConcurrently runUser udmUsers

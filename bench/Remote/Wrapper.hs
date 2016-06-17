@@ -7,11 +7,12 @@ import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
 import           Control.Exception          (finally)
 import           Control.Monad              (unless)
+import           Data.Char                  (isSpace)
 import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
 import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe, isJust)
-import qualified Data.Text                  as T (unlines)
+import qualified Data.Text                  as T (filter, unlines)
 import           Data.Text.Encoding         (encodeUtf8)
 import qualified Data.Text.IO               as TIO
 import           Formatting                 (build, int, sformat, shown, stext,
@@ -359,8 +360,14 @@ runUsersSingle ups@UsersParamsSingle{..} = do
 
 genUserKey :: T.Text -> T.Text -> ShardParams -> UserData -> IO C.PublicKey
 genUserKey bankHost globalBranch sp UserData{..} = do
-    runSsh udHost $ userSetupCommand bankHost (fromMaybe globalBranch udBranch) sp udProfiling
-    fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
+    runSsh udHost $
+        userSetupCommand
+            bankHost
+            (fromMaybe globalBranch udBranch)
+            sp
+            udProfiling
+    fromMaybe (error "FATAL: constructPulicKey failed") .
+        C.constructPublicKey . T.filter (not . isSpace) <$>
         runSshStrict udHost catAddressCommand
 
 sendInitialCoins :: Word -> T.Text -> [C.PublicKey] -> IO ()

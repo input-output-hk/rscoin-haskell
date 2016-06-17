@@ -43,7 +43,7 @@ instance MessagePack Int64 where
 instance MessagePack Integer where
     toObject = ObjectBin . BSL.toStrict . encode
     fromObject (ObjectBin b) = decode $ BSL.fromStrict b -- FIXME: use decodeOrFail here
-    fromObject _             = fail "Expecting Integer to be encoded as Binary"
+    fromObject _             = Nothing
 
 instance (Integral a, MessagePack a) => MessagePack (Ratio a) where
     toObject r = toObject (numerator r, denominator r)

@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns        #-}
 -- | MessagePack serialization/deserialization for Core types
 
 module RSCoin.Core.MessagePack

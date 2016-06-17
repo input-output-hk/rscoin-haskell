@@ -306,6 +306,7 @@ benchmark rscoin-bench-local
                      , filepath
                      , formatting
                      , mtl
+                     , optional-args
                      , optparse-generic
                      , rscoin
                      , serokell-core
@@ -342,6 +343,7 @@ benchmark rscoin-bench-single-user
                      , filepath
                      , formatting
                      , mtl
+                     , optional-args
                      , optparse-generic
                      , rscoin
                      , serokell-core
@@ -378,6 +380,7 @@ benchmark rscoin-bench-only-users
                      , filepath
                      , formatting
                      , mtl
+                     , optional-args
                      , optparse-generic
                      , rscoin
                      , serokell-core
@@ -416,6 +419,7 @@ benchmark rscoin-bench-remote
                      , filepath
                      , formatting
                      , mtl
+                     , optional-args
                      , optparse-generic
                      , rscoin
                      , serokell-core

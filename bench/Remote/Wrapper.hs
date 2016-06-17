@@ -94,9 +94,13 @@ keyGenCommand = "stack exec -- rscoin-keygen\n"
 catKeyCommand :: T.Text
 catKeyCommand = "cat \"$HOME\"/.rscoin/key.pub\n"
 
-catAddressCommand :: T.Text
-catAddressCommand =
-    T.unlines [cdCommand, "stack exec -- rscoin-user dump-address 1"]
+catAddressCommand :: T.Text -> T.Text
+catAddressCommand bankHost =
+    T.unlines
+        [ cdCommand
+        , sformat
+              ("stack exec -- rscoin-user dump-address 1 --bank-host " % stext)
+              bankHost]
 
 updateRepoCommand :: T.Text -> T.Text
 updateRepoCommand branchName =
@@ -368,7 +372,7 @@ genUserKey bankHost globalBranch sp UserData{..} = do
             udProfiling
     fromMaybe (error "FATAL: constructPulicKey failed") .
         C.constructPublicKey . T.filter (not . isSpace) <$>
-        runSshStrict udHost catAddressCommand
+        runSshStrict udHost (catAddressCommand bankHost)
 
 sendInitialCoins :: Word -> T.Text -> [C.PublicKey] -> IO ()
 sendInitialCoins txNum (encodeUtf8 -> bankHost) (map C.Address -> userAddresses) = do

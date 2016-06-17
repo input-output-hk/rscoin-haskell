@@ -23,7 +23,7 @@ data BenchOptions = BenchOptions
     , severity      :: Maybe Severity <?> "severity for global logger"
     , benchSeverity :: Maybe Severity <?> "severity for bench logger"
     , transactions  :: Maybe Word     <?> "number of transactions"
-    , walledDb      :: Maybe FilePath <?> "path to wallet (assuming it has enough money)"
+    , walletDb      :: Maybe FilePath <?> "path to wallet (assuming it has enough money)"
     } deriving (Generic, Show)
 
 instance ParseField  Word
@@ -49,7 +49,7 @@ main = do
     let globalSeverity = fromMaybe Error $ unHelpful severity
     let bSeverity      = fromMaybe Info  $ unHelpful benchSeverity
     let txNum          = fromMaybe 100   $ unHelpful transactions
-    let walletPath     = maybe empty Specific $ unHelpful walledDb
+    let walletPath     = maybe empty Specific $ unHelpful walletDb
 
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity

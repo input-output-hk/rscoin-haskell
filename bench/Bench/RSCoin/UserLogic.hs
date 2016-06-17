@@ -56,10 +56,10 @@ userThreadWithPath
     benchDir
     userAction
     userId
-    (defaultTo (dbFormatPath walletPathPrefix userId) -> walletPath)
+    (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
   =
     runRealMode bankHost $ bracket
-        (liftIO $ A.openState $ benchDir </> walletPath)
+        (liftIO $ A.openState walletPath)
         (\userState -> liftIO $ do
             createCheckpoint userState
             A.closeState userState)

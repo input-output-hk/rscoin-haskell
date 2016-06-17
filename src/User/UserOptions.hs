@@ -53,6 +53,7 @@ data DumpCommand
     | DumpMintetteUtxo MintetteId
     | DumpMintetteBlocks MintetteId PeriodId
     | DumpMintetteLogs MintetteId PeriodId
+    | DumpAddress Word
     deriving (Show)
 
 -- | Datatype describing user command line options
@@ -152,7 +153,14 @@ userCommandParser =
                       <$> argument auto (metavar "MINTETTE_ID" <> help "Dump logs of mintette with this id.")
                       <*> argument auto (metavar "PERIOD_ID" <> help "Dump logs with this period id.")
                   )
-                  (progDesc "Dump logs of corresponding mintette and periodId.")))
+                  (progDesc "Dump logs of corresponding mintette and periodId.")) <>
+         command
+             "dump-address"
+             (info
+                  (fmap Dump $ DumpAddress
+                      <$> argument auto (metavar "INDEX" <> help "Index of address to dump")
+                  )
+                  (progDesc "Dump address with given index.")))
   where
     formTransactionOpts =
         FormTransaction <$>

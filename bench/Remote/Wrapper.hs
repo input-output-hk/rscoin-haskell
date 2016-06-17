@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 import           Control.Concurrent         (ThreadId, forkIO, killThread)
+import           Control.Concurrent.Async   (mapConcurrently)
 import           Control.Monad              (unless)
 import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
@@ -346,8 +347,8 @@ main = do
     logInfo $
         sformat ("Setting up and launching mintettes " % build % "…") $
         listBuilderJSON mintettes
-    mintetteKeys <- mapM (genMintetteKey globalBranch sp) mintettes
-    mintetteThreads <- mapM (runMintette bankHost) mintettes
+    mintetteKeys <- mapConcurrently (genMintetteKey globalBranch sp) mintettes
+    mintetteThreads <- mapConcurrently (runMintette bankHost) mintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2
     logInfo "Launching bank…"

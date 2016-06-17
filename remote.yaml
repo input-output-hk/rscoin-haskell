@@ -1,7 +1,7 @@
 bank:
   hasRSCoin: True
   host: 52.58.26.146
-mintettesNum: 3
+mintettesNum: 10
 mintettes:
 - hasRSCoin: True
   host: 52.28.80.85

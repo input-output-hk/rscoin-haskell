@@ -405,6 +405,7 @@ benchmark rscoin-bench-remote
                        Bench.RSCoin.Remote.StageRestriction
                        Bench.RSCoin.Remote.Config
   build-depends:       aeson
+                     , async
                      , base >=4.8 && <4.9
                      , file-embed
                      , formatting

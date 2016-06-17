@@ -9,7 +9,7 @@ module RSCoin.Bank.Server
 import           Control.Monad.Catch   (catch, throwM)
 import           Control.Monad.Trans   (lift, liftIO)
 import           Data.Acid.Advanced    (query')
-import           Data.IORef            (IORef, newIORef, readIORef, writeIORef)
+import           Data.IORef            (IORef, newIORef, readIORef, atomicWriteIORef)
 
 import           Serokell.Util.Text    (format', formatSingle', show')
 
@@ -97,7 +97,7 @@ serveFinishPeriod threadIdRef restartAction =
     toServer $
     do logInfo bankLoggerName $ "Forced finish of period was requested"
        liftIO (readIORef threadIdRef) >>= restartAction >>=
-           liftIO . writeIORef threadIdRef
+           liftIO . atomicWriteIORef threadIdRef
 
 -- Dumping Bank state
 

@@ -407,6 +407,7 @@ benchmark rscoin-bench-remote
   main-is:             Remote/Wrapper.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
+                     , Bench.RSCoin.UserSingle
                      , Bench.RSCoin.Remote.StageRestriction
                      , Bench.RSCoin.Remote.Config
                      , Bench.RSCoin.UserCommons

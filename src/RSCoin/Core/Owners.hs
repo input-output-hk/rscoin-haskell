@@ -13,7 +13,7 @@ import qualified Data.ByteString        as BS
 import           Data.Hashable          (hash)
 import           Data.List              (nub)
 
-import           RSCoin.Core.Constants  (shardDivider, shardDelta)
+import           RSCoin.Core.Constants  (shardDelta, shardDivider)
 import           RSCoin.Core.Crypto     (getHash)
 import qualified RSCoin.Core.Crypto     as C
 import           RSCoin.Core.Primitives (TransactionId)
@@ -25,7 +25,7 @@ shardSize :: Int -> Int
 shardSize i
     | i < 1             = error "You can't chose majority from < 1 mintette."
     | shardDivider == 0 = min i shardDelta
-    | otherwise         = i `div` shardDivider + shardDelta
+    | otherwise         = max 1 $ i `div` shardDivider + shardDelta
 
 -- | Takes list of mintettes which is active and stable over current period
 -- and hash of transaction and returns list of mintettes responsible for it.

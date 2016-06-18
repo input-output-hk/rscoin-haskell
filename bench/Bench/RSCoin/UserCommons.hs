@@ -12,7 +12,6 @@ module Bench.RSCoin.UserCommons
 import           Control.Monad              (forM_, when)
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
-
 import           Data.Acid                  (createCheckpoint)
 import           Data.Acid.Advanced         (query')
 import           Data.ByteString            (ByteString)
@@ -85,7 +84,7 @@ executeTransaction :: A.RSCoinUserState
 executeTransaction userState cache coinAmount addrToSend =
     () <$
     formTransactionRetry
-        maxBound
+        maxRetries
         userState
         (Just cache)
         False
@@ -93,6 +92,7 @@ executeTransaction userState cache coinAmount addrToSend =
         addrToSend
         outputMoney
   where
+    maxRetries     = 50
     outputMoney    = Coin coinAmount
     inputMoneyInfo = [(1, outputMoney)]
 

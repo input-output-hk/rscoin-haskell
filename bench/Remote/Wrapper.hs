@@ -104,7 +104,7 @@ updateRepoCommand branchName =
     T.unlines
         [ cdCommand
         , "git checkout . -q"
-        , "git fetch"
+        , "git fetch -q"
         , sformat
               ("git checkout -q -b " % stext % " " % stext %
                " 2> /dev/null || git checkout -q " %
@@ -292,7 +292,7 @@ userSetupCommand bankHost branchName profiling =
               (profilingBuildArgs profiling)
         , sformat
               ("stack exec -- rscoin-user list --addresses-num 1 --bank-host " %
-               stext)
+               stext % " > /dev/null")
               bankHost]
 
 userUpdateCommand :: T.Text -> T.Text
@@ -300,7 +300,7 @@ userUpdateCommand bankHost =
     T.unlines
         [ cdCommand
         , sformat
-              ("stack exec -- rscoin-user update --bank-host " % stext)
+              ("stack exec -- rscoin-user update --bank-host " % stext % " > /dev/null")
               bankHost]
 
 userRunCommand :: T.Text -> Word -> UserData -> T.Text

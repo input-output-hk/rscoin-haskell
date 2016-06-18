@@ -162,7 +162,7 @@ bankRunCommand BankParams{..} =
               ("stack exec -- rscoin-bank serve --log-severity " % shown %
                " +RTS -qg -RTS --period-delta " %
                int %
-               stext)
+               stext % " | grep \"Finishing period took\"")
               (fromMaybe C.Warning bpSeverity)
               bpPeriodDelta
               (profilingRunArgs bpProfiling)]

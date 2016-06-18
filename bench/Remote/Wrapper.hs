@@ -12,9 +12,11 @@ import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
 import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe, isJust)
+import           Data.Monoid                ((<>))
 import qualified Data.Text                  as T (filter, unlines)
 import           Data.Text.Encoding         (encodeUtf8)
 import qualified Data.Text.IO               as TIO
+import           Data.Traversable           (for)
 import           Formatting                 (build, int, sformat, shown, stext,
                                              (%))
 import qualified Options.Generic            as OG
@@ -303,6 +305,9 @@ userUpdateCommand bankHost =
               ("stack exec -- rscoin-user update --bank-host " % stext % " > /dev/null")
               bankHost]
 
+userStatsFileName :: T.IsString s => s
+userStatsFileName = "user-stats.txt"
+
 userRunCommand :: T.Text -> Word -> UserData -> T.Text
 userRunCommand bankHost txNum UserData{..} =
     T.unlines
@@ -316,14 +321,22 @@ userRunCommand bankHost txNum UserData{..} =
     benchmarkArguments =
         sformat
             ("--walletDb wallet-db --bank " % stext % stext %
-             " --transactions " % int %
-             " --dumpStats user-stats.txt" %
+             " --transactions " % int   %
+             " --dumpStats "    % stext %
              " +RTS -qg -RTS")
             bankHost
             severityArg
             txNum
+            userStatsFileName
     severityArg =
         maybe "" (sformat (" --log-severity " % shown % " ")) udSeverity
+
+resultTPSCommand :: T.Text
+resultTPSCommand =
+    T.unlines
+      [ cdCommand
+      , "tail -n 1 " <> userStatsFileName
+      ]
 
 sshArgs :: T.Text -> [T.Text]
 sshArgs hostName =
@@ -401,6 +414,12 @@ runUser :: T.Text -> Word -> UserData -> IO ()
 runUser bankHost txNum ud@UserData{..} =
     runSsh udHost $ userRunCommand bankHost txNum ud
 
+collectUserTPS :: [UserData] -> IO T.Text
+collectUserTPS userDatas = do
+  results <- for userDatas $ \ud -> runSshStrict (udHost ud) resultTPSCommand
+  -- TODO: add checks and calculations
+  return $ T.unlines results
+
 main :: IO ()
 main = do
     RemoteBenchOptions{..} <- OG.getRecord "rscoin-bench-remote"
@@ -469,6 +488,7 @@ main = do
             sendInitialCoins udmTransactionsNum bankHost pks
             () <$ mapConcurrently (updateUser bankHost) datas
             () <$ mapConcurrently (runUser bankHost udmTransactionsNum) datas
+            TIO.putStrLn =<< collectUserTPS datas
         finishMintettesAndBank = do
             logInfo "Ran users"
             stopBank bankHost

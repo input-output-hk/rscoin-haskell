@@ -97,6 +97,7 @@ library
                      , ed25519
                      , file-embed
                      , filepath
+                     , formatting
                      , gtk3 >= 0.14
                      , hashable
                      , hslogger

@@ -10,9 +10,9 @@ import           Prelude                  hiding (appendFile)
 
 import           Control.Monad            (forM_, forever, when)
 import           Control.Monad.Trans      (liftIO)
-
 import           Data.IORef               (IORef, atomicWriteIORef, newIORef,
                                            readIORef)
+import           Data.Maybe               (fromMaybe)
 import           Data.Text.IO             (appendFile)
 import           Formatting               (int, sformat, shown, (%))
 
@@ -48,29 +48,30 @@ dumpWorker countRef startTime dumpFile = forever $ do
   where
     dumpPeriod = 10 :: Second
 
-runSingleUser :: Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
-runSingleUser txNum dumpFile st = do
+runSingleUser :: Maybe Word -> Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
+runSingleUser logIntervalMaybe txNum dumpFile st = do
     startTime <- getWallTime
     cache     <- liftIO mkUserCache
     txCount   <- liftIO $ newIORef 0
     workerId  <- fork $ dumpWorker txCount startTime dumpFile
     address   <- Address . snd <$> liftIO keyGen
+    let logInterval = fromMaybe (txNum `div` 5) logIntervalMaybe
 
     -- execute transactions
     forM_ [1 .. txNum] $ \i -> do
         executeTransaction st cache 1 address
         liftIO $ atomicWriteIORef txCount i
 
-        when (i `mod` (txNum `div` 5) == 0) $
+        when (i `mod` logInterval == 0) $
             logInfo $ sformat ("Executed " % int % " transactions") i
 
     killThread workerId
     liftIO $ writeFileStats Final startTime txNum dumpFile
 
-runSingleSuperUser :: Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
-runSingleSuperUser txNum dumpFile bankUserState = do
+runSingleSuperUser :: Maybe Word -> Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
+runSingleSuperUser logInterval txNum dumpFile bankUserState = do
     let additionalBankAddreses = 0
     logDebug "Before initStateBank"
     initStateBank bankUserState additionalBankAddreses bankSecretKey
     logDebug "After initStateBank"
-    runSingleUser txNum dumpFile bankUserState
+    runSingleUser logInterval txNum dumpFile bankUserState

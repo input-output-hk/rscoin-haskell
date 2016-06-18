@@ -323,8 +323,8 @@ userRunCommand bankHost txNum UserData{..} =
     benchmarkArguments =
         sformat
             ("--walletDb wallet-db --bank " % stext % stext %
-             " --transactions " %
-             int %
+             " --transactions " % int %
+             " --dumpStats user-stats.txt" %
              " +RTS -qg -RTS")
             bankHost
             severityArg

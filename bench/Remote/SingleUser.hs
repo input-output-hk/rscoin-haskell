@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeOperators #-}
 
+import           Control.Exception          (finally)
 import           Data.ByteString            (ByteString)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Optional              (Optional (Specific), empty,
@@ -19,7 +20,8 @@ import           RSCoin.Core                (Severity (..), initLogging)
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserCommons   (userThreadWithPath)
-import           Bench.RSCoin.UserSingle    (runSingleSuperUser, runSingleUser)
+import           Bench.RSCoin.UserSingle    (printDynamicTPS, runSingleSuperUser,
+                                             runSingleUser)
 
 data BenchOptions = BenchOptions
     { bank          :: ByteString     <?> "bank host"
@@ -71,5 +73,7 @@ main = do
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity
-        logInfo . sformat ("Elapsed time: " % build) =<<
-            run interval txNum bankHost benchDir walletPath dumpFile
+
+        elapsedTime <- run interval txNum bankHost benchDir walletPath dumpFile
+                       `finally` printDynamicTPS dumpFile
+        logInfo $ sformat ("Elapsed time: " % build) elapsedTime

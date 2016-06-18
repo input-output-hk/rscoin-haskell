@@ -1,8 +1,7 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns    #-}
 
 import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
@@ -14,8 +13,7 @@ import           Data.FileEmbed             (embedStringFile,
 import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe, isJust)
 import           Data.Monoid                ((<>))
-import qualified Data.Text                  as T (filter, splitOn, unlines,
-                                                  unpack)
+import qualified Data.Text                  as T (filter, unlines, unpack)
 import           Data.Text.Encoding         (encodeUtf8)
 import qualified Data.Text.IO               as TIO
 import           Data.Traversable           (for)
@@ -28,7 +26,6 @@ import qualified Turtle                     as T
 import           Serokell.Util              (listBuilderJSON)
 
 import qualified RSCoin.Core                as C
-import           RSCoin.Timed               (Second)
 
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
@@ -36,7 +33,7 @@ import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
                                              RemoteConfig (..), UserData (..),
                                              UsersData (..), readRemoteConfig)
 import           Bench.RSCoin.UserCommons   (initializeBank, userThread)
-import           Bench.RSCoin.UserSingle    (InfoStatus (Final))
+import           Bench.RSCoin.UserSingle    (InfoStatus (Final), itemsAndTPS)
 
 data RemoteBenchOptions = RemoteBenchOptions
     { rboConfigFile    :: Maybe FilePath
@@ -433,7 +430,7 @@ collectUserTPS :: [UserData] -> IO T.Text
 collectUserTPS userDatas = do
   results <- for userDatas $ \ud -> runSshStrict (udHost ud) resultTPSCommand
 
-  let rows = map (T.splitOn ",") results
+  let (rows, _, totalTPS) = itemsAndTPS results
   zipWithM_
       (\ud l@(label:_) -> case read $ T.unpack label of
           Final -> return ()
@@ -443,14 +440,6 @@ collectUserTPS userDatas = do
       userDatas
       rows
 
-  let tpsPerUser = map
-                   (\[start, end, count] ->
-                       let startTime :: Second = read start
-                           endTime   :: Second = read end
-                           txNum     :: Double = read count
-                       in txNum / fromIntegral (endTime - startTime))
-                   $ map (map T.unpack . tail) rows
-  let totalTPS = sum tpsPerUser
   return $ sformat ("Total TPS: " % float) totalTPS
 
 main :: IO ()

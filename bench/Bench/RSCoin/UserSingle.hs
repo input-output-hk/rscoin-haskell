@@ -1,7 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Bench.RSCoin.UserSingle
-        ( runSingleSuperUser
+        ( InfoStatus (..)
+        , runSingleSuperUser
         ) where
 
 import           Prelude                  hiding (appendFile)
@@ -26,7 +27,7 @@ import           Bench.RSCoin.Logging     (logDebug, logInfo)
 import           Bench.RSCoin.UserCommons (executeTransaction)
 
 data InfoStatus = InProcess | Final
-    deriving (Show)
+    deriving (Read, Show)
 
 writeFileStats :: InfoStatus -> Second -> Word -> FilePath -> IO ()
 writeFileStats status startTime txNum dumpFile = do

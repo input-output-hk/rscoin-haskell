@@ -1,24 +1,27 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE DeriveGeneric   #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
 import           Control.Exception          (finally, onException)
-import           Control.Monad              (unless)
+import           Control.Monad              (unless, zipWithM_)
+
 import           Data.Char                  (isSpace)
 import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
 import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe, isJust)
 import           Data.Monoid                ((<>))
-import qualified Data.Text                  as T (filter, unlines)
+import qualified Data.Text                  as T (filter, splitOn, unlines,
+                                                  unpack)
 import           Data.Text.Encoding         (encodeUtf8)
 import qualified Data.Text.IO               as TIO
 import           Data.Traversable           (for)
-import           Formatting                 (build, int, sformat, shown, stext,
-                                             (%))
+import           Formatting                 (build, float, int, sformat, shown,
+                                             stext, (%))
 import qualified Options.Generic            as OG
 import           System.IO.Temp             (withSystemTempDirectory)
 import qualified Turtle                     as T
@@ -26,6 +29,7 @@ import qualified Turtle                     as T
 import           Serokell.Util              (listBuilderJSON)
 
 import qualified RSCoin.Core                as C
+import           RSCoin.Timed               (Second)
 
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
@@ -33,6 +37,7 @@ import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
                                              RemoteConfig (..), UserData (..),
                                              UsersData (..), readRemoteConfig)
 import           Bench.RSCoin.UserCommons   (initializeBank, userThread)
+import           Bench.RSCoin.UserSingle    (InfoStatus (Final))
 
 data RemoteBenchOptions = RemoteBenchOptions
     { rboConfigFile    :: Maybe FilePath
@@ -423,8 +428,26 @@ stopUser host = runSsh host userStopCommand
 collectUserTPS :: [UserData] -> IO T.Text
 collectUserTPS userDatas = do
   results <- for userDatas $ \ud -> runSshStrict (udHost ud) resultTPSCommand
-  -- TODO: add checks and calculations
-  return $ T.unlines results
+
+  let rows = map (T.splitOn ",") results
+  zipWithM_
+      (\ud l@(label:_) -> case read $ T.unpack label of
+          Final -> return ()
+          _     -> error $ T.unpack $
+              sformat ("Bad final result: " % shown % ", " % shown) ud l
+      )
+      userDatas
+      rows
+
+  let tpsPerUser = map
+                   (\[start, end, count] ->
+                       let startTime :: Second = read start
+                           endTime   :: Second = read end
+                           txNum     :: Double = read count
+                       in fromIntegral (endTime - startTime) / txNum)
+                   $ map (map T.unpack . tail) rows
+  let totalTPS = sum tpsPerUser
+  return $ sformat ("Total TPS: " % float) totalTPS
 
 main :: IO ()
 main = do

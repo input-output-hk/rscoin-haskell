@@ -14,6 +14,8 @@ import           System.IO.Temp             (withSystemTempDirectory)
 -- workaround to make stylish-haskell work :(
 import           Options.Generic
 
+import           Serokell.Util.Bench        (ElapsedTime (elapsedWallTime),
+                                             measureTime_, perSecond)
 import           Serokell.Util.Text         (listBuilderCSV, show')
 
 import           RSCoin.Core                (Address, Severity (..),
@@ -22,8 +24,6 @@ import           RSCoin.User                (toAddress)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
-import           Bench.RSCoin.TimeUtils     (ElapsedTime (elapsedWallTime),
-                                             measureTime_, perSecond)
 import           Bench.RSCoin.UserCommons   (benchUserTransactions,
                                              initializeBank, initializeUser,
                                              userThread)

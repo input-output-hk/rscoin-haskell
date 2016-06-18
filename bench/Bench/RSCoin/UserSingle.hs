@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Bench.RSCoin.UserSingle
         ( runSingleSuperUser
         ) where
@@ -7,14 +9,14 @@ import           Prelude                  hiding (appendFile)
 import           Control.Monad            (forM_, forever, when)
 import           Control.Monad.Trans      (liftIO)
 
-import           Data.IORef               (IORef, atomicWriteIORef,
-                                           newIORef, readIORef)
+import           Data.IORef               (IORef, atomicWriteIORef, newIORef,
+                                           readIORef)
 import           Data.Text.IO             (appendFile)
 import           Formatting               (int, sformat, shown, (%))
-import           System.Clock             (TimeSpec)
 
-import           RSCoin.Core              (Address (..),
-                                           bankSecretKey, keyGen)
+import           Serokell.Util.Bench      (getWallTime)
+
+import           RSCoin.Core              (Address (..), bankSecretKey, keyGen)
 import           RSCoin.Timed             (MsgPackRpc, Second, for, fork,
                                            killThread, sec, wait)
 import           RSCoin.User.AcidState    (RSCoinUserState, initStateBank)
@@ -22,14 +24,13 @@ import           RSCoin.User.Cache        (mkUserCache)
 
 import           Bench.RSCoin.Logging     (logDebug, logInfo)
 import           Bench.RSCoin.UserCommons (executeTransaction)
-import           Bench.RSCoin.TimeUtils   (getCurrentTime)
 
 data InfoStatus = InProcess | Final
     deriving (Show)
 
-writeFileStats :: InfoStatus -> TimeSpec -> Word -> FilePath -> IO ()
+writeFileStats :: InfoStatus -> Second -> Word -> FilePath -> IO ()
 writeFileStats status startTime txNum dumpFile = do
-    currentTime <- getCurrentTime
+    currentTime :: Second <- getWallTime
     let rowStats = sformat (shown % "," % shown % "," % shown % "," % int % "\n")
                             status
                             startTime
@@ -37,7 +38,7 @@ writeFileStats status startTime txNum dumpFile = do
                             txNum
     liftIO $ appendFile dumpFile rowStats
 
-dumpWorker :: IORef Word -> TimeSpec -> FilePath -> MsgPackRpc ()
+dumpWorker :: IORef Word -> Second -> FilePath -> MsgPackRpc ()
 dumpWorker countRef startTime dumpFile = forever $ do
     wait $ for dumpPeriod sec
 
@@ -55,7 +56,7 @@ runSingleSuperUser txNum dumpFile bankUserState = do
     initStateBank bankUserState additionalBankAddreses bankSecretKey
     logDebug "After initStateBank"
 
-    startTime <- liftIO $ getCurrentTime
+    startTime <- liftIO $ getWallTime
     cache     <- liftIO mkUserCache
     txCount   <- liftIO $ newIORef 0
     workerId  <- fork $ dumpWorker txCount startTime dumpFile

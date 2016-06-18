@@ -11,11 +11,12 @@ import           Formatting                 (build, sformat, (%))
 import           Options.Generic
 import           System.IO.Temp             (withSystemTempDirectory)
 
+import           Serokell.Util.Bench        (ElapsedTime, measureTime_)
+
 import           RSCoin.Core                (Severity (..), initLogging)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
-import           Bench.RSCoin.TimeUtils     (ElapsedTime, measureTime_)
 import           Bench.RSCoin.UserCommons   (userThreadWithPath)
 import           Bench.RSCoin.UserSingle    (runSingleSuperUser)
 

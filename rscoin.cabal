@@ -297,7 +297,6 @@ benchmark rscoin-bench-local
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Local.InfraThreads
                      , Bench.RSCoin.Logging
-                     , Bench.RSCoin.TimeUtils
                      , Bench.RSCoin.UserCommons
   build-depends:       acid-state
                      , async
@@ -334,7 +333,6 @@ benchmark rscoin-bench-single-user
   main-is:             Remote/SingleUser.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
-                     , Bench.RSCoin.TimeUtils
                      , Bench.RSCoin.UserCommons
                      , Bench.RSCoin.UserSingle
   build-depends:       acid-state
@@ -372,7 +370,6 @@ benchmark rscoin-bench-only-users
   main-is:             Remote/OnlyUsers.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
-                     , Bench.RSCoin.TimeUtils
                      , Bench.RSCoin.UserCommons
   build-depends:       acid-state
                      , async

@@ -5,7 +5,7 @@
 
 import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
-import           Control.Exception          (finally)
+import           Control.Exception          (finally, onException)
 import           Control.Monad              (unless)
 import           Data.Char                  (isSpace)
 import           Data.FileEmbed             (embedStringFile,
@@ -331,6 +331,9 @@ userRunCommand bankHost txNum UserData{..} =
     severityArg =
         maybe "" (sformat (" --log-severity " % shown % " ")) udSeverity
 
+userStopCommand :: T.Text
+userStopCommand = "killall -s SIGINT rscoin-bench-single-user 2> /dev/null"
+
 resultTPSCommand :: T.Text
 resultTPSCommand =
     T.unlines
@@ -414,6 +417,9 @@ runUser :: T.Text -> Word -> UserData -> IO ()
 runUser bankHost txNum ud@UserData{..} =
     runSsh udHost $ userRunCommand bankHost txNum ud
 
+stopUser :: T.Text -> IO ()
+stopUser host = runSsh host userStopCommand
+
 collectUserTPS :: [UserData] -> IO T.Text
 collectUserTPS userDatas = do
   results <- for userDatas $ \ud -> runSshStrict (udHost ud) resultTPSCommand
@@ -484,10 +490,13 @@ main = do
             }
         runUsers (Just UDMultiple{..}) = do
             let datas = genericTake (fromMaybe maxBound udmNumber) udmUsers
+                stopUsers = () <$ mapConcurrently (stopUser . udHost) datas
             pks <- mapConcurrently (genUserKey bankHost globalBranch) datas
             sendInitialCoins udmTransactionsNum bankHost pks
             () <$ mapConcurrently (updateUser bankHost) datas
-            () <$ mapConcurrently (runUser bankHost udmTransactionsNum) datas
+            () <$
+                mapConcurrently (runUser bankHost udmTransactionsNum) datas `onException`
+                stopUsers
             TIO.putStrLn =<< collectUserTPS datas
         finishMintettesAndBank = do
             logInfo "Ran users"

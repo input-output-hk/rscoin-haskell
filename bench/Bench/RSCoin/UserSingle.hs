@@ -2,6 +2,7 @@
 
 module Bench.RSCoin.UserSingle
         ( InfoStatus (..)
+        , runSingleUser
         , runSingleSuperUser
         ) where
 
@@ -42,29 +43,22 @@ writeFileStats status startTime txNum dumpFile = do
 dumpWorker :: IORef Word -> Second -> FilePath -> MsgPackRpc ()
 dumpWorker countRef startTime dumpFile = forever $ do
     wait $ for dumpPeriod sec
-
     curTxNum <- liftIO $ readIORef countRef
     liftIO $ writeFileStats InProcess startTime curTxNum dumpFile
   where
     dumpPeriod = 10 :: Second
 
-runSingleSuperUser :: Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
-runSingleSuperUser txNum dumpFile bankUserState = do
-    address <- Address . snd <$> liftIO keyGen
-    let additionalBankAddreses = 0
-
-    logDebug "Before initStateBank"
-    initStateBank bankUserState additionalBankAddreses bankSecretKey
-    logDebug "After initStateBank"
-
-    startTime <- liftIO $ getWallTime
+runSingleUser :: Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
+runSingleUser txNum dumpFile st = do
+    startTime <- getWallTime
     cache     <- liftIO mkUserCache
     txCount   <- liftIO $ newIORef 0
     workerId  <- fork $ dumpWorker txCount startTime dumpFile
+    address   <- Address . snd <$> liftIO keyGen
 
     -- execute transactions
     forM_ [1 .. txNum] $ \i -> do
-        executeTransaction bankUserState cache 1 address
+        executeTransaction st cache 1 address
         liftIO $ atomicWriteIORef txCount i
 
         when (i `mod` (txNum `div` 5) == 0) $
@@ -72,3 +66,11 @@ runSingleSuperUser txNum dumpFile bankUserState = do
 
     killThread workerId
     liftIO $ writeFileStats Final startTime txNum dumpFile
+
+runSingleSuperUser :: Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
+runSingleSuperUser txNum dumpFile bankUserState = do
+    let additionalBankAddreses = 0
+    logDebug "Before initStateBank"
+    initStateBank bankUserState additionalBankAddreses bankSecretKey
+    logDebug "After initStateBank"
+    runSingleUser txNum dumpFile bankUserState

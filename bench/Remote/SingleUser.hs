@@ -4,7 +4,8 @@
 
 import           Data.ByteString            (ByteString)
 import           Data.Maybe                 (fromMaybe)
-import           Data.Optional              (Optional (Specific), empty)
+import           Data.Optional              (Optional (Specific), empty,
+                                             optional)
 import           Formatting                 (build, sformat, (%))
 
 -- workaround to make stylish-haskell work :(
@@ -18,7 +19,7 @@ import           RSCoin.Core                (Severity (..), initLogging)
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserCommons   (userThreadWithPath)
-import           Bench.RSCoin.UserSingle    (runSingleSuperUser)
+import           Bench.RSCoin.UserSingle    (runSingleSuperUser, runSingleUser)
 
 data BenchOptions = BenchOptions
     { bank          :: ByteString     <?> "bank host"
@@ -41,13 +42,16 @@ run :: Word
     -> Optional FilePath
     -> FilePath
     -> IO ElapsedTime
-run txNum bankHost benchDir optWalletPath dumpFile
-    = measureTime_ $
-      userThreadWithPath bankHost
-                         benchDir
-                         (const $ runSingleSuperUser txNum dumpFile)
-                         0
-                         optWalletPath
+run txNum bankHost benchDir optWalletPath dumpFile =
+    measureTime_ $
+    userThreadWithPath
+        bankHost
+        benchDir
+        (const $ doRun txNum dumpFile)
+        0
+        optWalletPath
+  where
+    doRun = optional runSingleSuperUser (const runSingleUser) optWalletPath
 
 main :: IO ()
 main = do

@@ -341,7 +341,6 @@ benchmark rscoin-bench-single-user
                      , bytestring
                      , clock
                      , exceptions
-                     , extra
                      , filepath
                      , formatting
                      , mtl

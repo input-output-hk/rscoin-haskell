@@ -25,7 +25,7 @@ data BenchOptions = BenchOptions
     , benchSeverity :: Maybe Severity <?> "severity for bench logger"
     , transactions  :: Maybe Word     <?> "number of transactions"
     , walletDb      :: Maybe FilePath <?> "path to wallet (assuming it has enough money)"
-    , dumpStats     :: Bool           <?> "dump current txNum into a.txt"
+    , dumpStats     :: FilePath       <?> "file name to dump statistics"
     } deriving (Generic, Show)
 
 instance ParseField  Word
@@ -38,13 +38,13 @@ run :: Word
     -> ByteString
     -> FilePath
     -> Optional FilePath
-    -> Bool
+    -> FilePath
     -> IO ElapsedTime
-run txNum bankHost benchDir optWalletPath isDumpingOn
+run txNum bankHost benchDir optWalletPath dumpFile
     = measureTime_ $
       userThreadWithPath bankHost
                          benchDir
-                         (const $ runSingleSuperUser txNum isDumpingOn)
+                         (const $ runSingleSuperUser txNum dumpFile)
                          0
                          optWalletPath
 
@@ -57,10 +57,10 @@ main = do
     let bSeverity      = fromMaybe Info  $ unHelpful benchSeverity
     let txNum          = fromMaybe 100   $ unHelpful transactions
     let walletPath     = maybe empty Specific $ unHelpful walletDb
-    let isDumpingOn    = unHelpful dumpStats
+    let dumpFile       = unHelpful dumpStats
 
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity
         logInfo . sformat ("Elapsed time: " % build) =<<
-            run txNum bankHost benchDir walletPath isDumpingOn
+            run txNum bankHost benchDir walletPath dumpFile

@@ -444,7 +444,7 @@ collectUserTPS userDatas = do
                        let startTime :: Second = read start
                            endTime   :: Second = read end
                            txNum     :: Double = read count
-                       in fromIntegral (endTime - startTime) / txNum)
+                       in txNum / fromIntegral (endTime - startTime))
                    $ map (map T.unpack . tail) rows
   let totalTPS = sum tpsPerUser
   return $ sformat ("Total TPS: " % float) totalTPS

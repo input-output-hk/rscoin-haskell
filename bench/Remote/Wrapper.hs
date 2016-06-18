@@ -48,6 +48,7 @@ rscoinConfigStr = C.rscoinConfigStr
 data BankParams = BankParams
     { bpPeriodDelta :: !Word
     , bpProfiling   :: !(Maybe ProfilingType)
+    , bpSeverity    :: !(Maybe C.Severity)
     , bpHasRSCoin   :: !Bool
     , bpBranch      :: !T.Text
     } deriving (Show)
@@ -153,16 +154,18 @@ bankSetupCommand BankParams {..} mHosts mKeys =
              build)
             (C.defaultPort :: Int)
 
-bankRunCommand :: Word -> Maybe ProfilingType -> T.Text
-bankRunCommand periodDelta profiling =
+bankRunCommand :: BankParams -> T.Text
+bankRunCommand BankParams{..} =
     T.unlines
         [ cdCommand
         , sformat
-              ("stack exec -- rscoin-bank serve --log-severity Warning +RTS -qg -RTS --period-delta " %
+              ("stack exec -- rscoin-bank serve --log-severity " % shown %
+               " +RTS -qg -RTS --period-delta " %
                int %
                stext)
-              periodDelta
-              (profilingRunArgs profiling)]
+              (fromMaybe C.Warning bpSeverity)
+              bpPeriodDelta
+              (profilingRunArgs bpProfiling)]
 
 bankStopCommand :: T.Text
 bankStopCommand = "killall -s SIGINT rscoin-bank 2> /dev/null"
@@ -347,7 +350,7 @@ runBank :: BankParams -> T.Text -> [T.Text] -> [C.PublicKey] -> IO ThreadId
 runBank bp@BankParams{..} bankHost mintetteHosts mintetteKeys = do
     unless bpHasRSCoin $ installRSCoin bankHost
     runSsh bankHost $ bankSetupCommand bp mintetteHosts mintetteKeys
-    forkIO $ runSsh bankHost $ bankRunCommand bpPeriodDelta bpProfiling
+    forkIO $ runSsh bankHost $ bankRunCommand bp
 
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
@@ -409,6 +412,7 @@ main = do
             BankParams
             { bpPeriodDelta = rcPeriod
             , bpProfiling = bdProfiling rcBank
+            , bpSeverity = bdSeverity rcBank
             , bpHasRSCoin = bdHasRSCoin rcBank
             , bpBranch = fromMaybe globalBranch $ bdBranch rcBank
             }

@@ -49,6 +49,7 @@ data BankData = BankData
     { bdHasRSCoin :: !Bool
     , bdHost      :: !Text
     , bdProfiling :: !(Maybe ProfilingType)
+    , bdSeverity  :: !(Maybe Severity)
     , bdBranch    :: !(Maybe Text)
     } deriving (Show)
 

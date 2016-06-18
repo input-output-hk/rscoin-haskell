@@ -30,7 +30,7 @@ import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
                                              ProfilingType (..),
                                              RemoteConfig (..), UserData (..),
                                              UsersData (..), readRemoteConfig)
-import           Bench.RSCoin.UserLogic     (initializeBank, userThread)
+import           Bench.RSCoin.UserCommons   (initializeBank, userThread)
 
 data RemoteBenchOptions = RemoteBenchOptions
     { rboConfigFile    :: Maybe FilePath

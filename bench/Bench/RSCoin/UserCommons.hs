@@ -1,12 +1,12 @@
 {-# LANGUAGE ViewPatterns #-}
 
-module Bench.RSCoin.UserLogic
+module Bench.RSCoin.UserCommons
         ( benchUserTransactions
+        , executeTransaction
         , initializeBank
         , initializeUser
         , userThread
         , userThreadWithPath
-        , runSingleUser
         ) where
 
 import           Control.Monad              (forM_, when)
@@ -93,7 +93,7 @@ executeTransaction userState cache coinAmount addrToSend =
         addrToSend
         outputMoney
   where
-    outputMoney = Coin coinAmount
+    outputMoney    = Coin coinAmount
     inputMoneyInfo = [(1, outputMoney)]
 
 -- | Create user in `bankMode` and send coins to every user.
@@ -132,17 +132,3 @@ benchUserTransactions txNum userId userState = do
                         userId
                         i
                 executeTransaction userState cache 1 addr
-
-runSingleUser :: Word -> A.RSCoinUserState -> MsgPackRpc ()
-runSingleUser txNum bankUserState = do
-    address <- Address . snd <$> liftIO keyGen
-    let additionalBankAddreses = 0
-    logDebug "Before initStateBank"
-    A.initStateBank bankUserState additionalBankAddreses bankSecretKey
-    logDebug "After initStateBank"
-    cache <- liftIO mkUserCache
-    forM_ [1 .. txNum] $
-        \i ->
-             do executeTransaction bankUserState cache 1 address
-                when (i `mod` (txNum `div` 5) == 0) $
-                    logInfo $ sformat ("Executed " % int % " transactions") i

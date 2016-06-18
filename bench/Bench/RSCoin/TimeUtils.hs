@@ -1,7 +1,8 @@
 -- | Benchmark related utils.
 
-module Bench.RSCoin.Util
+module Bench.RSCoin.TimeUtils
        ( ElapsedTime (..)
+       , getCurrentTime
        , measureTime
        , measureTime_
        , perSecond
@@ -23,6 +24,9 @@ instance Buildable ElapsedTime where
             ("(CPU time = " % shown % ", wall time = " % shown % ")")
             elapsedCpuTime
             elapsedWallTime
+
+getCurrentTime :: IO TimeSpec
+getCurrentTime = getTime Realtime
 
 measureTime :: IO a -> IO (ElapsedTime, a)
 measureTime action = do

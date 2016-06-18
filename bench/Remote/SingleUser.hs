@@ -15,8 +15,9 @@ import           RSCoin.Core                (Severity (..), initLogging)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
-import           Bench.RSCoin.UserLogic     (runSingleUser, userThreadWithPath)
-import           Bench.RSCoin.Util          (ElapsedTime, measureTime_)
+import           Bench.RSCoin.TimeUtils     (ElapsedTime, measureTime_)
+import           Bench.RSCoin.UserCommons   (userThreadWithPath)
+import           Bench.RSCoin.UserSingle    (runSingleSuperUser)
 
 data BenchOptions = BenchOptions
     { bank          :: ByteString     <?> "bank host"
@@ -24,6 +25,7 @@ data BenchOptions = BenchOptions
     , benchSeverity :: Maybe Severity <?> "severity for bench logger"
     , transactions  :: Maybe Word     <?> "number of transactions"
     , walletDb      :: Maybe FilePath <?> "path to wallet (assuming it has enough money)"
+    , dumpStats     :: Bool           <?> "dump current txNum into a.txt"
     } deriving (Generic, Show)
 
 instance ParseField  Word
@@ -32,12 +34,17 @@ instance ParseFields Severity
 instance ParseRecord Severity
 instance ParseRecord BenchOptions
 
-run :: Word -> ByteString -> FilePath -> Optional FilePath -> IO ElapsedTime
-run txNum bankHost benchDir optWalletPath
+run :: Word
+    -> ByteString
+    -> FilePath
+    -> Optional FilePath
+    -> Bool
+    -> IO ElapsedTime
+run txNum bankHost benchDir optWalletPath isDumpingOn
     = measureTime_ $
       userThreadWithPath bankHost
                          benchDir
-                         (const $ runSingleUser txNum)
+                         (const $ runSingleSuperUser txNum isDumpingOn)
                          0
                          optWalletPath
 
@@ -50,9 +57,10 @@ main = do
     let bSeverity      = fromMaybe Info  $ unHelpful benchSeverity
     let txNum          = fromMaybe 100   $ unHelpful transactions
     let walletPath     = maybe empty Specific $ unHelpful walletDb
+    let isDumpingOn    = unHelpful dumpStats
 
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity
         logInfo . sformat ("Elapsed time: " % build) =<<
-            run txNum bankHost benchDir walletPath
+            run txNum bankHost benchDir walletPath isDumpingOn

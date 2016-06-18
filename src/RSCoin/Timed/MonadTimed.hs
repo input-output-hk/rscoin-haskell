@@ -23,7 +23,7 @@ module RSCoin.Timed.MonadTimed
     , MonadTimed
     , RelativeToNow
     , MonadTimedError (..)
-    , ThreadId(..)
+    , ThreadId (..)
     ) where
 
 import qualified Control.Concurrent   as C

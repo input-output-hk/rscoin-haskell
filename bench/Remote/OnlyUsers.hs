@@ -22,11 +22,11 @@ import           RSCoin.User                (toAddress)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
-import           Bench.RSCoin.UserLogic     (benchUserTransactions,
+import           Bench.RSCoin.TimeUtils     (ElapsedTime (elapsedWallTime),
+                                             measureTime_, perSecond)
+import           Bench.RSCoin.UserCommons   (benchUserTransactions,
                                              initializeBank, initializeUser,
                                              userThread)
-import           Bench.RSCoin.Util          (ElapsedTime (elapsedWallTime),
-                                             measureTime_, perSecond)
 
 data BenchOptions = BenchOptions
     { users         :: Int            <?> "number of users"

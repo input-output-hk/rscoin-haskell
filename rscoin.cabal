@@ -295,8 +295,8 @@ benchmark rscoin-bench-local
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Local.InfraThreads
                      , Bench.RSCoin.Logging
-                     , Bench.RSCoin.UserLogic
-                     , Bench.RSCoin.Util
+                     , Bench.RSCoin.TimeUtils
+                     , Bench.RSCoin.UserCommons
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
@@ -332,14 +332,16 @@ benchmark rscoin-bench-single-user
   main-is:             Remote/SingleUser.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
-                     , Bench.RSCoin.UserLogic
-                     , Bench.RSCoin.Util
+                     , Bench.RSCoin.TimeUtils
+                     , Bench.RSCoin.UserCommons
+                     , Bench.RSCoin.UserSingle
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
                      , bytestring
                      , clock
                      , exceptions
+                     , extra
                      , filepath
                      , formatting
                      , mtl
@@ -369,8 +371,8 @@ benchmark rscoin-bench-only-users
   main-is:             Remote/OnlyUsers.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
-                     , Bench.RSCoin.UserLogic
-                     , Bench.RSCoin.Util
+                     , Bench.RSCoin.TimeUtils
+                     , Bench.RSCoin.UserCommons
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
@@ -408,7 +410,7 @@ benchmark rscoin-bench-remote
                      , Bench.RSCoin.Logging
                      , Bench.RSCoin.Remote.StageRestriction
                      , Bench.RSCoin.Remote.Config
-                     , Bench.RSCoin.UserLogic
+                     , Bench.RSCoin.UserCommons
   build-depends:       acid-state
                      , aeson
                      , async

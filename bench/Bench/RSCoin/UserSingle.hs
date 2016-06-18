@@ -4,18 +4,19 @@ module Bench.RSCoin.UserSingle
 
 import           Prelude                  hiding (appendFile)
 
-import           Control.Monad            (forM_, forever, void, when)
+import           Control.Monad            (forM_, forever, when)
 import           Control.Monad.Trans      (liftIO)
 
 import           Data.IORef               (IORef, atomicWriteIORef,
                                            newIORef, readIORef)
 import           Data.Text.IO             (appendFile)
 import           Formatting               (int, sformat, shown, (%))
+import           System.Clock             (TimeSpec)
 
 import           RSCoin.Core              (Address (..),
                                            bankSecretKey, keyGen)
 import           RSCoin.Timed             (MsgPackRpc, Second, for, fork,
-                                           killThread, myThreadId, sec, wait)
+                                           killThread, sec, wait)
 import           RSCoin.User.AcidState    (RSCoinUserState, initStateBank)
 import           RSCoin.User.Cache        (mkUserCache)
 
@@ -23,25 +24,27 @@ import           Bench.RSCoin.Logging     (logDebug, logInfo)
 import           Bench.RSCoin.UserCommons (executeTransaction)
 import           Bench.RSCoin.TimeUtils   (getCurrentTime)
 
-dumpPeriod :: Second
-dumpPeriod = 10
+data InfoStatus = InProcess | Final
+    deriving (Show)
 
-dumpWorker :: IORef Word -> FilePath -> MsgPackRpc ()
-dumpWorker countRef dumpFile = do
-    startTime <- liftIO $ getCurrentTime
+writeFileStats :: InfoStatus -> TimeSpec -> Word -> FilePath -> IO ()
+writeFileStats status startTime txNum dumpFile = do
+    currentTime <- getCurrentTime
+    let rowStats = sformat (shown % "," % shown % "," % shown % "," % int % "\n")
+                            status
+                            startTime
+                            currentTime
+                            txNum
+    liftIO $ appendFile dumpFile rowStats
 
-    forever $ do
-        wait $ for dumpPeriod sec
+dumpWorker :: IORef Word -> TimeSpec -> FilePath -> MsgPackRpc ()
+dumpWorker countRef startTime dumpFile = forever $ do
+    wait $ for dumpPeriod sec
 
-        currentTxNum <- liftIO $ readIORef countRef
-        when (currentTxNum == maxBound) $ killThread =<< myThreadId
-
-        currentTime <- liftIO $ getCurrentTime
-        let rowStats = sformat (shown % "," % shown % "," % int)
-                                startTime
-                                currentTime
-                                currentTxNum
-        liftIO $ appendFile dumpFile rowStats
+    curTxNum <- liftIO $ readIORef countRef
+    liftIO $ writeFileStats InProcess startTime curTxNum dumpFile
+  where
+    dumpPeriod = 10 :: Second
 
 runSingleSuperUser :: Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
 runSingleSuperUser txNum dumpFile bankUserState = do
@@ -52,9 +55,10 @@ runSingleSuperUser txNum dumpFile bankUserState = do
     initStateBank bankUserState additionalBankAddreses bankSecretKey
     logDebug "After initStateBank"
 
-    cache   <- liftIO mkUserCache
-    txCount <- liftIO $ newIORef 0
-    void $ fork $ dumpWorker txCount dumpFile
+    startTime <- liftIO $ getCurrentTime
+    cache     <- liftIO mkUserCache
+    txCount   <- liftIO $ newIORef 0
+    workerId  <- fork $ dumpWorker txCount startTime dumpFile
 
     -- execute transactions
     forM_ [1 .. txNum] $ \i -> do
@@ -64,5 +68,5 @@ runSingleSuperUser txNum dumpFile bankUserState = do
         when (i `mod` (txNum `div` 5) == 0) $
             logInfo $ sformat ("Executed " % int % " transactions") i
 
-    liftIO $ atomicWriteIORef txCount maxBound
-    wait $ for dumpPeriod sec
+    killThread workerId
+    liftIO $ writeFileStats Final startTime txNum dumpFile

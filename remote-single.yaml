@@ -31,7 +31,5 @@ users:
       host: 52.28.239.209
     number: 4
     transactionsNum: 1000
-shardDivider : 0
-shardDelta: 3
 period: 100000
 

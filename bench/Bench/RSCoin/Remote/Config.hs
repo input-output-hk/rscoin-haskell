@@ -31,8 +31,6 @@ data RemoteConfig = RemoteConfig
       -- mintettes.
       rcMintettesNum :: !(Maybe Word)
     , rcUsers        :: !(Maybe UsersData)
-    , rcShardDivider :: !Word
-    , rcShardDelta   :: !Word
     , rcPeriod       :: !Word
     ,
       -- | By default `master` branch is used. This setting allows to

@@ -31,7 +31,5 @@ users:
         host: 52.58.188.110
     number: 4
     transactionsNum: 1000
-shardDivider : 0
-shardDelta: 3
 period: 100000
 

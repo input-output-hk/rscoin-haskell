@@ -75,11 +75,13 @@ library
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Communication
                      , RSCoin.Core.CompileConfig
+                     , RSCoin.Core.CompileConfigHelper
                      , RSCoin.Core.Crypto.Hashing
                      , RSCoin.Core.Crypto.Signing
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
   build-depends:       acid-state
+                     , aeson
                      , base >=4.8 && <4.9
                      , base64-bytestring >= 1.0.0.1
                      , binary >= 0.7.5.0

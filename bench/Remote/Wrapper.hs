@@ -42,14 +42,11 @@ instance OG.ParseFields C.Severity
 instance OG.ParseRecord C.Severity
 instance OG.ParseRecord RemoteBenchOptions
 
-data ShardParams = ShardParams
-    { spDivider :: !Word
-    , spDelta   :: !Word
-    } deriving (Show)
+rscoinConfigStr :: T.Text
+rscoinConfigStr = C.rscoinConfigStr
 
 data BankParams = BankParams
     { bpPeriodDelta :: !Word
-    , bpShardParams :: !ShardParams
     , bpProfiling   :: !(Maybe ProfilingType)
     , bpHasRSCoin   :: !Bool
     , bpBranch      :: !T.Text
@@ -59,7 +56,6 @@ data UsersParamsSingle = UsersParamsSingle
     { upsUsersNumber        :: !Word
     , upsMintettesNumber    :: !Word
     , upsTransactionsNumber :: !Word
-    , upsShardParams        :: !ShardParams
     , upsDumpStats          :: !Bool
     , upsConfigStr          :: !T.Text
     , upsSeverity           :: !C.Severity
@@ -122,15 +118,9 @@ updateRepoCommand branchName =
 updateTimezoneCommand :: T.Text
 updateTimezoneCommand = "sudo timedatectl set-timezone Europe/Moscow"
 
-configYaml :: ShardParams -> T.Text
-configYaml ShardParams{..} =
-    T.unlines
-        [ sformat ("shardDivider: " % int) spDivider
-        , sformat ("shardDelta: " % int) spDelta]
-
-setupConfigCommand :: ShardParams -> T.Text
+setupConfigCommand :: T.Text
 setupConfigCommand =
-    sformat ("echo '" % stext % "' > rscoin.yaml") . configYaml
+    sformat ("echo '" % stext % "' > rscoin.yaml") rscoinConfigStr
 
 profilingBuildArgs :: Maybe ProfilingType -> T.Text
 profilingBuildArgs Nothing = ""
@@ -150,7 +140,7 @@ bankSetupCommand BankParams {..} mHosts mKeys =
         , bankStopCommand
         , "rm -rf bank-db"
         , updateRepoCommand bpBranch
-        , setupConfigCommand bpShardParams
+        , setupConfigCommand
         , mconcat ["stack build rscoin", profilingBuildArgs bpProfiling]
         , T.unlines $ map (uncurry addMintetteCommand) $ zip mHosts mKeys]
   where
@@ -177,14 +167,14 @@ bankRunCommand periodDelta profiling =
 bankStopCommand :: T.Text
 bankStopCommand = "killall -s SIGINT rscoin-bank 2> /dev/null"
 
-mintetteSetupCommand :: T.Text -> ShardParams -> Maybe ProfilingType -> T.Text
-mintetteSetupCommand branchName shardParams profiling =
+mintetteSetupCommand :: T.Text -> Maybe ProfilingType -> T.Text
+mintetteSetupCommand branchName profiling =
     T.unlines
         [ cdCommand
         , mintetteStopCommand
         , "rm -rf mintette-db"
         , updateRepoCommand branchName
-        , setupConfigCommand shardParams
+        , setupConfigCommand
         , sformat
               ("stack build rscoin " % stext)
               (profilingBuildArgs profiling)
@@ -226,7 +216,7 @@ usersCommandSingle UsersParamsSingle{..} =
         ([ cdCommand
          , updateRepoCommand upsBranch
          , updateTimezoneCommand
-         , setupConfigCommand upsShardParams
+         , setupConfigCommand
          , mkStatsDirCommand
          , sformat ("touch " % stext) csvStatsFileName
          , sformat
@@ -287,13 +277,13 @@ usersCommandSingle UsersParamsSingle{..} =
                 statsTmpFileName
                 csvStatsTmpFileName]
 
-userSetupCommand :: T.Text -> T.Text -> ShardParams -> Maybe ProfilingType -> T.Text
-userSetupCommand bankHost branchName shardParams profiling =
+userSetupCommand :: T.Text -> T.Text -> Maybe ProfilingType -> T.Text
+userSetupCommand bankHost branchName profiling =
     T.unlines
         [ cdCommand
         , "rm -rf wallet-db"
         , updateRepoCommand branchName
-        , setupConfigCommand shardParams
+        , setupConfigCommand
         , sformat
               ("stack bench rscoin --no-run-benchmarks " % stext)
               (profilingBuildArgs profiling)
@@ -362,9 +352,9 @@ runBank bp@BankParams{..} bankHost mintetteHosts mintetteKeys = do
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
 
-genMintetteKey :: T.Text -> ShardParams -> MintetteData -> IO C.PublicKey
-genMintetteKey branchName sp (MintetteData _ hostName profiling _) = do
-    runSsh hostName $ mintetteSetupCommand branchName sp profiling
+genMintetteKey :: T.Text -> MintetteData -> IO C.PublicKey
+genMintetteKey branchName (MintetteData _ hostName profiling _) = do
+    runSsh hostName $ mintetteSetupCommand branchName profiling
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
         runSshStrict hostName catKeyCommand
 
@@ -381,14 +371,10 @@ runUsersSingle ups@UsersParamsSingle{..} = do
     unless upsHasRSCoin $ installRSCoin upsHostName
     runSsh upsHostName $ usersCommandSingle ups
 
-genUserKey :: T.Text -> T.Text -> ShardParams -> UserData -> IO C.PublicKey
-genUserKey bankHost globalBranch sp UserData{..} = do
+genUserKey :: T.Text -> T.Text -> UserData -> IO C.PublicKey
+genUserKey bankHost globalBranch UserData{..} = do
     runSsh udHost $
-        userSetupCommand
-            bankHost
-            (fromMaybe globalBranch udBranch)
-            sp
-            udProfiling
+        userSetupCommand bankHost (fromMaybe globalBranch udBranch) udProfiling
     fromMaybe (error "FATAL: constructPulicKey failed") .
         C.constructPublicKey . T.filter (not . isSpace) <$>
         runSshStrict udHost (catAddressCommand bankHost)
@@ -418,12 +404,10 @@ main = do
     let configPath = fromMaybe "remote.yaml" $ rboConfigFile
     RemoteConfig{..} <- readRemoteConfig configPath
     configStr <- TIO.readFile configPath
-    let sp = ShardParams rcShardDivider rcShardDelta
-        globalBranch = fromMaybe defaultBranch rcBranch
+    let globalBranch = fromMaybe defaultBranch rcBranch
         bp =
             BankParams
             { bpPeriodDelta = rcPeriod
-            , bpShardParams = sp
             , bpProfiling = bdProfiling rcBank
             , bpHasRSCoin = bdHasRSCoin rcBank
             , bpBranch = fromMaybe globalBranch $ bdBranch rcBank
@@ -444,7 +428,7 @@ main = do
     logInfo $
         sformat ("Setting up and launching mintettes " % build % "…") $
         listBuilderJSON mintettes
-    mintetteKeys <- mapConcurrently (genMintetteKey globalBranch sp) mintettes
+    mintetteKeys <- mapConcurrently (genMintetteKey globalBranch) mintettes
     mintetteThreads <- mapConcurrently (runMintette bankHost) mintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2
@@ -466,7 +450,6 @@ main = do
             { upsUsersNumber = udsNumber
             , upsMintettesNumber = genericLength mintettes
             , upsTransactionsNumber = udsTransactionsNum
-            , upsShardParams = sp
             , upsDumpStats = not noStats
             , upsConfigStr = configStr
             , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
@@ -478,7 +461,7 @@ main = do
             }
         runUsers (Just UDMultiple{..}) = do
             let datas = genericTake (fromMaybe maxBound udmNumber) udmUsers
-            pks <- mapConcurrently (genUserKey bankHost globalBranch sp) datas
+            pks <- mapConcurrently (genUserKey bankHost globalBranch) datas
             sendInitialCoins udmTransactionsNum bankHost pks
             () <$ mapConcurrently (updateUser bankHost) datas
             () <$ mapConcurrently (runUser bankHost udmTransactionsNum) datas

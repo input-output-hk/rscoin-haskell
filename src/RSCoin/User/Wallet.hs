@@ -38,8 +38,10 @@ import qualified Control.Lens               as L
 import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
 import           Control.Monad.Reader.Class (MonadReader)
-import           Control.Monad.State.Class  (MonadState)
-import           Data.List                  (delete, find, nub, (\\))
+import           Control.Monad.State.Class  (MonadState, get)
+import           Data.Function              (on)
+import           Data.List                  (delete, find, groupBy, nub, sortOn,
+                                             (\\))
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust, isJust)
 import           Data.Monoid                ((<>))
@@ -224,23 +226,29 @@ restoreTransactions = do
 addTemporaryTransaction :: PeriodId -> Transaction -> ExceptUpdate ()
 addTemporaryTransaction periodId tx@Transaction{..} = do
     ownedAddressesRaw <- L.use userAddresses
-    ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
+    ownedAddresses <- L.uses userAddresses $ map toAddress
     ownedTransactions <- L.uses inputAddressesTxs M.assocs
     let getByAddress address =
-               fromJust $
-               find ((==) address . Address . _publicAddress) ownedAddressesRaw
+            fromJust $
+            find ((==) address . toAddress) ownedAddressesRaw
     forM_ ownedTransactions $ \(address,traddrids) ->
         forM_ traddrids $ \p@(_,addrid) ->
-        forM_ txInputs $ \newaddrid ->
-        when (addrid == newaddrid) $ do
-            inputAddressesTxs %= M.adjust (delete p) address
-            periodDeleted <>= [(address, p)]
-    forM_ (C.computeOutputAddrids tx) $ \(addrid,address) ->
+            forM_ txInputs $ \newaddrid ->
+                when (addrid == newaddrid) $ do
+                    inputAddressesTxs %= M.adjust (delete p) address
+                    periodDeleted <>= [(address, p)]
+    let outputAddr :: [(Address, [AddrId])]
+        outputAddr = map (\a@((_,address):_) -> (address, map fst a)) $
+                     filter (not . null) $
+                     groupBy ((==) `on` snd) $
+                     sortOn snd $
+                     C.computeOutputAddrids tx
+    forM_ outputAddr $ \(address,addrids) ->
         when (address `elem` ownedAddresses) $
             do let userAddr = getByAddress address
-               inputAddressesTxs %=
-                   M.insertWith (++) userAddr [(tx, addrid)]
-               periodAdded <>= [(userAddr, (tx,addrid))]
+               forM_ addrids $ \addrid -> do
+                   inputAddressesTxs %= M.insertWith (++) userAddr [(tx, addrid)]
+                   periodAdded <>= [(userAddr, (tx,addrid))]
     historyTxs %= S.insert (TxHistoryRecord tx periodId TxHUnconfirmed)
 
 -- | Called from withBlockchainUpdate. Takes all transactions with
@@ -309,15 +317,19 @@ withBlockchainUpdate newHeight transactions =
 
        ownedAddressesRaw <- L.use userAddresses
        ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
-       let addSomeTransactions tx@Transaction{..} =
+       let addSomeTransactions tx@Transaction{..} = do
                -- first! add transactions that have output with address that we own
-               forM_ (C.computeOutputAddrids tx) $
-                     \(addrid',address) ->
-                         when (address `elem` ownedAddresses) $
-                              inputAddressesTxs %= M.insertWith
-                                                    (++)
-                                                    (getByAddress address)
-                                                    [(tx, addrid')]
+               let outputAddr :: [(Address, [AddrId])]
+                   outputAddr = map (\a@((_,address):_) -> (address, map fst a)) $
+                                    filter (not . null) $
+                                    groupBy ((==) `on` snd) $
+                                    sortOn snd $
+                                    C.computeOutputAddrids tx
+               forM_ outputAddr $ \(address,addrids) ->
+                   when (address `elem` ownedAddresses) $
+                       do let userAddr = getByAddress address
+                          forM_ addrids $ \addrid' ->
+                              inputAddressesTxs %= M.insertWith (++) userAddr [(tx, addrid')]
            getByAddress address =
                fromJust $
                find ((==) address . Address . _publicAddress) ownedAddressesRaw

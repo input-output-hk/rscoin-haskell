@@ -593,7 +593,7 @@ main = do
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
     let configPath = fromMaybe "remote.yaml" $ rboConfigFile
-    rc@RemoteConfig{..} <- readRemoteConfig configPath
+    RemoteConfig{..} <- readRemoteConfig configPath
     configStr <- TIO.readFile configPath
     let paramsCtor periodDelta mintettesNum =
             SingleRunParams

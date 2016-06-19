@@ -342,7 +342,7 @@ userRunCommand logInterval bankHost txNum UserData{..} =
             printDynamicArg
             logIntervalArg
     severityArg     = maybe "" (sformat (" --severity " % shown % " ")) udSeverity
-    printDynamicArg = maybe "" (const $ "--printDynamic") udPrintTPS
+    printDynamicArg = maybe "" (const $ " --printDynamic") udPrintTPS
     logIntervalArg  =
         maybe "" (sformat (" --logInterval " % int % " ")) logInterval
 
@@ -593,7 +593,7 @@ main = do
     C.initLogging C.Error
     initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
     let configPath = fromMaybe "remote.yaml" $ rboConfigFile
-    RemoteConfig{..} <- readRemoteConfig configPath
+    rc@RemoteConfig{..} <- readRemoteConfig configPath
     configStr <- TIO.readFile configPath
     let paramsCtor periodDelta mintettesNum =
             SingleRunParams

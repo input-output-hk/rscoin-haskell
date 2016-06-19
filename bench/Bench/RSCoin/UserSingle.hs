@@ -53,7 +53,7 @@ printDynamicTPS dumpFile = do
     let tpsLines = T.lines fileContent
     let (rows, tpsPerLine, _) = itemsAndTPS tpsLines
     let rowsWithTPS = zipWith
-            (\row tps -> sformat ("TX executed: " % stext % ", TPS: " % float) (row !! 4) tps)
+            (\row tps -> sformat ("TX executed: " % stext % ", TPS: " % float) (row !! 3) tps)
             rows
             tpsPerLine
     TIO.putStrLn $ T.unlines rowsWithTPS

@@ -286,7 +286,7 @@ formTransactionRetry tries st maybeCache verbose inputs outputAddr outputCoin =
                               let weHave = M.findWithDefault 0 col0 amountMap
                                   weSpend = M.findWithDefault 0 col0 coinsMap
                               in weHave >= weSpend)
-                            (M.keys amountMap)
+                            (M.keys coinsMap)
                 return $ if sufficient then Nothing else Just i
         overSpentAccounts <-
             filterM (\a -> isJust <$> hasEnoughFunds a) accInputs

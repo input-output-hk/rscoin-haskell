@@ -81,7 +81,7 @@ instance Num Coin where
 -- It is simply a public key.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show, Buildable, Binary, Eq, Hashable)
+    } deriving (Show, Ord, Buildable, Binary, Eq, Hashable)
 
 -- | AddrId identifies usage of address as output of transaction.
 -- Basically, it is tuple of transaction identifier, index in list of outputs

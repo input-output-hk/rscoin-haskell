@@ -437,7 +437,7 @@ writeUserTPSInfo
     -> Double
     -> IO ()
 writeUserTPSInfo RemoteConfig{..} udm userDatas totalTPS = do
-    () <$ T.proc mkStatsDirCommand
+    () <$ T.proc "sh" [mkStatsDirCommand] mempty
     let dateFileName    = mconcat [statsDir, "/", statsId, ".stats"]
     let mintettesNum    = length rcMintettes
     let usersNum        = length userDatas

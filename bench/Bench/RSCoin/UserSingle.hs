@@ -1,3 +1,4 @@
+
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Bench.RSCoin.UserSingle
@@ -59,7 +60,7 @@ runSingleUser logIntervalMaybe txNum dumpFile st = do
 
     -- execute transactions
     forM_ [1 .. txNum] $ \i -> do
-        executeTransaction st cache 1 address
+        executeTransaction st cache 0 1 address
         liftIO $ atomicWriteIORef txCount i
 
         when (i `mod` logInterval == 0) $

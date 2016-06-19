@@ -14,6 +14,7 @@ module RSCoin.Core.Primitives
 
 import           Data.Binary         (Binary (get, put))
 import           Data.Hashable       (Hashable (hashWithSalt))
+import           Data.Ratio          (denominator, numerator)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 import           Data.Text.Buildable (Buildable (build))
 import qualified Data.Text.Format    as F
@@ -40,7 +41,13 @@ instance Hashable Coin where
     hashWithSalt s Coin{..} = hashWithSalt s (getColor, getCoin)
 
 instance Buildable Coin where
-    build (Coin col c) = mconcat [build c, " coin(s) of color ", build col]
+    build (Coin col c) =
+        mconcat [ if denominator c == 1
+                  then build $ numerator c
+                  else build c
+                , " coin(s) of color "
+                , build col
+                ]
 
 reportError :: String -> Coin -> Coin -> a
 reportError s c1 c2 =

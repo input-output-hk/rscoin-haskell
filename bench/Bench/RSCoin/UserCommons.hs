@@ -1,11 +1,12 @@
-{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE ViewPatterns #-}
 
-module Bench.RSCoin.UserLogic
+module Bench.RSCoin.UserCommons
         ( benchUserTransactions
+        , executeTransaction
         , initializeBank
         , initializeUser
         , userThread
-        , runSingleUser
+        , userThreadWithPath
         ) where
 
 import           Control.Monad              (forM_, when)
@@ -15,6 +16,7 @@ import           Data.Acid                  (createCheckpoint)
 import           Data.Acid.Advanced         (query')
 import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
+import           Data.Optional              (Optional, defaultTo, empty)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
@@ -29,7 +31,7 @@ import           RSCoin.User.Cache          (UserCache, mkUserCache)
 import           RSCoin.User.Operations     (formTransactionRetry)
 import           RSCoin.User.Wallet         (UserAddress)
 
-import           Bench.RSCoin.FilePathUtils (dbFormatPath)
+import           Bench.RSCoin.FilePathUtils (dbFormatPath, walletPathPrefix)
 import           Bench.RSCoin.Logging       (logDebug, logInfo)
 
 userThread
@@ -38,14 +40,28 @@ userThread
     -> (Word -> A.RSCoinUserState -> MsgPackRpc a)
     -> Word
     -> IO a
-userThread bankHost benchDir userAction userId =
-    runRealMode bankHost $
-    bracket
-        (liftIO $ A.openState $ benchDir </> dbFormatPath "wallet-db" userId)
-        (\userState ->
-              liftIO $
-              do createCheckpoint userState
-                 A.closeState userState)
+userThread bankHost benchDir userAction userId
+    = userThreadWithPath bankHost benchDir userAction userId empty
+
+userThreadWithPath
+    :: ByteString
+    -> FilePath
+    -> (Word -> A.RSCoinUserState -> MsgPackRpc a)
+    -> Word
+    -> Optional FilePath
+    -> IO a
+userThreadWithPath
+    bankHost
+    benchDir
+    userAction
+    userId
+    (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
+  =
+    runRealMode bankHost $ bracket
+        (liftIO $ A.openState walletPath)
+        (\userState -> liftIO $ do
+            createCheckpoint userState
+            A.closeState userState)
         (userAction userId)
 
 queryMyAddress :: A.RSCoinUserState -> MsgPackRpc UserAddress
@@ -68,7 +84,7 @@ executeTransaction :: A.RSCoinUserState
 executeTransaction userState cache coinAmount addrToSend =
     () <$
     formTransactionRetry
-        maxBound
+        maxRetries
         userState
         (Just cache)
         False
@@ -76,7 +92,8 @@ executeTransaction userState cache coinAmount addrToSend =
         addrToSend
         outputMoney
   where
-    outputMoney = Coin coinAmount
+    maxRetries     = 50
+    outputMoney    = Coin coinAmount
     inputMoneyInfo = [(1, outputMoney)]
 
 -- | Create user in `bankMode` and send coins to every user.
@@ -115,17 +132,3 @@ benchUserTransactions txNum userId userState = do
                         userId
                         i
                 executeTransaction userState cache 1 addr
-
-runSingleUser :: Word -> A.RSCoinUserState -> MsgPackRpc ()
-runSingleUser txNum bankUserState = do
-    address <- Address . snd <$> liftIO keyGen
-    let additionalBankAddreses = 0
-    logDebug "Before initStateBank"
-    A.initStateBank bankUserState additionalBankAddreses bankSecretKey
-    logDebug "After initStateBank"
-    cache <- liftIO mkUserCache
-    forM_ [1 .. txNum] $
-        \i ->
-             do executeTransaction bankUserState cache 1 address
-                when (i `mod` (txNum `div` 5) == 0) $
-                    logInfo $ sformat ("Executed " % int % " transactions") i

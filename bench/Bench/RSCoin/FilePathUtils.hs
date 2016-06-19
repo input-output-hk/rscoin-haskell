@@ -1,13 +1,18 @@
 module Bench.RSCoin.FilePathUtils
         ( dbFormatPath
         , tempBenchDirectory
+        , walletPathPrefix
         ) where
 
-import           Data.Text.Lazy (Text, unpack)
-import           Formatting     (format, int, text, (%))
+import           Data.String (IsString)
+import           Data.Text   (Text, unpack)
+import           Formatting  (int, sformat, stext, (%))
 
 tempBenchDirectory :: FilePath
 tempBenchDirectory = ".bench-local"
 
-dbFormatPath :: Integral i => Text -> i -> String
-dbFormatPath dbPath num = unpack $ format (text % int) dbPath num
+walletPathPrefix :: IsString s => s
+walletPathPrefix = "wallet-db"
+
+dbFormatPath :: Integral i => Text -> i -> FilePath
+dbFormatPath dbPath num = unpack $ sformat (stext % int) dbPath num

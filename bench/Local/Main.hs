@@ -16,6 +16,8 @@ import           System.IO.Temp                  (withSystemTempDirectory)
 -- workaround to make stylish-haskell work :(
 import           Options.Generic
 
+import           Serokell.Util.Bench             (ElapsedTime, measureTime_)
+
 import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   Severity (..),
                                                   defaultPeriodDelta,
@@ -26,10 +28,9 @@ import           Bench.RSCoin.FilePathUtils      (tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
                                                   mintetteThread)
 import           Bench.RSCoin.Logging            (initBenchLogger, logInfo)
-import           Bench.RSCoin.UserLogic          (benchUserTransactions,
+import           Bench.RSCoin.UserCommons        (benchUserTransactions,
                                                   initializeBank,
                                                   initializeUser, userThread)
-import           Bench.RSCoin.Util               (ElapsedTime, measureTime_)
 
 data BenchOptions = BenchOptions
     { users         :: Int            <?> "number of users"

@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | This module contains all constants in rscoin.
 
@@ -30,7 +30,8 @@ import           System.Directory           (getHomeDirectory)
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Core.CompileConfig  as CC
-import           RSCoin.Core.Crypto         (Hash, SecretKey, constructPublicKey,
+import           RSCoin.Core.Crypto         (Hash, SecretKey,
+                                             constructPublicKey,
                                              constructSecretKey, hash)
 import           RSCoin.Core.Primitives     (Address (Address), Coin)
 
@@ -81,14 +82,14 @@ genesisValue = 100000000
 periodReward :: Coin
 periodReward = 1000
 
--- | The amount of mintettes divided my shardDivider equals to shard
--- size.
+-- | The amount of mintettes divided my shardDivider plus shardDelta
+-- equals to shard size.
 shardDivider :: Int
-shardDivider = $(lift $ CC.shardDivider CC.readRSCoinConfig)
+shardDivider = $(lift $ CC.rscShardDivider CC.rscoinConfig)
 
 -- | The amount of mintettes to be added to shard size.
 shardDelta :: Int
-shardDelta = $(lift $ CC.shardDelta CC.readRSCoinConfig)
+shardDelta = $(lift $ CC.rscShardDelta CC.rscoinConfig)
 
 -- | Timeout for rpc calls in microsecons.
 -- If timeout exceedes TimeoutError is thrown.

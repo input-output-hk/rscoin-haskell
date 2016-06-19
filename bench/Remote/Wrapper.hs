@@ -1,22 +1,27 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE DeriveGeneric   #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
-import           Control.Exception          (finally)
-import           Control.Monad              (unless)
+import           Control.Exception          (finally, onException)
+import           Control.Monad              (unless, zipWithM_)
+
 import           Data.Char                  (isSpace)
 import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
 import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe, isJust)
-import qualified Data.Text                  as T (filter, unlines)
+import           Data.Monoid                ((<>))
+import qualified Data.Text                  as T (filter, splitOn, unlines,
+                                                  unpack)
 import           Data.Text.Encoding         (encodeUtf8)
 import qualified Data.Text.IO               as TIO
-import           Formatting                 (build, int, sformat, shown, stext,
-                                             (%))
+import           Data.Traversable           (for)
+import           Formatting                 (build, float, int, sformat, shown,
+                                             stext, (%))
 import qualified Options.Generic            as OG
 import           System.IO.Temp             (withSystemTempDirectory)
 import qualified Turtle                     as T
@@ -24,13 +29,15 @@ import qualified Turtle                     as T
 import           Serokell.Util              (listBuilderJSON)
 
 import qualified RSCoin.Core                as C
+import           RSCoin.Timed               (Second)
 
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
                                              ProfilingType (..),
                                              RemoteConfig (..), UserData (..),
                                              UsersData (..), readRemoteConfig)
-import           Bench.RSCoin.UserLogic     (initializeBank, userThread)
+import           Bench.RSCoin.UserCommons   (initializeBank, userThread)
+import           Bench.RSCoin.UserSingle    (InfoStatus (Final))
 
 data RemoteBenchOptions = RemoteBenchOptions
     { rboConfigFile    :: Maybe FilePath
@@ -42,15 +49,13 @@ instance OG.ParseFields C.Severity
 instance OG.ParseRecord C.Severity
 instance OG.ParseRecord RemoteBenchOptions
 
-data ShardParams = ShardParams
-    { spDivider :: !Word
-    , spDelta   :: !Word
-    } deriving (Show)
+rscoinConfigStr :: T.Text
+rscoinConfigStr = C.rscoinConfigStr
 
 data BankParams = BankParams
     { bpPeriodDelta :: !Word
-    , bpShardParams :: !ShardParams
     , bpProfiling   :: !(Maybe ProfilingType)
+    , bpSeverity    :: !(Maybe C.Severity)
     , bpHasRSCoin   :: !Bool
     , bpBranch      :: !T.Text
     } deriving (Show)
@@ -59,7 +64,6 @@ data UsersParamsSingle = UsersParamsSingle
     { upsUsersNumber        :: !Word
     , upsMintettesNumber    :: !Word
     , upsTransactionsNumber :: !Word
-    , upsShardParams        :: !ShardParams
     , upsDumpStats          :: !Bool
     , upsConfigStr          :: !T.Text
     , upsSeverity           :: !C.Severity
@@ -94,16 +98,20 @@ keyGenCommand = "stack exec -- rscoin-keygen\n"
 catKeyCommand :: T.Text
 catKeyCommand = "cat \"$HOME\"/.rscoin/key.pub\n"
 
-catAddressCommand :: T.Text
-catAddressCommand =
-    T.unlines [cdCommand, "stack exec -- rscoin-user dump-address 1"]
+catAddressCommand :: T.Text -> T.Text
+catAddressCommand bankHost =
+    T.unlines
+        [ cdCommand
+        , sformat
+              ("stack exec -- rscoin-user dump-address 1 --bank-host " % stext)
+              bankHost]
 
 updateRepoCommand :: T.Text -> T.Text
 updateRepoCommand branchName =
     T.unlines
         [ cdCommand
         , "git checkout . -q"
-        , "git fetch"
+        , "git fetch -q"
         , sformat
               ("git checkout -q -b " % stext % " " % stext %
                " 2> /dev/null || git checkout -q " %
@@ -118,15 +126,9 @@ updateRepoCommand branchName =
 updateTimezoneCommand :: T.Text
 updateTimezoneCommand = "sudo timedatectl set-timezone Europe/Moscow"
 
-configYaml :: ShardParams -> T.Text
-configYaml ShardParams{..} =
-    T.unlines
-        [ sformat ("shardDivider: " % int) spDivider
-        , sformat ("shardDelta: " % int) spDelta]
-
-setupConfigCommand :: ShardParams -> T.Text
+setupConfigCommand :: T.Text
 setupConfigCommand =
-    sformat ("echo '" % stext % "' > rscoin.yaml") . configYaml
+    sformat ("echo '" % stext % "' > rscoin.yaml") rscoinConfigStr
 
 profilingBuildArgs :: Maybe ProfilingType -> T.Text
 profilingBuildArgs Nothing = ""
@@ -146,7 +148,7 @@ bankSetupCommand BankParams {..} mHosts mKeys =
         , bankStopCommand
         , "rm -rf bank-db"
         , updateRepoCommand bpBranch
-        , setupConfigCommand bpShardParams
+        , setupConfigCommand
         , mconcat ["stack build rscoin", profilingBuildArgs bpProfiling]
         , T.unlines $ map (uncurry addMintetteCommand) $ zip mHosts mKeys]
   where
@@ -159,28 +161,30 @@ bankSetupCommand BankParams {..} mHosts mKeys =
              build)
             (C.defaultPort :: Int)
 
-bankRunCommand :: Word -> Maybe ProfilingType -> T.Text
-bankRunCommand periodDelta profiling =
+bankRunCommand :: BankParams -> T.Text
+bankRunCommand BankParams{..} =
     T.unlines
         [ cdCommand
         , sformat
-              ("stack exec -- rscoin-bank serve --log-severity Warning +RTS -qg -RTS --period-delta " %
+              ("stack exec -- rscoin-bank serve --log-severity " % shown %
+               " +RTS -qg -RTS --period-delta " %
                int %
-               stext)
-              periodDelta
-              (profilingRunArgs profiling)]
+               stext % " | grep \"Finishing period took\"")
+              (fromMaybe C.Warning bpSeverity)
+              bpPeriodDelta
+              (profilingRunArgs bpProfiling)]
 
 bankStopCommand :: T.Text
 bankStopCommand = "killall -s SIGINT rscoin-bank 2> /dev/null"
 
-mintetteSetupCommand :: T.Text -> ShardParams -> Maybe ProfilingType -> T.Text
-mintetteSetupCommand branchName shardParams profiling =
+mintetteSetupCommand :: T.Text -> Maybe ProfilingType -> T.Text
+mintetteSetupCommand branchName profiling =
     T.unlines
         [ cdCommand
         , mintetteStopCommand
         , "rm -rf mintette-db"
         , updateRepoCommand branchName
-        , setupConfigCommand shardParams
+        , setupConfigCommand
         , sformat
               ("stack build rscoin " % stext)
               (profilingBuildArgs profiling)
@@ -222,7 +226,7 @@ usersCommandSingle UsersParamsSingle{..} =
         ([ cdCommand
          , updateRepoCommand upsBranch
          , updateTimezoneCommand
-         , setupConfigCommand upsShardParams
+         , setupConfigCommand
          , mkStatsDirCommand
          , sformat ("touch " % stext) csvStatsFileName
          , sformat
@@ -283,19 +287,19 @@ usersCommandSingle UsersParamsSingle{..} =
                 statsTmpFileName
                 csvStatsTmpFileName]
 
-userSetupCommand :: T.Text -> T.Text -> ShardParams -> Maybe ProfilingType -> T.Text
-userSetupCommand bankHost branchName shardParams profiling =
+userSetupCommand :: T.Text -> T.Text -> Maybe ProfilingType -> T.Text
+userSetupCommand bankHost branchName profiling =
     T.unlines
         [ cdCommand
         , "rm -rf wallet-db"
         , updateRepoCommand branchName
-        , setupConfigCommand shardParams
+        , setupConfigCommand
         , sformat
               ("stack bench rscoin --no-run-benchmarks " % stext)
               (profilingBuildArgs profiling)
         , sformat
               ("stack exec -- rscoin-user list --addresses-num 1 --bank-host " %
-               stext)
+               stext % " > /dev/null")
               bankHost]
 
 userUpdateCommand :: T.Text -> T.Text
@@ -303,11 +307,44 @@ userUpdateCommand bankHost =
     T.unlines
         [ cdCommand
         , sformat
-              ("stack exec -- rscoin-user update --bank-host " % stext)
+              ("stack exec -- rscoin-user update --bank-host " % stext % " > /dev/null")
               bankHost]
 
-userRunCommand :: UserData -> T.Text
-userRunCommand _ = T.unlines [cdCommand, "stack exec -- rscoin-user list"]
+userStatsFileName :: T.IsString s => s
+userStatsFileName = "user-stats.txt"
+
+userRunCommand :: T.Text -> Word -> UserData -> T.Text
+userRunCommand bankHost txNum UserData{..} =
+    T.unlines
+        [ cdCommand
+        , sformat
+              ("stack bench  rscoin:rscoin-bench-single-user --benchmark-arguments \"" %
+               stext %
+               "\"")
+              benchmarkArguments]
+  where
+    benchmarkArguments =
+        sformat
+            ("--walletDb wallet-db --bank " % stext % stext %
+             " --transactions " % int   %
+             " --dumpStats "    % stext %
+             " +RTS -qg -RTS")
+            bankHost
+            severityArg
+            txNum
+            userStatsFileName
+    severityArg =
+        maybe "" (sformat (" --log-severity " % shown % " ")) udSeverity
+
+userStopCommand :: T.Text
+userStopCommand = "killall -s SIGINT rscoin-bench-single-user 2> /dev/null"
+
+resultTPSCommand :: T.Text
+resultTPSCommand =
+    T.unlines
+      [ cdCommand
+      , "tail -n 1 " <> userStatsFileName
+      ]
 
 sshArgs :: T.Text -> [T.Text]
 sshArgs hostName =
@@ -334,14 +371,14 @@ runBank :: BankParams -> T.Text -> [T.Text] -> [C.PublicKey] -> IO ThreadId
 runBank bp@BankParams{..} bankHost mintetteHosts mintetteKeys = do
     unless bpHasRSCoin $ installRSCoin bankHost
     runSsh bankHost $ bankSetupCommand bp mintetteHosts mintetteKeys
-    forkIO $ runSsh bankHost $ bankRunCommand bpPeriodDelta bpProfiling
+    forkIO $ runSsh bankHost $ bankRunCommand bp
 
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
 
-genMintetteKey :: T.Text -> ShardParams -> MintetteData -> IO C.PublicKey
-genMintetteKey branchName sp (MintetteData _ hostName profiling _) = do
-    runSsh hostName $ mintetteSetupCommand branchName sp profiling
+genMintetteKey :: T.Text -> MintetteData -> IO C.PublicKey
+genMintetteKey branchName (MintetteData _ hostName profiling _) = do
+    runSsh hostName $ mintetteSetupCommand branchName profiling
     fromMaybe (error "FATAL: constructPulicKey failed") . C.constructPublicKey <$>
         runSshStrict hostName catKeyCommand
 
@@ -358,17 +395,13 @@ runUsersSingle ups@UsersParamsSingle{..} = do
     unless upsHasRSCoin $ installRSCoin upsHostName
     runSsh upsHostName $ usersCommandSingle ups
 
-genUserKey :: T.Text -> T.Text -> ShardParams -> UserData -> IO C.PublicKey
-genUserKey bankHost globalBranch sp UserData{..} = do
+genUserKey :: T.Text -> T.Text -> UserData -> IO C.PublicKey
+genUserKey bankHost globalBranch UserData{..} = do
     runSsh udHost $
-        userSetupCommand
-            bankHost
-            (fromMaybe globalBranch udBranch)
-            sp
-            udProfiling
+        userSetupCommand bankHost (fromMaybe globalBranch udBranch) udProfiling
     fromMaybe (error "FATAL: constructPulicKey failed") .
         C.constructPublicKey . T.filter (not . isSpace) <$>
-        runSshStrict udHost catAddressCommand
+        runSshStrict udHost (catAddressCommand bankHost)
 
 sendInitialCoins :: Word -> T.Text -> [C.PublicKey] -> IO ()
 sendInitialCoins txNum (encodeUtf8 -> bankHost) (map C.Address -> userAddresses) = do
@@ -385,8 +418,36 @@ sendInitialCoins txNum (encodeUtf8 -> bankHost) (map C.Address -> userAddresses)
 updateUser :: T.Text -> UserData -> IO ()
 updateUser bankHost UserData {..} = runSsh udHost $ userUpdateCommand bankHost
 
-runUser :: UserData -> IO ()
-runUser ud@UserData {..} = runSsh udHost $ userRunCommand ud
+runUser :: T.Text -> Word -> UserData -> IO ()
+runUser bankHost txNum ud@UserData{..} =
+    runSsh udHost $ userRunCommand bankHost txNum ud
+
+stopUser :: T.Text -> IO ()
+stopUser host = runSsh host userStopCommand
+
+collectUserTPS :: [UserData] -> IO T.Text
+collectUserTPS userDatas = do
+  results <- for userDatas $ \ud -> runSshStrict (udHost ud) resultTPSCommand
+
+  let rows = map (T.splitOn ",") results
+  zipWithM_
+      (\ud l@(label:_) -> case read $ T.unpack label of
+          Final -> return ()
+          _     -> error $ T.unpack $
+              sformat ("Bad final result: " % shown % ", " % shown) ud l
+      )
+      userDatas
+      rows
+
+  let tpsPerUser = map
+                   (\[start, end, count] ->
+                       let startTime :: Second = read start
+                           endTime   :: Second = read end
+                           txNum     :: Double = read count
+                       in txNum / fromIntegral (endTime - startTime))
+                   $ map (map T.unpack . tail) rows
+  let totalTPS = sum tpsPerUser
+  return $ sformat ("Total TPS: " % float) totalTPS
 
 main :: IO ()
 main = do
@@ -394,13 +455,12 @@ main = do
     let configPath = fromMaybe "remote.yaml" $ rboConfigFile
     RemoteConfig{..} <- readRemoteConfig configPath
     configStr <- TIO.readFile configPath
-    let sp = ShardParams rcShardDivider rcShardDelta
-        globalBranch = fromMaybe defaultBranch rcBranch
+    let globalBranch = fromMaybe defaultBranch rcBranch
         bp =
             BankParams
             { bpPeriodDelta = rcPeriod
-            , bpShardParams = sp
             , bpProfiling = bdProfiling rcBank
+            , bpSeverity = bdSeverity rcBank
             , bpHasRSCoin = bdHasRSCoin rcBank
             , bpBranch = fromMaybe globalBranch $ bdBranch rcBank
             }
@@ -420,7 +480,7 @@ main = do
     logInfo $
         sformat ("Setting up and launching mintettes " % build % "…") $
         listBuilderJSON mintettes
-    mintetteKeys <- mapConcurrently (genMintetteKey globalBranch sp) mintettes
+    mintetteKeys <- mapConcurrently (genMintetteKey globalBranch) mintettes
     mintetteThreads <- mapConcurrently (runMintette bankHost) mintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2
@@ -442,7 +502,6 @@ main = do
             { upsUsersNumber = udsNumber
             , upsMintettesNumber = genericLength mintettes
             , upsTransactionsNumber = udsTransactionsNum
-            , upsShardParams = sp
             , upsDumpStats = not noStats
             , upsConfigStr = configStr
             , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
@@ -453,11 +512,15 @@ main = do
             , upsProfiling = udProfiling udsData
             }
         runUsers (Just UDMultiple{..}) = do
-            pks <-
-                mapConcurrently (genUserKey bankHost globalBranch sp) udmUsers
+            let datas = genericTake (fromMaybe maxBound udmNumber) udmUsers
+                stopUsers = () <$ mapConcurrently (stopUser . udHost) datas
+            pks <- mapConcurrently (genUserKey bankHost globalBranch) datas
             sendInitialCoins udmTransactionsNum bankHost pks
-            () <$ mapConcurrently (updateUser bankHost) udmUsers
-            () <$ mapConcurrently runUser udmUsers
+            () <$ mapConcurrently (updateUser bankHost) datas
+            () <$
+                mapConcurrently (runUser bankHost udmTransactionsNum) datas `onException`
+                stopUsers
+            TIO.putStrLn =<< collectUserTPS datas
         finishMintettesAndBank = do
             logInfo "Ran users"
             stopBank bankHost

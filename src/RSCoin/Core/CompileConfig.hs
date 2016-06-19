@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- This module contains functions to work with compile-time
@@ -6,26 +5,30 @@
 
 module RSCoin.Core.CompileConfig
     ( RSCoinConfig (..)
-    , readRSCoinConfig
+    , rscoinConfigStr
+    , rscoinConfig
     ) where
 
-import           Data.ByteString (ByteString)
-import           Data.FileEmbed  (embedStringFile, makeRelativeToProject)
-import           Data.Maybe      (fromMaybe)
-import           Data.Yaml       (FromJSON, decode)
-import           GHC.Generics    (Generic)
+import qualified Data.Aeson.TH                   as A
+import           Data.FileEmbed                  (embedStringFile,
+                                                  makeRelativeToProject)
+import           Data.Maybe                      (fromMaybe)
+import           Data.String                     (IsString)
+import           Data.Yaml                       (decode)
+
+import           RSCoin.Core.CompileConfigHelper (defaultOptions)
 
 data RSCoinConfig = RSCoinConfig
-    { shardDivider :: !Int
-    , shardDelta   :: !Int
-    } deriving (Generic, Show)
+    { rscShardDivider :: !Int
+    , rscShardDelta   :: !Int
+    } deriving (Show)
 
-instance FromJSON RSCoinConfig
+$(A.deriveJSON defaultOptions ''RSCoinConfig)
 
-rscoinConfig :: ByteString
-rscoinConfig = $(makeRelativeToProject "rscoin.yaml" >>= embedStringFile)
+rscoinConfigStr :: IsString s => s
+rscoinConfigStr = $(makeRelativeToProject "rscoin.yaml" >>= embedStringFile)
 
 -- | Reading configuration from `rscoin.yaml` file and return it in data type.
-readRSCoinConfig :: RSCoinConfig
-readRSCoinConfig =
-    fromMaybe (error "FATAL: failed to parse rscoin.yaml") $ decode rscoinConfig
+rscoinConfig :: RSCoinConfig
+rscoinConfig =
+    fromMaybe (error "FATAL: failed to parse rscoin.yaml") $ decode rscoinConfigStr

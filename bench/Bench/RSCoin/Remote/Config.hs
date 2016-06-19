@@ -31,8 +31,6 @@ data RemoteConfig = RemoteConfig
       -- mintettes.
       rcMintettesNum :: !(Maybe Word)
     , rcUsers        :: !(Maybe UsersData)
-    , rcShardDivider :: !Word
-    , rcShardDelta   :: !Word
     , rcPeriod       :: !Word
     ,
       -- | By default `master` branch is used. This setting allows to
@@ -51,6 +49,7 @@ data BankData = BankData
     { bdHasRSCoin :: !Bool
     , bdHost      :: !Text
     , bdProfiling :: !(Maybe ProfilingType)
+    , bdSeverity  :: !(Maybe Severity)
     , bdBranch    :: !(Maybe Text)
     } deriving (Show)
 
@@ -81,6 +80,10 @@ data UsersData
          udsTransactionsNum :: !Word}
     | UDMultiple -- ^ Means that each user is run on separate machine
        { udmUsers           :: ![UserData]
+       ,
+         -- | Optional field which can be used to run only part of
+         -- users.
+         udmNumber          :: !(Maybe Word)
        , udmTransactionsNum :: !Word}
     deriving (Show)
 

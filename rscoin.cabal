@@ -75,11 +75,13 @@ library
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Communication
                      , RSCoin.Core.CompileConfig
+                     , RSCoin.Core.CompileConfigHelper
                      , RSCoin.Core.Crypto.Hashing
                      , RSCoin.Core.Crypto.Signing
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
   build-depends:       acid-state
+                     , aeson
                      , base >=4.8 && <4.9
                      , base64-bytestring >= 1.0.0.1
                      , binary >= 0.7.5.0
@@ -95,6 +97,7 @@ library
                      , ed25519
                      , file-embed
                      , filepath
+                     , formatting
                      , gtk3 >= 0.14
                      , hashable
                      , hslogger
@@ -299,8 +302,7 @@ benchmark rscoin-bench-local
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Local.InfraThreads
                      , Bench.RSCoin.Logging
-                     , Bench.RSCoin.UserLogic
-                     , Bench.RSCoin.Util
+                     , Bench.RSCoin.UserCommons
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
@@ -310,6 +312,7 @@ benchmark rscoin-bench-local
                      , filepath
                      , formatting
                      , mtl
+                     , optional-args
                      , optparse-generic
                      , rscoin
                      , serokell-core
@@ -335,8 +338,8 @@ benchmark rscoin-bench-single-user
   main-is:             Remote/SingleUser.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
-                     , Bench.RSCoin.UserLogic
-                     , Bench.RSCoin.Util
+                     , Bench.RSCoin.UserCommons
+                     , Bench.RSCoin.UserSingle
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
@@ -346,6 +349,7 @@ benchmark rscoin-bench-single-user
                      , filepath
                      , formatting
                      , mtl
+                     , optional-args
                      , optparse-generic
                      , rscoin
                      , serokell-core
@@ -371,8 +375,7 @@ benchmark rscoin-bench-only-users
   main-is:             Remote/OnlyUsers.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
-                     , Bench.RSCoin.UserLogic
-                     , Bench.RSCoin.Util
+                     , Bench.RSCoin.UserCommons
   build-depends:       acid-state
                      , async
                      , base >=4.8 && <4.9
@@ -382,6 +385,7 @@ benchmark rscoin-bench-only-users
                      , filepath
                      , formatting
                      , mtl
+                     , optional-args
                      , optparse-generic
                      , rscoin
                      , serokell-core
@@ -407,9 +411,10 @@ benchmark rscoin-bench-remote
   main-is:             Remote/Wrapper.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Logging
+                     , Bench.RSCoin.UserSingle
                      , Bench.RSCoin.Remote.StageRestriction
                      , Bench.RSCoin.Remote.Config
-                     , Bench.RSCoin.UserLogic
+                     , Bench.RSCoin.UserCommons
   build-depends:       acid-state
                      , aeson
                      , async
@@ -420,6 +425,7 @@ benchmark rscoin-bench-remote
                      , filepath
                      , formatting
                      , mtl
+                     , optional-args
                      , optparse-generic
                      , rscoin
                      , serokell-core

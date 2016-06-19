@@ -78,12 +78,6 @@ runSingleUser logIntervalMaybe txNum dumpFile st = do
     liftIO $ whenM (doesFileExist dumpFile) $ removeFile dumpFile
 
     startTime <- getWallTime
-    let additionalBankAddreses = 0
-
-    logDebug "Before initStateBank"
-    initStateBank st additionalBankAddreses bankSecretKey
-    logDebug "After initStateBank"
-
     cache     <- liftIO mkUserCache
     txCount   <- liftIO $ newIORef 0
     workerId  <- fork $ dumpWorker txCount startTime dumpFile
@@ -104,7 +98,9 @@ runSingleUser logIntervalMaybe txNum dumpFile st = do
 runSingleSuperUser :: Maybe Word -> Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
 runSingleSuperUser logInterval txNum dumpFile bankUserState = do
     let additionalBankAddreses = 0
+
     logDebug "Before initStateBank"
     initStateBank bankUserState additionalBankAddreses bankSecretKey
     logDebug "After initStateBank"
+
     runSingleUser logInterval txNum dumpFile bankUserState

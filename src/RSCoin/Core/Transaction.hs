@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | Functions related to Transaction
 
@@ -101,23 +102,25 @@ chooseOptimal addrids getC value =
 -- or equal to given value, for each color. Here 'optimal' stands for 'trying to
 -- include as many addrids as possible', so that means function takes
 -- addrids with smaller amount of money first.
-chooseAddresses :: [AddrId] -> M.Map Color Coin -> M.Map Color ([AddrId], Coin)
+chooseAddresses :: [AddrId] -> M.Map Color Coin -> Maybe (M.Map Color ([AddrId], Coin))
 chooseAddresses addrids =
     chooseOptimal addrids sel3
 
-chooseOptimal :: [a]                      -- ^ Elements we're choosing from
-               -> (a -> Coin)             -- ^ Getter of coins from the element
-               -> M.Map Color Coin        -- ^ Map with amount of coins for each color
-               -> M.Map Color ([a], Coin) -- ^ Map with chosen addrids and change for each color
+chooseOptimal
+    :: [a]                             -- ^ Elements we're choosing from
+    -> (a -> Coin)                     -- ^ Getter of coins from the element
+    -> M.Map Color Coin                -- ^ Map with amount of coins for each color
+    -> Maybe (M.Map Color ([a], Coin)) -- ^ Map with chosen addrids and change for each color
+                                       -- ^ If nothing, value can't be chosen (no money)
 chooseOptimal addrids getC valueMap =
     -- In case there are less colors in addrList than in valueList
     -- filler coins are added to shortc-circuit the comparison of lists.
     assert
         (map (sum . map getC) addrList ++ repeat (Coin 0 0) >= M.elems valueMap) $
-    M.mapWithKey
-        (\color value ->
-              chooseHelper (addrMap M.! color) value)
-        valueMap
+    M.fromList <$> mapM
+        (\(color, value) ->
+              (color,) <$> chooseHelper (addrMap M.! color) value)
+        (M.toList valueMap)
   where
     -- addrList :: [[a]]
     -- List of lists of addrids. Each sublist has the same color
@@ -134,9 +137,7 @@ chooseOptimal addrids getC valueMap =
     -- This function goes through a list of addrids and calculates the optimal
     chooseHelper list value =
         -- choice of addrids and the coins that are left
-        let (_,chosenAIds,Just whatsLeft) =
-                foldl foldFoo (Coin (getColor value) 0, [], Nothing) list
-            foldFoo o@(_,_,Just _) _ = o
+        let foldFoo o@(_,_,Just _) _ = o
             foldFoo (accum,values,Nothing) e =
                 let val = getC e
                     newAccum = accum + val
@@ -144,9 +145,11 @@ chooseOptimal addrids getC valueMap =
                 in ( newAccum
                    , newValues
                    , if newAccum >= value
-                         then Just $ newAccum - value
-                         else Nothing)
-        in (chosenAIds, whatsLeft)
+                     then Just $ newAccum - value
+                     else Nothing)
+        in case foldl foldFoo (Coin (getColor value) 0, [], Nothing) list of
+                    (_,chosenAIds,Just whatsLeft) -> Just (chosenAIds, whatsLeft)
+                    (_,_,Nothing) -> Nothing
 
 -- | This function creates for every address ∈ S_{out} a pair
 -- (addr,addrid), where addrid is exactly a usage of this address in

@@ -18,7 +18,8 @@ import           Data.IORef               (IORef, atomicWriteIORef, newIORef,
 import           Data.Maybe               (fromMaybe)
 import qualified Data.Text                as T
 import qualified Data.Text.IO             as TIO
-import           Formatting               (float, int, sformat, shown, stext, (%))
+import           Formatting               (float, int, sformat, shown, stext,
+                                           (%))
 import           System.Directory         (doesFileExist, removeFile)
 
 import           Serokell.Util.Bench      (getWallTime)
@@ -46,8 +47,8 @@ itemsAndTPS textLines
           totalTPS   = sum tpsPerLine
       in (rows, tpsPerLine, totalTPS)
 
-printDynamicTPS :: FilePath -> Bool -> IO ()
-printDynamicTPS dumpFile shouldPrintTPS = when shouldPrintTPS $ do
+printDynamicTPS :: FilePath -> IO ()
+printDynamicTPS dumpFile = do
     fileContent <- TIO.readFile dumpFile
     let tpsLines = T.lines fileContent
     let (rows, tpsPerLine, _) = itemsAndTPS tpsLines

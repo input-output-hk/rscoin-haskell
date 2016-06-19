@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 
 import           Control.Exception          (finally)
+import           Control.Monad              (when)
 import           Data.ByteString            (ByteString)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Optional              (Optional (Specific), empty,
@@ -20,8 +21,8 @@ import           RSCoin.Core                (Severity (..), initLogging)
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserCommons   (userThreadWithPath)
-import           Bench.RSCoin.UserSingle    (printDynamicTPS, runSingleSuperUser,
-                                             runSingleUser)
+import           Bench.RSCoin.UserSingle    (printDynamicTPS,
+                                             runSingleSuperUser, runSingleUser)
 
 data BenchOptions = BenchOptions
     { bank          :: ByteString     <?> "bank host"
@@ -77,5 +78,5 @@ main = do
         initBenchLogger bSeverity
 
         elapsedTime <- run interval txNum bankHost benchDir walletPath dumpFile
-                       `finally` printDynamicTPS dumpFile shouldPrintTPS
+                       `finally` when shouldPrintTPS (printDynamicTPS dumpFile)
         logInfo $ sformat ("Elapsed time: " % build) elapsedTime

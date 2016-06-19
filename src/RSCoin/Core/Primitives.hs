@@ -42,16 +42,22 @@ instance Hashable Coin where
 instance Buildable Coin where
     build (Coin col c) = mconcat [build c, " coin(s) of color ", build col]
 
+reportError :: String -> Coin -> Coin -> a
+reportError s c1 c2 =
+        error $ "Error: " ++ s ++
+                " of coins with different colors: " ++
+                show c1 ++ " " ++ show c2
+
 instance Num Coin where
-    (+) (Coin col c) (Coin col' c')
+    (+) c1@(Coin col c) c2@(Coin col' c')
       | col == col' = Coin col (c + c')
-      | otherwise = error "Error: sum of coins with different colors!"
-    (*) (Coin col c) (Coin col' c')
+      | otherwise = reportError "sum" c1 c2
+    (*) c1@(Coin col c) c2@(Coin col' c')
       | col == col' = Coin col (c * c')
-      | otherwise = error "Error: product of coins with different colors!"
-    (-) (Coin col c) (Coin col' c')
+      | otherwise = reportError "product" c1 c2
+    (-) c1@(Coin col c) c2@(Coin col' c')
       | col == col' = Coin col (c - c')
-      | otherwise = error "Error: subtraction of coins with different colors!"
+      | otherwise = reportError "subtraction" c1 c2
     abs (Coin a b) = Coin a (abs b)
     signum (Coin col c) = Coin col (signum c)
     fromInteger c = Coin 0 (fromInteger c)

@@ -169,7 +169,7 @@ formTransactionFromAll st maybeCache addressTo amount =
                     M.findWithDefault 0 0 <$>
                     getAmountByIndex st i)
              [0..length addrs-1]
-    let totalAmount = sum $ map snd indecesWithCoins
+    let totalAmount = C.sumCoin $ map snd indecesWithCoins
     when (amount > totalAmount) $
         throwM $
         InputProcessingError $

@@ -129,7 +129,7 @@ setupConfigCommand =
 profilingBuildArgs :: Maybe ProfilingType -> T.Text
 profilingBuildArgs Nothing = ""
 profilingBuildArgs (Just _) =
-    " --profile --executable-profiling --library-profiling "
+    " --executable-profiling --library-profiling "
 
 profilingRunArgs :: Maybe ProfilingType -> T.Text
 profilingRunArgs Nothing = ""

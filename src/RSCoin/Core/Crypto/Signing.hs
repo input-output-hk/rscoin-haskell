@@ -35,12 +35,13 @@ import           Data.SafeCopy              (Contained,
                                              contain, safeGet, safePut)
 import           Data.Serialize             (Get, Put)
 import           Data.Text                  (Text)
+import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format           as F
 import qualified Data.Text.IO               as TIO
-import           Data.Text.Lazy.Builder     (toLazyText)
 import qualified Data.Text.Lazy             as TL
+import           Data.Text.Lazy.Builder     (toLazyText)
 import           Data.Tuple                 (swap)
 import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            (takeDirectory)
@@ -86,10 +87,13 @@ instance Binary Signature where
 
 newtype SecretKey = SecretKey
     { getSecretKey :: E.SecretKey
-    } deriving (Eq, Show, Ord)
+    } deriving (Eq, Ord)
 
 instance Buildable SecretKey where
     build = build . F.Shown . getSecretKey
+
+instance Show SecretKey where
+    show sk = "SecretKey { getSecretKey = " ++ T.unpack (show' sk) ++ " }"
 
 instance Binary SecretKey where
     get = SecretKey . E.SecretKey <$> get
@@ -109,10 +113,13 @@ instance Arbitrary SecretKey where
 
 newtype PublicKey = PublicKey
     { getPublicKey :: E.PublicKey
-    } deriving (Eq, Show, Ord)
+    } deriving (Eq, Ord)
 
 instance Buildable PublicKey where
     build = build . decodeUtf8 . B64.encode . E.unPublicKey . getPublicKey
+
+instance Show PublicKey where
+    show pk = "PublicKey { getPublicKey = " ++ T.unpack (show' pk) ++ " }"
 
 instance Hashable PublicKey where
     hashWithSalt s = hashWithSalt s . E.unPublicKey . getPublicKey

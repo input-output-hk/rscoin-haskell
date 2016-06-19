@@ -19,7 +19,7 @@ import           Control.Monad.Trans     (liftIO)
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
 import           Data.Function           (on)
-import           Data.List               (groupBy, genericIndex)
+import           Data.List               (genericIndex, groupBy)
 import           Data.Maybe              (fromJust, isJust)
 import           Data.Monoid             ((<>))
 import qualified Data.Text.IO            as TIO
@@ -28,7 +28,7 @@ import qualified Graphics.UI.Gtk         as G
 import           Serokell.Util.Text      (format', formatSingle', show')
 
 import           RSCoin.Core             as C
-import           RSCoin.Timed            (WorkMode, ms, for, wait)
+import           RSCoin.Timed            (WorkMode, for, ms, wait)
 import           RSCoin.User.AcidState   (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState   as A
 import           RSCoin.User.Error       (eWrap)
@@ -72,6 +72,7 @@ processCommand st O.ListAddresses _ =
               mapM_ formatAddressEntry $
                   uncurry (zip3 [(1 :: Integer) ..]) $ unzip wallets
   where
+    spaces = "                                                   "
     formatAddressEntry :: (Integer, C.PublicKey, [C.Coin]) -> IO ()
     formatAddressEntry (i, key, coins) = do
        TIO.putStr $ format' "{}.  {} : " (i, key)
@@ -79,7 +80,7 @@ processCommand st O.ListAddresses _ =
        unless (null coins) $ TIO.putStrLn $ show' $ head coins
        unless (length coins < 2) $
            forM_ (tail coins)
-                 (TIO.putStrLn . formatSingle' "                    {}")
+                 (TIO.putStrLn . formatSingle' (spaces <> "{}"))
 processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     eWrap $
     do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr

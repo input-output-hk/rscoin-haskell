@@ -14,7 +14,8 @@ import           Data.FileEmbed             (embedStringFile,
 import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe, isJust)
 import           Data.Monoid                ((<>))
-import qualified Data.Text                  as T (filter, lines, unlines)
+import qualified Data.Text                  as T (filter, lines, strip,
+                                                  unlines, unpack)
 import           Data.Text.Encoding         (encodeUtf8)
 import qualified Data.Text.IO               as TIO
 import           Data.Traversable           (for)
@@ -437,8 +438,12 @@ writeUserTPSInfo
     -> Double
     -> IO ()
 writeUserTPSInfo RemoteConfig{..} udm userDatas totalTPS = do
-    T.mktree =<< (T.</> "rscoin-stats") <$> T.home
-    let dateFileName    = mconcat [statsDir, "/", statsId, ".stats"]
+    homeStats <- (T.</> "rscoin-stats") <$> T.home
+    T.mktree homeStats
+    (_, T.strip -> dateFilePref) <- T.procStrict "date" ["+\"%m.%d-%H:%M:%S\""] mempty
+
+    let (Right stats)   = T.toText homeStats
+    let dateFileName    = mconcat [stats, "/", dateFilePref, ".stats"]
     let mintettesNum    = length rcMintettes
     let usersNum        = length userDatas
     let txNum           = udmTransactionsNum udm
@@ -451,11 +456,12 @@ writeUserTPSInfo RemoteConfig{..} udm userDatas totalTPS = do
             , sformat ("period length: "          % int)   rcPeriod
             ]
 
-    TIO.writeFile dateFileName dateStatsOutput
+    TIO.writeFile (T.unpack dateFileName) dateStatsOutput
 
-    unlessM (doesFileExist csvStatsFileName) $ do
-        let statsHeader = "time,sha,TPS,number of users,number of mintettes,number of transactions,period length"
-        TIO.writeFile csvStatsFileName statsHeader
+    let statsFile = T.unpack $ mconcat [stats, "/", "stats.csv"]
+    unlessM (doesFileExist statsFile) $ do
+        let statsHeader = "time,sha,TPS,number of users,number of mintettes,number of transactions,period length\n"
+        TIO.writeFile statsFile statsHeader
 
     let builtCsv = listBuilderCSV
             [ "TODO: time"
@@ -466,7 +472,7 @@ writeUserTPSInfo RemoteConfig{..} udm userDatas totalTPS = do
             , show' txNum
             , show' rcPeriod
             ]
-    TIO.appendFile csvStatsFileName $ sformat build builtCsv
+    TIO.appendFile statsFile $ sformat (build % "\n") builtCsv
 
 collectUserTPS :: RemoteConfig -> UsersData -> [UserData] -> IO T.Text
 collectUserTPS remoteConfig udm userDatas = do

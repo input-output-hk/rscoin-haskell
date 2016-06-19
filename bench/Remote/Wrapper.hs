@@ -494,6 +494,8 @@ data SingleRunParams = SingleRunParams
     , srpUsers        :: Maybe UsersData
     , srpMintettes    :: [MintetteData]
     , srpBank         :: BankData
+    , srpUsersNum     :: Word
+    , srpTxNum        :: Word
     } deriving (Show)
 
 remoteBench ::  SingleRunParams -> IO ()
@@ -538,32 +540,23 @@ remoteBench srp@SingleRunParams{..} = do
                 "Have fun now. I am going to sleep, you can wish me good night."
             T.sleep 100500
         runUsers (Just UDSingle{..}) =
-            sequence_
-                [runUsersSingle $
-                 UsersParamsSingle
-                 { upsUsersNumber = usersNum
-                 , upsMintettesNumber = genericLength mintettes
-                 , upsTransactionsNumber = txNum
-                 , upsDumpStats = not noStats
-                 , upsConfigStr = srpConfigStr
-                 , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
-                 , upsBranch = fromMaybe globalBranch $ udBranch udsData
-                 , upsHasRSCoin = udHasRSCoin udsData
-                 , upsHostName = udHost udsData
-                 , upsBankHostName = bankHost
-                 , upsProfiling = udProfiling udsData
-                 } | usersNum <- udsNumber
-                   , txNum <- udsTransactionsNum]
+            runUsersSingle $
+            UsersParamsSingle
+            { upsUsersNumber = srpUsersNum
+            , upsMintettesNumber = genericLength mintettes
+            , upsTransactionsNumber = srpTxNum
+            , upsDumpStats = not noStats
+            , upsConfigStr = srpConfigStr
+            , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
+            , upsBranch = fromMaybe globalBranch $ udBranch udsData
+            , upsHasRSCoin = udHasRSCoin udsData
+            , upsHostName = udHost udsData
+            , upsBankHostName = bankHost
+            , upsProfiling = udProfiling udsData
+            }
         runUsers (Just (UDMultiple{..})) = do
-            let datas usersNum = genericTake usersNum udmUsers
-                usersNums = fromMaybe [maxBound] udmNumber
-            sequence_
-                [runUsersMultiple d txNum udmLogInterval | d <-
-                                                              map
-                                                                  datas
-                                                                  usersNums
-                                                         , txNum <-
-                                                               udmTransactionsNum]
+            let datas = genericTake srpUsersNum udmUsers
+            runUsersMultiple datas srpTxNum udmLogInterval
         runUsersMultiple datas txNum logInterval =
             flip finally (TIO.putStrLn =<< collectUserTPS srp txNum datas) $
             do let stopUsers = () <$ mapConcurrently (stopUser . udHost) datas
@@ -593,7 +586,7 @@ main = do
     let configPath = fromMaybe "remote.yaml" $ rboConfigFile
     RemoteConfig{..} <- readRemoteConfig configPath
     configStr <- TIO.readFile configPath
-    let paramsCtor periodDelta mintettesNum =
+    let paramsCtor periodDelta mintettesNum usersNum txNum =
             SingleRunParams
             { srpConfigStr = configStr
             , srpGlobalBranch = rcBranch
@@ -601,8 +594,20 @@ main = do
             , srpUsers = rcUsers
             , srpBank = rcBank
             , srpMintettes = genericTake mintettesNum rcMintettes
+            , srpUsersNum = usersNum
+            , srpTxNum = txNum
             }
         mintettesNums = fromMaybe [maxBound] rcMintettesNum
     sequence_
-        [remoteBench $ paramsCtor p mNum | p <- rcPeriod
-                                         , mNum <- mintettesNums]
+        [remoteBench $ paramsCtor p mNum uNum txNum | p <- rcPeriod
+                                                    , mNum <- mintettesNums
+                                                    , uNum <- usersNums rcUsers
+                                                    , txNum <- txNums rcUsers]
+  where
+    usersNums Nothing = [0]
+    usersNums (Just (UDSingle{..})) = udsNumber
+    usersNums (Just (UDMultiple{..})) =
+        fromMaybe [genericLength udmUsers] udmNumber
+    txNums Nothing = [0]
+    txNums (Just (UDSingle{..})) = udsTransactionsNum
+    txNums (Just (UDMultiple{..})) = udmTransactionsNum

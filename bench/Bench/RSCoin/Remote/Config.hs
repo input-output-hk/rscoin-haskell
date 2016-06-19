@@ -29,7 +29,7 @@ data RemoteConfig = RemoteConfig
     ,
       -- | Optional field which can be used to run only part of
       -- mintettes.
-      rcMintettesNum :: !(Maybe Word)
+      rcMintettesNum :: !(Maybe [Word])
     , rcUsers        :: !(Maybe UsersData)
     , rcPeriod       :: !Word
     ,

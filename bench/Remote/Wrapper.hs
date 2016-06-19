@@ -6,7 +6,7 @@
 import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
 import           Control.Exception          (finally, onException)
-import           Control.Monad              (unless)
+import           Control.Monad              (forM_, unless)
 import           Control.Monad.Extra        (unlessM)
 import           Data.Char                  (isSpace)
 import           Data.FileEmbed             (embedStringFile,
@@ -14,19 +14,20 @@ import           Data.FileEmbed             (embedStringFile,
 import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe, isJust)
 import           Data.Monoid                ((<>))
-import qualified Data.Text                  as T (filter, lines, strip,
-                                                  unlines, unpack)
+import qualified Data.Text                  as T (filter, lines, strip, unlines,
+                                                  unpack)
+import qualified Data.Text.Buildable        as B (build)
 import           Data.Text.Encoding         (encodeUtf8)
 import qualified Data.Text.IO               as TIO
 import           Data.Traversable           (for)
 import           Formatting                 (build, float, int, sformat, shown,
                                              stext, (%))
-import           System.Directory           (doesFileExist)
 import qualified Options.Generic            as OG
+import           System.Directory           (doesFileExist)
 import           System.IO.Temp             (withSystemTempDirectory)
 import qualified Turtle                     as T
 
-import           Serokell.Util.Text         (listBuilderCSV, listBuilderJSON, show')
+import           Serokell.Util.Text         (listBuilderCSV, listBuilderJSON)
 
 import qualified RSCoin.Core                as C
 
@@ -432,19 +433,19 @@ stopUser :: T.Text -> IO ()
 stopUser host = runSsh host userStopCommand
 
 writeUserTPSInfo
-    :: RemoteConfig
+    :: SingleRunParams
     -> UsersData
     -> [UserData]
     -> Double
     -> IO ()
-writeUserTPSInfo RemoteConfig{..} udm userDatas totalTPS = do
+writeUserTPSInfo SingleRunParams{..} udm userDatas totalTPS = do
     homeStats <- (T.</> "rscoin-stats") <$> T.home
     T.mktree homeStats
     (_, T.strip -> dateFilePref) <- T.procStrict "date" ["+\"%m.%d-%H:%M:%S\""] mempty
 
     let (Right stats)   = T.toText homeStats
     let dateFileName    = mconcat [stats, "/", dateFilePref, ".stats"]
-    let mintettesNum    = length rcMintettes
+    let mintettesNum    = length srpMintettes
     let usersNum        = length userDatas
     let txNum           = udmTransactionsNum udm
     let dateStatsOutput = T.unlines
@@ -453,7 +454,7 @@ writeUserTPSInfo RemoteConfig{..} udm userDatas totalTPS = do
             , sformat ("number of mintettes: "    % int)   mintettesNum
             , sformat ("number of users: "        % int)   usersNum
             , sformat ("number of transactions: " % int)   txNum
-            , sformat ("period length: "          % int)   rcPeriod
+            , sformat ("period length: "          % int)   srpPeriodLength
             ]
 
     TIO.writeFile (T.unpack dateFileName) dateStatsOutput
@@ -466,40 +467,45 @@ writeUserTPSInfo RemoteConfig{..} udm userDatas totalTPS = do
     let builtCsv = listBuilderCSV
             [ "TODO: time"
             , "TODO: sha"
-            , show' totalTPS
-            , show' usersNum
-            , show' mintettesNum
-            , show' txNum
-            , show' rcPeriod
+            , B.build totalTPS
+            , B.build usersNum
+            , B.build mintettesNum
+            , B.build txNum
+            , B.build srpPeriodLength
             ]
     TIO.appendFile statsFile $ sformat (build % "\n") builtCsv
 
-collectUserTPS :: RemoteConfig -> UsersData -> [UserData] -> IO T.Text
-collectUserTPS remoteConfig udm userDatas = do
+collectUserTPS :: SingleRunParams -> UsersData -> [UserData] -> IO T.Text
+collectUserTPS srp udm userDatas = do
   resultFiles  <- for userDatas $ \ud -> runSshStrict (udHost ud) resultTPSCommand
   let lastLines = map (last . T.lines) resultFiles
   let (_, _, totalTPS) = itemsAndTPS lastLines
 
-  writeUserTPSInfo remoteConfig udm userDatas totalTPS
+  writeUserTPSInfo srp udm userDatas totalTPS
   return $ sformat ("Total TPS: " % float) totalTPS
 
-main :: IO ()
-main = do
-    RemoteBenchOptions{..} <- OG.getRecord "rscoin-bench-remote"
-    let configPath = fromMaybe "remote.yaml" $ rboConfigFile
-    remoteConfig@RemoteConfig{..} <- readRemoteConfig configPath
-    configStr <- TIO.readFile configPath
-    let globalBranch = fromMaybe defaultBranch rcBranch
+data SingleRunParams = SingleRunParams
+    { srpConfigStr    :: T.Text
+    , srpGlobalBranch :: Maybe T.Text
+    , srpPeriodLength :: Word
+    , srpUsers        :: Maybe UsersData
+    , srpMintettes    :: [MintetteData]
+    , srpBank         :: BankData
+    } deriving (Show)
+
+remoteBench ::  SingleRunParams -> IO ()
+remoteBench srp@SingleRunParams {..} = do
+    let globalBranch = fromMaybe defaultBranch srpGlobalBranch
         bp =
             BankParams
-            { bpPeriodDelta = rcPeriod
-            , bpProfiling = bdProfiling rcBank
-            , bpSeverity = bdSeverity rcBank
-            , bpHasRSCoin = bdHasRSCoin rcBank
-            , bpBranch = fromMaybe globalBranch $ bdBranch rcBank
+            { bpPeriodDelta = srpPeriodLength
+            , bpProfiling = bdProfiling srpBank
+            , bpSeverity = bdSeverity srpBank
+            , bpHasRSCoin = bdHasRSCoin srpBank
+            , bpBranch = fromMaybe globalBranch $ bdBranch srpBank
             }
-        bankHost = bdHost rcBank
-        mintettes = genericTake (fromMaybe maxBound rcMintettesNum) rcMintettes
+        bankHost = bdHost srpBank
+        mintettes = srpMintettes
         userDatas Nothing = []
         userDatas (Just (UDSingle{..})) = [udsData]
         userDatas (Just (UDMultiple{..})) = udmUsers
@@ -507,10 +513,8 @@ main = do
             any
                 isJust
                 (bpProfiling bp :
-                 (map udProfiling (userDatas rcUsers) ++
+                 (map udProfiling (userDatas srpUsers) ++
                   map mdProfiling mintettes))
-    C.initLogging C.Error
-    initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
     logInfo $
         sformat ("Setting up and launching mintettes " % build % "…") $
         listBuilderJSON mintettes
@@ -537,7 +541,7 @@ main = do
             , upsMintettesNumber = genericLength mintettes
             , upsTransactionsNumber = udsTransactionsNum
             , upsDumpStats = not noStats
-            , upsConfigStr = configStr
+            , upsConfigStr = srpConfigStr
             , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
             , upsBranch = fromMaybe globalBranch $ udBranch udsData
             , upsHasRSCoin = udHasRSCoin udsData
@@ -556,7 +560,7 @@ main = do
                     (runUser udmLogInterval bankHost udmTransactionsNum)
                     datas `onException`
                 stopUsers
-            TIO.putStrLn =<< collectUserTPS remoteConfig udm datas
+            TIO.putStrLn =<< collectUserTPS srp udm datas
         finishMintettesAndBank = do
             logInfo "Ran users"
             stopBank bankHost
@@ -567,4 +571,24 @@ main = do
             logInfo "Killed bank thread"
             mapM_ killThread mintetteThreads
             logInfo "Killed mintette threads"
-    runUsers rcUsers `finally` finishMintettesAndBank
+    runUsers srpUsers `finally` finishMintettesAndBank
+
+main :: IO ()
+main = do
+    RemoteBenchOptions{..} <- OG.getRecord "rscoin-bench-remote"
+    C.initLogging C.Error
+    initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
+    let configPath = fromMaybe "remote.yaml" $ rboConfigFile
+    RemoteConfig{..} <- readRemoteConfig configPath
+    configStr <- TIO.readFile configPath
+    let paramsCtor mintettesNum =
+            SingleRunParams
+            { srpConfigStr = configStr
+            , srpGlobalBranch = rcBranch
+            , srpPeriodLength = rcPeriod
+            , srpUsers = rcUsers
+            , srpBank = rcBank
+            , srpMintettes = genericTake mintettesNum rcMintettes
+            }
+        mintettesNums = fromMaybe [maxBound] rcMintettesNum
+    forM_ mintettesNums $ remoteBench . paramsCtor

@@ -91,6 +91,7 @@ data UsersData
 data UserData = UserData
     { udHasRSCoin :: !Bool
     , udHost      :: !Text
+    , udPrintTPS  :: !(Maybe Bool)
     , udProfiling :: !(Maybe ProfilingType)
     , udSeverity  :: !(Maybe Severity)
     , udBranch    :: !(Maybe Text)

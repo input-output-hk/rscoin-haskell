@@ -333,14 +333,17 @@ userRunCommand logInterval bankHost txNum UserData{..} =
              " --dumpStats " %
              stext %
              stext %
+             stext %
              " +RTS -qg -RTS")
             bankHost
             severityArg
             txNum
             userStatsFileName
+            printDynamicArg
             logIntervalArg
-    severityArg = maybe "" (sformat (" --severity " % shown % " ")) udSeverity
-    logIntervalArg =
+    severityArg     = maybe "" (sformat (" --severity " % shown % " ")) udSeverity
+    printDynamicArg = maybe "" (const $ "--printDynamic") udPrintTPS
+    logIntervalArg  =
         maybe "" (sformat (" --logInterval " % int % " ")) logInterval
 
 userStopCommand :: T.Text

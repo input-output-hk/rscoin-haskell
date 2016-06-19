@@ -23,6 +23,7 @@ users:
     users:
       - hasRSCoin: True
         host: 52.58.26.146
+        printTPS: True
       - hasRSCoin: True
         host: 52.29.237.85
       - hasRSCoin: True

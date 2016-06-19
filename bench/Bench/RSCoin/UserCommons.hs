@@ -15,12 +15,11 @@ import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint)
 import           Data.Acid.Advanced         (query')
 import           Data.ByteString            (ByteString)
-import           Data.Int                   (Int64)
 import           Data.Optional              (Optional, defaultTo, empty)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
-import           RSCoin.Core                (Address (..), Coin (..),
+import           RSCoin.Core                (Address (..), Coin (..), Color,
                                              bankSecretKey, finishPeriod,
                                              keyGen)
 
@@ -78,10 +77,11 @@ initializeUser userId userState = do
 
 executeTransaction :: A.RSCoinUserState
                    -> UserCache
-                   -> Int64
+                   -> Color
+                   -> Rational
                    -> Address
                    -> MsgPackRpc ()
-executeTransaction userState cache coinAmount addrToSend =
+executeTransaction userState cache coinColor coinAmount addrToSend =
     () <$
     formTransactionRetry
         maxRetries
@@ -93,7 +93,7 @@ executeTransaction userState cache coinAmount addrToSend =
         outputMoney
   where
     maxRetries     = 50
-    outputMoney    = Coin coinAmount
+    outputMoney    = [Coin coinColor coinAmount]
     inputMoneyInfo = [(1, outputMoney)]
 
 -- | Create user in `bankMode` and send coins to every user.
@@ -106,7 +106,7 @@ initializeBank coinsNum userAddresses bankUserState = do
     logDebug "After initStateBank"
     cache <- liftIO mkUserCache
     forM_ userAddresses $
-        executeTransaction bankUserState cache (fromIntegral coinsNum)
+        executeTransaction bankUserState cache 0 (fromIntegral coinsNum)
     logDebug "Sent initial coins from bank to users"
     logInfo
         "Initialized user in bankMode, finishing period"
@@ -131,4 +131,18 @@ benchUserTransactions txNum userId userState = do
                          " transactions")
                         userId
                         i
-                executeTransaction userState cache 1 addr
+                executeTransaction userState cache 0 1 addr
+
+runSingleUser :: Word -> A.RSCoinUserState -> MsgPackRpc ()
+runSingleUser txNum bankUserState = do
+    address <- Address . snd <$> liftIO keyGen
+    let additionalBankAddreses = 0
+    logDebug "Before initStateBank"
+    A.initStateBank bankUserState additionalBankAddreses bankSecretKey
+    logDebug "After initStateBank"
+    cache <- liftIO mkUserCache
+    forM_ [1 .. txNum] $
+        \i ->
+             do executeTransaction bankUserState cache 0 1 address
+                when (i `mod` (txNum `div` 5) == 0) $
+                    logInfo $ sformat ("Executed " % int % " transactions") i

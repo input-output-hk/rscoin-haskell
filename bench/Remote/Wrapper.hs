@@ -6,24 +6,26 @@
 import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
 import           Control.Exception          (finally, onException)
-import           Control.Monad              (unless, zipWithM_)
+import           Control.Monad              (unless)
+import           Control.Monad.Extra        (unlessM)
 import           Data.Char                  (isSpace)
 import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
 import           Data.List                  (genericLength, genericTake)
 import           Data.Maybe                 (fromMaybe, isJust)
 import           Data.Monoid                ((<>))
-import qualified Data.Text                  as T (filter, unlines, unpack)
+import qualified Data.Text                  as T (filter, lines, unlines)
 import           Data.Text.Encoding         (encodeUtf8)
 import qualified Data.Text.IO               as TIO
 import           Data.Traversable           (for)
 import           Formatting                 (build, float, int, sformat, shown,
                                              stext, (%))
+import           System.Directory           (doesFileExist)
 import qualified Options.Generic            as OG
 import           System.IO.Temp             (withSystemTempDirectory)
 import qualified Turtle                     as T
 
-import           Serokell.Util              (listBuilderJSON)
+import           Serokell.Util.Text         (listBuilderCSV, listBuilderJSON, show')
 
 import qualified RSCoin.Core                as C
 
@@ -33,7 +35,7 @@ import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
                                              RemoteConfig (..), UserData (..),
                                              UsersData (..), readRemoteConfig)
 import           Bench.RSCoin.UserCommons   (initializeBank, userThread)
-import           Bench.RSCoin.UserSingle    (InfoStatus (Final), itemsAndTPS)
+import           Bench.RSCoin.UserSingle    (itemsAndTPS)
 
 data RemoteBenchOptions = RemoteBenchOptions
     { rboConfigFile    :: Maybe FilePath
@@ -216,6 +218,9 @@ csvStatsTmpFileName = "bench-tmp.csv"
 csvStatsFileName :: (Monoid s, T.IsString s) => s
 csvStatsFileName = mconcat [statsDir, "/", "stats.csv"]
 
+statsId :: (Monoid s, T.IsString s) => s
+statsId = "`date +\"%m.%d-%H:%M:%S\"`"
+
 usersCommandSingle :: UsersParamsSingle -> T.Text
 usersCommandSingle UsersParamsSingle{..} =
     T.unlines
@@ -257,7 +262,6 @@ usersCommandSingle UsersParamsSingle{..} =
                (profilingRunArgs upsProfiling)] ++
          dealWithStats)
   where
-    statsId = "`date +\"%m.%d-%H:%M:%S\"`"
     csvPrefix =
         sformat
             ("\\\"" % stext % ",`git show-ref --abbrev -s HEAD`,\\\"")
@@ -344,7 +348,7 @@ resultTPSCommand :: T.Text
 resultTPSCommand =
     T.unlines
       [ cdCommand
-      , "tail -n 1 " <> userStatsFileName
+      , "cat " <> userStatsFileName
       ]
 
 sshArgs :: T.Text -> [T.Text]
@@ -426,27 +430,57 @@ runUser logInteval bankHost txNum ud@UserData{..} =
 stopUser :: T.Text -> IO ()
 stopUser host = runSsh host userStopCommand
 
-collectUserTPS :: [UserData] -> IO T.Text
-collectUserTPS userDatas = do
-  results <- for userDatas $ \ud -> runSshStrict (udHost ud) resultTPSCommand
+writeUserTPSInfo
+    :: RemoteConfig
+    -> UsersData
+    -> [UserData]
+    -> Double
+    -> IO ()
+writeUserTPSInfo RemoteConfig{..} udm userDatas totalTPS = do
+    let dateFileName    = mconcat [statsDir, "/", statsId, ".stats"]
+    let mintettesNum    = length rcMintettes
+    let usersNum        = length userDatas
+    let txNum           = udmTransactionsNum udm
+    let dateStatsOutput = T.unlines
+            [ sformat ("total TPS: "              % float) totalTPS
+            , sformat ("dynamic TPS: "            % stext) "TODO"
+            , sformat ("number of mintettes: "    % int)   mintettesNum
+            , sformat ("number of users: "        % int)   usersNum
+            , sformat ("number of transactions: " % int)   txNum
+            , sformat ("period length: "          % int)   rcPeriod
+            ]
 
-  let (rows, _, totalTPS) = itemsAndTPS results
-  zipWithM_
-      (\ud l@(label:_) -> case read $ T.unpack label of
-          Final -> return ()
-          _     -> error $ T.unpack $
-              sformat ("Bad final result: " % shown % ", " % shown) ud l
-      )
-      userDatas
-      rows
+    TIO.writeFile dateFileName dateStatsOutput
 
+    unlessM (doesFileExist csvStatsFileName) $ do
+        let statsHeader = "time,sha,TPS,number of users,number of mintettes,number of transactions,period length"
+        TIO.writeFile csvStatsFileName statsHeader
+
+    let builtCsv = listBuilderCSV
+            [ "TODO: time"
+            , "TODO: sha"
+            , show' totalTPS
+            , show' usersNum
+            , show' mintettesNum
+            , show' txNum
+            , show' rcPeriod
+            ]
+    TIO.appendFile csvStatsFileName $ sformat build builtCsv
+
+collectUserTPS :: RemoteConfig -> UsersData -> [UserData] -> IO T.Text
+collectUserTPS remoteConfig udm userDatas = do
+  resultFiles  <- for userDatas $ \ud -> runSshStrict (udHost ud) resultTPSCommand
+  let lastLines = map (last . T.lines) resultFiles
+  let (_, _, totalTPS) = itemsAndTPS lastLines
+
+  writeUserTPSInfo remoteConfig udm userDatas totalTPS
   return $ sformat ("Total TPS: " % float) totalTPS
 
 main :: IO ()
 main = do
     RemoteBenchOptions{..} <- OG.getRecord "rscoin-bench-remote"
     let configPath = fromMaybe "remote.yaml" $ rboConfigFile
-    RemoteConfig{..} <- readRemoteConfig configPath
+    remoteConfig@RemoteConfig{..} <- readRemoteConfig configPath
     configStr <- TIO.readFile configPath
     let globalBranch = fromMaybe defaultBranch rcBranch
         bp =
@@ -504,7 +538,7 @@ main = do
             , upsBankHostName = bankHost
             , upsProfiling = udProfiling udsData
             }
-        runUsers (Just UDMultiple{..}) = do
+        runUsers (Just udm@UDMultiple{..}) = do
             let datas = genericTake (fromMaybe maxBound udmNumber) udmUsers
                 stopUsers = () <$ mapConcurrently (stopUser . udHost) datas
             pks <- mapConcurrently (genUserKey bankHost globalBranch) datas
@@ -515,7 +549,7 @@ main = do
                     (runUser udmLogInterval bankHost udmTransactionsNum)
                     datas `onException`
                 stopUsers
-            TIO.putStrLn =<< collectUserTPS datas
+            TIO.putStrLn =<< collectUserTPS remoteConfig udm datas
         finishMintettesAndBank = do
             logInfo "Ran users"
             stopBank bankHost

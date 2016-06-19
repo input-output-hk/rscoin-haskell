@@ -6,7 +6,7 @@
 import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
 import           Control.Exception          (finally, onException)
-import           Control.Monad              (forM_, unless)
+import           Control.Monad              (unless)
 import           Control.Monad.Extra        (unlessM)
 import           Data.Char                  (isSpace)
 import           Data.FileEmbed             (embedStringFile,
@@ -537,35 +537,33 @@ remoteBench srp@SingleRunParams{..} = do
             logInfo
                 "Have fun now. I am going to sleep, you can wish me good night."
             T.sleep 100500
-        runUsers (Just UDSingle{..}) = do
-            forM_ udsNumber $
-                \usersNum ->
-                     forM_ udsTransactionsNum $
-                     \txNum ->
-                          runUsersSingle $
-                          UsersParamsSingle
-                          { upsUsersNumber = usersNum
-                          , upsMintettesNumber = genericLength mintettes
-                          , upsTransactionsNumber = txNum
-                          , upsDumpStats = not noStats
-                          , upsConfigStr = srpConfigStr
-                          , upsSeverity = fromMaybe C.Warning $
-                            udSeverity udsData
-                          , upsBranch = fromMaybe globalBranch $
-                            udBranch udsData
-                          , upsHasRSCoin = udHasRSCoin udsData
-                          , upsHostName = udHost udsData
-                          , upsBankHostName = bankHost
-                          , upsProfiling = udProfiling udsData
-                          }
+        runUsers (Just UDSingle{..}) =
+            sequence_
+                [runUsersSingle $
+                 UsersParamsSingle
+                 { upsUsersNumber = usersNum
+                 , upsMintettesNumber = genericLength mintettes
+                 , upsTransactionsNumber = txNum
+                 , upsDumpStats = not noStats
+                 , upsConfigStr = srpConfigStr
+                 , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
+                 , upsBranch = fromMaybe globalBranch $ udBranch udsData
+                 , upsHasRSCoin = udHasRSCoin udsData
+                 , upsHostName = udHost udsData
+                 , upsBankHostName = bankHost
+                 , upsProfiling = udProfiling udsData
+                 } | usersNum <- udsNumber
+                   , txNum <- udsTransactionsNum]
         runUsers (Just (UDMultiple{..})) = do
             let datas usersNum = genericTake usersNum udmUsers
                 usersNums = fromMaybe [maxBound] udmNumber
-            forM_ usersNums $
-                \u ->
-                     forM_ udmTransactionsNum $
-                     \txNum ->
-                          runUsersMultiple (datas u) txNum udmLogInterval
+            sequence_
+                [runUsersMultiple d txNum udmLogInterval | d <-
+                                                              map
+                                                                  datas
+                                                                  usersNums
+                                                         , txNum <-
+                                                               udmTransactionsNum]
         runUsersMultiple datas txNum logInterval =
             flip finally (TIO.putStrLn =<< collectUserTPS srp txNum datas) $
             do let stopUsers = () <$ mapConcurrently (stopUser . udHost) datas
@@ -605,8 +603,6 @@ main = do
             , srpMintettes = genericTake mintettesNum rcMintettes
             }
         mintettesNums = fromMaybe [maxBound] rcMintettesNum
-    forM_ rcPeriod $
-        \p ->
-             forM_ mintettesNums $
-             \mNum ->
-                  remoteBench $ paramsCtor p mNum
+    sequence_
+        [remoteBench $ paramsCtor p mNum | p <- rcPeriod
+                                         , mNum <- mintettesNums]

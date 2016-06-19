@@ -3,6 +3,7 @@
 module RSCoin.Core.Coin
        ( onColor
        , sameColor
+       , sumCoin
        , coinsToList
        , coinsToMap
        , groupCoinsList
@@ -11,6 +12,7 @@ module RSCoin.Core.Coin
        ) where
 
 import           Control.Exception      (assert)
+import           Data.Foldable          (foldr')
 import           Data.List              (groupBy, sortBy)
 import qualified Data.Map               as M
 import           Data.Maybe             (fromJust)
@@ -18,20 +20,26 @@ import           Data.Ord               (comparing)
 
 import           RSCoin.Core.Primitives (Coin (..), Color)
 
+
 onColor :: Coin -> Coin -> Ordering
 onColor = comparing getColor
 
 sameColor :: Coin -> Coin -> Bool
 sameColor a b = EQ == onColor a b
 
+sumCoin :: [Coin] -> Coin
+sumCoin [] = error "sumCoin called with empty coin list"
+sumCoin xs@(c:_) = foldr' (+) Coin{getColor = getColor c, getCoin = 0} xs
+
 -- | Given a list of arbitrary coins, it sums the coins with the same
 -- color and returns list of coins of distinct color sorted by the
 -- color. Also deletes negative coins.
 groupCoinsList :: [Coin] -> [Coin]
 groupCoinsList coins =
-    sortBy onColor $
-    map sum $
+    map sumCoin $
+    filter (not . null) $
     groupBy sameColor $
+    sortBy onColor $
     filter ((> 0) . getCoin)
     coins
 

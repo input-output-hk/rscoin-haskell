@@ -437,11 +437,11 @@ stopUser host = runSsh host userStopCommand
 
 writeUserTPSInfo
     :: SingleRunParams
-    -> UsersData
+    -> Word
     -> [UserData]
     -> Double
     -> IO ()
-writeUserTPSInfo SingleRunParams{..} udm userDatas totalTPS = do
+writeUserTPSInfo SingleRunParams{..} txNum userDatas totalTPS = do
     homeStats <- (T.</> "rscoin-stats") <$> T.home
     T.mktree homeStats
     (_, T.strip -> dateFilePref) <- T.procStrict "date" ["+\"%m.%d-%H:%M:%S\""] mempty
@@ -450,7 +450,6 @@ writeUserTPSInfo SingleRunParams{..} udm userDatas totalTPS = do
     let dateFileName    = mconcat [stats, "/", dateFilePref, ".stats"]
     let mintettesNum    = length srpMintettes
     let usersNum        = length userDatas
-    let txNum           = udmTransactionsNum udm
     let dateStatsOutput = T.unlines
             [ sformat ("total TPS: "              % float) totalTPS
             , sformat ("dynamic TPS: "            % stext) "TODO"
@@ -478,13 +477,13 @@ writeUserTPSInfo SingleRunParams{..} udm userDatas totalTPS = do
             ]
     TIO.appendFile statsFile $ sformat (build % "\n") builtCsv
 
-collectUserTPS :: SingleRunParams -> UsersData -> [UserData] -> IO T.Text
-collectUserTPS srp udm userDatas = do
+collectUserTPS :: SingleRunParams -> Word -> [UserData] -> IO T.Text
+collectUserTPS srp txNum userDatas = do
   resultFiles  <- for userDatas $ \ud -> runSshStrict (udHost ud) resultTPSCommand
   let lastLines = map (last . T.lines) resultFiles
   let (_, _, totalTPS) = itemsAndTPS lastLines
 
-  writeUserTPSInfo srp udm userDatas totalTPS
+  writeUserTPSInfo srp txNum userDatas totalTPS
   return $ sformat ("Total TPS: " % float) totalTPS
 
 data SingleRunParams = SingleRunParams
@@ -537,36 +536,44 @@ remoteBench srp@SingleRunParams{..} = do
             logInfo
                 "Have fun now. I am going to sleep, you can wish me good night."
             T.sleep 100500
-        runUsers (Just UDSingle{..}) =
-            runUsersSingle $
-            UsersParamsSingle
-            { upsUsersNumber = udsNumber
-            , upsMintettesNumber = genericLength mintettes
-            , upsTransactionsNumber = udsTransactionsNum
-            , upsDumpStats = not noStats
-            , upsConfigStr = srpConfigStr
-            , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
-            , upsBranch = fromMaybe globalBranch $ udBranch udsData
-            , upsHasRSCoin = udHasRSCoin udsData
-            , upsHostName = udHost udsData
-            , upsBankHostName = bankHost
-            , upsProfiling = udProfiling udsData
-            }
-        runUsers (Just (udm@UDMultiple{..})) =
-            let datas = genericTake (fromMaybe maxBound udmNumber) udmUsers
-            in runUsersMultiple datas udm `finally`
-               (TIO.putStrLn =<< collectUserTPS srp udm datas)
-        runUsersMultiple datas (UDMultiple{..}) = do
-            let stopUsers = () <$ mapConcurrently (stopUser . udHost) datas
-            pks <- mapConcurrently (genUserKey bankHost globalBranch) datas
-            sendInitialCoins udmTransactionsNum bankHost pks
-            () <$ mapConcurrently (updateUser bankHost) datas
-            () <$
-                mapConcurrently
-                    (runUser udmLogInterval bankHost udmTransactionsNum)
-                    datas `onException`
-                stopUsers
-        runUsersMultiple _ _ = error "runUsersMultiple"
+        runUsers (Just UDSingle{..}) = do
+            forM_ udsNumber $
+                \usersNum ->
+                     forM_ udsTransactionsNum $
+                     \txNum ->
+                          runUsersSingle $
+                          UsersParamsSingle
+                          { upsUsersNumber = usersNum
+                          , upsMintettesNumber = genericLength mintettes
+                          , upsTransactionsNumber = txNum
+                          , upsDumpStats = not noStats
+                          , upsConfigStr = srpConfigStr
+                          , upsSeverity = fromMaybe C.Warning $
+                            udSeverity udsData
+                          , upsBranch = fromMaybe globalBranch $
+                            udBranch udsData
+                          , upsHasRSCoin = udHasRSCoin udsData
+                          , upsHostName = udHost udsData
+                          , upsBankHostName = bankHost
+                          , upsProfiling = udProfiling udsData
+                          }
+        runUsers (Just (UDMultiple{..})) = do
+            let datas usersNum = genericTake usersNum udmUsers
+                usersNums = fromMaybe [maxBound] udmNumber
+            forM_ usersNums $
+                \u ->
+                     forM_ udmTransactionsNum $
+                     \txNum ->
+                          runUsersMultiple (datas u) txNum udmLogInterval
+        runUsersMultiple datas txNum logInterval =
+            flip finally (TIO.putStrLn =<< collectUserTPS srp txNum datas) $
+            do let stopUsers = () <$ mapConcurrently (stopUser . udHost) datas
+               pks <- mapConcurrently (genUserKey bankHost globalBranch) datas
+               sendInitialCoins txNum bankHost pks
+               () <$ mapConcurrently (updateUser bankHost) datas
+               () <$
+                   mapConcurrently (runUser logInterval bankHost txNum) datas `onException`
+                   stopUsers
         finishMintettesAndBank = do
             logInfo "Ran users"
             stopBank bankHost
@@ -587,14 +594,18 @@ main = do
     let configPath = fromMaybe "remote.yaml" $ rboConfigFile
     RemoteConfig{..} <- readRemoteConfig configPath
     configStr <- TIO.readFile configPath
-    let paramsCtor mintettesNum =
+    let paramsCtor periodDelta mintettesNum =
             SingleRunParams
             { srpConfigStr = configStr
             , srpGlobalBranch = rcBranch
-            , srpPeriodLength = rcPeriod
+            , srpPeriodLength = periodDelta
             , srpUsers = rcUsers
             , srpBank = rcBank
             , srpMintettes = genericTake mintettesNum rcMintettes
             }
         mintettesNums = fromMaybe [maxBound] rcMintettesNum
-    forM_ mintettesNums $ remoteBench . paramsCtor
+    forM_ rcPeriod $
+        \p ->
+             forM_ mintettesNums $
+             \mNum ->
+                  remoteBench $ paramsCtor p mNum

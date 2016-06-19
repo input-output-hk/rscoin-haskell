@@ -494,7 +494,7 @@ data SingleRunParams = SingleRunParams
     } deriving (Show)
 
 remoteBench ::  SingleRunParams -> IO ()
-remoteBench srp@SingleRunParams {..} = do
+remoteBench srp@SingleRunParams{..} = do
     let globalBranch = fromMaybe defaultBranch srpGlobalBranch
         bp =
             BankParams
@@ -549,9 +549,12 @@ remoteBench srp@SingleRunParams {..} = do
             , upsBankHostName = bankHost
             , upsProfiling = udProfiling udsData
             }
-        runUsers (Just udm@UDMultiple{..}) = do
+        runUsers (Just (udm@UDMultiple{..})) =
             let datas = genericTake (fromMaybe maxBound udmNumber) udmUsers
-                stopUsers = () <$ mapConcurrently (stopUser . udHost) datas
+            in runUsersMultiple datas udm `finally`
+               (TIO.putStrLn =<< collectUserTPS srp udm datas)
+        runUsersMultiple datas (UDMultiple{..}) = do
+            let stopUsers = () <$ mapConcurrently (stopUser . udHost) datas
             pks <- mapConcurrently (genUserKey bankHost globalBranch) datas
             sendInitialCoins udmTransactionsNum bankHost pks
             () <$ mapConcurrently (updateUser bankHost) datas
@@ -560,7 +563,7 @@ remoteBench srp@SingleRunParams {..} = do
                     (runUser udmLogInterval bankHost udmTransactionsNum)
                     datas `onException`
                 stopUsers
-            TIO.putStrLn =<< collectUserTPS srp udm datas
+        runUsersMultiple _ _ = error "runUsersMultiple"
         finishMintettesAndBank = do
             logInfo "Ran users"
             stopBank bankHost

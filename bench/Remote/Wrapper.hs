@@ -8,7 +8,6 @@ import           Control.Concurrent         (ThreadId, forkIO, killThread)
 import           Control.Concurrent.Async   (mapConcurrently)
 import           Control.Exception          (finally, onException)
 import           Control.Monad              (unless, zipWithM_)
-
 import           Data.Char                  (isSpace)
 import           Data.FileEmbed             (embedStringFile,
                                              makeRelativeToProject)
@@ -313,8 +312,8 @@ userUpdateCommand bankHost =
 userStatsFileName :: T.IsString s => s
 userStatsFileName = "user-stats.txt"
 
-userRunCommand :: T.Text -> Word -> UserData -> T.Text
-userRunCommand bankHost txNum UserData{..} =
+userRunCommand :: Maybe Word -> T.Text -> Word -> UserData -> T.Text
+userRunCommand logInterval bankHost txNum UserData{..} =
     T.unlines
         [ cdCommand
         , sformat
@@ -326,15 +325,20 @@ userRunCommand bankHost txNum UserData{..} =
     benchmarkArguments =
         sformat
             ("--walletDb wallet-db --bank " % stext % stext %
-             " --transactions " % int   %
-             " --dumpStats "    % stext %
+             " --transactions " %
+             int %
+             " --dumpStats " %
+             stext %
+             stext %
              " +RTS -qg -RTS")
             bankHost
             severityArg
             txNum
             userStatsFileName
-    severityArg =
-        maybe "" (sformat (" --log-severity " % shown % " ")) udSeverity
+            logIntervalArg
+    severityArg = maybe "" (sformat (" --severity " % shown % " ")) udSeverity
+    logIntervalArg =
+        maybe "" (sformat (" --logInterval " % int % " ")) logInterval
 
 userStopCommand :: T.Text
 userStopCommand = "killall -s SIGINT rscoin-bench-single-user 2> /dev/null"
@@ -418,9 +422,9 @@ sendInitialCoins txNum (encodeUtf8 -> bankHost) (map C.Address -> userAddresses)
 updateUser :: T.Text -> UserData -> IO ()
 updateUser bankHost UserData {..} = runSsh udHost $ userUpdateCommand bankHost
 
-runUser :: T.Text -> Word -> UserData -> IO ()
-runUser bankHost txNum ud@UserData{..} =
-    runSsh udHost $ userRunCommand bankHost txNum ud
+runUser :: Maybe Word -> T.Text -> Word -> UserData -> IO ()
+runUser logInteval bankHost txNum ud@UserData{..} =
+    runSsh udHost $ userRunCommand logInteval bankHost txNum ud
 
 stopUser :: T.Text -> IO ()
 stopUser host = runSsh host userStopCommand
@@ -518,7 +522,9 @@ main = do
             sendInitialCoins udmTransactionsNum bankHost pks
             () <$ mapConcurrently (updateUser bankHost) datas
             () <$
-                mapConcurrently (runUser bankHost udmTransactionsNum) datas `onException`
+                mapConcurrently
+                    (runUser udmLogInterval bankHost udmTransactionsNum)
+                    datas `onException`
                 stopUsers
             TIO.putStrLn =<< collectUserTPS datas
         finishMintettesAndBank = do

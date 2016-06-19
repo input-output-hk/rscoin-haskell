@@ -84,7 +84,8 @@ data UsersData
          -- | Optional field which can be used to run only part of
          -- users.
          udmNumber          :: !(Maybe Word)
-       , udmTransactionsNum :: !Word}
+       , udmTransactionsNum :: !Word
+       , udmLogInterval     :: !(Maybe Word)}
     deriving (Show)
 
 data UserData = UserData

@@ -21,6 +21,7 @@ import           RSCoin.Core.CompileConfigHelper (defaultOptions)
 data RSCoinConfig = RSCoinConfig
     { rscShardDivider :: !Int
     , rscShardDelta   :: !Int
+    , rscRpcTimeout   :: !Word
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''RSCoinConfig)

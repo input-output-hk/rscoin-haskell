@@ -94,7 +94,7 @@ shardDelta = $(lift $ CC.rscShardDelta CC.rscoinConfig)
 -- | Timeout for rpc calls in microsecons.
 -- If timeout exceedes TimeoutError is thrown.
 rpcTimeout :: Second
-rpcTimeout = 5
+rpcTimeout = $(lift $ CC.rscRpcTimeout CC.rscoinConfig)
 
 -- | Bank's secret key which can be used to spend coins from genesis transaction.
 -- It's needed only for tests/benchmarks.

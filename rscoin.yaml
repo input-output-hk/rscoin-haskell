@@ -1,2 +1,3 @@
 shardDivider: 0
 shardDelta: 3
+rpcTimeout: 5

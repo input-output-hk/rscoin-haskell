@@ -21,7 +21,7 @@ import           Data.Maybe             (fromJust)
 import           Data.Ord               (comparing)
 import           Data.Tuple.Select      (sel3)
 
-import           RSCoin.Core.Coin       (coinsToMap, groupCoinsList)
+import           RSCoin.Core.Coin       (coinsToMap)
 import           RSCoin.Core.Crypto     (Signature, hash, verify)
 import           RSCoin.Core.Primitives (AddrId, Address (..), Coin (..), Color,
                                          Transaction (..))
@@ -35,8 +35,8 @@ validateSum :: Transaction -> Bool
 validateSum Transaction{..} =
     greyInputs >= greyOutputs + totalUnpaintedSum
   where
-    inputs = coinsToMap $ groupCoinsList $ map sel3 txInputs
-    outputs = coinsToMap $ groupCoinsList $ map snd txOutputs
+    inputs = coinsToMap $ map sel3 txInputs
+    outputs = coinsToMap $ map snd txOutputs
     greyInputs = getCoin $ M.findWithDefault 0 0 inputs
     greyOutputs = getCoin $ M.findWithDefault 0 0 outputs
     inputColors = delete 0 $ M.keys inputs

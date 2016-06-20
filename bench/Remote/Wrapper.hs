@@ -379,18 +379,23 @@ runSshStrict hostName command = do
 installRSCoin :: T.Text -> IO ()
 installRSCoin = flip runSsh installCommand
 
+installRSCoinBank :: BankData -> IO ()
+installRSCoinBank BankData{..} = unless bdHasRSCoin $ installRSCoin bdHost
+
+installRSCoinMintette :: MintetteData -> IO ()
+installRSCoinMintette MintetteData{..} =
+    unless mdHasRSCoin $ installRSCoin mdHost
+
+installRSCoinUser :: UserData -> IO ()
+installRSCoinUser UserData{..} = unless udHasRSCoin $ installRSCoin udHost
+
 setupAndRunBank :: BankParams -> T.Text -> [T.Text] -> [C.PublicKey] -> IO ThreadId
 setupAndRunBank bp@BankParams{..} bankHost mintetteHosts mintetteKeys = do
-    unless bpHasRSCoin $ installRSCoin bankHost
     runSsh bankHost $ bankSetupCommand bp mintetteHosts mintetteKeys
     forkIO $ runSsh bankHost $ bankRunCommand bp
 
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
-
-installRSCoinMintette :: MintetteData -> IO ()
-installRSCoinMintette MintetteData{..} =
-    unless mdHasRSCoin $ installRSCoin mdHost
 
 genMintetteKey :: T.Text -> MintetteData -> IO C.PublicKey
 genMintetteKey branchName (MintetteData _ hostName profiling _) = do
@@ -406,13 +411,11 @@ stopMintette :: T.Text -> IO ()
 stopMintette host = runSsh host mintetteStopCommand
 
 runUsersSingle :: UsersParamsSingle -> IO ()
-runUsersSingle ups@UsersParamsSingle{..} = do
-    unless upsHasRSCoin $ installRSCoin upsHostName
+runUsersSingle ups@UsersParamsSingle{..} =
     runSsh upsHostName $ usersCommandSingle ups
 
 genUserKey :: T.Text -> T.Text -> UserData -> IO C.PublicKey
 genUserKey bankHost globalBranch UserData{..} = do
-    unless udHasRSCoin $ installRSCoin udHost
     runSsh udHost $
         userSetupCommand bankHost (fromMaybe globalBranch udBranch) udProfiling
     fromMaybe (error "FATAL: constructPulicKey failed") .
@@ -528,7 +531,6 @@ remoteBench srp@SingleRunParams{..} = do
     logInfo $
         sformat ("Setting up and launching mintettes " % build % "…") $
         listBuilderJSON mintettes
-    () <$ mapConcurrently installRSCoinMintette mintettes
     mintetteKeys <- mapConcurrently (genMintetteKey globalBranch) mintettes
     mintetteThreads <- mapConcurrently (runMintette bankHost) mintettes
     logInfo "Launched mintettes, waiting…"
@@ -593,6 +595,9 @@ main = do
     let configPath = fromMaybe "remote.yaml" $ rboConfigFile
     RemoteConfig{..} <- readRemoteConfig configPath
     configStr <- TIO.readFile configPath
+    installRSCoinBank rcBank
+    () <$ mapConcurrently installRSCoinMintette rcMintettes
+    () <$ mapConcurrently installRSCoinUser (userDatas rcUsers)
     let paramsCtor periodDelta mintettesNum usersNum txNum =
             SingleRunParams
             { srpConfigStr = configStr
@@ -618,3 +623,6 @@ main = do
     txNums Nothing = [0]
     txNums (Just (UDSingle{..})) = udsTransactionsNum
     txNums (Just (UDMultiple{..})) = udmTransactionsNum
+    userDatas Nothing = []
+    userDatas (Just UDSingle {..}) = [udsData]
+    userDatas (Just UDMultiple {..}) = udmUsers

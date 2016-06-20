@@ -379,14 +379,18 @@ runSshStrict hostName command = do
 installRSCoin :: T.Text -> IO ()
 installRSCoin = flip runSsh installCommand
 
-runBank :: BankParams -> T.Text -> [T.Text] -> [C.PublicKey] -> IO ThreadId
-runBank bp@BankParams{..} bankHost mintetteHosts mintetteKeys = do
+setupAndRunBank :: BankParams -> T.Text -> [T.Text] -> [C.PublicKey] -> IO ThreadId
+setupAndRunBank bp@BankParams{..} bankHost mintetteHosts mintetteKeys = do
     unless bpHasRSCoin $ installRSCoin bankHost
     runSsh bankHost $ bankSetupCommand bp mintetteHosts mintetteKeys
     forkIO $ runSsh bankHost $ bankRunCommand bp
 
 stopBank :: T.Text -> IO ()
 stopBank bankHost = runSsh bankHost bankStopCommand
+
+installRSCoinMintette :: MintetteData -> IO ()
+installRSCoinMintette MintetteData{..} =
+    unless mdHasRSCoin $ installRSCoin mdHost
 
 genMintetteKey :: T.Text -> MintetteData -> IO C.PublicKey
 genMintetteKey branchName (MintetteData _ hostName profiling _) = do
@@ -395,8 +399,7 @@ genMintetteKey branchName (MintetteData _ hostName profiling _) = do
         runSshStrict hostName catKeyCommand
 
 runMintette :: T.Text -> MintetteData -> IO ThreadId
-runMintette bankHost (MintetteData hasRSCoin hostName profiling sev) = do
-    unless hasRSCoin $ installRSCoin hostName
+runMintette bankHost (MintetteData _ hostName profiling sev) =
     forkIO $ runSsh hostName $ mintetteRunCommand bankHost profiling sev
 
 stopMintette :: T.Text -> IO ()
@@ -525,12 +528,14 @@ remoteBench srp@SingleRunParams{..} = do
     logInfo $
         sformat ("Setting up and launching mintettes " % build % "…") $
         listBuilderJSON mintettes
+    () <$ mapConcurrently installRSCoinMintette mintettes
     mintetteKeys <- mapConcurrently (genMintetteKey globalBranch) mintettes
     mintetteThreads <- mapConcurrently (runMintette bankHost) mintettes
     logInfo "Launched mintettes, waiting…"
     T.sleep 2
     logInfo "Launching bank…"
-    bankThread <- runBank bp bankHost (map mdHost mintettes) mintetteKeys
+    bankThread <-
+        setupAndRunBank bp bankHost (map mdHost mintettes) mintetteKeys
     logInfo "Launched bank, waiting…"
     T.sleep 3
     logInfo "Running users…"

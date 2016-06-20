@@ -132,17 +132,3 @@ benchUserTransactions txNum userId userState = do
                         userId
                         i
                 executeTransaction userState cache 0 1 addr
-
-runSingleUser :: Word -> A.RSCoinUserState -> MsgPackRpc ()
-runSingleUser txNum bankUserState = do
-    address <- Address . snd <$> liftIO keyGen
-    let additionalBankAddreses = 0
-    logDebug "Before initStateBank"
-    A.initStateBank bankUserState additionalBankAddreses bankSecretKey
-    logDebug "After initStateBank"
-    cache <- liftIO mkUserCache
-    forM_ [1 .. txNum] $
-        \i ->
-             do executeTransaction bankUserState cache 0 1 address
-                when (i `mod` (txNum `div` 5) == 0) $
-                    logInfo $ sformat ("Executed " % int % " transactions") i

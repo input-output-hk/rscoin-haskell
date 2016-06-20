@@ -409,6 +409,7 @@ runUsersSingle ups@UsersParamsSingle{..} = do
 
 genUserKey :: T.Text -> T.Text -> UserData -> IO C.PublicKey
 genUserKey bankHost globalBranch UserData{..} = do
+    unless udHasRSCoin $ installRSCoin udHost
     runSsh udHost $
         userSetupCommand bankHost (fromMaybe globalBranch udBranch) udProfiling
     fromMaybe (error "FATAL: constructPulicKey failed") .

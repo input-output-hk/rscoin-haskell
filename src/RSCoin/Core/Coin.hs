@@ -29,7 +29,7 @@ sameColor a b = EQ == onColor a b
 
 sumCoin :: [Coin] -> Coin
 sumCoin [] = error "sumCoin called with empty coin list"
-sumCoin xs@(c:_) = foldr' (+) Coin{getColor = getColor c, getCoin = 0} xs
+sumCoin xs@(c:_) = foldr' (+) c {getCoin = 0} xs
 
 -- | Given a list of arbitrary coins, it sums the coins with the same
 -- color and returns list of coins of distinct color sorted by the

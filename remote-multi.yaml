@@ -1,8 +1,8 @@
 branch: master
 bank:
   hasRSCoin: True
-  host: 52.58.26.146
-mintettesNum: 7
+  host: 52.28.239.209
+mintettesNum: [7]
 mintettes:
 - hasRSCoin: True
   host: 52.28.80.85
@@ -22,14 +22,15 @@ users:
   multiple:
     users:
       - hasRSCoin: True
-        host: 52.28.239.209
+        host: 52.58.26.146
+        printTPS: True
       - hasRSCoin: True
         host: 52.29.237.85
       - hasRSCoin: True
         host: 52.28.78.214
       - hasRSCoin: True
         host: 52.58.188.110
-    number: 4
-    transactionsNum: 1000
-period: 100000
+    number: [4]
+    transactionsNum: [1000]
+period: [100000]
 

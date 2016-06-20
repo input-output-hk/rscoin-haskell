@@ -3,19 +3,25 @@
 
 module Bench.RSCoin.UserSingle
         ( InfoStatus (..)
-        , runSingleUser
+        , itemsAndTPS
+        , printDynamicTPS
         , runSingleSuperUser
+        , runSingleUser
         ) where
 
-import           Prelude                  hiding (appendFile)
+import           Prelude                  hiding (appendFile, readFile)
 
 import           Control.Monad            (forM_, forever, when)
+import           Control.Monad.Extra      (whenM)
 import           Control.Monad.Trans      (liftIO)
 import           Data.IORef               (IORef, atomicWriteIORef, newIORef,
                                            readIORef)
 import           Data.Maybe               (fromMaybe)
-import           Data.Text.IO             (appendFile)
-import           Formatting               (int, sformat, shown, (%))
+import qualified Data.Text                as T
+import qualified Data.Text.IO             as TIO
+import           Formatting               (float, int, sformat, shown, stext,
+                                           (%))
+import           System.Directory         (doesFileExist, removeFile)
 
 import           Serokell.Util.Bench      (getWallTime)
 
@@ -31,6 +37,28 @@ import           Bench.RSCoin.UserCommons (executeTransaction)
 data InfoStatus = InProcess | Final
     deriving (Read, Show)
 
+itemsAndTPS :: [T.Text] -> ([[T.Text]], [Double], Double)
+itemsAndTPS textLines
+    = let rows       = map (T.splitOn ",") textLines
+          tpsPerLine = flip map (map tail rows) $ \[start, end, count] ->
+              let startTime :: Second = read $ T.unpack start
+                  endTime   :: Second = read $ T.unpack end
+                  txNum     :: Double = read $ T.unpack count
+              in txNum / fromIntegral (endTime - startTime)
+          totalTPS   = sum tpsPerLine
+      in (rows, tpsPerLine, totalTPS)
+
+printDynamicTPS :: FilePath -> IO ()
+printDynamicTPS dumpFile = do
+    fileContent <- TIO.readFile dumpFile
+    let tpsLines = T.lines fileContent
+    let (rows, tpsPerLine, _) = itemsAndTPS tpsLines
+    let rowsWithTPS = zipWith
+            (\row tps -> sformat ("TX executed: " % stext % ", TPS: " % float) (row !! 3) tps)
+            rows
+            tpsPerLine
+    TIO.putStrLn $ T.unlines rowsWithTPS
+
 writeFileStats :: InfoStatus -> Second -> Word -> FilePath -> IO ()
 writeFileStats status startTime txNum dumpFile = do
     currentTime :: Second <- getWallTime
@@ -39,7 +67,7 @@ writeFileStats status startTime txNum dumpFile = do
                             startTime
                             currentTime
                             txNum
-    liftIO $ appendFile dumpFile rowStats
+    liftIO $ TIO.appendFile dumpFile rowStats
 
 dumpWorker :: IORef Word -> Second -> FilePath -> MsgPackRpc ()
 dumpWorker countRef startTime dumpFile = forever $ do
@@ -51,6 +79,9 @@ dumpWorker countRef startTime dumpFile = forever $ do
 
 runSingleUser :: Maybe Word -> Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
 runSingleUser logIntervalMaybe txNum dumpFile st = do
+    -- clear file before printing results in it
+    liftIO $ whenM (doesFileExist dumpFile) $ removeFile dumpFile
+
     startTime <- getWallTime
     cache     <- liftIO mkUserCache
     txCount   <- liftIO $ newIORef 0
@@ -72,7 +103,9 @@ runSingleUser logIntervalMaybe txNum dumpFile st = do
 runSingleSuperUser :: Maybe Word -> Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
 runSingleSuperUser logInterval txNum dumpFile bankUserState = do
     let additionalBankAddreses = 0
+
     logDebug "Before initStateBank"
     initStateBank bankUserState additionalBankAddreses bankSecretKey
     logDebug "After initStateBank"
+
     runSingleUser logInterval txNum dumpFile bankUserState

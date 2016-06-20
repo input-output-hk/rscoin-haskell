@@ -2,7 +2,7 @@ branch: master
 bank:
   hasRSCoin: True
   host: 52.58.26.146
-mintettesNum: 10
+mintettesNum: [10]
 mintettes:
 - hasRSCoin: True
   host: 52.28.80.85
@@ -29,7 +29,7 @@ users:
     data:
       hasRSCoin: True
       host: 52.28.239.209
-    number: 4
-    transactionsNum: 1000
-period: 100000
+    number: [4]
+    transactionsNum: [1000]
+period: [100000]
 

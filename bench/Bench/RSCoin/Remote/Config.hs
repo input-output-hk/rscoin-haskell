@@ -29,9 +29,9 @@ data RemoteConfig = RemoteConfig
     ,
       -- | Optional field which can be used to run only part of
       -- mintettes.
-      rcMintettesNum :: !(Maybe Word)
+      rcMintettesNum :: !(Maybe [Word])
     , rcUsers        :: !(Maybe UsersData)
-    , rcPeriod       :: !Word
+    , rcPeriod       :: ![Word]
     ,
       -- | By default `master` branch is used. This setting allows to
       -- use different branch by all entities. Branch can also be
@@ -74,22 +74,24 @@ data UsersData
        { udsData            :: !UserData
        ,
          -- ^ Number of users to run
-         udsNumber          :: !Word
+         udsNumber          :: ![Word]
        ,
          -- | Number of transactions per user (not total).
-         udsTransactionsNum :: !Word}
+         udsTransactionsNum :: ![Word]}
     | UDMultiple -- ^ Means that each user is run on separate machine
        { udmUsers           :: ![UserData]
        ,
          -- | Optional field which can be used to run only part of
          -- users.
-         udmNumber          :: !(Maybe Word)
-       , udmTransactionsNum :: !Word}
+         udmNumber          :: !(Maybe [Word])
+       , udmTransactionsNum :: ![Word]
+       , udmLogInterval     :: !(Maybe Word)}
     deriving (Show)
 
 data UserData = UserData
     { udHasRSCoin :: !Bool
     , udHost      :: !Text
+    , udPrintTPS  :: !(Maybe Bool)
     , udProfiling :: !(Maybe ProfilingType)
     , udSeverity  :: !(Maybe Severity)
     , udBranch    :: !(Maybe Text)

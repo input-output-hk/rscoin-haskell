@@ -345,7 +345,9 @@ benchmark rscoin-bench-single-user
                      , base >=4.8 && <4.9
                      , bytestring
                      , clock
+                     , directory
                      , exceptions
+                     , extra
                      , filepath
                      , formatting
                      , mtl
@@ -420,7 +422,9 @@ benchmark rscoin-bench-remote
                      , async
                      , base >=4.8 && <4.9
                      , bytestring
+                     , directory
                      , exceptions
+                     , extra
                      , file-embed
                      , filepath
                      , formatting

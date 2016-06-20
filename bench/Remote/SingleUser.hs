@@ -2,6 +2,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeOperators #-}
 
+import           Control.Exception          (finally)
+import           Control.Monad              (when)
 import           Data.ByteString            (ByteString)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Optional              (Optional (Specific), empty,
@@ -19,7 +21,8 @@ import           RSCoin.Core                (Severity (..), initLogging)
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserCommons   (userThreadWithPath)
-import           Bench.RSCoin.UserSingle    (runSingleSuperUser, runSingleUser)
+import           Bench.RSCoin.UserSingle    (printDynamicTPS,
+                                             runSingleSuperUser, runSingleUser)
 
 data BenchOptions = BenchOptions
     { bank          :: ByteString     <?> "bank host"
@@ -29,6 +32,7 @@ data BenchOptions = BenchOptions
     , walletDb      :: Maybe FilePath <?> "path to wallet (assuming it has enough money)"
     , dumpStats     :: FilePath       <?> "file name to dump statistics"
     , logInterval   :: Maybe Word     <?> "print number of executed transactions with this interval"
+    , printDynamic  :: Bool           <?> "if `true` then will print how TPS changes over time"
     } deriving (Generic, Show)
 
 instance ParseField  Word
@@ -67,9 +71,12 @@ main = do
     let walletPath     = maybe empty Specific $ unHelpful walletDb
     let dumpFile       = unHelpful dumpStats
     let interval       = unHelpful logInterval
+    let shouldPrintTPS = unHelpful printDynamic
 
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity
-        logInfo . sformat ("Elapsed time: " % build) =<<
-            run interval txNum bankHost benchDir walletPath dumpFile
+
+        elapsedTime <- run interval txNum bankHost benchDir walletPath dumpFile
+                       `finally` when shouldPrintTPS (printDynamicTPS dumpFile)
+        logInfo $ sformat ("Elapsed time: " % build) elapsedTime

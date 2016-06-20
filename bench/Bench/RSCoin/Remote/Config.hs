@@ -13,6 +13,7 @@ module Bench.RSCoin.Remote.Config
        ) where
 
 import qualified Data.Aeson.TH                        as A
+import           Data.Maybe                           (fromMaybe)
 import           Data.Text                            (Text)
 import           Data.Text.Buildable                  (Buildable (build))
 import qualified Data.Yaml                            as Y
@@ -46,7 +47,7 @@ data ProfilingType
     deriving (Show)
 
 data BankData = BankData
-    { bdHasRSCoin :: !Bool
+    { bdHasRSCoin :: !(Maybe Bool)
     , bdHost      :: !Text
     , bdProfiling :: !(Maybe ProfilingType)
     , bdSeverity  :: !(Maybe Severity)
@@ -54,7 +55,7 @@ data BankData = BankData
     } deriving (Show)
 
 data MintetteData = MintetteData
-    { mdHasRSCoin :: !Bool
+    { mdHasRSCoin :: !(Maybe Bool)
     , mdHost      :: !Text
     , mdProfiling :: !(Maybe ProfilingType)
     , mdSeverity  :: !(Maybe Severity)
@@ -65,7 +66,7 @@ instance Buildable MintetteData where
         bprint
             ("Mintette `" % stext % "` (" % stext % " rscoin)")
             mdHost
-            (if mdHasRSCoin
+            (if (fromMaybe True mdHasRSCoin)
                  then "has"
                  else "doesn't have")
 
@@ -89,7 +90,7 @@ data UsersData
     deriving (Show)
 
 data UserData = UserData
-    { udHasRSCoin :: !Bool
+    { udHasRSCoin :: !(Maybe Bool)
     , udHost      :: !Text
     , udPrintTPS  :: !(Maybe Bool)
     , udProfiling :: !(Maybe ProfilingType)

@@ -56,7 +56,6 @@ data BankParams = BankParams
     { bpPeriodDelta :: !Word
     , bpProfiling   :: !(Maybe ProfilingType)
     , bpSeverity    :: !(Maybe C.Severity)
-    , bpHasRSCoin   :: !Bool
     , bpBranch      :: !T.Text
     } deriving (Show)
 
@@ -68,7 +67,6 @@ data UsersParamsSingle = UsersParamsSingle
     , upsConfigStr          :: !T.Text
     , upsSeverity           :: !C.Severity
     , upsBranch             :: !T.Text
-    , upsHasRSCoin          :: !Bool
     , upsHostName           :: !T.Text
     , upsBankHostName       :: !T.Text
     , upsProfiling          :: !(Maybe ProfilingType)
@@ -379,15 +377,19 @@ runSshStrict hostName command = do
 installRSCoin :: T.Text -> IO ()
 installRSCoin = flip runSsh installCommand
 
+installRSCoinChecked :: Maybe Bool -> T.Text -> IO ()
+installRSCoinChecked hasRSCoin host =
+    unless (fromMaybe True hasRSCoin) $ installRSCoin host
+
 installRSCoinBank :: BankData -> IO ()
-installRSCoinBank BankData{..} = unless bdHasRSCoin $ installRSCoin bdHost
+installRSCoinBank BankData{..} = installRSCoinChecked bdHasRSCoin bdHost
 
 installRSCoinMintette :: MintetteData -> IO ()
 installRSCoinMintette MintetteData{..} =
-    unless mdHasRSCoin $ installRSCoin mdHost
+    installRSCoinChecked mdHasRSCoin mdHost
 
 installRSCoinUser :: UserData -> IO ()
-installRSCoinUser UserData{..} = unless udHasRSCoin $ installRSCoin udHost
+installRSCoinUser UserData{..} = installRSCoinChecked udHasRSCoin udHost
 
 setupAndRunBank :: BankParams -> T.Text -> [T.Text] -> [C.PublicKey] -> IO ThreadId
 setupAndRunBank bp@BankParams{..} bankHost mintetteHosts mintetteKeys = do
@@ -514,7 +516,6 @@ remoteBench srp@SingleRunParams{..} = do
             { bpPeriodDelta = srpPeriodLength
             , bpProfiling = bdProfiling srpBank
             , bpSeverity = bdSeverity srpBank
-            , bpHasRSCoin = bdHasRSCoin srpBank
             , bpBranch = fromMaybe globalBranch $ bdBranch srpBank
             }
         bankHost = bdHost srpBank
@@ -558,7 +559,6 @@ remoteBench srp@SingleRunParams{..} = do
             , upsConfigStr = srpConfigStr
             , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
             , upsBranch = fromMaybe globalBranch $ udBranch udsData
-            , upsHasRSCoin = udHasRSCoin udsData
             , upsHostName = udHost udsData
             , upsBankHostName = bankHost
             , upsProfiling = udProfiling udsData

@@ -334,6 +334,7 @@ userRunCommand logInterval bankHost txNum UserData{..} =
              stext %
              stext %
              stext %
+             stext %
              " +RTS -qg -RTS")
             bankHost
             severityArg
@@ -341,6 +342,7 @@ userRunCommand logInterval bankHost txNum UserData{..} =
             userStatsFileName
             printDynamicArg
             logIntervalArg
+            (profilingRunArgs udProfiling)
     severityArg     = maybe "" (sformat (" --severity " % shown % " ")) udSeverity
     printDynamicArg = maybe "" (const $ " --printDynamic") udPrintTPS
     logIntervalArg  =

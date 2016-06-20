@@ -107,11 +107,12 @@ chooseAddresses addrids =
     chooseOptimal addrids sel3
 
 chooseOptimal
-    :: [a]                             -- ^ Elements we're choosing from
+    :: forall a.
+       [a]                             -- ^ Elements we're choosing from
     -> (a -> Coin)                     -- ^ Getter of coins from the element
     -> M.Map Color Coin                -- ^ Map with amount of coins for each color
     -> Maybe (M.Map Color ([a], Coin)) -- ^ Map with chosen addrids and change for each color
-                                       -- ^ If nothing, value can't be chosen (no money)
+                                       -- If nothing, value can't be chosen (no money)
 chooseOptimal addrids getC valueMap =
     -- In case there are less colors in addrList than in valueList
     -- filler coins are added to shortc-circuit the comparison of lists.
@@ -122,10 +123,10 @@ chooseOptimal addrids getC valueMap =
               (color,) <$> chooseHelper (addrMap M.! color) value)
         (M.toList valueMap)
   where
-    -- addrList :: [[a]]
     -- List of lists of addrids. Each sublist has the same color
     -- and the extern list is sorted by it. Inner list of the same
     -- color is sorted by coins amount.
+    addrList :: [[a]]
     addrList =
         groupBy ((==) `on` (getColor . getC)) $
         sortBy (comparing (getColor . getC)) $

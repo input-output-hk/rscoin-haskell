@@ -446,11 +446,11 @@ writeUserTPSInfo
 writeUserTPSInfo SingleRunParams{..} txNum userDatas totalTPS = do
     homeStats <- (T.</> "rscoin-stats") <$> T.home
     T.mktree homeStats
-    (T.ExitSuccess, dateStr) <- T.procStrict "date" ["+\"%m.%d-%H:%M:%S\""] mempty
+    (T.ExitSuccess, dateUglyStr) <- T.procStrict "date" ["+\"%m.%d-%H:%M:%S\""] mempty
 
-    let dateFilePref = T.strip dateStr
+    let dateStr         = T.filter (/= '"') $ T.strip dateUglyStr
     let (Right stats)   = T.toText homeStats
-    let dateFileName    = mconcat [stats, "/", dateFilePref, ".stats"]
+    let dateFileName    = mconcat [stats, "/", dateStr, ".stats"]
     let mintettesNum    = length srpMintettes
     let usersNum        = length userDatas
     let dateStatsOutput = T.unlines
@@ -466,12 +466,11 @@ writeUserTPSInfo SingleRunParams{..} txNum userDatas totalTPS = do
 
     let statsFile = T.unpack $ mconcat [stats, "/", "stats.csv"]
     unlessM (doesFileExist statsFile) $ do
-        let statsHeader = "time,sha,TPS,number of users,number of mintettes,number of transactions,period length\n"
+        let statsHeader = "time,TPS,usersNum,mintettesNum,txNum,period\n"
         TIO.writeFile statsFile statsHeader
 
     let builtCsv = listBuilderCSV
             [ B.build dateStr
-            , "TODO: sha"
             , B.build totalTPS
             , B.build usersNum
             , B.build mintettesNum

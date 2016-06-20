@@ -23,14 +23,15 @@ import           Control.Monad.State     (MonadState (get, put, state), StateT,
 import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
 import           Data.Default            (Default, def)
 import           Data.Map                as Map
+import           Data.String             (IsString)
 import           System.Random           (StdGen)
 
 import           Data.MessagePack        (Object)
 import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
-import           RSCoin.Timed.MonadRpc   (Addr, Client (..), Host, Method (..),
-                                          MonadRpc, RpcError (..), execClient,
-                                          methodBody, methodName, serve)
+import           RSCoin.Timed.MonadRpc   (Addr, BankSettings (..), Client (..),
+                                          Host, Method (..), MonadRpc (execClient, serve, getBankSettings),
+                                          RpcError (..), methodBody, methodName)
 import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
                                           localTime, mcs, minute, wait)
 import           RSCoin.Timed.Timed      (TimedT, evalTimedT, runTimedT)
@@ -43,6 +44,9 @@ import           RSCoin.Timed.Timed      (TimedT, evalTimedT, runTimedT)
 --        Status: not relevant until used with fixed timeout
 
 data RpcStage = Request | Response
+
+localhost :: IsString s => s
+localhost = "127.0.0.1"
 
 -- | Describes network nastyness
 newtype Delays = Delays
@@ -102,7 +106,7 @@ runPureRpc
     :: (MonadIO m, MonadCatch m)
     => StdGen -> Delays -> PureRpc m a -> m a
 runPureRpc _randSeed _delays (PureRpc rpc) =
-    evalStateT (evalTimedT (evalStateT rpc "127.0.0.1")) net
+    evalStateT (evalTimedT (evalStateT rpc localhost)) net
   where
     net        = NetInfo{..}
     _listeners = Map.empty
@@ -112,7 +116,7 @@ runPureRpc_
     :: (MonadIO m, MonadCatch m)
     => StdGen -> Delays -> PureRpc m () -> m ()
 runPureRpc_ _randSeed _delays (PureRpc rpc) =
-    evalStateT (runTimedT (evalStateT rpc "127.0.0.1")) net
+    evalStateT (runTimedT (evalStateT rpc localhost)) net
   where
     net        = NetInfo{..}
     _listeners = Map.empty
@@ -150,6 +154,8 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
         host <- get
         lift $ lift $ forM_ methods $ \Method{..} ->
             listeners %= Map.insert ((host, port), methodName) methodBody
+
+    getBankSettings = pure $ BankSettings localhost
 
 waitDelay :: (MonadThrow m, MonadIO m, MonadCatch m) => RpcStage -> PureRpc m ()
 waitDelay stage =

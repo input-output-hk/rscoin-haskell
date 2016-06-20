@@ -13,14 +13,12 @@ module RSCoin.Timed.MonadRpc
        ( Port
        , Host
        , Addr
-       , MonadRpc
+       , MonadRpc (serve, execClient, getBankSettings)
        , BankSettings (..)
        , MsgPackRpc
        , runMsgPackRpc
        , RpcType
-       , execClient
        , execClientTimeout
-       , serve
        , Method(..)
        , Client(..)
        , method
@@ -37,7 +35,7 @@ module RSCoin.Timed.MonadRpc
 
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader        (MonadReader, ReaderT (..),
+import           Control.Monad.Reader        (MonadReader, ReaderT (..), ask,
                                               runReaderT)
 import           Control.Monad.Trans         (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl, StM,
@@ -62,11 +60,17 @@ type Host = BS.ByteString
 
 type Addr = (Host, Port)
 
+newtype BankSettings = BankSettings
+    { getHost :: Host
+    }
+
 -- | Defines protocol of RPC layer
 class MonadThrow r => MonadRpc r where
     execClient :: MessagePack a => Addr -> Client a -> r a
 
     serve :: Port -> [Method r] -> r ()
+
+    getBankSettings :: r BankSettings
 
 -- | Same as MonadRpc, but we can set delays on per call basis.
 --   MonadRpc also has specified delays, but only for whole network.
@@ -82,12 +86,10 @@ class MonadThrow r => MonadRpc r where
 
 -- Implementation for MessagePack
 
-newtype BankSettings = BankSettings { getHost :: Host }
-
-newtype MsgPackRpc a = MsgPackRpc { runMsgPackRpc :: ReaderT BankSettings TimedIO a }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadBase IO,
-              MonadThrow, MonadCatch, MonadMask, MonadTimed,
-              MonadReader BankSettings)
+newtype MsgPackRpc a = MsgPackRpc
+    { runMsgPackRpc :: ReaderT BankSettings TimedIO a
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadBase IO, MonadThrow,
+                MonadCatch, MonadMask, MonadTimed, MonadReader BankSettings)
 
 instance MonadBaseControl IO MsgPackRpc where
     type StM MsgPackRpc a = a
@@ -111,6 +113,8 @@ instance MonadRpc MsgPackRpc where
         convertMethod :: Method MsgPackRpc -> S.Method MsgPackRpc
         convertMethod Method{..} = S.method methodName methodBody
 
+    getBankSettings = ask
+
 instance MonadRpc m => MonadRpc (ReaderT r m) where
     execClient addr cli = lift $ execClient addr cli
 
@@ -120,6 +124,8 @@ instance MonadRpc m => MonadRpc (ReaderT r m) where
         convert :: Monad m => r -> Method (ReaderT r m) -> Method m
         convert r Method {..} =
             Method methodName (flip runReaderT r . methodBody)
+
+    getBankSettings = lift getBankSettings
 
 execClientTimeout
     :: (MonadTimed m, MonadRpc m, MessagePack a, TimeUnit t)

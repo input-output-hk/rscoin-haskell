@@ -22,16 +22,16 @@ import           RSCoin.Timed.TimedIO    as Exports
 
 import           Control.Monad           (join)
 import           Control.Monad.Catch     (MonadMask)
-import           Control.Monad.Reader    (MonadReader, runReaderT)
+import           Control.Monad.Reader    (runReaderT)
 import           Control.Monad.Trans     (MonadIO, liftIO)
 import           Data.ByteString         (ByteString)
 import           System.Random           (StdGen, getStdGen)
 
 class (MonadTimed m, MonadRpc m, MonadIO m,
-       MonadMask m, MonadReader BankSettings m) => WorkMode m where
+       MonadMask m) => WorkMode m where
 
 instance (MonadTimed m, MonadRpc m, MonadIO m,
-       MonadMask m, MonadReader BankSettings m) => WorkMode m
+       MonadMask m) => WorkMode m
 
 runRealMode :: ByteString -> MsgPackRpc a -> IO a
 runRealMode bankHost

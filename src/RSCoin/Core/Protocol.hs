@@ -28,8 +28,6 @@ module RSCoin.Core.Protocol
        ) where
 
 import           Control.Monad.IO.Class  (liftIO, MonadIO)
-import           Control.Monad.Reader    (asks)
-
 import           Data.IORef              (newIORef, writeIORef, readIORef)
 import qualified Data.ByteString.Char8   as BS
 import           Data.Maybe              (fromJust)
@@ -115,7 +113,7 @@ execMintetteSafe m = (>>=) . callMintetteSafe m
 -- | Send a request to a Bank.
 callBank :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
 callBank action = do
-    bankHost <- asks T.getHost
+    bankHost <- T.getHost <$> T.getBankSettings
     T.execClient (bankHost, bankPort) action
 
 -- | Send a request to a Mintette.
@@ -128,7 +126,7 @@ callMintette Mintette {..} action =
 -- Rises an exception if Bank doesn't respond in rpcTimeout time.
 callBankSafe :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
 callBankSafe action = do
-    bankHost <- asks T.getHost
+    bankHost <- T.getHost <$> T.getBankSettings
     T.execClientTimeout rpcTimeout (bankHost, bankPort) action
 
 -- | Send a request to a Mintette.

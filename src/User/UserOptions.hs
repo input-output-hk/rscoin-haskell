@@ -10,7 +10,7 @@ module UserOptions
 import           RSCoin.Core            (MintetteId, PeriodId, Severity (Error),
                                          defaultAccountsNumber, defaultBankHost,
                                          defaultSecretKeyPath)
-import           RSCoin.User.Cache      (UserCache, mkUserCache)
+import           RSCoin.User.Cache      (UserCache)
 
 import           Data.ByteString        (ByteString)
 import           Data.Int               (Int64)

@@ -10,7 +10,6 @@ module Actions
        , initializeStorage
        ) where
 
-import           Control.Concurrent      (threadDelay)
 import           Control.Exception       (SomeException)
 import           Control.Lens            ((^.))
 import           Control.Monad           (forM_, unless, void, when)

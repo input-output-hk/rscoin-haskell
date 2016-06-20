@@ -42,7 +42,8 @@ allocateCoinsDefault _ actionLogs = (bankReward, mintetteRewards)
         zip [0 ..] actionLogs
     awardedCnt = fromIntegral $ S.size awarded
     -- FIXME: is this ok?
-    mintetteReward = fromIntegral . floor $ C.getCoin C.periodReward / C.getCoin (awardedCnt + 1)
+    mintetteReward = (fromIntegral :: Integer -> C.Coin) . floor $
+        C.getCoin C.periodReward / C.getCoin (awardedCnt + 1)
     bankReward = C.periodReward - awardedCnt * mintetteReward
     mintetteRewards =
         map

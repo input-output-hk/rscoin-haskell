@@ -38,7 +38,7 @@ import qualified Control.Lens               as L
 import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
 import           Control.Monad.Reader.Class (MonadReader)
-import           Control.Monad.State.Class  (MonadState, get)
+import           Control.Monad.State.Class  (MonadState)
 import           Data.Function              (on)
 import           Data.List                  (delete, find, groupBy, nub, sortOn,
                                              (\\))

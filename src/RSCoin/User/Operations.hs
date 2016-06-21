@@ -107,7 +107,7 @@ updateBlockchain st verbose = do
     verboseSay t = when verbose $ liftIO $ TIO.putStrLn t
 
 -- | Gets amount of coins on user address
-getAmount :: WorkMode m => A.RSCoinUserState -> W.UserAddress -> m (M.Map C.Color C.Coin)
+getAmount :: WorkMode m => A.RSCoinUserState -> W.UserAddress -> m C.CoinsMap
 getAmount st userAddress = do
     -- try to update, but silently fail if net is down
     (_ :: Either SomeException Bool) <- try $ updateBlockchain st False
@@ -115,7 +115,7 @@ getAmount st userAddress = do
 
 -- | Gets current amount on all accounts user posesses. Boolean flag
 -- stands for "if update blockchain inside"
-getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m (M.Map C.Color C.Coin)
+getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m C.CoinsMap
 getUserTotalAmount upd st = do
     addrs <- query' st A.GetAllAddresses
     when upd $ void $ updateBlockchain st False
@@ -124,7 +124,7 @@ getUserTotalAmount upd st = do
 -- | Get amount without storage update
 getAmountNoUpdate
     :: WorkMode m
-    => A.RSCoinUserState -> W.UserAddress -> m (M.Map C.Color C.Coin)
+    => A.RSCoinUserState -> W.UserAddress -> m C.CoinsMap
 getAmountNoUpdate st userAddress =
     C.mergeCoinsMaps . map getCoins <$> query' st (A.GetTransactions userAddress)
   where
@@ -132,7 +132,7 @@ getAmountNoUpdate st userAddress =
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
 -- n is the number of accounts stored in wallet)
-getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m (M.Map C.Color C.Coin)
+getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m C.CoinsMap
 getAmountByIndex st idx = do
     void $ updateBlockchain st False
     addr <- flip atMay idx <$> query' st A.GetAllAddresses

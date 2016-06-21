@@ -12,24 +12,27 @@ module Test.RSCoin.Full.Action
        , WaitSomeAction
        , UserAction (..)
        , UserIndex
+       , ToAddress
        , PartToSend (..)
+       , PartsToSend
        , applyPartToSend
+       , applyPartsToSend
        , getUser
        ) where
 
 import           Control.Lens             (to, view)
-import           Control.Monad            (unless, when, void)
+import           Control.Monad            (unless, void, when)
 import           Control.Monad.Catch      (throwM)
 import           Data.Acid.Advanced       (query')
-import           Data.Bifunctor           (bimap, second)
+import           Data.Bifunctor           (second)
 import           Data.Function            (on)
-import           Data.List                (genericIndex, genericLength, nubBy)
+import           Data.List                (nubBy)
 import qualified Data.Map                 as M
 import           Test.QuickCheck          (NonEmptyList (..), NonNegative (..))
 
 import           Serokell.Util            (indexModulo, indexModuloMay)
 
-import           RSCoin.Core              (Address (..), Coin (..))
+import qualified RSCoin.Core              as C
 import           RSCoin.Timed             (Second, WorkMode, for, invoke, sec)
 import qualified RSCoin.User              as U
 
@@ -62,25 +65,36 @@ instance Action a => Action (WaitAction a) where
 type UserIndex = Maybe Word
 
 -- | Address will be either some arbitrary address or some user address
-type ToAddress = Either Address (UserIndex, Word)
+type ToAddress = Either C.Address (UserIndex, Word)
 
 -- | Represents a number in range (0, 1] and determines how much to
 -- send from address.
 newtype PartToSend = PartToSend
     { getPartToSend :: Double
-    } deriving (Show, Num)
+    } deriving (Show, Num, Eq)
 
-applyPartToSend :: PartToSend -> Coin -> Coin
+applyPartToSend :: PartToSend -> C.Coin -> C.Coin
 applyPartToSend (PartToSend p) coin =
-    coin { getCoin = toRational p * getCoin coin
+    coin { C.getCoin = toRational p * C.getCoin coin
          }
+
+-- | How much values of each color to send.
+type PartsToSend = M.Map C.Color PartToSend
+
+applyPartsToSend :: PartsToSend -> C.CoinsMap -> C.CoinsMap
+applyPartsToSend parts = M.foldrWithKey step M.empty
+  where
+    step color coin accum =
+        case M.lookup color parts of
+            Nothing -> accum
+            Just p -> M.insert color (applyPartToSend p coin) accum
 
 -- | FromAddresses is a non empty list describing which addresses to
 -- use as inputs of transaction. It has pairs where first item is an
 -- index of address and the second one determines how much to send.
-type FromAddresses = NonEmptyList (Word, [PartToSend])
+type FromAddresses = NonEmptyList (Word, PartsToSend)
 
-type Inputs = [(Word, [Coin])]
+type Inputs = [(Word, [C.Coin])]
 
 data UserAction
     = FormTransaction UserIndex FromAddresses ToAddress
@@ -99,29 +113,32 @@ instance Action UserAction where
         user <- getUser userIndex
         void $ U.updateBlockchain user False
 
-toAddress :: WorkMode m => ToAddress -> TestEnv m Address
+toAddress
+    :: WorkMode m
+    => ToAddress -> TestEnv m C.Address
 toAddress =
     either return $
-        \(userIndex, addressIndex) -> do
-            user <- getUser userIndex
+    \(userIndex,addressIndex) ->
+         do user <- getUser userIndex
             publicAddresses <- query' user U.GetPublicAddresses
-            return . Address $ publicAddresses `indexModulo` addressIndex
+            return . C.Address $ publicAddresses `indexModulo` addressIndex
 
 toInputs :: WorkMode m => UserIndex -> FromAddresses -> TestEnv m Inputs
 toInputs userIndex (getNonEmpty -> fromIndexes) = do
     user <- getUser userIndex
     allAddresses <- query' user U.GetAllAddresses
     publicAddresses <- query' user U.GetPublicAddresses
-    addressesAmount <- mapM (fmap M.elems . U.getAmount user) allAddresses
+    addressesAmount <- mapM (U.getAmount user) allAddresses
     when (null publicAddresses) $
         throwM $ TestError "No public addresses in this user"
     return $
         nubBy ((==) `on` fst) .
         map (second $ filter (> 0)) .
+        map (second C.coinsToList) .
         map
-            (\(i, p) ->
-                  (succ i, zipWith applyPartToSend p $ addressesAmount `genericIndex` i)) .
-        map (bimap (`mod` genericLength publicAddresses) (++ repeat 1)) $
+            (\(i,parts) ->
+                  ( succ i
+                  , applyPartsToSend parts $ addressesAmount `indexModulo` i)) $
         fromIndexes
 
 getUser :: WorkMode m => UserIndex -> TestEnv m U.RSCoinUserState

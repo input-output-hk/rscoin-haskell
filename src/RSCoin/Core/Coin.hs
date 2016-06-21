@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 -- | Functions related to Coin datatype
 
 module RSCoin.Core.Coin
@@ -10,9 +12,12 @@ module RSCoin.Core.Coin
        , groupCoinsList
        , coinsMapConsistent
        , mergeCoinsMaps
+       , addCoinsMap
+       , subtractCoinsMap
        ) where
 
 import           Control.Exception      (assert)
+import           Control.Lens           (at, (%~), (&), _Just)
 import           Data.Foldable          (foldr')
 import           Data.List              (groupBy, sortBy)
 import qualified Data.Map               as M
@@ -67,3 +72,25 @@ mergeCoinsMaps [] = M.empty
 mergeCoinsMaps coinMaps =
     assert (all coinsMapConsistent coinMaps) $
     foldr1 (M.unionWith (+)) coinMaps
+
+-- | For each color in the first map, if there exists this color in
+-- the second map, then value in the first map is decreased by
+-- corresponding value from the second map.
+addCoinsMap :: CoinsMap -> CoinsMap -> CoinsMap
+addCoinsMap minuend = M.foldrWithKey step minuend
+  where
+    step color coins accum =
+        if color `M.member` accum
+            then accum & at color . _Just %~ (\c -> c + coins)
+            else accum
+
+-- | For each color in the first map, if there exists this color in
+-- the second map, then value in the first map is decreased by
+-- corresponding value from the second map.
+subtractCoinsMap :: CoinsMap -> CoinsMap -> CoinsMap
+subtractCoinsMap minuend = M.foldrWithKey step minuend
+  where
+    step color coins accum =
+        if color `M.member` accum
+            then accum & at color . _Just %~ (\c -> c - coins)
+            else accum

@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TupleSections         #-}
 
 -- | Arbitrary instances for full testing.
 
@@ -11,12 +12,13 @@ module Test.RSCoin.Full.Gen
 
 import           Control.Lens                    (Traversal', ix, makeLenses,
                                                   use, (%=))
-import           Control.Monad                   (forM_, replicateM)
-import           Control.Monad.State             (StateT, evalStateT)
+import           Control.Monad                   (replicateM)
+import           Control.Monad.State             (MonadState, StateT,
+                                                  evalStateT)
 import           Control.Monad.Trans             (lift)
-import           Data.List                       (genericIndex, genericLength,
+import           Data.List                       (genericIndex,
                                                   genericReplicate)
-import qualified Data.Map                        as M (empty, null)
+import qualified Data.Map                        as M
 import           Data.Maybe                      (catMaybes)
 import           Data.Time.Units                 (addTime)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
@@ -28,11 +30,11 @@ import qualified RSCoin.Core                     as C
 import           RSCoin.Timed                    (Microsecond, minute)
 
 import           Test.RSCoin.Core.Arbitrary      ()
-import           Test.RSCoin.Full.Action         (PartToSend (..),
+import           Test.RSCoin.Full.Action         (PartToSend (..), PartsToSend,
                                                   SomeAction (SomeAction),
-                                                  UserAction (..), UserIndex,
-                                                  WaitAction (..),
-                                                  applyPartToSend)
+                                                  ToAddress, UserAction (..),
+                                                  UserIndex, WaitAction (..),
+                                                  applyPartsToSend)
 import           Test.RSCoin.Full.Context        (MintetteNumber, UserNumber,
                                                   bankUserAddressesCount,
                                                   userAddressesCount)
@@ -47,6 +49,14 @@ instance Arbitrary UserNumber where
 
 instance Arbitrary PartToSend where
     arbitrary = PartToSend <$> choose (0.001, 1.0)
+
+genPartsToSend :: C.CoinsMap -> Gen PartsToSend
+genPartsToSend =
+    fmap M.fromList .
+    mapM
+        (\color ->
+              (color, ) <$> arbitrary) .
+    M.keys
 
 genWaitAction :: a -> Gen (WaitAction a)
 genWaitAction a = WaitAction <$> arbitrary <*> pure a
@@ -91,18 +101,19 @@ genValidFormTransactionDo :: [(UserIndex, BalancesList)]
 genValidFormTransactionDo [] = return Nothing
 genValidFormTransactionDo solvents =
     Just <$>
-    do (uIdx,uAddresses) <- lift . oneof . map pure $ solvents
+    do (uIdx,uBalances) <- lift . oneof . map pure $ solvents
        let nonEmptyAddresses =
-               [0 .. genericLength (filter (not . M.null) $ uAddresses) - 1]
+               map fst . filter (not . M.null . snd) . zip [0 ..] $ uBalances
        indicesToUse <- lift $ nonEmptySublistOf nonEmptyAddresses
        fromAddresses <-
            mapM
                (\i ->
-                     (i, ) <$> lift arbitrary)
+                     (i, ) <$>
+                     lift (genPartsToSend $ uBalances `genericIndex` i))
                indicesToUse
        mapM_ (uncurry $ subtractFromInput uIdx) fromAddresses
        dest <- lift arbitrary
-       addToDestination dest
+       addToDestination uIdx fromAddresses dest
        return $ FormTransaction uIdx (NonEmpty fromAddresses) dest
   where
     nonEmptySublistOf :: [a] -> Gen [a]
@@ -112,16 +123,42 @@ genValidFormTransactionDo solvents =
             [] -> (: []) <$> (oneof . map pure $ xs)
             _ -> return res
     subtractFromInput usrIndex usrAddrIndex parts = do
-        let balanceSent = undefined
-            balanceFinal = undefined
-            balancesLens :: Traversal' AllBalances BalancesList
-            balancesLens = maybe bankBalances (\i -> usersBalances . ix (fromIntegral i)) usrIndex
+        let balancesLens :: Traversal' AllBalances BalancesList
+            balancesLens =
+                maybe
+                    bankBalances
+                    (\i ->
+                          usersBalances . ix (fromIntegral i))
+                    usrIndex
         balancesLens . ix (fromIntegral usrAddrIndex) %= decreaseBalance parts
-    decreaseBalance :: [PartToSend] -> C.CoinsMap -> C.CoinsMap
-    decreaseBalance = undefined
-    addToDestination (Left _) = return ()
-    addToDestination (Right (usrIndex,usrAddrIndex)) = do
-        undefined
+    decreaseBalance :: PartsToSend -> C.CoinsMap -> C.CoinsMap
+    decreaseBalance parts coinsMap =
+        C.subtractCoinsMap coinsMap $ applyPartsToSend parts coinsMap
+    addToDestination
+        :: MonadState AllBalances m
+        => UserIndex -> [(Word, PartsToSend)] -> ToAddress -> m ()
+    addToDestination _ _ (Left _) = return ()
+    addToDestination srcUsrIdx inputs (Right (dstUsrIdx,dstUsrAddrIdx)) = do
+        balances <-
+            use $
+            maybe
+                bankBalances
+                (\i ->
+                      usersBalances . ix (fromIntegral i))
+                srcUsrIdx
+        let step (addrIdx,parts) = applyPartsToSend parts $ balances `genericIndex` addrIdx
+            dstLens =
+                maybe
+                    bankBalances
+                    (\i ->
+                          usersBalances . ix (fromIntegral i))
+                    dstUsrIdx .
+                ix (fromIntegral dstUsrAddrIdx)
+            maps = map step inputs
+        mapM_
+            (\summand ->
+                  dstLens %= C.addCoinsMap summand)
+            maps
 
 genUpdateBlockchain :: Gen UserAction
 genUpdateBlockchain = UpdateBlockchain <$> arbitrary

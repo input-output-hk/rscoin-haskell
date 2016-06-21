@@ -35,9 +35,9 @@ spec =
     before setupLogging $ do
         describe "test" $
             prop "test" test
-        describe "Full RSCoin" $ do
-            prop "if bank sends all coins to arbitrary address then it has 0 coins" prop_sendAll
-            prop "all users have unique addresses" prop_uniqueAddresses
+        -- describe "Full RSCoin" $ do
+        --     prop "if bank sends all coins to arbitrary address then it has 0 coins" prop_sendAll
+        --     prop "all users have unique addresses" prop_uniqueAddresses
 
 setupLogging :: IO ()
 setupLogging = do
@@ -48,22 +48,24 @@ setupLogging = do
 test :: FullProperty ()
 test = assertFP True
 
-prop_sendAll :: FullProperty ()
-prop_sendAll = do
-    buSt <- view $ buser . state
-    amount <- getAmount buSt 1
-    addr <- pickFP arbitrary
-    doActionFP $ FormTransaction Nothing (NonEmpty [(1, 1)]) $ Left addr
-    amount' <- getAmount buSt 1
-    assertFP $ amount' == 0
-    assertFP $ amount' - amount == genesisValue
+-- getAmount buSt i = runWorkModeFP $ U.getAmountByIndex buSt i
 
-prop_uniqueAddresses :: UserIndex -> FullProperty ()
-prop_uniqueAddresses idx = do
-    usr <- runTestEnvFP $ getUser idx
-    assertFP . isUnique =<< runWorkModeFP (UO.getAllAddresses usr)
-  where
-    isUnique l = l == nub l
+-- prop_sendAll :: FullProperty ()
+-- prop_sendAll = do
+--     buSt <- view $ buser . state
+--     amount <- getAmount buSt 1
+--     addr <- pickFP arbitrary
+--     doActionFP $ FormTransaction Nothing (NonEmpty [(1, 1)]) $ Left addr
+--     amount' <- getAmount buSt 1
+--     assertFP $ amount' == 0
+--     assertFP $ amount' - amount == genesisValue
+
+-- prop_uniqueAddresses :: UserIndex -> FullProperty ()
+-- prop_uniqueAddresses idx = do
+--     usr <- runTestEnvFP $ getUser idx
+--     assertFP . isUnique =<< runWorkModeFP (UO.getAllAddresses usr)
+--   where
+--     isUnique l = l == nub l
 
 -- prop_sendLoopBack :: FullProperty ()
 -- prop_sendLoopBack = do
@@ -89,5 +91,3 @@ prop_uniqueAddresses idx = do
 --     assertFP $ amount1 - amount1' == 50
 --     assertFP $ amount3' - amount3 == 50
 --     assertFP $ amount2' == amount2
-
-getAmount buSt i = runWorkModeFP $ U.getAmountByIndex buSt i

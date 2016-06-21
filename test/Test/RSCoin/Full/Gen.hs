@@ -12,7 +12,9 @@ import           Control.Lens                    (ix, makeLenses, use, (.=))
 import           Control.Monad                   (forM_, replicateM)
 import           Control.Monad.State             (StateT, evalStateT)
 import           Control.Monad.Trans             (lift)
-import           Data.List                       (genericIndex)
+import           Data.List                       (genericIndex, genericLength,
+                                                  genericReplicate)
+import qualified Data.Map                        as M (empty, null)
 import           Data.Maybe                      (catMaybes)
 import           Data.Time.Units                 (addTime)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
@@ -47,7 +49,8 @@ instance Arbitrary PartToSend where
 genWaitAction :: a -> Gen (WaitAction a)
 genWaitAction a = WaitAction <$> arbitrary <*> pure a
 
-type BalancesList = [C.Coin]
+-- | I-th element in this list stores CoinsMap for `i-th` address.
+type BalancesList = [C.CoinsMap]
 
 data AllBalances = AllBalances
     { _bankBalances  :: BalancesList
@@ -56,12 +59,19 @@ data AllBalances = AllBalances
 
 $(makeLenses ''AllBalances)
 
+zeroBalance :: C.CoinsMap
+zeroBalance = M.empty
+
+genesisBalance :: C.CoinsMap
+genesisBalance = C.coinsToMap [C.genesisValue]
+
 initialBalances :: UserNumber -> AllBalances
 initialBalances userNumber =
     AllBalances
-    { _bankBalances = C.genesisValue : replicate (bankUserAddressesCount - 1) 0
-    , _usersBalances = replicate (fromIntegral userNumber) $
-      replicate userAddressesCount 0
+    { _bankBalances = genesisBalance :
+      replicate (bankUserAddressesCount - 1) zeroBalance
+    , _usersBalances = genericReplicate userNumber $
+      replicate userAddressesCount zeroBalance
     }
 
 -- It may be impossible if there were transactions to arbitrary
@@ -70,7 +80,9 @@ genValidFormTransaction :: StateT AllBalances Gen (Maybe UserAction)
 genValidFormTransaction = do
     bb <- (Nothing, ) <$> use bankBalances
     ub <- zip (fmap Just [0 ..]) <$> use usersBalances
-    genValidFormTransactionDo $ filter ((> 0) . sum . snd) $ bb : ub
+    genValidFormTransactionDo .
+        filter (not . null . C.coinsToList . C.mergeCoinsMaps . snd) $
+        bb : ub
 
 genValidFormTransactionDo :: [(UserIndex, BalancesList)]
                           -> StateT AllBalances Gen (Maybe UserAction)
@@ -78,32 +90,33 @@ genValidFormTransactionDo [] = return Nothing
 genValidFormTransactionDo solvents =
     Just <$>
     do (uIdx,uAddresses) <- lift . oneof . map pure $ solvents
-       let nonEmptyAddresses = map fst . zip [0 ..] . filter (> 0) $ uAddresses
+       let nonEmptyAddresses =
+               [0 .. genericLength (filter (not . M.null) $ uAddresses) - 1]
        indicesToUse <- lift $ nonEmptySublistOf nonEmptyAddresses
        fromAddresses <-
            mapM
                (\i ->
                      (i, ) <$> lift arbitrary)
                indicesToUse
-       forM_ fromAddresses $
-           \(addrIdx,p) ->
-                do amountWas <-
-                       (`genericIndex` addrIdx) <$>
-                       maybe
-                           (use bankBalances)
-                           (\i ->
-                                 use $ usersBalances . ix (fromIntegral i))
-                           uIdx
-                   let amountSent = applyPartToSend p amountWas
-                       amountFinal = amountWas - amountSent
-                   maybe
-                       (bankBalances . ix (fromIntegral addrIdx) .= amountFinal)
-                       (\i ->
-                             usersBalances . ix (fromIntegral i) .
-                             ix (fromIntegral addrIdx) .=
-                             amountFinal)
-                       uIdx
-       lift $ FormTransaction uIdx (NonEmpty fromAddresses) <$> arbitrary
+       -- forM_ fromAddresses $
+       --     \(addrIdx,p) ->
+       --          do amountWas <-
+       --                 (`genericIndex` addrIdx) <$>
+       --                 maybe
+       --                     (use bankBalances)
+       --                     (\i ->
+       --                           use $ usersBalances . ix (fromIntegral i))
+       --                     uIdx
+       --             let amountSent = applyPartToSend p amountWas
+       --                 amountFinal = amountWas - amountSent
+       --             maybe
+       --                 (bankBalances . ix (fromIntegral addrIdx) .= amountFinal)
+       --                 (\i ->
+       --                       usersBalances . ix (fromIntegral i) .
+       --                       ix (fromIntegral addrIdx) .=
+       --                       amountFinal)
+       --                 uIdx
+       FormTransaction uIdx (NonEmpty fromAddresses) <$> lift arbitrary
   where
     nonEmptySublistOf :: [a] -> Gen [a]
     nonEmptySublistOf xs = do

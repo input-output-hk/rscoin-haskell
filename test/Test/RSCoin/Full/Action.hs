@@ -18,12 +18,13 @@ module Test.RSCoin.Full.Action
        ) where
 
 import           Control.Lens             (to, view)
-import           Control.Monad            (unless, when)
+import           Control.Monad            (unless, when, void)
 import           Control.Monad.Catch      (throwM)
 import           Data.Acid.Advanced       (query')
-import           Data.Bifunctor           (first)
+import           Data.Bifunctor           (bimap, second)
 import           Data.Function            (on)
 import           Data.List                (genericIndex, genericLength, nubBy)
+import qualified Data.Map                 as M
 import           Test.QuickCheck          (NonEmptyList (..), NonNegative (..))
 
 import           Serokell.Util            (indexModulo, indexModuloMay)
@@ -70,14 +71,16 @@ newtype PartToSend = PartToSend
     } deriving (Show, Num)
 
 applyPartToSend :: PartToSend -> Coin -> Coin
-applyPartToSend (PartToSend p) (Coin c) = Coin . ceiling $ p * (fromIntegral c)
+applyPartToSend (PartToSend p) coin =
+    coin { getCoin = toRational p * getCoin coin
+         }
 
 -- | FromAddresses is a non empty list describing which addresses to
 -- use as inputs of transaction. It has pairs where first item is an
 -- index of address and the second one determines how much to send.
-type FromAddresses = NonEmptyList (Word, PartToSend)
+type FromAddresses = NonEmptyList (Word, [PartToSend])
 
-type Inputs = [(Word, Coin)]
+type Inputs = [(Word, [Coin])]
 
 data UserAction
     = FormTransaction UserIndex FromAddresses ToAddress
@@ -90,11 +93,11 @@ instance Action UserAction where
         inputs <- toInputs userIndex fromAddresses
         user <- getUser userIndex
         unless (null inputs) $
-            U.formTransactionRetry 5 user False inputs address $
-            sum $ map snd inputs
+            void $ U.formTransactionRetry 5 user Nothing False inputs address []
+            -- FIXME: add a case where we can generate outputs that are not the same as inputs
     doAction (UpdateBlockchain userIndex) = do
         user <- getUser userIndex
-        U.updateBlockchain user False
+        void $ U.updateBlockchain user False
 
 toAddress :: WorkMode m => ToAddress -> TestEnv m Address
 toAddress =
@@ -109,16 +112,16 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
     user <- getUser userIndex
     allAddresses <- query' user U.GetAllAddresses
     publicAddresses <- query' user U.GetPublicAddresses
-    addressesAmount <- mapM (U.getAmount user) allAddresses
+    addressesAmount <- mapM (fmap M.elems . U.getAmount user) allAddresses
     when (null publicAddresses) $
         throwM $ TestError "No public addresses in this user"
     return $
         nubBy ((==) `on` fst) .
-        filter ((> 0) . snd) .
+        map (second $ filter (> 0)) .
         map
             (\(i, p) ->
-                  (succ i, applyPartToSend p $ addressesAmount `genericIndex` i)) .
-        map (first (`mod` genericLength publicAddresses)) $
+                  (succ i, zipWith applyPartToSend p $ addressesAmount `genericIndex` i)) .
+        map (bimap (`mod` genericLength publicAddresses) (++ repeat 1)) $
         fromIndexes
 
 getUser :: WorkMode m => UserIndex -> TestEnv m U.RSCoinUserState

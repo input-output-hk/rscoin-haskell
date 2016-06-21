@@ -12,6 +12,8 @@ import           RSCoin.Core.Primitives         (Transaction (..), Coin (..))
 import           Data.List                      (sort, nub)
 import qualified RSCoin.Core as C               (validateSum, Coin (..), Color, Transaction (..))
 
+import           Test.RSCoin.Core.Arbitrary     ()
+
 newtype TransactionValid = TransactionValid { getTr :: C.Transaction} deriving Show
 
 instance Arbitrary TransactionValid where

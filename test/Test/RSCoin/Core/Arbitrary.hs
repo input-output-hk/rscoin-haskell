@@ -25,6 +25,3 @@ instance Arbitrary C.Hash where
 
 instance Arbitrary C.Address where
     arbitrary = C.Address <$> arbitrary
-
-instance Arbitrary C.TransactionId where
-    arbitrary = arbitrary :: C.TransactionId

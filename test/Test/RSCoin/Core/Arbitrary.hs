@@ -1,15 +1,21 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
 -- | Arbitrary instances for Core types.
 
 module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import           Test.QuickCheck (Arbitrary (arbitrary))
+import           Test.QuickCheck (Arbitrary (arbitrary), NonNegative (..), vector)
 
 import qualified RSCoin.Core     as C
 
 instance Arbitrary C.Coin where
-    arbitrary = C.Coin <$> arbitrary <*> arbitrary
+    arbitrary = do
+                   col <- arbitrary
+                   NonNegative coin <- arbitrary
+                   return $ C.Coin col coin
 
 instance Arbitrary C.Mintette where
     arbitrary = C.Mintette <$> arbitrary <*> arbitrary
@@ -20,5 +26,5 @@ instance Arbitrary C.Hash where
 instance Arbitrary C.Address where
     arbitrary = C.Address <$> arbitrary
 
-instance Arbitrary C.Transaction where
-    arbitrary = undefined
+instance Arbitrary C.TransactionId where
+    arbitrary = arbitrary :: C.TransactionId

@@ -237,6 +237,7 @@ test-suite rscoin-test
   main-is:             Test.hs
   other-modules:       Test.RSCoin.Core.Arbitrary
                      , Test.RSCoin.Core.CryptoSpec
+                     , Test.RSCoin.Core.TransactionSpec
                      , Test.RSCoin.Core.MessagePackSpec
                      , Test.RSCoin.Core.OwnersSpec
                      , Test.RSCoin.Full.Action

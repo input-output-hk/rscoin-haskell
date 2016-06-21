@@ -1,36 +1,34 @@
 branch: master
 bank:
   hasRSCoin: True
-  host: 52.28.239.209
-mintettesNum: [7]
+  host: 52.58.26.146
+  severity: Info
+mintettesNum: [3]
 mintettes:
-- hasRSCoin: True
-  host: 52.28.80.85
-- hasRSCoin: True
-  host: 52.58.28.224
-- hasRSCoin: True
-  host: 52.28.247.158
-- hasRSCoin: True
-  host: 52.58.149.213
-- hasRSCoin: True
-  host: 52.29.173.36
-- hasRSCoin: True
-  host: 52.58.145.135
-- hasRSCoin: True
-  host: 52.28.69.231
+- host: 52.58.193.28
+- host: 52.28.80.85
+- host: 52.58.28.224
 users:
   multiple:
     users:
-      - hasRSCoin: True
-        host: 52.58.26.146
+      - host: 52.28.239.209
         printTPS: True
-      - hasRSCoin: True
-        host: 52.29.237.85
-      - hasRSCoin: True
-        host: 52.28.78.214
-      - hasRSCoin: True
-        host: 52.58.188.110
-    number: [4]
+      - host: 52.58.245.128
+      - host: 52.29.237.85
+      - host: 52.28.78.214
+      - host: 52.58.188.110
+      - host: 52.28.46.140
+      - host: 52.58.245.108
+      - host: 52.28.78.66
+      - host: 52.28.247.158
+      - host: 52.58.149.213
+      - host: 52.29.173.36
+      - host: 52.58.145.135
+      - host: 52.28.69.231
+      - host: 52.28.75.163
+      - host: 52.58.245.39
+    number: [15]
     transactionsNum: [1000]
-period: [100000]
+    logInterval: 250
+period: [1000000]
 

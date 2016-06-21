@@ -4,6 +4,7 @@ module RSCoin.Core.Coin
        ( onColor
        , sameColor
        , sumCoin
+       , CoinsMap
        , coinsToList
        , coinsToMap
        , groupCoinsList
@@ -43,23 +44,25 @@ groupCoinsList coins =
     filter ((> 0) . getCoin)
     coins
 
+type CoinsMap = M.Map Color Coin
+
 -- | Translates a map of coins to the list, sorted by color
-coinsToList :: M.Map Color Coin -> [Coin]
+coinsToList :: CoinsMap -> [Coin]
 coinsToList coinsMap = groupCoinsList $ M.elems coinsMap
 
 -- | Translates a list of coins to the map
-coinsToMap :: [Coin] -> M.Map Color Coin
+coinsToMap :: [Coin] -> CoinsMap
 coinsToMap = M.fromList . map (\c -> (getColor c, c)) . groupCoinsList
 
 -- | Checks a consistency of map from color to coin
-coinsMapConsistent :: M.Map Color Coin -> Bool
+coinsMapConsistent :: CoinsMap -> Bool
 coinsMapConsistent coins = all keyValid $ M.keys coins
   where
     keyValid k = let coin = fromJust $ M.lookup k coins
                  in getColor coin == k
 
 -- | Given a empty list of coin maps (map
-mergeCoinsMaps :: [M.Map Color Coin] -> M.Map Color Coin
+mergeCoinsMaps :: [CoinsMap] -> CoinsMap
 mergeCoinsMaps [] = M.empty
 mergeCoinsMaps coinMaps =
     assert (all coinsMapConsistent coinMaps) $

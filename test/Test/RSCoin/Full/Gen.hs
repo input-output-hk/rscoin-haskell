@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
@@ -8,7 +9,8 @@ module Test.RSCoin.Full.Gen
        ( genValidActions
        ) where
 
-import           Control.Lens                    (ix, makeLenses, use, (.=))
+import           Control.Lens                    (Traversal', ix, makeLenses,
+                                                  use, (%=))
 import           Control.Monad                   (forM_, replicateM)
 import           Control.Monad.State             (StateT, evalStateT)
 import           Control.Monad.Trans             (lift)
@@ -98,25 +100,10 @@ genValidFormTransactionDo solvents =
                (\i ->
                      (i, ) <$> lift arbitrary)
                indicesToUse
-       -- forM_ fromAddresses $
-       --     \(addrIdx,p) ->
-       --          do amountWas <-
-       --                 (`genericIndex` addrIdx) <$>
-       --                 maybe
-       --                     (use bankBalances)
-       --                     (\i ->
-       --                           use $ usersBalances . ix (fromIntegral i))
-       --                     uIdx
-       --             let amountSent = applyPartToSend p amountWas
-       --                 amountFinal = amountWas - amountSent
-       --             maybe
-       --                 (bankBalances . ix (fromIntegral addrIdx) .= amountFinal)
-       --                 (\i ->
-       --                       usersBalances . ix (fromIntegral i) .
-       --                       ix (fromIntegral addrIdx) .=
-       --                       amountFinal)
-       --                 uIdx
-       FormTransaction uIdx (NonEmpty fromAddresses) <$> lift arbitrary
+       mapM_ (uncurry $ subtractFromInput uIdx) fromAddresses
+       dest <- lift arbitrary
+       addToDestination dest
+       return $ FormTransaction uIdx (NonEmpty fromAddresses) dest
   where
     nonEmptySublistOf :: [a] -> Gen [a]
     nonEmptySublistOf xs = do
@@ -124,6 +111,17 @@ genValidFormTransactionDo solvents =
         case res of
             [] -> (: []) <$> (oneof . map pure $ xs)
             _ -> return res
+    subtractFromInput usrIndex usrAddrIndex parts = do
+        let balanceSent = undefined
+            balanceFinal = undefined
+            balancesLens :: Traversal' AllBalances BalancesList
+            balancesLens = maybe bankBalances (\i -> usersBalances . ix (fromIntegral i)) usrIndex
+        balancesLens . ix (fromIntegral usrAddrIndex) %= decreaseBalance parts
+    decreaseBalance :: [PartToSend] -> C.CoinsMap -> C.CoinsMap
+    decreaseBalance = undefined
+    addToDestination (Left _) = return ()
+    addToDestination (Right (usrIndex,usrAddrIndex)) = do
+        undefined
 
 genUpdateBlockchain :: Gen UserAction
 genUpdateBlockchain = UpdateBlockchain <$> arbitrary

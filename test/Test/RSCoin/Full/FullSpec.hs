@@ -41,8 +41,8 @@ spec =
 
 setupLogging :: IO ()
 setupLogging = do
-    initLogging Info
-    initLoggerByName Info bankLoggerName
+    initLogging Warning
+    initLoggerByName Warning bankLoggerName
     initLoggerByName Info testingLoggerName
 
 test :: FullProperty ()

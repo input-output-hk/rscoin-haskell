@@ -3,7 +3,8 @@
 -- | Functions launching Bank.
 
 module RSCoin.Bank.Launcher
-       ( bankWrapper
+       ( bankWrapperReal
+       , launchBankReal
        , launchBank
        , addMintetteIO
        ) where
@@ -14,7 +15,7 @@ import           Data.Acid.Advanced    (update')
 import           Data.Time.Units       (TimeUnit)
 
 import           RSCoin.Core           (Mintette, PublicKey, SecretKey)
-import           RSCoin.Timed          (MsgPackRpc, fork, killThread,
+import           RSCoin.Timed          (MsgPackRpc, WorkMode, fork, killThread,
                                         runRealModeLocal)
 
 import           RSCoin.Bank.AcidState (AddMintette (AddMintette), State,
@@ -22,21 +23,26 @@ import           RSCoin.Bank.AcidState (AddMintette (AddMintette), State,
 import           RSCoin.Bank.Server    (serve)
 import           RSCoin.Bank.Worker    (runWorkerWithPeriod)
 
-bankWrapper :: FilePath -> (State -> MsgPackRpc a) -> IO a
-bankWrapper storagePath =
+bankWrapperReal :: FilePath -> (State -> MsgPackRpc a) -> IO a
+bankWrapperReal storagePath =
     runRealModeLocal .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
-launchBank :: (TimeUnit t) => t -> FilePath -> SecretKey -> IO ()
-launchBank periodDelta storagePath sk = bankWrapper storagePath launch
+launchBankReal :: (TimeUnit t) => t -> FilePath -> SecretKey -> IO ()
+launchBankReal periodDelta storagePath sk =
+    bankWrapperReal storagePath $ launchBank periodDelta sk
+
+launchBank
+    :: (TimeUnit t, WorkMode m)
+    => t -> SecretKey -> State -> m ()
+launchBank periodDelta sk st = do
+    workerThread <- fork $ runWorkerWithPeriod periodDelta sk st
+    serve st workerThread restartWorkerAction
   where
-    launch st = do
-        workerThread <- fork $ runWorkerWithPeriod periodDelta sk st
-        serve st workerThread $ restartWorkerAction st
-    restartWorkerAction st tId = do
+    restartWorkerAction tId = do
         killThread tId
         fork $ runWorkerWithPeriod periodDelta sk st
 
 addMintetteIO :: FilePath -> Mintette -> PublicKey -> IO ()
 addMintetteIO storagePath m k =
-    bankWrapper storagePath $ flip update' (AddMintette m k)
+    bankWrapperReal storagePath $ flip update' (AddMintette m k)

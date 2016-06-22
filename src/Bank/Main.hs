@@ -22,7 +22,7 @@ main = do
             B.addMintetteIO cloPath m k
         Opts.Serve skPath -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
-            B.launchBank periodDelta cloPath =<< readSecretKey skPath
+            B.launchBankReal periodDelta cloPath =<< readSecretKey skPath
   where
     readPublicKeyFallback pk = do
         logWarning

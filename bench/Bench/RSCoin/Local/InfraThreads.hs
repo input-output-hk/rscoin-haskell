@@ -32,7 +32,7 @@ addMintette mintetteId benchDir = B.addMintetteIO (bankDir benchDir) mintette
 
 bankThread :: (TimeUnit t) => t -> FilePath -> IO ()
 bankThread periodDelta benchDir
-    = B.launchBank periodDelta (benchDir </> "bank-db") bankSecretKey
+    = B.launchBankReal periodDelta (benchDir </> "bank-db") bankSecretKey
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir secretKey =

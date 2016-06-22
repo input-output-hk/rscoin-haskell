@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections    #-}
 
 -- | Functions launching Bank.
 
@@ -12,11 +13,12 @@ module RSCoin.Bank.Launcher
 import           Control.Monad.Catch   (bracket)
 import           Control.Monad.Trans   (liftIO)
 import           Data.Acid.Advanced    (update')
+import           Data.Functor          (void)
 import           Data.Time.Units       (TimeUnit)
 
 import           RSCoin.Core           (Mintette, PublicKey, SecretKey)
-import           RSCoin.Timed          (MsgPackRpc, WorkMode, fork, killThread,
-                                        runRealModeLocal)
+import           RSCoin.Timed          (MsgPackRpc, ThreadId, WorkMode, fork,
+                                        killThread, runRealModeLocal)
 
 import           RSCoin.Bank.AcidState (AddMintette (AddMintette), State,
                                         closeState, openState)
@@ -30,14 +32,14 @@ bankWrapperReal storagePath =
 
 launchBankReal :: (TimeUnit t) => t -> FilePath -> SecretKey -> IO ()
 launchBankReal periodDelta storagePath sk =
-    bankWrapperReal storagePath $ launchBank periodDelta sk
+    bankWrapperReal storagePath $ void . launchBank periodDelta sk
 
 launchBank
     :: (TimeUnit t, WorkMode m)
-    => t -> SecretKey -> State -> m ()
+    => t -> SecretKey -> State -> m ThreadId
 launchBank periodDelta sk st = do
     workerThread <- fork $ runWorkerWithPeriod periodDelta sk st
-    serve st workerThread restartWorkerAction
+    workerThread <$ fork (serve st workerThread restartWorkerAction)
   where
     restartWorkerAction tId = do
         killThread tId

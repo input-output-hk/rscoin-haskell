@@ -39,7 +39,7 @@ launchBank
     => t -> SecretKey -> State -> m ThreadId
 launchBank periodDelta sk st = do
     workerThread <- fork $ runWorkerWithPeriod periodDelta sk st
-    workerThread <$ fork (serve st workerThread restartWorkerAction)
+    workerThread <$ serve st workerThread restartWorkerAction
   where
     restartWorkerAction tId = do
         killThread tId

@@ -6,11 +6,10 @@ module Test.RSCoin.Core.TransactionSpec
 
 import           Test.Hspec                     (Spec, describe)
 import           Test.Hspec.QuickCheck          (prop)
-import           Test.QuickCheck                (Arbitrary (arbitrary), vector)
-import           Data.Tuple.Select              (sel3)
+import           Test.QuickCheck                (Arbitrary (arbitrary), NonNegative (..), NonEmptyList (..), vector, Gen)
 import           RSCoin.Core.Primitives         (Transaction (..), Coin (..))
-import           Data.List                      (sort, nub)
 import qualified RSCoin.Core as C               (validateSum, Coin (..), Color, Transaction (..))
+import qualified Data.Map.Strict as M           (Map, (!), elems)
 
 import           Test.RSCoin.Core.Arbitrary     ()
 

@@ -7,10 +7,9 @@ module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import           Test.QuickCheck (Arbitrary (arbitrary), NonNegative (..), NonEmptyList (..), vector, Gen)
+import           Test.QuickCheck (Arbitrary (arbitrary), NonNegative (..))
 
 import qualified RSCoin.Core     as C
-import qualified Data.Map.Strict as M (Map, (!), elems, insert)
 
 instance Arbitrary C.Coin where
     arbitrary = do col <- arbitrary

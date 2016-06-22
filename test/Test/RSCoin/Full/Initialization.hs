@@ -11,11 +11,12 @@ import           Control.Monad             (forM_)
 import           Control.Monad.Trans       (MonadIO)
 import           Data.Acid.Advanced        (update')
 import           Data.List                 (genericLength)
+import           Formatting                (build, sformat, (%))
 
 import qualified RSCoin.Bank               as B
 import           RSCoin.Core               (Mintette (..), bankSecretKey,
-                                            defaultPeriodDelta, logInfo,
-                                            testingLoggerName)
+                                            defaultPeriodDelta, logDebug,
+                                            logInfo, testingLoggerName)
 import           RSCoin.Timed              (WorkMode, for, killThread, mcs,
                                             myThreadId, upto, wait, work)
 import qualified RSCoin.User               as U
@@ -73,7 +74,9 @@ addMintetteToBank mintette = do
     let addedMint = Mintette "127.0.0.1" (mintette ^. port)
         mintPKey  = mintette ^. publicKey
     bankSt <- view $ bank . state
+    logDebug testingLoggerName $ sformat ("Adding mintette " % build) $ addedMint
     update' bankSt $ B.AddMintette addedMint mintPKey
+    logDebug testingLoggerName $ sformat ("Added mintette " % build) $ addedMint
 
 initBUser :: WorkMode m => TestEnv m ()
 initBUser = do

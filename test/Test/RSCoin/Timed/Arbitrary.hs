@@ -4,24 +4,28 @@ module Test.RSCoin.Timed.Arbitrary
        (
        ) where
 
-import           Control.Monad.Random.Class  (getRandomR)
-import           Data.Time.Units             (fromMicroseconds)
-import           Test.QuickCheck             (Arbitrary (arbitrary))
-import           System.Random               (StdGen, mkStdGen)
+import           Control.Monad.Random.Class (getRandomR)
+import           Data.Time.Units            (TimeUnit, convertUnit,
+                                             fromMicroseconds)
+import           System.Random              (StdGen, mkStdGen)
+import           Test.QuickCheck            (Arbitrary (arbitrary), choose)
 
-import qualified RSCoin.Timed    as T
+import qualified RSCoin.Timed               as T
+
+convertMicroSecond :: TimeUnit t => T.Microsecond -> t
+convertMicroSecond = convertUnit
 
 instance Arbitrary T.Microsecond where
-    arbitrary = fromMicroseconds <$> arbitrary
+    arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)  -- no more than 10 minutes
 
 instance Arbitrary T.Millisecond where
-    arbitrary = fromMicroseconds <$> arbitrary
+    arbitrary = convertMicroSecond <$> arbitrary
 
 instance Arbitrary T.Second where
-    arbitrary = fromMicroseconds <$> arbitrary
+    arbitrary = convertMicroSecond <$> arbitrary
 
 instance Arbitrary T.Minute where
-    arbitrary = fromMicroseconds <$> arbitrary
+    arbitrary = convertMicroSecond <$> arbitrary
 
 -- TODO: this is kind of odd
 instance Arbitrary StdGen where

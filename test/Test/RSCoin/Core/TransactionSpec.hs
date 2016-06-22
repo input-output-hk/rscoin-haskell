@@ -8,7 +8,7 @@ module Test.RSCoin.Core.TransactionSpec
 
 import           Data.Bifunctor             (first, second)
 import           Data.List                  (genericLength)
-import qualified Data.Map.Strict            as M (elems, (!))
+import qualified Data.Map.Strict            as M (elems, findWithDefault, lookup)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
@@ -49,8 +49,7 @@ instance Arbitrary TransactionValid where
                    (,) <$> arbitrary <*> genCoinInRange getColor 0 getCoin
            unpaintedOutputsMap <- mapM genOutput coins
            padCols <- arbitrary :: Gen [C.Color]
-           let v = C.getCoin $ snd $ unpaintedOutputsMap M.! 0
-               l
+           let l
                    :: Num a
                    => a
                l = genericLength padCols
@@ -59,9 +58,12 @@ instance Arbitrary TransactionValid where
            return $
                C.Transaction inputs $
                M.elems unpaintedOutputsMap ++
-               if null padCols
-                   then []
-                   else zipWith3 helper padAddrs padCols (repeat (v / l))
+               case M.lookup 0 unpaintedOutputsMap of
+                   Nothing -> []
+                   Just (_,v) ->
+                       if null padCols
+                           then []
+                           else zipWith3 helper padAddrs padCols (repeat (C.getCoin v / l))
 
 spec :: Spec
 spec =

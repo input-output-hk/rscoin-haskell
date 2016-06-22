@@ -7,13 +7,13 @@ module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import           Test.QuickCheck (Arbitrary (arbitrary), NonNegative (..), vector)
+import           Test.QuickCheck (Arbitrary (arbitrary), NonNegative (..), NonEmptyList (..), vector, Gen)
 
 import qualified RSCoin.Core     as C
+import qualified Data.Map.Strict as M (Map, (!), elems, insert)
 
 instance Arbitrary C.Coin where
-    arbitrary = do
-                   col <- arbitrary
+    arbitrary = do col <- arbitrary
                    NonNegative coin <- arbitrary
                    return $ C.Coin col coin
 
@@ -25,3 +25,4 @@ instance Arbitrary C.Hash where
 
 instance Arbitrary C.Address where
     arbitrary = C.Address <$> arbitrary
+

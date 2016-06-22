@@ -18,18 +18,28 @@ newtype TransactionValid = TransactionValid { getTr :: C.Transaction} deriving S
 
 instance Arbitrary TransactionValid where
     arbitrary = TransactionValid <$>
-                do tid <- arbitrary
-                   list <- arbitrary
-                   let len = length list
-                   cl <- arbitrary
-                   colors <- vector (cl `mod` len)
-                   let cList = colors ++ cList
-                   return $
-                       uncurry C.Transaction $
-                       unzip $
-                       map (helper tid) $
-                       zip colors list
-              where helper hash (col,(cn1,cn2,addr,ind)) = ((hash,ind,C.Coin col cn1),(addr, C.Coin col cn2))
+                do trid <- arbitrary :: Gen C.Hash
+                   NonEmpty inps <- arbitrary :: Gen (NonEmptyList (Int,C.Coin))
+                   let (coins,inputs) = fork C.coinsToMap id $
+                                        unzip $
+                                        map (\(ind,coin) -> (coin,(trid,ind,coin))) inps
+                       fork f g (x,y) = (f x, g y)
+                       fun coin = do v_c <- arbitrary :: Gen Rational
+                                     addr <- arbitrary :: Gen C.Address
+                                     let cn = C.getCoin coin
+                                     return $ (addr, if (C.getColor coin) == 0
+                                                         then v_c `mod` cn
+                                                         else mod ((C.getCoin $ coins M.! 0) - v_c) cn)
+                   coinMap <- mapM fun coins
+                   padCols <- arbitrary :: Gen [C.Color]
+                   let v = snd $ coinMap M.! 0
+                       l = length padCols
+                       helper adr cl cn = (adr,C.Coin cl cn)
+                   padAddrs <- vector l :: Gen [C.Address]
+                   return $ C.Transaction inputs $ M.elems coinMap ++
+                       if l == 0
+                            then []
+                            else zipWith3 helper padAddrs padCols (repeat (v / fromIntegral l))
 
 spec :: Spec
 spec =

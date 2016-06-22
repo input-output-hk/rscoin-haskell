@@ -8,7 +8,7 @@ module Test.RSCoin.Core.TransactionSpec
 
 import           Data.Bifunctor             (first, second)
 import           Data.List                  (genericLength)
-import qualified Data.Map.Strict            as M (elems, findWithDefault, lookup)
+import qualified Data.Map.Strict            as M (elems, lookup, (!))
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
@@ -55,15 +55,16 @@ instance Arbitrary TransactionValid where
                l = genericLength padCols
                helper adr cl cn = (adr, C.Coin cl cn)
            padAddrs <- vector l :: Gen [C.Address]
-           return $
-               C.Transaction inputs $
-               M.elems unpaintedOutputsMap ++
-               case M.lookup 0 unpaintedOutputsMap of
-                   Nothing -> []
-                   Just (_,v) ->
-                       if null padCols
-                           then []
-                           else zipWith3 helper padAddrs padCols (repeat (C.getCoin v / l))
+           C.Transaction inputs .
+               (M.elems unpaintedOutputsMap ++) <$>
+                 case M.lookup 0 unpaintedOutputsMap of
+                     Nothing -> return []
+                     Just (_,v) ->
+                         if null padCols
+                             then return []
+                             else do let (outpv,inpv) = (C.getCoin v, C.getCoin $ coins M.! 0)
+                                     v' <- genRationalInRange 0 (inpv-outpv)
+                                     return $ zipWith3 helper padAddrs padCols (repeat (v' / l))
 
 spec :: Spec
 spec =

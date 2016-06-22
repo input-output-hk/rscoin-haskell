@@ -1,16 +1,17 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | RSCoin.Core.Transaction specification
 
 module Test.RSCoin.Core.TransactionSpec
        ( spec
        ) where
 
-import           Data.Bifunctor             (first)
+import           Data.Bifunctor             (first, second)
 import qualified Data.Map.Strict            as M (Map, elems, (!))
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
-                                             NonEmptyList (..),
-                                             NonNegative (..), vector)
+                                             NonEmptyList (..), vector)
 
 import qualified RSCoin.Core                as C
 
@@ -22,9 +23,10 @@ instance Arbitrary TransactionValid where
     arbitrary =
         TransactionValid <$>
         do trid <- arbitrary :: Gen C.Hash
-           NonEmpty inps <- arbitrary :: Gen (NonEmptyList (Int, C.Coin))
+           inps :: [(Int, C.Coin)] <-
+               map (second abs) . getNonEmpty <$> arbitrary
            let coins :: C.CoinsMap
-               inputs :: [AddrId]
+               inputs :: [C.AddrId]
                (coins,inputs) =
                    first C.coinsToMap $
                    unzip $

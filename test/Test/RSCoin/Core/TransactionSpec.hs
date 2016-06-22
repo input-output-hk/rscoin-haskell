@@ -69,8 +69,12 @@ instance Arbitrary TransactionValid where
 spec :: Spec
 spec =
     describe "Transaction" $ do
-    prop
-        "sum of inputs is less than sum of outputs"
-        validateSum'
+        describe "validateSum" $ do
+            prop description_validateSumForValid validateSumCorrectForValid
+    where
+      description_validateSumForValid =
+        "returns true if total amount of grey coins in inputs is not less than " ++
+        "amount of grey coins in outputs plus amount of coins spent to color coins"
 
-validateSum' = C.validateSum . getTr
+validateSumCorrectForValid :: TransactionValid -> Bool
+validateSumCorrectForValid = C.validateSum . getTr

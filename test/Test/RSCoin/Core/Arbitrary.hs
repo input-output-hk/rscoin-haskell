@@ -25,3 +25,5 @@ instance Arbitrary C.Hash where
 instance Arbitrary C.Address where
     arbitrary = C.Address <$> arbitrary
 
+instance Arbitrary C.Transaction where
+    arbitrary = C.Transaction <$> arbitrary <*> arbitrary

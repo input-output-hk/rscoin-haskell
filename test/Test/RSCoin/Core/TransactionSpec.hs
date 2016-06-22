@@ -71,10 +71,18 @@ spec =
     describe "Transaction" $ do
         describe "validateSum" $ do
             prop description_validateSumForValid validateSumCorrectForValid
+        describe "validateSignature" $ do
+            prop description_validateSignature validateSig
     where
       description_validateSumForValid =
         "returns true if total amount of grey coins in inputs is not less than " ++
         "amount of grey coins in outputs plus amount of coins spent to color coins"
+      description_validateSignature =
+        "returns true if the signature is issued by the public key associated " ++
+        "with the address for the transaction"
 
 validateSumCorrectForValid :: TransactionValid -> Bool
 validateSumCorrectForValid = C.validateSum . getTr
+
+validateSig :: C.SecretKey -> C.Transaction -> Bool
+validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePublicKey sk) tr

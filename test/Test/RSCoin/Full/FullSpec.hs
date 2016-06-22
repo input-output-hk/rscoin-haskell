@@ -41,7 +41,7 @@ spec =
 
 setupLogging :: IO ()
 setupLogging = do
-    initLogging Warning
+    initLogging Error
     initLoggerByName Warning bankLoggerName
     initLoggerByName Info testingLoggerName
 

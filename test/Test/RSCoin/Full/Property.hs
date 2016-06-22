@@ -1,4 +1,6 @@
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE Rank2Types           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 -- | This module defines data type and some helpers to facilitate
@@ -36,18 +38,17 @@ type FullProperty a = TestEnv (PropertyM (PureRpc IO)) a
 launchPure :: MonadIO m => PureRpc IO a -> m a
 launchPure = runEmulationMode def def
 
-toTestable :: FullProperty a
-           -> MintetteNumber
-           -> UserNumber
-           -> Property
-toTestable fp mNum uNum =
-    monadic unwrapProperty $
-    do (acts,t) <- pick $ genValidActions uNum
-       context <- lift $ mkTestContext mNum uNum t DefaultScenario
-       lift $ runReaderT (mapM_ doAction acts) context
-       runReaderT fp context
+toTestable
+    :: forall a.
+       FullProperty a -> MintetteNumber -> UserNumber -> Property
+toTestable fp mNum uNum = monadic unwrapProperty wrappedProperty
   where
     unwrapProperty = ioProperty . launchPure
+    wrappedProperty :: PropertyM (PureRpc IO) a = do
+        (acts,t) <- pick $ genValidActions uNum
+        context <- lift $ mkTestContext mNum uNum t DefaultScenario
+        lift $ runReaderT (mapM_ doAction acts) context
+        runReaderT fp context
 
 instance Testable (FullProperty a)  where
     property = property . toTestable

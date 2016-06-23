@@ -18,7 +18,7 @@ import qualified RSCoin.Bank               as B
 import           RSCoin.Core               (Mintette (..), bankSecretKey,
                                             defaultPeriodDelta, logDebug,
                                             logInfo, testingLoggerName)
-import           RSCoin.Timed              (Second, WorkMode, for, fork, fork_,
+import           RSCoin.Timed              (Second, WorkMode, for, fork, fork_, ms,
                                             killThread, mcs, wait)
 import qualified RSCoin.User               as U
 
@@ -43,15 +43,17 @@ instance Action InitAction where
         scen <- view scenario
         mint <- view mintettes
         runMintettes mint scen
-        wait $ for 1 mcs -- DON'T TOUCH IT (you can, but take responsibility then)
+        shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
         mapM_ addMintetteToBank mint
-        wait $ for 1 mcs -- DON'T TOUCH IT (you can, but take responsibility then)
+        shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
         runBank
+        shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
         initBUser
         mapM_ initUser =<< view users
         logInfo testingLoggerName "Successfully initialized system"
         logInfo testingLoggerName . sformat ("Lifetime is " % shown) =<<
             view lifetime
+    where shortWait = wait $ for 10 ms
 
 runBank :: WorkMode m => TestEnv m ()
 runBank = do

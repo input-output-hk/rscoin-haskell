@@ -40,12 +40,13 @@ data InitAction = InitAction
 instance Action InitAction where
     doAction InitAction = do
         logInfo testingLoggerName "Initializing system…"
-        runBank
         scen <- view scenario
         mint <- view mintettes
         runMintettes mint scen
+        wait $ for 1 mcs -- DON'T TOUCH IT (you can, but take responsibility then)
         mapM_ addMintetteToBank mint
-        wait $ for 1 mcs -- this is necessary
+        wait $ for 1 mcs -- DON'T TOUCH IT (you can, but take responsibility then)
+        runBank
         initBUser
         mapM_ initUser =<< view users
         logInfo testingLoggerName "Successfully initialized system"

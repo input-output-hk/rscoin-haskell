@@ -90,7 +90,7 @@ chooseOptimal
                                        -- If nothing, value can't be chosen (no money)
 chooseOptimal addrids getC valueMap =
     -- In case there are less colors in addrList than in valueList
-    -- filler coins are added to shortc-circuit the comparison of lists.
+    -- filler coins are added to short-circuit the comparison of lists.
     assert
         (map (sum . map getC) addrList ++ repeat (Coin 0 0) >= M.elems valueMap) $
     M.fromList <$> mapM

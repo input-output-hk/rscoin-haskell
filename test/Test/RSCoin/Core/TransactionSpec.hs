@@ -8,7 +8,9 @@ module Test.RSCoin.Core.TransactionSpec
 
 import           Data.Bifunctor             (first, second)
 import           Data.List                  (genericLength)
-import qualified Data.Map.Strict            as M (elems, lookup, (!))
+import qualified Data.Map.Strict            as M (Map, elems, lookup, (!), member, foldrWithKey)
+import           Data.Tuple.Select          (sel3)
+import           Data.Maybe                 (isJust)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
@@ -73,6 +75,8 @@ spec =
             prop description_validateSumForValid validateSumCorrectForValid
         describe "validateSignature" $ do
             prop description_validateSignature validateSig
+        describe "chooseAddresses" $ do
+            prop description_chooseAddresses chooseAddressesTest
     where
       description_validateSumForValid =
         "returns true if total amount of grey coins in inputs is not less than " ++
@@ -80,9 +84,21 @@ spec =
       description_validateSignature =
         "returns true if the signature is issued by the public key associated " ++
         "with the address for the transaction"
+      description_chooseAddresses =
+        "returns true if, whenever it is possible to allocate the amount each color " ++
+        "requires, the choice of addresses is made and returned in the output map."
 
 validateSumCorrectForValid :: TransactionValid -> Bool
 validateSumCorrectForValid = C.validateSum . getTr
 
 validateSig :: C.SecretKey -> C.Transaction -> Bool
 validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePublicKey sk) tr
+
+chooseAddressesTest :: [C.AddrId] -> M.Map C.Color C.Coin  -> Bool
+chooseAddressesTest adrlist cmap = let adrCoinMap = C.coinsToMap $
+                                                    map sel3 adrlist
+                                       step color coin accum = if color `M.member` adrCoinMap
+                                                                   then let adrcn = adrCoinMap M.! color
+                                                                        in (C.getCoin $ adrcn - coin) >= 0 && accum
+                                                                   else False
+                                   in (M.foldrWithKey step True cmap) == (isJust $ C.chooseAddresses adrlist cmap)

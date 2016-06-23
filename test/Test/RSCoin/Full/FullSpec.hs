@@ -13,12 +13,14 @@ import           Data.List                       (nub)
 import           Test.Hspec                      (Spec, before, describe)
 import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck                 (Arbitrary (arbitrary),
-                                                  NonEmptyList (NonEmpty))
+                                                  NonEmptyList (NonEmpty),
+                                                  Property, property)
 
 import           RSCoin.Core                     (Severity (..), bankLoggerName,
                                                   genesisValue,
                                                   initLoggerByName, initLogging,
                                                   testingLoggerName)
+import           RSCoin.Timed                    (WorkMode)
 import qualified RSCoin.User                     as U
 
 import           Test.RSCoin.Core.Arbitrary      ()
@@ -29,30 +31,52 @@ import           Test.RSCoin.Full.Property       (FullPropertyEmulation,
                                                   FullPropertyRealMode,
                                                   assertFP, doActionFP, pickFP,
                                                   runTestEnvFP, runWorkModeFP)
+import qualified Test.RSCoin.Full.Property       as FP (FullProperty)
 import qualified Test.RSCoin.Full.UserOperations as UO
+
+data FullTestConfig = FullTestConfig
+    { ftcGlobalSeverity  :: !Severity
+    , ftcBankSeverity    :: !Severity
+    , ftcTestingSeverity :: !Severity
+    , ftcRealMode        :: !Bool
+    } deriving (Show)
+
+config :: FullTestConfig
+config =
+    FullTestConfig
+    { ftcGlobalSeverity = Warning
+    , ftcBankSeverity = Warning
+    , ftcTestingSeverity = Info
+    , ftcRealMode = False
+    }
 
 spec :: Spec
 spec =
-    before setupLogging $ do
+    before (setupLogging cfg) $ do
         describe "test" $
-            prop "test" test
-        describe "testReal" $
-            prop "testReal" testReal
+            fullProp "test" test
         -- describe "Full RSCoin" $ do
         --     prop "if bank sends all coins to arbitrary address then it has 0 coins" prop_sendAll
         --     prop "all users have unique addresses" prop_uniqueAddresses
+    where cfg@FullTestConfig {..} = config
+          fullProp :: String -> FullProperty -> Spec
+          fullProp propDescr = prop propDescr . propConverter
+          propConverter :: FullProperty -> Property
+          propConverter =
+            if ftcRealMode
+            then (property :: FullPropertyRealMode a -> Property)
+            else (property :: FullPropertyEmulation a -> Property)
 
-setupLogging :: IO ()
-setupLogging = do
-    initLogging Error
-    initLoggerByName Warning bankLoggerName
-    initLoggerByName Info testingLoggerName
+setupLogging :: FullTestConfig -> IO ()
+setupLogging FullTestConfig {..} = do
+    initLogging ftcGlobalSeverity
+    initLoggerByName ftcBankSeverity bankLoggerName
+    initLoggerByName ftcTestingSeverity testingLoggerName
 
-test :: FullPropertyEmulation ()
+type FullProperty = forall m . WorkMode m => FP.FullProperty m ()
+
+test :: FullProperty
 test = assertFP True
-
-testReal :: FullPropertyRealMode ()
-testReal = assertFP True
 
 -- getAmount buSt i = runWorkModeFP $ U.getAmountByIndex buSt i
 

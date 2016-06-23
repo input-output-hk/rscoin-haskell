@@ -86,7 +86,7 @@ chooseOptimal
        [a]                             -- ^ Elements we're choosing from
     -> (a -> Coin)                     -- ^ Getter of coins from the element
     -> M.Map Color Coin                -- ^ Map with amount of coins for each color
-    -> Maybe (M.Map Color ([a], Coin)) -- ^ Map with chosen addrids and change for each color
+    -> Maybe (M.Map Color ([a], Coin)) -- ^ Map with chosen elements and change for each color
                                        -- If nothing, value can't be chosen (no money)
 chooseOptimal addrids getC valueMap =
     -- In case there are less colors in addrList than in valueList

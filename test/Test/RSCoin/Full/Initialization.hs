@@ -44,7 +44,7 @@ instance Action InitAction where
         scen <- view scenario
         mint <- view mintettes
         runMintettes mint scen
-        mapM_ addMintetteToBank =<< view mintettes
+        mapM_ addMintetteToBank mint
         wait $ for 1 mcs -- this is necessary
         initBUser
         mapM_ initUser =<< view users

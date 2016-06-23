@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE Rank2Types           #-}
+{-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -8,6 +8,8 @@
 
 module Test.RSCoin.Full.Property
        ( FullProperty
+       , FullPropertyEmulation
+       , FullPropertyRealMode
        , launchPure
        , toTestable
        , assertFP
@@ -18,13 +20,14 @@ module Test.RSCoin.Full.Property
        ) where
 
 import           Control.Monad.Reader       (ask, runReaderT)
-import           Control.Monad.Trans        (MonadIO, lift)
+import           Control.Monad.Trans        (lift)
 import           Data.Default               (def)
 import           Test.QuickCheck            (Gen, Property, Testable (property),
                                              ioProperty)
 import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, pick)
 
-import           RSCoin.Timed               (PureRpc, runEmulationMode)
+import           RSCoin.Timed               (MsgPackRpc, PureRpc, WorkMode,
+                                             runEmulationMode, runRealModeLocal)
 
 import           Test.RSCoin.Core.Arbitrary ()
 import           Test.RSCoin.Full.Action    (Action (doAction))
@@ -33,37 +36,60 @@ import           Test.RSCoin.Full.Context   (MintetteNumber,
                                              TestEnv, UserNumber, mkTestContext)
 import           Test.RSCoin.Full.Gen       (genValidActions)
 
-type FullProperty a = TestEnv (PropertyM (PureRpc IO)) a
+type FullProperty m = TestEnv (PropertyM m)
+type FullPropertyEmulation = FullProperty (PureRpc IO)
+type FullPropertyRealMode = FullProperty MsgPackRpc
 
-launchPure :: MonadIO m => PureRpc IO a -> m a
+launchPure :: PureRpc IO a -> IO a
 launchPure = runEmulationMode def def
+
+launchReal :: MsgPackRpc a -> IO a
+launchReal = runRealModeLocal
+
+toPropertyM
+    :: WorkMode m
+    => FullProperty m a -> MintetteNumber -> UserNumber -> PropertyM m a
+toPropertyM fp mNum uNum = do
+    (acts,t) <- pick $ genValidActions uNum
+    context <- lift $ mkTestContext mNum uNum t DefaultScenario
+    lift $ runReaderT (mapM_ doAction acts) context
+    runReaderT fp context
 
 toTestable
     :: forall a.
-       FullProperty a -> MintetteNumber -> UserNumber -> Property
-toTestable fp mNum uNum = monadic unwrapProperty wrappedProperty
+       forall m. WorkMode m => (forall b. m b -> IO b) -> FullProperty m a -> MintetteNumber -> UserNumber -> Property
+toTestable launcher fp mNum uNum = monadic unwrapProperty wrappedProperty
   where
-    unwrapProperty = ioProperty . launchPure
-    wrappedProperty :: PropertyM (PureRpc IO) a = do
-        (acts,t) <- pick $ genValidActions uNum
-        context <- lift $ mkTestContext mNum uNum t DefaultScenario
-        lift $ runReaderT (mapM_ doAction acts) context
-        runReaderT fp context
+    (unwrapProperty :: m Property -> Property) = ioProperty . launcher
+    (wrappedProperty :: PropertyM m a) = toPropertyM fp mNum uNum
 
-instance Testable (FullProperty a)  where
-    property = property . toTestable
+instance Testable (FullPropertyEmulation a) where
+    property = property . toTestable launchPure
 
-assertFP :: Bool -> FullProperty ()
+instance Testable (FullPropertyRealMode a) where
+    property = property . toTestable launchReal
+
+assertFP
+    :: Monad m
+    => Bool -> FullProperty m ()
 assertFP = lift . assert
 
-pickFP :: Show a => Gen a -> FullProperty a
+pickFP
+    :: (Monad m, Show a)
+    => Gen a -> FullProperty m a
 pickFP = lift . pick
 
-runWorkModeFP :: PureRpc IO a -> FullProperty a
+runWorkModeFP
+    :: WorkMode m
+    => m a -> FullProperty m a
 runWorkModeFP = lift . lift
 
-runTestEnvFP :: TestEnv (PureRpc IO) a -> FullProperty a
+runTestEnvFP
+    :: WorkMode m
+    => TestEnv m a -> FullProperty m a
 runTestEnvFP a = runWorkModeFP . runReaderT a =<< ask
 
-doActionFP :: Action a => a -> FullProperty ()
+doActionFP
+    :: (WorkMode m, Action a)
+    => a -> FullProperty m ()
 doActionFP = runTestEnvFP . doAction

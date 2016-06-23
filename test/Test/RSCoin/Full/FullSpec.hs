@@ -25,8 +25,9 @@ import           Test.RSCoin.Core.Arbitrary      ()
 import           Test.RSCoin.Full.Action         (UserAction (..), UserIndex,
                                                   getUser)
 import           Test.RSCoin.Full.Context        (buser, state)
-import           Test.RSCoin.Full.Property       (FullProperty, assertFP,
-                                                  doActionFP, pickFP,
+import           Test.RSCoin.Full.Property       (FullPropertyEmulation,
+                                                  FullPropertyRealMode,
+                                                  assertFP, doActionFP, pickFP,
                                                   runTestEnvFP, runWorkModeFP)
 import qualified Test.RSCoin.Full.UserOperations as UO
 
@@ -45,8 +46,11 @@ setupLogging = do
     initLoggerByName Warning bankLoggerName
     initLoggerByName Info testingLoggerName
 
-test :: FullProperty ()
+test :: FullPropertyEmulation ()
 test = assertFP True
+
+testReal :: FullPropertyRealMode ()
+testReal = assertFP True
 
 -- getAmount buSt i = runWorkModeFP $ U.getAmountByIndex buSt i
 

@@ -72,18 +72,18 @@ runBank = do
            killThread bankThread
 
 runMintettes :: WorkMode m => [MintetteInfo] -> Scenario -> TestEnv m ()
-runMintettes ms scen = do
+runMintettes mts scen = do
     l <- view lifetime
     case scen of
-        DefaultScenario -> mapM_ (TM.defaultMintetteInit l) ms
+        DefaultScenario -> mapM_ (TM.defaultMintetteInit l) mts
         (MalfunctioningMintettes d) -> do
-            let (other,normal) = (take (partSize d) ms, drop (partSize d) ms)
+            let (other,normal) = (take (partSize d) mts, drop (partSize d) mts)
             forM_ normal $ TM.defaultMintetteInit l
             forM_ other $ TM.malfunctioningMintetteInit l
         _ -> error "Test.Action.runMintettes not implemented"
   where
     partSize :: Double -> Int
-    partSize d = assert (d >= 0 && d <= 1) $ floor $ genericLength ms * d
+    partSize d = assert (d >= 0 && d <= 1) $ floor $ genericLength mts * d
 
 addMintetteToBank :: MonadIO m => MintetteInfo -> TestEnv m ()
 addMintetteToBank mintette = do

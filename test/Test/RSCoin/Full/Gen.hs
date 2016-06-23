@@ -7,7 +7,8 @@
 -- | Arbitrary instances for full testing.
 
 module Test.RSCoin.Full.Gen
-       ( genValidActions
+       ( extraRunningTime
+       , genValidActions
        ) where
 
 import           Control.Lens                    (Traversal', ix, makeLenses,
@@ -27,7 +28,7 @@ import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
                                                   oneof, sized, sublistOf)
 
 import qualified RSCoin.Core                     as C
-import           RSCoin.Timed                    (Microsecond, minute)
+import           RSCoin.Timed                    (Microsecond, Second)
 
 import           Test.RSCoin.Core.Arbitrary      ()
 import           Test.RSCoin.Full.Action         (PartToSend (..), PartsToSend,
@@ -165,6 +166,9 @@ genUpdateBlockchain = UpdateBlockchain <$> arbitrary
 
 type ActionsDescription = ([SomeAction], Microsecond)
 
+extraRunningTime :: Second
+extraRunningTime = 10
+
 -- | Generate sequence of actions which can be applied to empty context
 -- (created using mkTestContext) and are guaranteed to be executed
 -- without fails.
@@ -173,7 +177,7 @@ genValidActions userNumber = do
     userActions <- map SomeAction <$> sized genUserActions
     actions <- mapM genWaitAction userActions
     let actionsRunningTime = sum $ map runningTime actions
-        safeRunningTime = addTime actionsRunningTime (minute 1)
+        safeRunningTime = actionsRunningTime `addTime` extraRunningTime
     return (SomeAction InitAction : map SomeAction actions, safeRunningTime)
   where
     runningTime (WaitAction t _) = getNonNegative t

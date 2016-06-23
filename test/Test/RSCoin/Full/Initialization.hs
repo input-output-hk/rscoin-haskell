@@ -18,8 +18,8 @@ import qualified RSCoin.Bank               as B
 import           RSCoin.Core               (Mintette (..), bankSecretKey,
                                             defaultPeriodDelta, logDebug,
                                             logInfo, testingLoggerName)
-import           RSCoin.Timed              (Second, WorkMode, for, fork, fork_, ms,
-                                            killThread, mcs, wait)
+import           RSCoin.Timed              (Second, WorkMode, for, fork, fork_,
+                                            killThread, mcs, ms, wait)
 import qualified RSCoin.User               as U
 
 import           Test.RSCoin.Full.Action   (Action (doAction))
@@ -53,7 +53,8 @@ instance Action InitAction where
         logInfo testingLoggerName "Successfully initialized system"
         logInfo testingLoggerName . sformat ("Lifetime is " % shown) =<<
             view lifetime
-    where shortWait = wait $ for 10 ms
+      where
+        shortWait = wait $ for 10 ms
 
 runBank :: WorkMode m => TestEnv m ()
 runBank = do

@@ -8,8 +8,8 @@ module Test.RSCoin.Core.TransactionSpec
 
 import           Data.Bifunctor             (first, second)
 import           Data.List                  (genericLength)
-import qualified Data.Map.Strict            as M (Map, elems, foldrWithKey,
-                                                  lookup, member, (!))
+import qualified Data.Map.Strict            as M (Map, elems, foldrWithKey, mapWithKey, 
+                                                  lookup, findWithDefault, (!), null)
 import           Data.Maybe                 (isJust)
 import           Data.Tuple.Select          (sel3)
 import           Test.Hspec                 (Spec, describe)
@@ -99,9 +99,12 @@ chooseAddressesTest :: [C.AddrId] -> M.Map C.Color C.Coin  -> Bool
 chooseAddressesTest adrlist cmap =
     let adrCoinMap = C.coinsToMap $ map sel3 adrlist
         step color coin accum =
-            if color `M.member` adrCoinMap
-                then let adrcn = adrCoinMap M.! color
-                     in (C.getCoin $ adrcn - coin) >= 0 && accum
-                else False
-    in (M.foldrWithKey step True cmap) ==
-       (isJust $ C.chooseAddresses adrlist cmap)
+            let adrcn = C.getCoin $ M.findWithDefault 0 color adrCoinMap
+                coin' = C.getCoin coin
+            in (adrcn - coin') >= 0 && accum && (adrcn /= 0)
+        helper col cn = C.Coin col (C.getCoin cn)
+    in null adrlist ||
+       M.null cmap ||
+       (M.foldrWithKey step True cmap) ==
+       (isJust $ C.chooseAddresses adrlist (M.mapWithKey helper cmap))
+

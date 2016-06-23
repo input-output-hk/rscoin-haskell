@@ -95,7 +95,7 @@ chooseOptimal addrids getC valueMap =
         (map (sum . map getC) addrList ++ repeat (Coin 0 0) >= M.elems valueMap) $
     M.fromList <$> mapM
         (\(color, value) ->
-              (color,) <$> chooseHelper (addrMap M.! color) value)
+              (color,) <$> chooseHelper (M.findWithDefault [] color addrMap) value)
         (M.toList valueMap)
   where
     -- List of lists of addrids. Each sublist has the same color

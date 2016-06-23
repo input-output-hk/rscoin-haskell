@@ -26,8 +26,9 @@ import           Test.QuickCheck            (Gen, Property, Testable (property),
                                              ioProperty)
 import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, pick)
 
-import           RSCoin.Timed               (MsgPackRpc, PureRpc, WorkMode,
-                                             runEmulationMode, runRealModeLocal)
+import           RSCoin.Timed               (MsgPackRpc, PureRpc, WorkMode, for,
+                                             mcs, runEmulationMode,
+                                             runRealModeLocal, wait)
 
 import           Test.RSCoin.Core.Arbitrary ()
 import           Test.RSCoin.Full.Action    (Action (doAction))
@@ -52,8 +53,8 @@ toPropertyM
 toPropertyM fp mNum uNum = do
     (acts,t) <- pick $ genValidActions uNum
     context <- lift $ mkTestContext mNum uNum t DefaultScenario
-    lift $ runReaderT (mapM_ doAction acts) context
-    runReaderT fp context
+    lift $ runReaderT (mapM_ doAction $ take 1 acts) context
+    runReaderT fp context <* (lift . wait $ for t mcs)
 
 toTestable
     :: forall a.

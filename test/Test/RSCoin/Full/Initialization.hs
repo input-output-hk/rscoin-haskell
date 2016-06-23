@@ -12,14 +12,14 @@ import           Control.Monad.Trans       (MonadIO)
 import           Data.Acid.Advanced        (update')
 import           Data.List                 (genericLength)
 import           Data.Maybe                (fromMaybe)
-import           Formatting                (build, sformat, (%))
+import           Formatting                (build, sformat, shown, (%))
 
 import qualified RSCoin.Bank               as B
 import           RSCoin.Core               (Mintette (..), bankSecretKey,
                                             defaultPeriodDelta, logDebug,
                                             logInfo, testingLoggerName)
-import           RSCoin.Timed              (Second, WorkMode, for, killThread,
-                                            mcs, wait)
+import           RSCoin.Timed              (Second, WorkMode, for, fork, fork_,
+                                            killThread, mcs, wait)
 import qualified RSCoin.User               as U
 
 import           Test.RSCoin.Full.Action   (Action (doAction))
@@ -49,18 +49,23 @@ instance Action InitAction where
         initBUser
         mapM_ initUser =<< view users
         logInfo testingLoggerName "Successfully initialized system"
+        logInfo testingLoggerName . sformat ("Lifetime is " % shown) =<<
+            view lifetime
 
 runBank :: WorkMode m => TestEnv m ()
 runBank = do
     b <- view bank
     l <- view lifetime
-    workerThread <-
+    bankThread <-
+        fork $
+        () <$
         B.launchBank
             (fromMaybe defaultPeriodDelta periodDelta)
             (b ^. secretKey)
             (b ^. state)
-    wait $ for l mcs
-    killThread workerThread
+    fork_ $
+        do wait $ for l mcs
+           killThread bankThread
 
 runMintettes :: WorkMode m => [MintetteInfo] -> Scenario -> TestEnv m ()
 runMintettes ms scen = do

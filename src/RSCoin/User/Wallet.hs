@@ -179,7 +179,7 @@ getTransactions addr = checkInitR $ do
         throwM $
         BadRequest $
         formatSingle' "Tried to getTransactions for addr we don't own: {}" addr
-    txs <- fmap (map fst) <$> L.views inputAddressesTxs (M.lookup addr)
+    txs <- fmap (nub . map fst) <$> L.views inputAddressesTxs (M.lookup addr)
     maybe
         (throwM $
          InternalError $

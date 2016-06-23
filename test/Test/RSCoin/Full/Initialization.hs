@@ -11,14 +11,15 @@ import           Control.Monad             (forM_)
 import           Control.Monad.Trans       (MonadIO)
 import           Data.Acid.Advanced        (update')
 import           Data.List                 (genericLength)
+import           Data.Maybe                (fromMaybe)
 import           Formatting                (build, sformat, (%))
 
 import qualified RSCoin.Bank               as B
 import           RSCoin.Core               (Mintette (..), bankSecretKey,
                                             defaultPeriodDelta, logDebug,
                                             logInfo, testingLoggerName)
-import           RSCoin.Timed              (WorkMode, for, killThread, mcs,
-                                            wait)
+import           RSCoin.Timed              (Second, WorkMode, for, killThread,
+                                            mcs, wait)
 import qualified RSCoin.User               as U
 
 import           Test.RSCoin.Full.Action   (Action (doAction))
@@ -29,6 +30,9 @@ import           Test.RSCoin.Full.Context  (MintetteInfo, Scenario (..),
                                             publicKey, scenario, secretKey,
                                             state, userAddressesCount, users)
 import qualified Test.RSCoin.Full.Mintette as TM
+
+periodDelta :: Maybe Second
+periodDelta = Nothing
 
 data InitAction = InitAction
     deriving (Show)
@@ -51,7 +55,10 @@ runBank = do
     b <- view bank
     l <- view lifetime
     workerThread <-
-        B.launchBank defaultPeriodDelta (b ^. secretKey) (b ^. state)
+        B.launchBank
+            (fromMaybe defaultPeriodDelta periodDelta)
+            (b ^. secretKey)
+            (b ^. state)
     wait $ for l mcs
     killThread workerThread
 

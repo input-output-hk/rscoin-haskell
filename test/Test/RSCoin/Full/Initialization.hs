@@ -18,7 +18,7 @@ import           RSCoin.Core               (Mintette (..), bankSecretKey,
                                             defaultPeriodDelta, logDebug,
                                             logInfo, testingLoggerName)
 import           RSCoin.Timed              (WorkMode, for, killThread, mcs,
-                                            myThreadId, upto, wait, work)
+                                            wait)
 import qualified RSCoin.User               as U
 
 import           Test.RSCoin.Full.Action   (Action (doAction))

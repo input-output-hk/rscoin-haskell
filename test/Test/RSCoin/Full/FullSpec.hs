@@ -36,6 +36,8 @@ spec =
     before setupLogging $ do
         describe "test" $
             prop "test" test
+        describe "testReal" $
+            prop "testReal" testReal
         -- describe "Full RSCoin" $ do
         --     prop "if bank sends all coins to arbitrary address then it has 0 coins" prop_sendAll
         --     prop "all users have unique addresses" prop_uniqueAddresses

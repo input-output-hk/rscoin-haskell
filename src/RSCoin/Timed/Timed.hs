@@ -23,7 +23,8 @@ import           Control.Exception.Base      (AsyncException (ThreadKilled),
                                               SomeException (..))
 
 import           Control.Lens                (makeLenses, to, use, view, (%=),
-                                              (%~), (&), (.=), (<&>), (^.))
+                                              (%~), (&), (+=), (.=), (<&>),
+                                              (^.))
 import           Control.Monad               (unless, void)
 import           Control.Monad.Catch         (Handler (..), MonadCatch,
                                               MonadMask, MonadThrow, catch,
@@ -33,7 +34,7 @@ import           Control.Monad.Cont          (ContT (..), runContT)
 import           Control.Monad.Loops         (whileM_)
 import           Control.Monad.Reader        (ReaderT (..), ask, runReaderT)
 import           Control.Monad.State         (MonadState (get, put, state),
-                                              StateT, evalStateT, modify)
+                                              StateT, evalStateT)
 import           Control.Monad.Trans         (MonadIO, MonadTrans, lift, liftIO)
 import           Data.Function               (on)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
@@ -255,8 +256,8 @@ runTimedT timed = launchTimedT $ do
 getNextThreadId :: Monad m => TimedT m ThreadId
 getNextThreadId = wrapCore . Core $ do
     tid <- PureThreadId <$> (use threadsCounter)
-    modify $ threadsCounter %~ (+1)
-    modify $ aliveThreads %~ S.insert tid
+    threadsCounter += 1
+    aliveThreads %= S.insert tid
     return tid
 
 -- | Just like runTimedT but makes it possible to get a result.
@@ -316,7 +317,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
 
     myThreadId = TimedT $ view threadId
 
-    killThread tid = wrapCore $ Core $ modify $ aliveThreads %~ S.delete tid
+    killThread tid = wrapCore $ Core $ aliveThreads %= S.delete tid
 
     -- TODO: we should probably implement this similar to
     -- http://haddock.stackage.org/lts-5.8/base-4.8.2.0/src/System-Timeout.html#timeout

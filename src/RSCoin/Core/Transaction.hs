@@ -33,10 +33,13 @@ instance Ord Transaction where
 -- sum of outputs, and what's left can be painted by grey coins.
 validateSum :: Transaction -> Bool
 validateSum Transaction{..} =
-    greyInputs >= greyOutputs + totalUnpaintedSum
+    and [ totalInputs >= totalOutputs
+        , greyInputs >= greyOutputs + totalUnpaintedSum ]
   where
     inputs = coinsToMap $ map sel3 txInputs
     outputs = coinsToMap $ map snd txOutputs
+    totalInputs = sum $ map getCoin $ M.elems inputs
+    totalOutputs = sum $ map getCoin $ M.elems outputs
     greyInputs = getCoin $ M.findWithDefault 0 0 inputs
     greyOutputs = getCoin $ M.findWithDefault 0 0 outputs
     inputColors = delete 0 $ M.keys inputs

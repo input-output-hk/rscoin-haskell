@@ -53,7 +53,7 @@ toPropertyM
 toPropertyM fp mNum uNum = do
     (acts,t) <- pick $ genValidActions uNum
     context <- lift $ mkTestContext mNum uNum t DefaultScenario
-    lift $ runReaderT (mapM_ doAction $ take 1 acts) context
+    lift $ runReaderT (mapM_ doAction acts) context
     runReaderT fp context <* (lift . wait $ for extraRunningTime sec)
 
 toTestable

@@ -8,29 +8,25 @@ module Test.RSCoin.Full.FullSpec
        ( spec
        ) where
 
-import           Control.Lens                    (view, views)
 import           Control.Monad.Extra             (whenJust)
 import           Data.Default                    (Default (def))
 import           Data.List                       (nub)
 import           Test.Hspec                      (Spec, before, describe)
 import           Test.Hspec.QuickCheck           (prop)
 import           Test.QuickCheck                 (Arbitrary (arbitrary),
-                                                  NonEmptyList (NonEmpty),
                                                   Property, property)
 
 import           RSCoin.Core                     (Severity (..), bankLoggerName,
-                                                  genesisValue,
                                                   initLoggerByName, initLogging,
                                                   mintetteLoggerName,
                                                   testingLoggerName,
                                                   userLoggerName)
 import           RSCoin.Timed                    (WorkMode)
-import qualified RSCoin.User                     as U
+-- import qualified RSCoin.User                     as U
 
 import           Test.RSCoin.Core.Arbitrary      ()
-import           Test.RSCoin.Full.Action         (UserAction (..), UserIndex,
-                                                  getUser)
-import           Test.RSCoin.Full.Context        (buser, state)
+import           Test.RSCoin.Full.Action         (UserAction (..), getUser)
+-- import           Test.RSCoin.Full.Context        (buser, state)
 import           Test.RSCoin.Full.Property       (FullPropertyEmulation,
                                                   FullPropertyRealMode,
                                                   assertFP, doActionFP, pickFP,
@@ -72,7 +68,6 @@ spec =
             fullProp "test" test
         describe "Full RSCoin" $ do
             fullProp "all users have unique addresses" prop_uniqueAddresses
-        --     prop "if bank sends all coins to arbitrary address then it has 0 coins" prop_sendAll
     where cfg@FullTestConfig {..} = config
           fullProp :: String -> FullProperty -> Spec
           fullProp propDescr = prop propDescr . propConverter
@@ -104,16 +99,6 @@ prop_uniqueAddresses = do
     isUnique l = l == nub l
 
 -- getAmount buSt i = runWorkModeFP $ U.getAmountByIndex buSt i
-
--- prop_sendAll :: FullProperty ()
--- prop_sendAll = do
---     buSt <- view $ buser . state
---     amount <- getAmount buSt 1
---     addr <- pickFP arbitrary
---     doActionFP $ FormTransaction Nothing (NonEmpty [(1, 1)]) $ Left addr
---     amount' <- getAmount buSt 1
---     assertFP $ amount' == 0
---     assertFP $ amount' - amount == genesisValue
 
 -- prop_sendLoopBack :: FullProperty ()
 -- prop_sendLoopBack = do

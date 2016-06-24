@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
@@ -72,6 +73,13 @@ data AllBalances = AllBalances
 
 $(makeLenses ''AllBalances)
 
+balancesLens :: UserIndex -> Traversal' AllBalances BalancesList
+balancesLens =
+    maybe
+        bankBalances
+        (\i ->
+              usersBalances . ix (fromIntegral i))
+
 zeroBalance :: C.CoinsMap
 zeroBalance = M.empty
 
@@ -123,15 +131,9 @@ genValidFormTransactionDo solvents =
         case res of
             [] -> (: []) <$> (oneof . map pure $ xs)
             _ -> return res
-    subtractFromInput usrIndex usrAddrIndex parts = do
-        let balancesLens :: Traversal' AllBalances BalancesList
-            balancesLens =
-                maybe
-                    bankBalances
-                    (\i ->
-                          usersBalances . ix (fromIntegral i))
-                    usrIndex
-        balancesLens . ix (fromIntegral usrAddrIndex) %= decreaseBalance parts
+    subtractFromInput usrIndex usrAddrIndex parts =
+        balancesLens usrIndex . ix (fromIntegral usrAddrIndex) %=
+        decreaseBalance parts
     decreaseBalance :: PartsToSend -> C.CoinsMap -> C.CoinsMap
     decreaseBalance parts coinsMap =
         C.subtractCoinsMap coinsMap $ applyPartsToSend parts coinsMap
@@ -140,21 +142,10 @@ genValidFormTransactionDo solvents =
         => UserIndex -> [(Word, PartsToSend)] -> ToAddress -> m ()
     addToDestination _ _ (Left _) = return ()
     addToDestination srcUsrIdx inputs (Right (dstUsrIdx,dstUsrAddrIdx)) = do
-        balances <-
-            use $
-            maybe
-                bankBalances
-                (\i ->
-                      usersBalances . ix (fromIntegral i))
-                srcUsrIdx
-        let step (addrIdx,parts) = applyPartsToSend parts $ balances `genericIndex` addrIdx
-            dstLens =
-                maybe
-                    bankBalances
-                    (\i ->
-                          usersBalances . ix (fromIntegral i))
-                    dstUsrIdx .
-                ix (fromIntegral dstUsrAddrIdx)
+        balances <- use $ balancesLens srcUsrIdx
+        let step (addrIdx,parts) =
+                applyPartsToSend parts $ balances `genericIndex` addrIdx
+            dstLens = balancesLens dstUsrIdx . ix (fromIntegral dstUsrAddrIdx)
             maps = map step inputs
         mapM_
             (\summand ->

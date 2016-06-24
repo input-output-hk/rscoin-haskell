@@ -74,23 +74,21 @@ mergeCoinsMaps coinMaps =
     foldr1 (M.unionWith (+)) coinMaps
 
 -- | For each color in the first map, if there exists this color in
--- the second map, then value in the first map is decreased by
+-- the second map, then value in the first map is increased by
 -- corresponding value from the second map.
 addCoinsMap :: CoinsMap -> CoinsMap -> CoinsMap
-addCoinsMap minuend = M.foldrWithKey step minuend
-  where
-    step color coins accum =
-        if color `M.member` accum
-            then accum & at color . _Just %~ (\c -> c + coins)
-            else accum
+addCoinsMap = coinsMapOperation (+)
 
 -- | For each color in the first map, if there exists this color in
 -- the second map, then value in the first map is decreased by
 -- corresponding value from the second map.
 subtractCoinsMap :: CoinsMap -> CoinsMap -> CoinsMap
-subtractCoinsMap minuend = M.foldrWithKey step minuend
+subtractCoinsMap = coinsMapOperation (-)
+
+coinsMapOperation :: (Coin -> Coin -> Coin) -> CoinsMap -> CoinsMap -> CoinsMap
+coinsMapOperation op operand1 = M.foldrWithKey step operand1
   where
     step color coins accum =
         if color `M.member` accum
-            then accum & at color . _Just %~ (\c -> c - coins)
+            then accum & at color . _Just %~ (`op` coins)
             else accum

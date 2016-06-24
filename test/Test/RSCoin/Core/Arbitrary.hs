@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 -- | Arbitrary instances for Core types.
@@ -12,9 +12,10 @@ import           Test.QuickCheck (Arbitrary (arbitrary), NonNegative (..))
 import qualified RSCoin.Core     as C
 
 instance Arbitrary C.Coin where
-    arbitrary = do col <- arbitrary
-                   NonNegative coin <- arbitrary
-                   return $ C.Coin col coin
+    arbitrary = do
+        col <- arbitrary
+        NonNegative coin <- arbitrary
+        return $ C.Coin col coin
 
 instance Arbitrary C.Mintette where
     arbitrary = C.Mintette <$> arbitrary <*> arbitrary

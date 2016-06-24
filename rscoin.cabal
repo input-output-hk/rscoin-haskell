@@ -236,10 +236,11 @@ executable rscoin-mintette
 test-suite rscoin-test
   main-is:             Test.hs
   other-modules:       Test.RSCoin.Core.Arbitrary
+                     , Test.RSCoin.Core.CoinSpec
                      , Test.RSCoin.Core.CryptoSpec
-                     , Test.RSCoin.Core.TransactionSpec
                      , Test.RSCoin.Core.MessagePackSpec
                      , Test.RSCoin.Core.OwnersSpec
+                     , Test.RSCoin.Core.TransactionSpec
                      , Test.RSCoin.Full.Action
                      , Test.RSCoin.Full.Context
                      , Test.RSCoin.Full.Error

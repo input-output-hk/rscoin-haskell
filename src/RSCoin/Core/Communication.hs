@@ -210,7 +210,7 @@ commitTx m tx pId cc =
         logInfo $
         format' "Commit transaction {}, provided periodId is {}" (tx, pId)
     onError e =
-        logFunction e $ formatSingle' "Checking double spending failed: {}" e
+        logFunction e $ formatSingle' "Commit tx failed: {}" e
     onSuccess _ =
         logInfo $ formatSingle' "Successfully committed transaction {}" tx
 

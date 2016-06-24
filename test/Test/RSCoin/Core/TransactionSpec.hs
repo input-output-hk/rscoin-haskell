@@ -92,7 +92,7 @@ spec =
         "returns true if, whenever it is possible to allocate the amount each color " ++
         "requires, the choice of addresses is made and returned in the output map."
       description_chooseAddresses2 =
-        "returns true if the choice if addresses made is optimal"
+        "returns true if the choice of addresses made is optimal"
 
 validateSumCorrectForValid :: TransactionValid -> Bool
 validateSumCorrectForValid = C.validateSum . getTr

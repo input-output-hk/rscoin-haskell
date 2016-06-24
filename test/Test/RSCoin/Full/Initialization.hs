@@ -18,8 +18,8 @@ import qualified RSCoin.Bank               as B
 import           RSCoin.Core               (Mintette (..), bankSecretKey,
                                             defaultPeriodDelta, logDebug,
                                             logInfo, testingLoggerName)
-import           RSCoin.Timed              (Second, WorkMode, for, fork_,
-                                            killThread, mcs, ms, wait)
+import           RSCoin.Timed              (Second, WorkMode, for, mcs, ms,
+                                            myThreadId, upto, wait, work)
 import qualified RSCoin.User               as U
 
 import           Test.RSCoin.Full.Action   (Action (doAction))
@@ -60,13 +60,11 @@ runBank :: WorkMode m => TestEnv m ()
 runBank = do
     b <- view bank
     l <- view lifetime
-    workerThread <- B.launchBank
-        (fromMaybe defaultPeriodDelta periodDelta)
-        (b ^. secretKey)
-            (b ^. state)
-    fork_ $
-        do wait $ for l mcs
-           killThread workerThread
+    myTId <- myThreadId
+    let periodLength = fromMaybe defaultPeriodDelta periodDelta
+    work (upto l mcs) $
+        B.runWorkerWithPeriod periodLength (b ^. secretKey) (b ^. state)
+    work (upto l mcs) $ B.serve (b ^. state) myTId pure
 
 runMintettes :: WorkMode m => [MintetteInfo] -> Scenario -> TestEnv m ()
 runMintettes mts scen = do

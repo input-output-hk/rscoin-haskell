@@ -12,6 +12,7 @@ module RSCoin.Core.Coin
        , groupCoinsList
        , coinsMapConsistent
        , mergeCoinsMaps
+       , coinsMapsEqual
        , addCoinsMap
        , subtractCoinsMap
        ) where
@@ -72,6 +73,11 @@ mergeCoinsMaps [] = M.empty
 mergeCoinsMaps coinMaps =
     assert (all coinsMapConsistent coinMaps) $
     foldr1 (M.unionWith (+)) coinMaps
+
+coinsMapsEqual :: CoinsMap -> CoinsMap -> Bool
+coinsMapsEqual m1 m2 = dropZeros m1 == dropZeros m2
+  where
+    dropZeros = M.filter ((== 0) . getCoin)
 
 -- | For each color in the first map, if there exists this color in
 -- the second map, then value in the first map is increased by

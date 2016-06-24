@@ -154,6 +154,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
         host <- get
         lift $ lift $ forM_ methods $ \Method{..} ->
             listeners %= Map.insert ((host, port), methodName) methodBody
+        wait $ for 100500 minute
 
     getBankSettings = pure $ BankSettings localhost
 

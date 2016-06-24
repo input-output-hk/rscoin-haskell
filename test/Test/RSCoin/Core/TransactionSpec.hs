@@ -9,7 +9,8 @@ module Test.RSCoin.Core.TransactionSpec
 import           Data.Bifunctor             (first, second)
 import           Data.List                  (genericLength)
 import qualified Data.Map.Strict            as M (Map, elems, foldrWithKey, mapWithKey, 
-                                                  lookup, findWithDefault, (!), null)
+                                                  lookup, findWithDefault, (!), null, fromListWith)
+import           Data.List                  (sort)
 import           Data.Maybe                 (isJust)
 import           Data.Tuple.Select          (sel3)
 import           Test.Hspec                 (Spec, describe)
@@ -77,7 +78,9 @@ spec =
         describe "validateSignature" $ do
             prop description_validateSignature validateSig
         describe "chooseAddresses" $ do
-            prop description_chooseAddresses chooseAddressesTest
+            prop description_chooseAddresses chooseAddressesJustWhenPossible
+        describe "chooseAddresses 2" $ do
+            prop description_chooseAddresses2 chooseSmallerAddressesFirst
     where
       description_validateSumForValid =
         "returns true if total amount of grey coins in inputs is not less than " ++
@@ -88,6 +91,8 @@ spec =
       description_chooseAddresses =
         "returns true if, whenever it is possible to allocate the amount each color " ++
         "requires, the choice of addresses is made and returned in the output map."
+      description_chooseAddresses2 =
+        "returns true if the choice if addresses made is optimal"
 
 validateSumCorrectForValid :: TransactionValid -> Bool
 validateSumCorrectForValid = C.validateSum . getTr
@@ -95,8 +100,8 @@ validateSumCorrectForValid = C.validateSum . getTr
 validateSig :: C.SecretKey -> C.Transaction -> Bool
 validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePublicKey sk) tr
 
-chooseAddressesTest :: [C.AddrId] -> M.Map C.Color C.Coin  -> Bool
-chooseAddressesTest adrlist cmap =
+chooseAddressesJustWhenPossible :: [C.AddrId] -> M.Map C.Color C.Coin  -> Bool
+chooseAddressesJustWhenPossible adrlist cmap =
     let adrCoinMap = C.coinsToMap $ map sel3 adrlist
         step color coin accum =
             let adrcn = C.getCoin $ M.findWithDefault 0 color adrCoinMap
@@ -108,3 +113,31 @@ chooseAddressesTest adrlist cmap =
        (M.foldrWithKey step True cmap) ==
        (isJust $ C.chooseAddresses adrlist (M.mapWithKey helper cmap))
 
+{-
+@alexrb: `chooseAddressesTest` is a good property that checks (as you wrote in description) that whenever it's possible to choose addresses somehow, addresses are actually chosen. Let's rename it to `chooseAddressesJustWhenPossible` (or similar name which reflects ​*which exactly property*​ of this function is checked). I think long names are acceptable (and even good) here.
+Apart from that I want you to add one more property (after you debug `chooseOptimal` and fix it). Let's also check that `function takes addrids with smaller amount of money first` (as comment states).
+For example:
+* generate list of addrids with same color (coins are: `a1, a2, … a_n`), let's say `a_m = max(a1 … a_n) + 1` and color is `c`;
+* also add `[a1 + a_m, a2 + a_m, … a_n + a_m]`;
+* pass these `2 * n` addrids to `chooseAddresses`;
+* coins map is `{c: sum(a1, … a_n)}`;
+* check that result contains exactly `a1, a2, … a_n`;
+* let's call it `chooseAddressesChoosesOptimal`.
+What do you think about it?
+-}
+
+chooseSmallerAddressesFirst :: [C.AddrId] -> Bool
+chooseSmallerAddressesFirst adrList =
+    let col = C.getColor . sel3 . head $ adrList
+        adrSameCol = map (\(h,i,C.Coin _ cn) ->
+                              (h,i,C.Coin col cn)) adrList
+        coins = map sel3 adrSameCol
+        maxCn = (maximum coins) + (C.Coin col 1)
+        coins' = map (maxCn +) coins
+        newAdrs = adrSameCol ++ zipWith (\(h,i,_) cn ->
+                                     (h,i,cn)) adrSameCol coins'
+        cMap = M.fromListWith (+) $ map (\c@(C.Coin cl _) ->
+                                         (cl,c)) coins
+        result = C.chooseAddresses newAdrs cMap
+    in null adrList || case result of Nothing -> True
+                                      Just cMap' -> sort (fst $ cMap' M.! col) == sort adrSameCol

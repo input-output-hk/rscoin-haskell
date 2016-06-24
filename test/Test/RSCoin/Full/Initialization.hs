@@ -32,7 +32,7 @@ import           Test.RSCoin.Full.Context  (MintetteInfo, Scenario (..),
 import qualified Test.RSCoin.Full.Mintette as TM
 
 periodDelta :: Maybe Second
-periodDelta = Just 3
+periodDelta = Nothing
 
 data InitAction = InitAction
     deriving (Show)

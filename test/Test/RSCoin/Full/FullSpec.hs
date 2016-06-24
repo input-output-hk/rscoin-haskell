@@ -9,6 +9,8 @@ module Test.RSCoin.Full.FullSpec
        ) where
 
 import           Control.Lens                    (view, views)
+import           Control.Monad.Extra             (whenJust)
+import           Data.Default                    (Default (def))
 import           Data.List                       (nub)
 import           Test.Hspec                      (Spec, before, describe)
 import           Test.Hspec.QuickCheck           (prop)
@@ -19,7 +21,9 @@ import           Test.QuickCheck                 (Arbitrary (arbitrary),
 import           RSCoin.Core                     (Severity (..), bankLoggerName,
                                                   genesisValue,
                                                   initLoggerByName, initLogging,
-                                                  testingLoggerName)
+                                                  mintetteLoggerName,
+                                                  testingLoggerName,
+                                                  userLoggerName)
 import           RSCoin.Timed                    (WorkMode)
 import qualified RSCoin.User                     as U
 
@@ -35,18 +39,29 @@ import qualified Test.RSCoin.Full.Property       as FP (FullProperty)
 import qualified Test.RSCoin.Full.UserOperations as UO
 
 data FullTestConfig = FullTestConfig
-    { ftcGlobalSeverity  :: !Severity
-    , ftcBankSeverity    :: !Severity
-    , ftcTestingSeverity :: !Severity
-    , ftcRealMode        :: !Bool
+    { ftcGlobalSeverity   :: !Severity
+    , ftcBankSeverity     :: !(Maybe Severity)
+    , ftcMintetteSeverity :: !(Maybe Severity)
+    , ftcUserSeverity     :: !(Maybe Severity)
+    , ftcTestingSeverity  :: !(Maybe Severity)
+    , ftcRealMode         :: !Bool
     } deriving (Show)
+
+instance Default FullTestConfig where
+    def =
+        FullTestConfig
+        { ftcGlobalSeverity = Warning
+        , ftcBankSeverity = def
+        , ftcMintetteSeverity = def
+        , ftcUserSeverity = def
+        , ftcTestingSeverity = Just Info
+        , ftcRealMode = False
+        }
 
 config :: FullTestConfig
 config =
-    FullTestConfig
+    def
     { ftcGlobalSeverity = Warning
-    , ftcBankSeverity = Warning
-    , ftcTestingSeverity = Info
     , ftcRealMode = False
     }
 
@@ -68,10 +83,12 @@ spec =
             else (property :: FullPropertyEmulation a -> Property)
 
 setupLogging :: FullTestConfig -> IO ()
-setupLogging FullTestConfig {..} = do
+setupLogging FullTestConfig{..} = do
     initLogging ftcGlobalSeverity
-    initLoggerByName ftcBankSeverity bankLoggerName
-    initLoggerByName ftcTestingSeverity testingLoggerName
+    whenJust ftcBankSeverity $ flip initLoggerByName bankLoggerName
+    whenJust ftcMintetteSeverity $ flip initLoggerByName mintetteLoggerName
+    whenJust ftcUserSeverity $ flip initLoggerByName userLoggerName
+    whenJust ftcTestingSeverity $ flip initLoggerByName testingLoggerName
 
 type FullProperty = forall m . WorkMode m => FP.FullProperty m ()
 

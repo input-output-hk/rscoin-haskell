@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE ViewPatterns        #-}
 
 -- | RSCoin.Core.Transaction specification
@@ -11,8 +12,8 @@ import           Data.Bifunctor             (first, second)
 import           Data.List                  (genericLength)
 import           Data.List                  (sort)
 import qualified Data.Map.Strict            as M (Map, elems, findWithDefault,
-                                                  foldrWithKey, fromListWith,
-                                                  lookup, mapWithKey, null, (!))
+                                                  foldrWithKey, lookup,
+                                                  mapWithKey, null, (!))
 import           Data.Maybe                 (isJust)
 import           Data.Tuple.Select          (sel3)
 import           Test.Hspec                 (Spec, describe)
@@ -113,50 +114,35 @@ chooseAddressesJustWhenPossible (getNonEmpty -> adrlist) cmap =
        (M.foldrWithKey step True cmap) ==
        (isJust $ C.chooseAddresses adrlist (M.mapWithKey helper cmap))
 
-{-
-@alexrb: `chooseAddressesTest` is a good property that checks (as you wrote in description) that whenever it's possible to choose addresses somehow, addresses are actually chosen. Let's rename it to `chooseAddressesJustWhenPossible` (or similar name which reflects ​*which exactly property*​ of this function is checked). I think long names are acceptable (and even good) here.
-Apart from that I want you to add one more property (after you debug `chooseOptimal` and fix it). Let's also check that `function takes addrids with smaller amount of money first` (as comment states).
-For example:
-* generate list of addrids with same color (coins are: `a1, a2, … a_n`), let's say `a_m = max(a1 … a_n) + 1` and color is `c`;
-* also add `[a1 + a_m, a2 + a_m, … a_n + a_m]`;
-* pass these `2 * n` addrids to `chooseAddresses`;
-* coins map is `{c: sum(a1, … a_n)}`;
-* check that result contains exactly `a1, a2, … a_n`;
-* let's call it `chooseAddressesChoosesOptimal`.
-What do you think about it?
--}
-
-chooseSmallerAddressesFirst :: NonEmptyList C.AddrId -> Bool
-chooseSmallerAddressesFirst (getNonEmpty -> adrList) =
-    let col = C.getColor . sel3 . head $ adrList
-        adrSameCol =
-            map
-                (\(h,i,C.Coin _ cn) ->
-                      (h, i, C.Coin col cn))
-                adrList
-        coins = map sel3 adrSameCol
-        maxCn = (maximum coins) + (C.Coin col 1)
-        coins' = map (maxCn +) coins
-        newAdrs =
-            adrSameCol ++
-            zipWith
-                (\(h,i,_) cn ->
-                      (h, i, cn))
-                adrSameCol
-                coins'
-        cMap =
-            M.fromListWith (+) $
-            map
-                (\c@(C.Coin cl _) ->
-                      (cl, c))
-                coins
-        result = C.chooseAddresses newAdrs cMap
+-- | This property does the following:
+-- * generate list of addrids with same color (coins are: `a1, a2, … a_n`),
+-- let's say `a_m = max(a1 … a_n) + 1` and color is `c`;
+-- * also add `[a1 + a_m, a2 + a_m, … a_n + a_m]`;
+-- * pass these `2 * n` addrids to `chooseAddresses`;
+-- * coins map is `{c: sum(a1, … a_n)}`;
+-- * check that result contains exactly `a1, a2, … a_n`.
+chooseSmallerAddressesFirst :: C.TransactionId -> NonEmptyList C.Coin -> Bool
+chooseSmallerAddressesFirst txId (getNonEmpty -> coins0) =
+    let col = C.getColor . head $ coins0
+        coinsSameCol :: [C.Coin]
+        coinsSameCol =
+            map (\c -> c { C.getColor = col }) coins0
+        maxCn = (maximum coinsSameCol) + (C.Coin col 1)
+        extraCoins = map (maxCn +) coinsSameCol
+        allCoins = coinsSameCol ++ extraCoins
+        toAddrId :: C.Coin -> C.AddrId
+        toAddrId = (txId,0,)
+        addrIds, allAddrIds :: [C.AddrId]
+        addrIds = map toAddrId coinsSameCol
+        allAddrIds = map toAddrId allCoins
+        cMap = C.coinsToMap coinsSameCol
+        result = C.chooseAddresses allAddrIds cMap
         addrIdsEqual :: [C.AddrId] -> [C.AddrId] -> Bool
         addrIdsEqual l1 l2 = canonizeAddrIds l1 == canonizeAddrIds l2
         canonizeAddrIds = sort . filter ((/= 0) . C.getCoin . sel3)
     in case result of
            Nothing -> False
-           Just cMap' ->
+           Just resMap ->
                addrIdsEqual
-                   (fst $ M.findWithDefault ([], undefined) col cMap')
-                   adrSameCol
+                   (fst $ M.findWithDefault ([], undefined) col resMap)
+                   addrIds

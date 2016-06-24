@@ -107,7 +107,7 @@ instance Action UserAction where
         inputs <- toInputs userIndex fromAddresses
         user <- getUser userIndex
         unless (null inputs) $
-            void $ U.formTransactionRetry 5 user Nothing False inputs address []
+            void $ U.formTransactionRetry 5 user Nothing inputs address []
             -- FIXME: add a case where we can generate outputs that are not the same as inputs
     doAction (UpdateBlockchain userIndex) = do
         user <- getUser userIndex

@@ -90,7 +90,7 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
        unless (isJust pubKey) $
            P.commitError $ "Provided key can't be exported: " <> outputAddrStr
        void $
-           formTransactionRetry 2 st cache True inputs' (fromJust pubKey) outputs'
+           formTransactionRetry 2 st cache inputs' (fromJust pubKey) outputs'
 processCommand st O.UpdateBlockchain _ =
     eWrap $
     do res <- updateBlockchain st True

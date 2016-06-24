@@ -87,7 +87,6 @@ executeTransaction userState cache coinColor coinAmount addrToSend =
         maxRetries
         userState
         (Just cache)
-        False
         inputMoneyInfo
         addrToSend
         outputMoney

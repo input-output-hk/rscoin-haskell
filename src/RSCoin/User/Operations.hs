@@ -37,6 +37,7 @@ import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
 import           Data.Tuple.Select      (sel1)
+import           Formatting             (build, sformat, (%))
 import           Safe                   (atMay)
 
 import           Serokell.Util          (format', formatSingle',
@@ -186,14 +187,13 @@ formTransactionFromAll st maybeCache addressTo amount =
         (_, chosen) =
             foldr discoverAmount (amount, []) $ sortOn snd indecesWithCoins
     liftIO $ putStrLn ("Transaction chosen: " ++ show chosen)
-    formTransactionRetry 3 st maybeCache True (map (\(a,b) -> (a,[b])) chosen) addressTo [amount]
+    formTransactionRetry 3 st maybeCache (map (\(a,b) -> (a,[b])) chosen) addressTo [amount]
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction
     :: WorkMode m
     => A.RSCoinUserState
     -> Maybe UserCache
-    -> Bool
     -> [(Word, [C.Coin])]
     -> C.Address
     -> [C.Coin]
@@ -206,17 +206,16 @@ formTransactionRetry
     :: WorkMode m
     => Int                 -- ^ Number of retries
     -> A.RSCoinUserState   -- ^ RSCoin user state (acid)
-    -> Maybe UserCache
-    -> Bool                -- ^ Verbosity flag
+    -> Maybe UserCache     -- ^ Optional cache to decrease number of RPC
     -> [(Word, [C.Coin])]  -- ^ Inputs as (wallet # ∈ [1..], list of coins (nonempty!)
     -> C.Address           -- ^ Address to send money to
     -> [C.Coin]            -- ^ List of coins to send, mb empty, then will be calculated from inputs
     -> m C.Transaction
-formTransactionRetry _ _ _ _ [] _ _ =
+formTransactionRetry _ _ _ [] _ _ =
     commitError "You should enter at least one source input"
-formTransactionRetry tries _ _ _ _ _ _ | tries < 1 =
+formTransactionRetry tries _ _ _ _ _ | tries < 1 =
     error "User.Operations.formTransactionRetry shouldn't be called with tries < 1"
-formTransactionRetry tries st maybeCache verbose inputs outputAddr outputCoin =
+formTransactionRetry tries st maybeCache inputs outputAddr outputCoin =
     run `catch` catcher
   where
     catcher
@@ -244,7 +243,6 @@ formTransactionRetry tries st maybeCache verbose inputs outputAddr outputCoin =
             (tries - 1)
             st
             maybeCache
-            verbose
             inputs
             outputAddr
             outputCoin
@@ -252,7 +250,7 @@ formTransactionRetry tries st maybeCache verbose inputs outputAddr outputCoin =
         :: WorkMode m
         => m C.Transaction
     run = do
-        () <$ updateBlockchain st verbose
+        () <$ updateBlockchain st False
         C.logInfo C.userLoggerName $
             format'
                 "Form a transaction from {}, to {}, amount {}"
@@ -314,7 +312,7 @@ formTransactionRetry tries st maybeCache verbose inputs outputAddr outputCoin =
             formatSingle'
                 "Our code is broken and our auto-generated transaction is invalid: {}"
                 outTr
-        verboseSay $ formatSingle' "Please check your transaction: {}" outTr
+        C.logInfo C.userLoggerName $ sformat ("Please check your transaction: " % build) outTr
         walletHeight <- query' st A.GetLastBlockId
         lastBlockHeight <- pred <$> C.getBlockchainHeight
         when (walletHeight /= lastBlockHeight) $
@@ -369,4 +367,3 @@ formTransactionRetry tries st maybeCache verbose inputs outputAddr outputCoin =
         return $ maybe Nothing (const $ Just retValue) chosenMap0
     pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])
     pair3merge (a,b,c) (d,e,f) = (a++d, b++e, c++f)
-    verboseSay t = when verbose $ liftIO $ TIO.putStrLn t

@@ -7,6 +7,7 @@
 module RSCoin.Timed
        ( module Exports
        , WorkMode
+       , StdGen
        , runRealMode
        , runRealModeLocal
        , runEmulationMode

@@ -19,30 +19,32 @@ module Test.RSCoin.Full.Property
        , doActionFP
        ) where
 
-import           Control.Monad.Reader       (ask, runReaderT)
-import           Control.Monad.Trans        (lift)
-import           Data.Default               (def)
-import           Test.QuickCheck            (Gen, Property, Testable (property),
-                                             ioProperty)
-import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, pick)
+import           Control.Monad.Reader        (ask, runReaderT)
+import           Control.Monad.Trans         (lift)
+import           Test.QuickCheck             (Gen, Property,
+                                              Testable (property), ioProperty)
+import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, pick)
 
-import           RSCoin.Timed               (MsgPackRpc, PureRpc, WorkMode, for,
-                                             runEmulationMode, runRealModeLocal,
-                                             sec, wait)
+import           RSCoin.Timed                (Delays, MsgPackRpc, PureRpc,
+                                              StdGen, WorkMode, for,
+                                              runEmulationMode,
+                                              runRealModeLocal, sec, wait)
 
-import           Test.RSCoin.Core.Arbitrary ()
-import           Test.RSCoin.Full.Action    (Action (doAction))
-import           Test.RSCoin.Full.Context   (MintetteNumber,
-                                             Scenario (DefaultScenario),
-                                             TestEnv, UserNumber, mkTestContext)
-import           Test.RSCoin.Full.Gen       (extraRunningTime, genValidActions)
+import           Test.RSCoin.Core.Arbitrary  ()
+import           Test.RSCoin.Full.Action     (Action (doAction))
+import           Test.RSCoin.Full.Context    (MintetteNumber,
+                                              Scenario (DefaultScenario),
+                                              TestEnv, UserNumber,
+                                              mkTestContext)
+import           Test.RSCoin.Full.Gen        (extraRunningTime, genValidActions)
+import           Test.RSCoin.Timed.Arbitrary ()
 
 type FullProperty m = TestEnv (PropertyM m)
 type FullPropertyEmulation = FullProperty (PureRpc IO)
 type FullPropertyRealMode = FullProperty MsgPackRpc
 
-launchPure :: PureRpc IO a -> IO a
-launchPure = runEmulationMode def def
+launchPure :: StdGen -> Delays -> PureRpc IO a -> IO a
+launchPure gen = runEmulationMode (Just gen)
 
 launchReal :: MsgPackRpc a -> IO a
 launchReal = runRealModeLocal
@@ -65,7 +67,11 @@ toTestable launcher fp mNum uNum = monadic unwrapProperty wrappedProperty
     (wrappedProperty :: PropertyM m a) = toPropertyM fp mNum uNum
 
 instance Testable (FullPropertyEmulation a) where
-    property = property . toTestable launchPure
+    property fp =
+        property $
+        \gen ->
+             \delays ->
+                  toTestable (launchPure gen delays) fp
 
 instance Testable (FullPropertyRealMode a) where
     property = property . toTestable launchReal

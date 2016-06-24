@@ -104,19 +104,15 @@ spec =
 validateSumCorrectForValid :: TransactionValid -> Bool
 validateSumCorrectForValid = C.validateSum . getTr
 
-validateInputLessThanOutput :: [C.AddrId] -> C.Address -> Bool
-validateInputLessThanOutput inputs adr =
-    let outputs = map (\(_,_,c) ->
-                       (adr,c)) inputs
-        helper [] = ([],[])
-        helper ((a, C.Coin col cn):xs) = ((a, C.Coin col (cn+1)):xs,
-                                          (a, C.Coin col (cn-1)):xs)
+validateInputLessThanOutput :: NonEmptyList C.AddrId -> C.Address -> Bool
+validateInputLessThanOutput (getNonEmpty -> inputs) adr =
+    let outputs = map ((adr, ) . sel3) inputs
+        helper [] = ([], [])
+        helper ((a,C.Coin col cn):xs) =
+            ((a, C.Coin col (cn + 1)) : xs, (a, C.Coin col (cn - 1)) : xs)
         (plus1,minus1) = helper outputs
-        (tx1, tx2) = (C.Transaction inputs plus1, C.Transaction inputs minus1)
-    in C.validateSum tx2 &&
-       if null inputs
-           then True
-           else not $ C.validateSum tx1
+        (tx1,tx2) = (C.Transaction inputs plus1, C.Transaction inputs minus1)
+    in C.validateSum tx2 && (not $ C.validateSum tx1)
 
 validateSig :: C.SecretKey -> C.Transaction -> Bool
 validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePublicKey sk) tr

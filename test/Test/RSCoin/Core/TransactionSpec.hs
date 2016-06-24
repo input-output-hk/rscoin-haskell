@@ -78,6 +78,7 @@ spec =
     describe "Transaction" $ do
         describe "validateSum" $ do
             prop description_validateSumForValid validateSumCorrectForValid
+            prop description_validateInputLessThanOutput validateInputLessThanOutput
         describe "validateSignature" $ do
             prop description_validateSignature validateSig
         describe "chooseAddresses" $ do
@@ -87,6 +88,10 @@ spec =
       description_validateSumForValid =
         "returns true if total amount of grey coins in inputs is not less than " ++
         "amount of grey coins in outputs plus amount of coins spent to color coins"
+      description_validateInputLessThanOutput =
+        "returns true only if the validating function returns true on well formed " ++
+        "transactions, and false on those where the total inputs are less than the " ++
+        "total outputs"
       description_validateSignature =
         "returns true if the signature is issued by the public key associated " ++
         "with the address for the transaction"
@@ -98,6 +103,20 @@ spec =
 
 validateSumCorrectForValid :: TransactionValid -> Bool
 validateSumCorrectForValid = C.validateSum . getTr
+
+validateInputLessThanOutput :: [C.AddrId] -> C.Address -> Bool
+validateInputLessThanOutput inputs adr =
+    let outputs = map (\(_,_,c) ->
+                       (adr,c)) inputs
+        helper [] = ([],[])
+        helper ((a, C.Coin col cn):xs) = ((a, C.Coin col (cn+1)):xs,
+                                          (a, C.Coin col (cn-1)):xs)
+        (plus1,minus1) = helper outputs
+        (tx1, tx2) = (C.Transaction inputs plus1, C.Transaction inputs minus1)
+    in C.validateSum tx2 &&
+       if null inputs
+           then True
+           else not $ C.validateSum tx1
 
 validateSig :: C.SecretKey -> C.Transaction -> Bool
 validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePublicKey sk) tr

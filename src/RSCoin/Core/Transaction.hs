@@ -78,8 +78,10 @@ getAddrIdByAddress addr transaction@Transaction{..} =
 -- include as many addrids as possible', so that means function takes
 -- addrids with smaller amount of money first.
 chooseAddresses :: [AddrId] -> M.Map Color Coin -> Maybe (M.Map Color ([AddrId], Coin))
-chooseAddresses addrids =
-    chooseOptimal addrids sel3
+chooseAddresses addrids valueMap =
+    chooseOptimal addrids' sel3 valueMap'
+    where addrids' = filter ((/=0) . getCoin . sel3) addrids
+          valueMap' = M.filter ((/=0) . getCoin) valueMap
 
 chooseOptimal
     :: forall a.

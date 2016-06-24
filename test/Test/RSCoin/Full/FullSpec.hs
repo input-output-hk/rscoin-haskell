@@ -70,9 +70,9 @@ spec =
     before (setupLogging cfg) $ do
         describe "test" $
             fullProp "test" test
-        -- describe "Full RSCoin" $ do
+        describe "Full RSCoin" $ do
+            fullProp "all users have unique addresses" prop_uniqueAddresses
         --     prop "if bank sends all coins to arbitrary address then it has 0 coins" prop_sendAll
-        --     prop "all users have unique addresses" prop_uniqueAddresses
     where cfg@FullTestConfig {..} = config
           fullProp :: String -> FullProperty -> Spec
           fullProp propDescr = prop propDescr . propConverter
@@ -95,6 +95,14 @@ type FullProperty = forall m . WorkMode m => FP.FullProperty m ()
 test :: FullProperty
 test = assertFP True
 
+prop_uniqueAddresses :: FullProperty
+prop_uniqueAddresses = do
+    idx <- pickFP arbitrary
+    usr <- runTestEnvFP $ getUser idx
+    assertFP . isUnique =<< runWorkModeFP (UO.getAllAddresses usr)
+  where
+    isUnique l = l == nub l
+
 -- getAmount buSt i = runWorkModeFP $ U.getAmountByIndex buSt i
 
 -- prop_sendAll :: FullProperty ()
@@ -106,13 +114,6 @@ test = assertFP True
 --     amount' <- getAmount buSt 1
 --     assertFP $ amount' == 0
 --     assertFP $ amount' - amount == genesisValue
-
--- prop_uniqueAddresses :: UserIndex -> FullProperty ()
--- prop_uniqueAddresses idx = do
---     usr <- runTestEnvFP $ getUser idx
---     assertFP . isUnique =<< runWorkModeFP (UO.getAllAddresses usr)
---   where
---     isUnique l = l == nub l
 
 -- prop_sendLoopBack :: FullProperty ()
 -- prop_sendLoopBack = do

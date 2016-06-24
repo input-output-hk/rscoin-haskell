@@ -139,5 +139,5 @@ chooseSmallerAddressesFirst (getNonEmpty -> adrList) =
         cMap = M.fromListWith (+) $ map (\c@(C.Coin cl _) ->
                                          (cl,c)) coins
         result = C.chooseAddresses newAdrs cMap
-    in case result of Nothing -> True
+    in case result of Nothing -> False
                       Just cMap' -> sort (fst $ cMap' M.! col) == sort adrSameCol

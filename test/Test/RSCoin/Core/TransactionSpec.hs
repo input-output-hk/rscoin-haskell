@@ -129,15 +129,34 @@ What do you think about it?
 chooseSmallerAddressesFirst :: NonEmptyList C.AddrId -> Bool
 chooseSmallerAddressesFirst (getNonEmpty -> adrList) =
     let col = C.getColor . sel3 . head $ adrList
-        adrSameCol = map (\(h,i,C.Coin _ cn) ->
-                              (h,i,C.Coin col cn)) adrList
+        adrSameCol =
+            map
+                (\(h,i,C.Coin _ cn) ->
+                      (h, i, C.Coin col cn))
+                adrList
         coins = map sel3 adrSameCol
         maxCn = (maximum coins) + (C.Coin col 1)
         coins' = map (maxCn +) coins
-        newAdrs = adrSameCol ++ zipWith (\(h,i,_) cn ->
-                                     (h,i,cn)) adrSameCol coins'
-        cMap = M.fromListWith (+) $ map (\c@(C.Coin cl _) ->
-                                         (cl,c)) coins
+        newAdrs =
+            adrSameCol ++
+            zipWith
+                (\(h,i,_) cn ->
+                      (h, i, cn))
+                adrSameCol
+                coins'
+        cMap =
+            M.fromListWith (+) $
+            map
+                (\c@(C.Coin cl _) ->
+                      (cl, c))
+                coins
         result = C.chooseAddresses newAdrs cMap
-    in case result of Nothing -> False
-                      Just cMap' -> sort (fst $ cMap' M.! col) == sort adrSameCol
+        addrIdsEqual :: [C.AddrId] -> [C.AddrId] -> Bool
+        addrIdsEqual l1 l2 = canonizeAddrIds l1 == canonizeAddrIds l2
+        canonizeAddrIds = sort . filter ((/= 0) . C.getCoin . sel3)
+    in case result of
+           Nothing -> False
+           Just cMap' ->
+               addrIdsEqual
+                   (fst $ M.findWithDefault ([], undefined) col cMap')
+                   adrSameCol

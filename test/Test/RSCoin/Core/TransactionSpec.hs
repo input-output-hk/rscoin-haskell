@@ -107,7 +107,7 @@ chooseAddressesJustWhenPossible (getNonEmpty -> adrlist) cmap =
         step color coin accum =
             let adrcn = C.getCoin $ M.findWithDefault 0 color adrCoinMap
                 coin' = C.getCoin coin
-            in (adrcn - coin') >= 0 && accum && (adrcn /= 0)
+            in (adrcn - coin') >= 0 && accum
         helper col cn = C.Coin col (C.getCoin cn)
     in M.null cmap ||
        (M.foldrWithKey step True cmap) ==

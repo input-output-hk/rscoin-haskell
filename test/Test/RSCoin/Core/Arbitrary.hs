@@ -7,7 +7,8 @@ module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import           Test.QuickCheck (Arbitrary (arbitrary), NonNegative (..))
+import           Test.QuickCheck      (Arbitrary (arbitrary), NonNegative (..){-, Gen-})
+--import qualified Data.Map.Strict as M (fromListWith)
 
 import qualified RSCoin.Core     as C
 
@@ -28,3 +29,16 @@ instance Arbitrary C.Address where
 
 instance Arbitrary C.Transaction where
     arbitrary = C.Transaction <$> arbitrary <*> arbitrary
+
+{-instance Arbitrary [(C.Color, C.Coin)] where
+    arbitrary = do
+        list <- arbitrary :: Gen [(C.Color, NonNegative Rational)]
+        return $ map (\(col,NonNegative rt) -> (col, C.Coin col rt)) list
+
+instance Arbitrary C.CoinsMap where
+    arbitrary = do
+        list <- arbitrary
+        return $ M.fromListWith (+) list
+
+--this instance isn't working at the moment, causes an error.
+-}

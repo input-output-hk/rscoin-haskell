@@ -71,5 +71,5 @@ coinsMapOperation mp1 mp2 =
                                else True
         stepP = step (+)
         stepM = step (-)
-    in and $ (and $ M.mapWithKey stepP addMap,
-              and $ M.mapWithKey stepM minusMap)
+    in and $ [and $ M.mapWithKey stepP addMap,
+              and $ M.mapWithKey stepM minusMap]

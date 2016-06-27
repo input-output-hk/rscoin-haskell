@@ -31,7 +31,8 @@ import           RSCoin.Timed            (WorkMode, for, ms, wait)
 import           RSCoin.User.AcidState   (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState   as A
 import           RSCoin.User.Error       (eWrap)
-import           RSCoin.User.Operations  (formTransactionRetry, getAmount,
+import           RSCoin.User.Operations  (FormTransactionData (..),
+                                          formTransactionRetry, getAmount,
                                           updateBlockchain)
 import qualified RSCoin.User.Operations  as P
 import qualified RSCoin.User.Wallet      as W
@@ -82,15 +83,28 @@ processCommand st O.ListAddresses _ =
                  (TIO.putStrLn . formatSingle' (spaces <> "{}"))
 processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     eWrap $
-    do let pubKey = C.Address <$> C.constructPublicKey outputAddrStr
-           inputs' = map (foldr1 (\(a, b) (_, d) -> (a, b++d))) $
-                     groupBy ((==) `on` snd) $
-                     map (\(w, o, c) -> (w, [Coin c (toRational o)])) inputs
-           outputs' = map (\(amount, color) -> Coin color (toRational amount)) outputCoins
-       unless (isJust pubKey) $
+    do let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
+           inputs' =
+               map
+                   (foldr1
+                        (\(a,b) (_,d) -> (a, b ++ d))) $
+               groupBy ((==) `on` snd) $
+               map
+                   (\(idx,o,c) -> (idx - 1, [Coin c (toRational o)]))
+                   inputs
+           outputs' =
+               map
+                   (\(amount,color) -> Coin color (toRational amount))
+                   outputCoins
+           ftd =
+               FormTransactionData
+               { ftdInputs = inputs'
+               , ftdOutputAddress = fromJust outputAddr
+               , ftdOutputCoins = outputs'
+               }
+       unless (isJust outputAddr) $
            P.commitError $ "Provided key can't be exported: " <> outputAddrStr
-       void $
-           formTransactionRetry 2 st cache inputs' (fromJust pubKey) outputs'
+       void $ formTransactionRetry 2 st cache ftd
 processCommand st O.UpdateBlockchain _ =
     eWrap $
     do res <- updateBlockchain st True

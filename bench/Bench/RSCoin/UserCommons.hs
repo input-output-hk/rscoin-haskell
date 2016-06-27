@@ -27,7 +27,8 @@ import           RSCoin.Timed               (MsgPackRpc, for, runRealMode, sec,
                                              wait)
 import qualified RSCoin.User.AcidState      as A
 import           RSCoin.User.Cache          (UserCache, mkUserCache)
-import           RSCoin.User.Operations     (formTransactionRetry)
+import           RSCoin.User.Operations     (FormTransactionData (..),
+                                             formTransactionRetry)
 import           RSCoin.User.Wallet         (UserAddress)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath, walletPathPrefix)
@@ -82,18 +83,12 @@ executeTransaction :: A.RSCoinUserState
                    -> Address
                    -> MsgPackRpc ()
 executeTransaction userState cache coinColor coinAmount addrToSend =
-    () <$
-    formTransactionRetry
-        maxRetries
-        userState
-        (Just cache)
-        inputMoneyInfo
-        addrToSend
-        outputMoney
+    () <$ formTransactionRetry maxRetries userState (Just cache) ftd
   where
-    maxRetries     = 50
-    outputMoney    = [Coin coinColor coinAmount]
-    inputMoneyInfo = [(1, outputMoney)]
+    maxRetries = 50
+    outputMoney = [Coin coinColor coinAmount]
+    inputMoneyInfo = [(0, outputMoney)]
+    ftd = FormTransactionData inputMoneyInfo addrToSend outputMoney
 
 -- | Create user in `bankMode` and send coins to every user.
 initializeBank :: Word -> [Address] -> A.RSCoinUserState -> MsgPackRpc ()

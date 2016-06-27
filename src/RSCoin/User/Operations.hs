@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE PatternGuards       #-}
+{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
@@ -17,6 +18,8 @@ module RSCoin.User.Operations
        , updateToBlockHeight
        , updateBlockchain
        , formTransactionFromAll
+       , FormTransactionInput
+       , FormTransactionData (..)
        , formTransaction
        , formTransactionRetry
        ) where
@@ -31,13 +34,13 @@ import           Data.Function          (on)
 import           Data.List              (genericIndex, genericLength, nubBy,
                                          sortOn)
 import qualified Data.Map               as M
-import           Data.Maybe             (fromJust, isJust, isNothing)
+import           Data.Maybe             (fromJust, isNothing)
 import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
 import           Data.Tuple.Select      (sel1)
-import           Formatting             (build, sformat, (%))
+import           Formatting             (build, int, sformat, shown, (%))
 import           Safe                   (atMay)
 
 import           Serokell.Util          (format', formatSingle',
@@ -162,61 +165,87 @@ formTransactionFromAll
     -> C.Coin
     -> m C.Transaction
 formTransactionFromAll st maybeCache addressTo amount =
-    assert (C.getColor amount == 0) $ do
-    addrs <- query' st A.GetAllAddresses
-    (indecesWithCoins :: [(Word, C.Coin)]) <-
-        filter ((>= 0) . snd) <$>
-        mapM (\i -> (fromInteger $ toInteger i+1,) .
-                    M.findWithDefault 0 0 <$>
-                    getAmountByIndex st i)
-             [0..length addrs-1]
-    let totalAmount = C.sumCoin $ map snd indecesWithCoins
-    when (amount > totalAmount) $
-        throwM $
-        InputProcessingError $
-        format'
-            "Tried to form transaction with amount ({}) greater than available ({})."
-            (amount, totalAmount)
-    let discoverAmount _ r@(left,_)
-          | left <= 0 = r
-        discoverAmount e@(i,c) (left,results) =
-            let newLeft = left - c
-            in if newLeft < 0
-               then (newLeft, (i,left) : results)
-               else (newLeft, e : results)
-        (_, chosen) =
-            foldr discoverAmount (amount, []) $ sortOn snd indecesWithCoins
-    liftIO $ putStrLn ("Transaction chosen: " ++ show chosen)
-    formTransactionRetry 3 st maybeCache (map (\(a,b) -> (a,[b])) chosen) addressTo [amount]
+    assert (C.getColor amount == 0) $
+    do addrs <- query' st A.GetAllAddresses
+       (indicesWithCoins :: [(Word, C.Coin)]) <-
+           filter ((>= 0) . snd) <$>
+           mapM
+               (\i ->
+                     (fromIntegral i + 1, ) . M.findWithDefault 0 0 <$>
+                     getAmountByIndex st i)
+               [0 .. length addrs - 1]
+       let totalAmount = C.sumCoin $ map snd indicesWithCoins
+       when (amount > totalAmount) $
+           throwM $
+           InputProcessingError $
+           format'
+               "Tried to form transaction with amount ({}) greater than available ({})."
+               (amount, totalAmount)
+       let discoverAmount _ r@(left,_)
+             | left <= 0 = r
+           discoverAmount e@(i,c) (left,results) =
+               let newLeft = left - c
+               in if newLeft < 0
+                      then (newLeft, (i, left) : results)
+                      else (newLeft, e : results)
+           (_,chosen) =
+               foldr discoverAmount (amount, []) $ sortOn snd indicesWithCoins
+           ftd =
+               FormTransactionData
+               { ftdInputs = map
+                     (\(a,b) ->
+                           (a, [b]))
+                     chosen
+               , ftdOutputAddress = addressTo
+               , ftdOutputCoins = [amount]
+               }
+       C.logInfo C.userLoggerName $
+           sformat ("Transaction chosen: " % shown) chosen
+       formTransactionRetry 3 st maybeCache ftd
+
+-- | A single input used to form transaction. It consists of two
+-- things: index of wallet (zero-based) and non-empty list of coins to send.
+type FormTransactionInput = (Word, [C.Coin])
+
+data FormTransactionData = FormTransactionData
+    {
+      -- | List of inputs, see `FormTransactionInput` description.
+      ftdInputs        :: [FormTransactionInput]
+    ,
+      -- | Output address where to send coins.
+      ftdOutputAddress :: C.Address
+    ,
+      -- | List of coins to send. It may be empty, then will be
+      -- calculated from inputs. Passing non-empty list is useful if
+      -- one wants to color coins.
+      ftdOutputCoins   :: [C.Coin]
+    } deriving (Show)
 
 -- | Forms transaction out of user input and sends it to the net.
 formTransaction
     :: WorkMode m
     => A.RSCoinUserState
     -> Maybe UserCache
-    -> [(Word, [C.Coin])]
-    -> C.Address
-    -> [C.Coin]
+    -> FormTransactionData
     -> m C.Transaction
 formTransaction = formTransactionRetry 1
 
 -- | Forms transaction out of user input and sends it. If failure
--- occurs, waits for 600 mcs, then retries up to given amout of tries.
+-- occurs, waits for 1 sec, then retries up to given amout of tries.
 formTransactionRetry
-    :: WorkMode m
-    => Int                 -- ^ Number of retries
+    :: forall m.
+       WorkMode m
+    => Word                 -- ^ Number of retries
     -> A.RSCoinUserState   -- ^ RSCoin user state (acid)
     -> Maybe UserCache     -- ^ Optional cache to decrease number of RPC
-    -> [(Word, [C.Coin])]  -- ^ Inputs as (wallet # ∈ [1..], list of coins (nonempty!)
-    -> C.Address           -- ^ Address to send money to
-    -> [C.Coin]            -- ^ List of coins to send, mb empty, then will be calculated from inputs
+    -> FormTransactionData -- ^ Transaction description.
     -> m C.Transaction
-formTransactionRetry _ _ _ [] _ _ =
-    commitError "You should enter at least one source input"
-formTransactionRetry tries _ _ _ _ _ | tries < 1 =
-    error "User.Operations.formTransactionRetry shouldn't be called with tries < 1"
-formTransactionRetry tries st maybeCache inputs outputAddr outputCoin =
-    run `catch` catcher
+formTransactionRetry tries st maybeCache ftd@FormTransactionData{..}
+  | tries < 1 =
+      error
+          "User.Operations.formTransactionRetry shouldn't be called with tries < 1"
+  | null ftdInputs = commitError "you should enter at least one source input"
+  | otherwise = run `catch` catcher
   where
     catcher
         :: WorkMode m
@@ -224,12 +253,6 @@ formTransactionRetry tries st maybeCache inputs outputAddr outputCoin =
     catcher e
       | isRetriableException e && tries > 1 = logMsgAndRetry e
       | otherwise = throwM e
-    isRetriableException :: SomeException -> Bool
-    isRetriableException e
-      | Just (_ :: UserLogicError) <- fromException e = True
-      | Just MEInactive <- fromException e = True
-      | isWalletSyncError e = True
-      | otherwise = False
     logMsgAndRetry
         :: (WorkMode m, Buildable s)
         => s -> m C.Transaction
@@ -239,13 +262,7 @@ formTransactionRetry tries st maybeCache inputs outputAddr outputCoin =
                 "formTransactionRetry failed ({}), retries left: {}"
                 (msg, tries - 1)
         wait $ for 1 sec
-        formTransactionRetry
-            (tries - 1)
-            st
-            maybeCache
-            inputs
-            outputAddr
-            outputCoin
+        formTransactionRetry (tries - 1) st maybeCache ftd
     run
         :: WorkMode m
         => m C.Transaction
@@ -255,39 +272,48 @@ formTransactionRetry tries st maybeCache inputs outputAddr outputCoin =
             format'
                 "Form a transaction from {}, to {}, amount {}"
                 ( listBuilderJSONIndent 2 $
-                      map (\(a, b) -> pairBuilder (a, listBuilderJSON b)) inputs
-                , outputAddr
-                , listBuilderJSONIndent 2 $ outputCoin)
-        when (nubBy ((==) `on` fst) inputs /= inputs) $
+                  map
+                      (\(a,b) ->
+                            pairBuilder (a, listBuilderJSON b))
+                      ftdInputs
+                , ftdOutputAddress
+                , listBuilderJSONIndent 2 $ ftdOutputCoins)
+        when (nubBy ((==) `on` fst) ftdInputs /= ftdInputs) $
             commitError "All input addresses should have distinct IDs."
-        unless (all (> 0) $ concatMap snd inputs) $
+        unless (all (> 0) $ concatMap snd ftdInputs) $
             commitError $
             formatSingle'
                 "All input values should be positive, but encountered {}, that's not." $
-            head $ filter (<= 0) $ concatMap snd inputs
+            head $ filter (<= 0) $ concatMap snd ftdInputs
         accounts <- query' st GetAllAddresses
-        let notInRange i = i <= 0 || i > genericLength accounts
-        when (any notInRange $ map fst inputs) $
+        let notInRange i = i >= genericLength accounts
+        when (any notInRange $ map fst ftdInputs) $
             commitError $
-            format'
-                "Found an account id ({}) that's not in [1..{}]"
-                (head $ filter notInRange $ map fst inputs, length accounts)
-        let accInputs :: [(Word, W.UserAddress, M.Map C.Color C.Coin)]
+            sformat
+                ("found an address id (" % int % ") that's not in [0 .. " % int %
+                 "]")
+                (head $ filter notInRange $ map fst ftdInputs)
+                (length accounts)
+        let accInputs :: [(W.UserAddress, M.Map C.Color C.Coin)]
             accInputs =
-                map (\(i,c) -> (i, accounts `genericIndex` (i - 1), C.coinsToMap c))
-                    inputs
---            hasEnoughFunds :: (Word, W.UserAddress, M.Map C.Color C.Coin) -> m Maybe Word
-            hasEnoughFunds (i,acc,coinsMap) = do
+                map
+                    (\(i,c) ->
+                          (accounts `genericIndex` i, C.coinsToMap c))
+                    ftdInputs
+            hasEnoughFunds :: (W.UserAddress, C.CoinsMap) -> m Bool
+            hasEnoughFunds (acc,coinsMap) = do
                 amountMap <- getAmountNoUpdate st acc
                 let sufficient =
-                        all (\col0 ->
-                              let weHave = M.findWithDefault 0 col0 amountMap
-                                  weSpend = M.findWithDefault 0 col0 coinsMap
-                              in weHave >= weSpend)
+                        all
+                            (\col0 ->
+                                  let weHave =
+                                          M.findWithDefault 0 col0 amountMap
+                                      weSpend =
+                                          M.findWithDefault 0 col0 coinsMap
+                                  in weHave >= weSpend)
                             (M.keys coinsMap)
-                return $ if sufficient then Nothing else Just i
-        overSpentAccounts <-
-            filterM (\a -> isJust <$> hasEnoughFunds a) accInputs
+                return sufficient
+        overSpentAccounts <- filterM (fmap not . hasEnoughFunds) accInputs
         unless (null overSpentAccounts) $
             commitError $
             (if length overSpentAccounts > 1
@@ -296,23 +322,34 @@ formTransactionRetry tries st maybeCache inputs outputAddr outputCoin =
             formatSingle'
                 " following account doesn't have enough coins: {}"
                 (sel1 $ head overSpentAccounts)
-        txPieces <- liftIO $ mapM (formTransactionMapper .(\(_,b,c) -> (b,c))) accInputs
+        txPieces <-
+            liftIO $
+            mapM
+                (uncurry
+                     (formTransactionMapper st ftdOutputCoins ftdOutputAddress))
+                accInputs
         when (any isNothing txPieces) $
             commitError "Couldn't form transaction. Not enough funds."
         let (addrPairList,inputAddrids,outputs) =
                 foldl1 pair3merge $ map fromJust txPieces
-            outTr = C.Transaction { txInputs = inputAddrids
-                                  , txOutputs = outputs ++ map (outputAddr,) outputCoin
-                                  }
-        when (not (null outputCoin) && not (C.validateSum outTr)) $
+            outTr =
+                C.Transaction
+                { txInputs = inputAddrids
+                , txOutputs = outputs ++
+                  map (ftdOutputAddress, ) ftdOutputCoins
+                }
+        when (not (null ftdOutputCoins) && not (C.validateSum outTr)) $
             commitError $
-            formatSingle' "Your transaction doesn't pass validity check: {}" outTr
-        when (null outputCoin && not (C.validateSum outTr)) $
+            formatSingle'
+                "Your transaction doesn't pass validity check: {}"
+                outTr
+        when (null ftdOutputCoins && not (C.validateSum outTr)) $
             commitError $
             formatSingle'
                 "Our code is broken and our auto-generated transaction is invalid: {}"
                 outTr
-        C.logInfo C.userLoggerName $ sformat ("Please check your transaction: " % build) outTr
+        C.logInfo C.userLoggerName $
+            sformat ("Please check your transaction: " % build) outTr
         walletHeight <- query' st A.GetLastBlockId
         lastBlockHeight <- pred <$> C.getBlockchainHeight
         when (walletHeight /= lastBlockHeight) $
@@ -331,39 +368,51 @@ formTransactionRetry tries st maybeCache inputs outputAddr outputCoin =
         validateTransaction maybeCache outTr signatures $ lastBlockHeight + 1
         update' st $ A.AddTemporaryTransaction (lastBlockHeight + 1) outTr
         return outTr
-    -- For given address and coins to send from it it returns a
-    -- pair. First element is chosen addrids with user addresses to
-    -- make signature map afterwards. The second is inputs of
-    -- transaction, third is change outputs
-    formTransactionMapper
-        :: (W.UserAddress, M.Map C.Color C.Coin)
-        -> IO (Maybe ([(C.AddrId, W.UserAddress)],
-                      [C.AddrId],
-                      [(C.Address, C.Coin)]))
-    formTransactionMapper (address, requestedCoins) = do
-        (addrids :: [C.AddrId]) <-
-            concatMap (C.getAddrIdByAddress $ W.toAddress address) <$>
-            query' st (A.GetTransactions address)
-        let -- Pairs of chosen addrids and change for each color
-            chosenMap0 :: Maybe [([C.AddrId], C.Coin)]
-            chosenMap0 = M.elems <$> C.chooseAddresses addrids requestedCoins
-            chosenMap = fromJust chosenMap0
-            -- All addrids from chosenMap
-            inputAddrids = concatMap fst chosenMap
-            -- Non-null changes (coins) from chosenMap
-            changesValues :: [C.Coin]
-            changesValues = filter (> 0) $ map snd chosenMap
-            changes :: [(C.Address, C.Coin)]
-            changes = map (W.toAddress address,) changesValues
-            autoGeneratedOutputs :: [(C.Address, C.Coin)]
-            autoGeneratedOutputs =
-                if null outputCoin
-                then map (outputAddr,) $ C.coinsToList requestedCoins
-                else []
-            retValue = ( map (,address) inputAddrids
-                       , inputAddrids
-                       , changes ++ autoGeneratedOutputs
-                       )
-        return $ maybe Nothing (const $ Just retValue) chosenMap0
     pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])
-    pair3merge (a,b,c) (d,e,f) = (a++d, b++e, c++f)
+    pair3merge (a,b,c) (d,e,f) = (a ++ d, b ++ e, c ++ f)
+
+isRetriableException :: SomeException -> Bool
+isRetriableException e
+    | Just (_ :: UserLogicError) <- fromException e = True
+    | Just MEInactive <- fromException e = True
+    | isWalletSyncError e = True
+    | otherwise = False
+
+-- For given address and coins to send from it it returns a
+-- pair. First element is chosen addrids with user addresses to
+-- make signature map afterwards. The second is inputs of
+-- transaction, third is change outputs
+formTransactionMapper
+    :: A.RSCoinUserState
+    -> [C.Coin]
+    -> C.Address
+    -> W.UserAddress
+    -> M.Map C.Color C.Coin
+    -> IO (Maybe ([(C.AddrId, W.UserAddress)], [C.AddrId], [(C.Address, C.Coin)]))
+formTransactionMapper st outputCoin outputAddr address requestedCoins = do
+    (addrids :: [C.AddrId]) <-
+        concatMap (C.getAddrIdByAddress $ W.toAddress address) <$>
+        query' st (A.GetTransactions address)
+    let
+        -- Pairs of chosen addrids and change for each color
+        chosenMap0
+            :: Maybe [([C.AddrId], C.Coin)]
+        chosenMap0 = M.elems <$> C.chooseAddresses addrids requestedCoins
+        chosenMap = fromJust chosenMap0
+        -- All addrids from chosenMap
+        inputAddrids = concatMap fst chosenMap
+        -- Non-null changes (coins) from chosenMap
+        changesValues
+            :: [C.Coin]
+        changesValues = filter (> 0) $ map snd chosenMap
+        changes :: [(C.Address, C.Coin)]
+        changes = map (W.toAddress address, ) changesValues
+        autoGeneratedOutputs :: [(C.Address, C.Coin)]
+        autoGeneratedOutputs
+          | null outputCoin = map (outputAddr, ) $ C.coinsToList requestedCoins
+          | otherwise = []
+        retValue =
+            ( map (, address) inputAddrids
+            , inputAddrids
+            , changes ++ autoGeneratedOutputs)
+    return $ (const retValue) <$> chosenMap0

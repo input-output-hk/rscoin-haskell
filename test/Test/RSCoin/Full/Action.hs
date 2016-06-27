@@ -94,7 +94,7 @@ applyPartsToSend parts = M.foldrWithKey step M.empty
 -- index of address and the second one determines how much to send.
 type FromAddresses = NonEmptyList (Word, PartsToSend)
 
-type Inputs = [(Word, [C.Coin])]
+type Inputs = [U.FormTransactionInput]
 
 data UserAction
     = FormTransaction UserIndex FromAddresses ToAddress
@@ -106,9 +106,14 @@ instance Action UserAction where
         address <- toAddress toAddr
         inputs <- toInputs userIndex fromAddresses
         user <- getUser userIndex
-        unless (null inputs) $
-            void $ U.formTransactionRetry 5 user Nothing inputs address []
-            -- FIXME: add a case where we can generate outputs that are not the same as inputs
+        let ftd =
+                U.FormTransactionData
+                { U.ftdInputs = inputs
+                , U.ftdOutputAddress = address
+                , U.ftdOutputCoins = []
+                }
+        unless (null inputs) $ void $ U.formTransactionRetry 5 user Nothing ftd
+    -- FIXME: add a case where we can generate outputs that are not the same as inputs
     doAction (UpdateBlockchain userIndex) = do
         user <- getUser userIndex
         void $ U.updateBlockchain user False
@@ -137,8 +142,7 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
         map (second C.coinsToList) .
         map
             (\(i,parts) ->
-                  ( succ i
-                  , applyPartsToSend parts $ addressesAmount `indexModulo` i)) $
+                  (i, applyPartsToSend parts $ addressesAmount `indexModulo` i)) $
         fromIndexes
 
 getUser :: WorkMode m => UserIndex -> TestEnv m U.RSCoinUserState

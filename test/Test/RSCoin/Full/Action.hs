@@ -112,7 +112,8 @@ instance Action UserAction where
                 , U.ftdOutputAddress = address
                 , U.ftdOutputCoins = []
                 }
-        unless (null inputs) $ void $ U.formTransactionRetry 5 user Nothing ftd
+        unless (null inputs) $
+            void $ U.formTransactionRetry maxBound user Nothing ftd
     -- FIXME: add a case where we can generate outputs that are not the same as inputs
     doAction (UpdateBlockchain userIndex) = do
         user <- getUser userIndex

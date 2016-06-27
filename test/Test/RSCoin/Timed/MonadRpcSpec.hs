@@ -11,7 +11,7 @@ import           Control.Monad.State         (StateT, execStateT, modify)
 import           Control.Monad.Trans         (MonadIO)
 import           Data.Time.Units             (fromMicroseconds)
 import           Network.MessagePack.Server  (ServerT)
-import           System.Random               (StdGen, mkStdGen)
+import           System.Random               (StdGen)
 import           Test.Hspec                  (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Arbitrary (..), Property,

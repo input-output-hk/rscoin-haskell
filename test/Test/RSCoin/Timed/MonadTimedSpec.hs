@@ -1,8 +1,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE Rank2Types                #-}
-{-# LANGUAGE TypeSynonymInstances      #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TypeSynonymInstances      #-}
 {-# LANGUAGE ViewPatterns              #-}
 
 -- | RSCoin.Test.MonadTimed specification
@@ -11,32 +11,33 @@ module Test.RSCoin.Timed.MonadTimedSpec
        ( spec
        ) where
 
-import           Control.Exception.Base      (Exception, SomeException)
 import           Control.Concurrent.MVar     (newEmptyMVar, putMVar, takeMVar)
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
+import           Control.Exception.Base      (Exception, SomeException)
 import           Control.Monad               (void)
+import           Control.Monad.Catch         (MonadCatch, catch, catchAll,
+                                              handleAll, throwM)
 import           Control.Monad.State         (StateT, execStateT, modify, put)
 import           Control.Monad.Trans         (MonadIO, liftIO)
-import           Control.Monad.Catch         (MonadCatch, throwM, handleAll,
-                                              catchAll, catch)
 import           Data.Typeable               (Typeable)
 import           Numeric.Natural             (Natural)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Property, counterexample, ioProperty,
-                                              (===), NonNegative (..))
+import           Test.QuickCheck             (NonNegative (..), Property,
+                                              counterexample, ioProperty, (===))
 import           Test.QuickCheck.Function    (Fun, apply)
-import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, monitor,
-                                              run)
+import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic,
+                                              monitor, run)
 import           Test.QuickCheck.Poly        (A)
 import           Test.RSCoin.Timed.Arbitrary ()
 
-import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..), fork_,
-                                              RelativeToNow, invoke, now, schedule,
-                                              for, after, sec, MonadTimedError, mcs)
-import           RSCoin.Timed.TimedIO        (TimedIO, runTimedIO)
+import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..),
+                                              MonadTimedError, RelativeToNow,
+                                              after, for, fork_, invoke, mcs,
+                                              now, schedule, sec)
 import           RSCoin.Timed.Timed          (TimedT, runTimedT)
+import           RSCoin.Timed.TimedIO        (TimedIO, runTimedIO)
 
 spec :: Spec
 spec =

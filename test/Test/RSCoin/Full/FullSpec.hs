@@ -85,9 +85,6 @@ setupLogging FullTestConfig{..} = do
 
 type FullProperty = forall m . WorkMode m => FP.FullProperty m ()
 
-test :: FullProperty
-test = assertFP True
-
 prop_uniqueAddresses :: FullProperty
 prop_uniqueAddresses = do
     idx <- pickFP arbitrary

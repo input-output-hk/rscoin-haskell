@@ -6,10 +6,12 @@ module Test.RSCoin.Full.Mintette
        , malfunctioningMintetteInit
        ) where
 
+import           Control.Concurrent.MVar          (MVar, isEmptyMVar)
 import           Control.Lens                     (view)
+import           Control.Monad.Trans              (liftIO)
 
 import qualified RSCoin.Mintette                  as M
-import           RSCoin.Timed                     (WorkMode, mcs, upto, work)
+import           RSCoin.Timed                     (WorkMode, workWhile)
 
 import           Test.RSCoin.Full.Context         (MintetteInfo, port,
                                                    secretKey, state)
@@ -19,24 +21,28 @@ import qualified Test.RSCoin.Full.Mintette.Server as FM
 
 initialization
     :: (WorkMode m)
-    => Maybe MintetteConfig -> MintetteInfo -> m ()
-initialization conf m = do
-    let runner = case conf of
-             Nothing -> M.serve
-             Just s  -> FM.serve s
-    work (upto 0 mcs) $
+    => Maybe MintetteConfig -> MVar () -> MintetteInfo -> m ()
+initialization conf v m = do
+    let runner =
+            case conf of
+                Nothing -> M.serve
+                Just s -> FM.serve s
+    workWhileMVarEmpty v $
         runner <$> view port <*> view state <*> view secretKey $ m
-    work (upto 0 mcs) $
-        M.runWorker <$> view secretKey <*> view state $ m
-
+    workWhileMVarEmpty v $ M.runWorker <$> view secretKey <*> view state $ m
 
 defaultMintetteInit
     :: (WorkMode m)
-    => MintetteInfo -> m ()
+    => MVar () -> MintetteInfo -> m ()
 defaultMintetteInit = initialization Nothing
 
 malfunctioningMintetteInit
     :: (WorkMode m)
-    => MintetteInfo -> m ()
+    => MVar () -> MintetteInfo -> m ()
 malfunctioningMintetteInit =
     initialization (Just malfunctioningConfig)
+
+workWhileMVarEmpty
+    :: WorkMode m
+    => MVar a -> m () -> m ()
+workWhileMVarEmpty v = workWhile (liftIO . isEmptyMVar $ v)

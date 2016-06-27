@@ -13,20 +13,21 @@ module Test.RSCoin.Full.Context
        , TestContext (..)
        , TestEnv
        , MintetteNumber (..), UserNumber (..)
-       , bank, mintettes, buser, users, scenario
+       , bank, mintettes, buser, users, scenario, isActive
        , keys, secretKey, publicKey
        , state
        , port
        ) where
 
-import           Control.Lens         (Getter, makeLenses, to, _1, _2)
-import           Control.Monad.Reader (ReaderT)
-import           Data.Word            (Word16, Word8)
+import           Control.Concurrent.MVar (MVar)
+import           Control.Lens            (Getter, makeLenses, to, _1, _2)
+import           Control.Monad.Reader    (ReaderT)
+import           Data.Word               (Word16, Word8)
 
-import qualified RSCoin.Bank          as B
-import           RSCoin.Core          (PublicKey, SecretKey, bankPort)
-import qualified RSCoin.Mintette      as M
-import qualified RSCoin.User          as U
+import qualified RSCoin.Bank             as B
+import           RSCoin.Core             (PublicKey, SecretKey, bankPort)
+import qualified RSCoin.Mintette         as M
+import qualified RSCoin.User             as U
 
 -- | Number of mintettes in system.
 newtype MintetteNumber = MintetteNumber
@@ -72,6 +73,7 @@ data TestContext = TestContext
     , _buser     :: UserInfo  -- ^ user in bank mode
     , _users     :: [UserInfo]
     , _scenario  :: Scenario
+    , _isActive  :: MVar ()
     }
 
 $(makeLenses ''TestContext)

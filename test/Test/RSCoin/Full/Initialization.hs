@@ -7,9 +7,11 @@ module Test.RSCoin.Full.Initialization
        , bankUserAddressesCount, userAddressesCount
        ) where
 
+import           Control.Concurrent.MVar   (MVar, isEmptyMVar, newEmptyMVar,
+                                            tryPutMVar)
 import           Control.Exception         (assert)
-import           Control.Lens              ((^.))
-import           Control.Monad             (forM_, replicateM)
+import           Control.Lens              (view, (^.))
+import           Control.Monad             (replicateM)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid.Advanced        (update')
 import           Data.List                 (genericLength)
@@ -22,15 +24,15 @@ import           RSCoin.Core               (Mintette (..), bankSecretKey,
                                             keyGen, logDebug, logInfo,
                                             testingLoggerName)
 import qualified RSCoin.Mintette           as M
-import           RSCoin.Timed              (Second, WorkMode, for, mcs, ms,
-                                            myThreadId, upto, wait, work)
+import           RSCoin.Timed              (Second, WorkMode, for, ms,
+                                            myThreadId, wait, workWhile)
 import qualified RSCoin.User               as U
 
 import           Test.RSCoin.Full.Context  (BankInfo (..), MintetteInfo (..),
                                             MintetteNumber, Scenario (..),
                                             TestContext (..), TestEnv,
-                                            UserInfo (..), UserNumber, port,
-                                            publicKey, secretKey, state)
+                                            UserInfo (..), UserNumber, isActive,
+                                            port, publicKey, secretKey, state)
 import qualified Test.RSCoin.Full.Mintette as TM
 
 periodDelta :: Maybe Second
@@ -46,17 +48,18 @@ mkTestContext mNum uNum scen = do
     buinfo <- UserInfo <$> liftIO U.openMemState
     uinfos <-
         replicateM (fromIntegral uNum) $ UserInfo <$> liftIO U.openMemState
+    isActiveVar <- liftIO newEmptyMVar
     logInfo testingLoggerName "Initializing system…"
-    runMintettes minfos scen
+    runMintettes isActiveVar minfos scen
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     mapM_ (addMintetteToBank binfo) minfos
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
-    runBank binfo
+    runBank isActiveVar binfo
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     initBUser buinfo
     mapM_ initUser uinfos
     logInfo testingLoggerName "Successfully initialized system"
-    return $ TestContext binfo minfos buinfo uinfos scen
+    return $ TestContext binfo minfos buinfo uinfos scen isActiveVar
   where
     mkMintette idx =
         MintetteInfo <$> liftIO keyGen <*> liftIO M.openMemState <*>
@@ -66,7 +69,7 @@ mkTestContext mNum uNum scen = do
 
 -- | Finish everything that's going on in TestEnv.
 finishTest :: WorkMode m => TestEnv m ()
-finishTest = return ()
+finishTest = () <$ (liftIO . flip tryPutMVar () =<< view isActive)
 
 -- | Number of addresses each casual user has in wallet (constant).
 userAddressesCount :: Num a => a
@@ -76,26 +79,31 @@ userAddressesCount = 5
 bankUserAddressesCount :: Num a => a
 bankUserAddressesCount = 6
 
+workWhileMVarEmpty
+    :: WorkMode m
+    => MVar a -> m () -> m ()
+workWhileMVarEmpty v = workWhile (liftIO . isEmptyMVar $ v)
+
 runBank
     :: WorkMode m
-    => BankInfo -> m ()
-runBank b = do
+    => MVar () -> BankInfo -> m ()
+runBank v b = do
     myTId <- myThreadId
     let periodLength = fromMaybe defaultPeriodDelta periodDelta
-    work (upto 0 mcs) $
+    workWhileMVarEmpty v $
         B.runWorkerWithPeriod periodLength (b ^. secretKey) (b ^. state)
-    work (upto 0 mcs) $ B.serve (b ^. state) myTId pure
+    workWhileMVarEmpty v $ B.serve (b ^. state) myTId pure
 
 runMintettes
     :: WorkMode m
-    => [MintetteInfo] -> Scenario -> m ()
-runMintettes mts scen = do
+    => MVar () -> [MintetteInfo] -> Scenario -> m ()
+runMintettes v mts scen = do
     case scen of
-        DefaultScenario -> mapM_ TM.defaultMintetteInit mts
+        DefaultScenario -> mapM_ (TM.defaultMintetteInit v) mts
         (MalfunctioningMintettes d) -> do
             let (other,normal) = (take (partSize d) mts, drop (partSize d) mts)
-            forM_ normal $ TM.defaultMintetteInit
-            forM_ other $ TM.malfunctioningMintetteInit
+            mapM_ (TM.defaultMintetteInit v) normal
+            mapM_ (TM.malfunctioningMintetteInit v) other
         _ -> error "Test.Action.runMintettes not implemented"
   where
     partSize :: Double -> Int

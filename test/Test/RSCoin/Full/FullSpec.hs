@@ -64,8 +64,6 @@ config =
 spec :: Spec
 spec =
     before (setupLogging cfg) $ do
-        describe "test" $
-            fullProp "test" test
         describe "Full RSCoin" $ do
             fullProp "all users have unique addresses" prop_uniqueAddresses
     where cfg@FullTestConfig {..} = config

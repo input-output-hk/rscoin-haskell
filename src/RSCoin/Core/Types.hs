@@ -91,7 +91,7 @@ data CheckConfirmation = CheckConfirmation
     { ccMintetteKey       :: !PublicKey      -- ^ key of corresponding mintette
     , ccMintetteSignature :: !Signature      -- ^ signature for (tx, addrid, head)
     , ccHead              :: !ActionLogHead  -- ^ head of log
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 instance Binary CheckConfirmation where
     put CheckConfirmation{..} = do
@@ -125,7 +125,7 @@ data ActionLogEntry
     | CommitEntry !Transaction
                   !CheckConfirmations
     | CloseEpochEntry !ActionLogHeads
-    deriving (Show)
+    deriving (Show, Eq)
 
 putByte :: Word8 -> Put
 putByte = put
@@ -173,7 +173,7 @@ data LBlock = LBlock
     , lbTransactions :: ![Transaction]   -- ^ txset
     , lbSignature    :: !Signature       -- ^ signature given by mintette for hash
     , lbHeads        :: !ActionLogHeads  -- ^ heads received from other mintettes
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 $(deriveSafeCopy 0 'base ''LBlock)
 
@@ -223,7 +223,7 @@ data HBlock = HBlock
     , hbTransactions :: ![Transaction]
     , hbSignature    :: !Signature
     , hbDpk          :: !Dpk
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 $(deriveSafeCopy 0 'base ''HBlock)
 
@@ -253,7 +253,7 @@ data NewPeriodData = NewPeriodData
     , npdNewIdPayload :: !(Maybe (MintetteId, Utxo)) -- ^ Data needed for mintette to
                                                      -- restore state if it's Id changes
     , npdDpk          :: !Dpk                        -- ^ Dpk
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 instance Buildable (AddrId, Address) where
     build = pairBuilder

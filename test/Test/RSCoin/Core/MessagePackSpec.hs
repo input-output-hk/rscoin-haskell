@@ -4,6 +4,7 @@ module Test.RSCoin.Core.MessagePackSpec
        ( spec
        ) where
 
+import           Data.Int                   (Int64)
 import           Data.Maybe                 (fromJust)
 import           Data.MessagePack           (MessagePack (..),
                                              pack, unpack)
@@ -35,7 +36,22 @@ spec =
                 \(a :: Integer) -> a === mid a
             prop "Rational" $
                 \(a :: Rational) -> a === mid a
-            -- TODO: write the rest of Core.MessagePack instances
+            prop "Int64" $
+                \(a :: Int64) -> a === mid a
+            prop "Address" $
+                \(a :: C.Address) -> a === mid a
+            prop "NewPeriodData" $
+                \(a :: C.NewPeriodData) -> a === mid a
+            prop "LBlock" $
+                \(a :: C.LBlock) -> a === mid a
+            prop "HBlock" $
+                \(a :: C.HBlock) -> a === mid a
+            prop "Transaction" $
+                \(a :: C.Transaction) -> a === mid a
+            prop "CheckConfirmation" $
+                \(a :: C.CheckConfirmation) -> a === mid a
+            prop "ActionLogEntry" $
+                \(a :: C.ActionLogEntry) -> a === mid a
 
 mid :: MessagePack a => a -> a
 mid = fromJust . unpack . pack

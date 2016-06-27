@@ -7,7 +7,8 @@ module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import           Test.QuickCheck      (Arbitrary (arbitrary), NonNegative (..){-, Gen-})
+import           Test.QuickCheck      (Arbitrary (arbitrary), NonNegative (..),
+                                        Gen, oneof)
 --import qualified Data.Map.Strict as M (fromListWith)
 
 import qualified RSCoin.Core     as C
@@ -29,6 +30,33 @@ instance Arbitrary C.Address where
 
 instance Arbitrary C.Transaction where
     arbitrary = C.Transaction <$> arbitrary <*> arbitrary
+
+instance Arbitrary C.LBlock where
+    arbitrary = C.LBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary C.HBlock where
+    arbitrary = C.HBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary C.CheckConfirmation where
+    arbitrary = C.CheckConfirmation <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary C.Signature where
+    arbitrary = C.sign <$> arbitrary <*> (arbitrary :: Gen String)
+
+instance Arbitrary C.NewPeriodData where
+    arbitrary =
+        C.NewPeriodData
+        <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+
+instance Arbitrary C.ActionLogEntry where
+    arbitrary = oneof [ C.QueryEntry <$> arbitrary
+                      , C.CommitEntry <$> arbitrary <*> arbitrary
+                      , C.CloseEpochEntry <$> arbitrary
+                      ]
 
 {-instance Arbitrary [(C.Color, C.Coin)] where
     arbitrary = do

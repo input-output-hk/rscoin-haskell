@@ -19,25 +19,27 @@ module Test.RSCoin.Full.Property
        , doActionFP
        ) where
 
-import           Control.Monad.Reader        (ask, runReaderT)
-import           Control.Monad.Trans         (lift)
-import           Test.QuickCheck             (Gen, Property,
-                                              Testable (property), ioProperty)
-import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, pick)
+import           Control.Monad.Reader            (ask, runReaderT)
+import           Control.Monad.Trans             (lift)
+import           Test.QuickCheck                 (Gen, Property,
+                                                  Testable (property),
+                                                  ioProperty)
+import           Test.QuickCheck.Monadic         (PropertyM, assert, monadic,
+                                                  pick)
 
-import           RSCoin.Timed                (Delays, MsgPackRpc, PureRpc,
-                                              StdGen, WorkMode, for,
-                                              runEmulationMode,
-                                              runRealModeLocal, sec, wait)
+import           RSCoin.Timed                    (Delays, MsgPackRpc, PureRpc,
+                                                  StdGen, WorkMode,
+                                                  runEmulationMode,
+                                                  runRealModeLocal)
 
-import           Test.RSCoin.Core.Arbitrary  ()
-import           Test.RSCoin.Full.Action     (Action (doAction))
-import           Test.RSCoin.Full.Context    (MintetteNumber,
-                                              Scenario (DefaultScenario),
-                                              TestEnv, UserNumber,
-                                              mkTestContext)
-import           Test.RSCoin.Full.Gen        (extraRunningTime, genValidActions)
-import           Test.RSCoin.Timed.Arbitrary ()
+import           Test.RSCoin.Core.Arbitrary      ()
+import           Test.RSCoin.Full.Action         (Action (doAction))
+import           Test.RSCoin.Full.Context        (MintetteNumber,
+                                                  Scenario (DefaultScenario),
+                                                  TestEnv, UserNumber)
+import           Test.RSCoin.Full.Gen            (genValidActions)
+import           Test.RSCoin.Full.Initialization (finishTest, mkTestContext)
+import           Test.RSCoin.Timed.Arbitrary     ()
 
 type FullProperty m = TestEnv (PropertyM m)
 type FullPropertyEmulation = FullProperty (PureRpc IO)
@@ -53,10 +55,10 @@ toPropertyM
     :: WorkMode m
     => FullProperty m a -> MintetteNumber -> UserNumber -> PropertyM m a
 toPropertyM fp mNum uNum = do
-    (acts,t) <- pick $ genValidActions uNum
-    context <- lift $ mkTestContext mNum uNum t DefaultScenario
+    acts <- pick $ genValidActions uNum
+    context <- lift $ mkTestContext mNum uNum DefaultScenario
     lift $ runReaderT (mapM_ doAction acts) context
-    runReaderT fp context <* (lift . wait $ for extraRunningTime sec)
+    runReaderT fp context <* lift (runReaderT finishTest context)
 
 toTestable
     :: forall a.

@@ -8,8 +8,7 @@
 -- | Arbitrary instances for full testing.
 
 module Test.RSCoin.Full.Gen
-       ( extraRunningTime
-       , genValidActions
+       ( genValidActions
        ) where
 
 import           Control.Lens                    (Traversal', ix, makeLenses,
@@ -22,14 +21,11 @@ import           Data.List                       (genericIndex,
                                                   genericReplicate)
 import qualified Data.Map                        as M
 import           Data.Maybe                      (catMaybes)
-import           Data.Time.Units                 (addTime)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
-                                                  NonEmptyList (..),
-                                                  NonNegative (..), choose,
+                                                  NonEmptyList (..), choose,
                                                   oneof, sized, sublistOf)
 
 import qualified RSCoin.Core                     as C
-import           RSCoin.Timed                    (Microsecond, Second)
 
 import           Test.RSCoin.Core.Arbitrary      ()
 import           Test.RSCoin.Full.Action         (PartToSend (..), PartsToSend,
@@ -37,10 +33,9 @@ import           Test.RSCoin.Full.Action         (PartToSend (..), PartsToSend,
                                                   ToAddress, UserAction (..),
                                                   UserIndex, WaitAction (..),
                                                   applyPartsToSend)
-import           Test.RSCoin.Full.Context        (MintetteNumber, UserNumber,
-                                                  bankUserAddressesCount,
+import           Test.RSCoin.Full.Context        (MintetteNumber, UserNumber)
+import           Test.RSCoin.Full.Initialization (bankUserAddressesCount,
                                                   userAddressesCount)
-import           Test.RSCoin.Full.Initialization (InitAction (InitAction))
 import           Test.RSCoin.Timed.Arbitrary     ()
 
 instance Arbitrary MintetteNumber where
@@ -155,10 +150,7 @@ genValidFormTransactionDo solvents =
 genUpdateBlockchain :: Gen UserAction
 genUpdateBlockchain = UpdateBlockchain <$> arbitrary
 
-type ActionsDescription = ([SomeAction], Microsecond)
-
-extraRunningTime :: Second
-extraRunningTime = 10
+type ActionsDescription = [SomeAction]
 
 -- | Generate sequence of actions which can be applied to empty context
 -- (created using mkTestContext) and are guaranteed to be executed
@@ -167,11 +159,8 @@ genValidActions :: UserNumber -> Gen ActionsDescription
 genValidActions userNumber = do
     userActions <- map SomeAction <$> sized genUserActions
     actions <- mapM genWaitAction userActions
-    let actionsRunningTime = sum $ map runningTime actions
-        safeRunningTime = actionsRunningTime `addTime` extraRunningTime
-    return (SomeAction InitAction : map SomeAction actions, safeRunningTime)
+    return (map SomeAction actions)
   where
-    runningTime (WaitAction t _) = getNonNegative t
     genUserActions s =
         let updates = s `div` 10
             transactions = s - updates

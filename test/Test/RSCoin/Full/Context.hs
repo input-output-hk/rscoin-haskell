@@ -13,26 +13,30 @@ module Test.RSCoin.Full.Context
        , TestContext (..)
        , TestEnv
        , MintetteNumber (..), UserNumber (..)
-       , userAddressesCount, bankUserAddressesCount
-       , mkTestContext
-       , bank, mintettes, buser, users, lifetime, scenario
+       , bank, mintettes, buser, users, scenario
        , keys, secretKey, publicKey
        , state
        , port
        ) where
 
 import           Control.Lens         (Getter, makeLenses, to, _1, _2)
-import           Control.Monad        (forM, replicateM)
 import           Control.Monad.Reader (ReaderT)
-import           Control.Monad.Trans  (MonadIO, liftIO)
 import           Data.Word            (Word16, Word8)
 
 import qualified RSCoin.Bank          as B
-import           RSCoin.Core          (PublicKey, SecretKey, bankPort,
-                                       bankSecretKey, derivePublicKey, keyGen)
+import           RSCoin.Core          (PublicKey, SecretKey, bankPort)
 import qualified RSCoin.Mintette      as M
-import           RSCoin.Timed         (Microsecond)
 import qualified RSCoin.User          as U
+
+-- | Number of mintettes in system.
+newtype MintetteNumber = MintetteNumber
+    { getMintetteNumber :: Word8
+    } deriving (Show,Real,Ord,Eq,Enum,Num,Integral)
+
+-- | Number of users in system.
+newtype UserNumber = UserNumber
+    { getUserNumber :: Word16
+    } deriving (Show,Real,Ord,Eq,Enum,Num,Integral)
 
 data BankInfo = BankInfo
     { _bankKeys  :: (SecretKey, PublicKey)
@@ -67,47 +71,12 @@ data TestContext = TestContext
     , _mintettes :: [MintetteInfo]
     , _buser     :: UserInfo  -- ^ user in bank mode
     , _users     :: [UserInfo]
-    , _lifetime  :: Microsecond
     , _scenario  :: Scenario
     }
 
 $(makeLenses ''TestContext)
 
 type TestEnv m = ReaderT TestContext m
-
--- | Number of mintettes in system.
-newtype MintetteNumber = MintetteNumber
-    { getMintetteNumber :: Word8
-    } deriving (Show,Real,Ord,Eq,Enum,Num,Integral)
-
--- | Number of users in system.
-newtype UserNumber = UserNumber
-    { getUserNumber :: Word16
-    } deriving (Show,Real,Ord,Eq,Enum,Num,Integral)
-
-mkTestContext
-    :: MonadIO m
-    => MintetteNumber -> UserNumber -> Microsecond -> Scenario -> m TestContext
-mkTestContext mNum uNum lt scen =
-    liftIO $
-    TestContext <$> binfo <*> minfos <*> buinfo <*> uinfos <*> pure lt <*> pure scen
-  where
-    binfo = BankInfo <$> bankKey <*> B.openMemState
-    minfos =
-        forM [0 .. mNum - 1] $
-        \mid ->
-             MintetteInfo <$> keyGen <*> M.openMemState <*> pure (2300 + fromIntegral mid)
-    buinfo = UserInfo <$> U.openMemState
-    uinfos = replicateM (fromIntegral uNum) $ UserInfo <$> U.openMemState
-    bankKey = pure (bankSecretKey, derivePublicKey bankSecretKey)
-
--- | Number of addresses each casual user has in wallet (constant).
-userAddressesCount :: Num a => a
-userAddressesCount = 5
-
--- | Number of addresses each bank user has in wallet (constant).
-bankUserAddressesCount :: Num a => a
-bankUserAddressesCount = 6
 
 -- * Shortcuts
 
@@ -125,7 +94,6 @@ instance WithKeys BankInfo where
 
 instance WithKeys MintetteInfo where
     keys = mintetteKeys
-
 
 class WithState w s | w -> s where
     state :: Getter w s

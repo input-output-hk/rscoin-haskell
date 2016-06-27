@@ -14,10 +14,10 @@ module RSCoin.Core.Primitives
 
 import           Data.Binary         (Binary (get, put))
 import           Data.Hashable       (Hashable (hashWithSalt))
-import           Data.Ratio          (denominator, numerator)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 import           Data.Text.Buildable (Buildable (build))
 import qualified Data.Text.Format    as F
+import           Formatting          (bprint, float, int, (%))
 
 import           Serokell.Util.Text  (listBuilderJSON, pairBuilder,
                                       tripleBuilder)
@@ -56,12 +56,10 @@ instance Hashable Coin where
 
 instance Buildable Coin where
     build (Coin col c) =
-        mconcat [ if denominator c == 1
-                  then build $ numerator c
-                  else build c
-                , " coin(s) of color "
-                , build col
-                ]
+        bprint (float % " coin(s) of color " % int) valueDouble col
+      where
+        valueDouble :: Double
+        valueDouble = fromRational c
 
 instance Num Coin where
     (+) c1@(Coin col c) c2@(Coin col' c')

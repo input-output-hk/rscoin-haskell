@@ -6,12 +6,11 @@ module Test.RSCoin.Full.Mintette
        , malfunctioningMintetteInit
        ) where
 
-import           Control.Concurrent.MVar          (MVar, isEmptyMVar)
+import           Control.Concurrent.MVar          (MVar)
 import           Control.Lens                     (view)
-import           Control.Monad.Trans              (liftIO)
 
 import qualified RSCoin.Mintette                  as M
-import           RSCoin.Timed                     (WorkMode, workWhile)
+import           RSCoin.Timed                     (WorkMode, workWhileMVarEmpty)
 
 import           Test.RSCoin.Full.Context         (MintetteInfo, port,
                                                    secretKey, state)
@@ -41,8 +40,3 @@ malfunctioningMintetteInit
     => MVar () -> MintetteInfo -> m ()
 malfunctioningMintetteInit =
     initialization (Just malfunctioningConfig)
-
-workWhileMVarEmpty
-    :: WorkMode m
-    => MVar a -> m () -> m ()
-workWhileMVarEmpty v = workWhile (liftIO . isEmptyMVar $ v)

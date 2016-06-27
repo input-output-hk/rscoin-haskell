@@ -7,7 +7,7 @@
 
 -- | This module contains time management monad and it's implementation for IO.
 module RSCoin.Timed.MonadTimed
-    ( fork, fork_, wait, localTime, workWhile, work, schedule, invoke, timeout
+    ( fork, fork_, wait, localTime, schedule, invoke, timeout
     , killThread, myThreadId
     , minute , sec , ms , mcs
     , minute', sec', ms', mcs'
@@ -16,6 +16,7 @@ module RSCoin.Timed.MonadTimed
     , during, upto
     , interval
     , startTimer
+    , workWhile, work, workWhileMVarEmpty
     , Microsecond
     , Millisecond
     , Second
@@ -26,25 +27,26 @@ module RSCoin.Timed.MonadTimed
     , ThreadId (..)
     ) where
 
-import qualified Control.Concurrent   as C
-import           Control.Exception    (Exception (..))
-import           Control.Monad        (void)
-import           Control.Monad.Catch  (MonadThrow)
-import           Control.Monad.Loops  (whileM)
-import           Control.Monad.Reader (ReaderT (..), ask, runReaderT)
-import           Control.Monad.State  (StateT, evalStateT, get)
-import           Control.Monad.Trans  (MonadIO, lift, liftIO)
+import qualified Control.Concurrent      as C
+import           Control.Concurrent.MVar (MVar, isEmptyMVar)
+import           Control.Exception       (Exception (..))
+import           Control.Monad           (void)
+import           Control.Monad.Catch     (MonadThrow)
+import           Control.Monad.Loops     (whileM)
+import           Control.Monad.Reader    (ReaderT (..), ask, runReaderT)
+import           Control.Monad.State     (StateT, evalStateT, get)
+import           Control.Monad.Trans     (MonadIO, lift, liftIO)
 
-import           Data.IORef           (newIORef, readIORef, writeIORef)
-import           Data.Monoid          ((<>))
-import           Data.Text            (Text)
-import           Data.Text.Buildable  (Buildable (build))
-import           Data.Time.Units      (Microsecond, Millisecond, Minute, Second,
-                                       TimeUnit (..), convertUnit)
-import           Data.Typeable        (Typeable)
+import           Data.IORef              (newIORef, readIORef, writeIORef)
+import           Data.Monoid             ((<>))
+import           Data.Text               (Text)
+import           Data.Text.Buildable     (Buildable (build))
+import           Data.Time.Units         (Microsecond, Millisecond, Minute,
+                                          Second, TimeUnit (..), convertUnit)
+import           Data.Typeable           (Typeable)
 
-import           RSCoin.Core.Error    (rscExceptionFromException,
-                                       rscExceptionToException)
+import           RSCoin.Core.Error       (rscExceptionFromException,
+                                          rscExceptionToException)
 
 -- | Defines some time point (relative to current time point)
 --   basing on current time point
@@ -114,6 +116,12 @@ workWhile cond action = do
 --   and then checks predicate periocially
 work :: (MonadIO m, MonadTimed m) => TwoLayers m Bool -> m () -> m ()
 work (getTL -> predicate) action = predicate >>= \p -> workWhile p action
+
+-- | Forks temporary thread which works while MVar is empty.
+workWhileMVarEmpty
+    :: (MonadTimed m, MonadIO m)
+    => MVar a -> m () -> m ()
+workWhileMVarEmpty v = workWhile (liftIO . isEmptyMVar $ v)
 
 -- | Similar to fork, but without result
 fork_ :: MonadTimed m => m () -> m ()

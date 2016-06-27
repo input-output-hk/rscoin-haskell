@@ -7,8 +7,7 @@ module Test.RSCoin.Full.Initialization
        , bankUserAddressesCount, userAddressesCount
        ) where
 
-import           Control.Concurrent.MVar   (MVar, isEmptyMVar, newEmptyMVar,
-                                            tryPutMVar)
+import           Control.Concurrent.MVar   (MVar, newEmptyMVar, tryPutMVar)
 import           Control.Exception         (assert)
 import           Control.Lens              (view, (^.))
 import           Control.Monad             (replicateM)
@@ -25,7 +24,8 @@ import           RSCoin.Core               (Mintette (..), bankSecretKey,
                                             testingLoggerName)
 import qualified RSCoin.Mintette           as M
 import           RSCoin.Timed              (Second, WorkMode, for, ms,
-                                            myThreadId, wait, workWhile)
+                                            myThreadId, wait,
+                                            workWhileMVarEmpty)
 import qualified RSCoin.User               as U
 
 import           Test.RSCoin.Full.Context  (BankInfo (..), MintetteInfo (..),
@@ -78,11 +78,6 @@ userAddressesCount = 5
 -- | Number of addresses each bank user has in wallet (constant).
 bankUserAddressesCount :: Num a => a
 bankUserAddressesCount = 6
-
-workWhileMVarEmpty
-    :: WorkMode m
-    => MVar a -> m () -> m ()
-workWhileMVarEmpty v = workWhile (liftIO . isEmptyMVar $ v)
 
 runBank
     :: WorkMode m

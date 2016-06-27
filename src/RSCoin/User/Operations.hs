@@ -245,64 +245,17 @@ formTransactionRetry tries st maybeCache ftd@FormTransactionData{..}
       error
           "User.Operations.formTransactionRetry shouldn't be called with tries < 1"
   | null ftdInputs = commitError "you should enter at least one source input"
-  | otherwise = formTransactionRetryDo st maybeCache ftd `catch` catcher
-  where
-    catcher
-        :: WorkMode m
-        => SomeException -> m C.Transaction
-    catcher e
-      | isRetriableException e && tries > 1 = logMsgAndRetry e
-      | otherwise = throwM e
-    logMsgAndRetry
-        :: (WorkMode m, Buildable s)
-        => s -> m C.Transaction
-    logMsgAndRetry msg = do
-        C.logWarning C.userLoggerName $
-            format'
-                "formTransactionRetry failed ({}), retries left: {}"
-                (msg, tries - 1)
-        wait $ for 1 sec
-        formTransactionRetry (tries - 1) st maybeCache ftd
+  | otherwise = do
+      (tx,signatures) <- constructAndSignTransaction st ftd
+      tx <$ sendTransactionRetry tries st maybeCache tx signatures
 
-formTransactionRetryDo
+type Signatures = M.Map C.AddrId C.Signature
+
+constructAndSignTransaction
     :: forall m.
        WorkMode m
-    => A.RSCoinUserState
-    -> Maybe UserCache
-    -> FormTransactionData
-    -> m C.Transaction
-formTransactionRetryDo st maybeCache ftd@FormTransactionData{..} = do
-    (outTr,signatures) <- constructTransactionAndAuxiliary st ftd
-    when (not (null ftdOutputCoins) && not (C.validateSum outTr)) $
-        commitError $
-        formatSingle' "Your transaction doesn't pass validity check: {}" outTr
-    when (null ftdOutputCoins && not (C.validateSum outTr)) $
-        commitError $
-        formatSingle'
-            "Our code is broken and our auto-generated transaction is invalid: {}"
-            outTr
-    C.logInfo C.userLoggerName $
-        sformat ("Please check your transaction: " % build) outTr
-    walletHeight <- query' st A.GetLastBlockId
-    lastBlockHeight <- pred <$> C.getBlockchainHeight
-    when (walletHeight /= lastBlockHeight) $
-        throwM $
-        WalletSyncError $
-        format'
-            ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}). " <>
-             "Please synchonize it with blockchain. The transaction wouldn't be sent.")
-            (walletHeight, lastBlockHeight)
-    validateTransaction maybeCache outTr signatures $ lastBlockHeight + 1
-    update' st $ A.AddTemporaryTransaction (lastBlockHeight + 1) outTr
-    return outTr
-
-constructTransactionAndAuxiliary
-    :: forall m.
-       WorkMode m
-    => A.RSCoinUserState
-    -> FormTransactionData
-    -> m (C.Transaction, M.Map C.AddrId C.Signature)
-constructTransactionAndAuxiliary st FormTransactionData{..} = do
+    => A.RSCoinUserState -> FormTransactionData -> m (C.Transaction, Signatures)
+constructAndSignTransaction st FormTransactionData{..} = do
     () <$ updateBlockchain st False
     C.logInfo C.userLoggerName $
         format'
@@ -376,10 +329,71 @@ constructTransactionAndAuxiliary st FormTransactionData{..} = do
                 (\(addrid',address') ->
                       (addrid', C.sign (address' ^. W.privateAddress) outTr))
                 addrPairList
+    when (not (null ftdOutputCoins) && not (C.validateSum outTr)) $
+        commitError $
+        formatSingle' "Your transaction doesn't pass validity check: {}" outTr
+    when (null ftdOutputCoins && not (C.validateSum outTr)) $
+        commitError $
+        formatSingle'
+            "Our code is broken and our auto-generated transaction is invalid: {}"
+            outTr
     return (outTr, signatures)
   where
     pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])
     pair3merge = mappend
+
+sendTransactionRetry
+    :: forall m.
+       WorkMode m
+    => Word
+    -> A.RSCoinUserState
+    -> Maybe UserCache
+    -> C.Transaction
+    -> Signatures
+    -> m ()
+sendTransactionRetry tries st maybeCache tx signatures
+  | tries < 1 =
+      error
+          "User.Operations.sendTransactionRetry shouldn't be called with tries < 1"
+  | otherwise = sendTransactionDo st maybeCache tx signatures `catch` handler
+  where
+    handler :: SomeException -> m ()
+    handler e
+      | isRetriableException e && tries > 1 = logMsgAndRetry e
+      | otherwise = throwM e
+    logMsgAndRetry
+        :: Buildable s
+        => s -> m ()
+    logMsgAndRetry msg = do
+        C.logWarning C.userLoggerName $
+            format'
+                "Failed to send transaction ({}), retries left: {}"
+                (msg, tries - 1)
+        wait $ for 1 sec
+        () <$ updateBlockchain st False
+        sendTransactionRetry (tries - 1) st maybeCache tx signatures
+
+sendTransactionDo
+    :: forall m.
+       WorkMode m
+    => A.RSCoinUserState
+    -> Maybe UserCache
+    -> C.Transaction
+    -> Signatures
+    -> m ()
+sendTransactionDo st maybeCache tx signatures = do
+    C.logInfo C.userLoggerName $ sformat ("Sending transaction: " % build) tx
+    walletHeight <- query' st A.GetLastBlockId
+    lastBlockHeight <- pred <$> C.getBlockchainHeight
+    when (walletHeight /= lastBlockHeight) $
+        throwM $
+        WalletSyncError $
+        format'
+            ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}). " <>
+             "Please synchonize it with blockchain. The transaction wouldn't be sent.")
+            (walletHeight, lastBlockHeight)
+    validateTransaction maybeCache tx signatures $ lastBlockHeight + 1
+    update' st $ A.AddTemporaryTransaction (lastBlockHeight + 1) tx
 
 isRetriableException :: SomeException -> Bool
 isRetriableException e

@@ -6,25 +6,26 @@ module Test.RSCoin.Timed.MonadRpcSpec
        ( spec
        ) where
 
-import           Control.Monad.Random.Class (getRandomR)
-import           Control.Monad.State        (StateT, execStateT, modify)
-import           Control.Monad.Trans        (MonadIO)
-import           Data.Time.Units            (fromMicroseconds)
-import           System.Random              (StdGen, mkStdGen)
-import           Test.Hspec                 (Spec, describe, runIO)
-import           Test.Hspec.QuickCheck      (prop)
-import           Test.QuickCheck            (Arbitrary (..), Property, generate,
-                                             ioProperty)
-import           Test.QuickCheck.Monadic    (PropertyM, assert, monadic, run)
+import           Control.Monad.Random.Class  (getRandomR)
+import           Control.Monad.State         (StateT, execStateT, modify)
+import           Control.Monad.Trans         (MonadIO)
+import           Data.Time.Units             (fromMicroseconds)
+import           Network.MessagePack.Server  (ServerT)
+import           System.Random               (StdGen, mkStdGen)
+import           Test.Hspec                  (Spec, describe, runIO)
+import           Test.Hspec.QuickCheck       (prop)
+import           Test.QuickCheck             (Arbitrary (..), Property,
+                                              generate, ioProperty)
+import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, run)
 
-import           RSCoin.Timed               (runRealModeLocal)
-import           RSCoin.Timed.MonadRpc      (Addr, Client (..), Host,
-                                             MonadRpc (..), MsgPackRpc (..),
-                                             Port, call, method)
-import           RSCoin.Timed.MonadTimed    (MonadTimed (..), for, fork_, ms)
-import           RSCoin.Timed.PureRpc       (Delays (..), PureRpc, runPureRpc)
+import           RSCoin.Timed                (runRealModeLocal)
+import           RSCoin.Timed.MonadRpc       (Addr, Client (..), Host,
+                                              MonadRpc (..), MsgPackRpc (..),
+                                              Port, call, method)
+import           RSCoin.Timed.MonadTimed     (MonadTimed (..), for, fork_, ms)
+import           RSCoin.Timed.PureRpc        (Delays (..), PureRpc, runPureRpc)
 
-import           Network.MessagePack.Server (ServerT)
+import           Test.RSCoin.Timed.Arbitrary ()
 
 spec :: Spec
 spec =
@@ -68,10 +69,6 @@ runMsgPackRpcProp = monadic $ ioProperty . runRealModeLocal
 runPureRpcProp :: StdGen -> Delays -> PureRpcProp () -> Property
 runPureRpcProp gen delays test =
     ioProperty $ execStateT (runPureRpc gen delays test) True
-
--- TODO: this is kind of odd
-instance Arbitrary StdGen where
-    arbitrary = mkStdGen <$> arbitrary
 
 -- FIXME: use arbitrary instead of StdGen
 delays' :: Delays

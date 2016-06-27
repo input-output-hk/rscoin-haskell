@@ -272,7 +272,7 @@ formTransactionRetryDo
     -> FormTransactionData
     -> m C.Transaction
 formTransactionRetryDo st maybeCache ftd@FormTransactionData{..} = do
-    (outTr,addrPairList) <- constructTransactionAndAuxiliary st ftd
+    (outTr,signatures) <- constructTransactionAndAuxiliary st ftd
     when (not (null ftdOutputCoins) && not (C.validateSum outTr)) $
         commitError $
         formatSingle' "Your transaction doesn't pass validity check: {}" outTr
@@ -292,12 +292,6 @@ formTransactionRetryDo st maybeCache ftd@FormTransactionData{..} = do
             ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}). " <>
              "Please synchonize it with blockchain. The transaction wouldn't be sent.")
             (walletHeight, lastBlockHeight)
-    let signatures =
-            M.fromList $
-            map
-                (\(addrid',address') ->
-                      (addrid', C.sign (address' ^. W.privateAddress) outTr))
-                addrPairList
     validateTransaction maybeCache outTr signatures $ lastBlockHeight + 1
     update' st $ A.AddTemporaryTransaction (lastBlockHeight + 1) outTr
     return outTr
@@ -307,8 +301,8 @@ constructTransactionAndAuxiliary
        WorkMode m
     => A.RSCoinUserState
     -> FormTransactionData
-    -> m (C.Transaction, [(C.AddrId, W.UserAddress)])
-constructTransactionAndAuxiliary st FormTransactionData {..} = do
+    -> m (C.Transaction, M.Map C.AddrId C.Signature)
+constructTransactionAndAuxiliary st FormTransactionData{..} = do
     () <$ updateBlockchain st False
     C.logInfo C.userLoggerName $
         format'
@@ -376,10 +370,16 @@ constructTransactionAndAuxiliary st FormTransactionData {..} = do
             { txInputs = inputAddrids
             , txOutputs = outputs ++ map (ftdOutputAddress, ) ftdOutputCoins
             }
-    return (outTr, addrPairList)
+        signatures =
+            M.fromList $
+            map
+                (\(addrid',address') ->
+                      (addrid', C.sign (address' ^. W.privateAddress) outTr))
+                addrPairList
+    return (outTr, signatures)
   where
     pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])
-    pair3merge (a,b,c) (d,e,f) = (a ++ d, b ++ e, c ++ f)
+    pair3merge = mappend
 
 isRetriableException :: SomeException -> Bool
 isRetriableException e

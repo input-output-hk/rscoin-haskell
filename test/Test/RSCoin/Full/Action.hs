@@ -115,7 +115,7 @@ instance Action UserAction where
             retries = 5000  -- let's assume that we need more than
                             -- 5000 with negligible probability
         unless (null inputs) $
-            void $ U.formTransactionRetry 5000 user Nothing ftd
+            void $ U.formTransactionRetry retries user Nothing ftd
     -- FIXME: add a case where we can generate outputs that are not the same as inputs
     doAction (UpdateBlockchain userIndex) = do
         user <- getUser userIndex

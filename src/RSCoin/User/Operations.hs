@@ -421,18 +421,22 @@ sendTransactionDo
     -> Signatures
     -> m ()
 sendTransactionDo st maybeCache tx signatures = do
-    C.logInfo C.userLoggerName $ sformat ("Sending transaction: " % build) tx
     walletHeight <- query' st A.GetLastBlockId
-    lastBlockHeight <- pred <$> C.getBlockchainHeight
-    when (walletHeight /= lastBlockHeight) $
+    periodId <- C.getBlockchainHeight
+    let lastAppliedBlock = periodId - 1
+    C.logInfo C.userLoggerName $
+        sformat
+            ("Sending transaction: " % build % ", period id is " % int)
+            tx
+            periodId
+    when (walletHeight /= lastAppliedBlock) $
         throwM $
         WalletSyncError $
         format'
-            ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}). " <>
-             "Please synchonize it with blockchain. The transaction wouldn't be sent.")
-            (walletHeight, lastBlockHeight)
-    validateTransaction maybeCache tx signatures $ lastBlockHeight + 1
-    update' st $ A.AddTemporaryTransaction (lastBlockHeight + 1) tx
+            ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}).")
+            (walletHeight, lastAppliedBlock)
+    validateTransaction maybeCache tx signatures periodId
+    update' st $ A.AddTemporaryTransaction periodId tx
 
 isRetriableException :: SomeException -> Bool
 isRetriableException e

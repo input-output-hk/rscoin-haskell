@@ -7,9 +7,10 @@
 
 module RSCoin.Core.Protocol
        ( BankMethod (..)
-       , MintetteMethod (..)
        , DumpMethod (..)
+       , MintetteMethod (..)
        , RSCoinMethod (..)
+       , SignerMethod (..)
        , WithResult
        , Server
        , T.Client
@@ -66,13 +67,18 @@ data MintetteMethod
     | CommitTx
     deriving (Show)
 
--- Requests for dumping state
+-- | Requests for dumping state.
 data DumpMethod
     = GetHBlocks
     | GetLogs
     | GetMintetteUtxo
     | GetMintetteBlocks
     | GetMintetteLogs
+    deriving (Show)
+
+-- | Requests for multisign transactions.
+data SignerMethod
+    = SignTransaction
     deriving (Show)
 
 type Server a = T.Server a

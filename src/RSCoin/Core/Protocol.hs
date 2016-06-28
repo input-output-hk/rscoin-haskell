@@ -21,10 +21,12 @@ module RSCoin.Core.Protocol
        , execBankSafe
        , execMintette
        , execMintetteSafe
+       , execSigner
        , callBank
        , callBankSafe
        , callMintette
        , callMintetteSafe
+       , callSigner
        , unCps
        ) where
 

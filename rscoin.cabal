@@ -60,6 +60,9 @@ library
                      , RSCoin.User.Logic
                      , RSCoin.User.Operations
                      , RSCoin.User.Wallet
+                     , RSCoin.Signer
+                     , RSCoin.Signer.AcidState
+                     , RSCoin.Signer.Storage
                      , RSCoin.Timed
                      , RSCoin.Timed.MonadTimed
                      , RSCoin.Timed.MonadRpc
@@ -132,25 +135,6 @@ library
                        -fno-warn-orphans -fwarn-typed-holes
   default-extensions:  RecordWildCards
                      , OverloadedStrings
-                     , DeriveDataTypeable
-                     , GeneralizedNewtypeDeriving
-
-executable rscoin-signer
-  main-is:             Main.hs
-  other-modules:       Options
-  build-depends:       base >= 4.8 && < 4.9
-                     , mtl
-                     , optparse-applicative
-                     , rscoin
-                     , serokell-core
-                     , text
-                     , time-units
-  hs-source-dirs:      src/Signer
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -O2
-                       -fno-warn-orphans
-  default-extensions:  OverloadedStrings
-                     , RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 
@@ -244,6 +228,27 @@ executable rscoin-mintette
                      , rscoin
                      , serokell-core
   hs-source-dirs:      src/Mintette
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -O2
+                       -fno-warn-orphans
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+
+executable rscoin-signer
+  main-is:             Main.hs
+  other-modules:       SignerOptions
+  build-depends:       base >= 4.8 && < 4.9
+                     , bytestring
+                     , exceptions
+                     , mtl
+                     , optparse-applicative
+                     , rscoin
+                     , serokell-core
+                     , text
+                     , time-units
+  hs-source-dirs:      src/Signer
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -O2
                        -fno-warn-orphans

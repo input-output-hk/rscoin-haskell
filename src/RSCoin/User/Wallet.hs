@@ -122,7 +122,7 @@ data WalletStorage = WalletStorage
                                                          -- (utxo basically)
     , _periodDeleted     :: [(UserAddress, TrAddrId)]    -- ^ Support list for deleted events
     , _periodAdded       :: [(UserAddress, TrAddrId)]    -- ^ Support list for added events
-    , _lastBlockId       :: Maybe PeriodId               -- ^ Last blochain height known
+    , _lastBlockId       :: Maybe PeriodId               -- ^ Last blockchain height known
                                                          -- to user (if known)
 
     , _historyTxs        :: S.Set TxHistoryRecord        -- ^ History of all transactions

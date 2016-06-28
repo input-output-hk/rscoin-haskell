@@ -45,9 +45,10 @@ import qualified RSCoin.Timed            as T
 
 -- | Requests used in RSCoin transport layer.
 data RSCoinMethod
-    = RSCBank BankMethod
+    = RSCBank     BankMethod
     | RSCMintette MintetteMethod
-    | RSCDump DumpMethod
+    | RSCDump     DumpMethod
+    | RSCSign     SignerMethod
     deriving (Show)
 
 -- | Requests processed by a Bank.
@@ -116,6 +117,10 @@ execBankSafe = (>>=) . callBankSafe
 execMintetteSafe :: MessagePack a => Mintette -> T.Client a -> WithResult a
 execMintetteSafe m = (>>=) . callMintetteSafe m
 
+-- | Send request to Signer.
+execSigner :: MessagePack a => T.Client a -> WithResult a
+execSigner = (>>=) . callSigner
+
 -- | Send a request to a Bank.
 callBank :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
 callBank action = do
@@ -141,6 +146,13 @@ callMintetteSafe :: (MessagePack a, T.WorkMode m)
              => Mintette -> T.Client a -> m a
 callMintetteSafe Mintette {..} action =
     T.execClientTimeout rpcTimeout (BS.pack mintetteHost, mintettePort) action
+
+-- TODO: TEMRORAL SOLUTION
+signerHost = "127.0.0.1"
+signerPort = 1234
+
+callSigner :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
+callSigner action = T.execClientTimeout rpcTimeout (signerHost, signerPort) action
 
 -- | Reverse Continuation passing style (CPS) transformation
 unCps :: forall a m . MonadIO m => ((a -> m ()) -> m ()) -> m a

@@ -48,7 +48,6 @@ import           Serokell.Util          (format', formatSingle',
                                          pairBuilder)
 
 import qualified RSCoin.Core            as C
-import           RSCoin.Mintette        (MintetteError (MEInactive))
 import           RSCoin.Timed           (WorkMode, for, sec, wait)
 import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
@@ -441,6 +440,5 @@ sendTransactionDo st maybeCache tx signatures = do
 isRetriableException :: SomeException -> Bool
 isRetriableException e
     | Just (_ :: UserLogicError) <- fromException e = True
-    | Just MEInactive <- fromException e = True
     | isWalletSyncError e = True
     | otherwise = False

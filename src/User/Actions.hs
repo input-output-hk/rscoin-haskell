@@ -31,8 +31,8 @@ import           RSCoin.Timed            (WorkMode, for, ms, wait)
 import           RSCoin.User.AcidState   (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState   as A
 import           RSCoin.User.Error       (eWrap)
-import           RSCoin.User.Operations  (FormTransactionData (..),
-                                          formTransactionRetry, getAmount,
+import           RSCoin.User.Operations  (TransactionData (..), getAmount,
+                                          submitTransactionRetry,
                                           updateBlockchain)
 import qualified RSCoin.User.Operations  as P
 import qualified RSCoin.User.Wallet      as W
@@ -87,24 +87,27 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
            inputs' =
                map
                    (foldr1
-                        (\(a,b) (_,d) -> (a, b ++ d))) $
+                        (\(a,b) (_,d) ->
+                              (a, b ++ d))) $
                groupBy ((==) `on` snd) $
                map
-                   (\(idx,o,c) -> (idx - 1, [Coin c (toRational o)]))
+                   (\(idx,o,c) ->
+                         (idx - 1, [Coin c (toRational o)]))
                    inputs
            outputs' =
                map
-                   (\(amount,color) -> Coin color (toRational amount))
+                   (\(amount,color) ->
+                         Coin color (toRational amount))
                    outputCoins
-           ftd =
-               FormTransactionData
-               { ftdInputs = inputs'
-               , ftdOutputAddress = fromJust outputAddr
-               , ftdOutputCoins = outputs'
+           td =
+               TransactionData
+               { tdInputs = inputs'
+               , tdOutputAddress = fromJust outputAddr
+               , tdOutputCoins = outputs'
                }
        unless (isJust outputAddr) $
            P.commitError $ "Provided key can't be exported: " <> outputAddrStr
-       void $ formTransactionRetry 2 st cache ftd
+       void $ submitTransactionRetry 2 st cache td
 processCommand st O.UpdateBlockchain _ =
     eWrap $
     do res <- updateBlockchain st True

@@ -115,7 +115,7 @@ applyPartsToSend parts = M.foldrWithKey step M.empty
 -- index of address and the second one determines how much to send.
 type FromAddresses = NonEmptyList (Word, PartsToSend)
 
-type Inputs = [U.FormTransactionInput]
+type Inputs = [U.TransactionInput]
 
 data UserAction
     = SendTransaction UserIndex
@@ -129,16 +129,16 @@ instance Action UserAction where
         address <- toAddress toAddr
         inputs <- toInputs userIndex fromAddresses
         user <- getUser userIndex
-        let ftd =
-                U.FormTransactionData
-                { U.ftdInputs = inputs
-                , U.ftdOutputAddress = address
-                , U.ftdOutputCoins = []
+        let td =
+                U.TransactionData
+                { U.tdInputs = inputs
+                , U.tdOutputAddress = address
+                , U.tdOutputCoins = []
                 }
             retries = 5000  -- let's assume that we need more than
                             -- 5000 with negligible probability
         unless (null inputs) $
-            void $ U.formTransactionRetry retries user Nothing ftd
+            void $ U.submitTransactionRetry retries user Nothing td
     -- FIXME: add a case where we can generate outputs that are not the same as inputs
     doAction (UpdateBlockchain userIndex) = do
         user <- getUser userIndex

@@ -36,7 +36,7 @@ import           Control.Monad.State         (MonadState (get, put, state),
 import           Control.Monad.Trans         (MonadIO, MonadTrans, lift, liftIO)
 import           Data.Function               (on)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
-import           Data.Maybe                  (fromJust, fromMaybe)
+import           Data.Maybe                  (fromJust)
 import           Data.Ord                    (comparing)
 
 import qualified Data.PQueue.Min             as PQ
@@ -48,7 +48,7 @@ import           RSCoin.Core.Logging         (logDebug, logWarning,
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
                                               ThreadId (PureThreadId), for,
-                                              fork, killThread, localTime, mcs,
+                                              fork, killThread, localTime,
                                               myThreadId, timeout, wait, ms,
                                               Millisecond, localTime)
 
@@ -328,12 +328,12 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
             liftIO $ writeIORef ref $ Just res
         -- wait and gather results
         waitForRes ref wtid t
-      where waitForRes ref tid t = do
+      where waitForRes ref tid tout = do
                 lt <- localTime
-                waitForRes' ref tid $ lt + t
+                waitForRes' ref tid $ lt + tout
             waitForRes' ref tid end = do
-                t <- localTime
-                if t >= end
+                tNow <- localTime
+                if tNow >= end
                     then do
                         killThread tid
                         res <- liftIO $ readIORef ref

@@ -43,20 +43,18 @@ import           Control.Lens               (Getter, at, makeLenses, to, use,
                                              (<>=), (<~))
 import           Control.Monad              (unless, when)
 import           Control.Monad.Catch        (MonadThrow (throwM))
+import           Control.Monad.Extra        (whenJust)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
-import           Data.Foldable              (forM_)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust, isJust, isNothing)
 import qualified Data.Set                   as S
 import           Data.Tuple.Select          (sel1)
 import           Safe                       (atMay, headMay)
 
-import           RSCoin.Core                (ActionLog, ActionLogHeads, AddrId,
-                                             Hash, LBlock, MintetteId,
-                                             Mintettes, PeriodId, Pset,
-                                             SecretKey, Signature,
-                                             Transaction (..), Utxo,
+import           RSCoin.Core                (ActionLog, ActionLogHeads, Hash,
+                                             LBlock, MintetteId, Mintettes,
+                                             PeriodId, Pset, SecretKey, Utxo,
                                              computeOutputAddrids,
                                              derivePublicKey, hbTransactions,
                                              isOwner, mkCheckConfirmation,
@@ -67,20 +65,21 @@ import qualified RSCoin.Core                as C
 import           RSCoin.Mintette.Error      (MintetteError (..))
 
 data Storage = Storage
-    { _utxo          :: Utxo               -- ^ Unspent transaction outputs
-    , _utxoDeleted   :: Utxo               -- ^ Entries, deleted from utxo
-    , _utxoAdded     :: Utxo               -- ^ Entries, added to utxo
-    , _pset          :: Pset               -- ^ Set of checked transactions
-    , _txset         :: S.Set Transaction  -- ^ List of transaction sealing into ledger
-    , _lBlocks       :: [[LBlock]]         -- ^ Blocks are stored per period
-    , _actionLogs    :: [ActionLog]        -- ^ Logs are stored per period
-    , _logSize       :: Int                -- ^ Total size of actionLogs
-    , _mintettes     :: Mintettes          -- ^ Mintettes for current period
-    , _mintetteId    :: Maybe MintetteId   -- ^ Id for current period
-    , _invMintetteId :: Maybe MintetteId   -- ^ Invariant for mintetteId
-    , _dpk           :: C.Dpk              -- ^ DPK for current period
-    , _logHeads      :: ActionLogHeads     -- ^ All known heads of logs
-    , _lastBankHash  :: Maybe Hash         -- ^ Hash of the last HBlock
+    { _utxo          :: Utxo                 -- ^ Unspent transaction outputs
+    , _utxoDeleted   :: Utxo                 -- ^ Entries, deleted from utxo
+    , _utxoAdded     :: Utxo                 -- ^ Entries, added to utxo
+    , _pset          :: Pset                 -- ^ Set of checked transactions
+    , _txset         :: S.Set C.Transaction  -- ^ List of transaction
+                                             -- sealing into ledger
+    , _lBlocks       :: [[LBlock]]           -- ^ Blocks are stored per period
+    , _actionLogs    :: [ActionLog]          -- ^ Logs are stored per period
+    , _logSize       :: Int                  -- ^ Total size of actionLogs
+    , _mintettes     :: Mintettes            -- ^ Mintettes for current period
+    , _mintetteId    :: Maybe MintetteId     -- ^ Id for current period
+    , _invMintetteId :: Maybe MintetteId     -- ^ Invariant for mintetteId
+    , _dpk           :: C.Dpk                -- ^ DPK for current period
+    , _logHeads      :: ActionLogHeads       -- ^ All known heads of logs
+    , _lastBankHash  :: Maybe Hash           -- ^ Hash of the last HBlock
     }
 
 $(makeLenses ''Storage)
@@ -141,15 +140,15 @@ type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 -- | Validate structure of transaction, check input AddrId for
 -- double spent and signature, update state if everything is valid.
 -- Result is True iff everything is valid.
-checkNotDoubleSpent :: SecretKey
-                    -> Transaction
-                    -> AddrId
-                    -> Signature
+checkNotDoubleSpent :: C.SecretKey
+                    -> C.Transaction
+                    -> C.AddrId
+                    -> C.Signature
                     -> ExceptUpdate C.CheckConfirmation
 checkNotDoubleSpent sk tx addrId sg = do
     checkIsActive
     checkTxSum tx
-    unless (addrId `elem` txInputs tx) $
+    unless (addrId `elem` C.txInputs tx) $
         throwM $ MEInconsistentRequest "AddrId is not part of inputs"
     inPset <- M.lookup addrId <$> use pset
     maybe notInPsetCase inPsetCase inPset
@@ -167,8 +166,10 @@ checkNotDoubleSpent sk tx addrId sg = do
         pushLogEntry $ C.QueryEntry tx
         utxoEntry <- uses utxo (M.lookup addrId)
         utxo %= M.delete addrId
-        when (isJust utxoEntry)
-             (utxoDeleted %= M.insert addrId (fromJust utxoEntry))
+        whenJust
+            utxoEntry
+            (\e ->
+                  utxoDeleted %= M.insert addrId e)
         pset %= M.insert addrId tx
         hsh <- uses logHead (snd . fromJust)
         logSz <- use logSize
@@ -177,12 +178,12 @@ checkNotDoubleSpent sk tx addrId sg = do
 -- | Check that transaction is valid and whether it falls within
 -- mintette's remit.  If it's true, add transaction to storage and
 -- return signed confirmation.
-commitTx :: SecretKey
-         -> Transaction
-         -> PeriodId
+commitTx :: C.SecretKey
+         -> C.Transaction
+         -> C.PeriodId
          -> C.CheckConfirmations
          -> ExceptUpdate C.CommitConfirmation
-commitTx sk tx@Transaction{..} pId bundle = do
+commitTx sk tx@C.Transaction{..} pId bundle = do
     checkIsActive
     checkPeriodId pId
     checkTxSum tx
@@ -223,8 +224,8 @@ commitTx sk tx@Transaction{..} pId bundle = do
 
 commitTxChecked
     :: Bool
-    -> SecretKey
-    -> Transaction
+    -> C.SecretKey
+    -> C.Transaction
     -> C.CheckConfirmations
     -> ExceptUpdate C.CommitConfirmation
 commitTxChecked False _ _ _ = throwM MENotConfirmed
@@ -261,7 +262,9 @@ startPeriod C.NewPeriodData{..} = do
     when alreadyActive discardCurrentPeriod
     -- we don't check if new mid /= old one, because there is
     -- Nothing == Nothing situation at the very start
-    forM_ npdNewIdPayload (uncurry onMintetteIdChanged)
+    whenJust
+        npdNewIdPayload
+        (uncurry onMintetteIdChanged)
     invMId <- use invMintetteId
     when (isNothing npdNewIdPayload && isNothing invMId) $
         throwM $
@@ -274,29 +277,38 @@ startPeriod C.NewPeriodData{..} = do
     dpk .= npdDpk
     pset .= M.empty
     unless (isJust npdNewIdPayload) $
-        do let txOutsPaired =
+        do let blockOutputs :: C.Utxo
+               blockOutputs =
+                   M.fromList $
                    concatMap computeOutputAddrids $ hbTransactions npdHBlock
-           -- those are transactions that we approved, but that didn't
-           -- go into blockchain, so they should still be in utxo
-           deletedNotInBlockchain <-
+           -- those are transactions that we approved, but didn't go
+           -- into blockchain, so they should still be in utxo
+           deletedNotInBlockchain :: C.Utxo <-
                uses
                    utxoDeleted
-                   (filter (not . (`elem` txOutsPaired)) . M.assocs)
+                   (M.filterWithKey $
+                    \k _ ->
+                         (k `M.notMember` blockOutputs))
            -- those are transactions that were commited but for some
-           -- reason bank rejected LBlock and they didn't got into
+           -- reason bank rejected LBlock and they didn't go into
            -- blockchain
-           addedNotInBlockchain <-
-               uses utxoAdded (filter (not . (`elem` txOutsPaired)) . M.assocs)
+           addedNotInBlockchain :: C.Utxo <-
+               uses
+                   utxoAdded
+                   (M.filterWithKey $
+                    \k _ ->
+                         (k `M.notMember` blockOutputs))
            -- bank can (and in fact it does) insert in HBlock transactions
            -- that didn't pass through mintette (like fee allocation).
-           let miscTransactions =
-                   filter
-                       (\x ->
-                             isOwner npdMintettes (sel1 $ fst x) (fromJust mId))
-                       txOutsPaired -- just for verbosity
-           utxo %= M.union (M.fromList deletedNotInBlockchain)
-           utxo %= (`M.difference` M.fromList addedNotInBlockchain)
-           utxo %= M.union (M.fromList miscTransactions)
+           let miscTransactions :: C.Utxo
+               miscTransactions =
+                   M.filterWithKey
+                       (\k _ ->
+                             isOwner npdMintettes (sel1 k) (fromJust mId))
+                       blockOutputs -- just for verbosity
+           utxo <>= deletedNotInBlockchain
+           utxo %= (`M.difference` addedNotInBlockchain)
+           utxo <>= miscTransactions
     utxoDeleted .= M.empty
     utxoAdded .= M.empty
     lastBankHash .= Just (C.hbHash npdHBlock)
@@ -321,7 +333,7 @@ finishEpoch sk = do
     txList <- S.toList <$> use txset
     finishEpochList sk txList
 
-finishEpochList :: SecretKey -> [Transaction] -> Update ()
+finishEpochList :: C.SecretKey -> [C.Transaction] -> Update ()
 finishEpochList _ [] = return ()
 finishEpochList sk txList = do
     heads <- use logHeads
@@ -347,7 +359,7 @@ checkIsActive = do
     v <- use isActive
     unless v $ throwM MEInactive
 
-checkTxSum :: Transaction -> ExceptUpdate ()
+checkTxSum :: C.Transaction -> ExceptUpdate ()
 checkTxSum tx = unless (C.validateSum tx) $ throwM MEInvalidTxSums
 
 checkPeriodId :: PeriodId -> ExceptUpdate ()

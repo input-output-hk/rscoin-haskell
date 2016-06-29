@@ -92,9 +92,10 @@ library
                      , containers
                      , data-default
                      , directory
-                     , exceptions
-                     , either
                      , ed25519
+                     , either
+                     , exceptions
+                     , extra
                      , file-embed
                      , filepath
                      , formatting

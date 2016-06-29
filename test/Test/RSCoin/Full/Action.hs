@@ -1,6 +1,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TypeSynonymInstances      #-}
 {-# LANGUAGE ViewPatterns              #-}
 
 -- | Actions affecting global context.
@@ -28,22 +30,29 @@ import           Data.Bifunctor           (second)
 import           Data.Function            (on)
 import           Data.List                (nubBy)
 import qualified Data.Map                 as M
-import           Test.QuickCheck          (NonEmptyList (..), NonNegative (..))
+import           Data.Text.Buildable      (Buildable (build))
+import           Data.Text.Lazy.Builder   (Builder)
+import           Formatting               (bprint, builder, int, shown, (%))
+import qualified Formatting
+import           Test.QuickCheck          (NonEmptyList (..))
 
-import           Serokell.Util            (indexModulo, indexModuloMay)
+import           Serokell.Util            (indexModulo, indexModuloMay,
+                                           listBuilderJSON, mapBuilder,
+                                           pairBuilder)
 
 import qualified RSCoin.Core              as C
-import           RSCoin.Timed             (Second, WorkMode, for, invoke, sec)
+import           RSCoin.Timed             (Millisecond, WorkMode, after, invoke,
+                                           ms)
 import qualified RSCoin.User              as U
 
 import           Test.RSCoin.Full.Context (TestEnv, buser, state, users)
 import           Test.RSCoin.Full.Error   (TestError (TestError))
 
-class (Show a) => Action a where
+class Action a where
     doAction :: WorkMode m => a -> TestEnv m ()
 
 data SomeAction =
-    forall a. (Action a, Show a) => SomeAction a
+    forall a. (Action a, Show a, Buildable a) => SomeAction a
 
 instance Show SomeAction where
     show (SomeAction a) = show a
@@ -51,14 +60,24 @@ instance Show SomeAction where
 instance Action SomeAction where
     doAction (SomeAction a) = doAction a
 
-data WaitAction a = WaitAction (NonNegative Second) a
+instance Buildable SomeAction where
+    build (SomeAction a) = build a
+
+data WaitAction a = WaitAction Millisecond a
     deriving Show
 
 type WaitSomeAction = WaitAction SomeAction
 
 instance Action a => Action (WaitAction a) where
-    doAction (WaitAction (getNonNegative -> time) action) =
-        invoke (for time sec) $ doAction action
+    doAction (WaitAction time action) =
+        invoke (after time ms) $ doAction action
+
+instance Buildable a => Buildable (WaitAction a) where
+    build (WaitAction time action) =
+        bprint
+            ("wait for " % shown % " and then " % Formatting.build)
+            time
+            action
 
 -- | Nothing represents bank user, otherwise user is selected according
 -- to index in the list
@@ -71,7 +90,7 @@ type ToAddress = Either C.Address (UserIndex, Word)
 -- send from address.
 newtype PartToSend = PartToSend
     { getPartToSend :: Double
-    } deriving (Show, Num, Eq)
+    } deriving (Show, Num, Eq, Buildable)
 
 applyPartToSend :: PartToSend -> C.Coin -> C.Coin
 applyPartToSend (PartToSend p) coin =
@@ -80,6 +99,9 @@ applyPartToSend (PartToSend p) coin =
 
 -- | How much values of each color to send.
 type PartsToSend = M.Map C.Color PartToSend
+
+instance Buildable PartsToSend where
+    build = mapBuilder . M.assocs
 
 applyPartsToSend :: PartsToSend -> C.CoinsMap -> C.CoinsMap
 applyPartsToSend parts = M.foldrWithKey step M.empty
@@ -94,32 +116,59 @@ applyPartsToSend parts = M.foldrWithKey step M.empty
 -- index of address and the second one determines how much to send.
 type FromAddresses = NonEmptyList (Word, PartsToSend)
 
-type Inputs = [U.FormTransactionInput]
+type Inputs = [U.TransactionInput]
 
 data UserAction
-    = FormTransaction UserIndex FromAddresses ToAddress
+    = SendTransaction UserIndex
+                      FromAddresses
+                      ToAddress
     | UpdateBlockchain UserIndex
-    deriving Show
+    deriving (Show)
 
 instance Action UserAction where
-    doAction (FormTransaction userIndex fromAddresses toAddr) = do
+    doAction (SendTransaction userIndex fromAddresses toAddr) = do
         address <- toAddress toAddr
         inputs <- toInputs userIndex fromAddresses
         user <- getUser userIndex
-        let ftd =
-                U.FormTransactionData
-                { U.ftdInputs = inputs
-                , U.ftdOutputAddress = address
-                , U.ftdOutputCoins = []
+        let td =
+                U.TransactionData
+                { U.tdInputs = inputs
+                , U.tdOutputAddress = address
+                , U.tdOutputCoins = []
                 }
-            retries = 5000  -- let's assume that we need more than
-                            -- 5000 with negligible probability
+            retries = 100  -- let's assume that we need more than 100
+                           -- with negligible probability
         unless (null inputs) $
-            void $ U.formTransactionRetry 5000 user Nothing ftd
+            void $ U.submitTransactionRetry retries user Nothing td
     -- FIXME: add a case where we can generate outputs that are not the same as inputs
     doAction (UpdateBlockchain userIndex) = do
         user <- getUser userIndex
         void $ U.updateBlockchain user False
+
+userIndexBuilder :: UserIndex -> Builder
+userIndexBuilder = maybe "'bank user'" (bprint ("#" % int))
+
+toAddressBuilder :: ToAddress -> Builder
+toAddressBuilder (Left _) = "arbitrary address"
+toAddressBuilder (Right (usrIdx,addrIdx)) =
+    bprint
+        ("address #" % int % " of user " % builder)
+        addrIdx
+        (userIndexBuilder usrIdx)
+
+instance Buildable UserAction where
+    build (SendTransaction usrIdx (getNonEmpty -> srcs) dst) =
+        bprint
+            ("send transaction from addresses " % builder % " of user " %
+             builder %
+             " to " %
+             builder)
+            srcsBuilder
+            (userIndexBuilder usrIdx)
+            (toAddressBuilder dst)
+      where
+        srcsBuilder = listBuilderJSON . map pairBuilder $ srcs
+    build (UpdateBlockchain _) = "update someone's blockchain"
 
 toAddress
     :: WorkMode m
@@ -131,7 +180,9 @@ toAddress =
             publicAddresses <- query' user U.GetPublicAddresses
             return . C.Address $ publicAddresses `indexModulo` addressIndex
 
-toInputs :: WorkMode m => UserIndex -> FromAddresses -> TestEnv m Inputs
+toInputs
+    :: WorkMode m
+    => UserIndex -> FromAddresses -> TestEnv m Inputs
 toInputs userIndex (getNonEmpty -> fromIndexes) = do
     user <- getUser userIndex
     allAddresses <- query' user U.GetAllAddresses
@@ -148,7 +199,9 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
                   (i, applyPartsToSend parts $ addressesAmount `indexModulo` i)) $
         fromIndexes
 
-getUser :: WorkMode m => UserIndex -> TestEnv m U.RSCoinUserState
+getUser
+    :: WorkMode m
+    => UserIndex -> TestEnv m U.RSCoinUserState
 getUser Nothing =
     view $ buser . state
 getUser (Just index) = do

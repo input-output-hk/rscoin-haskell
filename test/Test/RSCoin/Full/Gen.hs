@@ -21,6 +21,7 @@ import           Data.List                       (genericIndex,
                                                   genericReplicate)
 import qualified Data.Map                        as M
 import           Data.Maybe                      (catMaybes)
+import           Data.Time.Units                 (fromMicroseconds)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
                                                   NonEmptyList (..), choose,
                                                   oneof, sized, sublistOf)
@@ -56,7 +57,9 @@ genPartsToSend =
     M.keys
 
 genWaitAction :: a -> Gen (WaitAction a)
-genWaitAction a = WaitAction <$> arbitrary <*> pure a
+genWaitAction a =
+    WaitAction <$> (fromMicroseconds <$> choose (0, 5 * 1000 * 1000)) <*>
+    pure a -- at most 5 seconds
 
 -- | I-th element in this list stores CoinsMap for `i-th` address.
 type BalancesList = [C.CoinsMap]
@@ -92,18 +95,18 @@ initialBalances userNumber =
 
 -- It may be impossible if there were transactions to arbitrary
 -- address (in this case there may be effectively no coins in system).
-genValidFormTransaction :: StateT AllBalances Gen (Maybe UserAction)
-genValidFormTransaction = do
+genValidSendTransaction :: StateT AllBalances Gen (Maybe UserAction)
+genValidSendTransaction = do
     bb <- (Nothing, ) <$> use bankBalances
     ub <- zip (fmap Just [0 ..]) <$> use usersBalances
-    genValidFormTransactionDo .
+    genValidSendTransactionDo .
         filter (not . null . C.coinsToList . C.mergeCoinsMaps . snd) $
         bb : ub
 
-genValidFormTransactionDo :: [(UserIndex, BalancesList)]
+genValidSendTransactionDo :: [(UserIndex, BalancesList)]
                           -> StateT AllBalances Gen (Maybe UserAction)
-genValidFormTransactionDo [] = return Nothing
-genValidFormTransactionDo solvents =
+genValidSendTransactionDo [] = return Nothing
+genValidSendTransactionDo solvents =
     Just <$>
     do (uIdx,uBalances) <- lift . oneof . map pure $ solvents
        let nonEmptyAddresses =
@@ -118,7 +121,7 @@ genValidFormTransactionDo solvents =
        mapM_ (uncurry $ subtractFromInput uIdx) fromAddresses
        dest <- lift arbitrary
        addToDestination uIdx fromAddresses dest
-       return $ FormTransaction uIdx (NonEmpty fromAddresses) dest
+       return $ SendTransaction uIdx (NonEmpty fromAddresses) dest
   where
     nonEmptySublistOf :: [a] -> Gen [a]
     nonEmptySublistOf xs = do
@@ -167,5 +170,5 @@ genValidActions userNumber = do
         in (++) <$> replicateM updates genUpdateBlockchain <*>
            (catMaybes <$>
             evalStateT
-                (replicateM transactions genValidFormTransaction)
+                (replicateM transactions genValidSendTransaction)
                 (initialBalances userNumber))

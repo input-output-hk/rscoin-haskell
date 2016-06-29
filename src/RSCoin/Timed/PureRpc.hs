@@ -13,7 +13,7 @@ module RSCoin.Timed.PureRpc
     , Delays(..)
     ) where
 
-import           Control.Lens            (makeLenses, use, (%=), (.=))
+import           Control.Lens            (makeLenses, use, (%%=), (%=))
 import           Control.Monad           (forM_)
 import           Control.Monad.Catch     (MonadCatch, MonadMask, MonadThrow,
                                           throwM)
@@ -163,9 +163,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
 waitDelay :: (MonadThrow m, MonadIO m, MonadCatch m) => RpcStage -> PureRpc m ()
 waitDelay stage =
     PureRpc $
-    do seed <- lift . lift $ use randSeed
-       delays' <- lift . lift $ use delays
+    do delays' <- lift . lift $ use delays
        time <- localTime
-       let (delay,nextSeed) = runRand (evalDelay delays' stage time) seed
-       lift $ lift $ randSeed .= nextSeed
+       delay <- lift . lift $ randSeed %%= runRand (evalDelay delays' stage time)
        wait $ maybe (for 99999 minute) (`for` mcs) delay

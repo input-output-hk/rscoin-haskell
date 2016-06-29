@@ -21,12 +21,16 @@ module Test.RSCoin.Full.Property
 
 import           Control.Monad.Reader            (ask, runReaderT)
 import           Control.Monad.Trans             (lift)
+import           Formatting                      (build, sformat, (%))
 import           Test.QuickCheck                 (Gen, Property,
                                                   Testable (property),
                                                   ioProperty)
 import           Test.QuickCheck.Monadic         (PropertyM, assert, monadic,
                                                   pick)
 
+import           Serokell.Util                   (listBuilderJSONIndent)
+
+import           RSCoin.Core                     (logInfo, testingLoggerName)
 import           RSCoin.Timed                    (Delays, MsgPackRpc, PureRpc,
                                                   StdGen, WorkMode,
                                                   runEmulationMode,
@@ -57,6 +61,8 @@ toPropertyM
 toPropertyM fp mNum uNum = do
     acts <- pick $ genValidActions uNum
     context <- lift $ mkTestContext mNum uNum DefaultScenario
+    logInfo testingLoggerName $
+        sformat ("Actions are: " % build) $ listBuilderJSONIndent 3 acts
     lift $ runReaderT (mapM_ doAction acts) context
     runReaderT fp context <* lift (runReaderT finishTest context)
 

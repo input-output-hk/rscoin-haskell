@@ -436,6 +436,7 @@ sendTransactionDo st maybeCache tx signatures = do
             (walletHeight, lastAppliedBlock)
     validateTransaction maybeCache tx signatures periodId
     update' st $ A.AddTemporaryTransaction periodId tx
+    C.logInfo C.userLoggerName "Successfully sent a transaction!"
 
 isRetriableException :: SomeException -> Bool
 isRetriableException e

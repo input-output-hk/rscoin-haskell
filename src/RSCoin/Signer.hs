@@ -5,3 +5,4 @@ module RSCoin.Signer
         ) where
 
 import           RSCoin.Signer.AcidState as Exports
+import           RSCoin.Signer.Server    as Exports

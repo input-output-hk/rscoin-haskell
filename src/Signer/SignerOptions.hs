@@ -19,7 +19,7 @@ import           RSCoin.Core            (Severity (Error), defaultBankHost,
 data Options = Options
     { cliPort          :: Int
     , cliPath          :: FilePath
-    , cliSecretKeyPath :: FilePath
+    --, cliSecretKeyPath :: FilePath
     , cliLogSeverity   :: Severity
     , cliMemMode       :: Bool
     , cliBankHost      :: ByteString
@@ -46,9 +46,9 @@ optionsParser defaultSKPath =
         (long "path" <> value "signer-db" <> showDefault <>
          help "Path to signer database")
     <*>
-    strOption
-        (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault)
-    <*>
+    --strOption
+    --    (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault)
+    -- <*>
     option auto
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity")

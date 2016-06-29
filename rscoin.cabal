@@ -62,6 +62,7 @@ library
                      , RSCoin.User.Wallet
                      , RSCoin.Signer
                      , RSCoin.Signer.AcidState
+                     , RSCoin.Signer.Server
                      , RSCoin.Signer.Storage
                      , RSCoin.Timed
                      , RSCoin.Timed.MonadTimed

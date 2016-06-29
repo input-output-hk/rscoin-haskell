@@ -4,10 +4,11 @@
 -- | Wrap Storage into AcidState.
 
 module RSCoin.Signer.AcidState
-        (
+        ( RSCoinSignerState
+
           -- * acid-state query and update data types
-          GetSignedTxs (..)
-        , SignTx (..)
+        , GetSignedTxs (..)
+        , SignTx       (..)
 
           -- * Bracket functions
         , openState
@@ -30,17 +31,17 @@ import           RSCoin.Core           (PublicKey, SecretKey, Signature,
                                         Transaction, derivePublicKey, sign)
 import           RSCoin.Signer.Storage (Storage, emptySignerStorage, signedTxs)
 
-type State = AcidState Storage
+type RSCoinSignerState = AcidState Storage
 
 $(deriveSafeCopy 0 'base ''Storage)
 
-openState :: FilePath -> IO State
+openState :: FilePath -> IO RSCoinSignerState
 openState fp = openLocalStateFrom fp emptySignerStorage
 
-openMemState :: IO State
+openMemState :: IO RSCoinSignerState
 openMemState = openMemoryState emptySignerStorage
 
-closeState :: State -> IO ()
+closeState :: RSCoinSignerState -> IO ()
 closeState = closeAcidState
 
 instance MonadThrow (Update s) where

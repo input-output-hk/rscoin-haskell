@@ -135,8 +135,8 @@ instance Action UserAction where
                 , U.tdOutputAddress = address
                 , U.tdOutputCoins = []
                 }
-            retries = 5000  -- let's assume that we need more than
-                            -- 5000 with negligible probability
+            retries = 100  -- let's assume that we need more than 100
+                           -- with negligible probability
         unless (null inputs) $
             void $ U.submitTransactionRetry retries user Nothing td
     -- FIXME: add a case where we can generate outputs that are not the same as inputs

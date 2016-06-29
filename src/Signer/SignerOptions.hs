@@ -7,7 +7,7 @@ module SignerOptions
 
 import           Data.ByteString        (ByteString)
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
-                                         help, helper, info, long, metavar,
+                                         help, helper, info, long,
                                          option, progDesc, short, showDefault,
                                          switch, value, (<>))
 

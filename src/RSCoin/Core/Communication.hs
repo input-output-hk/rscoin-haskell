@@ -25,6 +25,7 @@ module RSCoin.Core.Communication
        , getMintetteUtxo
        , getMintetteBlocks
        , getMintetteLogs
+       , forwardSignerTransaction
        ) where
 
 import           Control.Exception          (Exception (..))
@@ -36,6 +37,9 @@ import           Data.Monoid                ((<>))
 import           Data.Text                  (Text, pack)
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Typeable              (Typeable)
+import           Formatting                 (sformat, shown, (%))
+
+
 import qualified Network.MessagePack.Client as MP (RpcError (..))
 
 import           Safe                       (atMay)
@@ -108,6 +112,9 @@ callBank = handleErrors . P.callBankSafe
 
 callMintette :: (WorkMode m, MessagePack a) => Mintette -> P.Client a -> m a
 callMintette m = handleErrors . P.callMintetteSafe m
+
+callSigner :: (WorkMode m, MessagePack a) => P.Client a -> m a
+callSigner = handleErrors . P.callSigner
 
 withResult :: WorkMode m => IO () -> (a -> IO ()) -> m a -> m a
 withResult before after action = do
@@ -355,3 +362,14 @@ getMintetteLogs mId pId = do
             format'
                 "Successfully got logs for period id {}: {}"
                 (pId, listBuilderJSONIndent 2 $ map pairBuilder res)
+
+-- | Send transaction through signer and recieve his feedback.
+forwardSignerTransaction :: WorkMode m => Transaction -> m Transaction
+forwardSignerTransaction tx =
+    withResult
+        infoMessage
+        successMessage $
+        callSigner $ P.call (P.RSCSign P.SignTransaction) tx
+  where
+    infoMessage        = logDebug $ sformat ("Sending tx to signer: " % shown) tx
+    successMessage res = logDebug $ sformat ("Getting tx from signer: " % shown) res

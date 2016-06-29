@@ -22,7 +22,7 @@ import           RSCoin.Timed            (ServerT, WorkMode,
                                           serverTypeRestriction0)
 
 logError :: MonadIO m => Text -> m ()
-logError = C.logError C.mintetteLoggerName
+logError = C.logError C.signerLoggerName
 --logWarning = C.logWarning C.mintetteLoggerName
 --logInfo = C.logInfo C.mintetteLoggerName
 --logDebug = C.logDebug C.mintetteLoggerName
@@ -56,7 +56,7 @@ toServer action = liftIO $ action `catch` handler
 signIncoming
     :: WorkMode m
     => RSCoinSignerState
-    -> ServerT m ()
+    -> ServerT m Bool
 signIncoming st = toServer $ do undefined
     --mts <- query' st GetMintettes
     --logDebug bankLoggerName $ sformat ("Getting list of mintettes: " % int) mts

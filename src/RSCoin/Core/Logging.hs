@@ -11,6 +11,7 @@ module RSCoin.Core.Logging
        , LoggerName
        , bankLoggerName
        , mintetteLoggerName
+       , signerLoggerName
        , userLoggerName
        , timedLoggerName
        , communicationLoggerName
@@ -72,21 +73,30 @@ initLoggerByName (convertSeverity -> s) name = do
 
 type LoggerName = String
 
-bankLoggerName, mintetteLoggerName, userLoggerName, timedLoggerName, communicationLoggerName, testingLoggerName :: LoggerName
-bankLoggerName = "bank"
-mintetteLoggerName = "mintette"
-userLoggerName = "user"
-timedLoggerName = "timed"
+bankLoggerName,
+    communicationLoggerName,
+    mintetteLoggerName,
+    signerLoggerName,
+    testingLoggerName,
+    timedLoggerName,
+    userLoggerName :: LoggerName
+bankLoggerName          = "bank"
 communicationLoggerName = "communication"
-testingLoggerName = "testing"
+mintetteLoggerName      = "mintette"
+signerLoggerName        = "signer"
+testingLoggerName       = "testing"
+timedLoggerName         = "timed"
+userLoggerName          = "user"
 
 predefinedLoggers :: [LoggerName]
 predefinedLoggers =
     [ bankLoggerName
+    , communicationLoggerName
     , mintetteLoggerName
-    , userLoggerName
+    , signerLoggerName
     , timedLoggerName
-    , communicationLoggerName]
+    , userLoggerName
+    ]
 
 logDebug :: MonadIO m
          => LoggerName -> T.Text -> m ()

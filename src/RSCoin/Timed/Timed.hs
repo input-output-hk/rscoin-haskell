@@ -50,7 +50,7 @@ import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               ThreadId (PureThreadId), for,
                                               fork, killThread, localTime, mcs,
                                               myThreadId, timeout, wait, ms,
-                                              Millisecond)
+                                              Millisecond, localTime)
 
 type Timestamp = Microsecond
 
@@ -328,14 +328,22 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
             liftIO $ writeIORef ref $ Just res
         -- wait and gather results
         waitForRes ref wtid t
-      where waitForRes ref tid t
-                | t <= 0 = do
-                    killThread tid
-                    throwM $ MTTimeoutError "Timeout exceeded"
-                | otherwise = do
-                    liftIO $ print "bla"
-                    wait $ for delay ms
-                    fromMaybe
-                        <$> waitForRes ref tid (t - fromIntegral delay)
-                        <*> liftIO (readIORef ref)
+      where waitForRes ref tid t = do
+                lt <- localTime
+                waitForRes' ref tid (lt + t)
+            waitForRes' ref tid end = do
+                t <- localTime
+                if t >= end
+                    then do
+                        killThread tid
+                        res <- liftIO (readIORef ref)
+                        case res of
+                            Nothing -> throwM $ MTTimeoutError "Timeout exceeded"
+                            Just r -> return r
+                    else do
+                        wait $ for delay ms
+                        res <- liftIO (readIORef ref)
+                        case res of
+                            Nothing -> waitForRes' ref tid end
+                            Just r -> return r
             delay = 10 :: Millisecond

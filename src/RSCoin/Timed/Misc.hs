@@ -15,7 +15,7 @@ import RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed, for,
 --   If it fails, handler is invoked, determing delay for retrying.
 --   Can be interrupted with asyncronious exception.
 repeatForever :: (MonadTimed m, MonadIO m, MonadCatch m)
-              => Microsecond    -- ^ Period between action launches
+              => Microsecond     -- ^ Period between action launches
               -> (SomeException -> m Microsecond)
                                  -- ^ What to do on exception,
                                  --   returns delay before retrying

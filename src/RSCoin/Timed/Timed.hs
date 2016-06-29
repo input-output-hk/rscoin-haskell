@@ -16,8 +16,6 @@ module RSCoin.Timed.Timed
        , ThreadId
        ) where
 
-import           Control.Concurrent.STM      (atomically)
-import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
 import           Control.Exception.Base      (AsyncException (ThreadKilled),
                                               Exception (fromException),
                                               SomeException (..))
@@ -38,7 +36,7 @@ import           Control.Monad.State         (MonadState (get, put, state),
 import           Control.Monad.Trans         (MonadIO, MonadTrans, lift, liftIO)
 import           Data.Function               (on)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
-import           Data.Maybe                  (fromJust)
+import           Data.Maybe                  (fromJust, fromMaybe)
 import           Data.Ord                    (comparing)
 
 import qualified Data.PQueue.Min             as PQ
@@ -51,7 +49,8 @@ import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
                                               ThreadId (PureThreadId), for,
                                               fork, killThread, localTime, mcs,
-                                              myThreadId, timeout, wait)
+                                              myThreadId, timeout, wait, ms,
+                                              Millisecond)
 
 type Timestamp = Microsecond
 
@@ -322,13 +321,21 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
     -- TODO: we should probably implement this similar to
     -- http://haddock.stackage.org/lts-5.8/base-4.8.2.0/src/System-Timeout.html#timeout
     timeout t action' = do
-        var <- liftIO $ newTVarIO Nothing
+        ref <- liftIO $ newIORef Nothing
         -- fork worker
         wtid <- fork $ do
             res <- action'
-            liftIO $ atomically $ writeTVar var $ Just res
+            liftIO $ writeIORef ref $ Just res
         -- wait and gather results
-        wait $ for t mcs
-        killThread wtid
-        res <- liftIO $ readTVarIO var
-        maybe (throwM $ MTTimeoutError "Timeout exceeded") return res
+        waitForRes ref wtid t
+      where waitForRes ref tid t
+                | t <= 0 = do
+                    killThread tid
+                    throwM $ MTTimeoutError "Timeout exceeded"
+                | otherwise = do
+                    liftIO $ print "bla"
+                    wait $ for delay ms
+                    fromMaybe
+                        <$> waitForRes ref tid (t - fromIntegral delay)
+                        <*> liftIO (readIORef ref)
+            delay = 10 :: Millisecond

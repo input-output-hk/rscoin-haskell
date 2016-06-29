@@ -330,19 +330,19 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
         waitForRes ref wtid t
       where waitForRes ref tid t = do
                 lt <- localTime
-                waitForRes' ref tid (lt + t)
+                waitForRes' ref tid $ lt + t
             waitForRes' ref tid end = do
                 t <- localTime
                 if t >= end
                     then do
                         killThread tid
-                        res <- liftIO (readIORef ref)
+                        res <- liftIO $ readIORef ref
                         case res of
                             Nothing -> throwM $ MTTimeoutError "Timeout exceeded"
                             Just r -> return r
                     else do
                         wait $ for delay ms
-                        res <- liftIO (readIORef ref)
+                        res <- liftIO $ readIORef ref
                         case res of
                             Nothing -> waitForRes' ref tid end
                             Just r -> return r

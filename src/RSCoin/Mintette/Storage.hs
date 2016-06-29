@@ -303,12 +303,14 @@ startPeriod C.NewPeriodData{..} = do
                    (M.filterWithKey $
                     \k _ ->
                          (k `M.notMember` blockOutputs))
+           deleted <- use utxoDeleted
            -- bank can (and in fact it does) insert in HBlock transactions
            -- that didn't pass through mintette (like fee allocation).
            let miscTransactions :: C.Utxo
                miscTransactions =
                    M.filterWithKey
                        (\k _ ->
+                             k `M.notMember` deleted &&
                              isOwner npdMintettes (sel1 k) (fromJust mId))
                        blockOutputs -- just for verbosity
            utxo <>= deletedNotInBlockchain

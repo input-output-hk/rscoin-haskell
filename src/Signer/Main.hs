@@ -2,9 +2,9 @@ module Main where
 
 import           Control.Monad.Catch (bracket)
 import           Control.Monad.Trans (liftIO)
-import           RSCoin.Core         (initLogging, readSecretKey)
+import           RSCoin.Core         (initLogging)
 import qualified RSCoin.Signer       as S
-import           RSCoin.Timed        (fork_, runRealMode)
+import           RSCoin.Timed        (runRealMode)
 
 import qualified SignerOptions       as Opts
 

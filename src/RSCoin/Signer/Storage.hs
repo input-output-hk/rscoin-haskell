@@ -7,10 +7,13 @@
 module RSCoin.Signer.Storage
         ( Storage
         , emptySignerStorage
-        , signedTxs
+        , getSignedTxs
+        , signTx
         ) where
 
-import           Control.Lens (makeLenses)
+import           Control.Lens (makeLenses, view, (%=))
+
+import           Data.Acid    (Query, Update)
 import           Data.Set     (Set)
 import qualified Data.Set     as S
 
@@ -24,3 +27,11 @@ $(makeLenses ''Storage)
 
 emptySignerStorage :: Storage
 emptySignerStorage = Storage S.empty
+
+getSignedTxs :: Query Storage (Set Transaction)
+getSignedTxs = view signedTxs
+
+signTx
+    :: Transaction
+    -> Update Storage ()
+signTx tx = signedTxs %= S.insert tx

@@ -13,18 +13,18 @@ import           Control.Monad.IO.Class  (MonadIO, liftIO)
 import           Data.Text               (Text)
 import           Data.Typeable           (Typeable)
 
-import           Formatting              (int, sformat, shown, (%))
+import           Formatting              (sformat, shown, (%))
 
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
 import           RSCoin.Signer.AcidState (RSCoinSignerState)
 import           RSCoin.Timed            (ServerT, WorkMode,
-                                          serverTypeRestriction0)
+                                          serverTypeRestriction1)
 
-logError :: MonadIO m => Text -> m ()
+logError, logInfo :: MonadIO m => Text -> m ()
 logError = C.logError C.signerLoggerName
 --logWarning = C.logWarning C.mintetteLoggerName
---logInfo = C.logInfo C.mintetteLoggerName
+logInfo = C.logInfo C.signerLoggerName
 --logDebug = C.logDebug C.mintetteLoggerName
 
 -- | Run Signer server which will process incoming sing requests.
@@ -34,7 +34,7 @@ serve
     -> RSCoinSignerState
     -> m ()
 serve port signerState = do
-    idr1 <- serverTypeRestriction0
+    idr1 <- serverTypeRestriction1
     P.serve port
         [ P.method (P.RSCSign P.SignTransaction) $ idr1 $ signIncoming signerState ]
 
@@ -56,8 +56,8 @@ toServer action = liftIO $ action `catch` handler
 signIncoming
     :: WorkMode m
     => RSCoinSignerState
-    -> ServerT m Bool
-signIncoming st = toServer $ do undefined
-    --mts <- query' st GetMintettes
-    --logDebug bankLoggerName $ sformat ("Getting list of mintettes: " % int) mts
-    --return mts
+    -> C.Transaction
+    -> ServerT m C.Transaction
+signIncoming _ transaction = toServer $ do
+    logInfo $ sformat ("Receiving transaction: " % shown) transaction
+    return transaction

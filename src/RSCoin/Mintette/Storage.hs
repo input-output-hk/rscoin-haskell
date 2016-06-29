@@ -277,10 +277,15 @@ startPeriod C.NewPeriodData{..} = do
     dpk .= npdDpk
     pset .= M.empty
     unless (isJust npdNewIdPayload) $
-        do let blockOutputs :: C.Utxo
+        do let blockTransactions :: [C.Transaction]
+               blockTransactions = hbTransactions npdHBlock
+               blockOutputs :: C.Utxo
                blockOutputs =
                    M.fromList $
-                   concatMap computeOutputAddrids $ hbTransactions npdHBlock
+                   concatMap computeOutputAddrids blockTransactions
+               blockInputs :: S.Set C.AddrId
+               blockInputs =
+                   S.fromList $ concatMap C.txInputs blockTransactions
            -- those are transactions that we approved, but didn't go
            -- into blockchain, so they should still be in utxo
            deletedNotInBlockchain :: C.Utxo <-
@@ -288,7 +293,7 @@ startPeriod C.NewPeriodData{..} = do
                    utxoDeleted
                    (M.filterWithKey $
                     \k _ ->
-                         (k `M.notMember` blockOutputs))
+                         (k `S.notMember` blockInputs))
            -- those are transactions that were commited but for some
            -- reason bank rejected LBlock and they didn't go into
            -- blockchain

@@ -34,14 +34,15 @@ import           Data.Text.Buildable      (Buildable (build))
 import           Data.Text.Lazy.Builder   (Builder)
 import           Formatting               (bprint, builder, int, shown, (%))
 import qualified Formatting
-import           Test.QuickCheck          (NonEmptyList (..), NonNegative (..))
+import           Test.QuickCheck          (NonEmptyList (..))
 
 import           Serokell.Util            (indexModulo, indexModuloMay,
                                            listBuilderJSON, mapBuilder,
                                            pairBuilder)
 
 import qualified RSCoin.Core              as C
-import           RSCoin.Timed             (Second, WorkMode, for, invoke, sec)
+import           RSCoin.Timed             (Millisecond, WorkMode, after, invoke,
+                                           ms)
 import qualified RSCoin.User              as U
 
 import           Test.RSCoin.Full.Context (TestEnv, buser, state, users)
@@ -62,17 +63,17 @@ instance Action SomeAction where
 instance Buildable SomeAction where
     build (SomeAction a) = build a
 
-data WaitAction a = WaitAction (NonNegative Second) a
+data WaitAction a = WaitAction Millisecond a
     deriving Show
 
 type WaitSomeAction = WaitAction SomeAction
 
 instance Action a => Action (WaitAction a) where
-    doAction (WaitAction (getNonNegative -> time) action) =
-        invoke (for time sec) $ doAction action
+    doAction (WaitAction time action) =
+        invoke (after time ms) $ doAction action
 
 instance Buildable a => Buildable (WaitAction a) where
-    build (WaitAction (getNonNegative -> time) action) =
+    build (WaitAction time action) =
         bprint
             ("wait for " % shown % " and then " % Formatting.build)
             time

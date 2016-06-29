@@ -21,6 +21,7 @@ import           Data.List                       (genericIndex,
                                                   genericReplicate)
 import qualified Data.Map                        as M
 import           Data.Maybe                      (catMaybes)
+import           Data.Time.Units                 (fromMicroseconds)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
                                                   NonEmptyList (..), choose,
                                                   oneof, sized, sublistOf)
@@ -56,7 +57,9 @@ genPartsToSend =
     M.keys
 
 genWaitAction :: a -> Gen (WaitAction a)
-genWaitAction a = WaitAction <$> arbitrary <*> pure a
+genWaitAction a =
+    WaitAction <$> (fromMicroseconds <$> choose (0, 5 * 1000 * 1000)) <*>
+    pure a -- at most 5 seconds
 
 -- | I-th element in this list stores CoinsMap for `i-th` address.
 type BalancesList = [C.CoinsMap]

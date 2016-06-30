@@ -140,11 +140,7 @@ genValidSubmitTransactionDo solvents =
        SubmitTransaction uIdx (NonEmpty fromAddresses) dest <$> lift arbitrary
   where
     nonEmptySublistOf :: [a] -> Gen [a]
-    nonEmptySublistOf xs = do
-        res <- sublistOf xs
-        case res of
-            [] -> (: []) <$> (oneof . map pure $ xs)
-            _ -> return res
+    nonEmptySublistOf xs = sublistOf xs `suchThat` (not . null)
     subtractFromInput usrIndex usrAddrIndex parts =
         balancesLens usrIndex . ix (fromIntegral usrAddrIndex) %=
         decreaseBalance parts

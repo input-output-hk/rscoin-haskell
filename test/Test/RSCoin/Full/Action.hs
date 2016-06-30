@@ -29,7 +29,7 @@ import           Control.Monad.Catch      (throwM)
 import           Data.Acid.Advanced       (query')
 import           Data.Bifunctor           (second)
 import           Data.Function            (on)
-import           Data.List                (nubBy)
+import           Data.List                (genericLength, nubBy)
 import qualified Data.Map                 as M
 import           Data.Text.Buildable      (Buildable (build))
 import           Data.Text.Lazy.Builder   (Builder)
@@ -228,7 +228,8 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
         map (second C.coinsToList) .
         map
             (\(i,parts) ->
-                  (i, applyPartsToSend parts $ addressesAmount `indexModulo` i)) $
+                  ( i `mod` genericLength allAddresses
+                  , applyPartsToSend parts $ addressesAmount `indexModulo` i)) $
         fromIndexes
 
 getUserState

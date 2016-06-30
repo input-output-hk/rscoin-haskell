@@ -12,19 +12,20 @@ module Test.RSCoin.Full.Gen
        ( genValidActions
        ) where
 
-import           Control.Monad                   (replicateM)
 import           Data.Either.Combinators         (mapRight)
 import qualified Data.Map                        as M
 import           Data.Time.Units                 (fromMicroseconds)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
                                                   choose, listOf, shuffle,
-                                                  sized, suchThat, vectorOf)
+                                                  sized, sublistOf, suchThat,
+                                                  vectorOf)
 
 import qualified RSCoin.Core                     as C
 
 import           Test.RSCoin.Core.Arbitrary      ()
 import           Test.RSCoin.Full.Action         (Coloring (Coloring),
-                                                  PartToSend (..), PartsToSend,
+                                                  PartToSend (..),
+                                                  PartsToSend (..),
                                                   SomeAction (SomeAction),
                                                   ToAddress, UserAction (..),
                                                   WaitAction (..))
@@ -43,13 +44,14 @@ instance Arbitrary UserNumber where
 instance Arbitrary PartToSend where
     arbitrary = PartToSend <$> choose (0.001, 1.0)
 
-genPartsToSend :: C.CoinsMap -> Gen PartsToSend
-genPartsToSend =
-    fmap M.fromList .
-    mapM
-        (\color ->
-              (color, ) <$> arbitrary) .
-    M.keys
+instance Arbitrary PartsToSend where
+    arbitrary = do
+        colors <- sublistOf [minColor .. maxColor] `suchThat` (not . null)
+        PartsToSend . M.fromList <$>
+            mapM
+                (\color ->
+                      (color, ) <$> arbitrary)
+                colors
 
 genWaitAction :: a -> Gen (WaitAction a)
 genWaitAction a =

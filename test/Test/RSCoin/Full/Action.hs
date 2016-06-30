@@ -16,7 +16,7 @@ module Test.RSCoin.Full.Action
        , UserIndex
        , ToAddress
        , PartToSend (..)
-       , PartsToSend
+       , PartsToSend (..)
        , Coloring (..)
        , applyPartToSend
        , applyPartsToSend
@@ -99,13 +99,15 @@ applyPartToSend (PartToSend p) coin =
          }
 
 -- | How much values of each color to send.
-type PartsToSend = M.Map C.Color PartToSend
+newtype PartsToSend = PartsToSend
+    { getPartsToSend :: M.Map C.Color PartToSend
+    } deriving (Show)
 
 instance Buildable PartsToSend where
-    build = mapBuilder . M.assocs
+    build = mapBuilder . M.assocs . getPartsToSend
 
 applyPartsToSend :: PartsToSend -> C.CoinsMap -> C.CoinsMap
-applyPartsToSend parts = M.foldrWithKey step M.empty
+applyPartsToSend (getPartsToSend -> parts) = M.foldrWithKey step M.empty
   where
     step color coin accum =
         case M.lookup color parts of

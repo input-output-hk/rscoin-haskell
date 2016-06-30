@@ -32,6 +32,7 @@ import           RSCoin.Timed               (Second, WorkMode, for, ms,
 import qualified RSCoin.User                as U
 
 import           Test.RSCoin.Full.Action    (Coloring (Coloring),
+                                             PartsToSend (PartsToSend),
                                              UserAction (SubmitTransaction),
                                              doAction)
 import           Test.RSCoin.Full.Constants (bankUserAddressesCount, maxColor,
@@ -137,7 +138,7 @@ sendInitialCoins ctx = runReaderT (mapM_ doAction actions) ctx
     usersNum = length (ctx ^. users)
     addressesCount = userAddressesCount * usersNum + bankUserAddressesCount
     partToSend = recip $ realToFrac addressesCount
-    partsToSend = M.singleton 0 partToSend
+    partsToSend = PartsToSend $ M.singleton 0 partToSend
     outputs =
         -- TODO: uncomment after user bug is fixed
         -- [Right (Nothing, addrIdx) | addrIdx <-

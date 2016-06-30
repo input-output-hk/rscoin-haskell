@@ -15,9 +15,8 @@ module RSCoin.Core.Transaction
 import           Control.Arrow          ((&&&))
 import           Control.Exception      (assert)
 import           Data.Function          (on)
-import           Data.List              (delete, groupBy, sortBy)
+import           Data.List              (delete, groupBy, nub, sortBy)
 import qualified Data.Map               as M
-import           Data.Maybe             (fromJust)
 import           Data.Ord               (comparing)
 import           Data.Tuple.Select      (sel3)
 
@@ -42,14 +41,15 @@ validateSum Transaction{..} =
     totalOutputs = sum $ map getCoin $ M.elems outputs
     greyInputs = getCoin $ M.findWithDefault 0 0 inputs
     greyOutputs = getCoin $ M.findWithDefault 0 0 outputs
-    inputColors = delete 0 $ M.keys inputs
+    txColors = delete 0 . nub $ (M.keys inputs ++ M.keys outputs)
     foldfoo0 color unp =
-        let outputOfThisColor = M.findWithDefault 0 color outputs
-            inputOfThisColor = fromJust $ M.lookup color inputs
+        let zero = Coin color 0
+            outputOfThisColor = M.findWithDefault zero color outputs
+            inputOfThisColor = M.findWithDefault zero color inputs
         in if outputOfThisColor <= inputOfThisColor
            then unp
            else M.insert color (outputOfThisColor - inputOfThisColor) unp
-    unpainted = foldr foldfoo0 M.empty inputColors
+    unpainted = foldr foldfoo0 M.empty txColors
     totalUnpaintedSum = sum $ map getCoin $ M.elems unpainted
 
 -- | Validates that signature is issued by public key associated with given

@@ -95,18 +95,18 @@ initialBalances userNumber =
 
 -- It may be impossible if there were transactions to arbitrary
 -- address (in this case there may be effectively no coins in system).
-genValidSendTransaction :: StateT AllBalances Gen (Maybe UserAction)
-genValidSendTransaction = do
+genValidSubmitTransaction :: StateT AllBalances Gen (Maybe UserAction)
+genValidSubmitTransaction = do
     bb <- (Nothing, ) <$> use bankBalances
     ub <- zip (fmap Just [0 ..]) <$> use usersBalances
-    genValidSendTransactionDo .
+    genValidSubmitTransactionDo .
         filter (not . null . C.coinsToList . C.mergeCoinsMaps . snd) $
         bb : ub
 
-genValidSendTransactionDo :: [(UserIndex, BalancesList)]
+genValidSubmitTransactionDo :: [(UserIndex, BalancesList)]
                           -> StateT AllBalances Gen (Maybe UserAction)
-genValidSendTransactionDo [] = return Nothing
-genValidSendTransactionDo solvents =
+genValidSubmitTransactionDo [] = return Nothing
+genValidSubmitTransactionDo solvents =
     Just <$>
     do (uIdx,uBalances) <- lift . oneof . map pure $ solvents
        let nonEmptyAddresses =
@@ -121,7 +121,7 @@ genValidSendTransactionDo solvents =
        mapM_ (uncurry $ subtractFromInput uIdx) fromAddresses
        dest <- lift arbitrary
        addToDestination uIdx fromAddresses dest
-       return $ SendTransaction uIdx (NonEmpty fromAddresses) dest
+       return $ SubmitTransaction uIdx (NonEmpty fromAddresses) dest Nothing
   where
     nonEmptySublistOf :: [a] -> Gen [a]
     nonEmptySublistOf xs = do
@@ -170,5 +170,5 @@ genValidActions userNumber = do
         in (++) <$> replicateM updates genUpdateBlockchain <*>
            (catMaybes <$>
             evalStateT
-                (replicateM transactions genValidSendTransaction)
+                (replicateM transactions genValidSubmitTransaction)
                 (initialBalances userNumber))

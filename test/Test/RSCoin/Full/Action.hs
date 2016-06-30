@@ -127,6 +127,21 @@ newtype Coloring = Coloring
     { getColoring :: M.Map C.Color Double
     } deriving (Show)
 
+calculateOutputCoins :: [C.Coin] -> Coloring -> [C.Coin]
+calculateOutputCoins (C.coinsToMap -> inputs) (Coloring coloring) =
+    C.coinsToList $
+    C.mergeCoinsMaps [inputs, addedCoins] `C.subtractCoinsMap` usedCoins
+  where
+    greyCoins = maybe 0 C.getCoin $ M.lookup 0 inputs
+    addedCoins = M.mapWithKey multiply coloring
+    multiply color part =
+        C.Coin
+        { C.getColor = color
+        , C.getCoin = toRational part * greyCoins
+        }
+    usedCoins =
+        C.coinsToMap [C.Coin 0 . sum . map C.getCoin . M.elems $ addedCoins]
+
 instance Buildable Coloring where
     build = mapBuilder . M.assocs . getColoring
 
@@ -139,16 +154,17 @@ data UserAction
     deriving (Show)
 
 instance Action UserAction where
-    doAction (SubmitTransaction userIndex fromAddresses toAddr _) = do
-        -- FIXME: user coloring
+    doAction (SubmitTransaction userIndex fromAddresses toAddr coloring) = do
         address <- toAddress toAddr
         inputs <- toInputs userIndex fromAddresses
         userState <- getUserState userIndex
-        let td =
+        let inputCoins = concatMap snd $ inputs
+            outputCoins = maybe [] (calculateOutputCoins inputCoins) coloring
+            td =
                 U.TransactionData
                 { U.tdInputs = inputs
                 , U.tdOutputAddress = address
-                , U.tdOutputCoins = []
+                , U.tdOutputCoins = outputCoins
                 }
             retries = 100  -- let's assume that we need more than 100
                            -- with negligible probability

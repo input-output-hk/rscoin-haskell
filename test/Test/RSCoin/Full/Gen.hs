@@ -133,7 +133,7 @@ genValidSubmitTransaction = do
         bb : ub
 
 genValidSubmitTransactionDo :: [(UserIndex, BalancesList)]
-                          -> StateT AllBalances Gen (Maybe UserAction)
+                            -> StateT AllBalances Gen (Maybe UserAction)
 genValidSubmitTransactionDo [] = return Nothing
 genValidSubmitTransactionDo solvents =
     Just <$>

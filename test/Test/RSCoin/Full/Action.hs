@@ -17,12 +17,13 @@ module Test.RSCoin.Full.Action
        , ToAddress
        , PartToSend (..)
        , PartsToSend
+       , Coloring (..)
        , applyPartToSend
        , applyPartsToSend
-       , getUser
+       , getUserState
        ) where
 
-import           Control.Lens             (to, view)
+import           Control.Lens             (view, views)
 import           Control.Monad            (unless, void, when)
 import           Control.Monad.Catch      (throwM)
 import           Data.Acid.Advanced       (query')
@@ -118,18 +119,31 @@ type FromAddresses = NonEmptyList (Word, PartsToSend)
 
 type Inputs = [U.TransactionInput]
 
+-- | This type determines how to color coins. Values in this map state
+-- which part of input grey coins should be colored. (c, t) ∈ Coloring
+-- iff `t * input grey coins` should be colored to color `c`. Sum of
+-- values must belong to `(0, 1]`.
+newtype Coloring = Coloring
+    { getColoring :: M.Map C.Color Double
+    } deriving (Show)
+
+instance Buildable Coloring where
+    build = mapBuilder . M.assocs . getColoring
+
 data UserAction
-    = SendTransaction UserIndex
-                      FromAddresses
-                      ToAddress
-    | UpdateBlockchain UserIndex
+    = SubmitTransaction !UserIndex
+                        !FromAddresses
+                        !ToAddress
+                        !(Maybe Coloring)
+    | UpdateBlockchain !UserIndex
     deriving (Show)
 
 instance Action UserAction where
-    doAction (SendTransaction userIndex fromAddresses toAddr) = do
+    doAction (SubmitTransaction userIndex fromAddresses toAddr _) = do
+        -- FIXME: user coloring
         address <- toAddress toAddr
         inputs <- toInputs userIndex fromAddresses
-        user <- getUser userIndex
+        userState <- getUserState userIndex
         let td =
                 U.TransactionData
                 { U.tdInputs = inputs
@@ -139,11 +153,10 @@ instance Action UserAction where
             retries = 100  -- let's assume that we need more than 100
                            -- with negligible probability
         unless (null inputs) $
-            void $ U.submitTransactionRetry retries user Nothing td
-    -- FIXME: add a case where we can generate outputs that are not the same as inputs
+            void $ U.submitTransactionRetry retries userState Nothing td
     doAction (UpdateBlockchain userIndex) = do
-        user <- getUser userIndex
-        void $ U.updateBlockchain user False
+        st <- getUserState userIndex
+        void $ U.updateBlockchain st False
 
 userIndexBuilder :: UserIndex -> Builder
 userIndexBuilder = maybe "'bank user'" (bprint ("#" % int))
@@ -157,17 +170,21 @@ toAddressBuilder (Right (usrIdx,addrIdx)) =
         (userIndexBuilder usrIdx)
 
 instance Buildable UserAction where
-    build (SendTransaction usrIdx (getNonEmpty -> srcs) dst) =
+    build (SubmitTransaction usrIdx (getNonEmpty -> srcs) dst coloring) =
         bprint
-            ("send transaction from addresses " % builder % " of user " %
+            ("submit transaction from addresses " % builder % " of user " %
              builder %
              " to " %
+             builder %
              builder)
             srcsBuilder
             (userIndexBuilder usrIdx)
             (toAddressBuilder dst)
+            coloringStr
       where
         srcsBuilder = listBuilderJSON . map pairBuilder $ srcs
+        coloringStr =
+            maybe "" (bprint (" with coloring " % Formatting.build)) coloring
     build (UpdateBlockchain _) = "update someone's blockchain"
 
 toAddress
@@ -176,19 +193,18 @@ toAddress
 toAddress =
     either return $
     \(userIndex,addressIndex) ->
-         do user <- getUser userIndex
-            publicAddresses <- query' user U.GetPublicAddresses
+         do userState <- getUserState userIndex
+            publicAddresses <- query' userState U.GetPublicAddresses
             return . C.Address $ publicAddresses `indexModulo` addressIndex
 
 toInputs
     :: WorkMode m
     => UserIndex -> FromAddresses -> TestEnv m Inputs
 toInputs userIndex (getNonEmpty -> fromIndexes) = do
-    user <- getUser userIndex
-    allAddresses <- query' user U.GetAllAddresses
-    publicAddresses <- query' user U.GetPublicAddresses
-    addressesAmount <- mapM (U.getAmount user) allAddresses
-    when (null publicAddresses) $
+    userState <- getUserState userIndex
+    allAddresses <- query' userState U.GetAllAddresses
+    addressesAmount <- mapM (U.getAmount userState) allAddresses
+    when (null addressesAmount) $
         throwM $ TestError "No public addresses in this user"
     return $
         nubBy ((==) `on` fst) .
@@ -199,11 +215,11 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
                   (i, applyPartsToSend parts $ addressesAmount `indexModulo` i)) $
         fromIndexes
 
-getUser
+getUserState
     :: WorkMode m
     => UserIndex -> TestEnv m U.RSCoinUserState
-getUser Nothing =
+getUserState Nothing =
     view $ buser . state
-getUser (Just index) = do
-    mUser <- view $ users . to (`indexModuloMay` index)
+getUserState (Just index) = do
+    mUser <- views users (`indexModuloMay` index)
     maybe (throwM $ TestError "No user in context") (return . view state) mUser

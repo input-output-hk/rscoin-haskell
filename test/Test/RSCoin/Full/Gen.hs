@@ -4,6 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Arbitrary instances for full testing.
 
@@ -17,19 +18,22 @@ import           Control.Monad                   (replicateM)
 import           Control.Monad.State             (MonadState, StateT,
                                                   evalStateT)
 import           Control.Monad.Trans             (lift)
-import           Data.List                       (genericIndex,
+import           Data.Either.Combinators         (mapRight)
+import           Data.List                       (genericIndex, genericLength,
                                                   genericReplicate)
 import qualified Data.Map                        as M
 import           Data.Maybe                      (catMaybes)
 import           Data.Time.Units                 (fromMicroseconds)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
                                                   NonEmptyList (..), choose,
-                                                  oneof, sized, sublistOf)
+                                                  listOf, oneof, sized,
+                                                  sublistOf, suchThat, vectorOf)
 
 import qualified RSCoin.Core                     as C
 
 import           Test.RSCoin.Core.Arbitrary      ()
-import           Test.RSCoin.Full.Action         (PartToSend (..), PartsToSend,
+import           Test.RSCoin.Full.Action         (Coloring (Coloring),
+                                                  PartToSend (..), PartsToSend,
                                                   SomeAction (SomeAction),
                                                   ToAddress, UserAction (..),
                                                   UserIndex, WaitAction (..),
@@ -60,6 +64,31 @@ genWaitAction :: a -> Gen (WaitAction a)
 genWaitAction a =
     WaitAction <$> (fromMicroseconds <$> choose (0, 5 * 1000 * 1000)) <*>
     pure a -- at most 5 seconds
+
+genColor :: Gen C.Color
+genColor = choose (-2, 5)
+
+instance Arbitrary Coloring where
+    arbitrary = do
+        colors <- listOf (genColor `suchThat` (/= 0))
+        parts <- vectorOf (length colors) (choose (1.0e-4, 1.0))
+        targetSum <- choose (0.1, 1.0)
+        let s = sum parts
+            multiplier = targetSum / s
+        return .
+            Coloring . M.fromListWith (+) . zip colors . map (* multiplier) $
+            parts
+
+genToAddress :: UserNumber -> Gen ToAddress
+genToAddress (fromIntegral -> userNumber) = mapRight fixIndices <$> arbitrary
+  where
+    fixIndices (usrIdx,addrIdx) =
+        ( (`mod` userNumber) <$> usrIdx
+        , maybe
+              (`mod` bankUserAddressesCount)
+              (const (`mod` userAddressesCount))
+              usrIdx
+              addrIdx)
 
 -- | I-th element in this list stores CoinsMap for `i-th` address.
 type BalancesList = [C.CoinsMap]
@@ -95,18 +124,18 @@ initialBalances userNumber =
 
 -- It may be impossible if there were transactions to arbitrary
 -- address (in this case there may be effectively no coins in system).
-genValidSendTransaction :: StateT AllBalances Gen (Maybe UserAction)
-genValidSendTransaction = do
+genValidSubmitTransaction :: StateT AllBalances Gen (Maybe UserAction)
+genValidSubmitTransaction = do
     bb <- (Nothing, ) <$> use bankBalances
     ub <- zip (fmap Just [0 ..]) <$> use usersBalances
-    genValidSendTransactionDo .
+    genValidSubmitTransactionDo .
         filter (not . null . C.coinsToList . C.mergeCoinsMaps . snd) $
         bb : ub
 
-genValidSendTransactionDo :: [(UserIndex, BalancesList)]
+genValidSubmitTransactionDo :: [(UserIndex, BalancesList)]
                           -> StateT AllBalances Gen (Maybe UserAction)
-genValidSendTransactionDo [] = return Nothing
-genValidSendTransactionDo solvents =
+genValidSubmitTransactionDo [] = return Nothing
+genValidSubmitTransactionDo solvents =
     Just <$>
     do (uIdx,uBalances) <- lift . oneof . map pure $ solvents
        let nonEmptyAddresses =
@@ -119,16 +148,13 @@ genValidSendTransactionDo solvents =
                      lift (genPartsToSend $ uBalances `genericIndex` i))
                indicesToUse
        mapM_ (uncurry $ subtractFromInput uIdx) fromAddresses
-       dest <- lift arbitrary
+       userNumber <- genericLength <$> use usersBalances
+       dest <- lift $ genToAddress userNumber
        addToDestination uIdx fromAddresses dest
-       return $ SendTransaction uIdx (NonEmpty fromAddresses) dest
+       SubmitTransaction uIdx (NonEmpty fromAddresses) dest <$> lift arbitrary
   where
     nonEmptySublistOf :: [a] -> Gen [a]
-    nonEmptySublistOf xs = do
-        res <- sublistOf xs
-        case res of
-            [] -> (: []) <$> (oneof . map pure $ xs)
-            _ -> return res
+    nonEmptySublistOf xs = sublistOf xs `suchThat` (not . null)
     subtractFromInput usrIndex usrAddrIndex parts =
         balancesLens usrIndex . ix (fromIntegral usrAddrIndex) %=
         decreaseBalance parts
@@ -170,5 +196,5 @@ genValidActions userNumber = do
         in (++) <$> replicateM updates genUpdateBlockchain <*>
            (catMaybes <$>
             evalStateT
-                (replicateM transactions genValidSendTransaction)
+                (replicateM transactions genValidSubmitTransaction)
                 (initialBalances userNumber))

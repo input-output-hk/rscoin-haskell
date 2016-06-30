@@ -16,8 +16,6 @@ module RSCoin.Timed.Timed
        , ThreadId
        ) where
 
-import           Control.Concurrent.STM      (atomically)
-import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
 import           Control.Exception.Base      (AsyncException (ThreadKilled),
                                               Exception (fromException),
                                               SomeException (..))
@@ -50,8 +48,9 @@ import           RSCoin.Core.Logging         (logDebug, logWarning,
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
                                               ThreadId (PureThreadId), for,
-                                              fork, killThread, localTime, mcs,
-                                              myThreadId, timeout, wait)
+                                              fork, killThread, localTime,
+                                              myThreadId, timeout, wait, ms,
+                                              Millisecond, localTime)
 
 type Timestamp = Microsecond
 
@@ -322,13 +321,29 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadTimed (TimedT m) where
     -- TODO: we should probably implement this similar to
     -- http://haddock.stackage.org/lts-5.8/base-4.8.2.0/src/System-Timeout.html#timeout
     timeout t action' = do
-        var <- liftIO $ newTVarIO Nothing
+        ref <- liftIO $ newIORef Nothing
         -- fork worker
         wtid <- fork $ do
             res <- action'
-            liftIO $ atomically $ writeTVar var $ Just res
+            liftIO $ writeIORef ref $ Just res
         -- wait and gather results
-        wait $ for t mcs
-        killThread wtid
-        res <- liftIO $ readTVarIO var
-        maybe (throwM $ MTTimeoutError "Timeout exceeded") return res
+        waitForRes ref wtid t
+      where waitForRes ref tid tout = do
+                lt <- localTime
+                waitForRes' ref tid $ lt + tout
+            waitForRes' ref tid end = do
+                tNow <- localTime
+                if tNow >= end
+                    then do
+                        killThread tid
+                        res <- liftIO $ readIORef ref
+                        case res of
+                            Nothing -> throwM $ MTTimeoutError "Timeout exceeded"
+                            Just r -> return r
+                    else do
+                        wait $ for delay ms
+                        res <- liftIO $ readIORef ref
+                        case res of
+                            Nothing -> waitForRes' ref tid end
+                            Just r -> return r
+            delay = 10 :: Millisecond

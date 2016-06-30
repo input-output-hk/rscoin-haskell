@@ -25,7 +25,7 @@ import           RSCoin.Timed                    (WorkMode)
 -- import qualified RSCoin.User                     as U
 
 import           Test.RSCoin.Core.Arbitrary      ()
-import           Test.RSCoin.Full.Action         (UserAction (..), getUser)
+import           Test.RSCoin.Full.Action         (UserAction (..), getUserState)
 -- import           Test.RSCoin.Full.Context        (buser, state)
 import           Test.RSCoin.Full.Property       (FullPropertyEmulation,
                                                   FullPropertyRealMode,
@@ -88,8 +88,8 @@ type FullProperty = forall m . WorkMode m => FP.FullProperty m ()
 prop_uniqueAddresses :: FullProperty
 prop_uniqueAddresses = do
     idx <- pickFP arbitrary
-    usr <- runTestEnvFP $ getUser idx
-    assertFP . isUnique =<< runWorkModeFP (UO.getAllAddresses usr)
+    st <- runTestEnvFP $ getUserState idx
+    assertFP . isUnique =<< runWorkModeFP (UO.getAllAddresses st)
   where
     isUnique l = l == nub l
 

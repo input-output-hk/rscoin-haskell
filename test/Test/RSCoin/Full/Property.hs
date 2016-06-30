@@ -19,6 +19,7 @@ module Test.RSCoin.Full.Property
        , doActionFP
        ) where
 
+import           Control.Monad.Catch             (onException)
 import           Control.Monad.Reader            (ask, runReaderT)
 import           Control.Monad.Trans             (lift)
 import           Formatting                      (build, sformat, (%))
@@ -61,10 +62,12 @@ toPropertyM
 toPropertyM fp mNum uNum = do
     acts <- pick $ genValidActions uNum
     context <- lift $ mkTestContext mNum uNum DefaultScenario
+    let runTestEnv a = runReaderT a context
+        runTestEnvSafe a = runTestEnv a `onException` runTestEnv finishTest
     logInfo testingLoggerName $
         sformat ("Actions are: " % build) $ listBuilderJSONIndent 3 acts
-    lift $ runReaderT (mapM_ doAction acts) context
-    runReaderT fp context <* lift (runReaderT finishTest context)
+    lift $ runTestEnvSafe (mapM_ doAction acts)
+    runReaderT fp context <* lift (runTestEnv finishTest)
 
 toTestable
     :: forall a.
@@ -97,7 +100,9 @@ pickFP = lift . pick
 runWorkModeFP
     :: WorkMode m
     => m a -> FullProperty m a
-runWorkModeFP = lift . lift
+runWorkModeFP a = do
+    ctx <- ask
+    lift . lift $ a `onException` runReaderT finishTest ctx
 
 runTestEnvFP
     :: WorkMode m

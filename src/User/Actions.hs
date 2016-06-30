@@ -28,7 +28,7 @@ import           Serokell.Util.Text      (format', formatSingle', show')
 
 import           RSCoin.Core             as C
 import           RSCoin.Timed            (WorkMode, for, ms, wait)
-import           RSCoin.User.AcidState   (GetAllAddresses (..))
+import           RSCoin.User.AcidState   (GetUserAddresses (..))
 import qualified RSCoin.User.AcidState   as A
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..), getAmount,
@@ -61,10 +61,10 @@ processCommand
     => A.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ =
     eWrap $
-    do addresses <- query' st GetAllAddresses
+    do addresses <- query' st GetUserAddresses
        (wallets :: [(C.PublicKey, [C.Coin])]) <-
            mapM (\w -> (w ^. W.publicAddress, ) . C.coinsToList
-                       <$> getAmount st w) addresses
+                       <$> getAmount st (W.toAddress w)) addresses
        liftIO $
            do TIO.putStrLn "Here's the list of your accounts:"
               TIO.putStrLn
@@ -84,27 +84,17 @@ processCommand st O.ListAddresses _ =
 processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     eWrap $
     do let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
-           inputs' =
-               map
-                   (foldr1
-                        (\(a,b) (_,d) ->
-                              (a, b ++ d))) $
-               groupBy ((==) `on` snd) $
-               map
-                   (\(idx,o,c) ->
-                         (idx - 1, [Coin c (toRational o)]))
-                   inputs
-           outputs' =
-               map
-                   (\(amount,color) ->
-                         Coin color (toRational amount))
-                   outputCoins
-           td =
-               TransactionData
-               { tdInputs = inputs'
-               , tdOutputAddress = fromJust outputAddr
-               , tdOutputCoins = outputs'
-               }
+           inputs' = map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
+                     groupBy ((==) `on` snd) $
+                     map (\(idx,o,c) -> (idx - 1, [Coin c (toRational o)]))
+                     inputs
+           outputs' = map (\(amount,color) -> Coin color (toRational amount))
+                          outputCoins
+           td = TransactionData
+                { tdInputs = inputs'
+                , tdOutputAddress = fromJust outputAddr
+                , tdOutputCoins = outputs'
+                }
        unless (isJust outputAddr) $
            P.commitError $ "Provided key can't be exported: " <> outputAddrStr
        void $ submitTransactionRetry 2 st cache td

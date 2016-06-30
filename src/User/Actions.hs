@@ -84,27 +84,17 @@ processCommand st O.ListAddresses _ =
 processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     eWrap $
     do let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
-           inputs' =
-               map
-                   (foldr1
-                        (\(a,b) (_,d) ->
-                              (a, b ++ d))) $
-               groupBy ((==) `on` snd) $
-               map
-                   (\(idx,o,c) ->
-                         (idx - 1, [Coin c (toRational o)]))
-                   inputs
-           outputs' =
-               map
-                   (\(amount,color) ->
-                         Coin color (toRational amount))
-                   outputCoins
-           td =
-               TransactionData
-               { tdInputs = inputs'
-               , tdOutputAddress = fromJust outputAddr
-               , tdOutputCoins = outputs'
-               }
+           inputs' = map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
+                     groupBy ((==) `on` snd) $
+                     map (\(idx,o,c) -> (idx - 1, [Coin c (toRational o)]))
+                     inputs
+           outputs' = map (\(amount,color) -> Coin color (toRational amount))
+                          outputCoins
+           td = TransactionData
+                { tdInputs = inputs'
+                , tdOutputAddress = fromJust outputAddr
+                , tdOutputCoins = outputs'
+                }
        unless (isJust outputAddr) $
            P.commitError $ "Provided key can't be exported: " <> outputAddrStr
        void $ submitTransactionRetry 2 st cache td

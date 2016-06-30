@@ -211,14 +211,14 @@ toAddress =
     \(userIndex,addressIndex) ->
          do userState <- getUserState userIndex
             publicAddresses <- query' userState U.GetPublicAddresses
-            return . C.Address $ publicAddresses `indexModulo` addressIndex
+            return $ publicAddresses `indexModulo` addressIndex
 
 toInputs
     :: WorkMode m
     => UserIndex -> FromAddresses -> TestEnv m Inputs
 toInputs userIndex (getNonEmpty -> fromIndexes) = do
     userState <- getUserState userIndex
-    allAddresses <- query' userState U.GetAllAddresses
+    allAddresses <- query' userState U.GetPublicAddresses
     addressesAmount <- mapM (U.getAmount userState) allAddresses
     when (null addressesAmount) $
         throwM $ TestError "No public addresses in this user"

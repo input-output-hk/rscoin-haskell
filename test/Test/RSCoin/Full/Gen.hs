@@ -24,12 +24,14 @@ import           Data.Maybe                      (catMaybes)
 import           Data.Time.Units                 (fromMicroseconds)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
                                                   NonEmptyList (..), choose,
-                                                  oneof, sized, sublistOf)
+                                                  listOf, oneof, sized,
+                                                  sublistOf, suchThat, vectorOf)
 
 import qualified RSCoin.Core                     as C
 
 import           Test.RSCoin.Core.Arbitrary      ()
-import           Test.RSCoin.Full.Action         (PartToSend (..), PartsToSend,
+import           Test.RSCoin.Full.Action         (Coloring (Coloring),
+                                                  PartToSend (..), PartsToSend,
                                                   SomeAction (SomeAction),
                                                   ToAddress, UserAction (..),
                                                   UserIndex, WaitAction (..),
@@ -60,6 +62,20 @@ genWaitAction :: a -> Gen (WaitAction a)
 genWaitAction a =
     WaitAction <$> (fromMicroseconds <$> choose (0, 5 * 1000 * 1000)) <*>
     pure a -- at most 5 seconds
+
+genColor :: Gen C.Color
+genColor = choose (-2, 5)
+
+instance Arbitrary Coloring where
+    arbitrary = do
+        colors <- listOf (genColor `suchThat` (/= 0))
+        parts <- vectorOf (length colors) (choose (1.0e-4, 1.0))
+        targetSum <- choose (0.1, 1.0)
+        let s = sum parts
+            multiplier = targetSum / s
+        return .
+            Coloring . M.fromListWith (+) . zip colors . map (* multiplier) $
+            parts
 
 -- | I-th element in this list stores CoinsMap for `i-th` address.
 type BalancesList = [C.CoinsMap]
@@ -121,7 +137,7 @@ genValidSubmitTransactionDo solvents =
        mapM_ (uncurry $ subtractFromInput uIdx) fromAddresses
        dest <- lift arbitrary
        addToDestination uIdx fromAddresses dest
-       return $ SubmitTransaction uIdx (NonEmpty fromAddresses) dest Nothing
+       SubmitTransaction uIdx (NonEmpty fromAddresses) dest <$> lift arbitrary
   where
     nonEmptySublistOf :: [a] -> Gen [a]
     nonEmptySublistOf xs = do

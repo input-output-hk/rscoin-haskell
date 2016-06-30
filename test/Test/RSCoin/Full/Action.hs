@@ -17,6 +17,7 @@ module Test.RSCoin.Full.Action
        , ToAddress
        , PartToSend (..)
        , PartsToSend
+       , Coloring (..)
        , applyPartToSend
        , applyPartsToSend
        , getUserState

@@ -91,7 +91,7 @@ type ToAddress = Either C.Address (UserIndex, Word)
 -- send from address.
 newtype PartToSend = PartToSend
     { getPartToSend :: Double
-    } deriving (Show, Num, Eq, Buildable)
+    } deriving (Show, Num, Eq, Buildable, Fractional)
 
 applyPartToSend :: PartToSend -> C.Coin -> C.Coin
 applyPartToSend (PartToSend p) coin =

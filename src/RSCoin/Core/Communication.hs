@@ -37,7 +37,9 @@ import           Data.Monoid                ((<>))
 import           Data.Text                  (Text, pack)
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Typeable              (Typeable)
-import           Formatting                 (sformat, shown, (%))
+
+import           Formatting                 (sformat, (%))
+import qualified Formatting                 as F
 
 
 import qualified Network.MessagePack.Client as MP (RpcError (..))
@@ -371,5 +373,5 @@ forwardSignerTransaction tx =
         successMessage $
         callSigner $ P.call (P.RSCSign P.SignTransaction) tx
   where
-    infoMessage        = logDebug $ sformat ("Sending tx to signer: " % shown) tx
-    successMessage res = logDebug $ sformat ("Getting tx from signer: " % shown) res
+    infoMessage        = logDebug $ sformat ("Sending tx to signer: " % F.build) tx
+    successMessage res = logDebug $ sformat ("Getting tx from signer: " % F.build) res

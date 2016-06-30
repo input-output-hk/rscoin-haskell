@@ -17,6 +17,7 @@ module RSCoin.User.AcidState
        , IsInitialized (..)
        , GetAllAddresses (..)
        , GetPublicAddresses (..)
+       , GetOwnedAddrIds (..)
        , GetTransactions (..)
        , GetLastBlockId (..)
        , GetTxsHistory (..)
@@ -75,6 +76,7 @@ closeState = A.closeAcidState
 isInitialized :: A.Query WalletStorage Bool
 getAllAddresses :: A.Query WalletStorage [UserAddress]
 getPublicAddresses :: A.Query WalletStorage [C.PublicKey]
+getOwnedAddrIds :: UserAddress -> A.Query WalletStorage [C.AddrId]
 getTransactions :: UserAddress -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
 getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
@@ -82,6 +84,7 @@ getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
 isInitialized = W.isInitialized
 getAllAddresses = W.getAllAddresses
 getPublicAddresses = W.getPublicAddresses
+getOwnedAddrIds = W.getOwnedAddrIds
 getTransactions = W.getTransactions
 getLastBlockId = W.getLastBlockId
 getTxsHistory = W.getTxsHistory
@@ -101,6 +104,7 @@ $(makeAcidic
       [ 'isInitialized
       , 'getAllAddresses
       , 'getPublicAddresses
+      , 'getOwnedAddrIds
       , 'getTransactions
       , 'getLastBlockId
       , 'getTxsHistory

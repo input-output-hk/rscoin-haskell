@@ -39,7 +39,7 @@ import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
-import           Data.Tuple.Select      (sel1)
+import           Data.Tuple.Select      (sel1, sel3)
 import           Formatting             (build, int, sformat, shown, (%))
 import           Safe                   (atMay)
 
@@ -129,9 +129,7 @@ getAmountNoUpdate
     :: WorkMode m
     => A.RSCoinUserState -> W.UserAddress -> m C.CoinsMap
 getAmountNoUpdate st userAddress =
-    C.mergeCoinsMaps . map getCoins <$> query' st (A.GetTransactions userAddress)
-  where
-    getCoins = C.getAmountByAddress $ W.toAddress userAddress
+    C.coinsToMap . map sel3 <$> query' st (A.GetOwnedAddrIds userAddress)
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
 -- n is the number of accounts stored in wallet)
@@ -336,6 +334,8 @@ constructAndSignTransaction st TransactionData{..} = do
         formatSingle'
             "Our code is broken and our auto-generated transaction is invalid: {}"
             outTr
+    C.logInfo C.userLoggerName $
+           sformat ("This transaction has been formed: " % shown) outTr
     return (outTr, signatures)
   where
     pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])

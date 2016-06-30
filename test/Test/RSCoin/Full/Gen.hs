@@ -4,6 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | Arbitrary instances for full testing.
 
@@ -17,7 +18,8 @@ import           Control.Monad                   (replicateM)
 import           Control.Monad.State             (MonadState, StateT,
                                                   evalStateT)
 import           Control.Monad.Trans             (lift)
-import           Data.List                       (genericIndex,
+import           Data.Either.Combinators         (mapRight)
+import           Data.List                       (genericIndex, genericLength,
                                                   genericReplicate)
 import qualified Data.Map                        as M
 import           Data.Maybe                      (catMaybes)
@@ -77,6 +79,17 @@ instance Arbitrary Coloring where
             Coloring . M.fromListWith (+) . zip colors . map (* multiplier) $
             parts
 
+genToAddress :: UserNumber -> Gen ToAddress
+genToAddress (fromIntegral -> userNumber) = mapRight fixIndices <$> arbitrary
+  where
+    fixIndices (usrIdx,addrIdx) =
+        ( (`mod` userNumber) <$> usrIdx
+        , maybe
+              (`mod` bankUserAddressesCount)
+              (const (`mod` userAddressesCount))
+              usrIdx
+              addrIdx)
+
 -- | I-th element in this list stores CoinsMap for `i-th` address.
 type BalancesList = [C.CoinsMap]
 
@@ -135,7 +148,8 @@ genValidSubmitTransactionDo solvents =
                      lift (genPartsToSend $ uBalances `genericIndex` i))
                indicesToUse
        mapM_ (uncurry $ subtractFromInput uIdx) fromAddresses
-       dest <- lift arbitrary
+       userNumber <- genericLength <$> use usersBalances
+       dest <- lift $ genToAddress userNumber
        addToDestination uIdx fromAddresses dest
        SubmitTransaction uIdx (NonEmpty fromAddresses) dest <$> lift arbitrary
   where

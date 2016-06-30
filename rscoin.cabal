@@ -272,6 +272,7 @@ test-suite rscoin-test
                      , bytestring >= 0.10.6.0
                      , containers >= 0.5.6.2
                      , data-default
+                     , either
                      , exceptions >= 0.8.2.1
                      , extra
                      , formatting

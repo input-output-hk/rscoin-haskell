@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections    #-}
 
 -- | This module defines how to initialize RSCoin.
 
@@ -30,10 +31,11 @@ import           RSCoin.Timed               (Second, WorkMode, for, ms,
                                              workWhileMVarEmpty)
 import qualified RSCoin.User                as U
 
-import           Test.RSCoin.Full.Action    (UserAction (SubmitTransaction),
+import           Test.RSCoin.Full.Action    (Coloring (Coloring),
+                                             UserAction (SubmitTransaction),
                                              doAction)
-import           Test.RSCoin.Full.Constants (bankUserAddressesCount,
-                                             userAddressesCount)
+import           Test.RSCoin.Full.Constants (bankUserAddressesCount, maxColor,
+                                             minColor, userAddressesCount)
 import           Test.RSCoin.Full.Context   (BankInfo (..), MintetteInfo (..),
                                              MintetteNumber, Scenario (..),
                                              TestContext (..), TestEnv,
@@ -134,7 +136,7 @@ sendInitialCoins ctx = runReaderT (mapM_ doAction actions) ctx
   where
     usersNum = length (ctx ^. users)
     addressesCount = userAddressesCount * usersNum + bankUserAddressesCount
-    partToSend = 1.0 / realToFrac addressesCount
+    partToSend = recip $ realToFrac addressesCount
     partsToSend = M.singleton 0 partToSend
     outputs =
         -- TODO: uncomment after user bug is fixed
@@ -145,7 +147,11 @@ sendInitialCoins ctx = runReaderT (mapM_ doAction actions) ctx
                                                      , addrIdx <-
                                                            [0 .. userAddressesCount -
                                                                  1]]
-    coloring = Nothing  -- TODO
+    allColors = [minColor .. maxColor]
+    nonZeroColors = filter (/= 0) allColors
+    coloring =
+        Just . Coloring . M.fromList . map (, recip (genericLength allColors)) $
+        nonZeroColors
     actions =
         map
             (\o ->

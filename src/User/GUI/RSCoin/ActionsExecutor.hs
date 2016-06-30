@@ -29,7 +29,7 @@ import           GUI.RSCoin.Transactions        (fromTransaction)
 
 updateUI :: WorkMode m => A.RSCoinUserState -> OutputWidgets -> m ()
 updateUI st ow = do
-    a <- query' st A.GetAllAddresses
+    a <- query' st A.GetPublicAddresses
     b <- sum <$> mapM (O.getAmount st) a
     x <- liftIO $ concat <$> mapM (query st . A.GetTransactions) a
     t <- mapM fromTransaction x

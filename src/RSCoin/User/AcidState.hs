@@ -15,7 +15,8 @@ module RSCoin.User.AcidState
 
        -- * Queries
        , IsInitialized (..)
-       , GetAllAddresses (..)
+       , FindUserAddress (..)
+       , GetUserAddresses (..)
        , GetPublicAddresses (..)
        , GetOwnedAddrIds (..)
        , GetTransactions (..)
@@ -74,15 +75,17 @@ closeState :: RSCoinUserState -> IO ()
 closeState = A.closeAcidState
 
 isInitialized :: A.Query WalletStorage Bool
-getAllAddresses :: A.Query WalletStorage [UserAddress]
-getPublicAddresses :: A.Query WalletStorage [C.PublicKey]
-getOwnedAddrIds :: UserAddress -> A.Query WalletStorage [C.AddrId]
-getTransactions :: UserAddress -> A.Query WalletStorage [C.Transaction]
+findUserAddress :: C.Address -> A.Query WalletStorage (Maybe UserAddress)
+getUserAddresses :: A.Query WalletStorage [UserAddress]
+getPublicAddresses :: A.Query WalletStorage [C.Address]
+getOwnedAddrIds :: C.Address -> A.Query WalletStorage [C.AddrId]
+getTransactions :: C.Address -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
 getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
 
 isInitialized = W.isInitialized
-getAllAddresses = W.getAllAddresses
+findUserAddress = W.findUserAddress
+getUserAddresses = W.getUserAddresses
 getPublicAddresses = W.getPublicAddresses
 getOwnedAddrIds = W.getOwnedAddrIds
 getTransactions = W.getTransactions
@@ -102,7 +105,8 @@ initWallet = W.initWallet
 $(makeAcidic
       ''WalletStorage
       [ 'isInitialized
-      , 'getAllAddresses
+      , 'findUserAddress
+      , 'getUserAddresses
       , 'getPublicAddresses
       , 'getOwnedAddrIds
       , 'getTransactions

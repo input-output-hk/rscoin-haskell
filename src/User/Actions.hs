@@ -28,7 +28,7 @@ import           Serokell.Util.Text      (format', formatSingle', show')
 
 import           RSCoin.Core             as C
 import           RSCoin.Timed            (WorkMode, for, ms, wait)
-import           RSCoin.User.AcidState   (GetAllAddresses (..))
+import           RSCoin.User.AcidState   (GetUserAddresses (..))
 import qualified RSCoin.User.AcidState   as A
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..), getAmount,
@@ -61,10 +61,10 @@ processCommand
     => A.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ =
     eWrap $
-    do addresses <- query' st GetAllAddresses
+    do addresses <- query' st GetUserAddresses
        (wallets :: [(C.PublicKey, [C.Coin])]) <-
            mapM (\w -> (w ^. W.publicAddress, ) . C.coinsToList
-                       <$> getAmount st w) addresses
+                       <$> getAmount st (W.toAddress w)) addresses
        liftIO $
            do TIO.putStrLn "Here's the list of your accounts:"
               TIO.putStrLn

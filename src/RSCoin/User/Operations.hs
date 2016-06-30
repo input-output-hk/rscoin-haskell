@@ -49,7 +49,6 @@ import           Serokell.Util          (format', formatSingle',
 
 import qualified RSCoin.Core            as C
 import           RSCoin.Timed           (WorkMode, for, sec, wait)
-import           RSCoin.User.AcidState  (GetAllAddresses (..))
 import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Cache      (UserCache)
 import           RSCoin.User.Error      (UserError (..), UserLogicError,
@@ -110,33 +109,33 @@ updateBlockchain st verbose = do
     verboseSay t = when verbose $ liftIO $ TIO.putStrLn t
 
 -- | Gets amount of coins on user address
-getAmount :: WorkMode m => A.RSCoinUserState -> W.UserAddress -> m C.CoinsMap
-getAmount st userAddress = do
+getAmount :: WorkMode m => A.RSCoinUserState -> C.Address -> m C.CoinsMap
+getAmount st address = do
     -- try to update, but silently fail if net is down
     (_ :: Either SomeException Bool) <- try $ updateBlockchain st False
-    getAmountNoUpdate st userAddress
+    getAmountNoUpdate st address
 
 -- | Gets current amount on all accounts user posesses. Boolean flag
 -- stands for "if update blockchain inside"
 getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m C.CoinsMap
 getUserTotalAmount upd st = do
-    addrs <- query' st A.GetAllAddresses
+    addrs <- query' st A.GetPublicAddresses
     when upd $ void $ updateBlockchain st False
     C.mergeCoinsMaps <$> mapM (getAmountNoUpdate st) addrs
 
 -- | Get amount without storage update
 getAmountNoUpdate
     :: WorkMode m
-    => A.RSCoinUserState -> W.UserAddress -> m C.CoinsMap
-getAmountNoUpdate st userAddress =
-    C.coinsToMap . map sel3 <$> query' st (A.GetOwnedAddrIds userAddress)
+    => A.RSCoinUserState -> C.Address -> m C.CoinsMap
+getAmountNoUpdate st address =
+    C.coinsToMap . map sel3 <$> query' st (A.GetOwnedAddrIds address)
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
 -- n is the number of accounts stored in wallet)
 getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m C.CoinsMap
 getAmountByIndex st idx = do
     void $ updateBlockchain st False
-    addr <- flip atMay idx <$> query' st A.GetAllAddresses
+    addr <- flip atMay idx <$> query' st A.GetPublicAddresses
     maybe
         (throwM $
          InputProcessingError "invalid index was given to getAmountByIndex")
@@ -145,7 +144,7 @@ getAmountByIndex st idx = do
 
 -- | Returns list of public addresses available
 getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
-getAllPublicAddresses st = map C.Address <$> query' st A.GetPublicAddresses
+getAllPublicAddresses st = query' st A.GetPublicAddresses
 
 -- | Returns transaction history that wallet holds
 getTransactionsHistory :: WorkMode m => A.RSCoinUserState -> m [W.TxHistoryRecord]
@@ -163,7 +162,7 @@ submitTransactionFromAll
     -> m C.Transaction
 submitTransactionFromAll st maybeCache addressTo amount =
     assert (C.getColor amount == 0) $
-    do addrs <- query' st A.GetAllAddresses
+    do addrs <- query' st A.GetPublicAddresses
        (indicesWithCoins :: [(Word, C.Coin)]) <-
            filter ((>= 0) . snd) <$>
            mapM
@@ -271,7 +270,7 @@ constructAndSignTransaction st TransactionData{..} = do
         formatSingle'
             "All input values should be positive, but encountered {}, that's not." $
         head $ filter (<= 0) $ concatMap snd tdInputs
-    accounts <- query' st GetAllAddresses
+    accounts <- query' st A.GetPublicAddresses
     let notInRange i = i >= genericLength accounts
     when (any notInRange $ map fst tdInputs) $
         commitError $
@@ -280,13 +279,13 @@ constructAndSignTransaction st TransactionData{..} = do
              ")")
             (head $ filter notInRange $ map fst tdInputs)
             (length accounts)
-    let accInputs :: [(W.UserAddress, M.Map C.Color C.Coin)]
+    let accInputs :: [(C.Address, M.Map C.Color C.Coin)]
         accInputs =
             map
                 (\(i,c) ->
                       (accounts `genericIndex` i, C.coinsToMap c))
                 tdInputs
-        hasEnoughFunds :: (W.UserAddress, C.CoinsMap) -> m Bool
+        hasEnoughFunds :: (C.Address, C.CoinsMap) -> m Bool
         hasEnoughFunds (acc,coinsMap) = do
             amountMap <- getAmountNoUpdate st acc
             let sufficient =
@@ -320,11 +319,13 @@ constructAndSignTransaction st TransactionData{..} = do
             { txInputs = inputAddrids
             , txOutputs = outputs ++ map (tdOutputAddress, ) tdOutputCoins
             }
-        signatures =
-            M.fromList $
-            map
-                (\(addrid',address') ->
-                      (addrid', C.sign (address' ^. W.privateAddress) outTr))
+    signatures <-
+            M.fromList <$>
+            mapM
+                (\(addrid',address') -> do
+                      privateKey <- (^. W.privateAddress) . fromJust <$>
+                          query' st (A.FindUserAddress address')
+                      return (addrid', C.sign privateKey outTr))
                 addrPairList
     when (not (null tdOutputCoins) && not (C.validateSum outTr)) $
         commitError $
@@ -347,12 +348,12 @@ submitTransactionMapper
     :: A.RSCoinUserState
     -> [C.Coin]
     -> C.Address
-    -> W.UserAddress
+    -> C.Address
     -> C.CoinsMap
-    -> IO (Maybe ([(C.AddrId, W.UserAddress)], [C.AddrId], [(C.Address, C.Coin)]))
+    -> IO (Maybe ([(C.AddrId, C.Address)], [C.AddrId], [(C.Address, C.Coin)]))
 submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
     (addrids :: [C.AddrId]) <-
-        concatMap (C.getAddrIdByAddress $ W.toAddress address) <$>
+        concatMap (C.getAddrIdByAddress address) <$>
         query' st (A.GetTransactions address)
     let
         -- Pairs of chosen addrids and change for each color
@@ -367,7 +368,7 @@ submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
             :: [C.Coin]
         changesValues = filter (> 0) $ map snd chosenMap
         changes :: [(C.Address, C.Coin)]
-        changes = map (W.toAddress address, ) changesValues
+        changes = map (address, ) changesValues
         autoGeneratedOutputs :: [(C.Address, C.Coin)]
         autoGeneratedOutputs
           | null outputCoin = map (outputAddr, ) $ C.coinsToList requestedCoins

@@ -20,7 +20,8 @@ module RSCoin.User.Wallet
        , WalletStorage
        , emptyWalletStorage
        , isInitialized
-       , getAllAddresses
+       , findUserAddress
+       , getUserAddresses
        , getPublicAddresses
        , addTemporaryTransaction
        , getOwnedAddrIds
@@ -116,18 +117,18 @@ instance Ord TxHistoryRecord where
 -- this implementation to work.
 type TrAddrId = (Transaction, AddrId)
 data WalletStorage = WalletStorage
-    { _userAddresses :: [UserAddress]                -- ^ Addresses that user owns
-    , _userTxAddrids :: M.Map UserAddress [TrAddrId] -- ^ Transactions that user is aware
-                                                     -- of and that reference user
-                                                     -- addresses, that were not spent
-                                                     -- (utxo basically)
-    , _periodDeleted :: [(UserAddress, TrAddrId)]    -- ^ Support list for deleted events
-    , _periodAdded   :: [(UserAddress, TrAddrId)]    -- ^ Support list for added events
-    , _lastBlockId   :: Maybe PeriodId               -- ^ Last blockchain height known
-                                                     -- to user (if known)
+    { _userAddresses :: [UserAddress]            -- ^ Addresses that user owns
+    , _userTxAddrids :: M.Map Address [TrAddrId] -- ^ Transactions that user is aware
+                                                 -- of and that reference user
+                                                 -- addresses, that were not spent
+                                                 -- (utxo basically)
+    , _periodDeleted :: [(Address, TrAddrId)]    -- ^ Support list for deleted events
+    , _periodAdded   :: [(Address, TrAddrId)]    -- ^ Support list for added events
+    , _lastBlockId   :: Maybe PeriodId           -- ^ Last blockchain height known
+                                                 -- to user (if known)
 
-    , _historyTxs    :: S.Set TxHistoryRecord        -- ^ History of all transactions
-                                                     -- being made (incomes + outcomes)
+    , _historyTxs    :: S.Set TxHistoryRecord    -- ^ History of all transactions
+                                                 -- being made (incomes + outcomes)
     } deriving (Show)
 
 $(L.makeLenses ''WalletStorage)
@@ -149,6 +150,7 @@ emptyWalletStorage = WalletStorage [] M.empty [] [] Nothing S.empty
 
 type ExceptQuery a = forall m. (MonadReader WalletStorage m, MonadThrow m) => m a
 
+
 checkInitR :: (MonadReader WalletStorage m, MonadThrow m) => m a -> m a
 checkInitR action = do
     a <- L.views userAddresses (not . null)
@@ -163,19 +165,24 @@ isInitialized = do
     b <- L.views lastBlockId isJust
     return $ a && b
 
+-- | Searches UserAddress correspondent to Address
+findUserAddress :: Address -> ExceptQuery (Maybe UserAddress)
+findUserAddress addr = checkInitR $
+    L.views userAddresses $ find ((== addr) . toAddress)
+
 -- | Get all available user addresses with private keys
-getAllAddresses :: ExceptQuery [UserAddress]
-getAllAddresses = checkInitR $ L.view userAddresses
+getUserAddresses :: ExceptQuery [UserAddress]
+getUserAddresses = checkInitR $ L.view userAddresses
 
 -- | Get all available user addresses w/o private keys
-getPublicAddresses :: ExceptQuery [PublicKey]
-getPublicAddresses = checkInitR $ L.views userAddresses (map _publicAddress)
+getPublicAddresses :: ExceptQuery [Address]
+getPublicAddresses = checkInitR $ L.views userAddresses (map (Address . _publicAddress))
 
 -- | Gets user-related UTXO (addrids he owns)
-getOwnedAddrIds :: UserAddress -> ExceptQuery [AddrId]
+getOwnedAddrIds :: Address -> ExceptQuery [AddrId]
 getOwnedAddrIds addr = do
-    addrOurs <- L.views userAddresses (elem addr)
-    unless addrOurs $
+    addrOurs <- getPublicAddresses
+    unless (addr `elem` addrOurs) $
         throwM $
         BadRequest $
         formatSingle' "Tried to getTransactions for addr we don't own: {}" addr
@@ -191,10 +198,10 @@ getOwnedAddrIds addr = do
 
 -- | Gets transaction that are somehow affect specified
 -- address. Address should be owned by wallet in MonadReader.
-getTransactions :: UserAddress -> ExceptQuery [Transaction]
+getTransactions :: Address -> ExceptQuery [Transaction]
 getTransactions addr = checkInitR $ do
-    addrOurs <- L.views userAddresses (elem addr)
-    unless addrOurs $
+    addrOurs <- getPublicAddresses
+    unless (addr `elem` addrOurs) $
         throwM $
         BadRequest $
         formatSingle' "Tried to getTransactions for addr we don't own: {}" addr
@@ -244,12 +251,8 @@ restoreTransactions = do
 -- which we expect to see tx in.
 addTemporaryTransaction :: PeriodId -> Transaction -> ExceptUpdate ()
 addTemporaryTransaction periodId tx@Transaction{..} = do
-    ownedAddressesRaw <- L.use userAddresses
     ownedAddresses <- L.uses userAddresses $ map toAddress
     ownedTransactions <- L.uses userTxAddrids M.assocs
-    let getByAddress address =
-            fromJust $
-            find ((==) address . toAddress) ownedAddressesRaw
     forM_ txInputs $ \newaddrid ->
         forM_ ownedTransactions $ \(address,traddrids) ->
             forM_ traddrids $ \p@(_,addrid) ->
@@ -264,10 +267,9 @@ addTemporaryTransaction periodId tx@Transaction{..} = do
                      C.computeOutputAddrids tx
     forM_ outputAddr $ \(address,addrids) ->
         when (address `elem` ownedAddresses) $
-            do let userAddr = getByAddress address
-               forM_ addrids $ \addrid -> do
-                   userTxAddrids %= M.insertWith (++) userAddr [(tx, addrid)]
-                   periodAdded <>= [(userAddr, (tx,addrid))]
+           forM_ addrids $ \addrid -> do
+               userTxAddrids %= M.insertWith (++) address [(tx, addrid)]
+               periodAdded <>= [(address, (tx,addrid))]
     historyTxs %= S.insert (TxHistoryRecord tx periodId TxHUnconfirmed)
 
 -- | Called from withBlockchainUpdate. Takes all transactions with
@@ -334,7 +336,6 @@ withBlockchainUpdate newHeight transactions =
        restoreTransactions
        putHistoryRecords newHeight transactions
 
-       ownedAddressesRaw <- L.use userAddresses
        ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
        let addSomeTransactions tx@Transaction{..} = do
                -- first! add transactions that have output with address that we own
@@ -346,20 +347,16 @@ withBlockchainUpdate newHeight transactions =
                                     C.computeOutputAddrids tx
                forM_ outputAddr $ \(address,addrids) ->
                    when (address `elem` ownedAddresses) $
-                       do let userAddr = getByAddress address
-                          forM_ addrids $ \addrid' ->
-                              userTxAddrids %= M.insertWith (++) userAddr [(tx, addrid')]
-           getByAddress address =
-               fromJust $
-               find ((==) address . Address . _publicAddress) ownedAddressesRaw
+                       forM_ addrids $ \addrid' ->
+                           userTxAddrids %= M.insertWith (++) address [(tx, addrid')]
            removeSomeTransactions Transaction{..} = do
-               (savedTransactions :: [(UserAddress, (Transaction, AddrId))]) <-
+               (savedTransactions :: [(Address, (Transaction, AddrId))]) <-
                    concatMap
                        (\(addr,txs) ->
                              map (addr, ) txs) <$>
                    L.uses userTxAddrids M.assocs
                -- second! remove transactions that are used as input of this tx
-               let toRemove :: [(UserAddress, (Transaction, AddrId))]
+               let toRemove :: [(Address, (Transaction, AddrId))]
                    toRemove =
                        nub $
                        concatMap
@@ -402,7 +399,7 @@ addAddresses userAddress txs = do
     userAddresses <>= [userAddress]
     userTxAddrids <>=
         M.singleton
-            userAddress
+            (toAddress userAddress)
             (concatMap
                  (\t -> map (t, ) $
                         C.getAddrIdByAddress (toAddress userAddress) t)

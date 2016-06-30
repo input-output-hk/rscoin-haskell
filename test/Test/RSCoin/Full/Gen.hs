@@ -38,6 +38,7 @@ import           Test.RSCoin.Full.Action         (Coloring (Coloring),
                                                   ToAddress, UserAction (..),
                                                   UserIndex, WaitAction (..),
                                                   applyPartsToSend)
+import           Test.RSCoin.Full.Constants      (maxColor, minColor)
 import           Test.RSCoin.Full.Context        (MintetteNumber, UserNumber)
 import           Test.RSCoin.Full.Initialization (bankUserAddressesCount,
                                                   userAddressesCount)
@@ -66,7 +67,7 @@ genWaitAction a =
     pure a -- at most 5 seconds
 
 genColor :: Gen C.Color
-genColor = choose (-2, 5)
+genColor = choose (minColor, maxColor)
 
 instance Arbitrary Coloring where
     arbitrary = do

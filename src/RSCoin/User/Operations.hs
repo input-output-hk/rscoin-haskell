@@ -334,8 +334,6 @@ constructAndSignTransaction st TransactionData{..} = do
         formatSingle'
             "Our code is broken and our auto-generated transaction is invalid: {}"
             outTr
-    C.logInfo C.userLoggerName $
-           sformat ("This transaction has been formed: " % shown) outTr
     return (outTr, signatures)
   where
     pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])

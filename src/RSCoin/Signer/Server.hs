@@ -30,13 +30,13 @@ logInfo = C.logInfo C.signerLoggerName
 -- | Run Signer server which will process incoming sing requests.
 serve
     :: WorkMode m
-    => Int
-    -> RSCoinSignerState
-    -> m ()
+    => Int -> RSCoinSignerState -> m ()
 serve port signerState = do
     idr1 <- serverTypeRestriction1
-    P.serve port
-        [ P.method (P.RSCSign P.SignTransaction) $ idr1 $ signIncoming signerState ]
+    P.serve
+        port
+        [ P.method (P.RSCSign P.SignTransaction) $
+          idr1 $ signIncoming signerState]
 
 -- TODO: move into better place
 data SignerError = SignerError
@@ -55,9 +55,7 @@ toServer action = liftIO $ action `catch` handler
 
 signIncoming
     :: WorkMode m
-    => RSCoinSignerState
-    -> C.Transaction
-    -> ServerT m C.Transaction
+    => RSCoinSignerState -> C.Transaction -> ServerT m C.Transaction
 signIncoming _ transaction = toServer $ do
     logInfo $ sformat ("Receiving transaction: " % shown) transaction
     return transaction

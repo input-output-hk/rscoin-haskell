@@ -7,9 +7,9 @@ module SignerOptions
 
 import           Data.ByteString        (ByteString)
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
-                                         help, helper, info, long,
-                                         option, progDesc, short, showDefault,
-                                         switch, value, (<>))
+                                         help, helper, info, long, option,
+                                         progDesc, short, showDefault, switch,
+                                         value, (<>))
 
 import           Serokell.Util.OptParse (strOption)
 
@@ -17,12 +17,12 @@ import           RSCoin.Core            (Severity (Error), defaultBankHost,
                                          defaultPort, defaultSecretKeyPath)
 
 data Options = Options
-    { cliPort          :: Int
-    , cliPath          :: FilePath
+    { cliPort        :: Int
+    , cliPath        :: FilePath
     --, cliSecretKeyPath :: FilePath
-    , cliLogSeverity   :: Severity
-    , cliMemMode       :: Bool
-    , cliBankHost      :: ByteString
+    , cliLogSeverity :: Severity
+    , cliMemMode     :: Bool
+    , cliBankHost    :: ByteString
     } deriving Show
 
 --data Mode
@@ -34,28 +34,24 @@ data Options = Options
 
 optionsParser :: FilePath -> Parser Options
 optionsParser defaultSKPath =
-    Options
-    <$>
+    Options <$>
     --modeParser
     -- <*>
-    option auto
+    option
+        auto
         (short 'p' <> long "port" <> value defaultPort <> showDefault <>
-         help "Signer port to receive transactions")
-    <*>
+         help "Signer port to receive transactions") <*>
     strOption
         (long "path" <> value "signer-db" <> showDefault <>
-         help "Path to signer database")
-    <*>
+         help "Path to signer database") <*>
     --strOption
     --    (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault)
     -- <*>
-    option auto
+    option
+        auto
         (long "log-severity" <> value Error <> showDefault <>
-         help "Logging severity")
-    <*>
-    switch
-        (short 'm' <> long "memory-mode" <> help "Run in memory mode")
-    <*>
+         help "Logging severity") <*>
+    switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
     strOption
         (long "bank-host" <> value defaultBankHost <> showDefault <>
          help "Host name for bank")

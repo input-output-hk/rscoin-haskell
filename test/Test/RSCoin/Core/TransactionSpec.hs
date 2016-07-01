@@ -78,8 +78,8 @@ spec =
     describe "Transaction" $ do
         describe "validateSum" $ do
             prop description_validateSumForValid validateSumCorrectForValid
-            prop description_validateInputMoreThanOutput validateInputMoreThanOutput
-            prop description_validateSumForValid validateInputMoreThanOutput2 
+            prop description_validateInputLessThanOutput validateInputMoreThanOutput
+            prop description_validateSumForValid validateInputMoreThanOutput2
         describe "validateSignature" $ do
             prop description_validateSignature validateSig
         describe "chooseAddresses" $ do
@@ -92,7 +92,7 @@ spec =
       description_validateInputLessThanOutput =
         "returns true only if the validating function returns true on well formed " ++
         "transactions, and false on those where the total inputs are less than the " ++
-        "total outputs"        
+        "total outputs"
       description_validateSignature =
         "returns true if the signature is issued by the public key associated " ++
         "with the address for the transaction"
@@ -120,7 +120,7 @@ validateInputMoreThanOutput2 txi@(_, _, C.Coin col c) r adr =
     let (mx, mn) = (max c r, min c r)
         other = mx - mn
         txo = [(adr, C.Coin col mn),(adr, C.Coin col other)]
-    in C.validateSum [txi] txo
+    in C.validateSum $ C.Transaction [txi] txo
 
 validateSig :: C.SecretKey -> C.Transaction -> Bool
 validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePublicKey sk) tr

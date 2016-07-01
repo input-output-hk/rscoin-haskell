@@ -17,9 +17,9 @@ import           Data.Either.Combinators         (mapRight)
 import qualified Data.Map                        as M
 import           Data.Time.Units                 (fromMicroseconds)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
-                                                  NonEmptyList (..), choose,
-                                                  listOf, shuffle, sized,
-                                                  sublistOf, suchThat, vectorOf)
+                                                  choose, listOf, shuffle,
+                                                  sized, sublistOf, suchThat,
+                                                  vectorOf)
 
 import qualified RSCoin.Core                     as C
 
@@ -93,8 +93,7 @@ genSubmitTransaction un = do
     let addressesCount =
             maybe bankUserAddressesCount (const userAddressesCount) usrIdx
         fixFromAddress = first (`mod` addressesCount)
-    SubmitTransaction usrIdx <$>
-        ((NonEmpty . map fixFromAddress . getNonEmpty) <$> arbitrary) <*>
+    SubmitTransaction usrIdx <$> (fmap fixFromAddress <$> arbitrary) <*>
         genToAddress un <*>
         arbitrary
 

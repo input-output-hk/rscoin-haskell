@@ -37,10 +37,10 @@ import           Test.RSCoin.Full.Initialization (bankUserAddressesCount,
 import           Test.RSCoin.Timed.Arbitrary     ()
 
 instance Arbitrary MintetteNumber where
-    arbitrary = pure 1
+    arbitrary = choose (1, 5)
 
 instance Arbitrary UserNumber where
-    arbitrary = pure 1
+    arbitrary = choose (1, 7)
 
 instance Arbitrary PartToSend where
     arbitrary = PartToSend <$> choose (0.001, 1.0)
@@ -56,8 +56,8 @@ instance Arbitrary PartsToSend where
 
 genWaitAction :: a -> Gen (WaitAction a)
 genWaitAction a =
-    WaitAction <$> (fromMicroseconds <$> choose (0, 5 * 1000 * 1000)) <*>
-    pure a -- at most 5 seconds
+    WaitAction <$> (fromMicroseconds <$> choose (0, 15 * 1000 * 1000)) <*>
+    pure a -- at most 15 seconds
 
 genColor :: Gen C.Color
 genColor = choose (minColor, maxColor)

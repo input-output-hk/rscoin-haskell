@@ -23,6 +23,7 @@ import           Control.Concurrent.MVar (MVar)
 import           Control.Lens            (Getter, makeLenses, to, _1, _2)
 import           Control.Monad.Reader    (ReaderT)
 import           Data.Word               (Word16, Word8)
+import           System.Random           (Random)
 
 import qualified RSCoin.Bank             as B
 import           RSCoin.Core             (PublicKey, SecretKey, bankPort)
@@ -32,12 +33,12 @@ import qualified RSCoin.User             as U
 -- | Number of mintettes in system.
 newtype MintetteNumber = MintetteNumber
     { getMintetteNumber :: Word8
-    } deriving (Show,Real,Ord,Eq,Enum,Num,Integral)
+    } deriving (Show,Real,Ord,Eq,Enum,Num,Integral,Random)
 
 -- | Number of users in system.
 newtype UserNumber = UserNumber
     { getUserNumber :: Word16
-    } deriving (Show,Real,Ord,Eq,Enum,Num,Integral)
+    } deriving (Show,Real,Ord,Eq,Enum,Num,Integral,Random)
 
 data BankInfo = BankInfo
     { _bankKeys  :: (SecretKey, PublicKey)

@@ -12,13 +12,14 @@ module Test.RSCoin.Full.Gen
        ( genValidActions
        ) where
 
+import           Data.Bifunctor                  (first)
 import           Data.Either.Combinators         (mapRight)
 import qualified Data.Map                        as M
 import           Data.Time.Units                 (fromMicroseconds)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
-                                                  choose, listOf, shuffle,
-                                                  sized, sublistOf, suchThat,
-                                                  vectorOf)
+                                                  NonEmptyList (..), choose,
+                                                  listOf, shuffle, sized,
+                                                  sublistOf, suchThat, vectorOf)
 
 import qualified RSCoin.Core                     as C
 
@@ -28,7 +29,7 @@ import           Test.RSCoin.Full.Action         (Coloring (Coloring),
                                                   PartsToSend (..),
                                                   SomeAction (SomeAction),
                                                   ToAddress, UserAction (..),
-                                                  WaitAction (..))
+                                                  UserIndex, WaitAction (..))
 import           Test.RSCoin.Full.Constants      (maxColor, minColor)
 import           Test.RSCoin.Full.Context        (MintetteNumber, UserNumber)
 import           Test.RSCoin.Full.Initialization (bankUserAddressesCount,
@@ -72,6 +73,9 @@ instance Arbitrary Coloring where
             Coloring . M.fromListWith (+) . zip colors . map (* multiplier) $
             parts
 
+genUserIndex :: UserNumber -> Gen UserIndex
+genUserIndex un = fmap (`mod` fromIntegral un) <$> arbitrary
+
 genToAddress :: UserNumber -> Gen ToAddress
 genToAddress (fromIntegral -> userNumber) = mapRight fixIndices <$> arbitrary
   where
@@ -84,9 +88,15 @@ genToAddress (fromIntegral -> userNumber) = mapRight fixIndices <$> arbitrary
               addrIdx)
 
 genSubmitTransaction :: UserNumber -> Gen UserAction
-genSubmitTransaction un =
-    SubmitTransaction <$> arbitrary <*> arbitrary <*> genToAddress un <*>
-    arbitrary
+genSubmitTransaction un = do
+    usrIdx <- genUserIndex un
+    let addressesCount =
+            maybe bankUserAddressesCount (const userAddressesCount) usrIdx
+        fixFromAddress = first (`mod` addressesCount)
+    SubmitTransaction usrIdx <$>
+        ((NonEmpty . map fixFromAddress . getNonEmpty) <$> arbitrary) <*>
+        genToAddress un <*>
+        arbitrary
 
 genUpdateBlockchain :: Gen UserAction
 genUpdateBlockchain = UpdateBlockchain <$> arbitrary

@@ -6,73 +6,51 @@ module Test.RSCoin.Timed.MonadRpcSpec
        ( spec
        ) where
 
-import           Control.Monad.Random.Class  (getRandomR)
 import           Control.Monad.State         (StateT, execStateT, modify)
-import           Control.Monad.Trans         (MonadIO)
-import           Data.Time.Units             (fromMicroseconds)
 import           Network.MessagePack.Server  (ServerT)
-import           System.Random               (StdGen)
 import           Test.Hspec                  (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Arbitrary (..), Property,
-                                              generate, ioProperty)
+import           Test.QuickCheck             (Property, Testable (property),
+                                              ioProperty)
 import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, run)
 
-import           RSCoin.Timed                (runRealModeLocal)
+import           RSCoin.Timed                (WorkMode, for, fork, fork_,
+                                              killThread, ms, runRealModeLocal,
+                                              wait)
 import           RSCoin.Timed.MonadRpc       (Addr, Client (..), Host,
                                               MonadRpc (..), MsgPackRpc (..),
                                               Port, call, method)
-import           RSCoin.Timed.MonadTimed     (MonadTimed (..), for, fork_, ms)
-import           RSCoin.Timed.PureRpc        (Delays (..), PureRpc, runPureRpc)
+import           RSCoin.Timed.PureRpc        (PureRpc, runPureRpc)
 
 import           Test.RSCoin.Timed.Arbitrary ()
 
 spec :: Spec
 spec =
     describe "MonadRpc" $ do
-        msgPackRpcSpec "MsgPackRpc" runMsgPackRpcProp
-        runIO (generate arbitrary) >>= pureRpcSpec "PureRpc" . flip runPureRpcProp delays'
+        describe "MsgPackRpc" $ do
+            describe "msgpack-rpc based implementation of RPC layer" $ do
+                runIO $ runRealModeLocal (fork_ server)
+                prop "client should be able to execute server method" $
+                    runMsgPackRpcProp serverMethodShouldExecuteSimpleSpec
+        describe "PureRpc" $ do
+            describe "pure implementation of RPC layer" $ do
+                prop "client should be able to execute server method" $
+                    runPureRpcProp serverMethodShouldExecuteSimplePureSpec
 
-msgPackRpcSpec
-    :: (MonadRpc m, MonadTimed m, MonadIO m)
-    => String
-    -> (PropertyM m () -> Property)
-    -> Spec
-msgPackRpcSpec description runProp =
-    describe description $ do
-        describe "server method should execute (simple)" $ do
-            prop "client should be able to execute server method" $
-                runProp serverMethodShouldExecuteSimpleSpec
-
-pureRpcSpec
-    :: String
-    -> (PureRpcProp () -> Property)
-    -> Spec
-pureRpcSpec description runProp =
-    describe description $ do
-        describe "server method should execute (simple)" $ do
-            prop "client should be able to execute server method" $
-                runProp serverMethodShouldExecuteSimplePureSpec
-
--- from pure testing
--- type PureRpcProp = PureRpc (CatchT (State Bool))
+type MsgPackRpcProp = PropertyM MsgPackRpc
 type PureRpcProp = PureRpc (StateT Bool IO)
 
 assertPure :: Bool -> PureRpcProp ()
 assertPure b = modify (b &&)
 
-runMsgPackRpcProp :: PropertyM MsgPackRpc () -> Property
+runMsgPackRpcProp :: MsgPackRpcProp () -> Property
 runMsgPackRpcProp = monadic $ ioProperty . runRealModeLocal
 
-runPureRpcProp :: StdGen -> Delays -> PureRpcProp () -> Property
-runPureRpcProp gen delays test =
-    ioProperty $ execStateT (runPureRpc gen delays test) True
-
--- FIXME: use arbitrary instead of StdGen
-delays' :: Delays
-delays' = Delays d
-  where
-    d _ _ = Just . fromMicroseconds <$> getRandomR (10, 1000)
+runPureRpcProp :: PureRpcProp () -> Property
+runPureRpcProp test =
+    property $
+    \gen delays ->
+         ioProperty $ execStateT (runPureRpc gen delays test) True
 
 -- TODO: it would be useful to create an instance of Function for Client and Method;
 -- see here https://hackage.haskell.org/package/QuickCheck-2.8.2/docs/Test-QuickCheck-Function.html#t:Function
@@ -87,17 +65,16 @@ addr :: Addr
 addr = (host, port)
 
 serverMethodShouldExecuteSimpleSpec
-    :: (MonadTimed m, MonadRpc m, MonadIO m)
+    :: WorkMode m
     => PropertyM m ()
-serverMethodShouldExecuteSimpleSpec = do
-    run $ fork_ $ server
-    client
+serverMethodShouldExecuteSimpleSpec = client
 
 serverMethodShouldExecuteSimplePureSpec
     :: PureRpcProp ()
 serverMethodShouldExecuteSimplePureSpec = do
-    fork_ $ server
+    serverThread <- fork server
     clientPure
+    killThread serverThread
 
 server :: MonadRpc m => m ()
 server = do
@@ -105,21 +82,21 @@ server = do
         respEcho = echo
     restrict $ respAdd 0 0
     restrict $ respEcho ""
-    serve port
-        [ method "add"  respAdd
-        , method "echo" respEcho
-        ]
+    serve port [method "add" respAdd, method "echo" respEcho]
   where
-    add :: Monad m => Int -> Int -> ServerT m Int
+    add
+        :: Monad m
+        => Int -> Int -> ServerT m Int
     add x y = return $ x + y
-
-    echo :: Monad m => String -> ServerT m String
+    echo
+        :: Monad m
+        => String -> ServerT m String
     echo s = return $ "***" ++ s ++ "***"
 
 restrict :: Monad m => ServerT m a -> m ()
 restrict _  =  return ()
 
-client :: (MonadRpc m, MonadTimed m) => PropertyM m ()
+client :: WorkMode m => PropertyM m ()
 client = do
     run $ wait $ for 50 ms
     r1 <- run $ execClient addr $ addC 123 456

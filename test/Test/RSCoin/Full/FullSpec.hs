@@ -58,7 +58,6 @@ config :: FullTestConfig
 config =
     def
     { ftcGlobalSeverity = Warning
-    , ftcUserSeverity = Just Info
     , ftcRealMode = False
     }
 

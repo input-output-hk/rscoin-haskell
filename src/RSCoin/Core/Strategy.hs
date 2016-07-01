@@ -12,6 +12,12 @@ import           RSCoin.Core.Types          (Strategy (..))
 -- transaction and it will be accepted
 ifStrategyCompleted :: Strategy -> [(Address, Signature)] -> Transaction -> Bool
 ifStrategyCompleted (DefaultStrategy address) signs tx =
-    any (\(addr,sign) -> address == addr && verify (getAddress address) sign tx) signs
+    any (\(addr,sign) -> address == addr &&
+                         verify (getAddress address) sign tx) signs
 ifStrategyCompleted (MOfNStrategy m addresses) signs tx =
-    undefined m addresses signs tx -- check that m/n signatures are good
+    let hasSignature address =
+            any (\(addr,sign) -> address == addr &&
+                                 verify (getAddress address) sign tx)
+                signs
+        withSignatures = filter hasSignature addresses
+    in length withSignatures >= m

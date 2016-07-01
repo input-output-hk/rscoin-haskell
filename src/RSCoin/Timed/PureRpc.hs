@@ -53,7 +53,6 @@ newtype Delays = Delays
     { -- | Just delay if net packet delivered successfully
       --   Nothing otherwise
       -- TODO: more parameters
-      -- FIXME: we should handle StdGen with Quickcheck.Arbitrary
       evalDelay :: RpcStage -> Microsecond -> Rand StdGen (Maybe Microsecond)
       -- ^ I still think that this function is at right place
       --   We just need to find funny syntax for creating complex description

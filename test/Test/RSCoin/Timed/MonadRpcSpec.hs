@@ -31,8 +31,6 @@ spec :: Spec
 spec =
     describe "MonadRpc" $ do
         msgPackRpcSpec "MsgPackRpc" runMsgPackRpcProp
-        -- FIXME: dont generate new radom seed here. Better way would be use the same seed as the one quickcheck/hspec was initialised with.
-        -- Proper way of fixing this is to not use StdGen in PureRpc implementation, but to leave this to quickcheck
         runIO (generate arbitrary) >>= pureRpcSpec "PureRpc" . flip runPureRpcProp delays'
 
 msgPackRpcSpec

@@ -140,9 +140,8 @@ sendInitialCoins ctx = runReaderT (mapM_ doAction actions) ctx
     partToSend = recip $ realToFrac addressesCount
     partsToSend = PartsToSend $ M.singleton 0 partToSend
     outputs =
-        -- TODO: uncomment after user bug is fixed
-        -- [Right (Nothing, addrIdx) | addrIdx <-
-        --                                [0 .. bankUserAddressesCount - 1]] ++
+        [Right (Nothing, addrIdx) | addrIdx <-
+                                       [0 .. bankUserAddressesCount - 1]] ++
         [Right (Just (fromIntegral usrIdx), addrIdx) | usrIdx <-
                                                           [0 .. usersNum - 1]
                                                      , addrIdx <-

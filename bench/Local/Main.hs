@@ -22,7 +22,6 @@ import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   Severity (..),
                                                   defaultPeriodDelta,
                                                   initLogging, keyGen)
-import           RSCoin.User                     (toAddress)
 
 import           Bench.RSCoin.FilePathUtils      (tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
@@ -80,7 +79,7 @@ initializeUsers :: FilePath -> [Word] -> IO [Address]
 initializeUsers benchDir userIds = do
     let initUserAction = userThread bankHost benchDir initializeUser
     logInfo $ sformat ("Initializing " % int % " users…") $ length userIds
-    map toAddress <$> mapM initUserAction userIds
+    mapM initUserAction userIds
 
 initializeSuperUser :: Word -> FilePath -> [Address] -> IO ()
 initializeSuperUser txNum benchDir userAddresses = do

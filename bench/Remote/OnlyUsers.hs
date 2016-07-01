@@ -20,7 +20,6 @@ import           Serokell.Util.Text         (listBuilderCSV, show')
 
 import           RSCoin.Core                (Address, Severity (..),
                                              initLogging)
-import           RSCoin.User                (toAddress)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
@@ -50,7 +49,7 @@ initializeUsers :: ByteString -> FilePath -> [Word] -> IO [Address]
 initializeUsers bankHost benchDir userIds = do
     let initUserAction = userThread bankHost benchDir initializeUser
     logInfo $ sformat ("Initializing " % int % " users…") $ length userIds
-    map toAddress <$> mapM initUserAction userIds
+    mapM initUserAction userIds
 
 initializeSuperUser :: Word
                     -> ByteString

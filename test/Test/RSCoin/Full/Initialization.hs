@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections    #-}
 
 -- | This module defines how to initialize RSCoin.
 
@@ -7,36 +8,45 @@ module Test.RSCoin.Full.Initialization
        , bankUserAddressesCount, userAddressesCount
        ) where
 
-import           Control.Concurrent.MVar   (MVar, newEmptyMVar, tryPutMVar)
-import           Control.Exception         (assert)
-import           Control.Lens              (view, (^.))
-import           Control.Monad             (replicateM)
-import           Control.Monad.Trans       (MonadIO (liftIO))
-import           Data.Acid.Advanced        (update')
-import           Data.List                 (genericLength)
-import           Data.Maybe                (fromMaybe)
-import           Formatting                (build, sformat, (%))
+import           Control.Concurrent.MVar    (MVar, newEmptyMVar, tryPutMVar)
+import           Control.Exception          (assert)
+import           Control.Lens               (view, (^.))
+import           Control.Monad              (replicateM)
+import           Control.Monad.Reader       (runReaderT)
+import           Control.Monad.Trans        (MonadIO (liftIO))
+import           Data.Acid.Advanced         (update')
+import           Data.List                  (genericLength)
+import qualified Data.Map                   as M
+import           Formatting                 (build, sformat, (%))
+import           Test.QuickCheck            (NonEmptyList (..))
 
-import qualified RSCoin.Bank               as B
-import           RSCoin.Core               (Mintette (..), bankSecretKey,
-                                            defaultPeriodDelta, derivePublicKey,
-                                            keyGen, logDebug, logInfo,
-                                            testingLoggerName)
-import qualified RSCoin.Mintette           as M
-import           RSCoin.Timed              (Second, WorkMode, for, ms,
-                                            myThreadId, wait,
-                                            workWhileMVarEmpty)
-import qualified RSCoin.User               as U
+import qualified RSCoin.Bank                as B
+import           RSCoin.Core                (Mintette (..), bankSecretKey,
+                                             defaultPeriodDelta,
+                                             derivePublicKey, keyGen, logDebug,
+                                             logInfo, testingLoggerName)
+import qualified RSCoin.Mintette            as M
+import           RSCoin.Timed               (Second, WorkMode, for, ms,
+                                             myThreadId, sec, wait,
+                                             workWhileMVarEmpty)
+import qualified RSCoin.User                as U
 
-import           Test.RSCoin.Full.Context  (BankInfo (..), MintetteInfo (..),
-                                            MintetteNumber, Scenario (..),
-                                            TestContext (..), TestEnv,
-                                            UserInfo (..), UserNumber, isActive,
-                                            port, publicKey, secretKey, state)
-import qualified Test.RSCoin.Full.Mintette as TM
+import           Test.RSCoin.Full.Action    (Coloring (Coloring),
+                                             PartsToSend (PartsToSend),
+                                             UserAction (SubmitTransaction),
+                                             doAction)
+import           Test.RSCoin.Full.Constants (bankUserAddressesCount, maxColor,
+                                             minColor, userAddressesCount)
+import           Test.RSCoin.Full.Context   (BankInfo (..), MintetteInfo (..),
+                                             MintetteNumber, Scenario (..),
+                                             TestContext (..), TestEnv,
+                                             UserInfo (..), UserNumber,
+                                             isActive, port, publicKey,
+                                             secretKey, state, users)
+import qualified Test.RSCoin.Full.Mintette  as TM
 
-periodDelta :: Maybe Second
-periodDelta = Nothing
+periodDelta :: Second
+periodDelta = defaultPeriodDelta
 
 -- | Start all servers/workers and create TestContext.
 mkTestContext
@@ -58,8 +68,11 @@ mkTestContext mNum uNum scen = do
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     initBUser buinfo
     mapM_ initUser uinfos
+    let ctx = TestContext binfo minfos buinfo uinfos scen isActiveVar
+    sendInitialCoins ctx
+    wait $ for periodDelta sec
     logInfo testingLoggerName "Successfully initialized system"
-    return $ TestContext binfo minfos buinfo uinfos scen isActiveVar
+    return ctx
   where
     mkMintette idx =
         MintetteInfo <$> liftIO keyGen <*> liftIO M.openMemState <*>
@@ -71,22 +84,13 @@ mkTestContext mNum uNum scen = do
 finishTest :: WorkMode m => TestEnv m ()
 finishTest = () <$ (liftIO . flip tryPutMVar () =<< view isActive)
 
--- | Number of addresses each casual user has in wallet (constant).
-userAddressesCount :: Num a => a
-userAddressesCount = 5
-
--- | Number of addresses each bank user has in wallet (constant).
-bankUserAddressesCount :: Num a => a
-bankUserAddressesCount = 6
-
 runBank
     :: WorkMode m
     => MVar () -> BankInfo -> m ()
 runBank v b = do
     myTId <- myThreadId
-    let periodLength = fromMaybe defaultPeriodDelta periodDelta
     workWhileMVarEmpty v $
-        B.runWorkerWithPeriod periodLength (b ^. secretKey) (b ^. state)
+        B.runWorkerWithPeriod periodDelta (b ^. secretKey) (b ^. state)
     workWhileMVarEmpty v $ B.serve (b ^. state) myTId pure
 
 runMintettes
@@ -125,3 +129,35 @@ initUser
     :: WorkMode m
     => UserInfo -> m ()
 initUser user = U.initState (user ^. state) userAddressesCount Nothing
+
+sendInitialCoins
+    :: WorkMode m
+    => TestContext -> m ()
+sendInitialCoins ctx = runReaderT (mapM_ doAction actions) ctx
+  where
+    usersNum = length (ctx ^. users)
+    addressesCount = userAddressesCount * usersNum + bankUserAddressesCount
+    partToSend = recip $ realToFrac addressesCount
+    partsToSend = PartsToSend $ M.singleton 0 partToSend
+    outputs =
+        [Right (Nothing, addrIdx) | addrIdx <-
+                                       [0 .. bankUserAddressesCount - 1]] ++
+        [Right (Just (fromIntegral usrIdx), addrIdx) | usrIdx <-
+                                                          [0 .. usersNum - 1]
+                                                     , addrIdx <-
+                                                           [0 .. userAddressesCount -
+                                                                 1]]
+    allColors = [minColor .. maxColor]
+    nonZeroColors = filter (/= 0) allColors
+    coloring =
+        Just . Coloring . M.fromList . map (, recip (genericLength allColors)) $
+        nonZeroColors
+    actions =
+        map
+            (\o ->
+                  SubmitTransaction
+                      Nothing
+                      (NonEmpty [(0, partsToSend)])
+                      o
+                      coloring)
+            outputs

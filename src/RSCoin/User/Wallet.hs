@@ -268,8 +268,9 @@ addTemporaryTransaction periodId tx@Transaction{..} = do
     forM_ outputAddr $ \(address,addrids) ->
         when (address `elem` ownedAddresses) $
            forM_ addrids $ \addrid -> do
-               userTxAddrids %= M.insertWith (++) address [(tx, addrid)]
-               periodAdded <>= [(address, (tx,addrid))]
+               let p = (tx, addrid)
+               userTxAddrids %= M.insertWith (++) address [p]
+               periodAdded <>= [(address, p)]
     historyTxs %= S.insert (TxHistoryRecord tx periodId TxHUnconfirmed)
 
 -- | Called from withBlockchainUpdate. Takes all transactions with

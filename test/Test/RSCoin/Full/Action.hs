@@ -16,7 +16,7 @@ module Test.RSCoin.Full.Action
        , UserIndex
        , ToAddress
        , PartToSend (..)
-       , PartsToSend
+       , PartsToSend (..)
        , Coloring (..)
        , applyPartToSend
        , applyPartsToSend
@@ -29,7 +29,7 @@ import           Control.Monad.Catch      (throwM)
 import           Data.Acid.Advanced       (query')
 import           Data.Bifunctor           (second)
 import           Data.Function            (on)
-import           Data.List                (nubBy)
+import           Data.List                (genericLength, nubBy)
 import qualified Data.Map                 as M
 import           Data.Text.Buildable      (Buildable (build))
 import           Data.Text.Lazy.Builder   (Builder)
@@ -91,7 +91,7 @@ type ToAddress = Either C.Address (UserIndex, Word)
 -- send from address.
 newtype PartToSend = PartToSend
     { getPartToSend :: Double
-    } deriving (Show, Num, Eq, Buildable)
+    } deriving (Show, Num, Eq, Buildable, Fractional)
 
 applyPartToSend :: PartToSend -> C.Coin -> C.Coin
 applyPartToSend (PartToSend p) coin =
@@ -99,13 +99,15 @@ applyPartToSend (PartToSend p) coin =
          }
 
 -- | How much values of each color to send.
-type PartsToSend = M.Map C.Color PartToSend
+newtype PartsToSend = PartsToSend
+    { getPartsToSend :: M.Map C.Color PartToSend
+    } deriving (Show)
 
 instance Buildable PartsToSend where
-    build = mapBuilder . M.assocs
+    build = mapBuilder . M.assocs . getPartsToSend
 
 applyPartsToSend :: PartsToSend -> C.CoinsMap -> C.CoinsMap
-applyPartsToSend parts = M.foldrWithKey step M.empty
+applyPartsToSend (getPartsToSend -> parts) = M.foldrWithKey step M.empty
   where
     step color coin accum =
         case M.lookup color parts of
@@ -127,6 +129,21 @@ newtype Coloring = Coloring
     { getColoring :: M.Map C.Color Double
     } deriving (Show)
 
+calculateOutputCoins :: [C.Coin] -> Coloring -> [C.Coin]
+calculateOutputCoins (C.coinsToMap -> inputs) (Coloring coloring) =
+    C.coinsToList $
+    C.mergeCoinsMaps [inputs, addedCoins] `C.subtractCoinsMap` usedCoins
+  where
+    greyCoins = maybe 0 C.getCoin $ M.lookup 0 inputs
+    addedCoins = M.mapWithKey multiply coloring
+    multiply color part =
+        C.Coin
+        { C.getColor = color
+        , C.getCoin = toRational part * greyCoins
+        }
+    usedCoins =
+        C.coinsToMap [C.Coin 0 . sum . map C.getCoin . M.elems $ addedCoins]
+
 instance Buildable Coloring where
     build = mapBuilder . M.assocs . getColoring
 
@@ -139,16 +156,17 @@ data UserAction
     deriving (Show)
 
 instance Action UserAction where
-    doAction (SubmitTransaction userIndex fromAddresses toAddr _) = do
-        -- FIXME: user coloring
+    doAction (SubmitTransaction userIndex fromAddresses toAddr coloring) = do
         address <- toAddress toAddr
         inputs <- toInputs userIndex fromAddresses
         userState <- getUserState userIndex
-        let td =
+        let inputCoins = concatMap snd $ inputs
+            outputCoins = maybe [] (calculateOutputCoins inputCoins) coloring
+            td =
                 U.TransactionData
                 { U.tdInputs = inputs
                 , U.tdOutputAddress = address
-                , U.tdOutputCoins = []
+                , U.tdOutputCoins = outputCoins
                 }
             retries = 100  -- let's assume that we need more than 100
                            -- with negligible probability
@@ -195,14 +213,14 @@ toAddress =
     \(userIndex,addressIndex) ->
          do userState <- getUserState userIndex
             publicAddresses <- query' userState U.GetPublicAddresses
-            return . C.Address $ publicAddresses `indexModulo` addressIndex
+            return $ publicAddresses `indexModulo` addressIndex
 
 toInputs
     :: WorkMode m
     => UserIndex -> FromAddresses -> TestEnv m Inputs
 toInputs userIndex (getNonEmpty -> fromIndexes) = do
     userState <- getUserState userIndex
-    allAddresses <- query' userState U.GetAllAddresses
+    allAddresses <- query' userState U.GetPublicAddresses
     addressesAmount <- mapM (U.getAmount userState) allAddresses
     when (null addressesAmount) $
         throwM $ TestError "No public addresses in this user"
@@ -212,7 +230,8 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
         map (second C.coinsToList) .
         map
             (\(i,parts) ->
-                  (i, applyPartsToSend parts $ addressesAmount `indexModulo` i)) $
+                  ( i `mod` genericLength allAddresses
+                  , applyPartsToSend parts $ addressesAmount `indexModulo` i)) $
         fromIndexes
 
 getUserState

@@ -5,7 +5,7 @@
 -- | RSCoin.Core.Transaction specification
 
 module Test.RSCoin.Core.TransactionSpec
-       ( spec
+       ( spec,
        ) where
 
 import           Data.Bifunctor             (first, second)
@@ -78,7 +78,8 @@ spec =
     describe "Transaction" $ do
         describe "validateSum" $ do
             prop description_validateSumForValid validateSumCorrectForValid
-            prop description_validateInputLessThanOutput validateInputLessThanOutput
+            prop description_validateInputLessThanOutput validateInputMoreThanOutput
+            prop description_validateSumForValid validateInputMoreThanOutput2
         describe "validateSignature" $ do
             prop description_validateSignature validateSig
         describe "chooseAddresses" $ do
@@ -104,8 +105,8 @@ spec =
 validateSumCorrectForValid :: TransactionValid -> Bool
 validateSumCorrectForValid = C.validateSum . getTr
 
-validateInputLessThanOutput :: NonEmptyList C.AddrId -> C.Address -> Bool
-validateInputLessThanOutput (getNonEmpty -> inputs) adr =
+validateInputMoreThanOutput :: NonEmptyList C.AddrId -> C.Address -> Bool
+validateInputMoreThanOutput (getNonEmpty -> inputs) adr =
     let outputs = map ((adr, ) . sel3) inputs
         helper [] = ([], [])
         helper ((a,C.Coin col cn):xs) =
@@ -113,6 +114,13 @@ validateInputLessThanOutput (getNonEmpty -> inputs) adr =
         (plus1,minus1) = helper outputs
         (tx1,tx2) = (C.Transaction inputs plus1, C.Transaction inputs minus1)
     in C.validateSum tx2 && (not $ C.validateSum tx1)
+
+validateInputMoreThanOutput2 :: C.AddrId -> Rational -> C.Address -> Bool
+validateInputMoreThanOutput2 txi@(_, _, C.Coin col c) r adr =
+    let (mx, mn) = (max c r, min c r)
+        other = mx - mn
+        txo = [(adr, C.Coin col mn),(adr, C.Coin col other)]
+    in C.validateSum $ C.Transaction [txi] txo
 
 validateSig :: C.SecretKey -> C.Transaction -> Bool
 validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePublicKey sk) tr

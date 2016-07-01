@@ -29,7 +29,6 @@ import qualified RSCoin.User.AcidState      as A
 import           RSCoin.User.Cache          (UserCache, mkUserCache)
 import           RSCoin.User.Operations     (TransactionData (..),
                                              submitTransactionRetry)
-import           RSCoin.User.Wallet         (UserAddress)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath, walletPathPrefix)
 import           Bench.RSCoin.Logging       (logDebug, logInfo)
@@ -64,11 +63,11 @@ userThreadWithPath
             A.closeState userState)
         (userAction userId)
 
-queryMyAddress :: A.RSCoinUserState -> MsgPackRpc UserAddress
-queryMyAddress userState = head <$> query' userState A.GetAllAddresses
+queryMyAddress :: A.RSCoinUserState -> MsgPackRpc Address
+queryMyAddress userState = head <$> query' userState A.GetPublicAddresses
 
 -- | Create user with 1 address and return it.
-initializeUser :: Word -> A.RSCoinUserState -> MsgPackRpc UserAddress
+initializeUser :: Word -> A.RSCoinUserState -> MsgPackRpc Address
 initializeUser userId userState = do
     let userAddressesNumber = 1
     logDebug $ sformat ("Initializing user " % int % "…") userId

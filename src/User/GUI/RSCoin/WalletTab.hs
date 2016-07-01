@@ -183,7 +183,7 @@ toNodeMapper :: RSCoinUserState
              -> IO WalletModelNode
 toNodeMapper st gst txhr@U.TxHistoryRecord{..} = do
     eTx <- runRealModeLocal $ fromTransaction gst txhTransaction
-    addrs <- runRealModeLocal $ U.getAllPublicAddresses st
+    addrs <- U.getAllAddresses st
     let amountDiff = getTransactionAmount addrs eTx
         isIncome = amountDiff > 0
         headMaybe [] = Nothing
@@ -213,7 +213,7 @@ toNodeMapper st gst txhr@U.TxHistoryRecord{..} = do
 updateWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
 updateWalletTab st gst M.MainWindow{..} = do
     let WalletTab{..} = tabWallet
-    addrs <- runRealModeLocal $ U.getAllPublicAddresses st
+    addrs <- U.getAllAddresses st
     transactionsHist <- runRealModeLocal $ U.getTransactionsHistory st
     userAmount <- runRealModeLocal
         (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)

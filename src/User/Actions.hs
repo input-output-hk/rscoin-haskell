@@ -11,12 +11,10 @@ module Actions
        ) where
 
 import           Control.Exception       (SomeException)
-import           Control.Lens            ((^.))
 import           Control.Monad           (forM_, unless, void, when)
 import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
 import qualified Data.Acid               as ACID
-import           Data.Acid.Advanced      (query')
 import           Data.Function           (on)
 import           Data.List               (genericIndex, groupBy)
 import           Data.Maybe              (fromJust, isJust)
@@ -28,14 +26,11 @@ import           Serokell.Util.Text      (format', formatSingle', show')
 
 import           RSCoin.Core             as C
 import           RSCoin.Timed            (WorkMode, for, ms, wait)
-import           RSCoin.User.AcidState   (GetUserAddresses (..))
-import qualified RSCoin.User.AcidState   as A
+import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..), getAmount,
                                           submitTransactionRetry,
                                           updateBlockchain)
-import qualified RSCoin.User.Operations  as P
-import qualified RSCoin.User.Wallet      as W
 
 import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
 import           GUI.RSCoin.GUI          (startGUI)
@@ -46,11 +41,11 @@ import qualified UserOptions             as O
 initializeStorage
     :: forall (m :: * -> *).
        (WorkMode m)
-    => A.RSCoinUserState
+    => U.RSCoinUserState
     -> O.UserOptions
     -> m ()
 initializeStorage st O.UserOptions{..} =
-    A.initState st addressesNum $ bankKeyPath isBankMode bankModePath
+    U.initState st addressesNum $ bankKeyPath isBankMode bankModePath
   where
     bankKeyPath True p = Just p
     bankKeyPath False _ = Nothing
@@ -58,13 +53,14 @@ initializeStorage st O.UserOptions{..} =
 -- | Processes command line user command
 processCommand
     :: WorkMode m
-    => A.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
+    => U.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ =
     eWrap $
-    do addresses <- query' st GetUserAddresses
+    do addresses <- U.getAllAddresses st
        (wallets :: [(C.PublicKey, [C.Coin])]) <-
-           mapM (\w -> (w ^. W.publicAddress, ) . C.coinsToList
-                       <$> getAmount st (W.toAddress w)) addresses
+           mapM
+               (\w -> (C.getAddress w, ) . C.coinsToList <$> getAmount st w)
+               addresses
        liftIO $
            do TIO.putStrLn "Here's the list of your accounts:"
               TIO.putStrLn
@@ -74,13 +70,12 @@ processCommand st O.ListAddresses _ =
   where
     spaces = "                                                   "
     formatAddressEntry :: (Integer, C.PublicKey, [C.Coin]) -> IO ()
-    formatAddressEntry (i, key, coins) = do
-       TIO.putStr $ format' "{}.  {} : " (i, key)
-       when (null coins) $ putStrLn "empty"
-       unless (null coins) $ TIO.putStrLn $ show' $ head coins
-       unless (length coins < 2) $
-           forM_ (tail coins)
-                 (TIO.putStrLn . formatSingle' (spaces <> "{}"))
+    formatAddressEntry (i,key,coins) = do
+        TIO.putStr $ format' "{}.  {} : " (i, key)
+        when (null coins) $ putStrLn "empty"
+        unless (null coins) $ TIO.putStrLn $ show' $ head coins
+        unless (length coins < 2) $
+            forM_ (tail coins) (TIO.putStrLn . formatSingle' (spaces <> "{}"))
 processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     eWrap $
     do let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
@@ -96,7 +91,7 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
                 , tdOutputCoins = outputs'
                 }
        unless (isJust outputAddr) $
-           P.commitError $ "Provided key can't be exported: " <> outputAddrStr
+           U.commitError $ "Provided key can't be exported: " <> outputAddrStr
        void $ submitTransactionRetry 2 st cache td
 processCommand st O.UpdateBlockchain _ =
     eWrap $
@@ -107,7 +102,7 @@ processCommand st O.UpdateBlockchain _ =
                else "Successfully updated blockchain."
 processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
-    initialized <- query' st A.IsInitialized
+    initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop
     liftIO $ bracket
         (ACID.openLocalStateFrom guidbPath emptyGUIAcid)
@@ -128,7 +123,7 @@ processCommand st O.StartGUI opts@O.UserOptions{..} = do
 
 dumpCommand
     :: WorkMode m
-    => A.RSCoinUserState -> O.DumpCommand -> m ()
+    => U.RSCoinUserState -> O.DumpCommand -> m ()
 dumpCommand _ O.DumpMintettes = void C.getMintettes
 dumpCommand _ O.DumpPeriod = void C.getBlockchainHeight
 dumpCommand _ (O.DumpHBlocks from to) = void $ C.getBlocks from to
@@ -139,4 +134,5 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
     void $ C.getMintetteBlocks mId pId
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
-    liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<< query' st A.GetPublicAddresses
+    liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<<
+    U.getAllAddresses st

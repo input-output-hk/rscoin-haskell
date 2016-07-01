@@ -7,7 +7,12 @@
 -- | Basic operations with wallet.
 
 module RSCoin.User.Operations
-       ( walletInitialized
+       ( A.openState
+       , A.openMemState
+       , A.closeState
+       , A.initState
+       , A.initStateBank
+       , walletInitialized
        , commitError
        , getUserTotalAmount
        , getAmount
@@ -15,8 +20,11 @@ module RSCoin.User.Operations
        , getAmountByIndex
        , getAllPublicAddresses
        , getTransactionsHistory
+       , getLastBlockId
+       , isInitialized
        , updateToBlockHeight
        , updateBlockchain
+       , addAddress
        , submitTransactionFromAll
        , TransactionInput
        , TransactionData (..)
@@ -135,7 +143,7 @@ getAmountNoUpdate st address =
 getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m C.CoinsMap
 getAmountByIndex st idx = do
     void $ updateBlockchain st False
-    addr <- flip atMay idx <$> query' st A.GetPublicAddresses
+    addr <- (`atMay` idx) <$> query' st A.GetPublicAddresses
     maybe
         (throwM $
          InputProcessingError "invalid index was given to getAmountByIndex")
@@ -143,12 +151,29 @@ getAmountByIndex st idx = do
         addr
 
 -- | Returns list of public addresses available
-getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
+getAllPublicAddresses
+    :: MonadIO m
+    => A.RSCoinUserState -> m [C.Address]
 getAllPublicAddresses st = query' st A.GetPublicAddresses
 
 -- | Returns transaction history that wallet holds
-getTransactionsHistory :: WorkMode m => A.RSCoinUserState -> m [W.TxHistoryRecord]
+getTransactionsHistory
+    :: MonadIO m
+    => A.RSCoinUserState -> m [W.TxHistoryRecord]
 getTransactionsHistory st = query' st A.GetTxsHistory
+
+getLastBlockId :: MonadIO m => A.RSCoinUserState -> m Int
+getLastBlockId st = query' st A.GetLastBlockId
+
+isInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
+isInitialized st = query' st A.IsInitialized
+
+-- | Puts given address and it's related transactions (that contain it
+-- as output S_{out}) into wallet. Blockchain won't be queried.
+addAddress
+    :: MonadIO m
+    => A.RSCoinUserState -> C.SecretKey -> C.PublicKey -> [C.Transaction] -> m ()
+addAddress st sk pk = update' st . A.AddAddress (W.makeUserAddress sk pk)
 
 -- | Forms transaction given just amount of money to use. Tries to
 -- spend coins from accounts that have the least amount of money.

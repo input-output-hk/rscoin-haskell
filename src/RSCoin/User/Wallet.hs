@@ -29,7 +29,7 @@ module RSCoin.User.Wallet
        , getLastBlockId
        , getTxsHistory
        , withBlockchainUpdate
-       , addAddresses
+       , addAddress
        , initWallet
        ) where
 
@@ -378,8 +378,8 @@ withBlockchainUpdate newHeight transactions =
 
 -- | Puts given address and it's related transactions (that contain it
 -- as output S_{out}) into wallet. Blockchain won't be queried.
-addAddresses :: UserAddress -> [Transaction] -> ExceptUpdate ()
-addAddresses userAddress txs = do
+addAddress :: UserAddress -> [Transaction] -> ExceptUpdate ()
+addAddress userAddress txs = do
     unless (validateUserAddress userAddress) $
         throwM $
         BadRequest $
@@ -412,4 +412,4 @@ addAddresses userAddress txs = do
 initWallet :: [UserAddress] -> Maybe Int -> ExceptUpdate ()
 initWallet addrs startHeight = do
     lastBlockId .= (startHeight <|> Just (-1))
-    forM_ addrs $ flip addAddresses []
+    forM_ addrs $ flip addAddress []

@@ -25,7 +25,7 @@ module RSCoin.User.AcidState
 
        -- * Updates
        , WithBlockchainUpdate (..)
-       , AddAddresses (..)
+       , AddAddress (..)
        , AddTemporaryTransaction (..)
        , InitWallet (..)
        ) where
@@ -65,7 +65,7 @@ instance MonadThrow (A.Update WalletStorage) where
 openState :: FilePath -> IO RSCoinUserState
 openState path = do
     st <- A.openLocalStateFrom path W.emptyWalletStorage
-    A.createCheckpoint st >> return st
+    st <$ A.createCheckpoint st
 
 openMemState :: IO RSCoinUserState
 openMemState = AM.openMemoryState W.emptyWalletStorage
@@ -94,12 +94,12 @@ getTxsHistory = W.getTxsHistory
 
 withBlockchainUpdate :: Int -> [C.Transaction] -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
-addAddresses :: UserAddress -> [C.Transaction] -> A.Update WalletStorage ()
+addAddress :: UserAddress -> [C.Transaction] -> A.Update WalletStorage ()
 initWallet :: [UserAddress] -> Maybe Int -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate
 addTemporaryTransaction = W.addTemporaryTransaction
-addAddresses = W.addAddresses
+addAddress = W.addAddress
 initWallet = W.initWallet
 
 $(makeAcidic
@@ -114,7 +114,7 @@ $(makeAcidic
       , 'getTxsHistory
       , 'withBlockchainUpdate
       , 'addTemporaryTransaction
-      , 'addAddresses
+      , 'addAddress
       , 'initWallet])
 
 -- | This function generates 'n' new addresses ((pk,sk) pairs

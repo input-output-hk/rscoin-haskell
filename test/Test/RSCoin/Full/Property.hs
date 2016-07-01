@@ -31,7 +31,7 @@ import           Test.QuickCheck.Monadic         (PropertyM, assert, monadic,
 
 import           Serokell.Util                   (listBuilderJSONIndent)
 
-import           RSCoin.Core                     (logInfo, testingLoggerName)
+import           RSCoin.Core                     (logDebug, testingLoggerName)
 import           RSCoin.Timed                    (Delays, MsgPackRpc, PureRpc,
                                                   StdGen, WorkMode,
                                                   runEmulationMode,
@@ -64,7 +64,7 @@ toPropertyM fp mNum uNum = do
     context <- lift $ mkTestContext mNum uNum DefaultScenario
     let runTestEnv a = runReaderT a context
         runTestEnvSafe a = runTestEnv a `onException` runTestEnv finishTest
-    logInfo testingLoggerName $
+    logDebug testingLoggerName $
         sformat ("Actions are: " % build) $ listBuilderJSONIndent 3 acts
     lift $ runTestEnvSafe (mapM_ doAction acts)
     runReaderT fp context <* lift (runTestEnv finishTest)

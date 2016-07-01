@@ -44,6 +44,7 @@ library
                      , RSCoin.Core.Logging
                      , RSCoin.Core.Owners
                      , RSCoin.Core.Primitives
+                     , RSCoin.Core.Strategy
                      , RSCoin.Core.Transaction
                      , RSCoin.Core.Types
                      , RSCoin.Mintette

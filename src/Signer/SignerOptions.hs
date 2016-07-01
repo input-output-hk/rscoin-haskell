@@ -33,7 +33,7 @@ data Options = Options
 --    deriving Show
 
 optionsParser :: FilePath -> Parser Options
-optionsParser defaultSKPath =
+optionsParser _ = -- defaultSKPath
     Options <$>
     --modeParser
     -- <*>

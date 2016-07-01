@@ -24,6 +24,7 @@ module RSCoin.Core.Types
        , HBlock (..)
        , NewPeriodData (..)
        , formatNewPeriodData
+       , Strategy (..)
        ) where
 
 import           Control.Arrow          (first)
@@ -31,6 +32,7 @@ import           Data.Binary            (Binary (get, put), Get, Put)
 import qualified Data.Map               as M
 import           Data.Maybe             (fromJust, isJust)
 import           Data.SafeCopy          (base, deriveSafeCopy)
+import qualified Data.Set               as S
 import           Data.Text.Buildable    (Buildable (build))
 import qualified Data.Text.Format       as F
 import           Data.Text.Lazy.Builder (Builder)
@@ -302,3 +304,12 @@ instance Buildable NewPeriodData where
     build = formatNewPeriodData True
 
 $(deriveSafeCopy 0 'base ''NewPeriodData)
+
+-- | Strategy of confirming transactions.
+-- Other strategies are possible, like "getting m out of n, but
+-- addresses [A,B,C] must sign". Primitive concept is using M/N.
+data Strategy
+    = DefaultStrategy Address    -- ^ Strategy of "1 signature per addrid"
+    | MOfNStrategy Int [Address] -- ^ Strategy for getting `m` signatures
+                                 -- out of `length list`, where every signature
+                                 -- should be made by address in list `list`

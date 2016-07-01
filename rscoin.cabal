@@ -243,6 +243,7 @@ test-suite rscoin-test
                      , Test.RSCoin.Core.OwnersSpec
                      , Test.RSCoin.Core.TransactionSpec
                      , Test.RSCoin.Full.Action
+                     , Test.RSCoin.Full.Constants
                      , Test.RSCoin.Full.Context
                      , Test.RSCoin.Full.Error
                      , Test.RSCoin.Full.FullSpec

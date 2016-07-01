@@ -352,9 +352,7 @@ submitTransactionMapper
     -> C.CoinsMap
     -> IO (Maybe ([(C.AddrId, C.Address)], [C.AddrId], [(C.Address, C.Coin)]))
 submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
-    (addrids :: [C.AddrId]) <-
-        concatMap (C.getAddrIdByAddress address) <$>
-        query' st (A.GetTransactions address)
+    (addrids :: [C.AddrId]) <- query' st (A.GetOwnedAddrIds address)
     let
         -- Pairs of chosen addrids and change for each color
         chosenMap0

@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE RecordWildCards      #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -207,7 +208,7 @@ data Strategy
     | MOfNStrategy Int (S.Set Address) -- ^ Strategy for getting `m` signatures
                                  -- out of `length list`, where every signature
                                  -- should be made by address in list `list`
-  deriving (Show, Eq)
+  deriving (Read, Show, Eq)
 
 $(deriveSafeCopy 0 'base ''Strategy)
 

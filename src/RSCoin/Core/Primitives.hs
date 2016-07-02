@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
 -- | The most basic primitives from the paper.
@@ -14,7 +15,9 @@ module RSCoin.Core.Primitives
 
 import           Data.Binary         (Binary (get, put))
 import           Data.Hashable       (Hashable (hashWithSalt))
+import           Data.Maybe          (catMaybes, fromMaybe)
 import           Data.SafeCopy       (base, deriveSafeCopy)
+import qualified Data.Text           as T
 import           Data.Text.Buildable (Buildable (build))
 import qualified Data.Text.Format    as F
 import           Formatting          (bprint, float, int, (%))
@@ -22,7 +25,8 @@ import           Formatting          (bprint, float, int, (%))
 import           Serokell.Util.Text  (listBuilderJSON, pairBuilder,
                                       tripleBuilder)
 
-import           RSCoin.Core.Crypto  (Hash, PublicKey)
+import           RSCoin.Core.Crypto  (Hash, PublicKey, constructPublicKey,
+                                      printPublicKey)
 
 type Color = Int
 
@@ -79,7 +83,13 @@ instance Num Coin where
 -- It is simply a public key.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show, Ord, Buildable, Binary, Eq, Hashable)
+    } deriving (Ord, Buildable, Binary, Eq, Hashable)
+
+instance Show Address where
+    show (Address pk) = "Address " ++ printPublicKey pk
+instance Read Address where
+    readsPrec i = catMaybes . map (\(k, s) -> flip (,) s . Address <$> constructPublicKey (removePrefix k)) . readsPrec i
+      where removePrefix t = fromMaybe t $ T.stripPrefix (T.pack "Address ") t
 
 -- | AddrId identifies usage of address as output of transaction.
 -- Basically, it is tuple of transaction identifier, index in list of outputs

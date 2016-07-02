@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 -- | Functions tightly related to HBlock
 
 module RSCoin.Core.HBlock
@@ -12,7 +13,7 @@ import           RSCoin.Core.Constants  (genesisAddress, genesisValue)
 import           RSCoin.Core.Crypto     (Hash, PublicKey, SecretKey, hash, sign,
                                          verify)
 import           RSCoin.Core.Primitives (Transaction (..))
-import           RSCoin.Core.Types      (Dpk, HBlock (..), AddressStrategyMap)
+import           RSCoin.Core.Types      (AddressStrategyMap, Dpk, HBlock (..))
 
 initialHash :: Hash
 initialHash = hash ()

@@ -20,6 +20,7 @@ import           RSCoin.Core            (Severity (Error), defaultPeriodDelta,
 data Command
     = Serve FilePath
     | AddMintette String Int T.Text
+    | AddAddress T.Text String
 
 data Options = Options
     { cloCommand     :: Command
@@ -38,7 +39,11 @@ commandParser defaultSKPath =
                   (progDesc "Simply run Bank serving users and mintettes")) <>
          command
              "add-mintette"
-             (info addMintetteOpts (progDesc "Add given mintette to database")))
+             (info addMintetteOpts (progDesc "Add given mintette to database")) <>
+         command
+             "add-address"
+             (info addAddressOpts (progDesc "Add given address and corresponding strategy to database"))
+             )
   where
     serveOpts =
         Serve <$>
@@ -47,6 +52,12 @@ commandParser defaultSKPath =
              value defaultSKPath <>
              showDefault <>
              metavar "PATH TO KEY")
+    addAddressOpts =
+        AddAddress <$> strOption (long "address" <> help "Public key, determining address") <*>
+        strOption
+            (long "strategy" <>
+             help "Address's strategy (directly, not from file). Example: 'MOfNStrategy 5 (fromList [\"YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM=\"])'" <>
+             metavar "STRATEGY")
     addMintetteOpts =
         AddMintette <$> strOption (long "host") <*> option auto (long "port") <*>
         strOption

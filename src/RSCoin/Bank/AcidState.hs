@@ -10,12 +10,14 @@ module RSCoin.Bank.AcidState
        , openMemState
        , closeState
        , GetMintettes (..)
+       , GetAddresses (..)
        , GetPeriodId (..)
        , GetHBlock (..)
        , GetHBlocks (..)
        , GetTransaction (..)
        , GetLogs (..)
        , AddMintette (..)
+       , AddAddress (..)
        , StartNewPeriod (..)
        ) where
 
@@ -27,9 +29,10 @@ import           Data.Acid           (AcidState, Query, Update, closeAcidState,
 import           Data.Acid.Memory    (openMemoryState)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 
-import           RSCoin.Core         (ActionLog, HBlock, Mintette, MintetteId,
-                                      Mintettes, NewPeriodData, PeriodId,
-                                      PeriodResult, PublicKey, SecretKey,
+import           RSCoin.Core         (ActionLog, Address, AddressStrategyMap,
+                                      HBlock, Mintette, MintetteId, Mintettes,
+                                      NewPeriodData, PeriodId, PeriodResult,
+                                      PublicKey, SecretKey, Strategy,
                                       Transaction, TransactionId)
 
 import qualified RSCoin.Bank.Storage as BS
@@ -50,6 +53,9 @@ closeState = closeAcidState
 
 instance MonadThrow (Update s) where
     throwM = throw
+
+getAddresses :: Query BS.Storage AddressStrategyMap
+getAddresses = view BS.getAddresses
 
 getMintettes :: Query BS.Storage Mintettes
 getMintettes = view BS.getMintettes
@@ -73,6 +79,9 @@ getLogs m from to = view $ BS.getLogs m from to
 
 -- Dumping Bank state
 
+addAddress :: Address -> Strategy -> Update BS.Storage ()
+addAddress = BS.addAddress
+
 addMintette :: Mintette -> PublicKey -> Update BS.Storage ()
 addMintette = BS.addMintette
 
@@ -84,11 +93,13 @@ startNewPeriod = BS.startNewPeriod
 
 $(makeAcidic ''BS.Storage
              [ 'getMintettes
+             , 'getAddresses
              , 'getPeriodId
              , 'getHBlock
              , 'getHBlocks
              , 'getTransaction
              , 'getLogs
              , 'addMintette
+             , 'addAddress
              , 'startNewPeriod
              ])

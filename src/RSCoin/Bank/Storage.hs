@@ -14,12 +14,14 @@ module RSCoin.Bank.Storage
        , Update
        , ExceptUpdate
        , getMintettes
+       , getAddresses
        , getPeriodId
        , getHBlock
        , getHBlocks
        , getTransaction
        , getLogs
        , addMintette
+       , addAddress
        , startNewPeriod
        ) where
 
@@ -41,13 +43,15 @@ import           Safe                      (atMay, headMay)
 
 import           RSCoin.Core               (ActionLog,
                                             ActionLogEntry (CloseEpochEntry),
-                                            AddrId, Address (..), Dpk,
+                                            AddrId, Address (..),
+                                            AddressStrategyMap, Dpk,
                                             HBlock (..), Mintette, MintetteId,
                                             Mintettes, NewPeriodData (..),
                                             PeriodId, PeriodResult, PublicKey,
-                                            SecretKey, Transaction (..), AddressStrategyMap,
-                                            TransactionId, Utxo, checkActionLog,
-                                            checkLBlock, computeOutputAddrids,
+                                            SecretKey, Strategy,
+                                            Transaction (..), TransactionId,
+                                            Utxo, checkActionLog, checkLBlock,
+                                            computeOutputAddrids,
                                             derivePublicKey, emissionHash, hash,
                                             lbTransactions, mkGenesisHBlock,
                                             mkHBlock, owners, sign)
@@ -88,8 +92,8 @@ data Storage = Storage
                                                     -- recent entry.
     , _deadMintettes    :: DeadMintetteMap          -- ^ State of all known dead mintettes.
     , _transactionMap   :: MP.Map TransactionId Transaction
-    , _knownAddresses   :: AddressStrategyMap       -- ^ Known addresses accompanied with their strategies.
-                                                    -- Note that every address with non-default strategy should be stored here in order to be used in transaction.
+    , _addresses        :: AddressStrategyMap       -- ^ Known addresses accompanied with their strategies.
+                                                    -- Note that every address with non-default strategy should be stored here in order to participate in transaction.
     , _pendingAddresses :: AddressStrategyMap       -- ^ Pending addresses to publish within next HBlock
     } deriving (Typeable)
 
@@ -108,11 +112,14 @@ mkStorage =
     , _actionLogs = []
     , _deadMintettes = MP.empty
     , _transactionMap = MP.empty
-    , _knownAddresses = MP.empty
+    , _addresses = MP.empty
     , _pendingAddresses = MP.empty
     }
 
 type Query a = Getter Storage a
+
+getAddresses :: Query AddressStrategyMap
+getAddresses = addresses
 
 getMintettes :: Query Mintettes
 getMintettes = mintettes
@@ -143,6 +150,13 @@ getLogs m left right =
 
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
+
+-- | Add given address to storage and associate given strategy with it.
+-- @TODO: Mind behaviour when address is being added more than once per period
+addAddress :: Address -> Strategy -> Update ()
+addAddress addr strategy = do
+    curAddresses <- use addresses
+    unless (addr `MP.member` curAddresses) $ pendingAddresses %= MP.insert addr strategy
 
 -- | Add given mintette to storage and associate given key with it.
 addMintette :: Mintette -> PublicKey -> Update ()
@@ -347,9 +361,9 @@ replaceWithCare' (bad:bads) (pendh:pends) list acc =
 
 updateAddresses :: Update AddressStrategyMap
 updateAddresses = do
-  oldKnown <- use knownAddresses
+  oldKnown <- use addresses
   pending <- use pendingAddresses
-  knownAddresses %= flip MP.union pending
+  addresses %= flip MP.union pending
   pendingAddresses .= MP.empty
   return $ pending MP.\\ oldKnown
 

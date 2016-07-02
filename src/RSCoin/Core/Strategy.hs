@@ -10,11 +10,11 @@ import           RSCoin.Core.Types          (Strategy (..))
 
 -- | Checks if the inner state of strategy allows us to send
 -- transaction and it will be accepted
-ifStrategyCompleted :: Strategy -> [(Address, Signature)] -> Transaction -> Bool
-ifStrategyCompleted (DefaultStrategy address) signs tx =
+ifStrategyCompleted :: Strategy -> Address -> [(Address, Signature)] -> Transaction -> Bool
+ifStrategyCompleted DefaultStrategy address signs tx =
     any (\(addr,sign) -> address == addr &&
                          verify (getAddress address) sign tx) signs
-ifStrategyCompleted (MOfNStrategy m addresses) signs tx =
+ifStrategyCompleted (MOfNStrategy m addresses) _ signs tx =
     let hasSignature address =
             any (\(addr,sign) -> address == addr &&
                                  verify (getAddress address) sign tx)

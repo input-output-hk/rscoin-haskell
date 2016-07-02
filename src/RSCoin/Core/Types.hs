@@ -309,7 +309,7 @@ $(deriveSafeCopy 0 'base ''NewPeriodData)
 -- Other strategies are possible, like "getting m out of n, but
 -- addresses [A,B,C] must sign". Primitive concept is using M/N.
 data Strategy
-    = DefaultStrategy Address    -- ^ Strategy of "1 signature per addrid"
+    = DefaultStrategy            -- ^ Strategy of "1 signature per addrid"
     | MOfNStrategy Int [Address] -- ^ Strategy for getting `m` signatures
                                  -- out of `length list`, where every signature
                                  -- should be made by address in list `list`

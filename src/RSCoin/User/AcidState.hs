@@ -92,7 +92,7 @@ getTransactions = W.getTransactions
 getLastBlockId = W.getLastBlockId
 getTxsHistory = W.getTxsHistory
 
-withBlockchainUpdate :: Int -> [C.Transaction] -> A.Update WalletStorage ()
+withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
 addAddresses :: UserAddress -> [C.Transaction] -> A.Update WalletStorage ()
 initWallet :: [UserAddress] -> Maybe Int -> A.Update WalletStorage ()

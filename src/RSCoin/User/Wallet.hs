@@ -42,8 +42,8 @@ import           Control.Monad.Catch        (MonadThrow, throwM)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import           Data.Function              (on)
-import           Data.List                  (delete, find, groupBy, nub, sortOn,
-                                             (\\))
+import           Data.List                  (delete, find, groupBy, intersect,
+                                             nub, sortOn, (\\))
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust, isJust)
 import           Data.Monoid                ((<>))
@@ -117,18 +117,18 @@ instance Ord TxHistoryRecord where
 -- this implementation to work.
 type TrAddrId = (Transaction, AddrId)
 data WalletStorage = WalletStorage
-    { _userAddresses :: [UserAddress]            -- ^ Addresses that user owns
-    , _userTxAddrids :: M.Map Address [TrAddrId] -- ^ Transactions that user is aware
-                                                 -- of and that reference user
-                                                 -- addresses, that were not spent
-                                                 -- (utxo basically)
-    , _periodDeleted :: [(Address, TrAddrId)]    -- ^ Support list for deleted events
-    , _periodAdded   :: [(Address, TrAddrId)]    -- ^ Support list for added events
-    , _lastBlockId   :: Maybe PeriodId           -- ^ Last blockchain height known
-                                                 -- to user (if known)
-
-    , _historyTxs    :: S.Set TxHistoryRecord    -- ^ History of all transactions
-                                                 -- being made (incomes + outcomes)
+    { _userAddresses  :: [UserAddress]            -- ^ Addresses that user owns
+    , _userTxAddrids  :: M.Map Address [TrAddrId] -- ^ Transactions that user is aware
+                                                  -- of and that reference user
+                                                  -- addresses, that were not spent
+                                                  -- (utxo basically)
+    , _periodDeleted  :: [(Address, TrAddrId)]    -- ^ Support list for deleted events
+    , _periodAdded    :: [(Address, TrAddrId)]    -- ^ Support list for added events
+    , _lastBlockId    :: Maybe PeriodId           -- ^ Last blockchain height known
+                                                  -- to user (if known)
+    , _historyTxs     :: S.Set TxHistoryRecord    -- ^ History of all transactions
+                                                  -- being made (incomes + outcomes)
+    , _addrStrategies :: M.Map Address C.Strategy -- ^ Map from addresses to strategies
     } deriving (Show)
 
 $(L.makeLenses ''WalletStorage)
@@ -144,7 +144,7 @@ instance Exception WalletStorageError
 
 -- | Creates empty WalletStorage. Uninitialized.
 emptyWalletStorage :: WalletStorage
-emptyWalletStorage = WalletStorage [] M.empty [] [] Nothing S.empty
+emptyWalletStorage = WalletStorage [] M.empty [] [] Nothing S.empty M.empty
 
 -- Queries
 
@@ -176,7 +176,7 @@ getUserAddresses = checkInitR $ L.view userAddresses
 
 -- | Get all available user addresses w/o private keys
 getPublicAddresses :: ExceptQuery [Address]
-getPublicAddresses = checkInitR $ L.views userAddresses (map (Address . _publicAddress))
+getPublicAddresses = checkInitR $ L.views userAddresses $ map toAddress
 
 -- | Gets user-related UTXO (addrids he owns)
 getOwnedAddrIds :: Address -> ExceptQuery [AddrId]
@@ -318,8 +318,9 @@ putHistoryRecords newHeight transactions = do
 -- blockchain blocks. Sum validation for transactions
 -- is disabled, because HBlocks contain generative transactions for
 -- fee allocation.
-withBlockchainUpdate :: PeriodId -> [Transaction] -> ExceptUpdate ()
-withBlockchainUpdate newHeight transactions =
+
+withBlockchainUpdate :: PeriodId -> C.HBlock -> ExceptUpdate ()
+withBlockchainUpdate newHeight C.HBlock{..} =
     checkInitS $
     do currentHeight <- L.uses lastBlockId fromJust
        unless (currentHeight < newHeight) $
@@ -335,9 +336,9 @@ withBlockchainUpdate newHeight transactions =
                (newHeight, currentHeight)
 
        restoreTransactions
-       putHistoryRecords newHeight transactions
+       putHistoryRecords newHeight hbTransactions
 
-       ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
+       ownedAddresses <- L.uses userAddresses $ map toAddress
        let addSomeTransactions tx@Transaction{..} = do
                -- first! add transactions that have output with address that we own
                let outputAddr :: [(Address, [AddrId])]
@@ -370,14 +371,24 @@ withBlockchainUpdate newHeight transactions =
                forM_ toRemove $
                    \(useraddr,pair') ->
                             userTxAddrids %= M.adjust (delete pair') useraddr
-       forM_ transactions addSomeTransactions
-       forM_ transactions removeSomeTransactions
+       forM_ hbTransactions addSomeTransactions
+       forM_ hbTransactions removeSomeTransactions
+
+       let newStrategies = M.filterWithKey (ownStrategy ownedAddresses)
+                                           hbAddresses
+       addrStrategies <>= newStrategies
+
        lastBlockId .= Just newHeight
   where
     reportBadRequest = throwM . BadRequest
+    ownStrategy ownedAddresses addr C.DefaultStrategy =
+        addr `elem` ownedAddresses
+    ownStrategy ownedAddresses _ (C.MOfNStrategy _ owners) =
+        not $ null $ S.elems owners `intersect` ownedAddresses
 
 -- | Puts given address and it's related transactions (that contain it
 -- as output S_{out}) into wallet. Blockchain won't be queried.
+-- Strategy assigned is default.
 addAddresses :: UserAddress -> [Transaction] -> ExceptUpdate ()
 addAddresses userAddress txs = do
     unless (validateUserAddress userAddress) $
@@ -405,6 +416,7 @@ addAddresses userAddress txs = do
                  (\t -> map (t, ) $
                         C.getAddrIdByAddress (toAddress userAddress) t)
                  txs)
+    addrStrategies %= M.insert (toAddress userAddress) C.DefaultStrategy
 
 -- | Initialize wallet with list of addresses to hold and
 -- mode-specific parameter startHeight: if it's (Just i), then the

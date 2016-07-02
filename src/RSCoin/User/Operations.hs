@@ -68,9 +68,9 @@ commitError e = do
 -- previous height state already.
 updateToBlockHeight :: WorkMode m => A.RSCoinUserState -> C.PeriodId -> m ()
 updateToBlockHeight st newHeight = do
-    C.HBlock{..} <- C.getBlockByHeight newHeight
+    hblock <- C.getBlockByHeight newHeight
     -- TODO validate this block with integrity check that we don't have
-    update' st $ A.WithBlockchainUpdate newHeight hbTransactions
+    update' st $ A.WithBlockchainUpdate newHeight hblock
 
 -- | Updates blockchain to the last height (that was requested in this
 -- function call). Returns bool indicating that blockchain was or

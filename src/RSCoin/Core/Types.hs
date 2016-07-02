@@ -204,11 +204,11 @@ instance Buildable LBlock where
 -- Other strategies are possible, like "getting m out of n, but
 -- addresses [A,B,C] must sign". Primitive concept is using M/N.
 data Strategy
-    = DefaultStrategy            -- ^ Strategy of "1 signature per addrid"
+    = DefaultStrategy                  -- ^ Strategy of "1 signature per addrid"
     | MOfNStrategy Int (S.Set Address) -- ^ Strategy for getting `m` signatures
-                                 -- out of `length list`, where every signature
-                                 -- should be made by address in list `list`
-  deriving (Read, Show, Eq)
+                                       -- out of `length list`, where every signature
+                                       -- should be made by address in list `list`
+    deriving (Read, Show, Eq)
 
 $(deriveSafeCopy 0 'base ''Strategy)
 

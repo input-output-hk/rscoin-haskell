@@ -25,7 +25,7 @@ module RSCoin.Core.Types
        , NewPeriodData (..)
        , formatNewPeriodData
        , Strategy (..)
-       , AddressStrategyMap (..)
+       , AddressStrategyMap
        ) where
 
 import           Control.Arrow          (first)
@@ -262,7 +262,11 @@ instance Buildable HBlock where
     build HBlock{..} =
         F.build
             template
-            (hbHash, listBuilderJSON hbTransactions, hbSignature, hbDpk, listBuilderJSON hbAddresses)
+            ( hbHash
+            , listBuilderJSON hbTransactions
+            , hbSignature
+            , hbDpk
+            , listBuilderJSON hbAddresses)
       where
         template =
             mconcat
@@ -272,8 +276,7 @@ instance Buildable HBlock where
                 , "  signature: {}\n"
                 , "  dpk: {}\n"
                 , "  addresses: {}\n"
-                , "}\n"
-                ]
+                , "}\n"]
 
 -- | Data sent by server on new period start. If mintette id changes,
 -- bank *must* include npdNewIdPayload.

@@ -1,22 +1,20 @@
 -- | MessagePack serialization/deserialization for Core types
 
-module RSCoin.Core.MessagePack
-       (
-       ) where
+module RSCoin.Core.MessagePack  () where
 
-import           Data.Binary            (encode, decodeOrFail)
+import           Data.Binary            (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Int               (Int64)
-import           Data.MessagePack       (MessagePack (toObject, fromObject),
-                                         Object (ObjectExt, ObjectBin, ObjectInt), pack, unpack)
-import           Data.Ratio             (Ratio, numerator, denominator, (%))
-import           Data.Tuple.Select      (sel3)
+import           Data.MessagePack       (MessagePack (fromObject, toObject), Object (ObjectBin, ObjectExt, ObjectInt),
+                                         pack, unpack)
+import           Data.Ratio             (Ratio, denominator, numerator, (%))
 import           Data.Tuple.Curry       (uncurryN)
+import           Data.Tuple.Select      (sel3)
 
+import qualified Data.Set               as S
 import           RSCoin.Core.Crypto     ()
 import qualified RSCoin.Core.Primitives as C
 import qualified RSCoin.Core.Types      as C
-import qualified Data.Set               as S
 
 toInt :: Integral a => a -> Int
 toInt = fromIntegral

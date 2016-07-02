@@ -7,12 +7,12 @@ module RSCoin.Core.HBlock
        , checkHBlock
        ) where
 
+import qualified Data.Map               as M
 import           RSCoin.Core.Constants  (genesisAddress, genesisValue)
 import           RSCoin.Core.Crypto     (Hash, PublicKey, SecretKey, hash, sign,
                                          verify)
 import           RSCoin.Core.Primitives (Transaction (..))
 import           RSCoin.Core.Types      (Dpk, HBlock (..))
-import qualified Data.Map as M
 
 initialHash :: Hash
 initialHash = hash ()
@@ -34,8 +34,7 @@ mkGenesisHBlock :: SecretKey -> Dpk -> HBlock
 mkGenesisHBlock sk dpk = mkHBlockDo [initialTx] sk dpk initialHash
 
 mkHBlockDo :: [Transaction] -> SecretKey -> Dpk -> Hash -> HBlock
-mkHBlockDo hbTransactions sk hbDpk prevHash =
-    HBlock { .. }
+mkHBlockDo hbTransactions sk hbDpk prevHash = HBlock {..}
   where
     hbHash = hash (prevHash, hbTransactions)
     hbSignature = sign sk hbHash

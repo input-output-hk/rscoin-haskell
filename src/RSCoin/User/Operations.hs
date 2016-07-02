@@ -25,7 +25,6 @@ module RSCoin.User.Operations
        ) where
 
 import           Control.Exception      (SomeException, assert, fromException)
-import           Control.Lens           ((^.))
 import           Control.Monad          (filterM, forM_, unless, void, when)
 import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
@@ -68,9 +67,9 @@ commitError e = do
 -- previous height state already.
 updateToBlockHeight :: WorkMode m => A.RSCoinUserState -> C.PeriodId -> m ()
 updateToBlockHeight st newHeight = do
-    C.HBlock{..} <- C.getBlockByHeight newHeight
+    hblock <- C.getBlockByHeight newHeight
     -- TODO validate this block with integrity check that we don't have
-    update' st $ A.WithBlockchainUpdate newHeight hbTransactions
+    update' st $ A.WithBlockchainUpdate newHeight hblock
 
 -- | Updates blockchain to the last height (that was requested in this
 -- function call). Returns bool indicating that blockchain was or
@@ -119,7 +118,7 @@ getAmount st address = do
 -- stands for "if update blockchain inside"
 getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m C.CoinsMap
 getUserTotalAmount upd st = do
-    addrs <- query' st A.GetPublicAddresses
+    addrs <- query' st A.GetOwnedDefaultAddresses
     when upd $ void $ updateBlockchain st False
     C.mergeCoinsMaps <$> mapM (getAmountNoUpdate st) addrs
 
@@ -135,7 +134,7 @@ getAmountNoUpdate st address =
 getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m C.CoinsMap
 getAmountByIndex st idx = do
     void $ updateBlockchain st False
-    addr <- flip atMay idx <$> query' st A.GetPublicAddresses
+    addr <- flip atMay idx <$> query' st A.GetOwnedDefaultAddresses
     maybe
         (throwM $
          InputProcessingError "invalid index was given to getAmountByIndex")
@@ -144,7 +143,7 @@ getAmountByIndex st idx = do
 
 -- | Returns list of public addresses available
 getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
-getAllPublicAddresses st = query' st A.GetPublicAddresses
+getAllPublicAddresses st = query' st A.GetOwnedDefaultAddresses
 
 -- | Returns transaction history that wallet holds
 getTransactionsHistory :: WorkMode m => A.RSCoinUserState -> m [W.TxHistoryRecord]
@@ -162,7 +161,7 @@ submitTransactionFromAll
     -> m C.Transaction
 submitTransactionFromAll st maybeCache addressTo amount =
     assert (C.getColor amount == 0) $
-    do addrs <- query' st A.GetPublicAddresses
+    do addrs <- query' st A.GetOwnedDefaultAddresses
        (indicesWithCoins :: [(Word, C.Coin)]) <-
            filter ((>= 0) . snd) <$>
            mapM
@@ -270,7 +269,7 @@ constructAndSignTransaction st TransactionData{..} = do
         formatSingle'
             "All input values should be positive, but encountered {}, that's not." $
         head $ filter (<= 0) $ concatMap snd tdInputs
-    accounts <- query' st A.GetPublicAddresses
+    accounts <- query' st A.GetOwnedDefaultAddresses
     let notInRange i = i >= genericLength accounts
     when (any notInRange $ map fst tdInputs) $
         commitError $
@@ -323,7 +322,7 @@ constructAndSignTransaction st TransactionData{..} = do
             M.fromList <$>
             mapM
                 (\(addrid',address') -> do
-                      privateKey <- (^. W.privateAddress) . fromJust <$>
+                      privateKey <- fromJust . snd . fromJust <$>
                           query' st (A.FindUserAddress address')
                       return (addrid', C.sign privateKey outTr))
                 addrPairList

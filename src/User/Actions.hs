@@ -11,7 +11,6 @@ module Actions
        ) where
 
 import           Control.Exception       (SomeException)
-import           Control.Lens            ((^.))
 import           Control.Monad           (forM_, unless, void, when)
 import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
@@ -28,14 +27,13 @@ import           Serokell.Util.Text      (format', formatSingle', show')
 
 import           RSCoin.Core             as C
 import           RSCoin.Timed            (WorkMode, for, ms, wait)
-import           RSCoin.User.AcidState   (GetUserAddresses (..))
+import           RSCoin.User.AcidState   (GetOwnedDefaultAddresses (..))
 import qualified RSCoin.User.AcidState   as A
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..), getAmount,
                                           submitTransactionRetry,
                                           updateBlockchain)
 import qualified RSCoin.User.Operations  as P
-import qualified RSCoin.User.Wallet      as W
 
 import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
 import           GUI.RSCoin.GUI          (startGUI)
@@ -61,10 +59,11 @@ processCommand
     => A.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ =
     eWrap $
-    do addresses <- query' st GetUserAddresses
+    do addresses <- query' st GetOwnedDefaultAddresses
        (wallets :: [(C.PublicKey, [C.Coin])]) <-
-           mapM (\w -> (w ^. W.publicAddress, ) . C.coinsToList
-                       <$> getAmount st (W.toAddress w)) addresses
+           mapM (\addr -> (C.getAddress addr, ) . C.coinsToList
+                       <$> getAmount st addr)
+                addresses
        liftIO $
            do TIO.putStrLn "Here's the list of your accounts:"
               TIO.putStrLn
@@ -140,4 +139,5 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
     void $ C.getMintetteBlocks mId pId
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
-    liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<< query' st A.GetPublicAddresses
+    liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<<
+    query' st A.GetOwnedAddresses

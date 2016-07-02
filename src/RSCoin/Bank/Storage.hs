@@ -45,7 +45,7 @@ import           RSCoin.Core               (ActionLog,
                                             HBlock (..), Mintette, MintetteId,
                                             Mintettes, NewPeriodData (..),
                                             PeriodId, PeriodResult, PublicKey,
-                                            SecretKey, Transaction (..),
+                                            SecretKey, Transaction (..), AddressStrategyMap,
                                             TransactionId, Utxo, checkActionLog,
                                             checkLBlock, computeOutputAddrids,
                                             derivePublicKey, emissionHash, hash,
@@ -88,6 +88,9 @@ data Storage = Storage
                                                     -- recent entry.
     , _deadMintettes    :: DeadMintetteMap          -- ^ State of all known dead mintettes.
     , _transactionMap   :: MP.Map TransactionId Transaction
+    , _knownAddresses   :: AddressStrategyMap       -- ^ Known addresses accompanied with their strategies.
+                                                    -- Note that every address with non-default strategy should be stored here in order to be used in transaction.
+    , _pendingAddresses :: AddressStrategyMap       -- ^ Pending addresses to publish within next HBlock
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
@@ -105,6 +108,8 @@ mkStorage =
     , _actionLogs = []
     , _deadMintettes = MP.empty
     , _transactionMap = MP.empty
+    , _knownAddresses = MP.empty
+    , _pendingAddresses = MP.empty
     }
 
 type Query a = Getter Storage a
@@ -177,7 +182,7 @@ startNewPeriodDo :: SecretKey
                  -> [Maybe PeriodResult]
                  -> ExceptUpdate [MintetteId]
 startNewPeriodDo sk 0 _ =
-    startNewPeriodFinally sk [] mkGenesisHBlock
+    startNewPeriodFinally sk [] $ const mkGenesisHBlock
 startNewPeriodDo sk pId results = do
     lastHBlock <- head <$> use blocks
     curDpk <- use dpk
@@ -205,12 +210,13 @@ startNewPeriodDo sk pId results = do
 
 startNewPeriodFinally :: SecretKey
                       -> [(MintetteId, PeriodResult)]
-                      -> (SecretKey -> Dpk -> HBlock)
+                      -> (AddressStrategyMap -> SecretKey -> Dpk -> HBlock)
                       -> ExceptUpdate [MintetteId]
 startNewPeriodFinally sk goodMintettes newBlockCtor = do
     periodId += 1
     updateIds <- updateMintettes sk goodMintettes
-    newBlock <- newBlockCtor sk <$> use dpk
+    newAddrs <- updateAddresses
+    newBlock <- newBlockCtor newAddrs sk <$> use dpk
     updateUtxo $ hbTransactions newBlock
     blocks %= (newBlock:)
     transactionMap %= (\map' -> foldl' (\m t -> MP.insert (hash t) t m)
@@ -338,6 +344,14 @@ replaceWithCare' (bad:bads) (pendh:pends) list acc =
         pends
         (list & ix bad .~ pendh)
         (bad : acc)
+
+updateAddresses :: Update AddressStrategyMap
+updateAddresses = do
+  oldKnown <- use knownAddresses
+  pending <- use pendingAddresses
+  knownAddresses %= flip MP.union pending
+  pendingAddresses .= MP.empty
+  return $ pending MP.\\ oldKnown
 
 -- type MintetteInfo = (Mintette, (PublicKey, Signature), ActionLog)
 updateMintettes :: SecretKey

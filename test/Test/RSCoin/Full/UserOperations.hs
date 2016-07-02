@@ -11,4 +11,4 @@ import           RSCoin.Core         (Address)
 import qualified RSCoin.User         as U
 
 getAllAddresses :: MonadIO m => U.RSCoinUserState -> m [Address]
-getAllAddresses s = query' s U.GetPublicAddresses
+getAllAddresses s = query' s U.GetOwnedDefaultAddresses

@@ -17,7 +17,8 @@ module RSCoin.User.AcidState
        , IsInitialized (..)
        , FindUserAddress (..)
        , GetUserAddresses (..)
-       , GetPublicAddresses (..)
+       , GetOwnedAddresses (..)
+       , GetOwnedDefaultAddresses (..)
        , GetOwnedAddrIds (..)
        , GetTransactions (..)
        , GetLastBlockId (..)
@@ -25,7 +26,7 @@ module RSCoin.User.AcidState
 
        -- * Updates
        , WithBlockchainUpdate (..)
-       , AddAddresses (..)
+       , AddAddress (..)
        , AddTemporaryTransaction (..)
        , InitWallet (..)
        ) where
@@ -43,13 +44,11 @@ import qualified RSCoin.Core         as C
 import           RSCoin.Core.Crypto  (keyGen)
 import           RSCoin.Timed        (WorkMode)
 import           RSCoin.User.Logic   (getBlockchainHeight)
-import           RSCoin.User.Wallet  (TxHStatus, TxHistoryRecord, UserAddress,
-                                      WalletStorage)
+import           RSCoin.User.Wallet  (TxHStatus, TxHistoryRecord, WalletStorage)
 import qualified RSCoin.User.Wallet  as W
 
 $(deriveSafeCopy 0 'base ''TxHStatus)
 $(deriveSafeCopy 0 'base ''TxHistoryRecord)
-$(deriveSafeCopy 0 'base ''UserAddress)
 $(deriveSafeCopy 0 'base ''WalletStorage)
 
 type RSCoinUserState = A.AcidState WalletStorage
@@ -75,9 +74,10 @@ closeState :: RSCoinUserState -> IO ()
 closeState = A.closeAcidState
 
 isInitialized :: A.Query WalletStorage Bool
-findUserAddress :: C.Address -> A.Query WalletStorage (Maybe UserAddress)
-getUserAddresses :: A.Query WalletStorage [UserAddress]
-getPublicAddresses :: A.Query WalletStorage [C.Address]
+findUserAddress :: C.Address -> A.Query WalletStorage (Maybe (C.Address, Maybe C.SecretKey))
+getUserAddresses :: A.Query WalletStorage [(C.Address,C.SecretKey)]
+getOwnedAddresses :: A.Query WalletStorage [C.Address]
+getOwnedDefaultAddresses :: A.Query WalletStorage [C.Address]
 getOwnedAddrIds :: C.Address -> A.Query WalletStorage [C.AddrId]
 getTransactions :: C.Address -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
@@ -86,7 +86,8 @@ getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
 isInitialized = W.isInitialized
 findUserAddress = W.findUserAddress
 getUserAddresses = W.getUserAddresses
-getPublicAddresses = W.getPublicAddresses
+getOwnedAddresses = W.getOwnedAddresses
+getOwnedDefaultAddresses = W.getOwnedDefaultAddresses
 getOwnedAddrIds = W.getOwnedAddrIds
 getTransactions = W.getTransactions
 getLastBlockId = W.getLastBlockId
@@ -94,12 +95,12 @@ getTxsHistory = W.getTxsHistory
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
-addAddresses :: UserAddress -> [C.Transaction] -> A.Update WalletStorage ()
-initWallet :: [UserAddress] -> Maybe Int -> A.Update WalletStorage ()
+addAddress :: (C.Address,C.SecretKey) -> [C.Transaction] -> A.Update WalletStorage ()
+initWallet :: [(C.SecretKey,C.PublicKey)] -> Maybe Int -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate
 addTemporaryTransaction = W.addTemporaryTransaction
-addAddresses = W.addAddresses
+addAddress = W.addAddress
 initWallet = W.initWallet
 
 $(makeAcidic
@@ -107,14 +108,15 @@ $(makeAcidic
       [ 'isInitialized
       , 'findUserAddress
       , 'getUserAddresses
-      , 'getPublicAddresses
+      , 'getOwnedAddresses
+      , 'getOwnedDefaultAddresses
       , 'getOwnedAddrIds
       , 'getTransactions
       , 'getLastBlockId
       , 'getTxsHistory
       , 'withBlockchainUpdate
       , 'addTemporaryTransaction
-      , 'addAddresses
+      , 'addAddress
       , 'initWallet])
 
 -- | This function generates 'n' new addresses ((pk,sk) pairs
@@ -129,7 +131,7 @@ initState st n (Just skPath) = liftIO $ do
 initState st n Nothing = do
     height <- pred <$> getBlockchainHeight
     liftIO $
-        do addresses <- map (uncurry W.makeUserAddress) <$> replicateM n keyGen
+        do addresses <- replicateM n keyGen
            A.update st $ InitWallet addresses (Just height)
            A.createCheckpoint st
 
@@ -139,10 +141,10 @@ initState st n Nothing = do
 initStateBank :: MonadIO m => RSCoinUserState -> Int -> C.SecretKey -> m ()
 initStateBank st n sk =
     liftIO $
-    do let bankAddress = W.makeUserAddress sk $ C.getAddress C.genesisAddress
-       unless (W.validateUserAddress bankAddress) $
+    do let bankAddress = (sk, C.getAddress C.genesisAddress)
+       unless (W.validateKeyPair C.genesisAddress sk) $
            throwIO $
            W.BadRequest "Imported bank's secret key doesn't belong to bank."
-       addresses <- map (uncurry W.makeUserAddress) <$> replicateM n keyGen
+       addresses <- replicateM n keyGen
        A.update st $ InitWallet (bankAddress : addresses) Nothing
        A.createCheckpoint st

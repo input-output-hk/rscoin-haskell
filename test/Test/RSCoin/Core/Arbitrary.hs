@@ -7,9 +7,9 @@ module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import           Test.QuickCheck      (Arbitrary (arbitrary), NonNegative (..),
-                                        Gen, oneof)
---import qualified Data.Map.Strict as M (fromListWith)
+import qualified Data.Map        as M
+import           Test.QuickCheck (Arbitrary (arbitrary), Gen, NonNegative (..),
+                                  oneof)
 
 import qualified RSCoin.Core     as C
 
@@ -35,7 +35,9 @@ instance Arbitrary C.LBlock where
     arbitrary = C.LBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary C.HBlock where
-    arbitrary = C.HBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary =
+        C.HBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*>
+        pure M.empty
 
 instance Arbitrary C.CheckConfirmation where
     arbitrary = C.CheckConfirmation <$> arbitrary <*> arbitrary <*> arbitrary

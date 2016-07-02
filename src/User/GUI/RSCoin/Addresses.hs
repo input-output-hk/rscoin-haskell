@@ -9,7 +9,7 @@ import qualified Data.Map      as M
 
 import           RSCoin.Core   (Coin (..), PublicKey, getAddress)
 import           RSCoin.Timed  (runRealModeLocal)
-import           RSCoin.User   (GetPublicAddresses (..), RSCoinUserState,
+import           RSCoin.User   (GetOwnedDefaultAddresses (..), RSCoinUserState,
                                 getAmountNoUpdate)
 
 data VerboseAddress = VA
@@ -22,7 +22,7 @@ data VerboseAddress = VA
 -- will just round the value.
 getAddresses :: RSCoinUserState -> IO [VerboseAddress]
 getAddresses st = do
-    as <- query st GetPublicAddresses
+    as <- query st GetOwnedDefaultAddresses
     forM as $ \a -> runRealModeLocal $ do
         b <- M.findWithDefault 0 0 <$> getAmountNoUpdate st a
         return $ VA (getAddress a) (getCoin b)

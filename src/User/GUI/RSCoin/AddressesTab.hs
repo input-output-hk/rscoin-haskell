@@ -17,8 +17,7 @@ import           GUI.RSCoin.Glade      (GladeMainWindow (..))
 import           GUI.RSCoin.MainWindow (AddressesTab (..), MainWindow (..))
 
 import qualified RSCoin.Core           as C
-import           RSCoin.User           (RSCoinUserState, AddAddresses (..),
-                                        makeUserAddress)
+import           RSCoin.User           (AddAddress (..), RSCoinUserState)
 
 createAddressesTab :: GladeMainWindow -> IO AddressesTab
 createAddressesTab GladeMainWindow{..} =
@@ -55,7 +54,7 @@ initAddressesTab st mw@MainWindow{..} = do
             G.clipboardSetText c $ C.printPublicKey $ address a
     void $ generateAddressButton `on` G.buttonActivated $ do
         (sk, pk) <- C.keyGen
-        update st $ AddAddresses (makeUserAddress sk pk) []
+        update st $ AddAddress (C.Address pk, sk) []
         updateAddressTab st mw
     updateAddressTab st mw
 

@@ -64,7 +64,7 @@ userThreadWithPath
         (userAction userId)
 
 queryMyAddress :: A.RSCoinUserState -> MsgPackRpc Address
-queryMyAddress userState = head <$> query' userState A.GetPublicAddresses
+queryMyAddress userState = head <$> query' userState A.GetOwnedDefaultAddresses
 
 -- | Create user with 1 address and return it.
 initializeUser :: Word -> A.RSCoinUserState -> MsgPackRpc Address

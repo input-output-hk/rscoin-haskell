@@ -9,18 +9,20 @@ module Options
 import qualified Data.Text              as T
 import           Options.Applicative    (Parser, auto, command, execParser,
                                          fullDesc, help, helper, info, long,
-                                         metavar, option, progDesc, short,
-                                         showDefault, subparser, value, (<>))
+                                         metavar, option, optional, progDesc,
+                                         short, showDefault, subparser, value,
+                                         (<>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultPeriodDelta,
+import           RSCoin.Core            (Severity (Error), Strategy,
+                                         defaultPeriodDelta,
                                          defaultSecretKeyPath)
 
 data Command
     = Serve FilePath
     | AddMintette String Int T.Text
-    | AddAddress T.Text String
+    | AddAddress (Maybe T.Text) Strategy
 
 data Options = Options
     { cloCommand     :: Command
@@ -53,8 +55,8 @@ commandParser defaultSKPath =
              showDefault <>
              metavar "PATH TO KEY")
     addAddressOpts =
-        AddAddress <$> strOption (long "address" <> help "Public key, determining address") <*>
-        strOption
+        AddAddress <$> (optional . strOption) (long "address" <> help "Public key, determining address") <*>
+        option auto
             (long "strategy" <>
              help "Address's strategy (directly, not from file). Example: 'MOfNStrategy 5 (fromList [\"YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM=\"])'" <>
              metavar "STRATEGY")

@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE Rank2Types#-}
+{-# LANGUAGE Rank2Types       #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 -- | Protocol implements all low level communication between
@@ -30,17 +30,17 @@ module RSCoin.Core.Protocol
        , unCps
        ) where
 
-import           Control.Monad.IO.Class  (liftIO, MonadIO)
-import           Data.IORef              (newIORef, writeIORef, readIORef)
+import           Control.Monad.IO.Class  (MonadIO, liftIO)
 import qualified Data.ByteString.Char8   as BS
+import           Data.IORef              (newIORef, readIORef, writeIORef)
 import           Data.Maybe              (fromJust)
 
 import           Data.MessagePack        (MessagePack)
 
 import           RSCoin.Core.Constants   (bankPort, rpcTimeout)
-import           RSCoin.Core.Types       (Mintette (..))
 import           RSCoin.Core.Crypto      ()
 import           RSCoin.Core.MessagePack ()
+import           RSCoin.Core.Types       (Mintette (..))
 import qualified RSCoin.Timed            as T
 
 -- TODO: this module should provide more safety and expose better api
@@ -56,6 +56,7 @@ data RSCoinMethod
 -- | Requests processed by a Bank.
 data BankMethod
     = GetMintettes
+    | GetAddresses
     | GetBlockchainHeight
     | GetHBlock
     | GetTransaction

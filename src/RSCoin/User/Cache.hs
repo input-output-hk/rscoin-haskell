@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 -- | Information cached by user.
 
@@ -57,7 +57,7 @@ getMintettesList maybeCache p =
                 then Just storedMintettes
                 else Nothing
     loadAndCache = do
-        loaded <- C.getMintettesList
+        loaded <- C.getMintettes
         case maybeCache of
             Nothing -> return ()
             Just c ->

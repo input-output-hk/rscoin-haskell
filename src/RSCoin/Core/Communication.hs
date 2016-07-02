@@ -17,10 +17,10 @@ module RSCoin.Core.Communication
        , commitTx
        , sendPeriodFinished
        , announceNewPeriod
-       , getMintettesList
        , P.unCps
        , getBlocks
        , getMintettes
+       , getAddresses
        , getLogs
        , getMintetteUtxo
        , getMintetteBlocks
@@ -46,17 +46,18 @@ import qualified Network.MessagePack.Client as MP (RpcError (..))
 
 import           Safe                       (atMay)
 import           Serokell.Util.Text         (format', formatSingle',
-                                             listBuilderJSON,
-                                             listBuilderJSONIndent, pairBuilder,
-                                             show')
+                                             listBuilderJSONIndent, mapBuilder,
+                                             pairBuilder, show')
 
+import qualified Data.Map                   as M
 import           RSCoin.Core.Crypto         (SecretKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
 import           RSCoin.Core.Primitives     (AddrId, Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
-import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
+import           RSCoin.Core.Types          (ActionLog, AddressStrategyMap,
+                                             CheckConfirmation,
                                              CheckConfirmations,
                                              CommitConfirmation, HBlock, LBlock,
                                              Mintette, MintetteId, Mintettes,
@@ -173,14 +174,6 @@ finishPeriod _ =
         (const $ logDebug "Successfully finished period") $
     callBank (P.call $ P.RSCBank P.FinishPeriod)
 
-getMintettesList :: WorkMode m => m [Mintette]
-getMintettesList =
-    withResult
-        (logDebug "Getting mintettes list")
-        (logDebug .
-         formatSingle' "Successfully got mintettes list: {}" . listBuilderJSON) $
-    callBank (P.call $ P.RSCBank P.GetMintettes)
-
 logFunction :: MonadIO m => MintetteError -> Text -> m ()
 logFunction MEInactive = logInfo
 logFunction _ = logWarning
@@ -263,6 +256,13 @@ getBlocks from to =
         logDebug $
             format' "Got higher-level blocks between {} {}: {}"
             (from, to, listBuilderJSONIndent 2 res)
+
+getAddresses :: WorkMode m => m AddressStrategyMap
+getAddresses =
+    withResult
+        (logDebug "Getting list of addresses")
+        (logDebug . formatSingle' "Successfully got list of addresses {}" . mapBuilder . M.toList)
+        $ callBank $ P.call (P.RSCBank P.GetAddresses)
 
 getMintettes :: WorkMode m => m Mintettes
 getMintettes =

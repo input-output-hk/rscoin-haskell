@@ -130,6 +130,7 @@ dumpCommand
     :: WorkMode m
     => A.RSCoinUserState -> O.DumpCommand -> m ()
 dumpCommand _ O.DumpMintettes = void C.getMintettes
+dumpCommand _ O.DumpAddresses = void C.getAddresses
 dumpCommand _ O.DumpPeriod = void C.getBlockchainHeight
 dumpCommand _ (O.DumpHBlocks from to) = void $ C.getBlocks from to
 dumpCommand _ (O.DumpHBlock pId) = void $ C.getBlockByHeight pId

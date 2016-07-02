@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 -- | Functions tightly related to HBlock
 
 module RSCoin.Core.HBlock

@@ -12,6 +12,7 @@ import           RSCoin.Core.Crypto     (Hash, PublicKey, SecretKey, hash, sign,
                                          verify)
 import           RSCoin.Core.Primitives (Transaction (..))
 import           RSCoin.Core.Types      (Dpk, HBlock (..))
+import qualified Data.Map as M
 
 initialHash :: Hash
 initialHash = hash ()
@@ -38,6 +39,7 @@ mkHBlockDo hbTransactions sk hbDpk prevHash =
   where
     hbHash = hash (prevHash, hbTransactions)
     hbSignature = sign sk hbHash
+    hbAddresses = M.empty
 
 -- | Check that higher-level block is valid using Bank's public key
 -- and previous block (unless it's genesis block).

@@ -25,6 +25,7 @@ module RSCoin.Core.Types
        , NewPeriodData (..)
        , formatNewPeriodData
        , Strategy (..)
+       , AddressStrategyMap (..)
        ) where
 
 import           Control.Arrow          (first)
@@ -198,6 +199,31 @@ instance Buildable LBlock where
                 , "}\n"
                 ]
 
+-- | Strategy of confirming transactions.
+-- Other strategies are possible, like "getting m out of n, but
+-- addresses [A,B,C] must sign". Primitive concept is using M/N.
+data Strategy
+    = DefaultStrategy            -- ^ Strategy of "1 signature per addrid"
+    | MOfNStrategy Int (S.Set Address) -- ^ Strategy for getting `m` signatures
+                                 -- out of `length list`, where every signature
+                                 -- should be made by address in list `list`
+  deriving (Show, Eq)
+
+$(deriveSafeCopy 0 'base ''Strategy)
+
+instance Buildable Strategy where
+    build DefaultStrategy = F.build "DefaultStrategy" ()
+    build (MOfNStrategy m addrs) = F.build template (m, listBuilderJSON addrs)
+      where
+        template =
+            mconcat
+                [ "Strategy {\n"
+                , "  m: {}\n"
+                , "  addresses: {}\n"
+                , "}\n"
+                ]
+
+
 -- | PeriodResult is sent by mintette to bank when period finishes.
 type PeriodResult = (PeriodId, [LBlock], ActionLog)
 
@@ -214,6 +240,8 @@ type Utxo = M.Map AddrId Address
 -- for the given period.
 type Pset = M.Map AddrId Transaction
 
+type AddressStrategyMap = M.Map Address Strategy
+
 instance Buildable Dpk where
     build = listBuilderJSON . map pairBuilder
 
@@ -225,6 +253,7 @@ data HBlock = HBlock
     , hbTransactions :: ![Transaction]
     , hbSignature    :: !Signature
     , hbDpk          :: !Dpk
+    , hbAddresses    :: !AddressStrategyMap
     } deriving (Show, Eq)
 
 $(deriveSafeCopy 0 'base ''HBlock)
@@ -233,7 +262,7 @@ instance Buildable HBlock where
     build HBlock{..} =
         F.build
             template
-            (hbHash, listBuilderJSON hbTransactions, hbSignature, hbDpk)
+            (hbHash, listBuilderJSON hbTransactions, hbSignature, hbDpk, listBuilderJSON hbAddresses)
       where
         template =
             mconcat
@@ -242,6 +271,7 @@ instance Buildable HBlock where
                 , "  transactions: {}\n"
                 , "  signature: {}\n"
                 , "  dpk: {}\n"
+                , "  addresses: {}\n"
                 , "}\n"
                 ]
 
@@ -304,12 +334,3 @@ instance Buildable NewPeriodData where
     build = formatNewPeriodData True
 
 $(deriveSafeCopy 0 'base ''NewPeriodData)
-
--- | Strategy of confirming transactions.
--- Other strategies are possible, like "getting m out of n, but
--- addresses [A,B,C] must sign". Primitive concept is using M/N.
-data Strategy
-    = DefaultStrategy            -- ^ Strategy of "1 signature per addrid"
-    | MOfNStrategy Int [Address] -- ^ Strategy for getting `m` signatures
-                                 -- out of `length list`, where every signature
-                                 -- should be made by address in list `list`

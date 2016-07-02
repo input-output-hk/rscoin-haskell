@@ -16,6 +16,7 @@ import           Data.Tuple.Curry       (uncurryN)
 import           RSCoin.Core.Crypto     ()
 import qualified RSCoin.Core.Primitives as C
 import qualified RSCoin.Core.Types      as C
+import qualified Data.Set               as S
 
 toInt :: Integral a => a -> Int
 toInt = fromIntegral
@@ -96,9 +97,22 @@ instance MessagePack C.CheckConfirmation where
 
 instance MessagePack C.HBlock where
     toObject C.HBlock {..} =
-        toObject (hbHash, hbTransactions, hbSignature, hbDpk)
-    fromObject = fmap (uncurry4 C.HBlock) . fromObject
+        toObject (hbHash, hbTransactions, hbSignature, hbDpk, hbAddresses)
+    fromObject = fmap (uncurry5 C.HBlock) . fromObject
 
+instance MessagePack C.Strategy where
+    toObject C.DefaultStrategy = toObj (0, ())
+    toObject (C.MOfNStrategy m addrs) = toObj (1, (m, addrs))
+    fromObject obj = do
+      (i, args) <- fromObject obj
+      case (i :: Int) of
+        0 -> pure C.DefaultStrategy
+        1 -> uncurry2 C.MOfNStrategy <$> fromObject args
+        _ -> Nothing
+
+instance (Ord e, MessagePack e) => MessagePack (S.Set e) where
+    toObject = toObject . S.toList
+    fromObject = fmap S.fromList . fromObject
 toObj
     :: MessagePack a
     => (Int, a) -> Object

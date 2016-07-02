@@ -7,6 +7,7 @@ module RSCoin.Core.Strategy
 import           RSCoin.Core.Crypto.Signing (Signature, verify)
 import           RSCoin.Core.Primitives     (Address (getAddress), Transaction)
 import           RSCoin.Core.Types          (Strategy (..))
+import qualified Data.Set               as S
 
 -- | Checks if the inner state of strategy allows us to send
 -- transaction and it will be accepted
@@ -19,5 +20,5 @@ ifStrategyCompleted (MOfNStrategy m addresses) _ signs tx =
             any (\(addr,sign) -> address == addr &&
                                  verify (getAddress address) sign tx)
                 signs
-        withSignatures = filter hasSignature addresses
+        withSignatures = S.filter hasSignature addresses
     in length withSignatures >= m

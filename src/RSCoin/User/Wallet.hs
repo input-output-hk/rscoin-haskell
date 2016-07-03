@@ -218,6 +218,8 @@ checkInitS action = do
         then action
         else throwM NotInitialized
 
+-- | Cleanup periodDeleted and periodAdded to the state before new
+-- period.
 restoreTransactions :: ExceptUpdate ()
 restoreTransactions = do
     deleted <- L.use periodDeleted
@@ -278,12 +280,6 @@ putHistoryRecords newHeight transactions = do
         confirmed = map setConfirmed inList
         rejected = map setRejected nonInList
     historyTxs %= S.union (S.fromList $ confirmed ++ rejected)
-    addrs <- L.uses ownedAddresses M.keys
-    -- suppose nobody ever spends your output, i.e.
-    -- outcome transactions are always sent by you
-    let incomes = filter (\tx -> any (`elem` addrs) (map fst (C.txOutputs tx))) transactions
-        mapped = map (\tx -> TxHistoryRecord tx newHeight TxHConfirmed) incomes
-    historyTxs %= S.union (S.fromList mapped)
   where
     setConfirmed TxHistoryRecord{..} =
         TxHistoryRecord
@@ -320,6 +316,18 @@ withBlockchainUpdate newHeight C.HBlock{..} =
                (newHeight, currentHeight)
 
        restoreTransactions
+
+       ownedAddrs0 <- L.uses ownedAddresses M.keys
+       -- Get strategies that we are related to
+       let newStrategies = M.filterWithKey (ownStrategy ownedAddrs0) hbAddresses
+       -- Add them to strategy list
+       addrStrategies <>= newStrategies
+       -- Also add addresses that we now control (e.g. multisig)
+       forM_ (M.keys newStrategies) $ \addr -> do
+           ownedAddrs <- L.uses ownedAddresses M.keys
+           unless (addr `elem` ownedAddrs) $
+             ownedAddresses %= M.insert addr Nothing
+
        putHistoryRecords newHeight hbTransactions
 
        ownedAddrs <- L.uses ownedAddresses M.keys
@@ -333,9 +341,10 @@ withBlockchainUpdate newHeight C.HBlock{..} =
                                     C.computeOutputAddrids tx
                forM_ outputAddr $ \(address,addrids) ->
                    when (address `elem` ownedAddrs) $
-                       forM_ addrids $ \addrid' ->
+                       forM_ addrids $ \addrid' -> do
                            userTxAddrids %= M.insertWith (++) address [(tx, addrid')]
-           removeSomeTransactions Transaction{..} = do
+                           historyTxs %= S.insert (TxHistoryRecord tx newHeight TxHConfirmed)
+           removeSomeTransactions tx@Transaction{..} = do
                (savedTransactions :: [(Address, (Transaction, AddrId))]) <-
                    concatMap
                        (\(addr,txs) ->
@@ -354,13 +363,11 @@ withBlockchainUpdate newHeight C.HBlock{..} =
                            txInputs
                forM_ toRemove $
                    \(useraddr,pair') ->
-                            userTxAddrids %= M.adjust (delete pair') useraddr
+                        userTxAddrids %= M.adjust (delete pair') useraddr
+               unless (null toRemove) $
+                   historyTxs %= S.insert (TxHistoryRecord tx newHeight TxHConfirmed)
        forM_ hbTransactions addSomeTransactions
        forM_ hbTransactions removeSomeTransactions
-
-       let newStrategies = M.filterWithKey (ownStrategy ownedAddrs)
-                                           hbAddresses
-       addrStrategies <>= newStrategies
 
        lastBlockId .= Just newHeight
   where
@@ -373,8 +380,8 @@ withBlockchainUpdate newHeight C.HBlock{..} =
 -- | Puts given address and it's related transactions (that contain it
 -- as output S_{out}) into wallet. Blockchain won't be queried.
 -- Strategy assigned is default.
-addAddress :: (C.Address,SecretKey) -> [Transaction] -> ExceptUpdate ()
-addAddress addressPair@(address,sk) txs = do
+addAddress :: (C.Address,SecretKey) -> [Transaction] -> PeriodId -> ExceptUpdate ()
+addAddress addressPair@(address,sk) txs periodId = do
     unless (uncurry validateKeyPair addressPair) $
         throwM $
         BadRequest $
@@ -391,6 +398,8 @@ addAddress addressPair@(address,sk) txs = do
             ("Error while adding address ({},{}) to storage: {} transactions dosn't " <>
              "contain it (address) as output. First bad transaction: {}")
             (address, sk, length mappedTxs, head mappedTxs)
+    historyTxs <>=
+        S.fromList (map (\tx -> TxHistoryRecord tx periodId TxHConfirmed) txs)
     ownedAddresses %= M.insert address (Just sk)
     userTxAddrids <>=
         M.singleton
@@ -406,5 +415,7 @@ addAddress addressPair@(address,sk) txs = do
 -- height is set to i, if Nothing, then to -1 (bank-mode).
 initWallet :: [(SecretKey,PublicKey)] -> Maybe Int -> ExceptUpdate ()
 initWallet addrs startHeight = do
-    lastBlockId .= (startHeight <|> Just (-1))
-    forM_ (map (first Address . swap) addrs) $ flip addAddress []
+    let newHeight = startHeight <|> Just (-1)
+    lastBlockId .= newHeight
+    forM_ (map (first Address . swap) addrs) $ \p ->
+        addAddress p [] $ fromJust newHeight

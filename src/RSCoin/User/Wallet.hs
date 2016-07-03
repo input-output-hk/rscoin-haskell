@@ -15,15 +15,18 @@ module RSCoin.User.Wallet
        , WalletStorage
        , emptyWalletStorage
        , isInitialized
+
        , findUserAddress
        , getUserAddresses
        , getOwnedAddresses
        , getOwnedDefaultAddresses
-       , addTemporaryTransaction
        , getOwnedAddrIds
        , getTransactions
        , getLastBlockId
        , getTxsHistory
+       , getAddressStrategy
+
+       , addTemporaryTransaction
        , withBlockchainUpdate
        , addAddress
        , initWallet
@@ -205,6 +208,9 @@ getLastBlockId = checkInitR $ L.views lastBlockId fromJust
 
 getTxsHistory :: ExceptQuery [TxHistoryRecord]
 getTxsHistory = L.views historyTxs S.toList
+
+getAddressStrategy :: Address -> ExceptQuery (Maybe C.Strategy)
+getAddressStrategy addr = L.views addrStrategies $ M.lookup addr
 
 -- Updates
 

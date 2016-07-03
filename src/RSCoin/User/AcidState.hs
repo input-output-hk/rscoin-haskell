@@ -23,6 +23,7 @@ module RSCoin.User.AcidState
        , GetTransactions (..)
        , GetLastBlockId (..)
        , GetTxsHistory (..)
+       , GetAddressStrategy (..)
 
        -- * Updates
        , WithBlockchainUpdate (..)
@@ -82,6 +83,7 @@ getOwnedAddrIds :: C.Address -> A.Query WalletStorage [C.AddrId]
 getTransactions :: C.Address -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
 getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
+getAddressStrategy :: C.Address -> A.Query WalletStorage (Maybe C.Strategy)
 
 isInitialized = W.isInitialized
 findUserAddress = W.findUserAddress
@@ -92,6 +94,7 @@ getOwnedAddrIds = W.getOwnedAddrIds
 getTransactions = W.getTransactions
 getLastBlockId = W.getLastBlockId
 getTxsHistory = W.getTxsHistory
+getAddressStrategy = W.getAddressStrategy
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
@@ -114,6 +117,7 @@ $(makeAcidic
       , 'getTransactions
       , 'getLastBlockId
       , 'getTxsHistory
+      , 'getAddressStrategy
       , 'withBlockchainUpdate
       , 'addTemporaryTransaction
       , 'addAddress

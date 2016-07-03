@@ -95,7 +95,7 @@ getTxsHistory = W.getTxsHistory
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
-addAddress :: (C.Address,C.SecretKey) -> [C.Transaction] -> A.Update WalletStorage ()
+addAddress :: (C.Address,C.SecretKey) -> [C.Transaction] -> C.PeriodId ->A.Update WalletStorage ()
 initWallet :: [(C.SecretKey,C.PublicKey)] -> Maybe Int -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate

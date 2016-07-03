@@ -54,7 +54,8 @@ initAddressesTab st mw@MainWindow{..} = do
             G.clipboardSetText c $ C.printPublicKey $ address a
     void $ generateAddressButton `on` G.buttonActivated $ do
         (sk, pk) <- C.keyGen
-        update st $ AddAddress (C.Address pk, sk) []
+        -- period id doesn't matter because list is empty
+        update st $ AddAddress (C.Address pk, sk) [] 0
         updateAddressTab st mw
     updateAddressTab st mw
 

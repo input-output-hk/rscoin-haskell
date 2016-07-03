@@ -25,7 +25,8 @@ module RSCoin.Core.Communication
        , getMintetteUtxo
        , getMintetteBlocks
        , getMintetteLogs
-       , forwardSignerTransaction
+       , publishTxToSigner
+       , pollTxsFromSigner
        ) where
 
 import           Control.Exception          (Exception (..))
@@ -179,7 +180,6 @@ logFunction :: MonadIO m => MintetteError -> Text -> m ()
 logFunction MEInactive = logInfo
 logFunction _ = logWarning
 
--- FIXME I didn't change mintette server code @georgeee
 checkNotDoubleSpent
     :: WorkMode m
     => Mintette
@@ -368,24 +368,23 @@ getMintetteLogs mId pId = do
                 (pId, listBuilderJSONIndent 2 $ map pairBuilder res)
 
 -- | Send transaction through signer and recieve his feedback.
-forwardSignerTransaction :: WorkMode m => Transaction -> m Transaction
-forwardSignerTransaction tx =
+publishTxToSigner :: WorkMode m => Transaction -> [(Address, Signature)] -> m [(Address, Signature)]
+publishTxToSigner tx sgs =
     withResult
         infoMessage
         successMessage $
-        callSigner $ P.call (P.RSCSign P.SignTransaction) tx
+        callSigner $ P.call (P.RSCSign P.PublishTransaction) tx sgs
   where
-    infoMessage        = logDebug $ sformat ("Sending tx to signer: " % F.build) tx
-    successMessage res = logDebug $ sformat ("Getting tx from signer: " % F.build) res
+    infoMessage        = logDebug $ sformat ("Sending tx, signatures to signer: " % F.shown) (tx, sgs)
+    successMessage res = logDebug $ sformat ("Getting signatures from signer: " % F.shown) res
 
 
--- | Sends transaction to be signed
-commitMultisigTransaction :: WorkMode m => Transaction -> m ()
-commitMultisigTransaction = undefined
-
--- | Returns Left True if transaction is sent by someone else, Left
--- False if it's not ready, Right sigpack -- signature pack
-isTransactionReady
-    :: WorkMode m
-    => Transaction -> m (Either Bool [(Address, Signature)])
-isTransactionReady = undefined
+pollTxsFromSigner :: WorkMode m => [Address] -> m [(Transaction, [(Address, Signature)])]
+pollTxsFromSigner addrs =
+    withResult
+        infoMessage
+        successMessage $
+        callSigner $ P.call (P.RSCSign P.PollTransactions) addrs
+  where
+    infoMessage        = logDebug $ sformat ("Polling transactions to sign for addresses: " % F.shown) addrs
+    successMessage res = logDebug $ sformat ("Received transactions to sign: " % F.shown) res

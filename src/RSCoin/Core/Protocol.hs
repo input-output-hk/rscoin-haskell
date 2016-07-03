@@ -82,7 +82,8 @@ data DumpMethod
 
 -- | Requests for multisign transactions.
 data SignerMethod
-    = SignTransaction
+    = PublishTransaction
+    | PollTransactions
     deriving (Show)
 
 type Server a = T.Server a

@@ -19,24 +19,27 @@ import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
 import           RSCoin.Signer.AcidState (RSCoinSignerState)
 import           RSCoin.Timed            (ServerT, WorkMode,
-                                          serverTypeRestriction1)
+                                          serverTypeRestriction1,
+                                          serverTypeRestriction2)
 
 logError, logInfo :: MonadIO m => Text -> m ()
 logError = C.logError C.signerLoggerName
 --logWarning = C.logWarning C.mintetteLoggerName
 logInfo = C.logInfo C.signerLoggerName
---logDebug = C.logDebug C.mintetteLoggerName
+logDebug = C.logDebug C.mintetteLoggerName
 
 -- | Run Signer server which will process incoming sing requests.
 serve
     :: WorkMode m
     => Int -> RSCoinSignerState -> m ()
 serve port signerState = do
-    idr1 <- serverTypeRestriction1
+    idr1 <- serverTypeRestriction2
+    idr2 <- serverTypeRestriction1
     P.serve
         port
-        [ P.method (P.RSCSign P.SignTransaction) $
-          idr1 $ signIncoming signerState]
+        [ P.method (P.RSCSign P.PublishTransaction) $ idr1 $ publishTx signerState
+        , P.method (P.RSCSign P.PollTransactions) $ idr2 $ pollTxs signerState
+        ]
 
 -- TODO: move into better place
 data SignerError = SignerError
@@ -53,9 +56,18 @@ toServer action = liftIO $ action `catch` handler
         logError $ sformat shown e
         throwIO e
 
-signIncoming
+-- @TODO implement Signer's pollTxs and publishTx methods
+
+pollTxs
     :: WorkMode m
-    => RSCoinSignerState -> C.Transaction -> ServerT m C.Transaction
-signIncoming _ transaction = toServer $ do
-    logInfo $ sformat ("Receiving transaction: " % shown) transaction
-    return transaction
+    => RSCoinSignerState -> [C.Address] -> ServerT m [(C.Transaction, [(C.Address, C.Signature)])]
+pollTxs _ addrs = toServer $ do
+    logDebug $ sformat ("Receiving polling request by addresses " % shown) addrs
+    return []
+
+publishTx
+    :: WorkMode m
+    => RSCoinSignerState -> C.Transaction -> [(C.Address, C.Signature)] -> ServerT m [(C.Address, C.Signature)]
+publishTx _ tx sgs = toServer $ do
+    logInfo $ sformat ("Receiving transaction " % shown % " with signatures " % shown) tx sgs
+    return sgs

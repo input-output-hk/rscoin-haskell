@@ -181,7 +181,7 @@ userCommandParser =
              auto
              (long "from" <>
               help
-                  ("Pairs (a,b,c) where " <>
+                  ("Tuples (a,b,c) where " <>
                    "'a' is id of address as numbered in list-wallets output, " <>
                    "'b' is integer -- amount of coins to send, " <>
                    "'c' is the color (0 for uncolored), any uncolored ~ colored."))) <*>

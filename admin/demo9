@@ -13,6 +13,10 @@ admin/cleanDB.sh
 rm -rvf bank-db
 rm -rvf wallet-db
 rm -rvf wallet-db-user
+rm -rvf demouser1-db
+rm -rvf demouser2-db
+rm -rvf demouser1-gui-db
+rm -rvf demouser2-gui-db
 
 read -n 1 -p "Press any key to start the demo"
 
@@ -64,9 +68,9 @@ tmux split-window -h -t "${_session}:7"
 tmux send-keys       -t "${_session}:7" "sleep 12; admin/watchBlockchainUpdates.sh" C-m
 
 # TODO: Spawn UI attached to wallet located at ./wallet-db-user down here ```````````````````````v
-tmux send-keys       -t "${_session}:8" "sleep 11; admin/initDemoUser.sh && admin/initBankUser.sh && rscoin-user start-gui" C-m
+tmux send-keys       -t "${_session}:8" "sleep 11; admin/initDemoUser.sh demouser2-db demouser1-db && admin/initBankUser.sh && { rscoin-user start-gui --guidb-path=demouser1-gui-db --wallet-path=demouser2-db & rscoin-user start-gui --guidb-path=demouser2-gui-db --wallet-path=demouser1-db & }" C-m
 tmux split-window -h -t "${_session}:8"
-tmux send-keys       -t "${_session}:8" "sleep 10; rscoin-bank serve" C-m
+tmux send-keys       -t "${_session}:8" "sleep 10; rscoin-bank --log-severity Debug serve" C-m
 
 tmux select-window -t 0
 

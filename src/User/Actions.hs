@@ -17,7 +17,7 @@ import           Control.Monad.Trans     (liftIO)
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
 import           Data.Function           (on)
-import           Data.List               (genericIndex, groupBy, nub)
+import           Data.List               (genericIndex, groupBy)
 import           Data.Maybe              (fromJust, fromMaybe, isJust)
 import           Data.Monoid             ((<>))
 import qualified Data.Text.IO            as TIO

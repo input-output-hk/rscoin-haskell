@@ -377,3 +377,15 @@ forwardSignerTransaction tx =
   where
     infoMessage        = logDebug $ sformat ("Sending tx to signer: " % F.build) tx
     successMessage res = logDebug $ sformat ("Getting tx from signer: " % F.build) res
+
+
+-- | Sends transaction to be signed
+commitMultisigTransaction :: WorkMode m => Transaction -> m ()
+commitMultisigTransaction = undefined
+
+-- | Returns Left True if transaction is sent by someone else, Left
+-- False if it's not ready, Right sigpack -- signature pack
+isTransactionReady
+    :: WorkMode m
+    => Transaction -> m (Either Bool [(Address, Signature)])
+isTransactionReady = undefined

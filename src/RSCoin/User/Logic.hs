@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | This module reperents all logic that abstract client should have
 -- in its arsenal -- mostly the algorithmic part of user in paper,
@@ -17,7 +18,7 @@ import           Control.Monad                 (guard, unless, when)
 import           Control.Monad.Catch           (throwM)
 import           Control.Monad.Trans           (liftIO)
 import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
-import           Data.List                     (genericLength)
+import           Data.List                     (genericLength, nub)
 import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
@@ -44,6 +45,9 @@ import           RSCoin.User.Error             (UserLogicError (..))
 import           Serokell.Util.Text            (format', formatSingle',
                                                 listBuilderJSON, pairBuilder)
 
+-- | SignatureBundle is a datatype that represents signatures needed
+-- to prove that address owners are OK with transaction spending money
+-- from that address
 type SignatureBundle = M.Map AddrId (Address, Strategy, [(Address,Signature)])
 
 -- | Gets signatures that can't be retrieved locally (for strategies
@@ -56,18 +60,18 @@ getExtraSignatures
     -> Int                                         -- ^ Timeout in seconds
     -> PeriodId                                    -- ^ Period in which to poll
     -> m SignatureBundle
-getExtraSignatures tx requests timeout height = do
-    undefined tx requests timeout height
-    --- $ M.fromList <$> mapM (uncurry getSignatures) (M.assocs requests)
+getExtraSignatures tx requests timeout height =
+    M.fromListWith (\(a,s,signs1) (_,_,signs2) -> (a,s,nub $ signs1 ++ signs2)) .
+        concatMap (\(addrids, c) -> map (,c) addrids) <$>
+        mapM (uncurry getSignatures) (M.assocs requests)
   where
     getSignatures
         :: (WorkMode m)
         => Address
-        -> (Strategy, [AddrId])
-        -> m (Address, [(Address, Signature)])
-    getSignatures addr (strategy,addrids) =
-        undefined strategy addrids
-        --return (addr, []) -- TODO Implement
+        -> (Strategy, [AddrId], Signature)
+        -> m ([AddrId], (Address, Strategy, [(Address, Signature)]))
+    getSignatures addr (strategy,addrids,signature) =
+        return (addrids, (addr, strategy, [])) -- TODO Implement
 
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction

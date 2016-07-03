@@ -59,8 +59,7 @@ processCommand
 processCommand st O.ListAddresses _ =
     eWrap $
     do -- get addresses default strategy first
-       addresses <- nub <$> ((++) <$> query' st A.GetOwnedDefaultAddresses
-                                  <*> query' st A.GetOwnedAddresses)
+       addresses <- query' st A.GetOwnedAddresses
        (wallets :: [(C.PublicKey, C.Strategy, [C.Coin])]) <-
            mapM (\addr -> do
                       coins <- C.coinsToList <$> getAmount st addr
@@ -91,8 +90,7 @@ processCommand st O.ListAddresses _ =
                     "     This is a multisig address ({}/{}) controlled by keys: "
                     (m, length allowed)
                forM_ allowed $ \allowedAddr -> do
-                   addresses <- nub <$> ((++) <$> query' st A.GetOwnedDefaultAddresses
-                                              <*> query' st A.GetOwnedAddresses)
+                   addresses <- query' st A.GetOwnedAddresses
                    TIO.putStrLn $ formatSingle'
                            (if allowedAddr `elem` addresses
                             then "     * {} owned by you"

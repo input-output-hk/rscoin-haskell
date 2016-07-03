@@ -24,6 +24,7 @@ module RSCoin.User.AcidState
        , GetLastBlockId (..)
        , GetTxsHistory (..)
        , GetAddressStrategy (..)
+       , ResolveAddressLocally (..)
 
        -- * Updates
        , WithBlockchainUpdate (..)
@@ -75,7 +76,7 @@ closeState :: RSCoinUserState -> IO ()
 closeState = A.closeAcidState
 
 isInitialized :: A.Query WalletStorage Bool
-findUserAddress :: C.Address -> A.Query WalletStorage (Maybe (C.Address, Maybe C.SecretKey))
+findUserAddress :: C.Address -> A.Query WalletStorage (Maybe (C.Address, C.SecretKey))
 getUserAddresses :: A.Query WalletStorage [(C.Address,C.SecretKey)]
 getOwnedAddresses :: A.Query WalletStorage [C.Address]
 getOwnedDefaultAddresses :: A.Query WalletStorage [C.Address]
@@ -84,6 +85,7 @@ getTransactions :: C.Address -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
 getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
 getAddressStrategy :: C.Address -> A.Query WalletStorage (Maybe C.Strategy)
+resolveAddressLocally :: C.AddrId -> A.Query WalletStorage (Maybe C.Address)
 
 isInitialized = W.isInitialized
 findUserAddress = W.findUserAddress
@@ -95,6 +97,7 @@ getTransactions = W.getTransactions
 getLastBlockId = W.getLastBlockId
 getTxsHistory = W.getTxsHistory
 getAddressStrategy = W.getAddressStrategy
+resolveAddressLocally = W.resolveAddressLocally
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
@@ -118,6 +121,7 @@ $(makeAcidic
       , 'getLastBlockId
       , 'getTxsHistory
       , 'getAddressStrategy
+      , 'resolveAddressLocally
       , 'withBlockchainUpdate
       , 'addTemporaryTransaction
       , 'addAddress

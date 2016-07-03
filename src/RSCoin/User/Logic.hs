@@ -8,6 +8,8 @@
 module RSCoin.User.Logic
        ( CC.getBlockByHeight
        , CC.getBlockchainHeight
+       , getExtraSignatures
+       , SignatureBundle
        , validateTransaction
        ) where
 
@@ -19,15 +21,19 @@ import           Data.List                     (genericLength)
 import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
+import           Data.Tuple.Select             (sel3)
 
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
 import           RSCoin.Core.Logging           (logWarning, userLoggerName)
-import           RSCoin.Core.Primitives        (AddrId, Transaction (..))
+import           RSCoin.Core.Primitives        (AddrId, Address,
+                                                Transaction (..))
+import           RSCoin.Core.Strategy          (ifStrategyCompleted)
 import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitConfirmation, Mintette,
-                                                MintetteId, PeriodId)
+                                                MintetteId, PeriodId,
+                                                Strategy (..))
 import           RSCoin.Mintette.Error         (MintetteError)
 import           RSCoin.Timed                  (WorkMode)
 import           RSCoin.User.Cache             (UserCache, getOwnersByAddrid,
@@ -38,21 +44,49 @@ import           RSCoin.User.Error             (UserLogicError (..))
 import           Serokell.Util.Text            (format', formatSingle',
                                                 listBuilderJSON, pairBuilder)
 
+type SignatureBundle = M.Map AddrId (Address, Strategy, [(Address,Signature)])
+
+-- | Gets signatures that can't be retrieved locally (for strategies
+-- other than local).
+getExtraSignatures
+    :: WorkMode m
+    => Transaction                                 -- ^ Transaction to confirm addrid from
+    -> M.Map Address (Strategy,[AddrId],Signature) -- ^ Addresses with special strategies
+                                                   -- to spend money from
+    -> Int                                         -- ^ Timeout in seconds
+    -> PeriodId                                    -- ^ Period in which to poll
+    -> m SignatureBundle
+getExtraSignatures tx requests timeout height = do
+    undefined tx requests timeout height
+    --- $ M.fromList <$> mapM (uncurry getSignatures) (M.assocs requests)
+  where
+    getSignatures
+        :: (WorkMode m)
+        => Address
+        -> (Strategy, [AddrId])
+        -> m (Address, [(Address, Signature)])
+    getSignatures addr (strategy,addrids) =
+        undefined strategy addrids
+        --return (addr, []) -- TODO Implement
+
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction
 -- given. If transaction is confirmed, just returns. If it's not
 -- confirmed, the MajorityFailedToCommit is thrown.
 validateTransaction
     :: WorkMode m
-    => Maybe UserCache
-    -> Transaction
-    -> M.Map AddrId Signature
-    -> PeriodId
+    => Maybe UserCache -- ^ User cache
+    -> Transaction     -- ^ Transaction to send
+    -> SignatureBundle -- ^ Signatures for local addresses with default strategy
+    -> PeriodId        -- ^ Period in which the transaction should be sent
     -> m ()
-validateTransaction cache tx@Transaction{..} signatures height = do
+validateTransaction cache tx@Transaction{..} signatureBundle height = do
+    unless (all checkStrategy $ M.elems signatureBundle) $ throwM StrategyFailed
     (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
     commitBundle bundle
   where
+    checkStrategy :: (Address, Strategy, [(Address, Signature)]) -> Bool
+    checkStrategy (addr,str,sgns) = ifStrategyCompleted str addr sgns tx
     processInput
         :: WorkMode m
         => AddrId -> m CheckConfirmations
@@ -80,7 +114,7 @@ validateTransaction cache tx@Transaction{..} signatures height = do
         signedPairMb <-
             rightToMaybe <$>
             (CC.checkNotDoubleSpent mintette tx addrid $
-             fromJust $ M.lookup addrid signatures)
+             sel3 $ fromJust $ M.lookup addrid signatureBundle)
         return $
             signedPairMb >>=
             \proof ->

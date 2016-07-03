@@ -54,7 +54,8 @@ import           RSCoin.Core.Crypto         (SecretKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
-import           RSCoin.Core.Primitives     (AddrId, Transaction, TransactionId)
+import           RSCoin.Core.Primitives     (AddrId, Address, Transaction,
+                                             TransactionId)
 import qualified RSCoin.Core.Protocol       as P
 import           RSCoin.Core.Types          (ActionLog, AddressStrategyMap,
                                              CheckConfirmation,
@@ -178,12 +179,13 @@ logFunction :: MonadIO m => MintetteError -> Text -> m ()
 logFunction MEInactive = logInfo
 logFunction _ = logWarning
 
+-- FIXME I didn't change mintette server code @georgeee
 checkNotDoubleSpent
     :: WorkMode m
     => Mintette
     -> Transaction
     -> AddrId
-    -> Signature
+    -> [(Address, Signature)]
     -> m (Either MintetteError CheckConfirmation)
 checkNotDoubleSpent m tx a s =
     withResult infoMessage (either onError onSuccess) $

@@ -63,7 +63,8 @@ instance Exception UserErrorWithClass
 -- | This datatype describes errors that can be produced during
 -- 'RSCoin.User.Logic.validateTransaction' function execution.
 data UserLogicError
-    = MajorityRejected T.Text
+    = StrategyFailed
+    | MajorityRejected T.Text
     | MajorityFailedToCommit Word Word
     deriving (Eq, Show, Typeable)
 

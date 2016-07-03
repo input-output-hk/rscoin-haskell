@@ -25,6 +25,7 @@ module RSCoin.User.Wallet
        , getLastBlockId
        , getTxsHistory
        , getAddressStrategy
+       , resolveAddressLocally
 
        , addTemporaryTransaction
        , withBlockchainUpdate
@@ -42,8 +43,8 @@ import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import           Data.Bifunctor             (first)
 import           Data.Function              (on)
-import           Data.List                  (delete, groupBy, intersect, nub,
-                                             sortOn, (\\))
+import           Data.List                  (delete, find, groupBy, intersect,
+                                             nub, sortOn, (\\))
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust, isJust)
 import           Data.Monoid                ((<>))
@@ -139,10 +140,32 @@ isInitialized = do
     b <- L.views lastBlockId isJust
     return $ a && b
 
--- | Searches UserAddress correspondent to Address
-findUserAddress :: Address -> ExceptQuery (Maybe (Address, Maybe SecretKey))
-findUserAddress addr =
-    checkInitR (fmap (addr,) <$> L.views ownedAddresses (M.lookup addr))
+-- | Searches UserAddress correspondent to Address. Returns secret key
+-- *associated* with this address, that one that proves the ownership.
+-- In case of DefaultStrategy it's just a keypair. In case of
+-- MOfNStrategy it's the secret key of share you own (we assume there
+-- can be only one per wallet).
+findUserAddress :: Address -> ExceptQuery (Maybe (Address, SecretKey))
+findUserAddress addr = checkInitR $ do
+    secretKey <- L.views ownedAddresses (M.lookup addr)
+    fmap (addr,) <$> case secretKey of
+        -- we don't own this address
+        Nothing        -> return Nothing
+        -- we own secret key
+        Just (Just sk) -> return $ Just sk
+        -- we don't own the secret key of this address
+        Just Nothing   -> do
+            strategy <- fromJust <$> L.views addrStrategies (M.lookup addr)
+            case strategy of
+                C.DefaultStrategy -> throwM $ InternalError $
+                    "We have a notion of default strategy dut " <>
+                    "I can't find a correspondent secret key."
+                C.MOfNStrategy _ addrs -> do
+                    defaultOwnerAddress <-
+                        fromJust .
+                        find (`elem` addrs) <$>
+                        getOwnedDefaultAddresses
+                    fromJust <$> L.views ownedAddresses (M.lookup defaultOwnerAddress)
 
 -- | Get all available user addresses that have private keys
 getUserAddresses :: ExceptQuery [(Address,SecretKey)]
@@ -210,7 +233,18 @@ getTxsHistory :: ExceptQuery [TxHistoryRecord]
 getTxsHistory = L.views historyTxs S.toList
 
 getAddressStrategy :: Address -> ExceptQuery (Maybe C.Strategy)
-getAddressStrategy addr = L.views addrStrategies $ M.lookup addr
+getAddressStrategy addr = checkInitR $ L.views addrStrategies $ M.lookup addr
+
+resolveAddressLocally :: AddrId -> ExceptQuery (Maybe Address)
+resolveAddressLocally addrid =
+    checkInitR $
+    L.views userTxAddrids $
+    \addridMap ->
+         find
+             (\k -> case M.lookup k addridMap of
+                        Nothing -> False
+                        Just list -> addrid `elem` (map snd list)) $
+         M.keys addridMap
 
 -- Updates
 

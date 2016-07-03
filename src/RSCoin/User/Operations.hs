@@ -30,15 +30,15 @@ import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
-import           Data.List              (genericIndex, genericLength, nubBy,
-                                         sortOn)
+import           Data.List              (genericIndex, genericLength, nub,
+                                         nubBy, sortOn)
 import qualified Data.Map               as M
-import           Data.Maybe             (fromJust, isNothing)
+import           Data.Maybe             (fromJust, fromMaybe, isNothing)
 import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
-import           Data.Tuple.Select      (sel1, sel3)
+import           Data.Tuple.Select      (sel1, sel2, sel3)
 import           Formatting             (build, int, sformat, shown, (%))
 import           Safe                   (atMay)
 
@@ -52,7 +52,8 @@ import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Cache      (UserCache)
 import           RSCoin.User.Error      (UserError (..), UserLogicError,
                                          isWalletSyncError)
-import           RSCoin.User.Logic      (validateTransaction)
+import           RSCoin.User.Logic      (SignatureBundle, getExtraSignatures,
+                                         validateTransaction)
 import qualified RSCoin.User.Wallet     as W
 
 walletInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
@@ -206,14 +207,12 @@ data TransactionData = TransactionData
     {
       -- | List of inputs, see `FormTransactionInput` description.
       tdInputs        :: [TransactionInput]
-    ,
       -- | Output address where to send coins.
-      tdOutputAddress :: C.Address
-    ,
+    , tdOutputAddress :: C.Address
       -- | List of coins to send. It may be empty, then will be
       -- calculated from inputs. Passing non-empty list is useful if
       -- one wants to color coins.
-      tdOutputCoins   :: [C.Coin]
+    , tdOutputCoins   :: [C.Coin]
     } deriving (Show)
 
 -- | Forms transaction out of user input and sends it to the net.
@@ -244,12 +243,10 @@ submitTransactionRetry tries st maybeCache td@TransactionData{..}
       (tx,signatures) <- constructAndSignTransaction st td
       tx <$ sendTransactionRetry tries st maybeCache tx signatures
 
-type Signatures = M.Map C.AddrId C.Signature
-
 constructAndSignTransaction
     :: forall m.
        WorkMode m
-    => A.RSCoinUserState -> TransactionData -> m (C.Transaction, Signatures)
+    => A.RSCoinUserState -> TransactionData -> m (C.Transaction, SignatureBundle)
 constructAndSignTransaction st TransactionData{..} = do
     () <$ updateBlockchain st False
     C.logInfo C.userLoggerName $
@@ -269,7 +266,7 @@ constructAndSignTransaction st TransactionData{..} = do
         formatSingle'
             "All input values should be positive, but encountered {}, that's not." $
         head $ filter (<= 0) $ concatMap snd tdInputs
-    accounts <- query' st A.GetOwnedDefaultAddresses
+    accounts <- query' st A.GetOwnedAddresses
     let notInRange i = i >= genericLength accounts
     when (any notInRange $ map fst tdInputs) $
         commitError $
@@ -322,7 +319,7 @@ constructAndSignTransaction st TransactionData{..} = do
             M.fromList <$>
             mapM
                 (\(addrid',address') -> do
-                      privateKey <- fromJust . snd . fromJust <$>
+                      privateKey <- snd . fromJust <$>
                           query' st (A.FindUserAddress address')
                       return (addrid', C.sign privateKey outTr))
                 addrPairList
@@ -334,8 +331,15 @@ constructAndSignTransaction st TransactionData{..} = do
         formatSingle'
             "Our code is broken and our auto-generated transaction is invalid: {}"
             outTr
-    return (outTr, signatures)
+    sigBundle <- M.fromList <$> mapM toSignatureBundle (M.assocs signatures)
+    return (outTr, sigBundle)
   where
+    toSignatureBundle (addrid,sign) = do
+        address <- fromMaybe (error "Exception1 at toSignatureBundle in Operations.hs")
+                   <$> query' st (A.ResolveAddressLocally addrid)
+        str <- fromMaybe (error "Exception2 at toSignatureBundle in Operations.hs")
+                   <$> query' st (A.GetAddressStrategy address)
+        return (addrid, (address, str, [(address, sign)]))
     pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])
     pair3merge = mappend
 
@@ -383,7 +387,7 @@ sendTransactionRetry
     -> A.RSCoinUserState
     -> Maybe UserCache
     -> C.Transaction
-    -> Signatures
+    -> SignatureBundle
     -> m ()
 sendTransactionRetry tries st maybeCache tx signatures
   | tries < 1 =
@@ -413,7 +417,7 @@ sendTransactionDo
     => A.RSCoinUserState
     -> Maybe UserCache
     -> C.Transaction
-    -> Signatures
+    -> SignatureBundle
     -> m ()
 sendTransactionDo st maybeCache tx signatures = do
     walletHeight <- query' st A.GetLastBlockId
@@ -428,9 +432,19 @@ sendTransactionDo st maybeCache tx signatures = do
         throwM $
         WalletSyncError $
         format'
-            ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}).")
+            "Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {})."
             (walletHeight, lastAppliedBlock)
-    validateTransaction maybeCache tx signatures periodId
+    let nonDefaultAddresses =
+            M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
+            map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],snd $ head sgns))) $
+            filter ((/= C.DefaultStrategy) . sel2 . snd) $
+            M.assocs signatures
+    extraSignatures <- getExtraSignatures tx nonDefaultAddresses 20 periodId
+    let allSignatures :: SignatureBundle
+        allSignatures =
+            M.unionWith (\(a,s,sgn1) (_,_,sgn2) -> (a,s,nub $ sgn1 ++ sgn2))
+                        extraSignatures signatures
+    validateTransaction maybeCache tx allSignatures periodId
     update' st $ A.AddTemporaryTransaction periodId tx
     C.logInfo C.userLoggerName "Successfully sent a transaction!"
 

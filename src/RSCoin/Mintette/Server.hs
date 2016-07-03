@@ -129,7 +129,7 @@ handleCheckTx
     -> State
     -> C.Transaction
     -> C.AddrId
-    -> C.Signature
+    -> [(C.Address, C.Signature)]
     -> ServerT m (Either MintetteError C.CheckConfirmation)
 handleCheckTx sk st tx addrId sg =
     toServer $

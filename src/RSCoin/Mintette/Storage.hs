@@ -54,12 +54,13 @@ import           Safe                       (atMay, headMay)
 
 import           RSCoin.Core                (ActionLog, ActionLogHeads, Hash,
                                              LBlock, MintetteId, Mintettes,
-                                             PeriodId, Pset, SecretKey, Utxo,
+                                             PeriodId, Pset, SecretKey,
+                                             Strategy, Utxo,
                                              computeOutputAddrids,
                                              derivePublicKey, hbTransactions,
-                                             isOwner, mkCheckConfirmation,
-                                             mkLBlock, owners, sign,
-                                             validateSignature,
+                                             ifStrategyCompleted, isOwner,
+                                             mkCheckConfirmation, mkLBlock,
+                                             owners, sign,
                                              verifyCheckConfirmation)
 import qualified RSCoin.Core                as C
 import           RSCoin.Mintette.Error      (MintetteError (..))
@@ -143,7 +144,7 @@ type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 checkNotDoubleSpent :: C.SecretKey
                     -> C.Transaction
                     -> C.AddrId
-                    -> C.Signature
+                    -> [(C.Address, C.Signature)]
                     -> ExceptUpdate C.CheckConfirmation
 checkNotDoubleSpent sk tx addrId sg = do
     checkIsActive
@@ -158,9 +159,10 @@ checkNotDoubleSpent sk tx addrId sg = do
       | otherwise = throwM $ MENotUnspent addrId
     notInPsetCase = do
         addr <- M.lookup addrId <$> use utxo
-        maybe (throwM $ MENotUnspent addrId) checkSignatureAndFinish addr
-    checkSignatureAndFinish a
-      | validateSignature sg a tx = finishCheck
+        maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
+    -- @TODO retreive strategy from storage
+    checkSignaturesAndFinish a
+      | ifStrategyCompleted (undefined :: Strategy) a sg tx = finishCheck
       | otherwise = throwM MEInvalidSignature
     finishCheck = do
         pushLogEntry $ C.QueryEntry tx

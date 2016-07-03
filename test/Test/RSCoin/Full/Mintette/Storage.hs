@@ -26,6 +26,7 @@ import           RSCoin.Core                      (AddrId, PeriodId, SecretKey,
                                                    Signature, Transaction (..),
                                                    computeOutputAddrids,
                                                    derivePublicKey,
+                                                   ifStrategyCompleted,
                                                    mkCheckConfirmation, owners,
                                                    sign, validateSignature,
                                                    verifyCheckConfirmation)
@@ -50,7 +51,7 @@ checkNotDoubleSpent :: MintetteConfig
                     -> SecretKey
                     -> Transaction
                     -> AddrId
-                    -> Signature
+                    -> [(C.Address, C.Signature)]
                     -> ExceptUpdate C.CheckConfirmation
 checkNotDoubleSpent conf sk tx addrId sg = do
     unless (checkActive conf) checkIsActive
@@ -67,9 +68,10 @@ checkNotDoubleSpent conf sk tx addrId sg = do
       | otherwise = throwM $ MENotUnspent addrId
     notInPsetCase = do
         addr <- M.lookup addrId <$> use utxo
-        maybe (throwM $ MENotUnspent addrId) checkSignatureAndFinish addr
-    checkSignatureAndFinish a
-      | validateSignature sg a tx = finishCheck
+        maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
+    -- @TODO retreive strategy from storage
+    checkSignaturesAndFinish a
+      | ifStrategyCompleted (undefined :: Strategy) a sg tx = finishCheck
       | otherwise = throwM MEInvalidSignature
     finishCheck
       | updateUtxoCheckTx conf = do

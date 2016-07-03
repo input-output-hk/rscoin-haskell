@@ -23,7 +23,8 @@ import           Data.Tuple.Select                (sel1)
 import           Safe                             (atMay)
 
 import           RSCoin.Core                      (AddrId, PeriodId, SecretKey,
-                                                   Signature, Transaction (..),
+                                                   Signature, Strategy,
+                                                   Transaction (..),
                                                    computeOutputAddrids,
                                                    derivePublicKey,
                                                    ifStrategyCompleted,

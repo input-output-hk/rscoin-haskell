@@ -77,7 +77,7 @@ handleCheckTx
     -> MintetteConfig
     -> C.Transaction
     -> C.AddrId
-    -> C.Signature
+    -> [(C.Address, C.Signature)]
     -> ServerT m (Maybe C.CheckConfirmation)
 handleCheckTx sk st conf tx addrId sg =
     toServer $

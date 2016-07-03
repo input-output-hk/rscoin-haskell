@@ -158,13 +158,14 @@ instance CanUpdate SendGoodTransaction where
             ownersIn =
                 map (flip M.elemAt mts) $ C.owners (M.toList mts) (sel1 addrId)
             getConfirmation (m,ms) = do
+                addr <- fromJust <$> use (bankState . B.bankStorage . B.getAddressFromUtxo addrId)
                 confirmation <-
                     liftMintetteUpdate m $
                     M.checkNotDoubleSpent
                         (ms ^. M.mintetteKey)
                         tx
                         addrId
-                        signature
+                        [(addr, signature)]
                 return
                     ( (fromJust $ elemIndex m bankMintettes, addrId)
                     , confirmation)

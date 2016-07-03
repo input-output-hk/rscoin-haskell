@@ -15,6 +15,7 @@ module RSCoin.Bank.Storage
        , ExceptUpdate
        , getMintettes
        , getAddresses
+       , getAddressFromUtxo
        , getPeriodId
        , getHBlock
        , getHBlocks
@@ -129,6 +130,9 @@ getPeriodId = periodId
 
 getHBlock :: PeriodId -> Query (Maybe HBlock)
 getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
+
+getAddressFromUtxo :: AddrId -> Query (Maybe Address)
+getAddressFromUtxo addrId = utxo . to (MP.lookup addrId)
 
 getTransaction :: TransactionId -> Query (Maybe Transaction)
 getTransaction tId = transactionMap . to (MP.lookup tId)

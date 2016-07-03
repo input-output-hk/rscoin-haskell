@@ -16,7 +16,8 @@ import           Data.Acid                         (Update, closeAcidState,
                                                     openLocalStateFrom)
 import           Data.Acid.Memory                  (openMemoryState)
 
-import           RSCoin.Core                       (AddrId, CheckConfirmation,
+import           RSCoin.Core                       (AddrId, Address,
+                                                    CheckConfirmation,
                                                     CheckConfirmations,
                                                     CommitConfirmation,
                                                     PeriodId, SecretKey,
@@ -42,7 +43,7 @@ checkNotDoubleSpent
     -> SecretKey
     -> Transaction
     -> AddrId
-    -> Signature
+    -> [(Address, Signature)]
     -> Update OMS.Storage CheckConfirmation
 checkNotDoubleSpent = MS.checkNotDoubleSpent
 

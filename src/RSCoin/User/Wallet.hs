@@ -57,32 +57,6 @@ import           RSCoin.Core.Primitives     (AddrId, Address (..),
                                              Transaction (..))
 import           RSCoin.Core.Types          (PeriodId)
 
----- | User address as stored and seen by wallet owner.
---data UserAddress = UserAddress
---    { _privateAddress :: SecretKey -- ^ Secret key of the address
---    , _publicAddress  :: PublicKey -- ^ Public key aka 'address' as
---                                   -- visible the outside
---    } deriving (Show,Eq,Ord)
---
-----  $(L.makeLenses ''UserAddress)
---
---instance Buildable UserAddress where
---    build addr =
---        mconcat
---            [ "UserAddress with PK: "
---            , build $ addr ^. publicAddress
---            , "; SK: "
---            , fromString $
---              hideLast 10 (T.unpack $ show' $ addr ^. privateAddress)]
---      where
---        hideLast n str =
---            if n > length str
---                then str ++ "***"
---                else take (length str - n) str ++ replicate n '*'
---
--- toAddress :: UserAddress -> Address
--- toAddress userAddress = C.Address $ userAddress ^. publicAddress
-
 validateKeyPair :: Address -> SecretKey -> Bool
 validateKeyPair addr sk = C.checkKeyPair (sk, getAddress addr)
 

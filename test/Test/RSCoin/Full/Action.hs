@@ -225,7 +225,7 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
         throwM $ TestError "No public addresses in this user"
     return $
         nubBy ((==) `on` fst) .
-        map (second $ filter (> 0)) .
+        map (second $ filter C.isPositiveCoin) .
         map (second C.coinsToList) .
         map
             (\(i,parts) ->

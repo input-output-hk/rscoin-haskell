@@ -189,7 +189,7 @@ submitTransactionFromAll st maybeCache addressTo amount =
     assert (C.getColor amount == 0) $
     do addrs <- query' st A.GetPublicAddresses
        (indicesWithCoins :: [(Word, C.Coin)]) <-
-           filter ((>= 0) . snd) <$>
+           filter (not . C.isNegativeCoin . snd) <$>
            mapM
                (\i ->
                      (fromIntegral i + 1, ) . M.findWithDefault 0 0 <$>
@@ -203,7 +203,7 @@ submitTransactionFromAll st maybeCache addressTo amount =
                "Tried to form transaction with amount ({}) greater than available ({})."
                (amount, totalAmount)
        let discoverAmount _ r@(left,_)
-             | left <= 0 = r
+             | not $ C.isPositiveCoin left = r
            discoverAmount e@(i,c) (left,results) =
                let newLeft = left - c
                in if newLeft < 0
@@ -290,11 +290,11 @@ constructAndSignTransaction st TransactionData{..} = do
             , listBuilderJSONIndent 2 $ tdOutputCoins)
     when (nubBy ((==) `on` fst) tdInputs /= tdInputs) $
         commitError "All input addresses should have distinct indices."
-    unless (all (> 0) $ concatMap snd tdInputs) $
+    unless (all C.isPositiveCoin $ concatMap snd tdInputs) $
         commitError $
         formatSingle'
             "All input values should be positive, but encountered {}, that's not." $
-        head $ filter (<= 0) $ concatMap snd tdInputs
+        head $ filter (not . C.isPositiveCoin) $ concatMap snd tdInputs
     accounts <- query' st A.GetPublicAddresses
     let notInRange i = i >= genericLength accounts
     when (any notInRange $ map fst tdInputs) $

@@ -9,13 +9,13 @@ module Test.RSCoin.Core.TransactionSpec
        ) where
 
 import           Data.Bifunctor             (first, second)
-import           Data.List                  (genericLength, sort, nubBy)
+import           Data.Function              (on)
+import           Data.List                  (genericLength, nubBy, sort)
 import qualified Data.Map.Strict            as M (Map, elems, findWithDefault,
                                                   foldrWithKey, lookup,
                                                   mapWithKey, null, (!))
 import           Data.Maybe                 (isJust)
 import           Data.Tuple.Select          (sel3)
-import           Data.Function              (on)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
@@ -90,7 +90,7 @@ spec =
         "returns true if total amount of grey coins in inputs is not less than " ++
         "amount of grey coins in outputs plus amount of coins spent to color coins"
       description_validateInputLessThanOutput =
-        "returns true only if the the amount of input coins is equal to or " ++
+        "returns true only if the amount of input coins is equal to or " ++
         "less than the amount of output coins"
       description_validateSumInputOutputCol =
         "returns true if the only colors in the output result from the input's " ++

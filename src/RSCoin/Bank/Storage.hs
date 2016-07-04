@@ -363,7 +363,12 @@ updateMintettes sk goodMintettes = do
     mintettes .= newMintettes
     dpk .= newDpk
     actionLogs .= newActionLogs
-    return updatedIndices
+    -- @TODO introduce a better solution if needed once
+    if length existingMts /= length newMintettes
+       -- Discard all mitettes' utxo lists in case of list lengths' mismatch
+       -- Needed, cause `owners` function relies on the size of mintette list to provide an even distribution
+       then return [0 .. length newMintettes - 1]
+       else return updatedIndices
   where
     goodIndices = map fst goodMintettes
     doSign (_,mpk) = (mpk, sign sk mpk)

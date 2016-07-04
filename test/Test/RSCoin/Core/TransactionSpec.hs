@@ -92,7 +92,7 @@ spec =
         "returns true if the amount of input coins is greater than the amount of " ++
         "output coins, false if it is smaller"
       description_validateSumInputOutputCol =
-        "returns false if non-grey coins are repainted in the transaction." ++
+        "returns false if non-grey coins are repainted in the transaction."
       description_validateSignature =
         "returns true if the signature is issued by the public key associated " ++
         "with the address for the transaction"

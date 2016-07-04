@@ -9,13 +9,13 @@ module Test.RSCoin.Core.TransactionSpec
        ) where
 
 import           Data.Bifunctor             (first, second)
-import           Data.List                  (genericLength)
-import           Data.List                  (sort)
+import           Data.List                  (genericLength, sort, nubBy)
 import qualified Data.Map.Strict            as M (Map, elems, findWithDefault,
                                                   foldrWithKey, lookup,
                                                   mapWithKey, null, (!))
 import           Data.Maybe                 (isJust)
 import           Data.Tuple.Select          (sel3)
+import           Data.Function              (on)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
@@ -115,12 +115,17 @@ validateInputMoreThanOutput (getNonEmpty -> inputs) adr =
         (tx1,tx2) = (C.Transaction inputs plus1, C.Transaction inputs minus1)
     in C.validateSum tx2 && (not $ C.validateSum tx1)
 
-validateInputMoreThanOutput2 :: C.AddrId -> Rational -> C.Address -> Bool
-validateInputMoreThanOutput2 txi@(_, _, C.Coin col c) r adr =
+validateInputMoreThanOutput2 :: NonEmptyList C.AddrId -> Rational -> C.Address -> Bool
+validateInputMoreThanOutput2 (getNonEmpty -> l@((_, _, C.Coin col c) : xs)) r adr =
     let (mx, mn) = (max c r, min c r)
         other = mx - mn
-        txo = [(adr, C.Coin col mn),(adr, C.Coin col other)]
-    in C.validateSum $ C.Transaction [txi] txo
+        txi = nubBy  (C.sameColor `on` sel3) $
+              filter ((/=0) . C.getCoin . sel3) l
+        coins = map sel3 txi
+        newCol = abs col + sum (map (abs . C.getColor) coins)
+        txo = repeat adr `zip` (C.Coin col other : C.Coin newCol mn : coins)
+    in (null txi ||)
+       (not $ C.validateSum $ C.Transaction txi txo)
 
 validateSig :: C.SecretKey -> C.Transaction -> Bool
 validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePublicKey sk) tr

@@ -80,6 +80,7 @@ spec =
             prop description_validateSumForValid validateSumCorrectForValid
             prop description_validateInputLessThanOutput validateInputMoreThanOutput
             prop description_validateSumForValid validateInputMoreThanOutput2
+            prop description_validateSumForValid validateInputMoreThanOutput3
         describe "validateSignature" $ do
             prop description_validateSignature validateSig
         describe "chooseAddresses" $ do
@@ -115,15 +116,21 @@ validateInputMoreThanOutput (getNonEmpty -> inputs) adr =
         (tx1,tx2) = (C.Transaction inputs plus1, C.Transaction inputs minus1)
     in C.validateSum tx2 && (not $ C.validateSum tx1)
 
-validateInputMoreThanOutput2 :: NonEmptyList C.AddrId -> Rational -> C.Address -> Bool
-validateInputMoreThanOutput2 (getNonEmpty -> l@((_, _, C.Coin col c) : xs)) r adr =
-    let (mx, mn) = (max c r, min c r)
-        other = mx - mn
-        txi = nubBy  (C.sameColor `on` sel3) $
+validateInputMoreThanOutput2 :: C.AddrId -> C.Address -> Bool
+validateInputMoreThanOutput2 (t, i, C.Coin col c) adr =
+    let nonZero = abs col + 1
+        txo = [(adr, C.Coin nonZero (c / 2)),(adr, C.Coin (nonZero + 1) (c / 2))]
+    in (c == 0) ||
+       (not $ C.validateSum $ C.Transaction [(t,i,C.Coin nonZero c)] txo)
+
+validateInputMoreThanOutput3 :: NonEmptyList C.AddrId -> C.Address -> Bool
+validateInputMoreThanOutput3 (getNonEmpty -> l) adr =
+    let txi = nubBy  (C.sameColor `on` sel3) $
               filter ((/=0) . C.getCoin . sel3) l
+        C.Coin col c = sel3 $ head txi
         coins = map sel3 txi
         newCol = abs col + sum (map (abs . C.getColor) coins)
-        txo = repeat adr `zip` (C.Coin col other : C.Coin newCol mn : coins)
+        txo = repeat adr `zip` (C.Coin col (c / 2) : C.Coin newCol (c / 2) : coins)
     in (null txi ||)
        (not $ C.validateSum $ C.Transaction txi txo)
 

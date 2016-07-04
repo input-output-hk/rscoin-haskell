@@ -40,7 +40,7 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Data.Word              (Word8)
 
 import           Serokell.Util.Text     (listBuilderJSON, listBuilderJSONIndent,
-                                         mapBuilder, pairBuilder)
+                                         mapBuilder, pairBuilder, tripleBuilder)
 
 import           RSCoin.Core.Crypto     (Hash, PublicKey, Signature)
 import           RSCoin.Core.Primitives (AddrId, Address, Transaction)
@@ -278,6 +278,8 @@ instance Buildable HBlock where
                 , "  addresses: {}\n"
                 , "}\n"]
 
+type NewMintetteIdPayload = (MintetteId, Utxo, AddressStrategyMap)
+
 -- | Data sent by server on new period start. If mintette id changes,
 -- bank *must* include npdNewIdPayload.
 data NewPeriodData = NewPeriodData
@@ -285,7 +287,7 @@ data NewPeriodData = NewPeriodData
     , npdMintettes    :: !Mintettes                  -- ^ Mintettes list
     , npdHBlock       :: !HBlock                     -- ^ Last processed HBlock (needed to
                                                      -- update local mintette's utxo)
-    , npdNewIdPayload :: !(Maybe (MintetteId, Utxo)) -- ^ Data needed for mintette to
+    , npdNewIdPayload :: !(Maybe NewMintetteIdPayload) -- ^ Data needed for mintette to
                                                      -- restore state if it's Id changes
     , npdDpk          :: !Dpk                        -- ^ Dpk
     } deriving (Show, Eq)
@@ -305,8 +307,11 @@ instance Buildable Pset where
 instance Buildable [NewPeriodData] where
     build = listBuilderJSONIndent 2
 
-instance Buildable (MintetteId, Utxo) where
-    build = pairBuilder
+instance Buildable AddressStrategyMap where
+    build = mapBuilder . M.assocs
+
+instance Buildable NewMintetteIdPayload where
+    build = tripleBuilder
 
 formatNewPeriodData :: Bool -> NewPeriodData -> Builder
 formatNewPeriodData withPayload NewPeriodData{..}

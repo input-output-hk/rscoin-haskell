@@ -187,11 +187,12 @@ startNewPeriod sk results = do
     payload' <- formPayload currentMintettes changedMintetteIx
     periodId' <- use periodId
     mintettes' <- use mintettes
+    addresses' <- use addresses
     hblock' <- uses blocks head
     dpk' <- use dpk
     let npdPattern pl = NewPeriodData periodId' mintettes' hblock' pl dpk'
         usersNPDs =
-          map (\i -> npdPattern ((i,) <$> (i `MP.lookup` payload')))
+          map (\i -> npdPattern ((,,) i <$> (i `MP.lookup` payload') <*> pure addresses'))
               [0 .. length currentMintettes - 1]
     return usersNPDs
 

@@ -23,6 +23,7 @@ module RSCoin.Mintette.Storage
        , checkIsActive
        , checkTxSum
        , pset
+       , addresses
        , logHead
        , logSize
        , utxo
@@ -47,15 +48,18 @@ import           Control.Monad.Extra        (whenJust)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import qualified Data.Map                   as M
-import           Data.Maybe                 (fromJust, isJust, isNothing)
+import           Data.Maybe                 (fromJust, fromMaybe, isJust,
+                                             isNothing)
 import qualified Data.Set                   as S
+import           Data.Tuple.Curry           (uncurryN)
 import           Data.Tuple.Select          (sel1)
 import           Safe                       (atMay, headMay)
 
-import           RSCoin.Core                (ActionLog, ActionLogHeads, Hash,
-                                             LBlock, MintetteId, Mintettes,
-                                             PeriodId, Pset, SecretKey,
-                                             Strategy, Utxo,
+import           RSCoin.Core                (ActionLog, ActionLogHeads,
+                                             AddressStrategyMap, HBlock (..),
+                                             Hash, LBlock, MintetteId,
+                                             Mintettes, PeriodId, Pset,
+                                             SecretKey, Strategy (..), Utxo,
                                              computeOutputAddrids,
                                              derivePublicKey, hbTransactions,
                                              ifStrategyCompleted, isOwner,
@@ -81,6 +85,8 @@ data Storage = Storage
     , _dpk           :: C.Dpk                -- ^ DPK for current period
     , _logHeads      :: ActionLogHeads       -- ^ All known heads of logs
     , _lastBankHash  :: Maybe Hash           -- ^ Hash of the last HBlock
+    , _addresses     :: AddressStrategyMap   -- ^ Complete list of system's addresses accompanied with their strategies.
+                                             -- Should be up-to-date with Bank::Storage::_addresses (updates are propagated via HBlocks)
     }
 
 $(makeLenses ''Storage)
@@ -103,6 +109,7 @@ mkStorage =
     , _dpk = []
     , _logHeads = M.empty
     , _lastBankHash = Nothing
+    , _addresses = M.empty
     }
 
 type Query a = Getter Storage a
@@ -158,12 +165,13 @@ checkNotDoubleSpent sk tx addrId sg = do
       | storedTx == tx = finishCheck
       | otherwise = throwM $ MENotUnspent addrId
     notInPsetCase = do
-        addr <- M.lookup addrId <$> use utxo
-        maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
-    -- @TODO retreive strategy from storage
-    checkSignaturesAndFinish a
-      | ifStrategyCompleted (undefined :: Strategy) a sg tx = finishCheck
-      | otherwise = throwM MEInvalidSignature
+          addr <- M.lookup addrId <$> use utxo
+          maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
+    checkSignaturesAndFinish addr = do
+          strategy <- uses addresses $ fromMaybe DefaultStrategy . M.lookup addr
+          if ifStrategyCompleted strategy addr sg tx
+             then finishCheck
+             else throwM MEInvalidSignature
     finishCheck = do
         pushLogEntry $ C.QueryEntry tx
         utxoEntry <- uses utxo (M.lookup addrId)
@@ -266,7 +274,7 @@ startPeriod C.NewPeriodData{..} = do
     -- Nothing == Nothing situation at the very start
     whenJust
         npdNewIdPayload
-        (uncurry onMintetteIdChanged)
+        (uncurryN onMintetteIdChanged)
     invMId <- use invMintetteId
     when (isNothing npdNewIdPayload && isNothing invMId) $
         throwM $
@@ -276,6 +284,7 @@ startPeriod C.NewPeriodData{..} = do
     mintettes .= npdMintettes
     mintetteId <~ use invMintetteId
     mId <- use invMintetteId
+    addresses %= M.union (hbAddresses npdHBlock)
     dpk .= npdDpk
     pset .= M.empty
     unless (isJust npdNewIdPayload) $
@@ -326,11 +335,12 @@ startPeriod C.NewPeriodData{..} = do
 -- correct checks are made here, so the server should make his best.
 -- It also doesn't set the mintetteId field, only invMintetteId, so
 -- startPeriod should be called after.
-onMintetteIdChanged :: MintetteId -> Utxo -> Update ()
-onMintetteIdChanged newMid newUtxo = do
+onMintetteIdChanged :: MintetteId -> Utxo -> AddressStrategyMap -> Update ()
+onMintetteIdChanged newMid newUtxo newAddrs  = do
     utxoDeleted .= M.empty
     utxoAdded .= M.empty
     utxo .= newUtxo
+    addresses .= newAddrs
     invMintetteId .= Just newMid
 
 -- | This function creates new LBlock with transactions from txset

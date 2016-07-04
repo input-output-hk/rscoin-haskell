@@ -17,13 +17,15 @@ import           Control.Monad                    (unless, when)
 import           Control.Monad.Catch              (MonadThrow (throwM))
 import           Control.Monad.State.Class        (MonadState)
 import qualified Data.Map                         as M
-import           Data.Maybe                       (fromJust, isJust)
+import           Data.Maybe                       (fromJust, fromMaybe, isJust)
 import qualified Data.Set                         as S
+import           Data.Tuple.Curry                 (uncurryN)
 import           Data.Tuple.Select                (sel1)
 import           Safe                             (atMay)
 
-import           RSCoin.Core                      (AddrId, PeriodId, SecretKey,
-                                                   Signature, Strategy,
+import           RSCoin.Core                      (AddrId, AddressStrategyMap,
+                                                   PeriodId, SecretKey,
+                                                   Signature, Strategy (..),
                                                    Transaction (..),
                                                    computeOutputAddrids,
                                                    derivePublicKey,
@@ -33,11 +35,11 @@ import           RSCoin.Core                      (AddrId, PeriodId, SecretKey,
                                                    verifyCheckConfirmation)
 import qualified RSCoin.Core                      as C
 import           RSCoin.Mintette.Error            (MintetteError (..))
-import           RSCoin.Mintette.Storage          (Storage, checkIsActive,
-                                                   checkPeriodId, checkTxSum,
-                                                   dpk, logHead, logHeads,
-                                                   logSize, mintetteId,
-                                                   mintettes, pset,
+import           RSCoin.Mintette.Storage          (Storage, addresses,
+                                                   checkIsActive, checkPeriodId,
+                                                   checkTxSum, dpk, logHead,
+                                                   logHeads, logSize,
+                                                   mintetteId, mintettes, pset,
                                                    pushLogEntry, txset, utxo,
                                                    utxoAdded, utxoDeleted)
 
@@ -68,12 +70,13 @@ checkNotDoubleSpent conf sk tx addrId sg = do
       | storedTx == tx = finishCheck
       | otherwise = throwM $ MENotUnspent addrId
     notInPsetCase = do
-        addr <- M.lookup addrId <$> use utxo
-        maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
-    -- @TODO retreive strategy from storage
-    checkSignaturesAndFinish a
-      | ifStrategyCompleted (undefined :: Strategy) a sg tx = finishCheck
-      | otherwise = throwM MEInvalidSignature
+          addr <- M.lookup addrId <$> use utxo
+          maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
+    checkSignaturesAndFinish addr = do
+           strategy <- uses addresses $ fromMaybe DefaultStrategy . M.lookup addr
+           if ifStrategyCompleted strategy addr sg tx
+                            then finishCheck
+                            else throwM MEInvalidSignature
     finishCheck
       | updateUtxoCheckTx conf = do
         pushLogEntry $ C.QueryEntry tx

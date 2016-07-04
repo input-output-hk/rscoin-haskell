@@ -9,8 +9,7 @@ module Test.RSCoin.Core.TransactionSpec
        ) where
 
 import           Data.Bifunctor             (first, second)
-import           Data.Function              (on)
-import           Data.List                  (genericLength, nubBy, sort)
+import           Data.List                  (genericLength, sort)
 import qualified Data.Map.Strict            as M (Map, elems, findWithDefault,
                                                   foldrWithKey, lookup,
                                                   mapWithKey, null, (!))

@@ -79,8 +79,7 @@ spec =
         describe "validateSum" $ do
             prop description_validateSumForValid validateSumCorrectForValid
             prop description_validateInputLessThanOutput validateInputMoreThanOutput
-            prop description_validateSumForValid validateInputMoreThanOutput2
-            prop description_validateSumForValid validateInputMoreThanOutput3
+            prop description_validateSumInputOutputCol validateOnlyInputColorsInOutput
         describe "validateSignature" $ do
             prop description_validateSignature validateSig
         describe "chooseAddresses" $ do
@@ -91,9 +90,11 @@ spec =
         "returns true if total amount of grey coins in inputs is not less than " ++
         "amount of grey coins in outputs plus amount of coins spent to color coins"
       description_validateInputLessThanOutput =
-        "returns true only if the validating function returns true on well formed " ++
-        "transactions, and false on those where the total inputs are less than the " ++
-        "total outputs"
+        "returns true only if the the amount of input coins is equal to or " ++
+        "less than the amount of output coins"
+      description_validateSumInputOutputCol =
+        "returns true if the only colors in the output result from the input's " ++
+        "repainted gray coins or colors already in the input."
       description_validateSignature =
         "returns true if the signature is issued by the public key associated " ++
         "with the address for the transaction"
@@ -101,7 +102,7 @@ spec =
         "returns Just something iff it is possible to allocate the requested " ++
         "amount of each color "
       description_chooseSmallerAddressesFirst =
-        "uses addrids with smaller amount of money first"
+        "chooseAddresses uses addrids with smaller amount of money first"
 
 validateSumCorrectForValid :: TransactionValid -> Bool
 validateSumCorrectForValid = C.validateSum . getTr
@@ -116,23 +117,12 @@ validateInputMoreThanOutput (getNonEmpty -> inputs) adr =
         (tx1,tx2) = (C.Transaction inputs plus1, C.Transaction inputs minus1)
     in C.validateSum tx2 && (not $ C.validateSum tx1)
 
-validateInputMoreThanOutput2 :: C.AddrId -> C.Address -> Bool
-validateInputMoreThanOutput2 (t, i, C.Coin col c) adr =
+validateOnlyInputColorsInOutput :: C.AddrId -> C.Address -> Bool
+validateOnlyInputColorsInOutput (t, i, C.Coin col c) adr =
     let nonZero = abs col + 1
         txo = [(adr, C.Coin nonZero (c / 2)),(adr, C.Coin (nonZero + 1) (c / 2))]
     in (c == 0) ||
        (not $ C.validateSum $ C.Transaction [(t,i,C.Coin nonZero c)] txo)
-
-validateInputMoreThanOutput3 :: NonEmptyList C.AddrId -> C.Address -> Bool
-validateInputMoreThanOutput3 (getNonEmpty -> l) adr =
-    let txi = nubBy  (C.sameColor `on` sel3) $
-              filter ((/=0) . C.getCoin . sel3) l
-        C.Coin col c = sel3 $ head txi
-        coins = map sel3 txi
-        newCol = abs col + sum (map (abs . C.getColor) coins)
-        txo = repeat adr `zip` (C.Coin col (c / 2) : C.Coin newCol (c / 2) : coins)
-    in (null txi ||)
-       (not $ C.validateSum $ C.Transaction txi txo)
 
 validateSig :: C.SecretKey -> C.Transaction -> Bool
 validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePublicKey sk) tr

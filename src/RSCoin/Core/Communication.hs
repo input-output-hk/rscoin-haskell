@@ -367,24 +367,42 @@ getMintetteLogs mId pId = do
                 "Successfully got logs for period id {}: {}"
                 (pId, listBuilderJSONIndent 2 $ map pairBuilder res)
 
--- | Send transaction through signer and recieve his feedback.
-publishTxToSigner :: WorkMode m => Transaction -> [(Address, Signature)] -> m [(Address, Signature)]
-publishTxToSigner tx sgs =
-    withResult
-        infoMessage
-        successMessage $
-        callSigner $ P.call (P.RSCSign P.PublishTransaction) tx sgs
-  where
-    infoMessage        = logDebug $ sformat ("Sending tx, signatures to signer: " % F.shown) (tx, sgs)
-    successMessage res = logDebug $ sformat ("Getting signatures from signer: " % F.shown) res
+-- | Send transaction with public wallet address & signature for it,
+-- get list of signatures after signer adds yours.
+publishTxToSigner
+    :: WorkMode m
+    => Transaction -> (Address, Signature) -> m [(Address, Signature)]
+publishTxToSigner tx sgs = undefined
+--    withResult infoMessage successMessage $
+--    callSigner $ P.call (P.RSCSign P.PublishTransaction) tx sgs
+--  where
+--    infoMessage =
+--        logDebug $
+--        sformat ("Sending tx, signatures to signer: " % F.shown) (tx, sgs)
+--    successMessage res =
+--        logDebug $ sformat ("Getting signatures from signer: " % F.shown) res
 
+-- | Read-only method of signer. Returns current state of signatures
+-- for the given address (that implicitly defines addrids ~
+-- transaction inputs) and transaction itself.
+getTxSignatures :: Transaction -> Address -> m [(Address,Signature)]
+getTxSigtatures = undefined
 
-pollTxsFromSigner :: WorkMode m => [Address] -> m [(Transaction, [(Address, Signature)])]
+-- | This method is somewhat mystic because it's not used anywhere and
+-- it won't be until we have perfectly working UI. It's supposed to be
+-- used over time to detect transactions that you `may` want to
+-- sign. And then dialog pops up.
+pollTxsFromSigner
+    :: WorkMode m
+    => [Address] -> m [(Transaction, [(Address, Signature)])]
 pollTxsFromSigner addrs =
-    withResult
-        infoMessage
-        successMessage $
-        callSigner $ P.call (P.RSCSign P.PollTransactions) addrs
+    withResult infoMessage successMessage $
+    callSigner $ P.call (P.RSCSign P.PollTransactions) addrs
   where
-    infoMessage        = logDebug $ sformat ("Polling transactions to sign for addresses: " % F.shown) addrs
-    successMessage res = logDebug $ sformat ("Received transactions to sign: " % F.shown) res
+    infoMessage =
+        logDebug $
+        sformat
+            ("Polling transactions to sign for addresses: " % F.shown)
+            addrs
+    successMessage res =
+        logDebug $ sformat ("Received transactions to sign: " % F.shown) res

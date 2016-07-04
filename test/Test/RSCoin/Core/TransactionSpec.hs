@@ -77,7 +77,7 @@ spec =
     describe "Transaction" $ do
         describe "validateSum" $ do
             prop description_validateSumForValid validateSumCorrectForValid
-            prop description_validateInputMoreThanOutput validateInputMoreThanOutput
+            prop description_validateInputMoreOutput validateInputMoreThanOutput
             prop description_validateSumInputOutputCol validateOnlyInputColorsInOutput
         describe "validateSignature" $ do
             prop description_validateSignature validateSig
@@ -88,7 +88,7 @@ spec =
       description_validateSumForValid =
         "returns true if total amount of grey coins in inputs is not less than " ++
         "amount of grey coins in outputs plus amount of coins spent to color coins"
-      description_validateInputMoreThanOutput =
+      description_validateInputMoreOutput =
         "returns true if the amount of input coins is greater than the amount of " ++
         "output coins, false if it is smaller"
       description_validateSumInputOutputCol =

@@ -26,6 +26,7 @@ module RSCoin.Core.Communication
        , getMintetteBlocks
        , getMintetteLogs
        , publishTxToSigner
+       , getTxSignatures
        , pollTxsFromSigner
        ) where
 
@@ -386,7 +387,7 @@ publishTxToSigner tx sgs = undefined
 -- for the given address (that implicitly defines addrids ~
 -- transaction inputs) and transaction itself.
 getTxSignatures :: Transaction -> Address -> m [(Address,Signature)]
-getTxSigtatures = undefined
+getTxSignatures = undefined
 
 -- | This method is somewhat mystic because it's not used anywhere and
 -- it won't be until we have perfectly working UI. It's supposed to be

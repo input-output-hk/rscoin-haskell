@@ -10,6 +10,7 @@ module RSCoin.Timed.PureRpc
     ( PureRpc
     , runPureRpc
     , runPureRpc_
+    , localPlatformLayout
     , Delays(..)
     ) where
 
@@ -29,9 +30,9 @@ import           System.Random           (StdGen)
 import           Data.MessagePack        (Object)
 import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
-import           RSCoin.Timed.MonadRpc   (Addr, BankSettings (..), Client (..),
+import           RSCoin.Timed.MonadRpc   (Addr, PlatformLayout (..), Client (..),
                                           Host, Method (..),
-                                          MonadRpc (execClient, getBankSettings, serve),
+                                          MonadRpc (execClient, getPlatformLayout, serve),
                                           RpcError (..), methodBody, methodName)
 import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
                                           localTime, mcs, minute, wait)
@@ -49,6 +50,10 @@ data RpcStage = Request | Response
 localhost :: IsString s => s
 localhost = "127.0.0.1"
 
+localPlatformLayout :: PlatformLayout
+localPlatformLayout = PlatformLayout (localhost, 3000) (localhost, 3001)
+
+-- @TODO Remove these hard-coded values
 -- | Describes network nastyness
 newtype Delays = Delays
     { -- | Just delay if net packet delivered successfully
@@ -158,7 +163,8 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
       where
         sleepForever = wait (for 100500 minute) >> sleepForever
 
-    getBankSettings = pure $ BankSettings localhost
+    -- @TODO not sure it's ok when it comes to signers
+    getPlatformLayout = pure $ localPlatformLayout
 
 waitDelay :: (MonadThrow m, MonadIO m, MonadCatch m) => RpcStage -> PureRpc m ()
 waitDelay stage =

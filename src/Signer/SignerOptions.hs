@@ -14,7 +14,7 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
 import           Serokell.Util.OptParse (strOption)
 
 import           RSCoin.Core            (Severity (Error), defaultBankHost,
-                                         defaultPort, defaultSecretKeyPath)
+                                         defaultPort, defaultSecretKeyPath, PlatformLayout(..), defaultLayout)
 
 data Options = Options
     { cliPort        :: Int
@@ -39,7 +39,7 @@ optionsParser _ = -- defaultSKPath
     -- <*>
     option
         auto
-        (short 'p' <> long "port" <> value defaultPort <> showDefault <>
+        (short 'p' <> long "port" <> value (snd $ getSignerAddr defaultLayout) <> showDefault <>
          help "Signer port to receive transactions") <*>
     strOption
         (long "path" <> value "signer-db" <> showDefault <>

@@ -11,17 +11,11 @@ module RSCoin.Signer.Storage
         , addSignature
         ) where
 
-import           Control.Lens              (Getter, makeLenses, to, use, uses,
-                                            view, (%=), (^.))
+import           Control.Lens              (makeLenses,
+                                            view, (%=))
 
-import           Control.Monad.Catch       (MonadThrow (throwM))
-import           Control.Monad.State.Class (MonadState)
 import           Data.Acid                 (Query, Update)
-import           Data.Map                  (Map)
 import qualified Data.Map                  as M
-import           Data.Maybe                (fromMaybe)
-import           Data.Set                  (Set)
-import qualified Data.Set                  as S
 
 import           RSCoin.Core               (Address, Signature, Transaction)
 

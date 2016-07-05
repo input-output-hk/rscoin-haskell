@@ -7,6 +7,8 @@ module RSCoin.Core.Constants
        , defaultAccountsNumber
        , defaultPort
        , defaultBankHost
+       , defaultLayout
+       , defaultLayout'
        , bankPort
        , defaultPeriodDelta
        , epochDelta
@@ -18,6 +20,7 @@ module RSCoin.Core.Constants
        , shardDelta
        , rpcTimeout
        , bankSecretKey
+       , PlatformLayout(..)
        ) where
 
 import           Data.Binary                (Binary)
@@ -34,6 +37,7 @@ import           RSCoin.Core.Crypto         (Hash, SecretKey,
                                              constructPublicKey,
                                              constructSecretKey, hash)
 import           RSCoin.Core.Primitives     (Address (Address), Coin)
+import           RSCoin.Timed.MonadRpc (PlatformLayout(..), Host, Port)
 
 -- | Path used by default to read/write secret key.
 defaultSecretKeyPath :: IO FilePath
@@ -48,11 +52,22 @@ defaultAccountsNumber = 5
 defaultPort :: Num a => a
 defaultPort = 3000
 
-defaultBankHost :: IsString s => s
-defaultBankHost = "127.0.0.1"
+bankPort :: Port
+bankPort = snd $ getBankAddr defaultLayout
 
-bankPort :: Num a => a
-bankPort = defaultPort
+defaultBankHost :: Host
+defaultBankHost = fst $ getBankAddr defaultLayout
+
+defaultLayout' :: Host -> PlatformLayout
+defaultLayout' bankHost
+    = let PlatformLayout (_, bPort) sAddr = defaultLayout
+       in PlatformLayout (bankHost, bPort) sAddr
+
+defaultLayout :: PlatformLayout
+defaultLayout = PlatformLayout
+    { getBankAddr = $(lift $ CC.toAddr $ CC.rscDefaultBank CC.rscoinConfig)
+    , getSignerAddr = $(lift $ CC.toAddr $ CC.rscDefaultSigner CC.rscoinConfig)
+    }
 
 defaultPeriodDelta :: Second
 defaultPeriodDelta = 100

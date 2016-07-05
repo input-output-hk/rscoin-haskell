@@ -38,7 +38,7 @@ import           Data.Maybe              (fromJust)
 
 import           Data.MessagePack        (MessagePack)
 
-import           RSCoin.Core.Constants   (bankPort, rpcTimeout)
+import           RSCoin.Core.Constants   (rpcTimeout)
 import           RSCoin.Core.MessagePack ()
 import           RSCoin.Core.Types       (Mintette (..))
 import qualified RSCoin.Timed            as T
@@ -130,8 +130,8 @@ execSigner = (>>=) . callSigner
 -- | Send a request to a Bank.
 callBank :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
 callBank action = do
-    bankHost <- T.getHost <$> T.getBankSettings
-    T.execClient (bankHost, bankPort) action
+    bAddr <- T.getBankAddr <$> T.getPlatformLayout
+    T.execClient bAddr action
 
 -- | Send a request to a Mintette.
 callMintette :: (MessagePack a, T.WorkMode m)
@@ -143,8 +143,8 @@ callMintette Mintette {..} action =
 -- Rises an exception if Bank doesn't respond in rpcTimeout time.
 callBankSafe :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
 callBankSafe action = do
-    bankHost <- T.getHost <$> T.getBankSettings
-    T.execClientTimeout rpcTimeout (bankHost, bankPort) action
+    bAddr <- T.getBankAddr <$> T.getPlatformLayout
+    T.execClientTimeout rpcTimeout bAddr action
 
 -- | Send a request to a Mintette.
 -- Rises an exception if Mintette doesn't respond in rpcTimeout time.
@@ -153,12 +153,10 @@ callMintetteSafe :: (MessagePack a, T.WorkMode m)
 callMintetteSafe Mintette {..} action =
     T.execClientTimeout rpcTimeout (BS.pack mintetteHost, mintettePort) action
 
--- TODO: TEMRORAL SOLUTION
-signerHost = "127.0.0.1"
-signerPort = 1234
-
 callSigner :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
-callSigner action = T.execClientTimeout rpcTimeout (signerHost, signerPort) action
+callSigner action = do
+  sAddr <- T.getSignerAddr <$> T.getPlatformLayout
+  T.execClientTimeout rpcTimeout sAddr action
 
 -- | Reverse Continuation passing style (CPS) transformation
 unCps :: forall a m . MonadIO m => ((a -> m ()) -> m ()) -> m a

@@ -16,10 +16,8 @@ import           RSCoin.User.Logic      as Exports
 import           RSCoin.User.Operations (getAllPublicAddresses)
 import           RSCoin.User.Operations as Exports hiding
                                                     (getAllPublicAddresses)
-import           RSCoin.User.Wallet     as Exports hiding (UserAddress,
-                                                    addAddress, getLastBlockId,
-                                                    isInitialized,
-                                                    makeUserAddress)
+import           RSCoin.User.Wallet     as Exports hiding (addAddress, getLastBlockId,
+                                                    isInitialized)
 
 import qualified RSCoin.Core            as C
 

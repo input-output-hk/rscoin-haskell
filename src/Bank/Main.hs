@@ -8,12 +8,14 @@ import qualified RSCoin.Bank     as B
 import           RSCoin.Core     (Address (Address), Mintette (Mintette),
                                   bankLoggerName, constructPublicKey,
                                   initLogging, keyGen, logWarning,
-                                  readPublicKey, readSecretKey)
+                                  readPublicKey, readSecretKey, defaultLayout, defaultLayout')
 
 main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
+    -- @TODO make signer addr, bankPort configurable
+    let layout = defaultLayout' "127.0.0.1"
     case cloCommand of
         Opts.AddAddress pk' strategy -> do
             addr <- Address <$> maybe (snd <$> keyGen) readPk pk'
@@ -25,7 +27,7 @@ main = do
             B.addMintetteIO cloPath m k
         Opts.Serve skPath -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
-            B.launchBankReal periodDelta cloPath =<< readSecretKey skPath
+            B.launchBankReal layout periodDelta cloPath =<< readSecretKey skPath
   where
     readPk pk = maybe (readPublicKeyFallback pk) return (constructPublicKey pk)
     readPublicKeyFallback pk = do

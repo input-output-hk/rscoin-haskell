@@ -4,8 +4,7 @@
 -- | Functions launching Bank.
 
 module RSCoin.Bank.Launcher
-       ( bankWrapperReal
-       , launchBankReal
+       ( launchBankReal
        , launchBank
        , addMintetteIO
        , addAddressIO
@@ -18,9 +17,9 @@ import           Data.Functor          (void)
 import           Data.Time.Units       (TimeUnit)
 
 import           RSCoin.Core           (Address, Mintette, PublicKey, SecretKey,
-                                        Strategy)
+                                        Strategy, defaultLayout')
 import           RSCoin.Timed          (MsgPackRpc, ThreadId, WorkMode, fork,
-                                        killThread, runRealModeLocal)
+                                        killThread, runRealMode, PlatformLayout)
 
 import           RSCoin.Bank.AcidState (AddAddress (AddAddress),
                                         AddMintette (AddMintette), State,
@@ -28,14 +27,14 @@ import           RSCoin.Bank.AcidState (AddAddress (AddAddress),
 import           RSCoin.Bank.Server    (serve)
 import           RSCoin.Bank.Worker    (runWorkerWithPeriod)
 
-bankWrapperReal :: FilePath -> (State -> MsgPackRpc a) -> IO a
-bankWrapperReal storagePath =
-    runRealModeLocal .
+bankWrapperReal :: PlatformLayout -> FilePath -> (State -> MsgPackRpc a) -> IO a
+bankWrapperReal layout storagePath =
+    runRealMode layout .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
-launchBankReal :: (TimeUnit t) => t -> FilePath -> SecretKey -> IO ()
-launchBankReal periodDelta storagePath sk =
-    bankWrapperReal storagePath $ void . launchBank periodDelta sk
+launchBankReal :: (TimeUnit t) => PlatformLayout -> t -> FilePath -> SecretKey -> IO ()
+launchBankReal layout periodDelta storagePath sk =
+    bankWrapperReal layout storagePath $ void . launchBank periodDelta sk
 
 launchBank
     :: (TimeUnit t, WorkMode m)
@@ -50,8 +49,8 @@ launchBank periodDelta sk st = do
 
 addAddressIO :: FilePath -> Address -> Strategy -> IO ()
 addAddressIO storagePath a s =
-    bankWrapperReal storagePath $ flip update' (AddAddress a s)
+    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $ flip update' (AddAddress a s)
 
 addMintetteIO :: FilePath -> Mintette -> PublicKey -> IO ()
 addMintetteIO storagePath m k =
-    bankWrapperReal storagePath $ flip update' (AddMintette m k)
+    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $ flip update' (AddMintette m k)

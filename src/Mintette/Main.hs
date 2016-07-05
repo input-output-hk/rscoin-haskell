@@ -1,6 +1,6 @@
 import           Control.Monad.Catch (bracket)
 import           Control.Monad.Trans (liftIO)
-import           RSCoin.Core         (initLogging, readSecretKey)
+import           RSCoin.Core         (initLogging, readSecretKey, defaultLayout')
 import qualified RSCoin.Mintette     as M
 import           RSCoin.Timed        (fork_, runRealMode)
 
@@ -15,7 +15,7 @@ main = do
             if cloMemMode
                 then M.openMemState
                 else M.openState cloPath
-    runRealMode cloBankHost $
+    runRealMode (defaultLayout' cloBankHost) $
         bracket (liftIO open) (liftIO . M.closeState) $
         \st ->
              do fork_ $ M.runWorker sk st

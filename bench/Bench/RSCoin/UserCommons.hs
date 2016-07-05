@@ -20,7 +20,7 @@ import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
 import           RSCoin.Core                (Address (..), Coin (..), Color,
-                                             bankSecretKey, finishPeriod,
+                                             bankSecretKey, finishPeriod, defaultLayout',
                                              keyGen)
 import           RSCoin.Timed               (MsgPackRpc, for, runRealMode, sec,
                                              wait)
@@ -54,7 +54,7 @@ userThreadWithPath
     userId
     (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
   =
-    runRealMode bankHost $ bracket
+    runRealMode (defaultLayout' bankHost) $ bracket
         (liftIO $ U.openState walletPath)
         (\userState -> liftIO $ do
             createCheckpoint userState

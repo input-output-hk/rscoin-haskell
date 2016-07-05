@@ -140,19 +140,20 @@ isInitialized = do
     b <- L.views lastBlockId isJust
     return $ a && b
 
--- | Searches UserAddress correspondent to Address. Returns secret key
--- *associated* with this address, that one that proves the ownership.
--- In case of DefaultStrategy it's just a keypair. In case of
--- MOfNStrategy it's the secret key of share you own (we assume there
--- can be only one per wallet).
+-- | Searches UserAddress correspondent to Address. Returns (sk,pk)
+-- keypair *associated* with this address, the one that proves the
+-- ownership.  In case of DefaultStrategy it's just a keypair of
+-- address and it's sk itself. In case of MOfNStrategy it's another
+-- keypair of share you own (we assume there can be only one per
+-- wallet).
 findUserAddress :: Address -> ExceptQuery (Maybe (Address, SecretKey))
 findUserAddress addr = checkInitR $ do
     secretKey <- L.views ownedAddresses (M.lookup addr)
-    fmap (addr,) <$> case secretKey of
+    case secretKey of
         -- we don't own this address
         Nothing        -> return Nothing
         -- we own secret key
-        Just (Just sk) -> return $ Just sk
+        Just (Just sk) -> return $ Just (addr,sk)
         -- we don't own the secret key of this address
         Just Nothing   -> do
             strategy <- fromJust <$> L.views addrStrategies (M.lookup addr)
@@ -165,7 +166,8 @@ findUserAddress addr = checkInitR $ do
                         fromJust .
                         find (`elem` addrs) <$>
                         getOwnedDefaultAddresses
-                    fromJust <$> L.views ownedAddresses (M.lookup defaultOwnerAddress)
+                    fmap (defaultOwnerAddress,) . fromJust <$>
+                        L.views ownedAddresses (M.lookup defaultOwnerAddress)
 
 -- | Get all available user addresses that have private keys
 getUserAddresses :: ExceptQuery [(Address,SecretKey)]

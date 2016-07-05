@@ -319,9 +319,8 @@ constructAndSignTransaction st TransactionData{..} = do
             M.fromList <$>
             mapM
                 (\(addrid',address') -> do
-                      privateKey <- snd . fromJust <$>
-                          query' st (A.FindUserAddress address')
-                      return (addrid', C.sign privateKey outTr))
+                      (pK, sK) <- fromJust <$> query' st (A.FindUserAddress address')
+                      return (addrid', (pK, C.sign sK outTr)))
                 addrPairList
     when (not (null tdOutputCoins) && not (C.validateSum outTr)) $
         commitError $
@@ -334,12 +333,12 @@ constructAndSignTransaction st TransactionData{..} = do
     sigBundle <- M.fromList <$> mapM toSignatureBundle (M.assocs signatures)
     return (outTr, sigBundle)
   where
-    toSignatureBundle (addrid,sign) = do
+    toSignatureBundle (addrid,signPair) = do
         address <- fromMaybe (error "Exception1 at toSignatureBundle in Operations.hs")
                    <$> query' st (A.ResolveAddressLocally addrid)
         str <- fromMaybe (error "Exception2 at toSignatureBundle in Operations.hs")
                    <$> query' st (A.GetAddressStrategy address)
-        return (addrid, (address, str, [(address, sign)]))
+        return (addrid, (address, str, [signPair]))
     pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])
     pair3merge = mappend
 
@@ -436,7 +435,7 @@ sendTransactionDo st maybeCache tx signatures = do
             (walletHeight, lastAppliedBlock)
     let nonDefaultAddresses =
             M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
-            map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],snd $ head sgns))) $
+            map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head $ sgns))) $
             filter ((/= C.DefaultStrategy) . sel2 . snd) $
             M.assocs signatures
     extraSignatures <- getExtraSignatures tx nonDefaultAddresses 20

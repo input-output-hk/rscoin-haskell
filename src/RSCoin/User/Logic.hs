@@ -24,8 +24,8 @@ import           Data.List                     (genericLength, nub)
 import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
+import           Data.Time.Units               (Second)
 import           Data.Tuple.Select             (sel1, sel2, sel3)
-import           System.Timeout                (timeout)
 
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
@@ -40,6 +40,7 @@ import           RSCoin.Core.Types             (CheckConfirmations,
                                                 Strategy (..))
 import           RSCoin.Mintette.Error         (MintetteError)
 import           RSCoin.Timed                  (WorkMode)
+import           RSCoin.Timed.MonadTimed       (sec, timeout)
 import           RSCoin.User.Cache             (UserCache, getOwnersByAddrid,
                                                 getOwnersByTx,
                                                 invalidateUserCache)
@@ -53,6 +54,12 @@ import           Serokell.Util.Text            (format', formatSingle',
 -- from that address
 type SignatureBundle = M.Map AddrId (Address, Strategy, [(Address,Signature)])
 
+-- | This type represents for each unique address in the given transaction:
+-- * Strategy of working on that address
+-- * Addrids that spend money from that address in tx
+-- * User's permission to spend money from address
+type AddressSignInfo = (Strategy, [AddrId], (Address,Signature))
+
 joinBundles
     :: (a, b, [(Address, Signature)])
     -> (a, b, [(Address, Signature)])
@@ -63,28 +70,28 @@ joinBundles (a,s,signs1) (_,_,signs2) = (a,s,nub $ signs1 ++ signs2)
 -- other than local).
 getExtraSignatures
     :: WorkMode m
-    => Transaction                                 -- ^ Transaction to confirm addrid from
-    -> M.Map Address (Strategy,[AddrId],Signature) -- ^ Addresses with special strategies
-                                                   -- to spend money from
-    -> Int                                         -- ^ Timeout in seconds
-    -> m (Maybe SignatureBundle)                   -- ^ Nothing means transaction was
-                                                   -- already sent by someone, (Just sgs)
-                                                   -- means user should send it.
+    => Transaction                   -- ^ Transaction to confirm addrid from
+    -> M.Map Address AddressSignInfo -- ^ For each address in tx input we provide
+                                     -- info about strategy, addrids that reperesent
+                                     -- spending, and (address,signature) pair
+                                     -- prooving that this spending is signed
+    -> Second                        -- ^ Timeout in seconds
+    -> m (Maybe SignatureBundle)     -- ^ Nothing means transaction was
+                                     -- already sent by someone, (Just sgs)
+                                     -- means user should send it.
 getExtraSignatures tx requests time = do
     unless checkInput $ error "Wrong input of getExtraSignatures"
     (waiting,ready) <- partitionEithers <$> mapM perform (M.keys requests)
     if null waiting
     then return Nothing
     else do
-        timeoutRes <- liftIO $ timeout time $ pingUntilDead waiting []
-        maybe (error "Timeout failed")
-              (return . Just . toBundle . (++ ready))
-              timeoutRes
+        timeoutRes <- timeout (sec time) $ pingUntilDead waiting []
+        return $ Just $ toBundle $ ready ++ timeoutRes
   where
     lookupMap addr = fromJust $ M.lookup addr requests
     getStrategy = sel1 . lookupMap
     getAddrIds = sel2 . lookupMap
-    getOwnSignature = sel3 . lookupMap
+    getOwnSignaturePair = sel3 . lookupMap
     checkInput = all (`elem` txInputs tx) $ concatMap sel2 $ M.elems requests
     toBundle =
         M.fromListWith joinBundles .
@@ -109,12 +116,12 @@ getExtraSignatures tx requests time = do
     perform addr = do
         let returnRight s = return $ Right (addr,s)
             strategy = getStrategy addr
-            ownSg = getOwnSignature addr
+            ownSgPair = getOwnSignaturePair addr
         curSigs <- CC.getTxSignatures tx addr
         if isStrategyCompleted strategy addr curSigs tx
         then returnRight curSigs
         else do
-            afterPublishSigs <- CC.publishTxToSigner tx (addr,ownSg)
+            afterPublishSigs <- CC.publishTxToSigner tx addr ownSgPair
             if isStrategyCompleted strategy addr afterPublishSigs tx
             then returnRight afterPublishSigs
             else return $ Left addr

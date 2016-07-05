@@ -372,10 +372,11 @@ getMintetteLogs mId pId = do
 -- get list of signatures after signer adds yours.
 publishTxToSigner
     :: WorkMode m
-    => Transaction -- transaction to sign
-    -> Address -- address of transaction input (individual, multisig or etc.)
-    -> (Address, Signature)  -- party's public address and signature (made with it's secret key)
-    -> m [(Address, Signature)] -- signatures for all parties already signed the transaction
+    => Transaction              -- ^ transaction to sign
+    -> Address                  -- ^ address of transaction input (individual, multisig or etc.)
+    -> (Address, Signature)     -- ^ party's public address and signature
+                                -- (made with it's secret key)
+    -> m [(Address, Signature)] -- ^ signatures for all parties already signed the transaction
 publishTxToSigner tx addr sg =
     withResult infoMessage successMessage $
     callSigner $ P.call (P.RSCSign P.PublishTransaction) tx addr sg

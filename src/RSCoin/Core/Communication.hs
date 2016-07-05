@@ -372,22 +372,34 @@ getMintetteLogs mId pId = do
 -- get list of signatures after signer adds yours.
 publishTxToSigner
     :: WorkMode m
-    => Transaction -> (Address, Signature) -> m [(Address, Signature)]
-publishTxToSigner tx sgs = undefined tx sgs
---    withResult infoMessage successMessage $
---    callSigner $ P.call (P.RSCSign P.PublishTransaction) tx sgs
---  where
---    infoMessage =
---        logDebug $
---        sformat ("Sending tx, signatures to signer: " % F.shown) (tx, sgs)
---    successMessage res =
---        logDebug $ sformat ("Getting signatures from signer: " % F.shown) res
+    => Transaction -- transaction to sign
+    -> Address -- address of transaction input (individual, multisig or etc.)
+    -> (Address, Signature)  -- party's public address and signature (made with it's secret key)
+    -> m [(Address, Signature)] -- signatures for all parties already signed the transaction
+publishTxToSigner tx addr sg =
+    withResult infoMessage successMessage $
+    callSigner $ P.call (P.RSCSign P.PublishTransaction) tx addr sg
+  where
+    infoMessage =
+        logDebug $
+        sformat ("Sending tx, signature to signer: " % F.shown) (tx, sg)
+    successMessage res =
+        logDebug $ sformat ("Received signatures from signer: " % F.shown) res
 
 -- | Read-only method of signer. Returns current state of signatures
 -- for the given address (that implicitly defines addrids ~
 -- transaction inputs) and transaction itself.
-getTxSignatures :: Transaction -> Address -> m [(Address,Signature)]
-getTxSignatures = undefined
+getTxSignatures :: WorkMode m => Transaction -> Address -> m [(Address,Signature)]
+getTxSignatures tx addr =
+    withResult infoMessage successMessage $
+    callSigner $ P.call (P.RSCSign P.GetSignatures) tx addr
+  where
+    infoMessage =
+        logDebug $
+        sformat ("Getting signatures for tx " % F.shown % ", addr " % F.shown) tx addr
+    successMessage res =
+        logDebug $ sformat ("Received signatures from signer: " % F.shown) res
+
 
 -- | This method is somewhat mystic because it's not used anywhere and
 -- it won't be until we have perfectly working UI. It's supposed to be

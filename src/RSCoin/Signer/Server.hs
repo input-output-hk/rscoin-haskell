@@ -20,7 +20,8 @@ import qualified RSCoin.Core.Protocol    as P
 import           RSCoin.Signer.AcidState (RSCoinSignerState)
 import           RSCoin.Timed            (ServerT, WorkMode,
                                           serverTypeRestriction1,
-                                          serverTypeRestriction2)
+                                          serverTypeRestriction2,
+                                          serverTypeRestriction3)
 
 logError, logInfo :: MonadIO m => Text -> m ()
 logError = C.logError C.signerLoggerName
@@ -33,12 +34,14 @@ serve
     :: WorkMode m
     => Int -> RSCoinSignerState -> m ()
 serve port signerState = do
-    idr1 <- serverTypeRestriction2
+    idr1 <- serverTypeRestriction3
     idr2 <- serverTypeRestriction1
+    idr3 <- serverTypeRestriction2
     P.serve
         port
         [ P.method (P.RSCSign P.PublishTransaction) $ idr1 $ publishTx signerState
         , P.method (P.RSCSign P.PollTransactions) $ idr2 $ pollTxs signerState
+        , P.method (P.RSCSign P.GetSignatures) $ idr3 $ getSignatures signerState
         ]
 
 -- TODO: move into better place
@@ -65,9 +68,13 @@ pollTxs _ addrs = toServer $ do
     logDebug $ sformat ("Receiving polling request by addresses " % shown) addrs
     return []
 
+getSignatures
+    :: WorkMode m
+    => RSCoinSignerState -> C.Transaction -> C.Address -> ServerT m [(C.Address, C.Signature)]
+getSignatures = undefined
 publishTx
     :: WorkMode m
-    => RSCoinSignerState -> C.Transaction -> [(C.Address, C.Signature)] -> ServerT m [(C.Address, C.Signature)]
-publishTx _ tx sgs = toServer $ do
-    logInfo $ sformat ("Receiving transaction " % shown % " with signatures " % shown) tx sgs
-    return sgs
+    => RSCoinSignerState -> C.Transaction -> C.Address -> (C.Address, C.Signature) -> ServerT m [(C.Address, C.Signature)]
+publishTx _ tx addr sg = toServer $ do
+    logInfo $ sformat ("Receiving address " % shown % " within transaction " % shown % " with signatures " % shown) addr tx sg
+    return [sg]

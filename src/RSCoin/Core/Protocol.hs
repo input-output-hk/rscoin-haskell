@@ -84,6 +84,7 @@ data DumpMethod
 data SignerMethod
     = PublishTransaction
     | PollTransactions
+    | GetSignatures
     deriving (Show)
 
 type Server a = T.Server a

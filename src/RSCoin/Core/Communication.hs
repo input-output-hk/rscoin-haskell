@@ -13,6 +13,7 @@ module RSCoin.Core.Communication
        , getTransactionById
        , getGenesisBlock
        , finishPeriod
+       , addStrategy
        , checkNotDoubleSpent
        , commitTx
        , sendPeriodFinished
@@ -65,7 +66,7 @@ import           RSCoin.Core.Types          (ActionLog, AddressStrategyMap,
                                              CommitConfirmation, HBlock, LBlock,
                                              Mintette, MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
-                                             PeriodResult, Utxo)
+                                             PeriodResult, Strategy, Utxo)
 import           RSCoin.Mintette.Error      (MintetteError (MEInactive))
 import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
                                              WorkMode)
@@ -176,6 +177,10 @@ finishPeriod _ =
         (logInfo "Finishing period")
         (const $ logDebug "Successfully finished period") $
     callBank (P.call $ P.RSCBank P.FinishPeriod)
+
+addStrategy :: (WorkMode m) => Address -> Strategy -> m ()
+addStrategy addr str =
+    callBank $ P.call (P.RSCBank P.AddStrategy) addr str ([] :: [(Address, Signature)])
 
 logFunction :: MonadIO m => MintetteError -> Text -> m ()
 logFunction MEInactive = logInfo

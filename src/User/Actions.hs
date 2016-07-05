@@ -18,8 +18,10 @@ import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
 import           Data.Function           (on)
 import           Data.List               (genericIndex, groupBy)
-import           Data.Maybe              (fromJust, fromMaybe, isJust)
+import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
 import           Data.Monoid             ((<>))
+import qualified Data.Set                as S
+import qualified Data.Text               as T
 import qualified Data.Text.IO            as TIO
 import qualified Graphics.UI.Gtk         as G
 
@@ -121,6 +123,17 @@ processCommand st O.UpdateBlockchain _ =
                then "Blockchain is updated already."
                else "Successfully updated blockchain."
 processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
+processCommand _ (O.AddMultisigAddress m addrs) _ = do
+    when (null addrs) $
+        P.commitError "Can't create multisig with empty addrs list"
+    let parsed = mapMaybe (fmap C.Address . C.constructPublicKey) addrs
+    when (length parsed /= length addrs) $
+        P.commitError $ "Some addresses were not parsed, parsed only those: {}" <>
+                        T.unlines (map show' parsed)
+    when (m > length addrs) $
+        P.commitError "Parameter m should be less than length of list"
+    newPK <- snd <$> liftIO C.keyGen
+    P.addMultisigAddress (Address newPK) $ MOfNStrategy m $ S.fromList parsed
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- query' st A.IsInitialized
     unless initialized $ liftIO G.initGUI >> initLoop

@@ -22,6 +22,7 @@ module RSCoin.User.Operations
        , TransactionData (..)
        , submitTransaction
        , submitTransactionRetry
+       , addMultisigAddress
        ) where
 
 import           Control.Exception      (SomeException, assert, fromException)
@@ -451,3 +452,7 @@ isRetriableException e
     | Just (_ :: UserLogicError) <- fromException e = True
     | isWalletSyncError e = True
     | otherwise = False
+
+addMultisigAddress :: (WorkMode m) => C.Address -> C.Strategy -> m ()
+addMultisigAddress addr strategy =
+    C.addStrategy addr strategy

@@ -45,6 +45,7 @@ data UserCommand
                                         -- Second argument
                                         -- represents the address to send,
                                         -- and amount. Forth argument is optional cache
+    | AddMultisigAddress Int [Text]
     | Dump DumpCommand
     deriving (Show)
 
@@ -78,10 +79,8 @@ userCommandParser =
     subparser
         (command
              "start-gui"
-             (info
-                  (pure StartGUI)
-                  (progDesc "Start graphical user interface.")) <>
-        command
+             (info (pure StartGUI) (progDesc "Start graphical user interface.")) <>
+         command
              "list"
              (info
                   (pure ListAddresses)
@@ -97,9 +96,13 @@ userCommandParser =
              "send"
              (info formTransactionOpts (progDesc "Form and send transaction.")) <>
          command
+             "addMultisig"
+             (info addMultisigOpts (progDesc "Form and send transaction.")) <>
+         command
              "dump-blocks"
              (info
-                  (fmap Dump $ DumpHBlocks <$>
+                  (fmap Dump $
+                   DumpHBlocks <$>
                    argument
                        auto
                        (metavar "FROM" <> help "Dump from which block") <*>
@@ -108,7 +111,8 @@ userCommandParser =
          command
              "dump-block"
              (info
-                  (fmap Dump $ DumpHBlock <$>
+                  (fmap Dump $
+                   DumpHBlock <$>
                    argument
                        auto
                        (metavar "ID" <>
@@ -116,17 +120,22 @@ userCommandParser =
                   (progDesc "Dump Bank high level block.")) <>
          command
              "dump-addresses"
-             (info (pure $ Dump DumpAddresses) (progDesc "Dump list of addresses.")) <>
+             (info
+                  (pure $ Dump DumpAddresses)
+                  (progDesc "Dump list of addresses.")) <>
          command
              "dump-mintettes"
-             (info (pure $ Dump DumpMintettes) (progDesc "Dump list of mintettes.")) <>
+             (info
+                  (pure $ Dump DumpMintettes)
+                  (progDesc "Dump list of mintettes.")) <>
          command
              "dump-period"
              (info (pure $ Dump DumpPeriod) (progDesc "Dump last period.")) <>
          command
              "dump-logs"
              (info
-                  (fmap Dump $ DumpLogs <$>
+                  (fmap Dump $
+                   DumpLogs <$>
                    argument
                        auto
                        (metavar "MINTETTE_ID" <>
@@ -140,7 +149,8 @@ userCommandParser =
          command
              "dump-mintette-utxo"
              (info
-                  (fmap Dump $ DumpMintetteUtxo <$>
+                  (fmap Dump $
+                   DumpMintetteUtxo <$>
                    argument
                        auto
                        (metavar "MINTETTE_ID" <>
@@ -149,54 +159,67 @@ userCommandParser =
          command
              "dump-mintette-blocks"
              (info
-                  (fmap Dump . DumpMintetteBlocks
-                      <$> argument auto (metavar "MINTETTE_ID" <>
-                                         help "Dump blocks of mintette with this id.")
-                      <*> argument auto (metavar "PERIOD_ID" <>
-                                         help "Dump blocks with this period id.")
-                  )
-                  (progDesc "Dump blocks of corresponding mintette and periodId.")) <>
+                  (fmap Dump . DumpMintetteBlocks <$>
+                   argument
+                       auto
+                       (metavar "MINTETTE_ID" <>
+                        help "Dump blocks of mintette with this id.") <*>
+                   argument
+                       auto
+                       (metavar "PERIOD_ID" <>
+                        help "Dump blocks with this period id."))
+                  (progDesc
+                       "Dump blocks of corresponding mintette and periodId.")) <>
          command
              "dump-mintette-logs"
              (info
-                  (fmap Dump . DumpMintetteLogs
-                      <$> argument auto (metavar "MINTETTE_ID" <>
-                                         help "Dump logs of mintette with this id.")
-                      <*> argument auto (metavar "PERIOD_ID" <>
-                                         help "Dump logs with this period id.")
-                  )
+                  (fmap Dump . DumpMintetteLogs <$>
+                   argument
+                       auto
+                       (metavar "MINTETTE_ID" <>
+                        help "Dump logs of mintette with this id.") <*>
+                   argument
+                       auto
+                       (metavar "PERIOD_ID" <>
+                        help "Dump logs with this period id."))
                   (progDesc "Dump logs of corresponding mintette and periodId.")) <>
          command
              "dump-address"
              (info
-                  (fmap Dump $ DumpAddress
-                      <$> argument auto (metavar "INDEX" <> help "Index of address to dump")
-                  )
+                  (fmap Dump $
+                   DumpAddress <$>
+                   argument
+                       auto
+                       (metavar "INDEX" <> help "Index of address to dump"))
                   (progDesc "Dump address with given index.")))
   where
     formTransactionOpts =
         FormTransaction <$>
-        some (
-         option
-             auto
-             (long "from" <>
-              help
-                  ("Tuples (a,b,c) where " <>
-                   "'a' is id of address as numbered in list-wallets output, " <>
-                   "'b' is integer -- amount of coins to send, " <>
-                   "'c' is the color (0 for uncolored), any uncolored ~ colored."))) <*>
-        strOption
-                 (long "toaddr" <> help "Address to send coins to.") <*>
-        many (
-         option
-             auto
-             (long "tocoin" <>
-              help
-                  ("Pairs (a,b) where " <>
-                   "'a' is amount of coins to send, " <>
-                   "'b' is the color of that coin")))
-          -- FIXME: should we do caching here or not?
-          <*> pure Nothing
+        some
+            (option
+                 auto
+                 (long "from" <>
+                  help
+                      ("Tuples (a,b,c) where " <>
+                       "'a' is id of address as numbered in list-wallets output, " <>
+                       "'b' is integer -- amount of coins to send, " <>
+                       "'c' is the color (0 for uncolored), any uncolored ~ colored."))) <*>
+        strOption (long "toaddr" <> help "Address to send coins to.") <*>
+        many
+            (option
+                 auto
+                 (long "tocoin" <>
+                  help
+                      ("Pairs (a,b) where " <>
+                       "'a' is amount of coins to send, " <>
+                       "'b' is the color of that coin")))
+        -- FIXME: should we do caching here or not?
+        <*>
+        pure Nothing
+    addMultisigOpts =
+        AddMultisigAddress <$>
+        option auto (long "m" <> help "Number m from m/n") <*>
+        many (strOption (long "addr" <> help "Addresses that would own"))
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

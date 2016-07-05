@@ -1,5 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE Rank2Types       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 -- | Protocol implements all low level communication between
@@ -38,7 +39,6 @@ import           Data.Maybe              (fromJust)
 import           Data.MessagePack        (MessagePack)
 
 import           RSCoin.Core.Constants   (bankPort, rpcTimeout)
-import           RSCoin.Core.Crypto      ()
 import           RSCoin.Core.MessagePack ()
 import           RSCoin.Core.Types       (Mintette (..))
 import qualified RSCoin.Timed            as T
@@ -61,6 +61,7 @@ data BankMethod
     | GetHBlock
     | GetTransaction
     | FinishPeriod
+    | AddStrategy
     deriving (Show)
 
 -- | Requests processed by a Mintette.

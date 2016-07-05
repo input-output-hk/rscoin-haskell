@@ -9,22 +9,23 @@ module RSCoin.Bank.Server
 import           Control.Concurrent    (MVar, newMVar, putMVar, takeMVar)
 import           Control.Monad.Catch   (catch, throwM)
 import           Control.Monad.Trans   (lift, liftIO)
-import           Data.Acid.Advanced    (query')
+import           Data.Acid.Advanced    (query', update')
 
 import           Serokell.Util.Text    (format', formatSingle', mapBuilder,
                                         show')
 
 import qualified Data.Map              as M
-import           RSCoin.Bank.AcidState (GetAddresses (..), GetHBlock (..),
-                                        GetHBlocks (..), GetLogs (..),
-                                        GetMintettes (..), GetPeriodId (..),
-                                        GetTransaction (..), State)
+import           RSCoin.Bank.AcidState (AddAddress (..), GetAddresses (..),
+                                        GetHBlock (..), GetHBlocks (..),
+                                        GetLogs (..), GetMintettes (..),
+                                        GetPeriodId (..), GetTransaction (..),
+                                        State)
 import           RSCoin.Bank.Error     (BankError)
-import           RSCoin.Core           (ActionLog, AddressStrategyMap, HBlock,
-                                        MintetteId, Mintettes, PeriodId,
-                                        Transaction, TransactionId,
-                                        bankLoggerName, bankPort, logDebug,
-                                        logError, logInfo)
+import           RSCoin.Core           (ActionLog, Address, AddressStrategyMap,
+                                        HBlock, MintetteId, Mintettes, PeriodId,
+                                        Signature, Strategy, Transaction,
+                                        TransactionId, bankLoggerName, bankPort,
+                                        logDebug, logError, logInfo)
 import qualified RSCoin.Core.Protocol  as C
 import qualified RSCoin.Timed          as T
 
@@ -41,6 +42,7 @@ serve st workerThread restartWorkerAction = do
     idr6 <- T.serverTypeRestriction2
     idr7 <- T.serverTypeRestriction3
     idr8 <- T.serverTypeRestriction0
+    idr9 <- T.serverTypeRestriction3
     C.serve
         bankPort
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
@@ -51,7 +53,9 @@ serve st workerThread restartWorkerAction = do
           idr5 $ serveFinishPeriod threadIdMVar restartWorkerAction
         , C.method (C.RSCDump C.GetHBlocks) $ idr6 $ serveGetHBlocks st
         , C.method (C.RSCDump C.GetHBlocks) $ idr7 $ serveGetLogs st
-        , C.method (C.RSCBank C.GetAddresses) $ idr8 $ serveGetAddresses st]
+        , C.method (C.RSCBank C.GetAddresses) $ idr8 $ serveGetAddresses st
+        , C.method (C.RSCBank C.AddStrategy) $ idr9 $ serveAddStrategy st
+        ]
 
 toServer :: T.WorkMode m => m a -> T.ServerT m a
 toServer action = lift $ action `catch` handler
@@ -132,3 +136,11 @@ serveGetLogs st m from to =
        logDebug bankLoggerName $
            format' "Getting action logs of mintette {} with range of entries {} to {}: {}" (m, from, to, mLogs)
        return mLogs
+
+serveAddStrategy
+    :: T.WorkMode m
+    => State -> Address -> Strategy -> [(Address, Signature)] -> T.ServerT m ()
+serveAddStrategy st addr str _ =
+    toServer $
+    do logInfo bankLoggerName "Adding new strategy."
+       update' st $ AddAddress addr str

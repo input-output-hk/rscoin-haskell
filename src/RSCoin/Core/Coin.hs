@@ -4,6 +4,10 @@
 
 module RSCoin.Core.Coin
        ( onColor
+       , onCoin
+       , isPositiveCoin
+       , isZeroCoin
+       , isNegativeCoin
        , sameColor
        , sumCoin
        , CoinsMap
@@ -31,6 +35,18 @@ import           RSCoin.Core.Primitives (Coin (..), Color)
 onColor :: Coin -> Coin -> Ordering
 onColor = comparing getColor
 
+onCoin :: Coin -> Coin -> Ordering
+onCoin = comparing getCoin
+
+isPositiveCoin :: Coin -> Bool
+isPositiveCoin = (> 0) . getCoin
+
+isZeroCoin :: Coin -> Bool
+isZeroCoin = (== 0) . getCoin
+
+isNegativeCoin :: Coin -> Bool
+isNegativeCoin = (< 0) . getCoin
+
 sameColor :: Coin -> Coin -> Bool
 sameColor a b = EQ == onColor a b
 
@@ -45,10 +61,7 @@ groupCoinsList :: [Coin] -> [Coin]
 groupCoinsList coins =
     map sumCoin $
     filter (not . null) $
-    groupBy sameColor $
-    sortBy onColor $
-    filter ((> 0) . getCoin)
-    coins
+    groupBy sameColor $ sortBy onColor $ filter isPositiveCoin coins
 
 type CoinsMap = M.Map Color Coin
 

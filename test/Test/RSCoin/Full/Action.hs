@@ -26,7 +26,6 @@ module Test.RSCoin.Full.Action
 import           Control.Lens             (view, views)
 import           Control.Monad            (unless, void, when)
 import           Control.Monad.Catch      (throwM)
-import           Data.Acid.Advanced       (query')
 import           Data.Bifunctor           (second)
 import           Data.Function            (on)
 import           Data.List                (genericLength, nubBy)
@@ -36,7 +35,7 @@ import           Data.Text.Lazy.Builder   (Builder)
 import           Formatting               (bprint, builder, int, shown, (%))
 import qualified Formatting
 import           Test.QuickCheck          (NonEmptyList (..))
-
+import Data.Acid.Advanced (query')
 import           Serokell.Util            (indexModulo, indexModuloMay,
                                            listBuilderJSON, mapBuilder,
                                            pairBuilder)
@@ -226,7 +225,7 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
         throwM $ TestError "No public addresses in this user"
     return $
         nubBy ((==) `on` fst) .
-        map (second $ filter (> 0)) .
+        map (second $ filter C.isPositiveCoin) .
         map (second C.coinsToList) .
         map
             (\(i,parts) ->

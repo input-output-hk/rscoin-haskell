@@ -8,31 +8,29 @@ module Test.RSCoin.Full.FullSpec
        ( spec
        ) where
 
-import           Control.Monad.Extra             (whenJust)
-import           Data.Default                    (Default (def))
-import           Data.List                       (nub)
-import           Test.Hspec                      (Spec, before, describe)
-import           Test.Hspec.QuickCheck           (prop)
-import           Test.QuickCheck                 (Arbitrary (arbitrary),
-                                                  Property, property)
+import           Control.Monad.Extra        (whenJust)
+import           Data.Default               (Default (def))
+import           Data.List                  (nub)
+import           Test.Hspec                 (Spec, before, describe)
+import           Test.Hspec.QuickCheck      (prop)
+import           Test.QuickCheck            (Arbitrary (arbitrary), Property,
+                                             property)
 
-import           RSCoin.Core                     (Severity (..), bankLoggerName,
-                                                  initLoggerByName, initLogging,
-                                                  mintetteLoggerName,
-                                                  testingLoggerName,
-                                                  userLoggerName)
-import           RSCoin.Timed                    (WorkMode)
--- import qualified RSCoin.User                     as U
+import           RSCoin.Core                (Severity (..), bankLoggerName,
+                                             initLoggerByName, initLogging,
+                                             mintetteLoggerName,
+                                             testingLoggerName, userLoggerName)
+import           RSCoin.Timed               (WorkMode)
+import qualified RSCoin.User                as U
 
-import           Test.RSCoin.Core.Arbitrary      ()
-import           Test.RSCoin.Full.Action         (UserAction (..), getUserState)
+import           Test.RSCoin.Core.Arbitrary ()
+import           Test.RSCoin.Full.Action    (UserAction (..), getUserState)
 -- import           Test.RSCoin.Full.Context        (buser, state)
-import           Test.RSCoin.Full.Property       (FullPropertyEmulation,
-                                                  FullPropertyRealMode,
-                                                  assertFP, doActionFP, pickFP,
-                                                  runTestEnvFP, runWorkModeFP)
-import qualified Test.RSCoin.Full.Property       as FP (FullProperty)
-import qualified Test.RSCoin.Full.UserOperations as UO
+import           Test.RSCoin.Full.Property  (FullPropertyEmulation,
+                                             FullPropertyRealMode, assertFP,
+                                             doActionFP, pickFP, runTestEnvFP,
+                                             runWorkModeFP)
+import qualified Test.RSCoin.Full.Property  as FP (FullProperty)
 
 data FullTestConfig = FullTestConfig
     { ftcGlobalSeverity   :: !Severity
@@ -89,7 +87,7 @@ prop_uniqueAddresses :: FullProperty
 prop_uniqueAddresses = do
     idx <- pickFP arbitrary
     st <- runTestEnvFP $ getUserState idx
-    assertFP . isUnique =<< runWorkModeFP (UO.getAllAddresses st)
+    assertFP . isUnique =<< runWorkModeFP (U.getAllAddresses st)
   where
     isUnique l = l == nub l
 

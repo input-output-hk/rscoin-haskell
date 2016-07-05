@@ -19,8 +19,8 @@ bankUserAddressesCount = 6
 
 -- | Minimal color used in tests.
 minColor :: Color
-minColor = -2
+minColor = -1
 
 -- | Maximal color used in tests.
 maxColor :: Color
-maxColor = 5
+maxColor = 3

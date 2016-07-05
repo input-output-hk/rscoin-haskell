@@ -34,21 +34,13 @@ type Color = Int
 data Coin = Coin
     { getColor :: Color
     , getCoin  :: Rational
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Ord)
 
 reportError :: String -> Coin -> Coin -> a
 reportError s c1 c2 =
         error $ "Error: " ++ s ++
                 " of coins with different colors: " ++
                 show c1 ++ " " ++ show c2
-
-instance Ord Coin where
-    compare (Coin _ a1) (Coin _ a2)
-        | otherwise    = compare a1 a2
---    -- is this instance better?
---    compare c1@(Coin col1 a1) c2@(Coin col2 a2)
---        | col1 /= col2 = reportError "comprison" c1 c2
---        | otherwise    = compare a1 a2
 
 instance Binary Coin where
     put Coin{..} = put (getColor, getCoin)

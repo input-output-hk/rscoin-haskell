@@ -66,7 +66,7 @@ instance MonadThrow (A.Update WalletStorage) where
 openState :: FilePath -> IO RSCoinUserState
 openState path = do
     st <- A.openLocalStateFrom path W.emptyWalletStorage
-    A.createCheckpoint st >> return st
+    st <$ A.createCheckpoint st
 
 openMemState :: IO RSCoinUserState
 openMemState = AM.openMemoryState W.emptyWalletStorage
@@ -101,7 +101,7 @@ resolveAddressLocally = W.resolveAddressLocally
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
-addAddress :: (C.Address,C.SecretKey) -> [C.Transaction] -> C.PeriodId ->A.Update WalletStorage ()
+addAddress :: (C.Address,C.SecretKey) -> [C.Transaction] -> C.PeriodId -> A.Update WalletStorage ()
 initWallet :: [(C.SecretKey,C.PublicKey)] -> Maybe Int -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate

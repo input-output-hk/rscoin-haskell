@@ -9,7 +9,6 @@ module GUI.RSCoin.MainWindow
        , AddContactWindow (..)
        ) where
 
--- import           Data.Int             (Int64)
 import qualified Data.Text            as T
 import qualified Graphics.UI.Gtk      as G
 

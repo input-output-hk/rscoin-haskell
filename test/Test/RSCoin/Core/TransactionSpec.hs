@@ -9,8 +9,7 @@ module Test.RSCoin.Core.TransactionSpec
        ) where
 
 import           Data.Bifunctor             (first, second)
-import           Data.List                  (genericLength)
-import           Data.List                  (sort)
+import           Data.List                  (genericLength, sort)
 import qualified Data.Map.Strict            as M (Map, elems, findWithDefault,
                                                   foldrWithKey, lookup,
                                                   mapWithKey, null, (!))
@@ -78,8 +77,8 @@ spec =
     describe "Transaction" $ do
         describe "validateSum" $ do
             prop description_validateSumForValid validateSumCorrectForValid
-            prop description_validateInputLessThanOutput validateInputMoreThanOutput
-            prop description_validateSumForValid validateInputMoreThanOutput2
+            prop description_validateInputMoreOutput validateInputMoreThanOutput
+            prop description_validateSumInputOutputCol validateOnlyInputColorsInOutput
         describe "validateSignature" $ do
             prop description_validateSignature validateSig
         describe "chooseAddresses" $ do
@@ -89,10 +88,11 @@ spec =
       description_validateSumForValid =
         "returns true if total amount of grey coins in inputs is not less than " ++
         "amount of grey coins in outputs plus amount of coins spent to color coins"
-      description_validateInputLessThanOutput =
-        "returns true only if the validating function returns true on well formed " ++
-        "transactions, and false on those where the total inputs are less than the " ++
-        "total outputs"
+      description_validateInputMoreOutput =
+        "returns true if the amount of input coins is greater than the amount of " ++
+        "output coins, false if it is smaller"
+      description_validateSumInputOutputCol =
+        "returns false if non-grey coins are repainted in the transaction."
       description_validateSignature =
         "returns true if the signature is issued by the public key associated " ++
         "with the address for the transaction"
@@ -105,6 +105,14 @@ spec =
 validateSumCorrectForValid :: TransactionValid -> Bool
 validateSumCorrectForValid = C.validateSum . getTr
 
+-- | This property does the following:
+-- * generate list of addrids which will serve as input;
+-- * pair the coins in this list with dummy address to serve as output;
+-- * create two different output lists - one with a random coin increased;
+-- * and the other with that same coin decreased;
+-- * check that the transaction with decreased output is validated;
+-- * and that the other is not validated.
+
 validateInputMoreThanOutput :: NonEmptyList C.AddrId -> C.Address -> Bool
 validateInputMoreThanOutput (getNonEmpty -> inputs) adr =
     let outputs = map ((adr, ) . sel3) inputs
@@ -115,15 +123,30 @@ validateInputMoreThanOutput (getNonEmpty -> inputs) adr =
         (tx1,tx2) = (C.Transaction inputs plus1, C.Transaction inputs minus1)
     in C.validateSum tx2 && (not $ C.validateSum tx1)
 
-validateInputMoreThanOutput2 :: C.AddrId -> Rational -> C.Address -> Bool
-validateInputMoreThanOutput2 txi@(_, _, C.Coin col c) r adr =
-    let (mx, mn) = (max c r, min c r)
-        other = mx - mn
-        txo = [(adr, C.Coin col mn),(adr, C.Coin col other)]
-    in C.validateSum $ C.Transaction [txi] txo
+-- | This property does the following:
+-- * generate single addrid (tid, index, Coin cl c) as input and dummy address;
+-- * create output list with the dummy address and two coins:
+-- * one with color cl and another with a color different from cl;
+-- * each with half of the amount of the original color;
+-- * check that this transaction is not validated.
+
+validateOnlyInputColorsInOutput :: C.AddrId -> C.Address -> Bool
+validateOnlyInputColorsInOutput (t, i, C.Coin col c) adr =
+    let nonZero = abs col + 1
+        txo = [(adr, C.Coin nonZero (c / 2)),(adr, C.Coin (nonZero + 1) (c / 2))]
+    in (c == 0) ||
+       (not $ C.validateSum $ C.Transaction [(t,i,C.Coin nonZero c)] txo)
 
 validateSig :: C.SecretKey -> C.Transaction -> Bool
 validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePublicKey sk) tr
+
+-- | This property will do the following:
+-- * generate list of addrids and a map of colors to coins, cmap;
+-- * create another coin map with the coins present in the list, adrMap;
+-- * check that, for each color in cmap:
+-- * the corresponding amount in adrMap is greater than the amount in cmap;
+-- * if the previous is true, check that chooseAddresses returns Just ...;
+-- * otherwise, check that it returns Nothing.
 
 chooseAddressesJustWhenPossible :: NonEmptyList C.AddrId -> M.Map C.Color C.Coin  -> Bool
 chooseAddressesJustWhenPossible (getNonEmpty -> adrlist) cmap =

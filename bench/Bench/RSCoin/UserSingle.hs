@@ -28,8 +28,7 @@ import           Serokell.Util.Bench      (getWallTime)
 import           RSCoin.Core              (Address (..), bankSecretKey, keyGen)
 import           RSCoin.Timed             (MsgPackRpc, Second, for, fork,
                                            killThread, sec, wait)
-import           RSCoin.User.AcidState    (RSCoinUserState, initStateBank)
-import           RSCoin.User.Cache        (mkUserCache)
+import qualified RSCoin.User              as U
 
 import           Bench.RSCoin.Logging     (logDebug, logInfo)
 import           Bench.RSCoin.UserCommons (executeTransaction)
@@ -77,13 +76,17 @@ dumpWorker countRef startTime dumpFile = forever $ do
   where
     dumpPeriod = 10 :: Second
 
-runSingleUser :: Maybe Word -> Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
+runSingleUser :: Maybe Word
+              -> Word
+              -> FilePath
+              -> U.RSCoinUserState
+              -> MsgPackRpc ()
 runSingleUser logIntervalMaybe txNum dumpFile st = do
     -- clear file before printing results in it
     liftIO $ whenM (doesFileExist dumpFile) $ removeFile dumpFile
 
     startTime <- getWallTime
-    cache     <- liftIO mkUserCache
+    cache     <- U.mkUserCache
     txCount   <- liftIO $ newIORef 0
     workerId  <- fork $ dumpWorker txCount startTime dumpFile
     address   <- Address . snd <$> liftIO keyGen
@@ -100,12 +103,16 @@ runSingleUser logIntervalMaybe txNum dumpFile st = do
     killThread workerId
     liftIO $ writeFileStats Final startTime txNum dumpFile
 
-runSingleSuperUser :: Maybe Word -> Word -> FilePath -> RSCoinUserState -> MsgPackRpc ()
+runSingleSuperUser :: Maybe Word
+                   -> Word
+                   -> FilePath
+                   -> U.RSCoinUserState
+                   -> MsgPackRpc ()
 runSingleSuperUser logInterval txNum dumpFile bankUserState = do
     let additionalBankAddreses = 0
 
     logDebug "Before initStateBank"
-    initStateBank bankUserState additionalBankAddreses bankSecretKey
+    U.initStateBank bankUserState additionalBankAddreses bankSecretKey
     logDebug "After initStateBank"
 
     runSingleUser logInterval txNum dumpFile bankUserState

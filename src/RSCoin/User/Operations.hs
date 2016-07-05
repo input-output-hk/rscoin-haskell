@@ -7,7 +7,12 @@
 -- | Basic operations with wallet.
 
 module RSCoin.User.Operations
-       ( walletInitialized
+       ( A.openState
+       , A.openMemState
+       , A.closeState
+       , A.initState
+       , A.initStateBank
+       , walletInitialized
        , commitError
        , getUserTotalAmount
        , getAmount
@@ -15,8 +20,11 @@ module RSCoin.User.Operations
        , getAmountByIndex
        , getAllPublicAddresses
        , getTransactionsHistory
+       , getLastBlockId
+       , isInitialized
        , updateToBlockHeight
        , updateBlockchain
+       , addAddress
        , submitTransactionFromAll
        , TransactionInput
        , TransactionData (..)
@@ -148,8 +156,23 @@ getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
 getAllPublicAddresses st = query' st A.GetOwnedDefaultAddresses
 
 -- | Returns transaction history that wallet holds
-getTransactionsHistory :: WorkMode m => A.RSCoinUserState -> m [W.TxHistoryRecord]
+getTransactionsHistory
+    :: MonadIO m
+    => A.RSCoinUserState -> m [W.TxHistoryRecord]
 getTransactionsHistory st = query' st A.GetTxsHistory
+
+getLastBlockId :: MonadIO m => A.RSCoinUserState -> m Int
+getLastBlockId st = query' st A.GetLastBlockId
+
+isInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
+isInitialized st = query' st A.IsInitialized
+
+-- | Puts given address and it's related transactions (that contain it
+-- as output S_{out}) into wallet. Blockchain won't be queried.
+addAddress
+    :: MonadIO m
+    => A.RSCoinUserState -> C.SecretKey -> C.PublicKey -> [C.Transaction] -> C.PeriodId -> m ()
+addAddress st sk pk ts = update' st . A.AddAddress (C.Address pk, sk) ts
 
 -- | Forms transaction given just amount of money to use. Tries to
 -- spend coins from accounts that have the least amount of money.
@@ -165,7 +188,7 @@ submitTransactionFromAll st maybeCache addressTo amount =
     assert (C.getColor amount == 0) $
     do addrs <- query' st A.GetOwnedDefaultAddresses
        (indicesWithCoins :: [(Word, C.Coin)]) <-
-           filter ((>= 0) . snd) <$>
+           filter (not . C.isNegativeCoin . snd) <$>
            mapM
                (\i ->
                      (fromIntegral i + 1, ) . M.findWithDefault 0 0 <$>
@@ -179,7 +202,7 @@ submitTransactionFromAll st maybeCache addressTo amount =
                "Tried to form transaction with amount ({}) greater than available ({})."
                (amount, totalAmount)
        let discoverAmount _ r@(left,_)
-             | left <= 0 = r
+             | not $ C.isPositiveCoin left = r
            discoverAmount e@(i,c) (left,results) =
                let newLeft = left - c
                in if newLeft < 0
@@ -262,7 +285,7 @@ constructAndSignTransaction st TransactionData{..} = do
             , listBuilderJSONIndent 2 $ tdOutputCoins)
     when (nubBy ((==) `on` fst) tdInputs /= tdInputs) $
         commitError "All input addresses should have distinct indices."
-    unless (all (> 0) $ concatMap snd tdInputs) $
+    unless (all C.isPositiveCoin $ concatMap snd tdInputs) $
         commitError $
         formatSingle'
             "All input values should be positive, but encountered {}, that's not." $

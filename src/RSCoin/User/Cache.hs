@@ -14,7 +14,7 @@ module RSCoin.User.Cache
 
 import           Control.Concurrent.STM (TVar, atomically, modifyTVar,
                                          newTVarIO, readTVarIO, writeTVar)
-import           Control.Monad.Trans    (liftIO)
+import           Control.Monad.Trans    (MonadIO (liftIO))
 import           Data.Tuple.Select      (sel1)
 
 import qualified RSCoin.Core            as C
@@ -35,12 +35,15 @@ type UserCache = TVar CacheData
 instance Show UserCache where
     show _ = "UserCache"
 
-mkUserCache :: IO UserCache
-mkUserCache =
-    newTVarIO nullCacheData
+mkUserCache
+    :: MonadIO m
+    => m UserCache
+mkUserCache = liftIO $ newTVarIO nullCacheData
 
-invalidateUserCache :: UserCache -> IO ()
-invalidateUserCache = atomically . flip writeTVar nullCacheData
+invalidateUserCache
+    :: MonadIO m
+    => UserCache -> m ()
+invalidateUserCache = liftIO . atomically . flip writeTVar nullCacheData
 
 getMintettesList
     :: WorkMode m

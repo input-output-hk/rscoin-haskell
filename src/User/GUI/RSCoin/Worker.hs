@@ -6,7 +6,6 @@ import           Control.Exception       (SomeException)
 import           Control.Monad           (forM_, forever, void, when)
 import           Control.Monad.Catch     (catch, throwM)
 import           Control.Monad.IO.Class  (liftIO)
-import           Data.Acid.Advanced      (query')
 import           Data.Monoid             ((<>))
 import qualified Graphics.UI.Gtk         as G
 
@@ -30,7 +29,7 @@ updateBlockchainWithProgress st M.MainWindow{..} =
         postGUI $ G.labelSetText labelSync ("Offline" :: String)
         return False
     work = do
-      walletHeight <- query' st U.GetLastBlockId
+      walletHeight <- U.getLastBlockId st
       lastBlockHeight <- pred <$> C.getBlockchainHeight
       when (walletHeight > lastBlockHeight) $
           throwM $

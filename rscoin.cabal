@@ -55,8 +55,6 @@ library
                      , RSCoin.Mintette.Storage
                      , RSCoin.Mintette.Worker
                      , RSCoin.User
-                     , RSCoin.User.AcidState
-                     , RSCoin.User.Cache
                      , RSCoin.User.Error
                      , RSCoin.User.Logic
                      , RSCoin.User.Operations
@@ -85,6 +83,8 @@ library
                      , RSCoin.Core.Crypto.Signing
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
+                     , RSCoin.User.AcidState
+                     , RSCoin.User.Cache
   build-depends:       acid-state
                      , aeson
                      , base >=4.8 && <4.9
@@ -269,6 +269,7 @@ test-suite rscoin-test
                      , Test.RSCoin.Core.OwnersSpec
                      , Test.RSCoin.Core.TransactionSpec
                      , Test.RSCoin.Full.Action
+                     , Test.RSCoin.Full.Constants
                      , Test.RSCoin.Full.Context
                      , Test.RSCoin.Full.Error
                      , Test.RSCoin.Full.FullSpec
@@ -280,7 +281,6 @@ test-suite rscoin-test
                      , Test.RSCoin.Full.Mintette.Config
                      , Test.RSCoin.Full.Mintette.Acidic
                      , Test.RSCoin.Full.Property
-                     , Test.RSCoin.Full.UserOperations
                      , Test.RSCoin.Pure.BankState
                      , Test.RSCoin.Pure.MintetteState
                      , Test.RSCoin.Pure.StorageSpec

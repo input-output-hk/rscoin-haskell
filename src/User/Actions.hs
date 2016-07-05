@@ -15,7 +15,7 @@ import           Control.Monad           (forM_, unless, void, when)
 import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
 import qualified Data.Acid               as ACID
-import           Data.Acid.Advanced      (query')
+import           Data.Acid.Advanced               (query')
 import           Data.Function           (on)
 import           Data.List               (genericIndex, groupBy)
 import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
@@ -29,13 +29,11 @@ import           Serokell.Util.Text      (format', formatSingle', show')
 
 import           RSCoin.Core             as C
 import           RSCoin.Timed            (WorkMode, for, ms, wait)
-import qualified RSCoin.User.AcidState   as A
+import qualified RSCoin.User   as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..), getAmount,
                                           submitTransactionRetry,
                                           updateBlockchain)
-import qualified RSCoin.User.Operations  as P
-
 import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
 import           GUI.RSCoin.GUI          (startGUI)
 import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
@@ -45,11 +43,11 @@ import qualified UserOptions             as O
 initializeStorage
     :: forall (m :: * -> *).
        (WorkMode m)
-    => A.RSCoinUserState
+    => U.RSCoinUserState
     -> O.UserOptions
     -> m ()
 initializeStorage st O.UserOptions{..} =
-    A.initState st addressesNum $ bankKeyPath isBankMode bankModePath
+    U.initState st addressesNum $ bankKeyPath isBankMode bankModePath
   where
     bankKeyPath True p = Just p
     bankKeyPath False _ = Nothing
@@ -57,15 +55,15 @@ initializeStorage st O.UserOptions{..} =
 -- | Processes command line user command
 processCommand
     :: WorkMode m
-    => A.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
+    => U.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ =
     eWrap $
     do -- get addresses default strategy first
-       addresses <- query' st A.GetOwnedAddresses
+       addresses <- query' st U.GetOwnedAddresses
        (wallets :: [(C.PublicKey, C.Strategy, [C.Coin])]) <-
            mapM (\addr -> do
                       coins <- C.coinsToList <$> getAmount st addr
-                      strategy <- query' st $ A.GetAddressStrategy addr
+                      strategy <- query' st $ U.GetAddressStrategy addr
                       return ( C.getAddress addr
                              , fromMaybe DefaultStrategy strategy
                              , coins))
@@ -92,7 +90,7 @@ processCommand st O.ListAddresses _ =
                     "     This is a multisig address ({}/{}) controlled by keys: "
                     (m, length allowed)
                forM_ allowed $ \allowedAddr -> do
-                   addresses <- query' st A.GetOwnedAddresses
+                   addresses <- query' st U.GetOwnedAddresses
                    TIO.putStrLn $ formatSingle'
                            (if allowedAddr `elem` addresses
                             then "     * {} owned by you"
@@ -113,7 +111,7 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
                 , tdOutputCoins = outputs'
                 }
        unless (isJust outputAddr) $
-           P.commitError $ "Provided key can't be exported: " <> outputAddrStr
+           U.commitError $ "Provided key can't be exported: " <> outputAddrStr
        void $ submitTransactionRetry 2 st cache td
 processCommand st O.UpdateBlockchain _ =
     eWrap $
@@ -125,17 +123,17 @@ processCommand st O.UpdateBlockchain _ =
 processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
 processCommand _ (O.AddMultisigAddress m addrs) _ = do
     when (null addrs) $
-        P.commitError "Can't create multisig with empty addrs list"
+        U.commitError "Can't create multisig with empty addrs list"
     let parsed = mapMaybe (fmap C.Address . C.constructPublicKey) addrs
     when (length parsed /= length addrs) $
-        P.commitError $ "Some addresses were not parsed, parsed only those: {}" <>
+        U.commitError $ "Some addresses were not parsed, parsed only those: {}" <>
                         T.unlines (map show' parsed)
     when (m > length addrs) $
-        P.commitError "Parameter m should be less than length of list"
+        U.commitError "Parameter m should be less than length of list"
     newPK <- snd <$> liftIO C.keyGen
-    P.addMultisigAddress (Address newPK) $ MOfNStrategy m $ S.fromList parsed
+    U.addMultisigAddress (Address newPK) $ MOfNStrategy m $ S.fromList parsed
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
-    initialized <- query' st A.IsInitialized
+    initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop
     liftIO $ bracket
         (ACID.openLocalStateFrom guidbPath emptyGUIAcid)
@@ -156,7 +154,7 @@ processCommand st O.StartGUI opts@O.UserOptions{..} = do
 
 dumpCommand
     :: WorkMode m
-    => A.RSCoinUserState -> O.DumpCommand -> m ()
+    => U.RSCoinUserState -> O.DumpCommand -> m ()
 dumpCommand _ O.DumpMintettes = void C.getMintettes
 dumpCommand _ O.DumpAddresses = void C.getAddresses
 dumpCommand _ O.DumpPeriod = void C.getBlockchainHeight
@@ -169,4 +167,4 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
     liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<<
-    query' st A.GetOwnedAddresses
+    query' st U.GetOwnedAddresses

@@ -1,18 +1,18 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import           Control.Monad.Catch   (MonadCatch, bracket, catch, throwM)
-import           Control.Monad.Trans   (MonadIO, liftIO)
-import qualified Data.Acid             as ACID
-import qualified Data.Text             as T
+import           Control.Monad.Catch (MonadCatch, bracket, catch, throwM)
+import           Control.Monad.Trans (MonadIO, liftIO)
+import qualified Data.Acid           as ACID
+import qualified Data.Text           as T
 
-import qualified RSCoin.Core           as C
-import           RSCoin.Timed          (runRealMode)
-import qualified RSCoin.User.AcidState as A
-import qualified RSCoin.User.Wallet    as W
+import qualified RSCoin.Core         as C
+import           RSCoin.Timed        (runRealMode)
+import qualified RSCoin.User         as U
+import qualified RSCoin.User.Wallet  as W
 
-import           Actions               (initializeStorage, processCommand)
-import qualified UserOptions           as O
+import           Actions             (initializeStorage, processCommand)
+import qualified UserOptions         as O
 
 main :: IO ()
 main = do
@@ -20,10 +20,10 @@ main = do
     C.initLogging logSeverity
     runRealMode bankHost $
         bracket
-            (liftIO $ A.openState walletPath)
+            (liftIO $ U.openState walletPath)
             (\st -> liftIO $ do
                 ACID.createCheckpoint st
-                A.closeState st) $
+                U.closeState st) $
             \st ->
                  do C.logDebug C.userLoggerName $
                         mconcat ["Called with options: ", (T.pack . show) opts]

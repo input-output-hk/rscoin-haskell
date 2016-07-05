@@ -87,14 +87,14 @@ processCommand st O.ListAddresses _ =
            DefaultStrategy -> return ()
            MOfNStrategy m allowed -> do
                TIO.putStrLn $ format'
-                    "     This is a multisig address ({}/{}) controlled by keys: "
+                    "    This is a multisig address ({}/{}) controlled by keys: "
                     (m, length allowed)
                forM_ allowed $ \allowedAddr -> do
                    addresses <- query' st U.GetOwnedAddresses
                    TIO.putStrLn $ formatSingle'
                            (if allowedAddr `elem` addresses
-                            then "     * {} owned by you"
-                            else "     * {}")
+                            then "    * {} owned by you"
+                            else "    * {}")
                            allowedAddr
 processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     eWrap $
@@ -132,6 +132,8 @@ processCommand _ (O.AddMultisigAddress m addrs) _ = do
         U.commitError "Parameter m should be less than length of list"
     newPK <- snd <$> liftIO C.keyGen
     U.addMultisigAddress (Address newPK) $ MOfNStrategy m $ S.fromList parsed
+    liftIO $ TIO.putStrLn $
+       formatSingle' "Your new address will be added in the next block: {}" newPK
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop

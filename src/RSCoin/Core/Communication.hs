@@ -408,7 +408,7 @@ getTxSignatures tx addr =
 -- sign. And then dialog pops up.
 pollTxsFromSigner
     :: WorkMode m
-    => [Address] -> m [(Transaction, [(Address, Signature)])]
+    => [Address] -> m [(Transaction, Address, [(Address, Signature)])]
 pollTxsFromSigner addrs =
     withResult infoMessage successMessage $
     callSigner $ P.call (P.RSCSign P.PollTransactions) addrs

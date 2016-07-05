@@ -7,8 +7,8 @@ module RSCoin.Signer.AcidState
        ( RSCoinSignerState
 
          -- * acid-state query and update data types
-       , GetSignedTxs (..)
-       , SignTx       (..)
+       , GetSignatures (..)
+       , AddSignature       (..)
 
          -- * Bracket functions
        , openState
@@ -43,6 +43,6 @@ instance MonadThrow (Update s) where
     throwM = throw
 
 $(makeAcidic ''Storage
-             [ 'S.signTx
-             , 'S.getSignedTxs
+             [ 'S.addSignature
+             , 'S.getSignatures
              ])

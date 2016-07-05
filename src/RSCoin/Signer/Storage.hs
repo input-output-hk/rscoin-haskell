@@ -7,31 +7,40 @@
 module RSCoin.Signer.Storage
         ( Storage
         , emptySignerStorage
-        , getSignedTxs
-        , signTx
+        , getSignatures
+        , addSignature
         ) where
 
-import           Control.Lens (makeLenses, view, (%=))
+import           Control.Lens              (Getter, makeLenses, to, use, uses,
+                                            view, (%=), (^.))
 
-import           Data.Acid    (Query, Update)
-import           Data.Set     (Set)
-import qualified Data.Set     as S
+import           Control.Monad.Catch       (MonadThrow (throwM))
+import           Control.Monad.State.Class (MonadState)
+import           Data.Acid                 (Query, Update)
+import           Data.Map                  (Map)
+import qualified Data.Map                  as M
+import           Data.Maybe                (fromMaybe)
+import           Data.Set                  (Set)
+import qualified Data.Set                  as S
 
-import           RSCoin.Core  (Transaction)
+import           RSCoin.Core               (Address, Signature, Transaction)
+
+type AddressSignatureMap = M.Map Address Signature
 
 data Storage = Storage
-    { _signedTxs :: Set Transaction  -- ^ Signed transactions
+    { _txPool :: M.Map (Transaction, Address) AddressSignatureMap -- pool of trasactions to be signed
     } deriving Show
 
 $(makeLenses ''Storage)
 
 emptySignerStorage :: Storage
-emptySignerStorage = Storage S.empty
+emptySignerStorage = Storage M.empty
 
-getSignedTxs :: Query Storage (Set Transaction)
-getSignedTxs = view signedTxs
+getSignatures :: Transaction -> Address -> Query Storage [(Address, Signature)]
+getSignatures tx addr = maybe [] M.assocs . M.lookup (tx, addr) <$> view txPool
 
-signTx
-    :: Transaction
-    -> Update Storage ()
-signTx tx = signedTxs %= S.insert tx
+addSignature :: Transaction -> Address -> (Address, Signature) -> Update Storage ()
+addSignature tx addr sg = txPool %= M.alter f k
+  where k = (tx, addr)
+        f Nothing = Just $ uncurry M.singleton sg
+        f (Just m) = Just $ uncurry M.insert sg m

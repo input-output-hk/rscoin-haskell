@@ -304,6 +304,11 @@ instance Buildable Utxo where
 instance Buildable Pset where
     build mapping = listBuilderJSON $ M.toList mapping
 
+instance Buildable (Address, Signature) where
+    build = pairBuilder
+instance Buildable [(Address, Signature)] where
+    build = listBuilderJSONIndent 2
+
 instance Buildable [NewPeriodData] where
     build = listBuilderJSONIndent 2
 

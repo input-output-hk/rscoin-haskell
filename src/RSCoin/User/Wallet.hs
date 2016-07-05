@@ -177,13 +177,20 @@ getUserAddresses =
                              filter (isJust . snd) .
                              M.assocs
 
+-- | Puts bank's address on the first place if found
+rescheduleBankFirst :: [Address] -> [Address]
+rescheduleBankFirst addrs =
+    case find (== C.genesisAddress) addrs of
+        Nothing -> addrs
+        Just _ -> C.genesisAddress : (delete C.genesisAddress addrs)
+
 -- | Get all available user addresses
 getOwnedAddresses :: ExceptQuery [Address]
-getOwnedAddresses = checkInitR $ L.views ownedAddresses M.keys
+getOwnedAddresses = checkInitR $ rescheduleBankFirst <$> L.views ownedAddresses M.keys
 
 -- | Get all user addresses with DefaultStrategy
 getOwnedDefaultAddresses :: ExceptQuery [Address]
-getOwnedDefaultAddresses = do
+getOwnedDefaultAddresses = checkInitR $ do
     addrs <- getOwnedAddresses
     strategies <- L.view addrStrategies
     return $
@@ -340,7 +347,6 @@ putHistoryRecords newHeight transactions = do
 -- blockchain blocks. Sum validation for transactions
 -- is disabled, because HBlocks contain generative transactions for
 -- fee allocation.
-
 withBlockchainUpdate :: PeriodId -> C.HBlock -> ExceptUpdate ()
 withBlockchainUpdate newHeight C.HBlock{..} =
     checkInitS $

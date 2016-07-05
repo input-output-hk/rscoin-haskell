@@ -6,7 +6,7 @@ module GUI.RSCoin.AddressesTab
 
 import           Control.Monad         (forM_, void, when)
 
-import           Data.Acid (update)
+import           Data.Acid             (update)
 import           Graphics.UI.Gtk       (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk       as G
 
@@ -17,7 +17,8 @@ import           GUI.RSCoin.Glade      (GladeMainWindow (..))
 import           GUI.RSCoin.MainWindow (AddressesTab (..), MainWindow (..))
 
 import qualified RSCoin.Core           as C
-import           RSCoin.User           (AddAddress (..), RSCoinUserState, addAddress)
+import           RSCoin.User           (AddAddress (..), RSCoinUserState,
+                                        addAddress)
 
 createAddressesTab :: GladeMainWindow -> IO AddressesTab
 createAddressesTab GladeMainWindow{..} =

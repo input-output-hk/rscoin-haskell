@@ -15,7 +15,7 @@ import           Control.Monad           (forM_, unless, void, when)
 import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
 import qualified Data.Acid               as ACID
-import           Data.Acid.Advanced               (query')
+import           Data.Acid.Advanced      (query')
 import           Data.Function           (on)
 import           Data.List               (genericIndex, groupBy)
 import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
@@ -27,16 +27,16 @@ import qualified Graphics.UI.Gtk         as G
 
 import           Serokell.Util.Text      (format', formatSingle', show')
 
+import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
+import           GUI.RSCoin.GUI          (startGUI)
+import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
 import           RSCoin.Core             as C
 import           RSCoin.Timed            (WorkMode, for, ms, wait)
-import qualified RSCoin.User   as U
+import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..), getAmount,
                                           submitTransactionRetry,
                                           updateBlockchain)
-import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
-import           GUI.RSCoin.GUI          (startGUI)
-import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
 import qualified UserOptions             as O
 
 

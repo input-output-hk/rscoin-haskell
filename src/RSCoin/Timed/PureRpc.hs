@@ -30,7 +30,8 @@ import           Data.MessagePack        (Object)
 import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
 import           RSCoin.Timed.MonadRpc   (Addr, BankSettings (..), Client (..),
-                                          Host, Method (..), MonadRpc (execClient, serve, getBankSettings),
+                                          Host, Method (..),
+                                          MonadRpc (execClient, getBankSettings, serve),
                                           RpcError (..), methodBody, methodName)
 import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
                                           localTime, mcs, minute, wait)

@@ -4,8 +4,8 @@ module GUI.RSCoin.Addresses
     ) where
 
 import           Control.Monad (forM)
+import           Data.Acid     (query)
 import qualified Data.Map      as M
-import           Data.Acid (query)
 import           RSCoin.Core   (Coin (..), PublicKey, getAddress)
 import           RSCoin.Timed  (runRealModeLocal)
 import           RSCoin.User   (GetOwnedDefaultAddresses (..), RSCoinUserState,

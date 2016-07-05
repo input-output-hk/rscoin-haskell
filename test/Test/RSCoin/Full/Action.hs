@@ -26,6 +26,7 @@ module Test.RSCoin.Full.Action
 import           Control.Lens             (view, views)
 import           Control.Monad            (unless, void, when)
 import           Control.Monad.Catch      (throwM)
+import           Data.Acid.Advanced       (query')
 import           Data.Bifunctor           (second)
 import           Data.Function            (on)
 import           Data.List                (genericLength, nubBy)
@@ -34,11 +35,10 @@ import           Data.Text.Buildable      (Buildable (build))
 import           Data.Text.Lazy.Builder   (Builder)
 import           Formatting               (bprint, builder, int, shown, (%))
 import qualified Formatting
-import           Test.QuickCheck          (NonEmptyList (..))
-import Data.Acid.Advanced (query')
 import           Serokell.Util            (indexModulo, indexModuloMay,
                                            listBuilderJSON, mapBuilder,
                                            pairBuilder)
+import           Test.QuickCheck          (NonEmptyList (..))
 
 import qualified RSCoin.Core              as C
 import           RSCoin.Timed             (Millisecond, WorkMode, after, invoke,

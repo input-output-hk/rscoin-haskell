@@ -8,7 +8,7 @@ module RSCoin.User
 
 import           Control.Monad.Trans    (MonadIO)
 
-import           Data.Acid.Advanced (query')
+import           Data.Acid.Advanced     (query')
 import           RSCoin.User.AcidState  as Exports
 import           RSCoin.User.Cache      as Exports
 import           RSCoin.User.Error      as Exports

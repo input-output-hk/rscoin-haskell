@@ -1,0 +1,10 @@
+directory: .
+exec: "stack $NIX_STACK exec -- "
+bank:
+  severity: Info
+mintettes:
+- port: 3001
+- port: 3002
+- port: 3003
+period: 100
+

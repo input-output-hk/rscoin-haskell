@@ -9,20 +9,23 @@
 module RSCoin.User.Logic
        ( CC.getBlockByHeight
        , CC.getBlockchainHeight
-       , getExtraSignatures
        , SignatureBundle
+       , joinBundles
+       , getExtraSignatures
        , validateTransaction
        ) where
 
 import           Control.Monad                 (guard, unless, when)
 import           Control.Monad.Catch           (throwM)
 import           Control.Monad.Trans           (liftIO)
+import           Data.Either                   (partitionEithers)
 import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
 import           Data.List                     (genericLength, nub)
 import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust)
 import           Data.Monoid                   ((<>))
-import           Data.Tuple.Select             (sel3)
+import           Data.Tuple.Select             (sel1, sel2, sel3)
+import           System.Timeout                (timeout)
 
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
@@ -30,7 +33,7 @@ import           RSCoin.Core.Crypto            (Signature, verify)
 import           RSCoin.Core.Logging           (logWarning, userLoggerName)
 import           RSCoin.Core.Primitives        (AddrId, Address,
                                                 Transaction (..))
-import           RSCoin.Core.Strategy          (ifStrategyCompleted)
+import           RSCoin.Core.Strategy          (isStrategyCompleted)
 import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitConfirmation, Mintette,
                                                 MintetteId, PeriodId,
@@ -50,6 +53,12 @@ import           Serokell.Util.Text            (format', formatSingle',
 -- from that address
 type SignatureBundle = M.Map AddrId (Address, Strategy, [(Address,Signature)])
 
+joinBundles
+    :: (a, b, [(Address, Signature)])
+    -> (a, b, [(Address, Signature)])
+    -> (a, b, [(Address, Signature)])
+joinBundles (a,s,signs1) (_,_,signs2) = (a,s,nub $ signs1 ++ signs2)
+
 -- | Gets signatures that can't be retrieved locally (for strategies
 -- other than local).
 getExtraSignatures
@@ -58,20 +67,57 @@ getExtraSignatures
     -> M.Map Address (Strategy,[AddrId],Signature) -- ^ Addresses with special strategies
                                                    -- to spend money from
     -> Int                                         -- ^ Timeout in seconds
-    -> PeriodId                                    -- ^ Period in which to poll
-    -> m SignatureBundle
-getExtraSignatures tx requests timeout height =
-    M.fromListWith (\(a,s,signs1) (_,_,signs2) -> (a,s,nub $ signs1 ++ signs2)) .
-        concatMap (\(addrids, c) -> map (,c) addrids) <$>
-        mapM (uncurry getSignatures) (M.assocs requests)
+    -> m (Maybe SignatureBundle)                   -- ^ Nothing means transaction was
+                                                   -- already sent by someone, (Just sgs)
+                                                   -- means user should send it.
+getExtraSignatures tx requests time = do
+    unless checkInput $ error "Wrong input of getExtraSignatures"
+    (waiting,ready) <- partitionEithers <$> mapM perform (M.keys requests)
+    if null waiting
+    then return Nothing
+    else do
+        timeoutRes <- liftIO $ timeout time $ pingUntilDead waiting []
+        maybe (error "Timeout failed")
+              (return . Just . toBundle . (++ ready))
+              timeoutRes
   where
-    getSignatures
-        :: (WorkMode m)
-        => Address
-        -> (Strategy, [AddrId], Signature)
-        -> m ([AddrId], (Address, Strategy, [(Address, Signature)]))
-    getSignatures addr (strategy,addrids,signature) =
-        return (addrids, (addr, strategy, [])) -- TODO Implement
+    lookupMap addr = fromJust $ M.lookup addr requests
+    getStrategy = sel1 . lookupMap
+    getAddrIds = sel2 . lookupMap
+    getOwnSignature = sel3 . lookupMap
+    checkInput = all (`elem` txInputs tx) $ concatMap sel2 $ M.elems requests
+    toBundle =
+        M.fromListWith joinBundles .
+        concatMap (\(addr,signs) ->
+            let str = getStrategy addr
+                addrids = getAddrIds addr
+            in map (,(addr,str,signs)) addrids)
+    pingUntilDead [] ready = return ready
+    pingUntilDead notReady@(addr:otherAddrs) ready = do
+        sigs <- CC.getTxSignatures tx addr
+        if isStrategyCompleted (getStrategy addr) addr sigs tx
+        then pingUntilDead otherAddrs $ (addr,sigs):ready
+        else pingUntilDead notReady ready
+    -- Returns (Right signs) if for address:
+    -- 1. First poll showed signatures are ready
+    -- 2. After our signature commit signatures became ready
+    -- Returns (Left addr) if signer should be polled for transaction tx
+    -- and addr `addr` and sigs are not ready
+    perform :: WorkMode m
+            => Address
+            -> m (Either Address (Address, [(Address,Signature)]))
+    perform addr = do
+        let returnRight s = return $ Right (addr,s)
+            strategy = getStrategy addr
+            ownSg = getOwnSignature addr
+        curSigs <- CC.getTxSignatures tx addr
+        if isStrategyCompleted strategy addr curSigs tx
+        then returnRight curSigs
+        else do
+            afterPublishSigs <- CC.publishTxToSigner tx (addr,ownSg)
+            if isStrategyCompleted strategy addr afterPublishSigs tx
+            then returnRight afterPublishSigs
+            else return $ Left addr
 
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction
@@ -90,7 +136,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
     commitBundle bundle
   where
     checkStrategy :: (Address, Strategy, [(Address, Signature)]) -> Bool
-    checkStrategy (addr,str,sgns) = ifStrategyCompleted str addr sgns tx
+    checkStrategy (addr,str,sgns) = isStrategyCompleted str addr sgns tx
     processInput
         :: WorkMode m
         => AddrId -> m CheckConfirmations

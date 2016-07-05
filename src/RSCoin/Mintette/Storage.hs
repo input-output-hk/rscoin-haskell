@@ -62,7 +62,7 @@ import           RSCoin.Core                (ActionLog, ActionLogHeads,
                                              SecretKey, Strategy (..), Utxo,
                                              computeOutputAddrids,
                                              derivePublicKey, hbTransactions,
-                                             ifStrategyCompleted, isOwner,
+                                             isOwner, isStrategyCompleted,
                                              mkCheckConfirmation, mkLBlock,
                                              owners, sign,
                                              verifyCheckConfirmation)
@@ -74,8 +74,7 @@ data Storage = Storage
     , _utxoDeleted   :: Utxo                 -- ^ Entries, deleted from utxo
     , _utxoAdded     :: Utxo                 -- ^ Entries, added to utxo
     , _pset          :: Pset                 -- ^ Set of checked transactions
-    , _txset         :: S.Set C.Transaction  -- ^ List of transaction
-                                             -- sealing into ledger
+    , _txset         :: S.Set C.Transaction  -- ^ List of transaction sealing into ledger
     , _lBlocks       :: [[LBlock]]           -- ^ Blocks are stored per period
     , _actionLogs    :: [ActionLog]          -- ^ Logs are stored per period
     , _logSize       :: Int                  -- ^ Total size of actionLogs
@@ -85,8 +84,11 @@ data Storage = Storage
     , _dpk           :: C.Dpk                -- ^ DPK for current period
     , _logHeads      :: ActionLogHeads       -- ^ All known heads of logs
     , _lastBankHash  :: Maybe Hash           -- ^ Hash of the last HBlock
-    , _addresses     :: AddressStrategyMap   -- ^ Complete list of system's addresses accompanied with their strategies.
-                                             -- Should be up-to-date with Bank::Storage::_addresses (updates are propagated via HBlocks)
+    , _addresses     :: AddressStrategyMap   -- ^ Complete list of system's addresses
+                                             -- accompanied with their strategies.
+                                             -- Should be up-to-date with
+                                             -- Bank::Storage::_addresses (updates are
+                                             -- propagated via HBlocks)
     }
 
 $(makeLenses ''Storage)
@@ -169,7 +171,7 @@ checkNotDoubleSpent sk tx addrId sg = do
           maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
     checkSignaturesAndFinish addr = do
           strategy <- uses addresses $ fromMaybe DefaultStrategy . M.lookup addr
-          if ifStrategyCompleted strategy addr sg tx
+          if isStrategyCompleted strategy addr sg tx
              then finishCheck
              else throwM MEInvalidSignature
     finishCheck = do

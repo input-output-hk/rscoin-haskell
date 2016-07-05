@@ -373,7 +373,7 @@ getMintetteLogs mId pId = do
 publishTxToSigner
     :: WorkMode m
     => Transaction -> (Address, Signature) -> m [(Address, Signature)]
-publishTxToSigner tx sgs = undefined
+publishTxToSigner tx sgs = undefined tx sgs
 --    withResult infoMessage successMessage $
 --    callSigner $ P.call (P.RSCSign P.PublishTransaction) tx sgs
 --  where

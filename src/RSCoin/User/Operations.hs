@@ -33,7 +33,7 @@ import           Data.Function          (on)
 import           Data.List              (genericIndex, genericLength, nub,
                                          nubBy, sortOn)
 import qualified Data.Map               as M
-import           Data.Maybe             (fromJust, fromMaybe, isNothing)
+import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing)
 import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
@@ -53,7 +53,7 @@ import           RSCoin.User.Cache      (UserCache)
 import           RSCoin.User.Error      (UserError (..), UserLogicError,
                                          isWalletSyncError)
 import           RSCoin.User.Logic      (SignatureBundle, getExtraSignatures,
-                                         validateTransaction)
+                                         joinBundles, validateTransaction)
 import qualified RSCoin.User.Wallet     as W
 
 walletInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
@@ -439,12 +439,11 @@ sendTransactionDo st maybeCache tx signatures = do
             map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],snd $ head sgns))) $
             filter ((/= C.DefaultStrategy) . sel2 . snd) $
             M.assocs signatures
-    extraSignatures <- getExtraSignatures tx nonDefaultAddresses 20 periodId
-    let allSignatures :: SignatureBundle
-        allSignatures =
-            M.unionWith (\(a,s,sgn1) (_,_,sgn2) -> (a,s,nub $ sgn1 ++ sgn2))
-                        extraSignatures signatures
-    validateTransaction maybeCache tx allSignatures periodId
+    extraSignatures <- getExtraSignatures tx nonDefaultAddresses 20
+    when (isJust extraSignatures) $ do
+        let allSignatures :: SignatureBundle
+            allSignatures = M.unionWith joinBundles (fromJust extraSignatures) signatures
+        validateTransaction maybeCache tx allSignatures periodId
     update' st $ A.AddTemporaryTransaction periodId tx
     C.logInfo C.userLoggerName "Successfully sent a transaction!"
 

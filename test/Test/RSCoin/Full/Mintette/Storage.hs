@@ -29,7 +29,7 @@ import           RSCoin.Core                      (AddrId, AddressStrategyMap,
                                                    Transaction (..),
                                                    computeOutputAddrids,
                                                    derivePublicKey,
-                                                   ifStrategyCompleted,
+                                                   isStrategyCompleted,
                                                    mkCheckConfirmation, owners,
                                                    sign, validateSignature,
                                                    verifyCheckConfirmation)
@@ -74,7 +74,7 @@ checkNotDoubleSpent conf sk tx addrId sg = do
           maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
     checkSignaturesAndFinish addr = do
            strategy <- uses addresses $ fromMaybe DefaultStrategy . M.lookup addr
-           if ifStrategyCompleted strategy addr sg tx
+           if isStrategyCompleted strategy addr sg tx
                             then finishCheck
                             else throwM MEInvalidSignature
     finishCheck

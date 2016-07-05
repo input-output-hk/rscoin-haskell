@@ -52,7 +52,6 @@ import           Data.Ord                   (comparing)
 import qualified Data.Set                   as S
 import qualified Data.Text                  as T
 import           Data.Tuple                 (swap)
-import           Debug.Trace
 
 import           Serokell.Util.Text         (format', formatSingle')
 
@@ -369,7 +368,6 @@ withBlockchainUpdate newHeight C.HBlock{..} =
        ownedAddrs0 <- L.uses ownedAddresses M.keys
        -- Get strategies that we are related to
        let newStrategies = M.filterWithKey (ownStrategy ownedAddrs0) hbAddresses
-       traceM $ "newStrategies: " ++ show newStrategies
        -- Add them to strategy list
        addrStrategies <>= newStrategies
        -- Also add addresses that we now control (e.g. multisig)

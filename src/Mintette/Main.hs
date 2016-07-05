@@ -1,6 +1,7 @@
 import           Control.Monad.Catch (bracket)
 import           Control.Monad.Trans (liftIO)
-import           RSCoin.Core         (initLogging, readSecretKey, defaultLayout')
+import           RSCoin.Core         (defaultLayout', initLogging,
+                                      readSecretKey)
 import qualified RSCoin.Mintette     as M
 import           RSCoin.Timed        (fork_, runRealMode)
 

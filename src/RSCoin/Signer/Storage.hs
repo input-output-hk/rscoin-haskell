@@ -11,13 +11,12 @@ module RSCoin.Signer.Storage
         , addSignature
         ) where
 
-import           Control.Lens              (makeLenses,
-                                            view, (%=))
+import           Control.Lens (makeLenses, view, (%=))
 
-import           Data.Acid                 (Query, Update)
-import qualified Data.Map                  as M
+import           Data.Acid    (Query, Update)
+import qualified Data.Map     as M
 
-import           RSCoin.Core               (Address, Signature, Transaction)
+import           RSCoin.Core  (Address, Signature, Transaction)
 
 type AddressSignatureMap = M.Map Address Signature
 

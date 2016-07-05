@@ -7,8 +7,9 @@ import qualified Options         as Opts
 import qualified RSCoin.Bank     as B
 import           RSCoin.Core     (Address (Address), Mintette (Mintette),
                                   bankLoggerName, constructPublicKey,
-                                  initLogging, keyGen, logWarning,
-                                  readPublicKey, readSecretKey, defaultLayout, defaultLayout')
+                                  defaultLayout, defaultLayout', initLogging,
+                                  keyGen, logWarning, readPublicKey,
+                                  readSecretKey)
 
 main :: IO ()
 main = do

@@ -11,9 +11,10 @@ import           Data.Time.Units            (TimeUnit)
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Bank                as B
-import           RSCoin.Core                (Mintette (Mintette), PublicKey,
+import           RSCoin.Core                (Mintette (Mintette),
+                                             PlatformLayout (..), PublicKey,
                                              SecretKey, bankSecretKey,
-                                             defaultPort, PlatformLayout (..))
+                                             defaultPort)
 import qualified RSCoin.Mintette            as M
 import           RSCoin.Timed               (fork, runRealModeLocal)
 

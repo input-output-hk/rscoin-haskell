@@ -2,7 +2,8 @@ module Main where
 
 import           Control.Monad.Catch (bracket)
 import           Control.Monad.Trans (liftIO)
-import           RSCoin.Core         (initLogging, defaultLayout', PlatformLayout(..))
+import           RSCoin.Core         (PlatformLayout (..), defaultLayout',
+                                      initLogging)
 import qualified RSCoin.Signer       as S
 import           RSCoin.Timed        (runRealMode)
 

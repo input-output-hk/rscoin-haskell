@@ -19,7 +19,7 @@ import           Data.String                     (IsString)
 import           Data.Yaml                       (decode)
 
 import           RSCoin.Core.CompileConfigHelper (defaultOptions)
-import RSCoin.Timed.MonadRpc
+import           RSCoin.Timed.MonadRpc
 
 data RSCoinServer = RSCoinServer
     { rscHost :: !String
@@ -27,10 +27,10 @@ data RSCoinServer = RSCoinServer
     } deriving (Show)
 
 data RSCoinConfig = RSCoinConfig
-    { rscShardDivider :: !Int
-    , rscShardDelta   :: !Int
-    , rscRpcTimeout   :: !Word
-    , rscDefaultBank  :: !RSCoinServer
+    { rscShardDivider  :: !Int
+    , rscShardDelta    :: !Int
+    , rscRpcTimeout    :: !Word
+    , rscDefaultBank   :: !RSCoinServer
     , rscDefaultSigner :: !RSCoinServer
     } deriving (Show)
 

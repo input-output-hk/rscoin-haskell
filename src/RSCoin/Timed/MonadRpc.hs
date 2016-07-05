@@ -61,7 +61,7 @@ type Host = BS.ByteString
 type Addr = (Host, Port)
 
 data PlatformLayout = PlatformLayout
-    { getBankAddr :: Addr
+    { getBankAddr   :: Addr
     , getSignerAddr :: Addr
     }
 

@@ -30,10 +30,9 @@ import           System.Random           (StdGen)
 import           Data.MessagePack        (Object)
 import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
-import           RSCoin.Timed.MonadRpc   (Addr, PlatformLayout (..), Client (..),
-                                          Host, Method (..),
-                                          MonadRpc (execClient, getPlatformLayout, serve),
-                                          RpcError (..), methodBody, methodName)
+import           RSCoin.Timed.MonadRpc   (Addr, Client (..), Host, Method (..), MonadRpc (execClient, getPlatformLayout, serve),
+                                          PlatformLayout (..), RpcError (..),
+                                          methodBody, methodName)
 import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
                                           localTime, mcs, minute, wait)
 import           RSCoin.Timed.Timed      (TimedT, evalTimedT, runTimedT)

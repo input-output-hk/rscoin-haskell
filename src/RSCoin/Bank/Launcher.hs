@@ -18,8 +18,8 @@ import           Data.Time.Units       (TimeUnit)
 
 import           RSCoin.Core           (Address, Mintette, PublicKey, SecretKey,
                                         Strategy, defaultLayout')
-import           RSCoin.Timed          (MsgPackRpc, ThreadId, WorkMode, fork,
-                                        killThread, runRealMode, PlatformLayout)
+import           RSCoin.Timed          (MsgPackRpc, PlatformLayout, ThreadId,
+                                        WorkMode, fork, killThread, runRealMode)
 
 import           RSCoin.Bank.AcidState (AddAddress (AddAddress),
                                         AddMintette (AddMintette), State,

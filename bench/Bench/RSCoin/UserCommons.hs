@@ -20,8 +20,8 @@ import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
 import           RSCoin.Core                (Address (..), Coin (..), Color,
-                                             bankSecretKey, finishPeriod, defaultLayout',
-                                             keyGen)
+                                             bankSecretKey, defaultLayout',
+                                             finishPeriod, keyGen)
 import           RSCoin.Timed               (MsgPackRpc, for, runRealMode, sec,
                                              wait)
 import qualified RSCoin.User                as U

@@ -59,7 +59,9 @@ startMintette CommonParams{..} (idx,MintetteData{..}) = do
         dbDir = workingDir </> "mintette-db"
         fullRunCommand =
             sformat
-                ("cd " % string % "; " % stext % " --sk " % string % " --port " % int % stext %
+                ("cd " % string % "; " % stext % " --sk " % string % " --port " %
+                 int %
+                 stext %
                  " --bank-host 127.0.0.1 " %
                  " --path " %
                  string)
@@ -69,6 +71,11 @@ startMintette CommonParams{..} (idx,MintetteData{..}) = do
                 port
                 severityArg
                 dbDir
+    () <$
+        Cherepakha.procStrict
+            "killall"
+            ["-q", "-s", "SIGINT", "rscoin-mintette"]
+            mempty
     Cherepakha.mkdir workingDirModern
     (Cherepakha.ExitSuccess,_) <-
         Cherepakha.shellStrict fullKeyGenCommand mempty
@@ -112,11 +119,16 @@ startBank CommonParams{..} mintettePortsAndKeys BankData{..} = do
                 cpPeriod
                 severityArg
                 bdSecret
+    () <$
+        Cherepakha.procStrict
+            "killall"
+            ["-q", "-s", "SIGINT", "rscoin-bank"]
+            mempty
     Cherepakha.mkdir workingDirModern
     forM_
-            mintettePortsAndKeys
-            (\(port,key) ->
-                  Cherepakha.shellStrict (addMintetteCommand port key) mempty)
+        mintettePortsAndKeys
+        (\(port,key) ->
+              Cherepakha.shellStrict (addMintetteCommand port key) mempty)
     waitSec 1
     Cherepakha.echo "Deployed successfully!"
     () <$ Cherepakha.shellStrict serveCommand mempty

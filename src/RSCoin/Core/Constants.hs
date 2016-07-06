@@ -26,7 +26,6 @@ module RSCoin.Core.Constants
 import           Data.Binary                (Binary)
 import           Data.FileEmbed             (embedFile, makeRelativeToProject)
 import           Data.Maybe                 (fromJust)
-import           Data.String                (IsString)
 import           Data.Time.Units            (Second)
 import           Language.Haskell.TH.Syntax (Lift (lift))
 import           System.Directory           (getHomeDirectory)

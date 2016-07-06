@@ -37,6 +37,7 @@ data RSCoinConfig = RSCoinConfig
 $(A.deriveJSON defaultOptions ''RSCoinServer)
 $(A.deriveJSON defaultOptions ''RSCoinConfig)
 
+toAddr :: RSCoinServer -> (String, Port)
 toAddr (RSCoinServer host port) = (host, port)
 
 rscoinConfigStr :: IsString s => s

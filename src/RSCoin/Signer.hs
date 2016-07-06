@@ -6,3 +6,4 @@ module RSCoin.Signer
 
 import           RSCoin.Signer.AcidState as Exports
 import           RSCoin.Signer.Server    as Exports
+import           RSCoin.Signer.Error    as Exports

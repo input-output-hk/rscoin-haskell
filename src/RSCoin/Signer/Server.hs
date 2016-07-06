@@ -19,18 +19,20 @@ import           Formatting              (sformat, shown, (%))
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
 import           RSCoin.Signer.AcidState (AddSignature (..), GetSignatures (..),
-                                          RSCoinSignerState)
+                                          RSCoinSignerState, AnnounceNewPeriod(..), PollTransactions(..))
+import RSCoin.Signer.Error
 import           RSCoin.Timed            (ServerT, WorkMode,
                                           serverTypeRestriction1,
                                           serverTypeRestriction2,
                                           serverTypeRestriction3)
-import           Serokell.Util.Text      (format')
+import           Serokell.Util.Text      (format', formatSingle')
 
 logError, logDebug :: MonadIO m => Text -> m ()
 logError = C.logError C.signerLoggerName
 --logWarning = C.logWarning C.mintetteLoggerName
 --logInfo = C.logInfo C.signerLoggerName
 logDebug = C.logDebug C.signerLoggerName
+
 
 -- | Run Signer server which will process incoming sing requests.
 serve
@@ -40,20 +42,14 @@ serve port signerState = do
     idr1 <- serverTypeRestriction3
     idr2 <- serverTypeRestriction1
     idr3 <- serverTypeRestriction2
+    idr4 <- serverTypeRestriction1
     P.serve
         port
         [ P.method (P.RSCSign P.PublishTransaction) $ idr1 $ handlePublishTx signerState
         , P.method (P.RSCSign P.PollTransactions) $ idr2 $ pollTxs signerState
         , P.method (P.RSCSign P.GetSignatures) $ idr3 $ handleGetSignatures signerState
+        , P.method (P.RSCSign P.AnnounceNewPeriodToSigner) $ idr4 $ handleAnnounceNewPeriod signerState
         ]
-
--- TODO: move into better place
-data SignerError = SignerError
-        deriving (Show, Typeable)
-
-instance Exception SignerError where
-    toException = C.rscExceptionToException
-    fromException = C.rscExceptionFromException
 
 toServer :: WorkMode m => IO a -> ServerT m a
 toServer action = liftIO $ action `catch` handler
@@ -64,10 +60,11 @@ toServer action = liftIO $ action `catch` handler
 
 pollTxs
     :: WorkMode m
-    => RSCoinSignerState -> [C.Address] -> ServerT m [(C.Transaction, C.Address, [(C.Address, C.Signature)])]
+    => RSCoinSignerState -> [C.Address] -> ServerT m [(C.Address, [(C.Transaction, [(C.Address, C.Signature)])])]
 pollTxs _ addrs = toServer $ do
-    logDebug $ sformat ("Receiving polling request by addresses " % shown) addrs
-    return []
+    res <- query' st $ PollTransactions addrs
+    logDebug $ format' "Receiving polling request by addresses {}: {}" (addrs, res)
+    return res
 
 handlePublishTx :: WorkMode m
     => RSCoinSignerState -> C.Transaction -> C.Address -> (C.Address, C.Signature) -> ServerT m [(C.Address, C.Signature)]
@@ -77,6 +74,15 @@ handlePublishTx st tx addr sg =
        res <- query' st $ GetSignatures tx addr
        logDebug $
             format' "Getting signatures for tx {}, addr {}: {}" (tx, addr, res)
+       return res
+
+handleAnnounceNewPeriod :: WorkMode m
+    => RSCoinSignerState -> C.HBlock -> ServerT m ()
+handleAnnounceNewPeriod st hblock =
+    toServer $
+    do res <- query' st $ AnnounceNewPeriod hblock
+       logDebug $
+            formatSingle' "New period announcement, hblock {}" hblock
        return res
 
 handleGetSignatures :: WorkMode m

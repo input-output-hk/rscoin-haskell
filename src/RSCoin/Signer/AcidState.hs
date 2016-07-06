@@ -9,7 +9,8 @@ module RSCoin.Signer.AcidState
          -- * acid-state query and update data types
        , GetSignatures (..)
        , AddSignature       (..)
-
+       , AnnounceNewPeriod (..)
+       , PollTransactions (..)
          -- * Bracket functions
        , openState
        , openMemState
@@ -45,4 +46,6 @@ instance MonadThrow (Update s) where
 $(makeAcidic ''Storage
              [ 'S.addSignature
              , 'S.getSignatures
+             , 'S.announceNewPeriod
+             , 'S.pollTransactions
              ])

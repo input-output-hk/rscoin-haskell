@@ -13,6 +13,7 @@ module RSCoin.Bank.AcidState
        , GetAddresses (..)
        , GetPeriodId (..)
        , GetHBlock (..)
+       , GetLastHBlock (..)
        , GetHBlocks (..)
        , GetTransaction (..)
        , GetLogs (..)
@@ -63,6 +64,9 @@ getMintettes = view BS.getMintettes
 getPeriodId :: Query BS.Storage PeriodId
 getPeriodId = view BS.getPeriodId
 
+getLastHBlock :: Query BS.Storage (Maybe HBlock)
+getLastHBlock = view BS.getLastHBlock
+
 getHBlock :: PeriodId -> Query BS.Storage (Maybe HBlock)
 getHBlock = view . BS.getHBlock
 
@@ -96,6 +100,7 @@ $(makeAcidic ''BS.Storage
              , 'getAddresses
              , 'getPeriodId
              , 'getHBlock
+             , 'getLastHBlock
              , 'getHBlocks
              , 'getTransaction
              , 'getLogs

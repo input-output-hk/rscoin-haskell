@@ -18,6 +18,7 @@ module RSCoin.Core.Communication
        , commitTx
        , sendPeriodFinished
        , announceNewPeriod
+       , announceNewPeriodToSigner
        , P.unCps
        , getBlocks
        , getMintettes
@@ -239,6 +240,13 @@ sendPeriodFinished mintette pId =
             format' "Received period result from mintette {}: \n Blocks: {}\n Logs: {}\n"
             (mintette, listBuilderJSONIndent 2 blks, lgs)
 
+announceNewPeriodToSigner :: WorkMode m => HBlock -> m ()
+announceNewPeriodToSigner mintette hblock = do
+    logInfo $
+        format' "Announce new period to signer, new hblock {}" (hblock)
+    callSigner
+        (P.call (P.RSCSigner P.AnnounceNewPeriodToSigner) hblock)
+
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do
     logInfo $
@@ -413,7 +421,7 @@ getTxSignatures tx addr =
 -- sign. And then dialog pops up.
 pollTxsFromSigner
     :: WorkMode m
-    => [Address] -> m [(Transaction, Address, [(Address, Signature)])]
+    => [Address] -> m [(Address, [(Transaction, [(Address, Signature)])])]
 pollTxsFromSigner addrs =
     withResult infoMessage successMessage $
     callSigner $ P.call (P.RSCSign P.PollTransactions) addrs

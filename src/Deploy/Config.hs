@@ -25,9 +25,9 @@ data DeployConfig = DeployConfig
     } deriving (Show)
 
 data BankData = BankData
-    { bdPort     :: !(Maybe Int)
-    -- , bdProfiling :: !(Maybe ProfilingType)
+    { bdSecret   :: !FilePath
     , bdSeverity :: !(Maybe Severity)
+    -- , bdProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 
 data MintetteData = MintetteData

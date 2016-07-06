@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
@@ -30,7 +29,8 @@ import           Data.Tuple.Select             (sel1, sel2, sel3)
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
-import           RSCoin.Core.Logging           (logWarning, userLoggerName)
+import           RSCoin.Core.Logging           (logInfo, logWarning,
+                                                userLoggerName)
 import           RSCoin.Core.Primitives        (AddrId, Address,
                                                 Transaction (..))
 import           RSCoin.Core.Strategy          (isStrategyCompleted)
@@ -81,11 +81,15 @@ getExtraSignatures
                                      -- means user should send it.
 getExtraSignatures tx requests time = do
     unless checkInput $ error "Wrong input of getExtraSignatures"
-    (waiting,ready) <- partitionEithers <$> mapM perform (M.keys requests)
+    (waiting,ready0) <- partitionEithers <$> mapM perform (M.keys requests)
+    let ready = map snd ready0
+        itsCoolAlready = all fst ready0
     if null waiting
-    then return Nothing
+    then return (if itsCoolAlready then Just (toBundle ready) else Nothing)
     else do
-        timeoutRes <- timeout (sec time) $ pingUntilDead waiting []
+        timeoutRes <- timeout (sec time) $ do
+            logInfo userLoggerName "Waiting for others to sign"
+            pingUntilDead waiting []
         return $ Just $ toBundle $ ready ++ timeoutRes
   where
     lookupMap addr = fromJust $ M.lookup addr requests
@@ -112,18 +116,18 @@ getExtraSignatures tx requests time = do
     -- and addr `addr` and sigs are not ready
     perform :: WorkMode m
             => Address
-            -> m (Either Address (Address, [(Address,Signature)]))
+            -> m (Either Address (Bool, (Address, [(Address,Signature)])))
     perform addr = do
-        let returnRight s = return $ Right (addr,s)
+        let returnRight b s = return $ Right (b,(addr,s))
             strategy = getStrategy addr
             ownSgPair = getOwnSignaturePair addr
         curSigs <- CC.getTxSignatures tx addr
         if isStrategyCompleted strategy addr curSigs tx
-        then returnRight curSigs
+        then returnRight False curSigs
         else do
             afterPublishSigs <- CC.publishTxToSigner tx addr ownSgPair
             if isStrategyCompleted strategy addr afterPublishSigs tx
-            then returnRight afterPublishSigs
+            then returnRight True afterPublishSigs
             else return $ Left addr
 
 -- | Implements V.1 from the paper. For all addrids that are inputs of

@@ -40,8 +40,8 @@ import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
-import           Data.List              (genericIndex, genericLength, elemIndex, nub,
-                                         nubBy, sortOn)
+import           Data.List              (elemIndex, genericIndex, genericLength,
+                                         nub, nubBy, sortOn)
 import qualified Data.Map               as M
 import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing)
 import           Data.Monoid            ((<>))
@@ -49,6 +49,7 @@ import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
 import           Data.Tuple.Select      (sel1, sel2, sel3)
+import           Debug.Trace
 import           Formatting             (build, int, sformat, shown, (%))
 import           Safe                   (atMay)
 
@@ -470,13 +471,21 @@ sendTransactionDo st maybeCache tx signatures = do
             map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head $ sgns))) $
             filter ((/= C.DefaultStrategy) . sel2 . snd) $
             M.assocs signatures
-    extraSignatures <- getExtraSignatures tx nonDefaultAddresses 20
-    when (isJust extraSignatures) $ do
-        let allSignatures :: SignatureBundle
-            allSignatures = M.unionWith joinBundles (fromJust extraSignatures) signatures
-        validateTransaction maybeCache tx allSignatures periodId
+    extraSignatures <- getExtraSignatures tx nonDefaultAddresses 120
+    let allSignatures :: SignatureBundle
+        allSignatures = M.unionWith joinBundles
+                                    (fromMaybe M.empty extraSignatures)
+                                    signatures
+    -- sending transaction only if
+    -- it's "distributed signing" case ⇒ extraSignatures decided so
+    traceM $ "extraSignatures: " ++ show extraSignatures
+    let willWeSend = null nonDefaultAddresses || isJust extraSignatures
+    when willWeSend $ validateTransaction maybeCache tx allSignatures periodId
     update' st $ A.AddTemporaryTransaction periodId tx
-    C.logInfo C.userLoggerName "Successfully sent a transaction!"
+    C.logInfo C.userLoggerName $
+        if willWeSend
+        then "Successfully sent a transaction!"
+        else "Somebody has sent a transaction, won't do it. Maybe retry later."
 
 isRetriableException :: SomeException -> Bool
 isRetriableException e

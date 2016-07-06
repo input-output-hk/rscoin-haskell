@@ -21,6 +21,7 @@ module RSCoin.User.Operations
        , getAllPublicAddresses
        , getTransactionsHistory
        , getLastBlockId
+       , genesisAddressIndex
        , isInitialized
        , updateToBlockHeight
        , updateBlockchain
@@ -39,7 +40,7 @@ import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
-import           Data.List              (genericIndex, genericLength, nub,
+import           Data.List              (genericIndex, genericLength, elemIndex, nub,
                                          nubBy, sortOn)
 import qualified Data.Map               as M
 import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing)
@@ -154,6 +155,13 @@ getAmountByIndex st idx = do
 -- | Returns list of public addresses available
 getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
 getAllPublicAddresses st = query' st A.GetOwnedDefaultAddresses
+
+genesisAddressIndex :: WorkMode m => A.RSCoinUserState -> m (Maybe Word)
+genesisAddressIndex st = do
+    adrList <- getAllPublicAddresses st
+    return $
+        fromIntegral <$>
+        elemIndex C.genesisAddress adrList
 
 -- | Returns transaction history that wallet holds
 getTransactionsHistory

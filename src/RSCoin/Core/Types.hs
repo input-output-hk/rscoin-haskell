@@ -277,6 +277,8 @@ instance Buildable HBlock where
                 , "  dpk: {}\n"
                 , "  addresses: {}\n"
                 , "}\n"]
+instance Buildable [HBlock] where
+  build = listBuilderJSON
 
 type NewMintetteIdPayload = (MintetteId, Utxo, AddressStrategyMap)
 

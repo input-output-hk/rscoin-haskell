@@ -18,7 +18,8 @@ module RSCoin.Core.Communication
        , commitTx
        , sendPeriodFinished
        , announceNewPeriod
-       , announceNewPeriodToSigner
+       , announceNewPeriodsToSigner
+       , getSignerPeriod
        , P.unCps
        , getBlocks
        , getMintettes
@@ -240,12 +241,17 @@ sendPeriodFinished mintette pId =
             format' "Received period result from mintette {}: \n Blocks: {}\n Logs: {}\n"
             (mintette, listBuilderJSONIndent 2 blks, lgs)
 
-announceNewPeriodToSigner :: WorkMode m => HBlock -> m ()
-announceNewPeriodToSigner mintette hblock = do
+announceNewPeriodsToSigner :: WorkMode m => PeriodId -> [HBlock] -> m ()
+announceNewPeriodsToSigner pId' hblocks = do
     logInfo $
-        format' "Announce new period to signer, new hblock {}" (hblock)
+        format' "Announce new periods to signer, hblocks {}, latest periodId {}" (hblocks,pId')
     callSigner
-        (P.call (P.RSCSigner P.AnnounceNewPeriodToSigner) hblock)
+        (P.call (P.RSCSign P.AnnounceNewPeriodsToSigner) pId' hblocks)
+
+getSignerPeriod :: WorkMode m => m PeriodId
+getSignerPeriod = do
+  logInfo "Getting period of Signer"
+  callSigner (P.call (P.RSCSign P.GetSignerPeriod))
 
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do

@@ -25,7 +25,8 @@ import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text       (formatSingle')
 
-import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..), GetLastHBlock (..),
+import           RSCoin.Bank.AcidState    (GetHBlocks (..), GetMintettes (..),
+                                           GetPeriodId (..),
                                            StartNewPeriod (..), State)
 import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            defaultPeriodDelta,
@@ -73,7 +74,6 @@ onPeriodFinished sk st = do
     periodResults <- getPeriodResults mintettes pId
     newPeriodData <- update' st $ StartNewPeriod sk periodResults
     liftIO $ createCheckpoint st
-    newHBlock <- query' st GetLastHBlock
     newMintettes <- query' st GetMintettes
     if null newMintettes
         then logWarning "New mintettes list is empty!"
@@ -92,16 +92,22 @@ onPeriodFinished sk st = do
                 formatSingle'
                     "Announced new period, sent these newPeriodData's:\n{}"
                     newPeriodData
-    C.announceNewPeriodToSigner newHBlock `catch` handlerAnnouncePeriodS
+    announceNewPeriodsToSigner `catch` handlerAnnouncePeriodsS
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)
     handlerAnnouncePeriodM (e :: SomeException) =
         logWarning $
         formatSingle' "Error occurred in communicating with mintette: {}" e
-    handlerAnnouncePeriodS (e :: SomeException) =
+    handlerAnnouncePeriodsS (e :: SomeException) =
         logWarning $
         formatSingle' "Error occurred in communicating with signer: {}" e
+    announceNewPeriodsToSigner = do
+      pId <- C.getSignerPeriod
+      pId' <- query' st GetPeriodId
+      C.announceNewPeriodsToSigner pId' =<< query' st (GetHBlocks pId pId')
+
+
 
 getPeriodResults :: WorkMode m => Mintettes -> PeriodId -> m [Maybe PeriodResult]
 getPeriodResults mts pId = do

@@ -9,18 +9,18 @@ module RSCoin.Signer.AcidState
          -- * acid-state query and update data types
        , GetSignatures (..)
        , AddSignature       (..)
-       , AnnounceNewPeriod (..)
+       , AnnounceNewPeriods (..)
+       , GetPeriodId (..)
        , PollTransactions (..)
+       , AcquireSignatures (..)
          -- * Bracket functions
        , openState
        , openMemState
        , closeState
        ) where
 
-import           Control.Exception     (throw)
-import           Control.Monad.Catch   (MonadThrow (throwM))
-import           Data.Acid             (AcidState, Update, closeAcidState,
-                                        makeAcidic, openLocalStateFrom)
+import           Data.Acid             (AcidState, closeAcidState, makeAcidic,
+                                        openLocalStateFrom)
 import           Data.Acid.Memory      (openMemoryState)
 import           Data.SafeCopy         (base, deriveSafeCopy)
 
@@ -40,12 +40,11 @@ openMemState = openMemoryState S.emptySignerStorage
 closeState :: RSCoinSignerState -> IO ()
 closeState = closeAcidState
 
-instance MonadThrow (Update s) where
-    throwM = throw
-
 $(makeAcidic ''Storage
              [ 'S.addSignature
              , 'S.getSignatures
-             , 'S.announceNewPeriod
+             , 'S.announceNewPeriods
+             , 'S.getPeriodId
              , 'S.pollTransactions
+             , 'S.acquireSignatures
              ])

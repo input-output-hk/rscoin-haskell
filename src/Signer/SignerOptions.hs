@@ -15,7 +15,7 @@ import           Serokell.Util.OptParse (strOption)
 
 import           RSCoin.Core            (PlatformLayout (..), Severity (Error),
                                          defaultBankHost, defaultLayout,
-                                         defaultPort, defaultSecretKeyPath)
+                                         defaultSecretKeyPath)
 
 data Options = Options
     { cliPort        :: Int

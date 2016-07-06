@@ -35,6 +35,7 @@ import           RSCoin.Timed            (WorkMode, for, ms, wait)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..), getAmount,
+                                          getAmountNoUpdate,
                                           submitTransactionRetry,
                                           updateBlockchain)
 import qualified UserOptions             as O
@@ -58,11 +59,12 @@ processCommand
     => U.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ =
     eWrap $
-    do -- get addresses default strategy first
+    do res <- updateBlockchain st False
+       unless res $ C.logInfo C.userLoggerName "Successfully updated blockchain."
        addresses <- query' st U.GetOwnedAddresses
        (wallets :: [(C.PublicKey, C.Strategy, [C.Coin])]) <-
            mapM (\addr -> do
-                      coins <- C.coinsToList <$> getAmount st addr
+                      coins <- C.coinsToList <$> getAmountNoUpdate st addr
                       strategy <- query' st $ U.GetAddressStrategy addr
                       return ( C.getAddress addr
                              , fromMaybe DefaultStrategy strategy

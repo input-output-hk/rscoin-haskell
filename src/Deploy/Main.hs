@@ -1,7 +1,9 @@
 {-# LANGUAGE TupleSections #-}
 
-import           Control.Concurrent       (ThreadId, forkIO, threadDelay)
+import           Control.Concurrent       (ThreadId, forkIO, killThread,
+                                           threadDelay)
 import           Control.Concurrent.Async (mapConcurrently)
+import           Control.Exception        (finally)
 import           Control.Monad            (forM_)
 import           Data.Maybe               (fromMaybe)
 import           Data.String.Conversions  (cs)
@@ -144,7 +146,8 @@ main = do
                     mintettePorts =
                         map (fromMaybe C.defaultPort . mdPort) dcMintettes
                 (mintetteThreads,mintetteKeys) <-
-                    unzip <$> mapConcurrently (startMintette cp) (zip [0 ..] dcMintettes)
+                    unzip <$>
+                    mapConcurrently (startMintette cp) (zip [0 ..] dcMintettes)
                 waitSec 2
-                startBank cp (zip mintettePorts mintetteKeys) bd
-                undefined mintetteThreads
+                startBank cp (zip mintettePorts mintetteKeys) bd `finally`
+                    mapM_ killThread mintetteThreads

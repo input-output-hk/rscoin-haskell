@@ -1,4 +1,4 @@
--- | All possible runtime errors in Mintette
+-- | All possible runtime errors in Signer
 
 module RSCoin.Signer.Error
        ( SignerError (..)

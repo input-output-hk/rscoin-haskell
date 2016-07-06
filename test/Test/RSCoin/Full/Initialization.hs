@@ -133,7 +133,9 @@ initUser user = U.initState (user ^. state) userAddressesCount Nothing
 sendInitialCoins
     :: WorkMode m
     => TestContext -> m ()
-sendInitialCoins ctx = runReaderT (mapM_ doAction actions) ctx
+sendInitialCoins ctx = do
+    genesisIdxs <- mapM U.genesisAddressIndex (map _userState $ _users ctx)
+    runReaderT (mapM_ doAction $ actions genesisIdxs) ctx
   where
     usersNum = length (ctx ^. users)
     addressesCount = userAddressesCount * usersNum + bankUserAddressesCount
@@ -152,12 +154,14 @@ sendInitialCoins ctx = runReaderT (mapM_ doAction actions) ctx
     coloring =
         Just . Coloring . M.fromList . map (, recip (genericLength allColors)) $
         nonZeroColors
-    actions =
+    actions genesisList =
         map
             (\o ->
                   SubmitTransaction
                       Nothing
-                      (NonEmpty [(0, partsToSend)])
+                      (NonEmpty $ zipWith help genesisList (repeat partsToSend))
                       o
                       coloring)
             outputs
+    help (Just genAdrInd) part = (genAdrInd, part)
+    help _ _ = error "[FATAL] RSCoin is broken: genesisAddressIndex return Nothing for bank user"

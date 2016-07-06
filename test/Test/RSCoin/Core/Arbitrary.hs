@@ -9,7 +9,7 @@ module Test.RSCoin.Core.Arbitrary
 
 import qualified Data.Map        as M
 import           Test.QuickCheck (Arbitrary (arbitrary), Gen, NonNegative (..),
-                                  oneof, choose)
+                                  choose, oneof)
 
 import qualified RSCoin.Core     as C
 
@@ -40,7 +40,9 @@ instance Arbitrary C.HBlock where
         pure M.empty
 
 instance Arbitrary C.CheckConfirmation where
-    arbitrary = C.CheckConfirmation <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary =
+        C.CheckConfirmation <$> arbitrary <*> arbitrary <*> arbitrary <*>
+        (abs <$> arbitrary)
 
 instance Arbitrary C.Signature where
     arbitrary = C.sign <$> arbitrary <*> (arbitrary :: Gen String)

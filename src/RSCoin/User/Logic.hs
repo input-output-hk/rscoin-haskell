@@ -21,7 +21,7 @@ import           Data.Either                   (partitionEithers)
 import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
 import           Data.List                     (genericLength, nub)
 import qualified Data.Map                      as M
-import           Data.Maybe                    (catMaybes, fromJust)
+import           Data.Maybe                    (catMaybes, fromJust, mapMaybe)
 import           Data.Monoid                   ((<>))
 import           Data.Time.Units               (Second)
 import           Data.Tuple.Select             (sel1, sel2, sel3)
@@ -158,7 +158,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
             MajorityRejected $
             formatSingle' "Addrid {} doesn't have owners" addrid
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
-        subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid) owns
+        subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid height) owns
         when (length subBundle <= length owns `div` 2) $
             do invalidateCache
                throwM $
@@ -170,8 +170,8 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
         return subBundle
     processMintette
         :: WorkMode m
-        => AddrId -> (Mintette, MintetteId) -> m (Maybe CheckConfirmations)
-    processMintette addrid (mintette,mid) = do
+        => AddrId -> PeriodId -> (Mintette, MintetteId) -> m (Maybe CheckConfirmations)
+    processMintette addrid periodid (mintette,mid) = do
         signedPairMb <-
             rightToMaybe <$>
             (CC.checkNotDoubleSpent mintette tx addrid $
@@ -180,7 +180,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
             signedPairMb >>=
             \proof ->
                  M.singleton (mid, addrid) proof <$
-                 guard (verifyCheckConfirmation proof tx addrid)
+                 guard (verifyCheckConfirmation proof tx addrid periodid)
     commitBundle
         :: WorkMode m
         => CheckConfirmations -> m ()
@@ -196,7 +196,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
                 filter
                     (\(pk,sign,lch) ->
                           verify pk sign (tx, lch)) $
-                catMaybes $ map rightToMaybe $ commitActions
+                mapMaybe rightToMaybe $ commitActions
             failures = filter isLeft commitActions
         unless (null failures) $
             logWarning userLoggerName $

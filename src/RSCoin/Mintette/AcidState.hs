@@ -58,7 +58,6 @@ checkNotDoubleSpent = MS.checkNotDoubleSpent
 
 commitTx :: SecretKey
          -> Transaction
-         -> PeriodId
          -> CheckConfirmations
          -> Update MS.Storage CommitConfirmation
 commitTx = MS.commitTx

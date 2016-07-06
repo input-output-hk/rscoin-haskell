@@ -145,7 +145,6 @@ instance CanUpdate SendGoodTransaction where
     doUpdate SendGoodTransaction{..} = do
         mts <- use mintettesState
         outputs <- use availableOutputs
-        pId <- use periodId
         bankMintettes <- use $ bankState . B.bankStorage . B.getMintettes
         let actualIdx = (fromIntegral sgtInputIdx `mod` length outputs)
             (sk,addrId) = outputs !! actualIdx
@@ -173,7 +172,7 @@ instance CanUpdate SendGoodTransaction where
                 map (flip M.elemAt mts) $ C.owners (M.toList mts) (C.hash tx)
         confirmations <- mapM getConfirmation ownersIn
         let commitTx (m,ms) =
-                liftMintetteUpdate m $ M.commitTx (ms ^. M.mintetteKey) tx pId $
+                liftMintetteUpdate m $ M.commitTx (ms ^. M.mintetteKey) tx $
                 M.fromList confirmations
         mapM_ commitTx ownersOut
         availableOutputs . ix actualIdx .=

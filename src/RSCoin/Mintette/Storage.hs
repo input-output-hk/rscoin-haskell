@@ -36,6 +36,7 @@ module RSCoin.Mintette.Storage
        , logHeads
        , utxoAdded
        , txset
+       , periodId
        ) where
 
 import           Control.Applicative        ((<|>))
@@ -185,19 +186,18 @@ checkNotDoubleSpent sk tx addrId sg = do
         pset %= M.insert addrId tx
         hsh <- uses logHead (snd . fromJust)
         logSz <- use logSize
-        return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
+        pId <- use periodId
+        return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1) pId
 
 -- | Check that transaction is valid and whether it falls within
 -- mintette's remit.  If it's true, add transaction to storage and
 -- return signed confirmation.
 commitTx :: C.SecretKey
          -> C.Transaction
-         -> C.PeriodId
          -> C.CheckConfirmations
          -> ExceptUpdate C.CommitConfirmation
-commitTx sk tx@C.Transaction{..} pId bundle = do
+commitTx sk tx@C.Transaction{..} bundle = do
     checkIsActive
-    checkPeriodId pId
     checkTxSum tx
     mts <- use mintettes
     mId <- fromJust <$> use mintetteId
@@ -210,12 +210,13 @@ commitTx sk tx@C.Transaction{..} pId bundle = do
     return res
   where
     checkInputConfirmed mts curDpk addrid = do
+        pId <- use periodId
         let addridOwners = owners mts (sel1 addrid)
             ownerConfirmed owner =
                 maybe
                     False
                     (\proof ->
-                          verifyCheckConfirmation proof tx addrid &&
+                          verifyCheckConfirmation proof tx addrid pId &&
                           verifyDpk curDpk owner proof) $
                 M.lookup (owner, addrid) bundle
             filtered = filter ownerConfirmed addridOwners

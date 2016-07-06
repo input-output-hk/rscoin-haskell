@@ -20,8 +20,8 @@ import           RSCoin.Core                       (AddrId, Address,
                                                     CheckConfirmation,
                                                     CheckConfirmations,
                                                     CommitConfirmation,
-                                                    PeriodId, SecretKey,
-                                                    Signature, Transaction)
+                                                    SecretKey, Signature,
+                                                    Transaction)
 import           RSCoin.Mintette.AcidState         (State)
 import qualified RSCoin.Mintette.AcidState         as OMA
 import qualified RSCoin.Mintette.Storage           as OMS
@@ -51,7 +51,6 @@ commitTx
     :: MintetteConfig
     -> SecretKey
     -> Transaction
-    -> PeriodId
     -> CheckConfirmations
     -> Update OMS.Storage CommitConfirmation
 commitTx = MS.commitTx

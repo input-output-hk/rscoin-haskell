@@ -94,6 +94,7 @@ data CheckConfirmation = CheckConfirmation
     { ccMintetteKey       :: !PublicKey      -- ^ key of corresponding mintette
     , ccMintetteSignature :: !Signature      -- ^ signature for (tx, addrid, head)
     , ccHead              :: !ActionLogHead  -- ^ head of log
+    , ccPeriodId          :: !PeriodId       -- ^ period id when confirmation was made
     } deriving (Show, Eq)
 
 instance Binary CheckConfirmation where
@@ -101,7 +102,8 @@ instance Binary CheckConfirmation where
         put ccMintetteKey
         put ccMintetteSignature
         put ccHead
-    get = CheckConfirmation <$> get <*> get <*> get
+        put ccPeriodId
+    get = CheckConfirmation <$> get <*> get <*> get <*> get
 
 instance Buildable CheckConfirmation where
     build CheckConfirmation{..} =

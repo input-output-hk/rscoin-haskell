@@ -23,6 +23,7 @@ import qualified RSCoin.Mintette.Server           as OMS
 import           RSCoin.Timed                     (ServerT, WorkMode,
                                                    serverTypeRestriction0,
                                                    serverTypeRestriction1,
+                                                   serverTypeRestriction2,
                                                    serverTypeRestriction3)
 
 import qualified Test.RSCoin.Full.Mintette.Acidic as MA
@@ -42,7 +43,7 @@ serve conf port st sk = do
     idr1 <- serverTypeRestriction1
     idr2 <- serverTypeRestriction1
     idr3 <- serverTypeRestriction3
-    idr4 <- serverTypeRestriction3
+    idr4 <- serverTypeRestriction2
     idr5 <- serverTypeRestriction0
     idr6 <- serverTypeRestriction1
     idr7 <- serverTypeRestriction1
@@ -106,17 +107,14 @@ handleCommitTx
     -> State
     -> MintetteConfig
     -> C.Transaction
-    -> C.PeriodId
     -> C.CheckConfirmations
     -> ServerT m (Maybe C.CommitConfirmation)
-handleCommitTx sk st conf tx pId cc =
+handleCommitTx sk st conf tx cc =
     toServer $
     do logDebug $
-           format'
-               "There is an attempt to commit transaction ({}), provided periodId is {}."
-               (tx, pId)
+           formatSingle' "There is an attempt to commit transaction ({})" tx
        logDebug $ formatSingle' "Here are confirmations: {}" cc
-       res <- try $ update' st $ MA.CommitTx conf sk tx pId cc
+       res <- try $ update' st $ MA.CommitTx conf sk tx cc
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do

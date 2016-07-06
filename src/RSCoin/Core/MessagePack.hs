@@ -25,9 +25,6 @@ fromInt = fromIntegral
 uncurry2 :: (a -> b -> c) -> (a, b) -> c
 uncurry2 = uncurryN
 
-uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
-uncurry3 = uncurryN
-
 uncurry4 :: (a -> b -> c -> d -> e) -> (a, b, c, d) -> e
 uncurry4 = uncurryN
 
@@ -35,7 +32,7 @@ uncurry5 :: (a -> b -> c -> d -> e -> f) -> (a, b, c, d, e) -> f
 uncurry5 = uncurryN
 
 -- msgpack library we use is awful :(
--- RЕАЛLY IT"S SО AWFUЛ
+-- RЕАЛLY IT"S S0 AWFUЛ
 instance MessagePack Int64 where
     toObject = toObject . toInt
     fromObject = fmap fromInt . fromObject
@@ -90,8 +87,8 @@ instance MessagePack C.Transaction where
 
 instance MessagePack C.CheckConfirmation where
     toObject C.CheckConfirmation{..} =
-        toObject (ccMintetteKey, ccMintetteSignature, ccHead)
-    fromObject = fmap (uncurry3 C.CheckConfirmation) . fromObject
+        toObject (ccMintetteKey, ccMintetteSignature, ccHead, ccPeriodId)
+    fromObject = fmap (uncurry4 C.CheckConfirmation) . fromObject
 
 instance MessagePack C.HBlock where
     toObject C.HBlock {..} =

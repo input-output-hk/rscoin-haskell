@@ -39,9 +39,10 @@ import           RSCoin.Mintette.Storage          (Storage, addresses,
                                                    checkIsActive, checkPeriodId,
                                                    checkTxSum, dpk, logHead,
                                                    logHeads, logSize,
-                                                   mintetteId, mintettes, pset,
-                                                   pushLogEntry, txset, utxo,
-                                                   utxoAdded, utxoDeleted)
+                                                   mintetteId, mintettes,
+                                                   periodId, pset, pushLogEntry,
+                                                   txset, utxo, utxoAdded,
+                                                   utxoDeleted)
 
 import           Test.RSCoin.Full.Mintette.Config (MintetteConfig (..))
 
@@ -88,11 +89,12 @@ checkNotDoubleSpent conf sk tx addrId sg = do
         finalize
       | otherwise = finalize
     finalize = do
+        pId <- use periodId
         hsh <- uses logHead (snd . fromJust)
         logSz <- use logSize
         if inverseCheckTx conf
         then throwM $ MENotUnspent addrId
-        else return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
+        else return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1) pId
 
 -- | Check that transaction is valid and whether it falls within
 -- mintette's remit.  If it's true, add transaction to storage and
@@ -100,12 +102,10 @@ checkNotDoubleSpent conf sk tx addrId sg = do
 commitTx :: MintetteConfig
          -> SecretKey
          -> Transaction
-         -> PeriodId
          -> C.CheckConfirmations
          -> ExceptUpdate C.CommitConfirmation
-commitTx conf sk tx@Transaction{..} pId bundle = do
+commitTx conf sk tx@Transaction{..} bundle = do
     unless (checkActive conf) checkIsActive
-    checkPeriodId pId
     checkTxSum tx
     mts <- use mintettes
     mId <- fromJust <$> use mintetteId
@@ -120,12 +120,13 @@ commitTx conf sk tx@Transaction{..} pId bundle = do
     checkInputConfirmed _ _ _
       | skipChecksCommitTx conf = return True
     checkInputConfirmed mts curDpk addrid = do
+        pId <- use periodId
         let addridOwners = owners mts (sel1 addrid)
             ownerConfirmed owner =
                 maybe
                     False
                     (\proof ->
-                          verifyCheckConfirmation proof tx addrid &&
+                          verifyCheckConfirmation proof tx addrid pId &&
                           verifyDpk curDpk owner proof) $
                 M.lookup (owner, addrid) bundle
             filtered = filter ownerConfirmed addridOwners

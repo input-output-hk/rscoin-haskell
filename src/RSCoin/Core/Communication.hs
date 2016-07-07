@@ -211,16 +211,15 @@ commitTx
     :: WorkMode m
     => Mintette
     -> Transaction
-    -> PeriodId
     -> CheckConfirmations
     -> m (Either MintetteError CommitConfirmation)
-commitTx m tx pId cc =
+commitTx m tx cc =
     withResult infoMessage (either onError onSuccess) $
-    callMintette m $ P.call (P.RSCMintette P.CommitTx) tx pId cc
+    callMintette m $ P.call (P.RSCMintette P.CommitTx) tx cc
   where
     infoMessage =
         logInfo $
-        format' "Commit transaction {}, provided periodId is {}" (tx, pId)
+        formatSingle' "Commit transaction {}" tx
     onError e =
         logFunction e $ formatSingle' "Commit tx failed: {}" e
     onSuccess _ =

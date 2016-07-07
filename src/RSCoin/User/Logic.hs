@@ -189,7 +189,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
         commitActions <-
             mapM
                 (\(mintette,_) ->
-                      CC.commitTx mintette tx height bundle)
+                      CC.commitTx mintette tx bundle)
                 owns
         let succeededCommits :: [CommitConfirmation]
             succeededCommits =

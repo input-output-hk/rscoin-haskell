@@ -25,9 +25,9 @@ import           Control.Monad         (unless)
 import           Control.Monad.Catch   (MonadThrow (throwM))
 import           Control.Monad.Reader  (MonadReader)
 import           Control.Monad.State   (MonadState)
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.HashSet          as HS
+import qualified Data.Map.Strict       as M
 import           Data.Maybe            (fromMaybe)
+import qualified Data.Set              as S
 import           Data.Tuple.Select     (sel3)
 
 import qualified RSCoin.Core           as C
@@ -35,7 +35,7 @@ import qualified RSCoin.Core           as C
 import           RSCoin.Explorer.Error (ExplorerError (..))
 
 data Storage = Storage
-    { _assets       :: HM.HashMap C.Address (HS.HashSet C.AddrId)
+    { _assets       :: M.Map C.Address (S.Set C.AddrId)
     , _lastPeriodId :: Maybe C.PeriodId
     } deriving (Show)
 
@@ -45,7 +45,7 @@ $(makeLenses ''Storage)
 mkStorage :: Storage
 mkStorage =
     Storage
-    { _assets = HM.empty
+    { _assets = M.empty
     , _lastPeriodId = Nothing
     }
 
@@ -54,9 +54,9 @@ type Query a = forall m. MonadReader Storage m => m a
 -- | Get amount of coins (as CoinsMap) available from given address.
 getAddressCoins :: C.Address -> Query C.CoinsMap
 getAddressCoins addr =
-    views assets $ accumulateAddrIds . HM.lookupDefault HS.empty addr
+    views assets $ accumulateAddrIds . M.findWithDefault S.empty addr
   where
-    accumulateAddrIds = C.coinsToMap . map sel3 . HS.toList
+    accumulateAddrIds = C.coinsToMap . map sel3 . S.toList
 
 -- | Get PeriodId of last add HBlock.
 getLastPeriodId :: Query (Maybe C.PeriodId)
@@ -83,9 +83,9 @@ addHBlock pId C.HBlock{..} = do
 applyTransaction :: C.Transaction -> ExceptUpdate ()
 applyTransaction tx@C.Transaction{..} = do
     let removeInput addrId = assets %= removeInputPure addrId
-        removeInputPure addrId = HM.map $ HS.delete addrId  -- TODO: its inefficient obviously
+        removeInputPure addrId = M.map $ S.delete addrId  -- TODO: its inefficient obviously
         addOutput addrId address = assets %= addOutputPure addrId address
         addOutputPure addrId address =
-            HM.alter (Just . HS.insert addrId . fromMaybe HS.empty) address
+            M.alter (Just . S.insert addrId . fromMaybe S.empty) address
     mapM_ removeInput txInputs
     mapM_ (uncurry addOutput) $ C.computeOutputAddrids tx

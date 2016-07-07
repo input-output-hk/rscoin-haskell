@@ -80,6 +80,7 @@ library
                      , RSCoin.Core.Crypto.Signing
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
+                     , RSCoin.Explorer.AcidState
                      , RSCoin.Explorer.Storage
                      , RSCoin.User.AcidState
                      , RSCoin.User.Cache

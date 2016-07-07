@@ -9,6 +9,8 @@ module RSCoin.Core.Types
        , Mintette (..)
        , Mintettes
        , MintetteId
+       , Explorer (..)
+       , Explorers
        , ActionLogHead
        , ActionLogHeads
        , CheckConfirmation (..)
@@ -35,6 +37,7 @@ import           Data.Text.Buildable    (Buildable (build))
 import qualified Data.Text.Format       as F
 import           Data.Text.Lazy.Builder (Builder)
 import           Data.Word              (Word8)
+import           Formatting             (bprint, int, string, (%))
 
 import           Serokell.Util.Text     (listBuilderJSON, listBuilderJSONIndent,
                                          mapBuilder, pairBuilder)
@@ -73,6 +76,30 @@ instance Buildable Mintettes where
 -- | Mintette is identified by it's index in mintettes list stored by Bank.
 -- This id doesn't change over period, but may change between periods.
 type MintetteId = Int
+
+-- | All the information about a particular block explorer.
+data Explorer = Explorer
+    { explorerHost :: !String
+    , explorerPort :: !Int
+    } deriving (Show,Eq)
+
+instance Binary Explorer where
+    put Explorer {..} = do
+        put explorerHost
+        put explorerPort
+    get = Explorer <$> get <*> get
+
+$(deriveSafeCopy 0 'base ''Explorer)
+
+instance Buildable Explorer where
+    build Explorer{..} =
+        bprint
+            ("Explorer (" % string % ":" % int % ")")
+            explorerHost
+            explorerPort
+
+-- | List of explorers is stored by bank.
+type Explorers = [Explorer]
 
 -- | Each mintette has a log of actions along with hash which is chained.
 -- Head of this log is represented by pair of hash and sequence number.

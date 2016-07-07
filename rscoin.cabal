@@ -48,6 +48,7 @@ library
                      , RSCoin.Core.Types
                      , RSCoin.Explorer
                      , RSCoin.Explorer.Error
+                     , RSCoin.Explorer.Server
                      , RSCoin.Mintette
                      , RSCoin.Mintette.Acidic
                      , RSCoin.Mintette.AcidState

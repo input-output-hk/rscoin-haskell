@@ -72,6 +72,9 @@ library
                      , RSCoin.Bank.AcidState
                      , RSCoin.Bank.Launcher
                      , RSCoin.Bank.Server
+                     , RSCoin.Bank.Storage.Explorers
+                     , RSCoin.Bank.Storage.Mintettes
+                     , RSCoin.Bank.Storage.Whole
                      , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Communication

@@ -25,7 +25,6 @@ import           Control.Monad.Catch (MonadThrow (throwM))
 import           Data.Acid           (AcidState, Query, Update, closeAcidState,
                                       makeAcidic, openLocalStateFrom)
 import           Data.Acid.Memory    (openMemoryState)
-import           Data.SafeCopy       (base, deriveSafeCopy)
 
 import           RSCoin.Core         (ActionLog, HBlock, Mintette, MintetteId,
                                       Mintettes, NewPeriodData, PeriodId,
@@ -35,9 +34,6 @@ import           RSCoin.Core         (ActionLog, HBlock, Mintette, MintetteId,
 import qualified RSCoin.Bank.Storage as BS
 
 type State = AcidState BS.Storage
-
-$(deriveSafeCopy 0 'base ''BS.DeadMintetteState)
-$(deriveSafeCopy 0 'base ''BS.Storage)
 
 openState :: FilePath -> IO State
 openState fp = openLocalStateFrom fp BS.mkStorage

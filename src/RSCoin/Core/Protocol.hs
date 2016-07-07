@@ -86,6 +86,8 @@ data SignerMethod
     = PublishTransaction
     | PollTransactions
     | GetSignatures
+    | GetSignerPeriod
+    | AnnounceNewPeriodsToSigner
     deriving (Show)
 
 type Server a = T.Server a

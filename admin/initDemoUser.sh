@@ -1,4 +1,4 @@
-paths=$1
+paths=$@
 
 if [[ "$paths" == "" ]]; then
   paths=wallet-db-user

@@ -63,6 +63,7 @@ library
                      , RSCoin.Signer.AcidState
                      , RSCoin.Signer.Server
                      , RSCoin.Signer.Storage
+                     , RSCoin.Signer.Error
                      , RSCoin.Timed
                      , RSCoin.Timed.MonadTimed
                      , RSCoin.Timed.MonadRpc

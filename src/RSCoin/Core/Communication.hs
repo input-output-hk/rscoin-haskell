@@ -18,6 +18,8 @@ module RSCoin.Core.Communication
        , commitTx
        , sendPeriodFinished
        , announceNewPeriod
+       , announceNewPeriodsToSigner
+       , getSignerPeriod
        , P.unCps
        , getBlocks
        , getMintettes
@@ -209,16 +211,15 @@ commitTx
     :: WorkMode m
     => Mintette
     -> Transaction
-    -> PeriodId
     -> CheckConfirmations
     -> m (Either MintetteError CommitConfirmation)
-commitTx m tx pId cc =
+commitTx m tx cc =
     withResult infoMessage (either onError onSuccess) $
-    callMintette m $ P.call (P.RSCMintette P.CommitTx) tx pId cc
+    callMintette m $ P.call (P.RSCMintette P.CommitTx) tx cc
   where
     infoMessage =
         logInfo $
-        format' "Commit transaction {}, provided periodId is {}" (tx, pId)
+        formatSingle' "Commit transaction {}" tx
     onError e =
         logFunction e $ formatSingle' "Commit tx failed: {}" e
     onSuccess _ =
@@ -238,6 +239,18 @@ sendPeriodFinished mintette pId =
         logInfo $
             format' "Received period result from mintette {}: \n Blocks: {}\n Logs: {}\n"
             (mintette, listBuilderJSONIndent 2 blks, lgs)
+
+announceNewPeriodsToSigner :: WorkMode m => PeriodId -> [HBlock] -> m ()
+announceNewPeriodsToSigner pId' hblocks = do
+    logInfo $
+        format' "Announce new periods to signer, hblocks {}, latest periodId {}" (hblocks,pId')
+    callSigner
+        (P.call (P.RSCSign P.AnnounceNewPeriodsToSigner) pId' hblocks)
+
+getSignerPeriod :: WorkMode m => m PeriodId
+getSignerPeriod = do
+  logInfo "Getting period of Signer"
+  callSigner (P.call (P.RSCSign P.GetSignerPeriod))
 
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do
@@ -413,7 +426,7 @@ getTxSignatures tx addr =
 -- sign. And then dialog pops up.
 pollTxsFromSigner
     :: WorkMode m
-    => [Address] -> m [(Transaction, Address, [(Address, Signature)])]
+    => [Address] -> m [(Address, [(Transaction, [(Address, Signature)])])]
 pollTxsFromSigner addrs =
     withResult infoMessage successMessage $
     callSigner $ P.call (P.RSCSign P.PollTransactions) addrs

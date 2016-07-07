@@ -25,7 +25,8 @@ import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text       (formatSingle')
 
-import           RSCoin.Bank.AcidState    (GetMintettes (..), GetPeriodId (..),
+import           RSCoin.Bank.AcidState    (GetHBlocks (..), GetMintettes (..),
+                                           GetPeriodId (..),
                                            StartNewPeriod (..), State)
 import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            defaultPeriodDelta,
@@ -80,7 +81,7 @@ onPeriodFinished sk st = do
             mapM_
                 (\(m,mId) ->
                       C.announceNewPeriod m (newPeriodData !! mId) `catch`
-                      handlerAnnouncePeriod)
+                      handlerAnnouncePeriodM)
                 (zip newMintettes [0 ..])
             logInfo $
                 formatSingle'
@@ -91,12 +92,22 @@ onPeriodFinished sk st = do
                 formatSingle'
                     "Announced new period, sent these newPeriodData's:\n{}"
                     newPeriodData
+    announceNewPeriodsToSigner `catch` handlerAnnouncePeriodsS
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)
-    handlerAnnouncePeriod (e :: SomeException) =
+    handlerAnnouncePeriodM (e :: SomeException) =
         logWarning $
-        formatSingle' "Error occurred in communicating with mintette {}" e
+        formatSingle' "Error occurred in communicating with mintette: {}" e
+    handlerAnnouncePeriodsS (e :: SomeException) =
+        logWarning $
+        formatSingle' "Error occurred in communicating with signer: {}" e
+    announceNewPeriodsToSigner = do
+      pId <- C.getSignerPeriod
+      pId' <- query' st GetPeriodId
+      C.announceNewPeriodsToSigner pId' =<< query' st (GetHBlocks pId pId')
+
+
 
 getPeriodResults :: WorkMode m => Mintettes -> PeriodId -> m [Maybe PeriodResult]
 getPeriodResults mts pId = do

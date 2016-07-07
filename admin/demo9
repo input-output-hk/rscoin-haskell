@@ -29,8 +29,7 @@ _wd="$(pwd)"
 #_post_hook_maybe=$([ -f "shell.nix" ] && echo "nix-shell")
 
 TMUX="$(tmux new-session -d -s "$_session" -n project)"
-tmux new-window -c "$_wd" -t "${_session}:1" -n build
-tmux new-window -c "$_wd" -t "${_session}:2" -n git
+tmux new-window -c "$_wd" -t "${_session}:2" -n signer
 tmux new-window -c "$_wd" -t "${_session}:3" -n mintette12
 tmux new-window -c "$_wd" -t "${_session}:4" -n mintette34 
 tmux new-window -c "$_wd" -t "${_session}:5" -n mintette56
@@ -38,14 +37,14 @@ tmux new-window -c "$_wd" -t "${_session}:6" -n mintette78
 tmux new-window -c "$_wd" -t "${_session}:7" -n mintette9userd
 tmux new-window -c "$_wd" -t "${_session}:8" -n bank
 
-tmux send-keys -t "${_session}:0" "cd src/" C-m
-tmux send-keys -t "${_session}:0" "vim ." C-m
-tmux send-keys -t "${_session}:2" "git log --graph --decorate --all -n7 | grep ." C-m
+tmux send-keys -t "${_session}:0" "admin/initDemoUser.sh demouser2-db demouser1-db" C-m
 if [ ! -z "$_post_hook_maybe" ]; then
   for x in {2..5}; do
     tmux send-keys -t "${_session}:${x}" "$_post_hook_maybe" C-m
   done
 fi
+
+tmux send-keys -t "${_session}:2" "rscoin-signer --log-severity Debug" C-m
 
 tmux send-keys       -t "${_session}:3" "admin/runAsMintette.sh 1" C-m
 tmux split-window -h -t "${_session}:3"
@@ -68,7 +67,7 @@ tmux split-window -h -t "${_session}:7"
 tmux send-keys       -t "${_session}:7" "sleep 12; admin/watchBlockchainUpdates.sh" C-m
 
 # TODO: Spawn UI attached to wallet located at ./wallet-db-user down here ```````````````````````v
-tmux send-keys       -t "${_session}:8" "sleep 11; admin/initDemoUser.sh demouser2-db demouser1-db && admin/initBankUser.sh && { rscoin-user start-gui --guidb-path=demouser1-gui-db --wallet-path=demouser2-db & rscoin-user start-gui --guidb-path=demouser2-gui-db --wallet-path=demouser1-db & }" C-m
+tmux send-keys       -t "${_session}:8" "sleep 11; admin/initBankUser.sh" C-m
 tmux split-window -h -t "${_session}:8"
 tmux send-keys       -t "${_session}:8" "sleep 10; rscoin-bank --log-severity Debug serve" C-m
 

@@ -46,6 +46,8 @@ library
                      , RSCoin.Core.Primitives
                      , RSCoin.Core.Transaction
                      , RSCoin.Core.Types
+                     , RSCoin.Explorer
+                     , RSCoin.Explorer.Error
                      , RSCoin.Mintette
                      , RSCoin.Mintette.Acidic
                      , RSCoin.Mintette.AcidState
@@ -53,11 +55,6 @@ library
                      , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
                      , RSCoin.Mintette.Worker
-                     , RSCoin.User
-                     , RSCoin.User.Error
-                     , RSCoin.User.Logic
-                     , RSCoin.User.Operations
-                     , RSCoin.User.Wallet
                      , RSCoin.Timed
                      , RSCoin.Timed.MonadTimed
                      , RSCoin.Timed.MonadRpc
@@ -65,6 +62,11 @@ library
                      , RSCoin.Timed.Timed
                      , RSCoin.Timed.TimedIO
                      , RSCoin.Timed.Misc
+                     , RSCoin.User
+                     , RSCoin.User.Error
+                     , RSCoin.User.Logic
+                     , RSCoin.User.Operations
+                     , RSCoin.User.Wallet
   other-modules:       Paths_rscoin
                      , RSCoin.Bank.AcidState
                      , RSCoin.Bank.Launcher
@@ -78,6 +80,7 @@ library
                      , RSCoin.Core.Crypto.Signing
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
+                     , RSCoin.Explorer.Storage
                      , RSCoin.User.AcidState
                      , RSCoin.User.Cache
   build-depends:       acid-state

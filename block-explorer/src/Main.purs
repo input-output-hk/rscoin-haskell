@@ -9,6 +9,16 @@ import React.DOM as R
 import React.DOM.Props as RP
 import ReactDOM as RDOM
 
+import Control.Monad.Eff (Eff)
+import DOM (DOM) as DOM
+import DOM.HTML (window) as DOM
+import DOM.HTML.Types (htmlDocumentToParentNode) as DOM
+import DOM.HTML.Window (document) as DOM
+import DOM.Node.ParentNode (querySelector) as DOM
+
+import Data.Maybe (fromJust)
+import Data.Nullable (toMaybe)
+import Partial.Unsafe (unsafePartial)
 
 data Action = Increment | Decrement
 
@@ -36,6 +46,9 @@ performAction Decrement _ _ = void $ T.cotransform $ \state -> state { counter =
 spec :: T.Spec _ State _ Action
 spec = T.simpleSpec performAction render
 
-main = do
+main :: Eff (dom :: DOM.DOM) Unit
+main = void do
     let component = T.createClass spec initialState
-    body >>= RDOM.render (R.createFactory component {}) -- this is not working
+    document <- DOM.window >>= DOM.document
+    container <- unsafePartial (fromJust <<< toMaybe <$> DOM.querySelector "#container" (DOM.htmlDocumentToParentNode document))
+    RDOM.render (R.createFactory component {}) container

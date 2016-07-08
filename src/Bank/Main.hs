@@ -4,9 +4,10 @@ import qualified Data.Text       as T
 import           Data.Time.Units (Second)
 
 import qualified RSCoin.Bank     as B
-import           RSCoin.Core     (Mintette (Mintette), bankLoggerName,
-                                  constructPublicKey, initLogging, logWarning,
-                                  readPublicKey, readSecretKey)
+import           RSCoin.Core     (Explorer (..), Mintette (Mintette),
+                                  bankLoggerName, constructPublicKey,
+                                  initLogging, logWarning, readPublicKey,
+                                  readSecretKey)
 
 import qualified Options         as Opts
 
@@ -20,6 +21,16 @@ main = do
             k <-
                 maybe (readPublicKeyFallback pk) return $ constructPublicKey pk
             B.addMintetteIO cloPath m k
+        Opts.AddExplorer name port pk pId -> do
+            k <-
+                maybe (readPublicKeyFallback pk) return $ constructPublicKey pk
+            let e =
+                    Explorer
+                    { explorerHost = name
+                    , explorerPort = port
+                    , explorerKey = k
+                    }
+            B.addExplorerIO cloPath e pId
         Opts.Serve skPath -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
             B.launchBankReal periodDelta cloPath =<< readSecretKey skPath

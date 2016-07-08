@@ -8,6 +8,7 @@ module RSCoin.Bank.Launcher
        , launchBankReal
        , launchBank
        , addMintetteIO
+       , addExplorerIO
        ) where
 
 import           Control.Monad.Catch   (bracket)
@@ -16,11 +17,13 @@ import           Data.Acid.Advanced    (update')
 import           Data.Functor          (void)
 import           Data.Time.Units       (TimeUnit)
 
-import           RSCoin.Core           (Mintette, PublicKey, SecretKey)
+import           RSCoin.Core           (Explorer, Mintette, PeriodId, PublicKey,
+                                        SecretKey)
 import           RSCoin.Timed          (MsgPackRpc, ThreadId, WorkMode, fork,
                                         killThread, runRealModeLocal)
 
-import           RSCoin.Bank.AcidState (AddMintette (AddMintette), State,
+import           RSCoin.Bank.AcidState (AddExplorer (AddExplorer),
+                                        AddMintette (AddMintette), State,
                                         closeState, openState)
 import           RSCoin.Bank.Server    (serve)
 import           RSCoin.Bank.Worker    (runWorkerWithPeriod)
@@ -48,3 +51,7 @@ launchBank periodDelta sk st = do
 addMintetteIO :: FilePath -> Mintette -> PublicKey -> IO ()
 addMintetteIO storagePath m k =
     bankWrapperReal storagePath $ flip update' (AddMintette m k)
+
+addExplorerIO :: FilePath -> Explorer -> PeriodId -> IO ()
+addExplorerIO storagePath e pId =
+    bankWrapperReal storagePath $ flip update' (AddExplorer e pId)

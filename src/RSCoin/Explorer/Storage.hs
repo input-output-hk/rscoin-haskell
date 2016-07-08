@@ -12,6 +12,7 @@ module RSCoin.Explorer.Storage
        , Query
        , getAddressCoins
        , getLastPeriodId
+       , getTx
 
        , Update
        , ExceptUpdate
@@ -19,7 +20,7 @@ module RSCoin.Explorer.Storage
 
        ) where
 
-import           Control.Lens          (makeLenses, use, view, views, (%=),
+import           Control.Lens          (at, makeLenses, use, view, views, (%=),
                                         (.=))
 import           Control.Monad         (unless)
 import           Control.Monad.Catch   (MonadThrow (throwM))
@@ -35,8 +36,11 @@ import qualified RSCoin.Core           as C
 import           RSCoin.Explorer.Error (ExplorerError (..))
 
 data Storage = Storage
-    { _assets       :: M.Map C.Address (S.Set C.AddrId)
-    , _lastPeriodId :: Maybe C.PeriodId
+    { _assets         :: M.Map C.Address (S.Set C.AddrId)
+    , _lastPeriodId   :: Maybe C.PeriodId
+    ,
+      -- | Mapping from transaction id to actual transaction with this id.
+      _transactionMap :: M.Map C.TransactionId C.Transaction
     } deriving (Show)
 
 $(makeLenses ''Storage)
@@ -47,6 +51,7 @@ mkStorage =
     Storage
     { _assets = M.empty
     , _lastPeriodId = Nothing
+    , _transactionMap = M.empty
     }
 
 type Query a = forall m. MonadReader Storage m => m a
@@ -58,9 +63,13 @@ getAddressCoins addr =
   where
     accumulateAddrIds = C.coinsToMap . map sel3 . S.toList
 
--- | Get PeriodId of last add HBlock.
+-- | Get PeriodId of last added HBlock.
 getLastPeriodId :: Query (Maybe C.PeriodId)
 getLastPeriodId = view lastPeriodId
+
+-- | Get transaction with given id (if it can be found).
+getTx :: C.TransactionId -> Query (Maybe C.Transaction)
+getTx i = view $ transactionMap . at i
 
 type Update a = forall m. MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
@@ -87,5 +96,6 @@ applyTransaction tx@C.Transaction{..} = do
         addOutput addrId address = assets %= addOutputPure addrId address
         addOutputPure addrId address =
             M.alter (Just . S.insert addrId . fromMaybe S.empty) address
+    transactionMap . at (C.hash tx) .= Just tx
     mapM_ removeInput txInputs
     mapM_ (uncurry addOutput) $ C.computeOutputAddrids tx

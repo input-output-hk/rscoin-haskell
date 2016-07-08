@@ -247,6 +247,7 @@ executable rscoin-explorer
   main-is:             Main.hs
   other-modules:       ExplorerOptions
   build-depends:       base
+                     , bytestring
                      , mtl >= 2.2.1
                      , optparse-applicative
                      , rscoin

@@ -9,22 +9,22 @@ module RSCoin.Explorer.Launcher
 
 import           Control.Monad.Catch       (bracket)
 import           Control.Monad.Trans       (liftIO)
+import           Data.ByteString           (ByteString)
 
 import           RSCoin.Core               (SecretKey)
-import           RSCoin.Timed              (MsgPackRpc, WorkMode,
-                                            runRealModeLocal)
+import           RSCoin.Timed              (MsgPackRpc, WorkMode, runRealMode)
 
 import           RSCoin.Explorer.AcidState (State, closeState, openState)
 import           RSCoin.Explorer.Server    (serve)
 
-explorerWrapperReal :: FilePath -> (State -> MsgPackRpc a) -> IO a
-explorerWrapperReal storagePath =
-    runRealModeLocal .
+explorerWrapperReal :: ByteString -> FilePath -> (State -> MsgPackRpc a) -> IO a
+explorerWrapperReal bankHost storagePath =
+    runRealMode bankHost .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
-launchExplorerReal :: Int -> FilePath -> SecretKey -> IO ()
-launchExplorerReal port storagePath sk =
-    explorerWrapperReal storagePath $ launchExplorer port sk
+launchExplorerReal :: ByteString -> Int -> FilePath -> SecretKey -> IO ()
+launchExplorerReal bankHost port storagePath sk =
+    explorerWrapperReal bankHost storagePath $ launchExplorer port sk
 
 launchExplorer
     :: WorkMode m

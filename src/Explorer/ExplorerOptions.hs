@@ -5,20 +5,23 @@ module ExplorerOptions
        , getOptions
        ) where
 
+import           Data.ByteString        (ByteString)
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, metavar,
                                          option, progDesc, short, showDefault,
                                          value, (<>))
+
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultPort,
-                                         defaultSecretKeyPath)
+import           RSCoin.Core            (Severity (Error), defaultBankHost,
+                                         defaultPort, defaultSecretKeyPath)
 
 data Options = Options
     { cloPort          :: Int
     , cloPath          :: FilePath
     , cloSecretKeyPath :: FilePath
     , cloLogSeverity   :: Severity
+    , cloBankHost      :: ByteString
     }
 
 optionsParser :: FilePath -> Parser Options
@@ -42,7 +45,13 @@ optionsParser defaultSKPath =
              [ long "log-severity"
              , value Error
              , showDefault
-             , help "Logging severity"])
+             , help "Logging severity"]) <*>
+    strOption
+        (mconcat
+             [ long "bank-host"
+             , value defaultBankHost
+             , showDefault
+             , help "Host name for bank"])
 
 getOptions :: IO Options
 getOptions = do

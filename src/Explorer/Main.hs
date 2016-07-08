@@ -8,4 +8,4 @@ main = do
     Options{..} <- getOptions
     C.initLogging cloLogSeverity
     sk <- C.readSecretKey cloSecretKeyPath
-    E.launchExplorerReal cloPort cloPath sk
+    E.launchExplorerReal cloBankHost cloPort cloPath sk

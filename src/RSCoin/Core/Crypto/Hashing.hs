@@ -9,6 +9,7 @@ module RSCoin.Core.Crypto.Hashing
        ) where
 
 import qualified Crypto.Hash.BLAKE2.BLAKE2b as BLAKE2
+import           Data.Aeson                 (ToJSON (toJSON))
 import           Data.Binary                (Binary, encode)
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString.Base64     as B64
@@ -19,6 +20,8 @@ import           Data.SafeCopy              (base, deriveSafeCopy)
 import           Data.String                (IsString)
 import           Data.Text.Buildable        (Buildable (build))
 import qualified Data.Text.Format           as F
+
+import           Serokell.Util              (show')
 
 -- | Hash is just a ByteString.
 newtype Hash =
@@ -38,3 +41,6 @@ blake2b256 bs = BLAKE2.finalize l $ BLAKE2.update bs $ BLAKE2.initialize l
 -- | Hash serializable data.
 hash :: Binary t => t -> Hash
 hash = Hash . blake2b256 . toStrict . encode
+
+instance ToJSON Hash where
+    toJSON = toJSON . show'

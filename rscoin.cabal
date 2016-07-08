@@ -34,6 +34,7 @@ library
                      , RSCoin.Bank.Storage
                      , RSCoin.Core
                      , RSCoin.Core.ActionLog
+                     , RSCoin.Core.Aeson
                      , RSCoin.Core.CheckConfirmation
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Coin

@@ -10,12 +10,16 @@ module RSCoin.Bank.AcidState
        , openMemState
        , closeState
        , GetMintettes (..)
+       , GetExplorers (..)
+       , GetExplorersAndPeriods (..)
        , GetPeriodId (..)
        , GetHBlock (..)
        , GetHBlocks (..)
        , GetTransaction (..)
        , GetLogs (..)
        , AddMintette (..)
+       , AddExplorer (..)
+       , SetExplorerPeriod (..)
        , StartNewPeriod (..)
        ) where
 
@@ -26,10 +30,11 @@ import           Data.Acid           (AcidState, Query, Update, closeAcidState,
                                       makeAcidic, openLocalStateFrom)
 import           Data.Acid.Memory    (openMemoryState)
 
-import           RSCoin.Core         (ActionLog, HBlock, Mintette, MintetteId,
-                                      Mintettes, NewPeriodData, PeriodId,
-                                      PeriodResult, PublicKey, SecretKey,
-                                      Transaction, TransactionId)
+import           RSCoin.Core         (ActionLog, Explorer, Explorers, HBlock,
+                                      Mintette, MintetteId, Mintettes,
+                                      NewPeriodData, PeriodId, PeriodResult,
+                                      PublicKey, SecretKey, Transaction,
+                                      TransactionId)
 
 import qualified RSCoin.Bank.Storage as BS
 
@@ -50,6 +55,12 @@ instance MonadThrow (Update s) where
 getMintettes :: Query BS.Storage Mintettes
 getMintettes = view BS.getMintettes
 
+getExplorers :: Query BS.Storage Explorers
+getExplorers = view BS.getExplorers
+
+getExplorersAndPeriods :: Query BS.Storage [(Explorer, PeriodId)]
+getExplorersAndPeriods = view BS.getExplorersAndPeriods
+
 getPeriodId :: Query BS.Storage PeriodId
 getPeriodId = view BS.getPeriodId
 
@@ -59,18 +70,20 @@ getHBlock = view . BS.getHBlock
 getTransaction :: TransactionId -> Query BS.Storage (Maybe Transaction)
 getTransaction = view . BS.getTransaction
 
--- Dumping Bank state
-
 getHBlocks :: PeriodId -> PeriodId -> Query BS.Storage [HBlock]
 getHBlocks from to = view $ BS.getHBlocks from to
 
 getLogs :: MintetteId -> Int -> Int -> Query BS.Storage (Maybe ActionLog)
 getLogs m from to = view $ BS.getLogs m from to
 
--- Dumping Bank state
-
 addMintette :: Mintette -> PublicKey -> Update BS.Storage ()
 addMintette = BS.addMintette
+
+addExplorer :: Explorer -> PeriodId -> Update BS.Storage ()
+addExplorer = BS.addExplorer
+
+setExplorerPeriod :: Explorer -> PeriodId -> Update BS.Storage ()
+setExplorerPeriod = BS.setExplorerPeriod
 
 startNewPeriod
     :: SecretKey
@@ -80,11 +93,15 @@ startNewPeriod = BS.startNewPeriod
 
 $(makeAcidic ''BS.Storage
              [ 'getMintettes
+             , 'getExplorers
+             , 'getExplorersAndPeriods
              , 'getPeriodId
              , 'getHBlock
              , 'getHBlocks
              , 'getTransaction
              , 'getLogs
              , 'addMintette
+             , 'addExplorer
+             , 'setExplorerPeriod
              , 'startNewPeriod
              ])

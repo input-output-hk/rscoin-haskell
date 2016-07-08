@@ -12,14 +12,18 @@ module RSCoin.Bank.Storage.Whole
        , Query
        , Update
        , ExceptUpdate
-       , explorersStorage -- tmp
+       , explorersStorage
        , getMintettes
+       , getExplorers
+       , getExplorersAndPeriods
        , getPeriodId
        , getHBlock
        , getHBlocks
        , getTransaction
        , getLogs
        , addMintette
+       , addExplorer
+       , setExplorerPeriod
        , startNewPeriod
        ) where
 
@@ -44,12 +48,11 @@ import           Serokell.Util                 (enumerate)
 
 import           RSCoin.Core                   (ActionLog, ActionLogEntry (CloseEpochEntry),
                                                 AddrId, Address (..), Dpk,
-                                                HBlock (..), Mintette,
-                                                MintetteId, Mintettes,
-                                                NewPeriodData (..), PeriodId,
-                                                PeriodResult, PublicKey,
-                                                SecretKey, Transaction (..),
-                                                TransactionId, Utxo,
+                                                HBlock (..), MintetteId,
+                                                Mintettes, NewPeriodData (..),
+                                                PeriodId, PeriodResult,
+                                                PublicKey, SecretKey,
+                                                Transaction (..),
                                                 checkActionLog, checkLBlock,
                                                 computeOutputAddrids,
                                                 derivePublicKey, emissionHash,
@@ -68,18 +71,23 @@ data Storage = Storage
     {
       -- | Data about mintettes.
       _mintettesStorage :: MS.MintettesStorage
+    ,
       -- | Data about explorers.
-    , _explorersStorage :: ES.ExplorersStorage
+      _explorersStorage :: ES.ExplorersStorage
+    ,
       -- | Id of ongoing period. Doesn't mean anything if there is no
       -- active period.
-    , _periodId         :: PeriodId
-    , _blocks           :: [HBlock]     -- ^ List of all blocks from
-                                        -- the very beginning. Head
-                                        -- of this list is the most
-                                        -- recent block.
-    , _utxo             :: Utxo         -- ^ Utxo for all the
-                                        -- transaction ever made.
-    , _transactionMap   :: MP.Map TransactionId Transaction
+      _periodId         :: C.PeriodId
+    ,
+      -- | List of all blocks from the very beginning. Head of this
+      -- list is the most recent block.
+      _blocks           :: [C.HBlock]
+    ,
+      -- | Utxo for all the transaction ever made.
+      _utxo             :: C.Utxo
+    ,
+      -- | Mapping from transaction id to actual transaction with this id.
+      _transactionMap   :: MP.Map C.TransactionId C.Transaction
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
@@ -99,19 +107,25 @@ mkStorage =
 
 type Query a = Getter Storage a
 
-getMintettes :: Query Mintettes
+getMintettes :: Query C.Mintettes
 getMintettes = mintettesStorage . MS.getMintettes
+
+getExplorers :: Query C.Explorers
+getExplorers = explorersStorage . ES.getExplorers
+
+getExplorersAndPeriods :: Query [(C.Explorer, C.PeriodId)]
+getExplorersAndPeriods = explorersStorage . ES.getExplorersAndPeriods
 
 getDpk :: Query C.Dpk
 getDpk = mintettesStorage . MS.getDpk
 
-getPeriodId :: Query PeriodId
+getPeriodId :: Query C.PeriodId
 getPeriodId = periodId
 
-getHBlock :: PeriodId -> Query (Maybe HBlock)
+getHBlock :: C.PeriodId -> Query (Maybe C.HBlock)
 getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
 
-getTransaction :: TransactionId -> Query (Maybe Transaction)
+getTransaction :: C.TransactionId -> Query (Maybe C.Transaction)
 getTransaction tId = transactionMap . to (MP.lookup tId)
 
 -- Dumping Bank state
@@ -134,9 +148,20 @@ type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
 -- | Add given mintette to storage and associate given key with it.
-addMintette :: Mintette -> PublicKey -> Update ()
-addMintette m k = do
-    mintettesStorage %= execState (MS.addMintette m k)
+addMintette :: C.Mintette -> C.PublicKey -> Update ()
+addMintette m k = mintettesStorage %= execState (MS.addMintette m k)
+
+-- | Add given explorer to storage and associate given PeriodId with
+-- it. If explorer exists, it is updated.
+addExplorer :: C.Explorer -> C.PeriodId -> Update ()
+addExplorer e expectedPid =
+    explorersStorage %= execState (ES.addExplorer e expectedPid)
+
+-- | Update expected period id of given explorer. Adds explorer if it
+-- doesn't exist.
+setExplorerPeriod :: C.Explorer -> C.PeriodId -> Update ()
+setExplorerPeriod e expectedPid =
+    explorersStorage %= execState (ES.setExplorerPeriod e expectedPid)
 
 -- | When period finishes, Bank receives period results from
 -- mintettes, updates storage and starts new period with potentially
@@ -287,14 +312,14 @@ mergeTransactions mts goodResults =
         in S.size (ownersSet `S.intersection` committedMintettes) >
            (S.size ownersSet `div` 2)
 
-formPayload :: [a] -> [MintetteId] -> ExceptUpdate (MP.Map MintetteId Utxo)
+formPayload :: [a] -> [MintetteId] -> ExceptUpdate (MP.Map MintetteId C.Utxo)
 formPayload mintettes' changedId = do
     curUtxo <- use utxo
     let payload = MP.foldlWithKey' gatherPayload MP.empty curUtxo
-        gatherPayload :: MP.Map MintetteId Utxo
+        gatherPayload :: MP.Map MintetteId C.Utxo
                       -> AddrId
                       -> Address
-                      -> MP.Map MintetteId Utxo
+                      -> MP.Map MintetteId C.Utxo
         gatherPayload prev addrid@(txhash,_,_) address =
             MP.unionWith
                 MP.union

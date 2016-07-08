@@ -17,6 +17,7 @@ module RSCoin.Core.Communication
        , commitTx
        , sendPeriodFinished
        , announceNewPeriod
+       , announceNewBlock
        , getMintettesList
        , P.unCps
        , getBlocks
@@ -36,6 +37,8 @@ import           Data.Monoid                ((<>))
 import           Data.Text                  (Text, pack)
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Typeable              (Typeable)
+import           Formatting                 (int, sformat, (%))
+import qualified Formatting
 import qualified Network.MessagePack.Client as MP (RpcError (..))
 
 import           Safe                       (atMay)
@@ -52,8 +55,9 @@ import           RSCoin.Core.Primitives     (AddrId, Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
 import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              CheckConfirmations,
-                                             CommitConfirmation, HBlock, LBlock,
-                                             Mintette, MintetteId, Mintettes,
+                                             CommitConfirmation, Explorer (..),
+                                             HBlock, LBlock, Mintette,
+                                             MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Utxo)
 import           RSCoin.Mintette.Error      (MintetteError (MEInactive))
@@ -216,26 +220,47 @@ commitTx m tx pId cc =
 
 sendPeriodFinished :: WorkMode m => Mintette -> PeriodId -> m PeriodResult
 sendPeriodFinished mintette pId =
-    withResult
-        infoMessage
-        successMessage
-        $ callMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
+    withResult infoMessage successMessage $
+    callMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
   where
     infoMessage =
         logInfo $
-            format' "Send period {} finished to mintette {}" (pId, mintette)
+        format' "Send period {} finished to mintette {}" (pId, mintette)
     successMessage (_,blks,lgs) =
         logInfo $
-            format' "Received period result from mintette {}: \n Blocks: {}\n Logs: {}\n"
+        format'
+            "Received period result from mintette {}: \n Blocks: {}\n Logs: {}\n"
             (mintette, listBuilderJSONIndent 2 blks, lgs)
 
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do
     logInfo $
-        format' "Announce new period to mintette {}, new period data {}" (mintette, npd)
-    callMintette
-        mintette
-        (P.call (P.RSCMintette P.AnnounceNewPeriod) npd)
+        format'
+            "Announce new period to mintette {}, new period data {}"
+            (mintette, npd)
+    callMintette mintette (P.call (P.RSCMintette P.AnnounceNewPeriod) npd)
+
+-- TODO: sign here and check
+announceNewBlock
+    :: WorkMode m
+    => Explorer -> PeriodId -> HBlock -> Signature -> m (PeriodId, Signature)
+announceNewBlock explorer pId blk signature =
+    withResult infoMessage successMessage $
+    P.callExplorer explorer $
+    P.call (P.RSCExplorer P.EMNewBlock) pId blk signature
+  where
+    infoMessage =
+        logInfo $
+        sformat
+            ("Announcing new (" % int % "-th) block to " % Formatting.build)
+            pId
+            explorer
+    successMessage (respPeriod,_) =
+        logDebug $
+        sformat
+            ("Received periodId " % int % " from explorer " % Formatting.build)
+            respPeriod
+            explorer
 
 -- Dumping Bank state
 

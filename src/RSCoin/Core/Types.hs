@@ -38,6 +38,7 @@ import qualified Data.Text.Format       as F
 import           Data.Text.Lazy.Builder (Builder)
 import           Data.Word              (Word8)
 import           Formatting             (bprint, int, string, (%))
+import qualified Formatting
 
 import           Serokell.Util.Text     (listBuilderJSON, listBuilderJSONIndent,
                                          mapBuilder, pairBuilder)
@@ -81,22 +82,26 @@ type MintetteId = Int
 data Explorer = Explorer
     { explorerHost :: !String
     , explorerPort :: !Int
-    } deriving (Show,Eq)
+    , explorerKey  :: !PublicKey
+    } deriving (Show,Eq,Ord)
 
 instance Binary Explorer where
     put Explorer {..} = do
         put explorerHost
         put explorerPort
-    get = Explorer <$> get <*> get
+        put explorerKey
+    get = Explorer <$> get <*> get <*> get
 
 $(deriveSafeCopy 0 'base ''Explorer)
 
 instance Buildable Explorer where
     build Explorer{..} =
         bprint
-            ("Explorer (" % string % ":" % int % ")")
+            ("Explorer (" % string % ":" % int % ", pk: " % Formatting.build %
+             ")")
             explorerHost
             explorerPort
+            explorerKey
 
 -- | List of explorers is stored by bank.
 type Explorers = [Explorer]
@@ -253,6 +258,14 @@ data HBlock = HBlock
     } deriving (Show, Eq)
 
 $(deriveSafeCopy 0 'base ''HBlock)
+
+instance Binary HBlock where
+    put HBlock{..} = do
+        put hbHash
+        put hbTransactions
+        put hbSignature
+        put hbDpk
+    get = HBlock <$> get <*> get <*> get <*> get
 
 instance Buildable HBlock where
     build HBlock{..} =

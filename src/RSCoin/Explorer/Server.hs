@@ -27,5 +27,6 @@ handleNewHBlock
 handleNewHBlock st newBlockId newBlock = do
     expectedPid <- maybe 0 succ <$> query' st GetLastPeriodId
     if expectedPid == newBlockId
-        then update' st (AddHBlock newBlockId newBlock) >> return newBlockId
+        then update' st (AddHBlock newBlockId newBlock) >>
+             return (newBlockId + 1)
         else return expectedPid

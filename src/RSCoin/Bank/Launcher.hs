@@ -1,7 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections    #-}
 
--- | Functions launching Bank.
+-- | Convenience functions to launch bank or do high-level operations
+-- with it.
 
 module RSCoin.Bank.Launcher
        ( bankWrapperReal

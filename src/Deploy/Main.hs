@@ -73,11 +73,6 @@ startMintette CommonParams{..} (idx,MintetteData{..}) = do
                 port
                 severityArg
                 dbDir
-    () <$
-        Cherepakha.procStrict
-            "killall"
-            ["-q", "-s", "SIGINT", "rscoin-mintette"]
-            mempty
     Cherepakha.mkdir workingDirModern
     (Cherepakha.ExitSuccess,_) <-
         Cherepakha.shellStrict fullKeyGenCommand mempty
@@ -86,7 +81,7 @@ startMintette CommonParams{..} (idx,MintetteData{..}) = do
         C.constructPublicKey <$>
         (Cherepakha.readTextFile $ toModernFilePath pkPath)
     waitSec 1
-    (, key) <$> forkIO (() <$ Cherepakha.shellStrict fullRunCommand mempty)
+    (, key) <$> forkIO (() <$ Cherepakha.shell fullRunCommand mempty)
 
 startExplorer :: CommonParams
               -> (Word, ExplorerData)
@@ -116,11 +111,6 @@ startExplorer CommonParams{..} (idx,ExplorerData{..}) = do
                 port
                 severityArg
                 dbDir
-    () <$
-        Cherepakha.procStrict
-            "killall"
-            ["-q", "-s", "SIGINT", "rscoin-explorer"]
-            mempty
     Cherepakha.mkdir workingDirModern
     (Cherepakha.ExitSuccess,_) <-
         Cherepakha.shellStrict fullKeyGenCommand mempty
@@ -129,7 +119,7 @@ startExplorer CommonParams{..} (idx,ExplorerData{..}) = do
         C.constructPublicKey <$>
         (Cherepakha.readTextFile $ toModernFilePath pkPath)
     waitSec 1
-    (, key) <$> forkIO (() <$ Cherepakha.shellStrict fullRunCommand mempty)
+    (, key) <$> forkIO (() <$ Cherepakha.shell fullRunCommand mempty)
 
 type PortsAndKeys = [(Int, C.PublicKey)]
 
@@ -175,11 +165,6 @@ startBank CommonParams{..} mintettes explorers BankData{..} = do
                 cpPeriod
                 severityArg
                 bdSecret
-    () <$
-        Cherepakha.procStrict
-            "killall"
-            ["-q", "-s", "SIGINT", "rscoin-bank"]
-            mempty
     Cherepakha.mkdir workingDirModern
     forM_
         mintettes
@@ -192,7 +177,7 @@ startBank CommonParams{..} mintettes explorers BankData{..} = do
               Cherepakha.shellStrict (addExplorerCommand port key) mempty)
     waitSec 1
     Cherepakha.echo "Deployed successfully!"
-    () <$ Cherepakha.shellStrict serveCommand mempty
+    () <$ Cherepakha.shell serveCommand mempty
 
 withTempDirectoryWorkaround :: FilePath -> String -> (FilePath -> IO a) -> IO a
 withTempDirectoryWorkaround baseDir template callback =
@@ -208,6 +193,12 @@ main = do
         ((</> bdSecret dcBank) .
          cs . either (error . show) id . Cherepakha.toText) <$>
         Cherepakha.pwd
+    let killAll app =
+            () <$
+            Cherepakha.procStrict "killall" ["-q", "-s", "SIGINT", app] mempty
+    killAll "rscoin-mintete"
+    killAll "rscoin-explorer"
+    killAll "rscoin-bank"
     withTempDirectoryWorkaround absoluteDir "rscoin-deploy" $
         \tmpDir ->
              do let cp =

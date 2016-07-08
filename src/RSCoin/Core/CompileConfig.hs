@@ -31,7 +31,7 @@ data RSCoinConfig = RSCoinConfig
     , rscShardDelta    :: !Int
     , rscRpcTimeout    :: !Word
     , rscDefaultBank   :: !RSCoinServer
-    , rscDefaultSigner :: !RSCoinServer
+    , rscDefaultNotary :: !RSCoinServer
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''RSCoinServer)

@@ -92,7 +92,7 @@ onPeriodFinished sk st = do
                 formatSingle'
                     "Announced new period, sent these newPeriodData's:\n{}"
                     newPeriodData
-    announceNewPeriodsToSigner `catch` handlerAnnouncePeriodsS
+    announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsS
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)
@@ -101,11 +101,11 @@ onPeriodFinished sk st = do
         formatSingle' "Error occurred in communicating with mintette: {}" e
     handlerAnnouncePeriodsS (e :: SomeException) =
         logWarning $
-        formatSingle' "Error occurred in communicating with signer: {}" e
-    announceNewPeriodsToSigner = do
-      pId <- C.getSignerPeriod
+        formatSingle' "Error occurred in communicating with Notary: {}" e
+    announceNewPeriodsToNotary = do
+      pId <- C.getNotaryPeriod
       pId' <- query' st GetPeriodId
-      C.announceNewPeriodsToSigner pId' =<< query' st (GetHBlocks pId pId')
+      C.announceNewPeriodsToNotary pId' =<< query' st (GetHBlocks pId pId')
 
 
 

@@ -49,6 +49,7 @@ data RpcStage = Request | Response
 localhost :: IsString s => s
 localhost = "127.0.0.1"
 
+-- | This should be used only in pure mode.
 localPlatformLayout :: PlatformLayout
 localPlatformLayout = PlatformLayout (localhost, 3000) (localhost, 3001)
 
@@ -162,7 +163,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
       where
         sleepForever = wait (for 100500 minute) >> sleepForever
 
-    -- @TODO not sure it's ok when it comes to signers
+    -- @TODO not sure it's ok when it comes to notaries
     getPlatformLayout = pure $ localPlatformLayout
 
 waitDelay :: (MonadThrow m, MonadIO m, MonadCatch m) => RpcStage -> PureRpc m ()

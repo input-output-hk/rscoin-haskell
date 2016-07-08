@@ -112,7 +112,7 @@ getExtraSignatures tx requests time = do
     -- Returns (Right signs) if for address:
     -- 1. First poll showed signatures are ready
     -- 2. After our signature commit signatures became ready
-    -- Returns (Left addr) if signer should be polled for transaction tx
+    -- Returns (Left addr) if Notary should be polled for transaction tx
     -- and addr `addr` and sigs are not ready
     perform :: WorkMode m
             => Address
@@ -125,7 +125,7 @@ getExtraSignatures tx requests time = do
         if isStrategyCompleted strategy addr curSigs tx
         then returnRight False curSigs
         else do
-            afterPublishSigs <- CC.publishTxToSigner tx addr ownSgPair
+            afterPublishSigs <- CC.publishTxToNotary tx addr ownSgPair
             if isStrategyCompleted strategy addr afterPublishSigs tx
             then returnRight True afterPublishSigs
             else return $ Left addr

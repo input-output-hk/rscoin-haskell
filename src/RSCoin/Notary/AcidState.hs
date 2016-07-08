@@ -3,8 +3,8 @@
 
 -- | Wrap Storage into AcidState.
 
-module RSCoin.Signer.AcidState
-       ( RSCoinSignerState
+module RSCoin.Notary.AcidState
+       ( RSCoinNotaryState
 
          -- * acid-state query and update data types
        , GetSignatures (..)
@@ -13,6 +13,7 @@ module RSCoin.Signer.AcidState
        , GetPeriodId (..)
        , PollTransactions (..)
        , AcquireSignatures (..)
+
          -- * Bracket functions
        , openState
        , openMemState
@@ -24,20 +25,20 @@ import           Data.Acid             (AcidState, closeAcidState, makeAcidic,
 import           Data.Acid.Memory      (openMemoryState)
 import           Data.SafeCopy         (base, deriveSafeCopy)
 
-import           RSCoin.Signer.Storage (Storage)
-import qualified RSCoin.Signer.Storage as S
+import           RSCoin.Notary.Storage (Storage)
+import qualified RSCoin.Notary.Storage as S
 
-type RSCoinSignerState = AcidState Storage
+type RSCoinNotaryState = AcidState Storage
 
 $(deriveSafeCopy 0 'base ''Storage)
 
-openState :: FilePath -> IO RSCoinSignerState
-openState fp = openLocalStateFrom fp S.emptySignerStorage
+openState :: FilePath -> IO RSCoinNotaryState
+openState fp = openLocalStateFrom fp S.emptyNotaryStorage
 
-openMemState :: IO RSCoinSignerState
-openMemState = openMemoryState S.emptySignerStorage
+openMemState :: IO RSCoinNotaryState
+openMemState = openMemoryState S.emptyNotaryStorage
 
-closeState :: RSCoinSignerState -> IO ()
+closeState :: RSCoinNotaryState -> IO ()
 closeState = closeAcidState
 
 $(makeAcidic ''Storage

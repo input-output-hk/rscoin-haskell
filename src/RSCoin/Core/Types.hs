@@ -25,7 +25,7 @@ module RSCoin.Core.Types
        , NewPeriodData (..)
        , formatNewPeriodData
        , Strategy (..)
-       , AddressStrategyMap
+       , AddressToStrategyMap
        ) where
 
 import           Control.Arrow          (first)
@@ -242,7 +242,7 @@ type Utxo = M.Map AddrId Address
 -- for the given period.
 type Pset = M.Map AddrId Transaction
 
-type AddressStrategyMap = M.Map Address Strategy
+type AddressToStrategyMap = M.Map Address Strategy
 
 instance Buildable Dpk where
     build = listBuilderJSON . map pairBuilder
@@ -255,7 +255,7 @@ data HBlock = HBlock
     , hbTransactions :: ![Transaction]
     , hbSignature    :: !Signature
     , hbDpk          :: !Dpk
-    , hbAddresses    :: !AddressStrategyMap
+    , hbAddresses    :: !AddressToStrategyMap
     } deriving (Show, Eq)
 
 $(deriveSafeCopy 0 'base ''HBlock)
@@ -282,7 +282,7 @@ instance Buildable HBlock where
 instance Buildable [HBlock] where
   build = listBuilderJSON
 
-type NewMintetteIdPayload = (MintetteId, Utxo, AddressStrategyMap)
+type NewMintetteIdPayload = (MintetteId, Utxo, AddressToStrategyMap)
 
 -- | Data sent by server on new period start. If mintette id changes,
 -- bank *must* include npdNewIdPayload.
@@ -316,7 +316,7 @@ instance Buildable [(Address, Signature)] where
 instance Buildable [NewPeriodData] where
     build = listBuilderJSONIndent 2
 
-instance Buildable AddressStrategyMap where
+instance Buildable AddressToStrategyMap where
     build = mapBuilder . M.assocs
 
 instance Buildable NewMintetteIdPayload where

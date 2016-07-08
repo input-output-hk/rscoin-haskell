@@ -29,7 +29,7 @@ import           Data.Acid           (AcidState, Query, Update, closeAcidState,
 import           Data.Acid.Memory    (openMemoryState)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 
-import           RSCoin.Core         (ActionLog, Address, AddressStrategyMap,
+import           RSCoin.Core         (ActionLog, Address, AddressToStrategyMap,
                                       HBlock, Mintette, MintetteId, Mintettes,
                                       NewPeriodData, PeriodId, PeriodResult,
                                       PublicKey, SecretKey, Strategy,
@@ -54,7 +54,7 @@ closeState = closeAcidState
 instance MonadThrow (Update s) where
     throwM = throw
 
-getAddresses :: Query BS.Storage AddressStrategyMap
+getAddresses :: Query BS.Storage AddressToStrategyMap
 getAddresses = view BS.getAddresses
 
 getMintettes :: Query BS.Storage Mintettes

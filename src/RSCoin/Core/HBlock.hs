@@ -12,7 +12,7 @@ import           RSCoin.Core.Constants  (genesisAddress, genesisValue)
 import           RSCoin.Core.Crypto     (Hash, PublicKey, SecretKey, hash, sign,
                                          verify)
 import           RSCoin.Core.Primitives (Transaction (..))
-import           RSCoin.Core.Types      (AddressStrategyMap, Dpk, HBlock (..))
+import           RSCoin.Core.Types      (AddressToStrategyMap, Dpk, HBlock (..))
 
 initialHash :: Hash
 initialHash = hash ()
@@ -26,14 +26,14 @@ initialTx =
 
 -- | Construct higher-level block from txset, Bank's secret key, DPK
 -- and previous block.
-mkHBlock :: [Transaction] -> HBlock -> AddressStrategyMap -> SecretKey -> Dpk -> HBlock
+mkHBlock :: [Transaction] -> HBlock -> AddressToStrategyMap -> SecretKey -> Dpk -> HBlock
 mkHBlock txset prevBlock newAddrs sk dpk = mkHBlockDo txset newAddrs sk dpk (hbHash prevBlock)
 
 -- | Construct genesis higher-level block using Bank's secret key and DPK.
 mkGenesisHBlock :: SecretKey -> Dpk -> HBlock
 mkGenesisHBlock sk dpk = mkHBlockDo [initialTx] M.empty sk dpk initialHash
 
-mkHBlockDo :: [Transaction] -> AddressStrategyMap -> SecretKey -> Dpk -> Hash -> HBlock
+mkHBlockDo :: [Transaction] -> AddressToStrategyMap -> SecretKey -> Dpk -> Hash -> HBlock
 mkHBlockDo hbTransactions hbAddresses sk hbDpk prevHash = HBlock {..}
   where
     hbHash = hash (prevHash, hbTransactions)

@@ -2,11 +2,11 @@
 {-# LANGUAGE Rank2Types       #-}
 {-# LANGUAGE TemplateHaskell  #-}
 
--- | Storage for mintette's data.
+-- | Storage for Notary's data.
 
-module RSCoin.Signer.Storage
+module RSCoin.Notary.Storage
         ( Storage
-        , emptySignerStorage
+        , emptyNotaryStorage
         , getSignatures
         , acquireSignatures
         , addSignature
@@ -24,29 +24,39 @@ import qualified Data.Foldable       as F
 import qualified Data.Map            as M
 import           Data.Maybe          (fromJust, fromMaybe, isJust)
 import qualified Data.Set            as S
-import           RSCoin.Signer.Error
 
-import           RSCoin.Core         (AddrId, Address, AddressStrategyMap,
+import           RSCoin.Core         (AddrId, Address, AddressToStrategyMap,
                                       HBlock (..), PeriodId, Signature,
                                       Strategy (..), Transaction (..), Utxo,
                                       computeOutputAddrids, isStrategyCompleted,
                                       validateSignature)
+import           RSCoin.Notary.Error (NotaryError (..))
 
 data Storage = Storage
-    { _txPool         :: M.Map Address (M.Map Transaction (M.Map Address Signature))
-      -- ^ Pool of trasactions to be signed, already collected signatures
-    , _addresses      :: AddressStrategyMap -- ^ Non-default addresses, registered in system (published to bank)
-    , _unspentAddrIds :: M.Map Address (S.Set AddrId) -- ^ Mapping between address and a set of unspent addrids, owned by it
-    , _utxo           :: Utxo -- ^ Mapping between addrid and address
-    , _txPoolAddrIds  :: M.Map AddrId (S.Set (Address, Transaction)) -- ^ Mapping between addrid and all pairs (addr, transaction),
-                                                                     --   being kept in `txPool`, such that addrid serve as an input for transaction
-    , _periodId       :: PeriodId -- ^ Last periodId, known to signer
-    } deriving Show
+    { -- | Pool of trasactions to be signed, already collected signatures.
+      _txPool         :: M.Map Address (M.Map Transaction (M.Map Address Signature))
+
+      -- | Non-default addresses, registered in system (published to bank).
+    , _addresses      :: AddressToStrategyMap
+
+      -- | Mapping between address and a set of unspent addrids, owned by it.
+    , _unspentAddrIds :: M.Map Address (S.Set AddrId)
+
+      -- | Mapping between addrid and address.
+    , _utxo           :: Utxo
+
+      -- | Mapping between addrid and all pairs (addr, transaction),
+      -- being kept in `txPool`, such that addrid serve as an input for transaction.
+    , _txPoolAddrIds  :: M.Map AddrId (S.Set (Address, Transaction))
+
+      -- | Last periodId, known to Notary.
+    , _periodId       :: PeriodId
+    } deriving (Show)
 
 $(makeLenses ''Storage)
 
-emptySignerStorage :: Storage
-emptySignerStorage = Storage M.empty M.empty M.empty M.empty M.empty (-1)
+emptyNotaryStorage :: Storage
+emptyNotaryStorage = Storage M.empty M.empty M.empty M.empty M.empty (-1)
 
 -- Erase occurrences published (address, transaction) from storage
 forgetAddrTx :: Address -> Transaction -> Update Storage ()
@@ -55,18 +65,17 @@ forgetAddrTx addr tx = do
   txPoolAddrIds %= \m -> foldr (M.update $ ifNotEmpty . S.delete (addr, tx)) m (txInputs tx)
 
 ifNotEmpty :: Foldable t => t a -> Maybe (t a)
-ifNotEmpty s |F.null s = Nothing
-             |otherwise = Just s
+ifNotEmpty s | F.null s  = Nothing
+             | otherwise = Just s
 
 getStrategy :: Address -> Update Storage Strategy
 getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> use addresses
 
-
 instance MonadThrow (Update s) where
     throwM = throw
 
--- Receives tx, addr, (addr, sig) pair, checks validity and publishes (tx, addr) to storage,
---  adds (addr, sig) to list of already collected for particular (tx, addr) pair.
+-- | Receives tx, addr, (addr, sig) pair, checks validity and publishes (tx, addr) to storage,
+-- adds (addr, sig) to list of already collected for particular (tx, addr) pair.
 addSignature :: Transaction -> Address -> (Address, Signature) -> Update Storage ()
 addSignature tx addr sg@(sigAddr, sig) = do
     -- @TODO check transaction correctness, i.e. equality of sums and etc.
@@ -85,25 +94,25 @@ addSignature tx addr sg@(sigAddr, sig) = do
     checkAddrIdsKnown = do
       u <- use utxo
       when (not $ all (`M.member` u) (txInputs tx)) $
-         use periodId >>= throwM . SEAddrIdNotInUtxo
+         use periodId >>= throwM . NEAddrIdNotInUtxo
     checkAddrRelativeToTx = do
       s <- fromMaybe S.empty . M.lookup addr <$> use unspentAddrIds
       when (not $ any (`S.member` s) (txInputs tx)) $
-         throwM SEAddrNotRelativeToTx
+         throwM NEAddrNotRelativeToTx
     checkSigRelativeToAddr = do
         strategy <- getStrategy addr
         case strategy of
           DefaultStrategy
-            -> throwM $ SEStrategyNotSupported "DefaultStrategy"
+            -> throwM $ NEStrategyNotSupported "DefaultStrategy"
           MOfNStrategy _ addrs
             -> when (not $ any (sigAddr ==) addrs) $
-                 throwM SEUnrelatedSignature
+                 throwM NEUnrelatedSignature
         when (not $ validateSignature sig sigAddr tx) $
-          throwM SEInvalidSignature
+          throwM NEInvalidSignature
 
--- By given (tx, addr) retreives list of collected signatures.
+-- | By given (tx, addr) retreives list of collected signatures.
 -- If list is complete enough to complete strategy, (tx, addr) pair
---  and all corresponding data occurrences get removed from Storage
+-- and all corresponding data occurrences get removed from Storage.
 acquireSignatures :: Transaction -> Address -> Update Storage [(Address, Signature)]
 acquireSignatures tx addr = do
     sgs <- liftQuery (getSignatures tx addr)
@@ -112,18 +121,18 @@ acquireSignatures tx addr = do
         forgetAddrTx addr tx
     return sgs
 
--- By given (tx, addr) get list of collected signatures (or empty list if (tx, addr) is not registered/already removed from Signer)
--- Read-only method
+-- | By given (tx, addr) get list of collected signatures (or empty list if (tx, addr)
+-- is not registered/already removed from Notary). Read-only method.
 getSignatures :: Transaction -> Address -> Query Storage [(Address, Signature)]
 getSignatures tx addr = maybe [] M.assocs . (M.lookup tx <=< M.lookup addr) <$> view txPool
 
--- Get last known periodId of Signer (interface for bank)
+-- | Get last known periodId of Notary (interface for bank).
 getPeriodId :: Query Storage PeriodId
 getPeriodId = view periodId
 
--- Announce HBlocks, not yet known to signer
-announceNewPeriods :: PeriodId -- periodId of latest hblock
-                   -> [HBlock] -- blocks, head corresponds to the latest block
+-- | Announce HBlocks, not yet known to Notary.
+announceNewPeriods :: PeriodId -- ^ periodId of latest hblock
+                   -> [HBlock] -- ^ blocks, head corresponds to the latest block
                    -> Update Storage ()
 announceNewPeriods pId' blocks = do
     pId <- use periodId
@@ -131,14 +140,14 @@ announceNewPeriods pId' blocks = do
     periodId .= pId'
 
 announceNewPeriod :: HBlock -> Update Storage ()
-announceNewPeriod HBlock {..} = do
+announceNewPeriod HBlock{..} = do
       addresses %= M.union hbAddresses
       forM_ (concatMap txInputs hbTransactions) processTxIn
       forM_ (concatMap computeOutputAddrids hbTransactions) $ uncurry processTxOut
   where
     processTxIn addrId = do
-      addrM <- M.lookup addrId <$> use utxo
-      when (isJust addrM) $ processTxIn' addrId (fromJust addrM)
+        addrM <- M.lookup addrId <$> use utxo
+        when (isJust addrM) $ processTxIn' addrId (fromJust addrM)
     processTxIn' addrId addr = do
         utxo %= M.delete addrId
         unspentAddrIds %= M.update (ifNotEmpty . S.delete addrId) addr
@@ -151,4 +160,4 @@ announceNewPeriod HBlock {..} = do
 
 -- @TODO implement
 pollTransactions :: [Address] -> Query Storage [(Address, [(Transaction, [(Address, Signature)])])]
-pollTransactions addrs = return []
+pollTransactions _ = return []

@@ -8,7 +8,7 @@ wallet-db*
 bank-db/
 mintette-db/
 contacts-db/
-signer-db/
+notary-db/
 gui-db/
 tmp/
 

@@ -7,7 +7,7 @@ import qualified Options         as Opts
 import qualified RSCoin.Bank     as B
 import           RSCoin.Core     (Address (Address), Mintette (Mintette),
                                   bankLoggerName, constructPublicKey,
-                                  defaultLayout, defaultLayout', initLogging,
+                                  defaultLayout', initLogging,
                                   keyGen, logWarning, readPublicKey,
                                   readSecretKey)
 
@@ -15,7 +15,7 @@ main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
-    -- @TODO make signer addr, bankPort configurable
+    -- @TODO make Notary addr, bankPort configurable
     let layout = defaultLayout' "127.0.0.1"
     case cloCommand of
         Opts.AddAddress pk' strategy -> do

@@ -23,7 +23,7 @@ import           Data.Tuple.Curry                 (uncurryN)
 import           Data.Tuple.Select                (sel1)
 import           Safe                             (atMay)
 
-import           RSCoin.Core                      (AddrId, AddressStrategyMap,
+import           RSCoin.Core                      (AddrId,
                                                    PeriodId, SecretKey,
                                                    Signature, Strategy (..),
                                                    Transaction (..),

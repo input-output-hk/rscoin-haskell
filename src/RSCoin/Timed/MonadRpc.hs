@@ -62,8 +62,8 @@ type Addr = (Host, Port)
 
 data PlatformLayout = PlatformLayout
     { getBankAddr   :: Addr
-    , getSignerAddr :: Addr
-    }
+    , getNotaryAddr :: Addr
+    } deriving (Show)
 
 -- | Defines protocol of RPC layer
 class MonadThrow r => MonadRpc r where

@@ -57,7 +57,7 @@ import           Data.Tuple.Select          (sel1)
 import           Safe                       (atMay, headMay)
 
 import           RSCoin.Core                (ActionLog, ActionLogHeads,
-                                             AddressStrategyMap, HBlock (..),
+                                             AddressToStrategyMap, HBlock (..),
                                              Hash, LBlock, MintetteId,
                                              Mintettes, PeriodId, Pset,
                                              SecretKey, Strategy (..), Utxo,
@@ -85,7 +85,7 @@ data Storage = Storage
     , _dpk           :: C.Dpk                -- ^ DPK for current period
     , _logHeads      :: ActionLogHeads       -- ^ All known heads of logs
     , _lastBankHash  :: Maybe Hash           -- ^ Hash of the last HBlock
-    , _addresses     :: AddressStrategyMap   -- ^ Complete list of system's addresses
+    , _addresses     :: AddressToStrategyMap -- ^ Complete list of system's addresses
                                              -- accompanied with their strategies.
                                              -- Should be up-to-date with
                                              -- Bank::Storage::_addresses (updates are
@@ -338,7 +338,7 @@ startPeriod C.NewPeriodData{..} = do
 -- correct checks are made here, so the server should make his best.
 -- It also doesn't set the mintetteId field, only invMintetteId, so
 -- startPeriod should be called after.
-onMintetteIdChanged :: MintetteId -> Utxo -> AddressStrategyMap -> Update ()
+onMintetteIdChanged :: MintetteId -> Utxo -> AddressToStrategyMap -> Update ()
 onMintetteIdChanged newMid newUtxo newAddrs  = do
     utxoDeleted .= M.empty
     utxoAdded .= M.empty

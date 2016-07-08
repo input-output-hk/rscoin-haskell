@@ -54,16 +54,11 @@ library
                      , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
                      , RSCoin.Mintette.Worker
-                     , RSCoin.User
-                     , RSCoin.User.Error
-                     , RSCoin.User.Logic
-                     , RSCoin.User.Operations
-                     , RSCoin.User.Wallet
-                     , RSCoin.Signer
-                     , RSCoin.Signer.AcidState
-                     , RSCoin.Signer.Server
-                     , RSCoin.Signer.Storage
-                     , RSCoin.Signer.Error
+                     , RSCoin.Notary
+                     , RSCoin.Notary.AcidState
+                     , RSCoin.Notary.Server
+                     , RSCoin.Notary.Storage
+                     , RSCoin.Notary.Error
                      , RSCoin.Timed
                      , RSCoin.Timed.MonadTimed
                      , RSCoin.Timed.MonadRpc
@@ -71,6 +66,11 @@ library
                      , RSCoin.Timed.Timed
                      , RSCoin.Timed.TimedIO
                      , RSCoin.Timed.Misc
+                     , RSCoin.User
+                     , RSCoin.User.Error
+                     , RSCoin.User.Logic
+                     , RSCoin.User.Operations
+                     , RSCoin.User.Wallet
   other-modules:       Paths_rscoin
                      , RSCoin.Bank.AcidState
                      , RSCoin.Bank.Launcher
@@ -240,9 +240,9 @@ executable rscoin-mintette
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
 
-executable rscoin-signer
+executable rscoin-notary
   main-is:             Main.hs
-  other-modules:       SignerOptions
+  other-modules:       NotaryOptions
   build-depends:       base >= 4.8 && < 4.9
                      , bytestring
                      , exceptions
@@ -252,7 +252,7 @@ executable rscoin-signer
                      , serokell-core
                      , text
                      , time-units
-  hs-source-dirs:      src/Signer
+  hs-source-dirs:      src/Notary
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -O2
                        -fno-warn-orphans

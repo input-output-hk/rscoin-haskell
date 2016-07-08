@@ -1,6 +1,6 @@
--- | Command line options for Signer
+-- | Command line options for Notary.
 
-module SignerOptions
+module NotaryOptions
         ( Options (..)
         , getOptions
         ) where
@@ -40,11 +40,11 @@ optionsParser _ = -- defaultSKPath
     -- <*>
     option
         auto
-        (short 'p' <> long "port" <> value (snd $ getSignerAddr defaultLayout) <> showDefault <>
-         help "Signer port to receive transactions") <*>
+        (short 'p' <> long "port" <> value (snd $ getNotaryAddr defaultLayout) <> showDefault <>
+         help "Notary port to receive transactions") <*>
     strOption
-        (long "path" <> value "signer-db" <> showDefault <>
-         help "Path to signer database") <*>
+        (long "path" <> value "notary-db" <> showDefault <>
+         help "Path to Notary database") <*>
     --strOption
     --    (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault)
     -- <*>
@@ -70,4 +70,4 @@ getOptions = do
     execParser $
         info
             (helper <*> optionsParser defaultSKPath)
-            (fullDesc <> progDesc "RSCoin's Signer")
+            (fullDesc <> progDesc "RSCoin's Notary")

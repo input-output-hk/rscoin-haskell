@@ -21,7 +21,7 @@ import           RSCoin.Bank.AcidState (AddAddress (..), GetAddresses (..),
                                         GetPeriodId (..), GetTransaction (..),
                                         State)
 import           RSCoin.Bank.Error     (BankError)
-import           RSCoin.Core           (ActionLog, Address, AddressStrategyMap,
+import           RSCoin.Core           (ActionLog, Address, AddressToStrategyMap,
                                         HBlock, MintetteId, Mintettes, PeriodId,
                                         Signature, Strategy, Transaction,
                                         TransactionId, bankLoggerName, bankPort,
@@ -67,7 +67,7 @@ toServer action = lift $ action `catch` handler
 -- toServer' :: T.WorkMode m => IO a -> T.ServerT m a
 -- toServer' = toServer . liftIO
 
-serveGetAddresses :: T.WorkMode m => State -> T.ServerT m AddressStrategyMap
+serveGetAddresses :: T.WorkMode m => State -> T.ServerT m AddressToStrategyMap
 serveGetAddresses st =
     toServer $
     do mts <- query' st GetAddresses

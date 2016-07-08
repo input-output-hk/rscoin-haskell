@@ -64,8 +64,8 @@ defaultLayout' bankHost
 
 defaultLayout :: PlatformLayout
 defaultLayout = PlatformLayout
-    { getBankAddr = $(lift $ CC.toAddr $ CC.rscDefaultBank CC.rscoinConfig)
-    , getSignerAddr = $(lift $ CC.toAddr $ CC.rscDefaultSigner CC.rscoinConfig)
+    { getBankAddr   = $(lift $ CC.toAddr $ CC.rscDefaultBank   CC.rscoinConfig)
+    , getNotaryAddr = $(lift $ CC.toAddr $ CC.rscDefaultNotary CC.rscoinConfig)
     }
 
 defaultPeriodDelta :: Second

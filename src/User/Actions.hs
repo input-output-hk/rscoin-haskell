@@ -34,7 +34,7 @@ import           RSCoin.Core             as C
 import           RSCoin.Timed            (WorkMode, for, ms, wait)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
-import           RSCoin.User.Operations  (TransactionData (..), getAmount,
+import           RSCoin.User.Operations  (TransactionData (..),
                                           getAmountNoUpdate,
                                           submitTransactionRetry,
                                           updateBlockchain)

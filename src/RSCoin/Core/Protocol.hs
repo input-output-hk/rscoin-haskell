@@ -11,7 +11,7 @@ module RSCoin.Core.Protocol
        , DumpMethod (..)
        , MintetteMethod (..)
        , RSCoinMethod (..)
-       , SignerMethod (..)
+       , NotaryMethod (..)
        , WithResult
        , Server
        , T.Client
@@ -22,12 +22,12 @@ module RSCoin.Core.Protocol
        , execBankSafe
        , execMintette
        , execMintetteSafe
-       , execSigner
+       , execNotary
        , callBank
        , callBankSafe
        , callMintette
        , callMintetteSafe
-       , callSigner
+       , callNotary
        , unCps
        ) where
 
@@ -49,8 +49,8 @@ import qualified RSCoin.Timed            as T
 data RSCoinMethod
     = RSCBank     BankMethod
     | RSCMintette MintetteMethod
+    | RSCNotary   NotaryMethod
     | RSCDump     DumpMethod
-    | RSCSign     SignerMethod
     deriving (Show)
 
 -- | Requests processed by a Bank.
@@ -72,6 +72,15 @@ data MintetteMethod
     | CommitTx
     deriving (Show)
 
+-- | Requests for multisign transactions.
+data NotaryMethod
+    = PublishTransaction
+    | PollTransactions
+    | GetSignatures
+    | GetNotaryPeriod
+    | AnnounceNewPeriodsToNotary
+    deriving (Show)
+
 -- | Requests for dumping state.
 data DumpMethod
     = GetHBlocks
@@ -79,15 +88,6 @@ data DumpMethod
     | GetMintetteUtxo
     | GetMintetteBlocks
     | GetMintetteLogs
-    deriving (Show)
-
--- | Requests for multisign transactions.
-data SignerMethod
-    = PublishTransaction
-    | PollTransactions
-    | GetSignatures
-    | GetSignerPeriod
-    | AnnounceNewPeriodsToSigner
     deriving (Show)
 
 type Server a = T.Server a
@@ -125,9 +125,9 @@ execBankSafe = (>>=) . callBankSafe
 execMintetteSafe :: MessagePack a => Mintette -> T.Client a -> WithResult a
 execMintetteSafe m = (>>=) . callMintetteSafe m
 
--- | Send request to Signer.
-execSigner :: MessagePack a => T.Client a -> WithResult a
-execSigner = (>>=) . callSigner
+-- | Send request to Notary.
+execNotary :: MessagePack a => T.Client a -> WithResult a
+execNotary = (>>=) . callNotary
 
 -- | Send a request to a Bank.
 callBank :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
@@ -155,9 +155,9 @@ callMintetteSafe :: (MessagePack a, T.WorkMode m)
 callMintetteSafe Mintette {..} action =
     T.execClientTimeout rpcTimeout (BS.pack mintetteHost, mintettePort) action
 
-callSigner :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
-callSigner action = do
-  sAddr <- T.getSignerAddr <$> T.getPlatformLayout
+callNotary :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
+callNotary action = do
+  sAddr <- T.getNotaryAddr <$> T.getPlatformLayout
   T.execClientTimeout rpcTimeout sAddr action
 
 -- | Reverse Continuation passing style (CPS) transformation

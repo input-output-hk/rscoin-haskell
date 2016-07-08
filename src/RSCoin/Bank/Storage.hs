@@ -45,7 +45,7 @@ import           Safe                      (atMay, headMay)
 import           RSCoin.Core               (ActionLog,
                                             ActionLogEntry (CloseEpochEntry),
                                             AddrId, Address (..),
-                                            AddressStrategyMap, Dpk,
+                                            AddressToStrategyMap, Dpk,
                                             HBlock (..), Mintette, MintetteId,
                                             Mintettes, NewPeriodData (..),
                                             PeriodId, PeriodResult, PublicKey,
@@ -93,9 +93,9 @@ data Storage = Storage
                                                     -- recent entry.
     , _deadMintettes    :: DeadMintetteMap          -- ^ State of all known dead mintettes.
     , _transactionMap   :: MP.Map TransactionId Transaction
-    , _addresses        :: AddressStrategyMap       -- ^ Known addresses accompanied with their strategies.
+    , _addresses        :: AddressToStrategyMap     -- ^ Known addresses accompanied with their strategies.
                                                     -- Note that every address with non-default strategy should be stored here in order to participate in transaction.
-    , _pendingAddresses :: AddressStrategyMap       -- ^ Pending addresses to publish within next HBlock
+    , _pendingAddresses :: AddressToStrategyMap     -- ^ Pending addresses to publish within next HBlock
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
@@ -119,7 +119,7 @@ mkStorage =
 
 type Query a = Getter Storage a
 
-getAddresses :: Query AddressStrategyMap
+getAddresses :: Query AddressToStrategyMap
 getAddresses = addresses
 
 getMintettes :: Query Mintettes
@@ -229,7 +229,7 @@ startNewPeriodDo sk pId results = do
 
 startNewPeriodFinally :: SecretKey
                       -> [(MintetteId, PeriodResult)]
-                      -> (AddressStrategyMap -> SecretKey -> Dpk -> HBlock)
+                      -> (AddressToStrategyMap -> SecretKey -> Dpk -> HBlock)
                       -> ExceptUpdate [MintetteId]
 startNewPeriodFinally sk goodMintettes newBlockCtor = do
     periodId += 1
@@ -364,7 +364,7 @@ replaceWithCare' (bad:bads) (pendh:pends) list acc =
         (list & ix bad .~ pendh)
         (bad : acc)
 
-updateAddresses :: Update AddressStrategyMap
+updateAddresses :: Update AddressToStrategyMap
 updateAddresses = do
   oldKnown <- use addresses
   pending <- use pendingAddresses

@@ -11,9 +11,9 @@ module RSCoin.Core.Logging
        , LoggerName
        , bankLoggerName
        , mintetteLoggerName
-       , signerLoggerName
-       , userLoggerName
+       , notaryLoggerName
        , timedLoggerName
+       , userLoggerName
        , communicationLoggerName
        , testingLoggerName
        , logDebug
@@ -76,14 +76,14 @@ type LoggerName = String
 bankLoggerName,
     communicationLoggerName,
     mintetteLoggerName,
-    signerLoggerName,
+    notaryLoggerName,
     testingLoggerName,
     timedLoggerName,
     userLoggerName :: LoggerName
 bankLoggerName          = "bank"
 communicationLoggerName = "communication"
 mintetteLoggerName      = "mintette"
-signerLoggerName        = "signer"
+notaryLoggerName        = "notary"
 testingLoggerName       = "testing"
 timedLoggerName         = "timed"
 userLoggerName          = "user"
@@ -93,7 +93,7 @@ predefinedLoggers =
     [ bankLoggerName
     , communicationLoggerName
     , mintetteLoggerName
-    , signerLoggerName
+    , notaryLoggerName
     , timedLoggerName
     , userLoggerName
     ]

@@ -5,7 +5,10 @@ module RSCoin.Explorer.Server
        ) where
 
 
+import           Control.Monad.Trans       (MonadIO)
 import           Data.Acid.Advanced        (query', update')
+import           Data.Text                 (Text)
+import           Formatting                (int, sformat, (%))
 
 import qualified RSCoin.Core               as C
 import           RSCoin.Timed              (ServerT, WorkMode,
@@ -13,6 +16,12 @@ import           RSCoin.Timed              (ServerT, WorkMode,
 
 import           RSCoin.Explorer.AcidState (AddHBlock (..),
                                             GetLastPeriodId (..), State)
+
+logInfo, logDebug
+    :: MonadIO m
+    => Text -> m ()
+logInfo = C.logInfo C.explorerLoggerName
+logDebug = C.logDebug C.explorerLoggerName
 
 serve
     :: WorkMode m
@@ -33,8 +42,14 @@ handleNewHBlock
     -> ServerT m (C.PeriodId, C.Signature)
 handleNewHBlock st sk newBlockId newBlock _ = do
     -- TODO: check sig
+    logInfo $ sformat ("Received new block #" % int) newBlockId
     expectedPid <- maybe 0 succ <$> query' st GetLastPeriodId
-    let ret p = return (p, C.sign sk p)
+    let ret p = do
+          logDebug $ sformat ("Now expected block is #" % int) p
+          return (p, C.sign sk p)
+        upd = do
+            update' st (AddHBlock newBlockId newBlock)
+            ret (newBlockId + 1)
     if expectedPid == newBlockId
-        then update' st (AddHBlock newBlockId newBlock) >> ret (newBlockId + 1)
+        then upd
         else ret expectedPid

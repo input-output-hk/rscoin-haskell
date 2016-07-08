@@ -266,7 +266,6 @@ executable rscoin-deploy
   main-is:             Main.hs
   other-modules:       Config
   build-depends:       aeson
-                     , async
                      , base
                      , filepath
                      , formatting

@@ -6,6 +6,7 @@ module Config
        ( DeployConfig (..)
        , BankData (..)
        , MintetteData (..)
+       , ExplorerData (..)
        , readDeployConfig
        ) where
 
@@ -21,6 +22,7 @@ data DeployConfig = DeployConfig
     , dcExec      :: !Text
     , dcBank      :: !BankData
     , dcMintettes :: ![MintetteData]
+    , dcExplorers :: ![ExplorerData]
     , dcPeriod    :: !Word
     } deriving (Show)
 
@@ -36,10 +38,17 @@ data MintetteData = MintetteData
     , mdSeverity :: !(Maybe Severity)
     } deriving (Show)
 
+data ExplorerData = ExplorerData
+    { edPort     :: !(Maybe Int)
+    -- , mdProfiling :: !(Maybe ProfilingType)
+    , edSeverity :: !(Maybe Severity)
+    } deriving (Show)
+
 $(A.deriveJSON leaveTagOptions ''Severity)
 $(A.deriveJSON defaultOptions ''DeployConfig)
 $(A.deriveJSON defaultOptions ''BankData)
 $(A.deriveJSON defaultOptions ''MintetteData)
+$(A.deriveJSON defaultOptions ''ExplorerData)
 
 readDeployConfig :: FilePath -> IO DeployConfig
 readDeployConfig fp =

@@ -9,10 +9,12 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "devDependencies": {
+  "dependencies": {
     "bower": "^1.7.9",
     "pulp": "^9.0.1",
-    "purescript": "^0.9.1"
+    "purescript": "^0.9.1",
+    "react": "^15.0.0",
+    "react-dom": "^15.0.0"
   },
   "keywords": [
     "block",

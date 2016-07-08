@@ -19,12 +19,13 @@ serve
     => Int -> State -> C.SecretKey -> m ()
 serve port _ _ = do
     C.serve port []
+    () <$ handleNewHBlock undefined undefined undefined
 
--- handleNewHBlock
---     :: WorkMode m
---     => State -> C.PeriodId -> C.HBlock -> m C.PeriodId
--- handleNewHBlock st newBlockId newBlock = do
---     expectedPid <- maybe 0 succ <$> query' st GetLastPeriodId
---     if expectedPid == newBlockId
---         then update' st (AddHBlock newBlockId newBlock) >> return newBlockId
---         else return expectedPid
+handleNewHBlock
+    :: WorkMode m
+    => State -> C.PeriodId -> C.HBlock -> m C.PeriodId
+handleNewHBlock st newBlockId newBlock = do
+    expectedPid <- maybe 0 succ <$> query' st GetLastPeriodId
+    if expectedPid == newBlockId
+        then update' st (AddHBlock newBlockId newBlock) >> return newBlockId
+        else return expectedPid

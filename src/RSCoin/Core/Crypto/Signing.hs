@@ -21,8 +21,10 @@ module RSCoin.Core.Crypto.Signing
        , printPublicKey
        ) where
 
+import           Control.Applicative        (empty)
 import qualified Crypto.Sign.Ed25519        as E
-import           Data.Aeson                 (ToJSON (toJSON))
+import           Data.Aeson                 (FromJSON (parseJSON),
+                                             ToJSON (toJSON), Value (String))
 import           Data.Bifunctor             (bimap)
 import           Data.Binary                (Binary (get, put), decodeOrFail,
                                              encode)
@@ -142,6 +144,11 @@ instance Arbitrary PublicKey where
 
 instance ToJSON PublicKey where
     toJSON = toJSON . show'
+
+instance FromJSON PublicKey where
+    parseJSON v = do
+        String s <- pure v
+        maybe empty pure $ constructPublicKey s
 
 -- | Sign a serializable value.
 sign :: Binary t => SecretKey -> t -> Signature

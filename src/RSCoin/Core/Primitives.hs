@@ -12,7 +12,7 @@ module RSCoin.Core.Primitives
        , TransactionId
        ) where
 
-import           Data.Aeson          (ToJSON)
+import           Data.Aeson          (FromJSON, ToJSON)
 import           Data.Binary         (Binary (get, put))
 import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.SafeCopy       (base, deriveSafeCopy)
@@ -72,7 +72,7 @@ instance Num Coin where
 -- It is simply a public key.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show, Ord, Buildable, Binary, Eq, Hashable, ToJSON)
+    } deriving (Show,Ord,Buildable,Binary,Eq,Hashable,ToJSON,FromJSON)
 
 -- | AddrId identifies usage of address as output of transaction.
 -- Basically, it is tuple of transaction identifier, index in list of outputs

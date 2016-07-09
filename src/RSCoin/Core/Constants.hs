@@ -3,7 +3,8 @@
 -- | This module contains all constants in rscoin.
 
 module RSCoin.Core.Constants
-       ( defaultSecretKeyPath
+       ( PlatformLayout (..)
+       , defaultSecretKeyPath
        , defaultAccountsNumber
        , defaultPort
        , defaultBankHost
@@ -20,12 +21,12 @@ module RSCoin.Core.Constants
        , shardDelta
        , rpcTimeout
        , bankSecretKey
-       , PlatformLayout(..)
+       , notaryAddress
        ) where
 
 import           Data.Binary                (Binary)
 import           Data.FileEmbed             (embedFile, makeRelativeToProject)
-import           Data.Maybe                 (fromJust)
+import           Data.Maybe                 (fromJust, fromMaybe)
 import           Data.Time.Units            (Second)
 import           Language.Haskell.TH.Syntax (Lift (lift))
 import           System.Directory           (getHomeDirectory)
@@ -34,7 +35,8 @@ import           System.FilePath            ((</>))
 import qualified RSCoin.Core.CompileConfig  as CC
 import           RSCoin.Core.Crypto         (Hash, SecretKey,
                                              constructPublicKey,
-                                             constructSecretKey, hash)
+                                             constructSecretKey,
+                                             deterministicKeyGen, hash)
 import           RSCoin.Core.Primitives     (Address (Address), Coin)
 import           RSCoin.Timed.MonadRpc      (Host, PlatformLayout (..), Port)
 
@@ -115,3 +117,13 @@ rpcTimeout = $(lift $ CC.rscRpcTimeout CC.rscoinConfig)
 bankSecretKey :: SecretKey
 bankSecretKey =
     constructSecretKey $ $(makeRelativeToProject "rscoin-key" >>= embedFile)
+
+-- | Notary public address. It's needed for multisignature address allocation.
+-- Users form transactions with purple coins on this address to allocate new
+-- multisignature addresses.
+notaryAddress :: Address
+notaryAddress =
+    Address
+    $ fst
+    $ fromMaybe (error "Invalid Notary address seed")
+    $ deterministicKeyGen "notary-service-public-addressgen"

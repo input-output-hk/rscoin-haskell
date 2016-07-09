@@ -24,8 +24,7 @@ import           Data.SafeCopy              (base, deriveSafeCopy)
 import           Data.String                (IsString)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
-import           Data.Text.Encoding         (encodeUtf8)
-import qualified Data.Text.Format           as F
+import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
 
 import           Serokell.Util              (show')
 
@@ -37,7 +36,7 @@ newtype Hash =
 $(deriveSafeCopy 0 'base ''Hash)
 
 instance Buildable Hash where
-    build = build . F.Shown . B64.encode . getHash
+    build = build . decodeUtf8 . B64.encode . getHash
 
 hashLengthBytes :: Integral a => a
 hashLengthBytes = 256 `div` 8

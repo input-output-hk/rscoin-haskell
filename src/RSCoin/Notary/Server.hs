@@ -19,7 +19,7 @@ import           Formatting              (build, int, sformat, (%))
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
 import           RSCoin.Notary.AcidState (AcquireSignatures (..),
-                                          AddSignature (..),
+                                          AddSignedTransaction (..),
                                           AnnounceNewPeriods (..),
                                           GetPeriodId (..), GetSignatures (..),
                                           PollTransactions (..),
@@ -89,7 +89,7 @@ handlePublishTx
     -> (C.Address, C.Signature)
     -> ServerT m [(C.Address, C.Signature)]
 handlePublishTx st tx addr sg = toServer $ do
-    update' st $ AddSignature tx addr sg
+    update' st $ AddSignedTransaction tx addr sg
     liftIO $ createCheckpoint st
     res <- update' st $ AcquireSignatures tx addr
     logDebug $ sformat ("Getting signatures for tx " % build % ", addr " % build % ": " % build)

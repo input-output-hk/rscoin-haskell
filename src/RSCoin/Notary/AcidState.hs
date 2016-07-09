@@ -8,7 +8,7 @@ module RSCoin.Notary.AcidState
 
          -- * acid-state query and update data types
        , GetSignatures (..)
-       , AddSignature       (..)
+       , AddSignedTransaction (..)
        , AnnounceNewPeriods (..)
        , GetPeriodId (..)
        , PollTransactions (..)
@@ -42,7 +42,7 @@ closeState :: RSCoinNotaryState -> IO ()
 closeState = closeAcidState
 
 $(makeAcidic ''Storage
-             [ 'S.addSignature
+             [ 'S.addSignedTransaction
              , 'S.getSignatures
              , 'S.announceNewPeriods
              , 'S.getPeriodId

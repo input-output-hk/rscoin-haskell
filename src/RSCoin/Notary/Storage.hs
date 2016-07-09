@@ -9,7 +9,7 @@ module RSCoin.Notary.Storage
         , emptyNotaryStorage
         , getSignatures
         , acquireSignatures
-        , addSignature
+        , addSignedTransaction
         , announceNewPeriods
         , getPeriodId
         , pollTransactions
@@ -76,8 +76,8 @@ instance MonadThrow (Update s) where
 
 -- | Receives tx, addr, (addr, sig) pair, checks validity and publishes (tx, addr) to storage,
 -- adds (addr, sig) to list of already collected for particular (tx, addr) pair.
-addSignature :: Transaction -> Address -> (Address, Signature) -> Update Storage ()
-addSignature tx addr sg@(sigAddr, sig) = do
+addSignedTransaction :: Transaction -> Address -> (Address, Signature) -> Update Storage ()
+addSignedTransaction tx addr sg@(sigAddr, sig) = do
     -- @TODO check transaction correctness, i.e. equality of sums and etc.
     checkAddrIdsKnown
     checkAddrRelativeToTx

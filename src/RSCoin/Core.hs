@@ -6,6 +6,7 @@ module RSCoin.Core
        ) where
 
 import           RSCoin.Core.ActionLog         as Exports
+import           RSCoin.Core.Aeson             ()
 import           RSCoin.Core.CheckConfirmation as Exports
 import           RSCoin.Core.Coin              as Exports
 import           RSCoin.Core.Communication     as Exports

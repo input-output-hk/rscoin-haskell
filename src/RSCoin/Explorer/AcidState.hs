@@ -11,6 +11,7 @@ module RSCoin.Explorer.AcidState
        , closeState
        , GetAddressCoins (..)
        , GetLastPeriodId (..)
+       , GetTx (..)
        , AddHBlock (..)
        ) where
 
@@ -48,11 +49,15 @@ getAddressCoins = ES.getAddressCoins
 getLastPeriodId :: Query ES.Storage (Maybe C.PeriodId)
 getLastPeriodId = ES.getLastPeriodId
 
+getTx :: C.TransactionId -> Query ES.Storage (Maybe C.Transaction)
+getTx = ES.getTx
+
 addHBlock :: C.PeriodId -> C.HBlock -> Update ES.Storage ()
 addHBlock = ES.addHBlock
 
 $(makeAcidic ''ES.Storage
              [ 'getAddressCoins
              , 'getLastPeriodId
+             , 'getTx
              , 'addHBlock
              ])

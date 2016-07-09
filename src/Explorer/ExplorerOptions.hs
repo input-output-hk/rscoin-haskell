@@ -5,20 +5,24 @@ module ExplorerOptions
        , getOptions
        ) where
 
+import           Data.ByteString        (ByteString)
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, metavar,
-                                         option, progDesc, short, showDefault,
-                                         value, (<>))
+                                         option, progDesc, showDefault, value,
+                                         (<>))
+
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultPort,
-                                         defaultSecretKeyPath)
+import           RSCoin.Core            (Severity (Error), defaultBankHost,
+                                         defaultPort, defaultSecretKeyPath)
 
 data Options = Options
-    { cloPort          :: Int
+    { cloPortRpc       :: Int
+    , cloPortWeb       :: Int
     , cloPath          :: FilePath
     , cloSecretKeyPath :: FilePath
     , cloLogSeverity   :: Severity
+    , cloBankHost      :: ByteString
     }
 
 optionsParser :: FilePath -> Parser Options
@@ -26,7 +30,10 @@ optionsParser defaultSKPath =
     Options <$>
     option
         auto
-        (mconcat [short 'p', long "port", value defaultPort, showDefault]) <*>
+        (mconcat [long "port-rpc", value defaultPort, showDefault]) <*>
+    option
+        auto
+        (mconcat [long "port-web", value (defaultPort + 1), showDefault]) <*>
     strOption
         (mconcat
              [ long "path"
@@ -42,7 +49,13 @@ optionsParser defaultSKPath =
              [ long "log-severity"
              , value Error
              , showDefault
-             , help "Logging severity"])
+             , help "Logging severity"]) <*>
+    strOption
+        (mconcat
+             [ long "bank-host"
+             , value defaultBankHost
+             , showDefault
+             , help "Host name for bank"])
 
 getOptions :: IO Options
 getOptions = do

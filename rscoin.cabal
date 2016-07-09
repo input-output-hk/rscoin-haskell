@@ -34,6 +34,7 @@ library
                      , RSCoin.Bank.Storage
                      , RSCoin.Core
                      , RSCoin.Core.ActionLog
+                     , RSCoin.Core.Aeson
                      , RSCoin.Core.CheckConfirmation
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Coin
@@ -48,6 +49,7 @@ library
                      , RSCoin.Core.Types
                      , RSCoin.Explorer
                      , RSCoin.Explorer.Error
+                     , RSCoin.Explorer.Launcher
                      , RSCoin.Explorer.Server
                      , RSCoin.Mintette
                      , RSCoin.Mintette.Acidic
@@ -72,6 +74,9 @@ library
                      , RSCoin.Bank.AcidState
                      , RSCoin.Bank.Launcher
                      , RSCoin.Bank.Server
+                     , RSCoin.Bank.Storage.Explorers
+                     , RSCoin.Bank.Storage.Mintettes
+                     , RSCoin.Bank.Storage.Whole
                      , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Communication
@@ -83,6 +88,7 @@ library
                      , RSCoin.Core.Protocol
                      , RSCoin.Explorer.AcidState
                      , RSCoin.Explorer.Storage
+                     , RSCoin.Explorer.Web
                      , RSCoin.User.AcidState
                      , RSCoin.User.Cache
   build-depends:       acid-state
@@ -120,6 +126,7 @@ library
                      , safe
                      , safecopy
                      , serokell-core
+                     , servant-server
                      , stm >= 2.4.4
                      , template-haskell
                      , text >= 1.2.2.0
@@ -131,6 +138,9 @@ library
                      , tuple >= 0.3.0.2
                      , unordered-containers
                      , vector
+                     , wai
+                     , wai-extra
+                     , warp
                      , yaml
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -243,6 +253,7 @@ executable rscoin-explorer
   main-is:             Main.hs
   other-modules:       ExplorerOptions
   build-depends:       base
+                     , bytestring
                      , mtl >= 2.2.1
                      , optparse-applicative
                      , rscoin
@@ -261,7 +272,6 @@ executable rscoin-deploy
   main-is:             Main.hs
   other-modules:       Config
   build-depends:       aeson
-                     , async
                      , base
                      , filepath
                      , formatting

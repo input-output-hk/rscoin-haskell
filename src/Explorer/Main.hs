@@ -1,11 +1,17 @@
 import qualified RSCoin.Core     as C
+import qualified RSCoin.Explorer as E
 
 import           ExplorerOptions (Options (..), getOptions)
 
 main :: IO ()
 main = do
-    Options {..} <- getOptions
+    Options{..} <- getOptions
     C.initLogging cloLogSeverity
     sk <- C.readSecretKey cloSecretKeyPath
-    putStrLn "Blockchain = DEAD"
-    undefined sk
+    E.launchExplorerReal
+        cloBankHost
+        cloPortRpc
+        cloPortWeb
+        cloLogSeverity
+        cloPath
+        sk

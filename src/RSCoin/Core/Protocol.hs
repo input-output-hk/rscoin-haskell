@@ -1,5 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE Rank2Types#-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 -- | Protocol implements all low level communication between
@@ -8,6 +9,7 @@
 module RSCoin.Core.Protocol
        ( BankMethod (..)
        , MintetteMethod (..)
+       , ExplorerMethod (..)
        , DumpMethod (..)
        , RSCoinMethod (..)
        , WithResult
@@ -20,24 +22,28 @@ module RSCoin.Core.Protocol
        , execBankSafe
        , execMintette
        , execMintetteSafe
+       , execExplorer
+       , execExplorerSafe
        , callBank
        , callBankSafe
        , callMintette
        , callMintetteSafe
+       , callExplorer
+       , callExplorerSafe
        , unCps
        ) where
 
-import           Control.Monad.IO.Class  (liftIO, MonadIO)
-import           Data.IORef              (newIORef, writeIORef, readIORef)
+import           Control.Monad.IO.Class  (MonadIO, liftIO)
 import qualified Data.ByteString.Char8   as BS
+import           Data.IORef              (newIORef, readIORef, writeIORef)
 import           Data.Maybe              (fromJust)
 
 import           Data.MessagePack        (MessagePack)
 
 import           RSCoin.Core.Constants   (bankPort, rpcTimeout)
-import           RSCoin.Core.Types       (Mintette (..))
 import           RSCoin.Core.Crypto      ()
 import           RSCoin.Core.MessagePack ()
+import           RSCoin.Core.Types       (Explorer (..), Mintette (..))
 import qualified RSCoin.Timed            as T
 
 -- TODO: this module should provide more safety and expose better api
@@ -46,6 +52,7 @@ import qualified RSCoin.Timed            as T
 data RSCoinMethod
     = RSCBank BankMethod
     | RSCMintette MintetteMethod
+    | RSCExplorer ExplorerMethod
     | RSCDump DumpMethod
     deriving (Show)
 
@@ -66,7 +73,12 @@ data MintetteMethod
     | CommitTx
     deriving (Show)
 
--- Requests for dumping state
+-- | Requests processed by Explorer.
+data ExplorerMethod =
+    EMNewBlock
+    deriving (Show)
+
+-- | Requests for dumping state
 data DumpMethod
     = GetHBlocks
     | GetLogs
@@ -100,44 +112,77 @@ execBank = (>>=) . callBank
 execMintette :: MessagePack a => Mintette -> T.Client a -> WithResult a
 execMintette m = (>>=) . callMintette m
 
+-- | Send a request to Explorer using Continuation passing style (CPS).
+execExplorer :: MessagePack a => Explorer -> T.Client a -> WithResult a
+execExplorer e = (>>=) . callExplorer e
+
 -- | Send a request to a Bank using Continuation passing style (CPS).
--- Rises an exception if Bank doesn't respond in rpcTimeout time.
+-- Raises an exception if Bank doesn't respond in rpcTimeout time.
 execBankSafe :: MessagePack a => T.Client a -> WithResult a
 execBankSafe = (>>=) . callBankSafe
 
 -- | Send a request to a Mintette using Continuation passing style (CPS).
--- Rises an exception if Mintette doesn't respond in rpcTimeout time.
+-- Raises an exception if Mintette doesn't respond in rpcTimeout time.
 execMintetteSafe :: MessagePack a => Mintette -> T.Client a -> WithResult a
 execMintetteSafe m = (>>=) . callMintetteSafe m
 
+-- | Send a request to a Explorer using Continuation passing style (CPS).
+-- Raises an exception if Explorer doesn't respond in rpcTimeout time.
+execExplorerSafe :: MessagePack a => Explorer -> T.Client a -> WithResult a
+execExplorerSafe m = (>>=) . callExplorerSafe m
+
 -- | Send a request to a Bank.
-callBank :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
+callBank
+    :: (MessagePack a, T.WorkMode m)
+    => T.Client a -> m a
 callBank action = do
     bankHost <- T.getHost <$> T.getBankSettings
     T.execClient (bankHost, bankPort) action
 
 -- | Send a request to a Mintette.
-callMintette :: (MessagePack a, T.WorkMode m)
-             => Mintette -> T.Client a -> m a
+callMintette
+    :: (MessagePack a, T.WorkMode m)
+    => Mintette -> T.Client a -> m a
 callMintette Mintette {..} action =
     T.execClient (BS.pack mintetteHost, mintettePort) action
 
+-- | Send a request to a Explorer.
+callExplorer
+    :: (MessagePack a, T.WorkMode m)
+    => Explorer -> T.Client a -> m a
+callExplorer Explorer {..} action =
+    T.execClient (BS.pack explorerHost, explorerPort) action
+
 -- | Send a request to a Bank.
--- Rises an exception if Bank doesn't respond in rpcTimeout time.
-callBankSafe :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
+-- Raises an exception if Bank doesn't respond in rpcTimeout time.
+callBankSafe
+    :: (MessagePack a, T.WorkMode m)
+    => T.Client a -> m a
 callBankSafe action = do
     bankHost <- T.getHost <$> T.getBankSettings
     T.execClientTimeout rpcTimeout (bankHost, bankPort) action
 
 -- | Send a request to a Mintette.
--- Rises an exception if Mintette doesn't respond in rpcTimeout time.
-callMintetteSafe :: (MessagePack a, T.WorkMode m)
-             => Mintette -> T.Client a -> m a
+-- Raises an exception if Mintette doesn't respond in rpcTimeout time.
+callMintetteSafe
+    :: (MessagePack a, T.WorkMode m)
+    => Mintette -> T.Client a -> m a
 callMintetteSafe Mintette {..} action =
     T.execClientTimeout rpcTimeout (BS.pack mintetteHost, mintettePort) action
 
+-- | Send a request to a Explorer.
+-- Raises an exception if Explorer doesn't respond in rpcTimeout time.
+callExplorerSafe
+    :: (MessagePack a, T.WorkMode m)
+    => Explorer -> T.Client a -> m a
+callExplorerSafe Explorer {..} action =
+    T.execClientTimeout rpcTimeout (BS.pack explorerHost, explorerPort) action
+
 -- | Reverse Continuation passing style (CPS) transformation
-unCps :: forall a m . MonadIO m => ((a -> m ()) -> m ()) -> m a
+unCps
+    :: forall a m.
+       MonadIO m
+    => ((a -> m ()) -> m ()) -> m a
 unCps withResult = do
     ref <- liftIO $ newIORef Nothing
     withResult $ liftIO . writeIORef ref . Just

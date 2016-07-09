@@ -9,6 +9,8 @@ module RSCoin.Core.Types
        , Mintette (..)
        , Mintettes
        , MintetteId
+       , Explorer (..)
+       , Explorers
        , ActionLogHead
        , ActionLogHeads
        , CheckConfirmation (..)
@@ -35,6 +37,8 @@ import           Data.Text.Buildable    (Buildable (build))
 import qualified Data.Text.Format       as F
 import           Data.Text.Lazy.Builder (Builder)
 import           Data.Word              (Word8)
+import           Formatting             (bprint, int, string, (%))
+import qualified Formatting
 
 import           Serokell.Util.Text     (listBuilderJSON, listBuilderJSONIndent,
                                          mapBuilder, pairBuilder)
@@ -73,6 +77,34 @@ instance Buildable Mintettes where
 -- | Mintette is identified by it's index in mintettes list stored by Bank.
 -- This id doesn't change over period, but may change between periods.
 type MintetteId = Int
+
+-- | All the information about a particular block explorer.
+data Explorer = Explorer
+    { explorerHost :: !String
+    , explorerPort :: !Int
+    , explorerKey  :: !PublicKey
+    } deriving (Show,Eq,Ord)
+
+instance Binary Explorer where
+    put Explorer {..} = do
+        put explorerHost
+        put explorerPort
+        put explorerKey
+    get = Explorer <$> get <*> get <*> get
+
+$(deriveSafeCopy 0 'base ''Explorer)
+
+instance Buildable Explorer where
+    build Explorer{..} =
+        bprint
+            ("Explorer (" % string % ":" % int % ", pk: " % Formatting.build %
+             ")")
+            explorerHost
+            explorerPort
+            explorerKey
+
+-- | List of explorers is stored by bank.
+type Explorers = [Explorer]
 
 -- | Each mintette has a log of actions along with hash which is chained.
 -- Head of this log is represented by pair of hash and sequence number.
@@ -226,6 +258,14 @@ data HBlock = HBlock
     } deriving (Show, Eq)
 
 $(deriveSafeCopy 0 'base ''HBlock)
+
+instance Binary HBlock where
+    put HBlock{..} = do
+        put hbHash
+        put hbTransactions
+        put hbSignature
+        put hbDpk
+    get = HBlock <$> get <*> get <*> get <*> get
 
 instance Buildable HBlock where
     build HBlock{..} =

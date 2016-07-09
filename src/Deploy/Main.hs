@@ -58,7 +58,7 @@ startMintette CommonParams{..} (idx,MintetteData{..}) = do
         runCommand = mconcat [cpExec, "rscoin-mintette"]
         severityArg =
             maybe "" (sformat (" --log-severity " % shown)) mdSeverity
-        port = fromMaybe C.defaultPort mdPort
+        port = mintettePort idx
         dbDir = workingDir </> "mintette-db"
         fullRunCommand =
             sformat
@@ -96,19 +96,19 @@ startExplorer CommonParams{..} (idx,ExplorerData{..}) = do
         runCommand = mconcat [cpExec, "rscoin-explorer"]
         severityArg =
             maybe "" (sformat (" --log-severity " % shown)) edSeverity
-        port = fromMaybe C.defaultPort edPort
+        portRpc = explorerPort idx
+        portWeb = explorerWebPort idx
         dbDir = workingDir </> "explorer-db"
         fullRunCommand =
             sformat
-                (stext % " --sk " % string % " --port " %
-                 int %
-                 stext %
+                (stext % " --sk " % string % " --port-rpc " % int % " --port-web " % int % stext %
                  " --bank-host 127.0.0.1 " %
                  " --path " %
                  string)
                 runCommand
                 skPath
-                port
+                portRpc
+                portWeb
                 severityArg
                 dbDir
     Cherepakha.mkdir workingDirModern
@@ -183,6 +183,15 @@ withTempDirectoryWorkaround :: FilePath -> String -> (FilePath -> IO a) -> IO a
 withTempDirectoryWorkaround baseDir template callback =
     callback =<< createTempDirectory baseDir template
 
+mintettePort :: Integral a => a -> Int
+mintettePort = (C.defaultPort + 1 +) . fromIntegral
+
+explorerPort :: Integral a => a -> Int
+explorerPort = (C.defaultPort + 3000 +) . fromIntegral
+
+explorerWebPort :: Integral a => a -> Int
+explorerWebPort = (C.defaultPort + 5000 +) . fromIntegral
+
 main :: IO ()
 main = do
     DeployConfig{..} <- readDeployConfig =<< getConfigPath
@@ -212,9 +221,11 @@ main = do
                         { bdSecret = absoluteSecret
                         }
                     mintettePorts =
-                        map (fromMaybe C.defaultPort . mdPort) dcMintettes
+                        map mintettePort [0 .. length dcMintettes - 1]
                     explorerPorts =
-                        map (fromMaybe C.defaultPort . edPort) dcExplorers
+                        map
+                            explorerPort
+                            [0 .. length dcExplorers - 1]
                 (mintetteThreads,mintetteKeys) <-
                     unzip <$> mapM (startMintette cp) (zip [0 ..] dcMintettes)
                 waitSec 2

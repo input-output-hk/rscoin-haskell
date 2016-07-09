@@ -4,10 +4,10 @@ bank:
   severity: Info
   secret: rscoin-key
 mintettes:
-- port: 3001
-- port: 3002
-- port: 3003
+- {}
+- {}
+- {}
 explorers:
-- port: 4001
+- {}
 period: 100
 

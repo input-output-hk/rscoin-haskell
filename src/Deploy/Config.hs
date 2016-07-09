@@ -33,15 +33,13 @@ data BankData = BankData
     } deriving (Show)
 
 data MintetteData = MintetteData
-    { mdPort     :: !(Maybe Int)
+    { mdSeverity :: !(Maybe Severity)
     -- , mdProfiling :: !(Maybe ProfilingType)
-    , mdSeverity :: !(Maybe Severity)
     } deriving (Show)
 
 data ExplorerData = ExplorerData
-    { edPort     :: !(Maybe Int)
+    { edSeverity :: !(Maybe Int)
     -- , mdProfiling :: !(Maybe ProfilingType)
-    , edSeverity :: !(Maybe Severity)
     } deriving (Show)
 
 $(A.deriveJSON leaveTagOptions ''Severity)

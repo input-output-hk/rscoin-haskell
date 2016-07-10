@@ -6,3 +6,4 @@
 /src/.webpack.js
 index.js
 app.js
+*.tix

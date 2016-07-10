@@ -10,6 +10,7 @@ module RSCoin.Core.Primitives
        , AddrId
        , Transaction (..)
        , TransactionId
+       , grey
        ) where
 
 import           Data.Binary         (Binary (get, put))
@@ -28,6 +29,11 @@ import           RSCoin.Core.Crypto  (Hash, PublicKey, constructPublicKey,
                                       printPublicKey)
 
 type Color = Int
+
+-- | Predefined color. Grey is for uncolored coins,
+-- Purple is for multisignature address allocation.
+grey :: Color
+grey = 0
 
 -- | Coin is the least possible unit of currency.
 -- We use very simple model at this point.
@@ -68,7 +74,7 @@ instance Num Coin where
       | otherwise = reportError "subtraction" c1 c2
     abs (Coin a b) = Coin a (abs b)
     signum (Coin col c) = Coin col (signum c)
-    fromInteger c = Coin 0 (fromInteger c)
+    fromInteger c = Coin grey (fromInteger c)
 
 -- | Address can serve as input or output to transactions.
 -- It is simply a public key.

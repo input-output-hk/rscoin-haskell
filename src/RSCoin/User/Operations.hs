@@ -376,7 +376,7 @@ constructAndSignTransaction st TransactionData{..} = do
     pair3merge = mappend
 
 -- For given address and coins to send from it it returns a
--- pair. First element is chosen addrids with user addresses to
+-- triple. First element is chosen addrids with user addresses to
 -- make signature map afterwards. The second is inputs of
 -- transaction, third is change outputs
 submitTransactionMapper

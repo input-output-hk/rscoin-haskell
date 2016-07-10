@@ -10,7 +10,7 @@ import Debug.Trace (traceAnyM)
 import WebSocket (Connection(..), Message(..), URL(..), runMessageEvent, runMessage, runURL, newWebSocket)
 
 main = do
-  Connection socket <- newWebSocket (URL "ws://echo.websocket.org") []
+  Connection socket <- newWebSocket (URL "ws://localhost:8000") []
 
   socket.onopen $= \event -> do
     traceAnyM event

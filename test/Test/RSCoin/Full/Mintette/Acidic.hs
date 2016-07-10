@@ -19,7 +19,7 @@ import           Data.Acid.Memory                  (openMemoryState)
 import           RSCoin.Core                       (AddrId, Address,
                                                     CheckConfirmation,
                                                     CheckConfirmations,
-                                                    CommitConfirmation,
+                                                    CommitAcknowledgment,
                                                     SecretKey, Signature,
                                                     Transaction)
 import           RSCoin.Mintette.AcidState         (State)
@@ -52,7 +52,7 @@ commitTx
     -> SecretKey
     -> Transaction
     -> CheckConfirmations
-    -> Update OMS.Storage CommitConfirmation
+    -> Update OMS.Storage CommitAcknowledgment
 commitTx = MS.commitTx
 
 $(makeAcidic ''OMS.Storage

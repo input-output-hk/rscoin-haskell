@@ -103,7 +103,7 @@ commitTx :: MintetteConfig
          -> SecretKey
          -> Transaction
          -> C.CheckConfirmations
-         -> ExceptUpdate C.CommitConfirmation
+         -> ExceptUpdate C.CommitAcknowledgment
 commitTx conf sk tx@Transaction{..} bundle = do
     unless (checkActive conf) checkIsActive
     checkTxSum tx
@@ -152,7 +152,7 @@ commitTxChecked
     -> SecretKey
     -> Transaction
     -> C.CheckConfirmations
-    -> ExceptUpdate C.CommitConfirmation
+    -> ExceptUpdate C.CommitAcknowledgment
 commitTxChecked _ False _ _ _ = throwM MENotConfirmed
 commitTxChecked conf True sk tx bundle = do
     pushLogEntry $ C.CommitEntry tx bundle
@@ -164,4 +164,4 @@ commitTxChecked conf True sk tx bundle = do
     hsh <- uses logHead (snd . fromJust)
     logSz <- use logSize
     let logChainHead = (hsh, logSz)
-    return (pk, sign sk (tx, logChainHead), logChainHead)
+    return $ C.CommitAcknowledgment pk (sign sk (tx, logChainHead)) logChainHead

@@ -13,7 +13,7 @@ module RSCoin.Core.Types
        , ActionLogHeads
        , CheckConfirmation (..)
        , CheckConfirmations
-       , CommitConfirmation
+       , CommitAcknowledgment (..)
        , ActionLogEntry (..)
        , ActionLog
        , LBlock (..)
@@ -120,9 +120,22 @@ type CheckConfirmations = M.Map (MintetteId, AddrId) CheckConfirmation
 instance Buildable CheckConfirmations where
     build = mapBuilder . map (first pairBuilder) . M.assocs
 
--- | CommitConfirmation is sent by mintette to user as an evidence
+-- | CommitAcknowledgment is sent by mintette to user as an evidence
 -- that mintette has included it into lower-level block.
-type CommitConfirmation = (PublicKey, Signature, ActionLogHead)
+data CommitAcknowledgment = CommitAcknowledgment
+    { caMintetteKey       :: !PublicKey      -- ^ key of corresponding mintette
+    , caMintetteSignature :: !Signature      -- ^ signature for (tx, logHead)
+    , caHead              :: !ActionLogHead  -- ^ head of log
+    } deriving (Show)
+
+instance Binary CommitAcknowledgment where
+    put CommitAcknowledgment{..} = do
+        put caMintetteKey
+        put caMintetteSignature
+        put caHead
+    get = CommitAcknowledgment <$> get <*> get <*> get
+
+$(deriveSafeCopy 0 'base ''CommitAcknowledgment)
 
 -- | Each mintette mantains a high-integrity action log, consisting of entries.
 data ActionLogEntry

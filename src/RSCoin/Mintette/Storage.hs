@@ -195,7 +195,7 @@ checkNotDoubleSpent sk tx addrId sg = do
 commitTx :: C.SecretKey
          -> C.Transaction
          -> C.CheckConfirmations
-         -> ExceptUpdate C.CommitConfirmation
+         -> ExceptUpdate C.CommitAcknowledgment
 commitTx sk tx@C.Transaction{..} bundle = do
     checkIsActive
     checkTxSum tx
@@ -240,7 +240,7 @@ commitTxChecked
     -> C.SecretKey
     -> C.Transaction
     -> C.CheckConfirmations
-    -> ExceptUpdate C.CommitConfirmation
+    -> ExceptUpdate C.CommitAcknowledgment
 commitTxChecked False _ _ _ = throwM MENotConfirmed
 commitTxChecked True sk tx bundle = do
     pushLogEntry $ C.CommitEntry tx bundle
@@ -251,7 +251,7 @@ commitTxChecked True sk tx bundle = do
     hsh <- uses logHead (snd . fromJust)
     logSz <- use logSize
     let logChainHead = (hsh, logSz)
-    return (pk, sign sk (tx, logChainHead), logChainHead)
+    return $ C.CommitAcknowledgment pk (sign sk (tx, logChainHead)) logChainHead
 
 -- | Finish ongoing period, returning its result.
 -- Do nothing if period id is not an expected one.

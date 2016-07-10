@@ -65,7 +65,7 @@ import qualified RSCoin.Core.Protocol       as P
 import           RSCoin.Core.Types          (ActionLog, AddressToStrategyMap,
                                              CheckConfirmation,
                                              CheckConfirmations,
-                                             CommitConfirmation, HBlock, LBlock,
+                                             CommitAcknowledgment, HBlock, LBlock,
                                              Mintette, MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Strategy, Utxo)
@@ -212,7 +212,7 @@ commitTx
     => Mintette
     -> Transaction
     -> CheckConfirmations
-    -> m (Either MintetteError CommitConfirmation)
+    -> m (Either MintetteError CommitAcknowledgment)
 commitTx m tx cc =
     withResult infoMessage (either onError onSuccess) $
     callMintette m $ P.call (P.RSCMintette P.CommitTx) tx cc

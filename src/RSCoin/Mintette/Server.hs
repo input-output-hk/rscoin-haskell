@@ -158,7 +158,7 @@ handleCommitTx
     -> State
     -> C.Transaction
     -> C.CheckConfirmations
-    -> ServerT m (Either MintetteError C.CommitConfirmation)
+    -> ServerT m (Either MintetteError C.CommitAcknowledgment)
 handleCommitTx sk st tx cc =
     toServer $
     do logDebug $

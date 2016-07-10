@@ -22,7 +22,7 @@ import           Data.SafeCopy           (base, deriveSafeCopy)
 
 import           RSCoin.Core             (ActionLog, AddrId, Address,
                                           CheckConfirmation, CheckConfirmations,
-                                          CommitConfirmation, LBlock,
+                                          CommitAcknowledgment, LBlock,
                                           MintetteId, NewPeriodData, PeriodId,
                                           PeriodResult, Pset, SecretKey,
                                           Signature, Transaction, Utxo)
@@ -59,7 +59,7 @@ checkNotDoubleSpent = MS.checkNotDoubleSpent
 commitTx :: SecretKey
          -> Transaction
          -> CheckConfirmations
-         -> Update MS.Storage CommitConfirmation
+         -> Update MS.Storage CommitAcknowledgment
 commitTx = MS.commitTx
 
 finishPeriod :: SecretKey -> PeriodId -> Update MS.Storage PeriodResult

@@ -25,6 +25,9 @@ fromInt = fromIntegral
 uncurry2 :: (a -> b -> c) -> (a, b) -> c
 uncurry2 = uncurryN
 
+uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
+uncurry3 = uncurryN
+
 uncurry4 :: (a -> b -> c -> d -> e) -> (a, b, c, d) -> e
 uncurry4 = uncurryN
 
@@ -89,6 +92,11 @@ instance MessagePack C.CheckConfirmation where
     toObject C.CheckConfirmation{..} =
         toObject (ccMintetteKey, ccMintetteSignature, ccHead, ccPeriodId)
     fromObject = fmap (uncurry4 C.CheckConfirmation) . fromObject
+
+instance MessagePack C.CommitAcknowledgment where
+    toObject C.CommitAcknowledgment{..} =
+        toObject (caMintetteKey, caMintetteSignature, caHead)
+    fromObject = fmap (uncurry3 C.CommitAcknowledgment) . fromObject
 
 instance MessagePack C.HBlock where
     toObject C.HBlock {..} =

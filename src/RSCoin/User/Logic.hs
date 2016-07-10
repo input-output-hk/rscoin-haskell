@@ -35,7 +35,7 @@ import           RSCoin.Core.Primitives        (AddrId, Address,
                                                 Transaction (..))
 import           RSCoin.Core.Strategy          (isStrategyCompleted)
 import           RSCoin.Core.Types             (CheckConfirmations,
-                                                CommitConfirmation, Mintette,
+                                                CommitAcknowledgment (..), Mintette,
                                                 MintetteId, PeriodId,
                                                 Strategy (..))
 import           RSCoin.Mintette.Error         (MintetteError)
@@ -191,13 +191,12 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
                 (\(mintette,_) ->
                       CC.commitTx mintette tx bundle)
                 owns
-        let succeededCommits :: [CommitConfirmation]
-            succeededCommits =
-                filter
-                    (\(pk,sign,lch) ->
-                          verify pk sign (tx, lch)) $
-                mapMaybe rightToMaybe $ commitActions
-            failures = filter isLeft commitActions
+        let succeededCommits :: [CommitAcknowledgment]
+            succeededCommits = filter
+                (\(CommitAcknowledgment pk sign lch) -> verify pk sign (tx, lch))
+                $ mapMaybe rightToMaybe
+                $ commitActions
+        let failures = filter isLeft commitActions
         unless (null failures) $
             logWarning userLoggerName $
             commitTxWarningMessage owns commitActions
@@ -212,7 +211,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
         listBuilderJSON . map pairBuilder . mintettesAndErrors owns
     mintettesAndErrors
         :: [(Mintette, MintetteId)]
-        -> [Either MintetteError CommitConfirmation]
+        -> [Either MintetteError CommitAcknowledgment]
         -> [(Mintette, MintetteError)]
     mintettesAndErrors owns =
         map sndFromLeft . filter (isLeft . snd) . zip (map fst owns)

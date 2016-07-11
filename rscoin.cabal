@@ -11,7 +11,7 @@ author:              Serokell team
 maintainer:          volhovm.cs@gmail.com
 -- copyright:
 -- category:
-build-type:          Simple
+build-type:          Custom
 extra-source-files:  README.md
 cabal-version:       >=1.10
 data-files:            resources/RSCoinMain.glade

@@ -151,7 +151,7 @@ handleQueryCompleteMS
     :: WorkMode m
     => RSCoinNotaryState
     -> ServerT m [(C.Address, C.Strategy)]
-handleQueryCompleteMS st = do
+handleQueryCompleteMS st = toServer $ do
     res <- query' st QueryCompleteMSAdresses
     logDebug $ sformat ("Getting complete MS: " % shown) res
     return res
@@ -161,7 +161,7 @@ handleRemoveCompleteMS
     => RSCoinNotaryState
     -> [C.Address]
     -> ServerT m ()
-handleRemoveCompleteMS st addresses = do
+handleRemoveCompleteMS st addresses = toServer $ do
     logDebug $ sformat ("Removing complete MS of " % shown) addresses
     update' st $ RemoveCompleteMSAddresses addresses
 
@@ -174,6 +174,6 @@ handleAllocateMultisig
     -> (C.Address, C.Signature)
     -> [(C.Signature, C.PublicKey)]
     -> ServerT m ()
-handleAllocateMultisig st sAddr parties m sigPair chain = do
+handleAllocateMultisig st sAddr parties m sigPair chain = toServer $ do
     logDebug "I don't want to debug this anymore :("
     update' st $ AllocateMSAddress sAddr parties m sigPair chain

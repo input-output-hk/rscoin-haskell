@@ -73,10 +73,21 @@ instance WS.WebSocketsData (ErrorableMsg IntroductoryMsg) where
 
 -- | Within communication started with AddressInfo message client can
 -- send messages defined by this type.
-data AddressInfoMsg =
-    -- | GetBalance message requests balance of address associated
-    -- with connection.
-    AIGetBalance
+data AddressInfoMsg
+    =
+      -- | GetBalance message requests balance of address associated
+      -- with connection.
+      AIGetBalance
+    | -- | GetTxNumber message requests number of transactions
+      -- referencing address associated with connection.
+      AIGetTxNumber
+    | -- | GetTransactions message requests transactions referencing
+      -- address associated with connection. Arguments (lo, hi)
+      -- determine which subset to return, i. e. transactions with
+      -- indices in range [lo, hi) are returned. For instance,
+      -- `AIGetTransactions 0 2` requests two last transactions.
+      AIGetTransactions !Word
+                        !Word
     deriving (Show)
 
 $(deriveJSON defaultOptions ''AddressInfoMsg)
@@ -98,6 +109,15 @@ data OutcomingMsg
       -- | Sent within `AddressInfo` session.
       OMBalance !C.PeriodId
                 !SerializableCoinsMap
+    |
+      -- | Sent within `AddressInfo` session. Contains number of
+      -- transactions referencing address over given PeriodId.
+      OMTxNumber !C.PeriodId
+                 !Word
+    |
+      -- | Sent within `AddressInfo` session. Has an indexed list of
+      -- transactions referencing address over given PeriodId.
+      OMTransactions !C.PeriodId ![(Word, C.Transaction)]
     deriving (Show)
 
 mkOMBalance :: C.PeriodId -> C.CoinsMap -> OutcomingMsg
@@ -196,6 +216,8 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
     onReceive AIGetBalance =
         send conn . uncurry mkOMBalance =<<
         flip query' (DB.GetAddressBalance addr) =<< view ssDataBase
+    onReceive AIGetTxNumber = undefined
+    onReceive (AIGetTransactions _ _) = undefined
 
 sender :: Channel -> ServerMonad ()
 sender channel = do

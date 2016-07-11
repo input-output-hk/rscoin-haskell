@@ -25,6 +25,7 @@ data NotaryError
     | NEInvalidSignature           -- ^ Invalid signature provided
     | NEStrategyNotSupported Text  -- ^ Address's strategy is not supported, with name provided
     | NEUnrelatedSignature         -- ^ Signature provided doesn't correspond to any of address' parties
+    | NEUnpaidAllocation           -- ^ No one has paid purple fee for multisig address allocation
     deriving (Eq, Show, Typeable)
 
 instance Exception NotaryError where
@@ -37,6 +38,7 @@ instance Buildable NotaryError where
     build NEInvalidSignature         = "NEInvalidSignature"
     build (NEStrategyNotSupported s) = bprint ("NEStrategyNotSupported, strategy " % stext) s
     build NEUnrelatedSignature       = "NEUnrelatedSignature"
+    build NEUnpaidAllocation         = "NEUnpaidAllocation"
 
 toObj
     :: MessagePack a
@@ -49,6 +51,7 @@ instance MessagePack NotaryError where
     toObject NEInvalidSignature         = toObj (2, ())
     toObject (NEStrategyNotSupported s) = toObj (3, s)
     toObject NEUnrelatedSignature       = toObj (4, ())
+    toObject NEUnpaidAllocation         = toObj (5, ())
 
     fromObject obj = do
         (i, payload) <- fromObject obj
@@ -58,4 +61,5 @@ instance MessagePack NotaryError where
             2 -> pure NEInvalidSignature
             3 -> NEStrategyNotSupported <$> fromObject payload
             4 -> pure NEUnrelatedSignature
+            5 -> pure NEUnpaidAllocation
             _ -> Nothing

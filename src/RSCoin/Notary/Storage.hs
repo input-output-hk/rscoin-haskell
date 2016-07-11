@@ -19,14 +19,18 @@ import           Control.Exception   (throw)
 import           Control.Lens        (makeLenses, use, view, (%=), (.=))
 import           Control.Monad       (forM_, when, (<=<))
 import           Control.Monad.Catch (MonadThrow (throwM))
+
 import           Data.Acid           (Query, Update, liftQuery)
 import qualified Data.Foldable       as F
-import qualified Data.Map            as M
+import           Data.Map            (Map)
+import qualified Data.Map            as M hiding (Map)
 import           Data.Maybe          (fromJust, fromMaybe, isJust)
-import qualified Data.Set            as S
+import           Data.Set            (Set)
+import qualified Data.Set            as S hiding (Set)
 
 import           RSCoin.Core         (AddrId, Address, AddressToStrategyMap,
-                                      HBlock (..), PeriodId, Signature,
+                                      HBlock (..),
+                                      PeriodId, Signature,
                                       Strategy (..), Transaction (..), Utxo,
                                       computeOutputAddrids, isStrategyCompleted,
                                       validateSignature)
@@ -34,20 +38,25 @@ import           RSCoin.Notary.Error (NotaryError (..))
 
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
-      _txPool         :: M.Map Address (M.Map Transaction (M.Map Address Signature))
+      _txPool         :: Map Address (Map Transaction (Map Address Signature))
+
+      -- | Mapping between addrid and all pairs (addr, transaction),
+      -- being kept in `txPool`, such that addrid serve as an input for transaction.
+    , _txPoolAddrIds  :: Map AddrId (Set (Address, Transaction))
+
+      -- | Mapping between address and a set of unspent addrids, owned by it.
+    , _unspentAddrIds :: Map Address (Set AddrId)
+
+      -- | Mapping from newly allocated multisignature address to set of
+      -- parties. This Map is used only during multisignature
+      -- address allocation process.
+    , _allocationPool :: Map Address (Set Address)
 
       -- | Non-default addresses, registered in system (published to bank).
     , _addresses      :: AddressToStrategyMap
 
-      -- | Mapping between address and a set of unspent addrids, owned by it.
-    , _unspentAddrIds :: M.Map Address (S.Set AddrId)
-
       -- | Mapping between addrid and address.
     , _utxo           :: Utxo
-
-      -- | Mapping between addrid and all pairs (addr, transaction),
-      -- being kept in `txPool`, such that addrid serve as an input for transaction.
-    , _txPoolAddrIds  :: M.Map AddrId (S.Set (Address, Transaction))
 
       -- | Last periodId, known to Notary.
     , _periodId       :: PeriodId
@@ -56,7 +65,16 @@ data Storage = Storage
 $(makeLenses ''Storage)
 
 emptyNotaryStorage :: Storage
-emptyNotaryStorage = Storage M.empty M.empty M.empty M.empty M.empty (-1)
+emptyNotaryStorage =
+    Storage
+    { _txPool         = M.empty
+    , _txPoolAddrIds  = M.empty
+    , _unspentAddrIds = M.empty
+    , _allocationPool = M.empty
+    , _addresses      = M.empty
+    , _utxo           = M.empty
+    , _periodId       = -1
+    }
 
 -- Erase occurrences published (address, transaction) from storage
 forgetAddrTx :: Address -> Transaction -> Update Storage ()

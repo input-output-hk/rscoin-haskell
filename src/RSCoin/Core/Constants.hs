@@ -37,7 +37,7 @@ import           RSCoin.Core.Crypto         (Hash, SecretKey,
                                              constructPublicKey,
                                              constructSecretKey,
                                              deterministicKeyGen, hash)
-import           RSCoin.Core.Primitives     (Address (Address), Coin)
+import           RSCoin.Core.Primitives     (Address (Address), Coin (..))
 import           RSCoin.Timed.MonadRpc      (Host, PlatformLayout (..), Port)
 
 -- | Path used by default to read/write secret key.

@@ -34,10 +34,6 @@ flags: {}
 # Extra package databases containing global packages
 extra-package-dbs: []
 
-explicit-setup-deps:
-    "*": true # change the default
-    entropy: false # override the new default for one package
-
 # Control whether we use the GHC we find on the path
 # system-ghc: true
 

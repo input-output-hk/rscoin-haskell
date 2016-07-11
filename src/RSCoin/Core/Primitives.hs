@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
@@ -14,6 +15,7 @@ module RSCoin.Core.Primitives
 
 import           Data.Aeson          (FromJSON, ToJSON)
 import           Data.Binary         (Binary (get, put))
+import           GHC.Generics        (Generic)
 import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.SafeCopy       (base, deriveSafeCopy)
 import           Data.Text.Buildable (Buildable (build))
@@ -72,7 +74,7 @@ instance Num Coin where
 -- It is simply a public key.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show,Ord,Buildable,Binary,Eq,Hashable,ToJSON,FromJSON)
+    } deriving (Show,Ord,Buildable,Binary,Eq,Hashable,ToJSON,FromJSON,Generic)
 
 -- | AddrId identifies usage of address as output of transaction.
 -- Basically, it is tuple of transaction identifier, index in list of outputs

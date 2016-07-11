@@ -1,8 +1,9 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE FlexibleInstances   #-}
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 
 -- | WebSockets part of Explorer Web Server.
 
@@ -10,9 +11,13 @@ module RSCoin.Explorer.Web.Sockets
        ( wsApp
        ) where
 
-import           Control.Lens              (makeLenses, view)
+import           Control.Concurrent.MVar   (MVar, modifyMVar, newMVar)
+import           Control.Lens              (at, makeLenses, use, view, (%=),
+                                            (+=), (.=))
 import           Control.Monad             (forever)
+import           Control.Monad.Catch       (finally)
 import           Control.Monad.Reader      (ReaderT, runReaderT)
+import           Control.Monad.State       (MonadState, State, runState)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid.Advanced        (query')
 import           Data.Aeson                (FromJSON, ToJSON (toJSON),
@@ -20,7 +25,9 @@ import           Data.Aeson                (FromJSON, ToJSON (toJSON),
 import           Data.Aeson.TH             (deriveJSON, deriveToJSON)
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Either.Combinators   (mapLeft)
-import qualified Data.Map                  as M
+import qualified Data.Map.Lazy             as ML
+import qualified Data.Map.Strict           as M
+import qualified Data.Set                  as S
 import           Data.Text                 (Text, pack)
 import qualified Network.WebSockets        as WS
 
@@ -28,7 +35,7 @@ import           Serokell.Aeson.Options    (defaultOptions, leaveTagOptions)
 
 import qualified RSCoin.Core               as C
 
-import           RSCoin.Explorer.AcidState (GetAddressCoins (..), State)
+import qualified RSCoin.Explorer.AcidState as DB
 
 -- | Run-time errors which may happen within this server.
 data ServerError =
@@ -92,7 +99,7 @@ mkOMBalance :: C.CoinsMap -> OutcomingMsg
 mkOMBalance = OMBalance . SerializableCoinsMap
 
 instance ToJSON SerializableCoinsMap where
-    toJSON (SerializableCoinsMap m) = toJSON . M.assocs $ m
+    toJSON (SerializableCoinsMap m) = toJSON . ML.assocs $ m
 
 $(deriveToJSON defaultOptions ''OutcomingMsg)
 
@@ -100,9 +107,55 @@ instance WS.WebSocketsData OutcomingMsg where
     fromLazyByteString = error "Attempt to deserialize OutcomingMsg is illegal"
     toLazyByteString = encode
 
-data ServerState = ServerState
-    { _ssDataBase :: State
+type ConnectionId = Word
+
+data ConnectionsState = ConnectionsState
+    { _csCounter     :: Word
+    , _csIds         :: M.Map ConnectionId WS.Connection
+    , _csConnections :: M.Map C.Address (S.Set ConnectionId)
     }
+
+$(makeLenses ''ConnectionsState)
+
+addConnection
+    :: MonadState ConnectionsState m
+    => C.Address -> WS.Connection -> m ConnectionId
+addConnection addr conn = do
+    i <- use csCounter
+    csCounter += 1
+    csIds . at i .= Just conn
+    csConnections . at addr %= Just . (maybe (S.singleton i) (S.insert i))
+    return i
+
+dropConnection
+    :: MonadState ConnectionsState m
+    => C.Address -> ConnectionId -> m ()
+dropConnection addr connId = do
+    csIds . at connId .= Nothing
+    csConnections . at addr %= fmap (S.delete connId)
+
+type ConnectionsVar = MVar ConnectionsState
+
+data ServerState = ServerState
+    { _ssDataBase    :: DB.State
+    , _ssConnections :: ConnectionsVar
+    }
+
+mkConnectionsState :: ConnectionsState
+mkConnectionsState =
+    ConnectionsState
+    { _csCounter = 0
+    , _csIds = M.empty
+    , _csConnections = M.empty
+    }
+
+modifyConnectionsState
+    :: MonadIO m
+    => ConnectionsVar -> State ConnectionsState a -> m a
+modifyConnectionsState var st =
+    liftIO $ modifyMVar var (pure . swap . runState st)
+  where
+    swap (a,b) = (b, a)
 
 $(makeLenses ''ServerState)
 
@@ -126,18 +179,27 @@ handler pendingConn = do
     liftIO $ WS.forkPingThread conn 30
     recv conn $ onReceive conn
   where
-    onReceive conn (IMAddressInfo addr) = startNegotiation addr conn
+    onReceive conn (IMAddressInfo addr) = do
+        connections <- view ssConnections
+        connId <- modifyConnectionsState connections $ addConnection addr conn
+        startNegotiation addr conn `finally`
+            modifyConnectionsState connections (dropConnection addr connId)
 
 startNegotiation :: C.Address -> WS.Connection -> Handler ()
 startNegotiation addr conn = forever $ recv conn onReceive
   where
     onReceive AIGetBalance =
         send conn . mkOMBalance =<<
-        flip query' (GetAddressCoins addr) =<< view ssDataBase
+        flip query' (DB.GetAddressCoins addr) =<< view ssDataBase
 
 -- | Given access to Explorer's data base, returns WebSockets server
 -- application.
-wsApp :: State -> WS.ServerApp
-wsApp st = flip runReaderT ss . handler
-  where
-    ss = ServerState st
+wsApp :: DB.State -> WS.ServerApp
+wsApp st pc = do
+    connections <- newMVar mkConnectionsState
+    let ss =
+            ServerState
+            { _ssDataBase = st
+            , _ssConnections = connections
+            }
+    runReaderT (handler pc) ss

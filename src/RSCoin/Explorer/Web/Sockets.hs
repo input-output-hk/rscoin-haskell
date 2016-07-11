@@ -8,7 +8,7 @@
 -- | WebSockets part of Explorer Web Server.
 
 module RSCoin.Explorer.Web.Sockets
-       ( wsApp
+       ( mkWsApp
        ) where
 
 import           Control.Concurrent.MVar   (MVar, modifyMVar, newMVar)
@@ -183,11 +183,11 @@ handler pendingConn = do
     onReceive conn (IMAddressInfo addr) = do
         connections <- view ssConnections
         connId <- modifyConnectionsState connections $ addConnection addr conn
-        startNegotiation addr conn `finally`
+        addressInfoHandler addr conn `finally`
             modifyConnectionsState connections (dropConnection addr connId)
 
-startNegotiation :: C.Address -> WS.Connection -> ServerMonad ()
-startNegotiation addr conn = forever $ recv conn onReceive
+addressInfoHandler :: C.Address -> WS.Connection -> ServerMonad ()
+addressInfoHandler addr conn = forever $ recv conn onReceive
   where
     onReceive AIGetBalance =
         send conn . mkOMBalance =<<
@@ -195,12 +195,16 @@ startNegotiation addr conn = forever $ recv conn onReceive
 
 -- | Given access to Explorer's data base and channel, returns
 -- WebSockets server application.
-wsApp :: Channel -> DB.State -> WS.ServerApp
-wsApp _ st pc = do
-    connections <- newMVar mkConnectionsState
-    let ss =
-            ServerState
-            { _ssDataBase = st
-            , _ssConnections = connections
-            }
-    runReaderT (handler pc) ss
+mkWsApp
+    :: MonadIO m
+    => Channel -> DB.State -> m WS.ServerApp
+mkWsApp _ st =
+    liftIO $
+    do connections <- newMVar mkConnectionsState
+       let ss =
+               ServerState
+               { _ssDataBase = st
+               , _ssConnections = connections
+               }
+           app pc = runReaderT (handler pc) ss
+       return app

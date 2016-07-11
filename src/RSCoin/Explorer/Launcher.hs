@@ -57,5 +57,6 @@ loggingMiddleware _ = id
 launchWeb
     :: MonadIO m
     => Int -> Severity -> Channel -> State -> m ()
-launchWeb port sev ch st =
-    liftIO . run port . loggingMiddleware sev . Web.application ch $ st
+launchWeb port sev ch st = do
+    app <- Web.mkApplication ch st
+    liftIO . run port . loggingMiddleware sev $ app

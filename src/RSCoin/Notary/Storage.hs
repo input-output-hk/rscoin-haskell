@@ -25,7 +25,7 @@ import qualified Data.Map            as M
 import           Data.Maybe          (fromJust, fromMaybe, isJust)
 import qualified Data.Set            as S
 
-import           RSCoin.Core         (AddrId, Address, AddressToStrategyMap,
+import           RSCoin.Core         (AddrId, Address (..), AddressToStrategyMap,
                                       HBlock (..), PeriodId, PublicKey,
                                       Signature, Strategy (..),
                                       Transaction (..), Utxo, chainRootPKs,
@@ -127,8 +127,10 @@ addMSAddress :: Address -- new multisig address itself
              -> [(Signature, PublicKey)] -- certificate chain to authorize *address of party*
                                          -- head is cert, given by *root*
              -> Update Storage ()
-addMSAddress addr strategy sig chain@((_, firstPk):_) = do
+addMSAddress addr strategy sig@(sigAddr, _) chain@((_, firstPk):_) = do
   when (not $ any (flip verifyChain chain) chainRootPKs) $
+     throwM NEInvalidChain
+  when (getAddress sigAddr /= (snd $ last chain)) $
      throwM NEInvalidChain
   periodStats %= M.adjust (+1) firstPk . M.alter (Just . fromMaybe 0) firstPk
   noOfAttempts <- fromJust . M.lookup firstPk <$> use periodStats

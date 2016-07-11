@@ -21,6 +21,7 @@ import           RSCoin.Timed                         (MsgPackRpc, WorkMode,
 
 import           RSCoin.Explorer.AcidState            (State, closeState,
                                                        openState)
+import           RSCoin.Explorer.Channel              (Channel, newChannel)
 import           RSCoin.Explorer.Server               (serve)
 import qualified RSCoin.Explorer.Web                  as Web
 
@@ -36,16 +37,17 @@ launchExplorerReal :: ByteString
                    -> FilePath
                    -> SecretKey
                    -> IO ()
-launchExplorerReal bankHost portRpc portWeb severity storagePath sk =
+launchExplorerReal bankHost portRpc portWeb severity storagePath sk = do
+    channel <- newChannel
     explorerWrapperReal bankHost storagePath $
-    \st ->
-         do fork_ $ launchExplorer portRpc sk st
-            launchWeb portWeb severity st
+        \st ->
+             do fork_ $ launchExplorer portRpc sk channel st
+                launchWeb portWeb severity channel st
 
 launchExplorer
     :: WorkMode m
-    => Int -> SecretKey -> State -> m ()
-launchExplorer port sk st = serve port st sk
+    => Int -> SecretKey -> Channel -> State -> m ()
+launchExplorer port sk ch st = serve port ch st sk
 
 loggingMiddleware :: Severity -> Middleware
 loggingMiddleware Debug = logStdoutDev
@@ -54,6 +56,6 @@ loggingMiddleware _ = id
 
 launchWeb
     :: MonadIO m
-    => Int -> Severity -> State -> m ()
-launchWeb port sev st =
-    liftIO . run port . loggingMiddleware sev . Web.application $ st
+    => Int -> Severity -> Channel -> State -> m ()
+launchWeb port sev ch st =
+    liftIO . run port . loggingMiddleware sev . Web.application ch $ st

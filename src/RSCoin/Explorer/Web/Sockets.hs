@@ -36,6 +36,7 @@ import           Serokell.Aeson.Options    (defaultOptions, leaveTagOptions)
 import qualified RSCoin.Core               as C
 
 import qualified RSCoin.Explorer.AcidState as DB
+import           RSCoin.Explorer.Channel   (Channel)
 
 -- | Run-time errors which may happen within this server.
 data ServerError =
@@ -159,7 +160,7 @@ modifyConnectionsState var st =
 
 $(makeLenses ''ServerState)
 
-type Handler = ReaderT ServerState IO
+type ServerMonad = ReaderT ServerState IO
 
 send
     :: MonadIO m
@@ -173,7 +174,7 @@ recv conn callback =
     either (send conn . OMError) callback =<<
     liftIO (WS.receiveData conn)
 
-handler :: WS.PendingConnection -> Handler ()
+handler :: WS.PendingConnection -> ServerMonad ()
 handler pendingConn = do
     conn <- liftIO $ WS.acceptRequest pendingConn
     liftIO $ WS.forkPingThread conn 30
@@ -185,17 +186,17 @@ handler pendingConn = do
         startNegotiation addr conn `finally`
             modifyConnectionsState connections (dropConnection addr connId)
 
-startNegotiation :: C.Address -> WS.Connection -> Handler ()
+startNegotiation :: C.Address -> WS.Connection -> ServerMonad ()
 startNegotiation addr conn = forever $ recv conn onReceive
   where
     onReceive AIGetBalance =
         send conn . mkOMBalance =<<
         flip query' (DB.GetAddressCoins addr) =<< view ssDataBase
 
--- | Given access to Explorer's data base, returns WebSockets server
--- application.
-wsApp :: DB.State -> WS.ServerApp
-wsApp st pc = do
+-- | Given access to Explorer's data base and channel, returns
+-- WebSockets server application.
+wsApp :: Channel -> DB.State -> WS.ServerApp
+wsApp _ st pc = do
     connections <- newMVar mkConnectionsState
     let ss =
             ServerState

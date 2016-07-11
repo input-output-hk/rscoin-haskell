@@ -16,6 +16,8 @@ import           RSCoin.Timed              (ServerT, WorkMode,
 
 import           RSCoin.Explorer.AcidState (AddHBlock (..),
                                             GetLastPeriodId (..), State)
+import           RSCoin.Explorer.Channel   (Channel, ChannelItem (..),
+                                            writeChannel)
 
 logInfo, logDebug
     :: MonadIO m
@@ -25,30 +27,37 @@ logDebug = C.logDebug C.explorerLoggerName
 
 serve
     :: WorkMode m
-    => Int -> State -> C.SecretKey -> m ()
-serve port st sk = do
+    => Int -> Channel -> State -> C.SecretKey -> m ()
+serve port ch st sk = do
     idr1 <- serverTypeRestriction3
     C.serve
         port
-        [C.method (C.RSCExplorer C.EMNewBlock) $ idr1 $ handleNewHBlock st sk]
+        [C.method (C.RSCExplorer C.EMNewBlock) $ idr1 $ handleNewHBlock ch st sk]
 
 handleNewHBlock
     :: WorkMode m
-    => State
+    => Channel
+    -> State
     -> C.SecretKey
     -> C.PeriodId
     -> C.HBlock
     -> C.Signature
     -> ServerT m (C.PeriodId, C.Signature)
-handleNewHBlock st sk newBlockId newBlock _ = do
+handleNewHBlock ch st sk newBlockId newBlock _ = do
     -- TODO: check sig
-    logInfo $ sformat ("Received new block #" % int) newBlockId
+    logInfo $
+        sformat ("Received new block #" % int) newBlockId
     expectedPid <- maybe 0 succ <$> query' st GetLastPeriodId
     let ret p = do
-          logDebug $ sformat ("Now expected block is #" % int) p
-          return (p, C.sign sk p)
+            logDebug $ sformat ("Now expected block is #" % int) p
+            return (p, C.sign sk p)
         upd = do
             update' st (AddHBlock newBlockId newBlock)
+            writeChannel
+                ch
+                ChannelItem
+                { ciTransactions = C.hbTransactions newBlock
+                }
             ret (newBlockId + 1)
     if expectedPid == newBlockId
         then upd

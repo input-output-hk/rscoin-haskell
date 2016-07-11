@@ -87,6 +87,7 @@ library
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
                      , RSCoin.Explorer.AcidState
+                     , RSCoin.Explorer.Channel
                      , RSCoin.Explorer.Storage
                      , RSCoin.Explorer.Web
                      , RSCoin.Explorer.Web.Servant

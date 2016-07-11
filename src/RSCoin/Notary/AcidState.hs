@@ -7,12 +7,15 @@ module RSCoin.Notary.AcidState
        ( RSCoinNotaryState
 
          -- * acid-state query and update data types
-       , GetSignatures (..)
+       , AcquireSignatures (..)
        , AddSignedTransaction (..)
+       , AllocateMSAddress (..)
        , AnnounceNewPeriods (..)
        , GetPeriodId (..)
+       , GetSignatures (..)
        , PollTransactions (..)
-       , AcquireSignatures (..)
+       , QueryCompleteMSAdresses (..)
+       , RemoveCompleteMSAddresses (..)
 
          -- * Bracket functions
        , openState
@@ -42,10 +45,13 @@ closeState :: RSCoinNotaryState -> IO ()
 closeState = closeAcidState
 
 $(makeAcidic ''Storage
-             [ 'S.addSignedTransaction
-             , 'S.getSignatures
+             [ 'S.acquireSignatures
+             , 'S.addSignedTransaction
+             , 'S.allocateMSAddress
              , 'S.announceNewPeriods
              , 'S.getPeriodId
+             , 'S.getSignatures
              , 'S.pollTransactions
-             , 'S.acquireSignatures
+             , 'S.queryCompleteMSAdresses
+             , 'S.removeCompleteMSAddresses
              ])

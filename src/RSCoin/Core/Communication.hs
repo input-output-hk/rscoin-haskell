@@ -13,13 +13,15 @@ module RSCoin.Core.Communication
        , getTransactionById
        , getGenesisBlock
        , finishPeriod
-       , addStrategy
        , checkNotDoubleSpent
        , commitTx
        , sendPeriodFinished
        , announceNewPeriod
        , announceNewPeriodsToNotary
        , getNotaryPeriod
+       , allocateMultisignatureAddress
+       , queryNotaryCompleteMSAddresses
+       , removeNotaryCompleteMSAddresses
        , P.unCps
        , getBlocks
        , getMintettes
@@ -36,16 +38,17 @@ module RSCoin.Core.Communication
 import           Control.Exception          (Exception (..))
 import           Control.Monad.Catch        (catch, throwM)
 import           Control.Monad.Trans        (MonadIO, liftIO)
+import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
 import           Data.MessagePack           (MessagePack)
 import           Data.Monoid                ((<>))
+import           Data.Set                   (Set)
 import           Data.Text                  (Text, pack)
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Typeable              (Typeable)
 
 import           Formatting                 (int, sformat, shown, (%))
 import qualified Formatting                 as F (build)
-
 
 import qualified Network.MessagePack.Client as MP (RpcError (..))
 
@@ -54,8 +57,7 @@ import           Serokell.Util.Text         (format', formatSingle',
                                              listBuilderJSONIndent, mapBuilder,
                                              pairBuilder, show')
 
-import qualified Data.Map                   as M
-import           RSCoin.Core.Crypto         (SecretKey, Signature)
+import           RSCoin.Core.Crypto         (PublicKey, SecretKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
@@ -180,10 +182,6 @@ finishPeriod _ =
         (const $ logDebug "Successfully finished period") $
     callBank (P.call $ P.RSCBank P.FinishPeriod)
 
-addStrategy :: WorkMode m => Address -> Strategy -> m ()
-addStrategy addr str =
-    callBank $ P.call (P.RSCBank P.AddStrategy) addr str ([] :: [(Address, Signature)])
-
 logFunction :: MonadIO m => MintetteError -> Text -> m ()
 logFunction MEInactive = logInfo
 logFunction _ = logWarning
@@ -249,8 +247,41 @@ announceNewPeriodsToNotary pId' hblocks = do
 
 getNotaryPeriod :: WorkMode m => m PeriodId
 getNotaryPeriod = do
-  logInfo "Getting period of Notary"
-  callNotary $ P.call $ P.RSCNotary P.GetNotaryPeriod
+    logInfo "Getting period of Notary"
+    callNotary $ P.call $ P.RSCNotary P.GetNotaryPeriod
+
+allocateMultisignatureAddress
+    :: WorkMode m
+    => Address
+    -> Set Address
+    -> Int
+    -> (Address, Signature)
+    -> [(Signature, PublicKey)]
+    -> m ()
+allocateMultisignatureAddress msAddr parties m sigPair chain = do
+    logInfo $ sformat
+        ( "Allocate new multisig address " % F.build
+        % ", parties: "                    % shown
+        % ", required number: "            % int
+        % ", current party pair: "         % F.build
+        % ", certificate chain: "          % shown  -- @TODO: build doesn't work here
+        )
+        msAddr
+        parties
+        m
+        sigPair
+        chain
+    callBank $ P.call (P.RSCNotary P.AllocateMultisig) msAddr parties m sigPair chain
+
+queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, Strategy)]
+queryNotaryCompleteMSAddresses = do
+    logInfo "Querying Notary complete MS addresses"
+    callNotary $ P.call $ P.RSCNotary P.QueryCompleteMS
+
+removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> m ()
+removeNotaryCompleteMSAddresses addresses = do
+    logInfo "Removing Notary complete MS addresses"
+    callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses
 
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do

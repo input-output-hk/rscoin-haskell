@@ -74,11 +74,14 @@ data MintetteMethod
 
 -- | Requests for multisign transactions.
 data NotaryMethod
-    = PublishTransaction
-    | PollTransactions
-    | GetSignatures
+    = AnnounceNewPeriodsToNotary
+    | AllocateMultisig
     | GetNotaryPeriod
-    | AnnounceNewPeriodsToNotary
+    | GetSignatures
+    | PollTransactions
+    | PublishTransaction
+    | QueryCompleteMS
+    | RemoveCompleteMS
     deriving (Show)
 
 -- | Requests for dumping state.

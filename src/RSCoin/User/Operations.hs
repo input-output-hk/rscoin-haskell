@@ -494,5 +494,5 @@ isRetriableException e
     | otherwise = False
 
 addMultisigAddress :: (WorkMode m) => C.Address -> C.Strategy -> m ()
-addMultisigAddress addr strategy =
-    C.addStrategy addr strategy
+addMultisigAddress addr strategy = error "TODO: implement through Notary"
+    --C.addStrategy addr strategy

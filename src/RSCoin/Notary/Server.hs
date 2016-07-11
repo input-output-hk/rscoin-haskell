@@ -12,24 +12,29 @@ import           Control.Monad.IO.Class  (MonadIO, liftIO)
 
 import           Data.Acid               (createCheckpoint)
 import           Data.Acid.Advanced      (query', update')
+import           Data.Set                (Set)
 import           Data.Text               (Text)
 
-import           Formatting              (build, int, sformat, (%))
+import           Formatting              (build, int, shown, sformat, (%))
 
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
 import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           AddSignedTransaction (..),
                                           AnnounceNewPeriods (..),
+                                          AllocateMSAddress (..),
                                           GetPeriodId (..), GetSignatures (..),
                                           PollTransactions (..),
+                                          QueryCompleteMSAdresses (..),
+                                          RemoveCompleteMSAddresses (..),
                                           RSCoinNotaryState)
 import           RSCoin.Notary.Error     (NotaryError)
 import           RSCoin.Timed            (ServerT, WorkMode,
                                           serverTypeRestriction0,
                                           serverTypeRestriction1,
                                           serverTypeRestriction2,
-                                          serverTypeRestriction3)
+                                          serverTypeRestriction3,
+                                          serverTypeRestriction5)
 
 logError, logDebug :: MonadIO m => Text -> m ()
 logError = C.logError C.notaryLoggerName
@@ -50,6 +55,9 @@ serve port notaryState = do
     idr3 <- serverTypeRestriction2
     idr4 <- serverTypeRestriction2
     idr5 <- serverTypeRestriction0
+    idr6 <- serverTypeRestriction0
+    idr7 <- serverTypeRestriction1
+    idr8 <- serverTypeRestriction5
     P.serve
         port
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1
@@ -62,6 +70,12 @@ serve port notaryState = do
             $ handleAnnounceNewPeriods notaryState
         , P.method (P.RSCNotary P.GetNotaryPeriod)            $ idr5
             $ handleGetPeriodId notaryState
+        , P.method (P.RSCNotary P.QueryCompleteMS)            $ idr6
+            $ handleQueryCompleteMS notaryState
+        , P.method (P.RSCNotary P.RemoveCompleteMS)           $ idr7
+            $ handleRemoveCompleteMS notaryState
+        , P.method (P.RSCNotary P.AllocateMultisig)           $ idr8
+            $ handleAllocateMultisig notaryState
         ]
 
 toServer :: WorkMode m => IO a -> ServerT m a
@@ -115,7 +129,7 @@ handleGetPeriodId
     => RSCoinNotaryState
     -> ServerT m C.PeriodId
 handleGetPeriodId st = toServer $ do
-    res <- query' st $ GetPeriodId
+    res <- query' st GetPeriodId
     logDebug $ sformat ("Getting periodId: " % int) res
     return res
 
@@ -132,3 +146,34 @@ handleGetSignatures st tx addr = toServer $ do
         addr
         res
     return res
+
+handleQueryCompleteMS
+    :: WorkMode m
+    => RSCoinNotaryState
+    -> ServerT m [(C.Address, C.Strategy)]
+handleQueryCompleteMS st = do
+    res <- query' st QueryCompleteMSAdresses
+    logDebug $ sformat ("Getting complete MS: " % shown) res
+    return res
+
+handleRemoveCompleteMS
+    :: WorkMode m
+    => RSCoinNotaryState
+    -> [C.Address]
+    -> ServerT m ()
+handleRemoveCompleteMS st addresses = do
+    logDebug $ sformat ("Removing complete MS of " % shown) addresses
+    update' st $ RemoveCompleteMSAddresses addresses
+
+handleAllocateMultisig
+    :: WorkMode m
+    => RSCoinNotaryState
+    -> C.Address
+    -> Set C.Address
+    -> Int
+    -> (C.Address, C.Signature)
+    -> [(C.Signature, C.PublicKey)]
+    -> ServerT m ()
+handleAllocateMultisig st sAddr parties m sigPair chain = do
+    logDebug "I don't want to debug this anymore :("
+    update' st $ AllocateMSAddress sAddr parties m sigPair chain

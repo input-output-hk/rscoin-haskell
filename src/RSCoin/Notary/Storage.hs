@@ -6,35 +6,41 @@
 
 module RSCoin.Notary.Storage
         ( Storage
-        , emptyNotaryStorage
-        , getSignatures
         , acquireSignatures
         , addSignedTransaction
+        , allocateMSAddress
         , announceNewPeriods
+        , emptyNotaryStorage
         , getPeriodId
+        , getSignatures
         , pollTransactions
+        , removeCompleteMSAddresses
+        , queryCompleteMSAdresses
         ) where
 
 import           Control.Exception   (throw)
-import           Control.Lens        (makeLenses, use, view, (%=), (.=))
-import           Control.Monad       (forM_, when, (<=<))
+import           Control.Lens        (makeLenses, to, use, uses, view, (%=),
+                                      (.=))
+import           Control.Monad       (forM_, unless, when, (<=<))
 import           Control.Monad.Catch (MonadThrow (throwM))
 
 import           Data.Acid           (Query, Update, liftQuery)
+import           Data.Bifunctor      (second)
 import qualified Data.Foldable       as F
-import           Data.Map            (Map)
-import qualified Data.Map            as M hiding (Map)
+import           Data.Map.Strict     (Map)
+import qualified Data.Map.Strict     as M hiding (Map)
 import           Data.Maybe          (fromJust, fromMaybe, isJust)
 import           Data.Set            (Set)
 import qualified Data.Set            as S hiding (Set)
 
-import           RSCoin.Core         (AddrId, Address (..), AddressToStrategyMap,
-                                      HBlock (..), PeriodId, PublicKey,
-                                      Signature, Strategy (..),
-                                      Transaction (..), Utxo, chainRootPKs,
-                                      computeOutputAddrids, isStrategyCompleted,
-                                      notaryMaxNoOfAttempts, validateSignature,
-                                      verify)
+import           RSCoin.Core         (AddrId, Address (..),
+                                      AddressToStrategyMap, HBlock (..),
+                                      PeriodId, PublicKey, Signature,
+                                      Strategy (..), Transaction (..), Utxo,
+                                      chainRootPKs, computeOutputAddrids,
+                                      isStrategyCompleted,
+                                      notaryMSAttemptsLimit, validateSignature,
+                                      verify, verifyChain)
 import           RSCoin.Notary.Error (NotaryError (..))
 
 data Storage = Storage
@@ -48,13 +54,13 @@ data Storage = Storage
       -- | Mapping between address and a set of unspent addrids, owned by it.
     , _unspentAddrIds :: Map Address (Set AddrId)
 
-      -- | Mapping from newly allocated multisignature address to set of
-      -- parties. This Map is used only during multisignature
-      -- address allocation process.
-    , _allocationPool :: Map Address (Set Address)
+      -- | Mapping from newly allocated multisignature address to pair of sets of
+      -- parties. First element is resulted party, second - is current. This Map is
+      -- used only during multisignature address allocation process.
+    , _allocationPool :: Map Address (Strategy, Set Address)
 
       -- | Number of attempts for user per period to allocate multisig address.
-    , _periodStats    :: Map PublicKey Int
+    , _periodStats    :: Map Address Int
 
       -- | Non-default addresses, registered in system (published to bank).
     , _addresses      :: AddressToStrategyMap
@@ -133,34 +139,61 @@ addSignedTransaction tx addr sg@(sigAddr, sig) = do
         when (not $ validateSignature sig sigAddr tx) $
           throwM NEInvalidSignature
 
--- @TODO move to RSCoin.Core.XXX module
-verifyChain :: PublicKey
-               -> [(Signature, PublicKey)]
-               -> Bool
-verifyChain _ [] = True
-verifyChain pk ((sig, nextPk):rest) = (verify pk sig nextPk) && (verifyChain nextPk rest)
+-- | Allocate new multisignature address by given chain of certificates.
+allocateMSAddress
+    :: Address                  -- ^ New multisig address itself
+    -> Set Address              -- ^ All parties of multisignature address
+    -> Int                      -- ^ Required number of parties' signatures
+    -> (Address, Signature)     -- ^ *Address of party* who adds address and signature of 'Address'
+    -> [(Signature, PublicKey)] -- ^ Certificate chain to authorize *address of party*.
+                                -- Head is cert, given by *root* (Attain)
+    -> Update Storage ()
+allocateMSAddress msAddr parties m (partyAddr@(Address partyPK), partySig) chain = do
+    -- too many check :( I wish I know which one we shouldnt check
+    when (partyPK /= snd (last chain)) $ -- @TODO: what if infinite list is given?
+        throwM $ NEInvalidChain "last address of chain should be party address"
+    unless (any (`verifyChain` chain) chainRootPKs) $
+        throwM $ NEInvalidChain "none of root pk's is fit for validating"
+    unless (verify partyPK partySig partyAddr) $
+        throwM NEUnrelatedSignature
+    when (partyAddr `S.notMember` parties) $
+        throwM $ NEInvalidArguments "party address not in set of addresses"
+    when (m <= 0) $
+        throwM $ NEInvalidArguments "required number of signatures should be positive"
+    when (m > S.size parties) $
+        throwM $ NEInvalidArguments "required number of signatures is greater then party size"
 
-addMSAddress :: Address -- new multisig address itself
-             -> Strategy
-             -> (Address, Signature) -- *address of party* who adds address and it's signature of `(Address, Strategy)`
-             -> [(Signature, PublicKey)] -- certificate chain to authorize *address of party*
-                                         -- head is cert, given by *root*
-             -> Update Storage ()
-addMSAddress addr strategy sig@(sigAddr, _) chain@((_, firstPk):_) = do
-  when (not $ any (flip verifyChain chain) chainRootPKs) $
-     throwM NEInvalidChain
-  when (getAddress sigAddr /= (snd $ last chain)) $
-     throwM NEInvalidChain
-  periodStats %= M.adjust (+1) firstPk . M.alter (Just . fromMaybe 0) firstPk
-  noOfAttempts <- fromJust . M.lookup firstPk <$> use periodStats
-  when (noOfAttempts > notaryMaxNoOfAttempts) $
-     throwM NEBlocked
-  addMSAddressDo addr strategy sig
-addMSAddress _ _ _ [] = throwM NEInvalidChain
+    periodStats %= M.insertWith (\new old -> min (old + new) notaryMSAttemptsLimit) partyAddr 1
+    currentAttemtps <- uses periodStats $ fromJust . M.lookup partyAddr
+    when (currentAttemtps >= notaryMSAttemptsLimit) $
+        throwM NEBlocked
 
--- @TODO implement
-addMSAddressDo :: Address -> Strategy -> (Address, Signature) -> Update Storage ()
-addMSAddressDo = undefined
+    mMSAddressSets <- uses allocationPool $ M.lookup msAddr
+    case mMSAddressSets of
+        Nothing ->
+            -- !!! WARNING !!! EASY OutOfMemory HERE!
+            allocationPool %= M.insert msAddr (MOfNStrategy m parties, S.singleton partyAddr)
+        Just (strategy@(MOfNStrategy resM resultParties), currentParties) -> do
+            when (partyAddr `S.notMember` resultParties) $
+                throwM $ NEInvalidArguments "party set exists, but you is not a member!"
+            when (resultParties /= parties || m /= resM) $
+                throwM $ NEInvalidArguments "result stratey is not equal to yours"
+            allocationPool %= M.insert msAddr (strategy, S.insert partyAddr currentParties)
+
+queryCompleteMSAdresses :: Query Storage [(Address, Strategy)]
+queryCompleteMSAdresses =
+    view
+    $ allocationPool
+    . to (M.filter
+        (\(MOfNStrategy _ resultParties, currentParties)  -- @TODO: remove non-exhaustive warning
+            -> S.size resultParties == S.size currentParties
+        ))
+    . to M.assocs
+    . to (map $ second fst)
+
+removeCompleteMSAddresses :: [Address] -> Update Storage ()
+removeCompleteMSAddresses completeAddrs = forM_ completeAddrs $ \adress ->
+    allocationPool %= M.delete adress
 
 -- | By given (tx, addr) retreives list of collected signatures.
 -- If list is complete enough to complete strategy, (tx, addr) pair

@@ -180,7 +180,7 @@ finishPeriod _ =
         (const $ logDebug "Successfully finished period") $
     callBank (P.call $ P.RSCBank P.FinishPeriod)
 
-addStrategy :: (WorkMode m) => Address -> Strategy -> m ()
+addStrategy :: WorkMode m => Address -> Strategy -> m ()
 addStrategy addr str =
     callBank $ P.call (P.RSCBank P.AddStrategy) addr str ([] :: [(Address, Signature)])
 

@@ -24,7 +24,7 @@ module RSCoin.Core.Constants
        , attainPublicKey
        , attainSecretKey
        , chainRootPKs
-       , notaryMaxNoOfAttempts
+       , notaryMSAttemptsLimit
        ) where
 
 import           Data.Binary                (Binary)
@@ -140,5 +140,5 @@ chainRootPKs :: [PublicKey]
 chainRootPKs = [attainPublicKey]
 
 -- @TODO move to Notary config
-notaryMaxNoOfAttempts :: Int
-notaryMaxNoOfAttempts = 5
+notaryMSAttemptsLimit :: Int
+notaryMSAttemptsLimit = 5

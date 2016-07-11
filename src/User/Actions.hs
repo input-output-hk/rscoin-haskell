@@ -14,6 +14,7 @@ import           Control.Exception       (SomeException)
 import           Control.Monad           (forM_, unless, void, when)
 import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
+
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
 import           Data.Function           (on)
@@ -23,14 +24,17 @@ import           Data.Monoid             ((<>))
 import qualified Data.Set                as S
 import qualified Data.Text               as T
 import qualified Data.Text.IO            as TIO
-import qualified Graphics.UI.Gtk         as G
+
+import           Formatting              (build, sformat, stext, (%))
 
 import           Serokell.Util.Text      (format', formatSingle', show')
 
+import qualified Graphics.UI.Gtk         as G
 import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
 import           GUI.RSCoin.GUI          (startGUI)
 import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
-import           RSCoin.Core             as C
+
+import qualified RSCoin.Core             as C
 import           RSCoin.Timed            (WorkMode, for, ms, wait)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
@@ -67,7 +71,7 @@ processCommand st O.ListAddresses _ =
                       coins <- C.coinsToList <$> getAmountNoUpdate st addr
                       strategy <- query' st $ U.GetAddressStrategy addr
                       return ( C.getAddress addr
-                             , fromMaybe DefaultStrategy strategy
+                             , fromMaybe C.DefaultStrategy strategy
                              , coins))
                 addresses
        liftIO $
@@ -86,8 +90,8 @@ processCommand st O.ListAddresses _ =
            forM_ (tail coins)
                  (TIO.putStrLn . formatSingle' (spaces <> "{}"))
        case strategy of
-           DefaultStrategy -> return ()
-           MOfNStrategy m allowed -> do
+           C.DefaultStrategy -> return ()
+           C.MOfNStrategy m allowed -> do
                TIO.putStrLn $ format'
                     "    This is a multisig address ({}/{}) controlled by keys: "
                     (m, length allowed)
@@ -103,9 +107,9 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     do let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
            inputs' = map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
                      groupBy ((==) `on` snd) $
-                     map (\(idx,o,c) -> (idx - 1, [Coin c (toRational o)]))
+                     map (\(idx,o,c) -> (idx - 1, [C.Coin c (toRational o)]))
                      inputs
-           outputs' = map (\(amount,color) -> Coin color (toRational amount))
+           outputs' = map (\(amount,color) -> C.Coin color (toRational amount))
                           outputCoins
            td = TransactionData
                 { tdInputs = inputs'
@@ -123,19 +127,30 @@ processCommand st O.UpdateBlockchain _ =
                then "Blockchain is updated already."
                else "Successfully updated blockchain."
 processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
-processCommand _ (O.AddMultisigAddress m addrs) _ = do
-    when (null addrs) $
+processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
+    when (null textAddrs) $
         U.commitError "Can't create multisig with empty addrs list"
-    let parsed = mapMaybe (fmap C.Address . C.constructPublicKey) addrs
-    when (length parsed /= length addrs) $
-        U.commitError $ "Some addresses were not parsed, parsed only those: {}" <>
-                        T.unlines (map show' parsed)
-    when (m > length addrs) $
+
+    let partiesAddrs = mapMaybe (fmap C.Address . C.constructPublicKey) textAddrs
+    when (length partiesAddrs /= length textAddrs) $ do
+        let parsed = T.unlines (map show' partiesAddrs)
+        U.commitError $
+            sformat ("Some addresses were not parsed, parsed only those: " % stext) parsed
+    when (m > length partiesAddrs) $
         U.commitError "Parameter m should be less than length of list"
-    newPK <- snd <$> liftIO C.keyGen
-    U.addMultisigAddress (Address newPK) $ MOfNStrategy m $ S.fromList parsed
+
+    msPublicKey <- maybe (snd <$> liftIO C.keyGen) return (mMSAddress >>= C.constructPublicKey)
+    (userAddress, userSK) <- head <$> query' st U.GetUserAddresses
+    let userSignature = C.sign userSK userAddress
+    let certChain     = U.createCertificateChain $ C.getAddress userAddress
+    C.allocateMultisignatureAddress
+        (C.Address msPublicKey)
+        (S.fromList partiesAddrs)
+        m
+        (userAddress, userSignature)
+        certChain
     liftIO $ TIO.putStrLn $
-       formatSingle' "Your new address will be added in the next block: {}" newPK
+       sformat ("Your new address will be added in the next block: " % build) msPublicKey
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop

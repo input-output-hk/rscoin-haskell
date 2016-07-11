@@ -7,6 +7,8 @@ module UserOptions
        , getUserOptions
        ) where
 
+import           Control.Applicative    (optional)
+
 import           RSCoin.Core            (MintetteId, PeriodId, Severity (Error),
                                          defaultAccountsNumber, defaultBankHost,
                                          defaultSecretKeyPath)
@@ -19,8 +21,8 @@ import           Data.Text              (Text)
 import           Options.Applicative    (Parser, argument, auto, command,
                                          execParser, fullDesc, help, helper,
                                          info, long, many, metavar, option,
-                                         progDesc, showDefault, some, subparser,
-                                         switch, value)
+                                         progDesc, short, showDefault, some,
+                                         subparser, switch, value)
 
 import           Serokell.Util.OptParse (strOption)
 
@@ -45,7 +47,12 @@ data UserCommand
                                         -- Second argument
                                         -- represents the address to send,
                                         -- and amount. Forth argument is optional cache
-    | AddMultisigAddress Int [Text]
+    | AddMultisigAddress Int
+                         [Text]
+                         (Maybe Text)   -- ^ First argument represents number m of required
+                                        -- signatures from addr; second -- list of parties'
+                                        -- addresses; third is Nothing if we need to generate
+                                        -- multisignature address.
     | Dump DumpCommand
     deriving (Show)
 
@@ -217,9 +224,16 @@ userCommandParser =
         <*>
         pure Nothing
     addMultisigOpts =
-        AddMultisigAddress <$>
-        option auto (long "m" <> help "Number m from m/n") <*>
-        many (strOption (long "addr" <> help "Addresses that would own"))
+        AddMultisigAddress
+        <$>
+        option auto
+            (short 'm' <> help "Number m from m/n")
+        <*>
+        many (strOption $
+            long "addr" <> help "Addresses that would own")
+        <*>
+        optional (strOption $
+            long "ms-addr" <> help "New multisignature address")
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

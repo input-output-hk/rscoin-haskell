@@ -31,7 +31,7 @@ module RSCoin.User.Operations
        , TransactionData (..)
        , submitTransaction
        , submitTransactionRetry
-       , addMultisigAddress
+       , createCertificateChain
        ) where
 
 import           Control.Exception      (SomeException, assert, fromException)
@@ -493,6 +493,11 @@ isRetriableException e
     | isWalletSyncError e = True
     | otherwise = False
 
-addMultisigAddress :: (WorkMode m) => C.Address -> C.Strategy -> m ()
-addMultisigAddress addr strategy = error "TODO: implement through Notary"
-    --C.addStrategy addr strategy
+-- | This method create certificate chain for user address with
+-- help of attain. WARNING! This method is just temporal solution
+-- for testing purposes until we will generate IOU.
+createCertificateChain :: C.PublicKey -> [(C.Signature, C.PublicKey)]
+createCertificateChain userPublicKey =
+    [ (C.sign C.attainSecretKey C.attainPublicKey, C.attainPublicKey)  -- @TODO: should introduce `seedPK`
+    , (C.sign C.attainSecretKey userPublicKey,     userPublicKey)
+    ]

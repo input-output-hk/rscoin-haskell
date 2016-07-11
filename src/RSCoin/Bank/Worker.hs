@@ -11,8 +11,10 @@ module RSCoin.Bank.Worker
 
 
 import           Control.Exception        (SomeException)
+import           Control.Monad            (forM_)
 import           Control.Monad.Catch      (catch)
 import           Control.Monad.Trans      (MonadIO (liftIO))
+
 import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
@@ -25,8 +27,8 @@ import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text       (formatSingle')
 
-import           RSCoin.Bank.AcidState    (GetHBlocks (..), GetMintettes (..),
-                                           GetPeriodId (..),
+import           RSCoin.Bank.AcidState    (AddAddress (..), GetHBlocks (..),
+                                           GetMintettes (..), GetPeriodId (..),
                                            StartNewPeriod (..), State)
 import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
                                            defaultPeriodDelta,
@@ -93,6 +95,7 @@ onPeriodFinished sk st = do
                     "Announced new period, sent these newPeriodData's:\n{}"
                     newPeriodData
     announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsS
+    initializeMultisignatureAddresses
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)
@@ -103,11 +106,19 @@ onPeriodFinished sk st = do
         logWarning $
         formatSingle' "Error occurred in communicating with Notary: {}" e
     announceNewPeriodsToNotary = do
-      pId <- C.getNotaryPeriod
-      pId' <- query' st GetPeriodId
-      C.announceNewPeriodsToNotary pId' =<< query' st (GetHBlocks pId pId')
+        pId <- C.getNotaryPeriod
+        pId' <- query' st GetPeriodId
+        C.announceNewPeriodsToNotary pId' =<< query' st (GetHBlocks pId pId')
+    initializeMultisignatureAddresses = do
+        newMSAddresses <- C.queryNotaryCompleteMSAddresses
+        forM_ newMSAddresses $ \(msAddr, strategy) -> do
+            logInfo $ sformat ("Creating MS address " % build % " with strategy " % build)
+                msAddr
+                strategy
+            update' st $ AddAddress msAddr strategy
 
-
+        logInfo "Removing new addresses from pool"
+        C.removeNotaryCompleteMSAddresses $ map fst newMSAddresses
 
 getPeriodResults :: WorkMode m => Mintettes -> PeriodId -> m [Maybe PeriodResult]
 getPeriodResults mts pId = do

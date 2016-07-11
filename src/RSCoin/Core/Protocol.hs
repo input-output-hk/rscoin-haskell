@@ -61,7 +61,6 @@ data BankMethod
     | GetHBlock
     | GetTransaction
     | FinishPeriod
-    | AddStrategy
     deriving (Show)
 
 -- | Requests processed by a Mintette.

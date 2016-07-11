@@ -89,6 +89,8 @@ library
                      , RSCoin.Explorer.AcidState
                      , RSCoin.Explorer.Storage
                      , RSCoin.Explorer.Web
+                     , RSCoin.Explorer.Web.Servant
+                     , RSCoin.Explorer.Web.Sockets
                      , RSCoin.User.AcidState
                      , RSCoin.User.Cache
   build-depends:       acid-state

@@ -11,9 +11,8 @@ module RSCoin.Core.Crypto.Hashing
 
 import           Control.Monad              ((>=>))
 import qualified Crypto.Hash.BLAKE2.BLAKE2b as BLAKE2
-import           Data.Aeson                 (ToJSON (toJSON), FromJSON)
+import           Data.Aeson                 (ToJSON (toJSON))
 import           Data.Binary                (Binary, encode)
-import           GHC.Generics               (Generics)
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Base64     as B64
@@ -26,13 +25,14 @@ import           Data.String                (IsString)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
+import           GHC.Generics               (Generics)
 
 import           Serokell.Util              (show')
 
 -- | Hash is just a ByteString.
 newtype Hash =
     Hash { getHash :: ByteString }
-    deriving (Eq, Show, Binary, Ord, Hashable, MessagePack, IsString, ToJSON, FromJSON, Generic)
+    deriving (Eq, Show, Binary, Ord, Hashable, MessagePack, IsString, Generic)
 
 $(deriveSafeCopy 0 'base ''Hash)
 

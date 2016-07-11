@@ -21,7 +21,10 @@ module RSCoin.Core.Constants
        , shardDelta
        , rpcTimeout
        , bankSecretKey
-       , notaryAddress
+       , attainPublicKey
+       , attainSecretKey
+       , chainRootPKs
+       , notaryMaxNoOfAttempts
        ) where
 
 import           Data.Binary                (Binary)
@@ -33,7 +36,7 @@ import           System.Directory           (getHomeDirectory)
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Core.CompileConfig  as CC
-import           RSCoin.Core.Crypto         (Hash, SecretKey,
+import           RSCoin.Core.Crypto         (Hash, PublicKey, SecretKey,
                                              constructPublicKey,
                                              constructSecretKey,
                                              deterministicKeyGen, hash)
@@ -118,12 +121,24 @@ bankSecretKey :: SecretKey
 bankSecretKey =
     constructSecretKey $ $(makeRelativeToProject "rscoin-key" >>= embedFile)
 
--- | Notary public address. It's needed for multisignature address allocation.
--- Users form transactions with purple coins on this address to allocate new
--- multisignature addresses.
-notaryAddress :: Address
-notaryAddress =
-    Address
-    $ fst
-    $ fromMaybe (error "Invalid Notary address seed")
-    $ deterministicKeyGen "notary-service-public-addressgen"
+-- | Attain public key pair. It's needed for multisignature address allocation.
+attainKeyPair :: (PublicKey, SecretKey)
+attainKeyPair =
+    fromMaybe (error "Invalid Attain address seed")
+    $ deterministicKeyGen "attain-service-public-addressgen"
+
+-- | Known public key of attain
+attainPublicKey :: PublicKey
+attainPublicKey = fst attainKeyPair
+
+-- @TODO Move it in proper place so nobody can know about it
+attainSecretKey :: SecretKey
+attainSecretKey = snd attainKeyPair
+
+-- | Built-in know root public keys.
+chainRootPKs :: [PublicKey]
+chainRootPKs = [attainPublicKey]
+
+-- @TODO move to Notary config
+notaryMaxNoOfAttempts :: Int
+notaryMaxNoOfAttempts = 5

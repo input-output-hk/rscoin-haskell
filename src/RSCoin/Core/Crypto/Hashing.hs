@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Hash-related functions and types.
@@ -25,7 +26,7 @@ import           Data.String                (IsString)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
-import           GHC.Generics               (Generics)
+import           GHC.Generics               (Generic)
 
 import           Serokell.Util              (show')
 

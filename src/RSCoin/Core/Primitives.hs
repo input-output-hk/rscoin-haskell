@@ -35,7 +35,7 @@ type Color = Int
 data Coin = Coin
     { getColor :: Color
     , getCoin  :: Rational
-    } deriving (Show,Eq,Ord,ToJSON,FromJSON,Generic)
+    } deriving (Show,Eq,Ord,FromJSON,Generic)
 
 reportError :: String -> Coin -> Coin -> a
 reportError s c1 c2 =
@@ -98,7 +98,7 @@ instance Buildable (TransactionId, Int, Coin) where
 data Transaction = Transaction
     { txInputs  :: ![AddrId]
     , txOutputs :: ![(Address, Coin)]
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Generic)
 
 instance Binary Transaction where
     put Transaction{..} = put (txInputs, txOutputs)

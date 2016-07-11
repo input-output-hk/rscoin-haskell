@@ -75,6 +75,10 @@ instance WS.WebSocketsData (ErrorableMsg AddressInfoMsg) where
     fromLazyByteString = customDecode
     toLazyByteString = error "Attempt to serialize AddressInfoMsg is illegal"
 
+newtype SerializableCoinsMap =
+    SerializableCoinsMap C.CoinsMap
+    deriving (Show)
+
 -- | This type contains all possible messages sent by this server.
 data OutcomingMsg
     =
@@ -82,11 +86,14 @@ data OutcomingMsg
       OMError ServerError
     |
       -- | Sent in response to `AddressInfo` message.
-      OMBalance C.CoinsMap
+      OMBalance SerializableCoinsMap
     deriving (Show)
 
-instance ToJSON C.CoinsMap where
-    toJSON = toJSON . M.assocs
+mkOMBalance :: C.CoinsMap -> OutcomingMsg
+mkOMBalance = OMBalance . SerializableCoinsMap
+
+instance ToJSON SerializableCoinsMap where
+    toJSON (SerializableCoinsMap m) = toJSON . M.assocs $ m
 
 $(deriveToJSON defaultOptions ''OutcomingMsg)
 
@@ -126,7 +133,7 @@ startNegotiation :: C.Address -> WS.Connection -> Handler ()
 startNegotiation addr conn = forever $ recv conn onReceive
   where
     onReceive AIGetBalance =
-        send conn . OMBalance =<<
+        send conn . mkOMBalance =<<
         flip query' (GetAddressCoins addr) =<< view ssDataBase
 
 -- | Given access to Explorer's data base, returns WebSockets server

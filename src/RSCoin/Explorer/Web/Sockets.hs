@@ -98,7 +98,7 @@ instance ToJSON SerializableCoinsMap where
 $(deriveToJSON defaultOptions ''OutcomingMsg)
 
 instance WS.WebSocketsData OutcomingMsg where
-    fromLazyByteString = error "Attempt to deserialize OutcominMsg is illegal"
+    fromLazyByteString = error "Attempt to deserialize OutcomingMsg is illegal"
     toLazyByteString = encode
 
 data ServerState = ServerState

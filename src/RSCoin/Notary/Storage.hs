@@ -26,10 +26,12 @@ import           Data.Maybe          (fromJust, fromMaybe, isJust)
 import qualified Data.Set            as S
 
 import           RSCoin.Core         (AddrId, Address, AddressToStrategyMap,
-                                      HBlock (..), PeriodId, Signature,
-                                      Strategy (..), Transaction (..), Utxo,
+                                      HBlock (..), PeriodId, PublicKey,
+                                      Signature, Strategy (..),
+                                      Transaction (..), Utxo, chainRootPKs,
                                       computeOutputAddrids, isStrategyCompleted,
-                                      validateSignature)
+                                      notaryMaxNoOfAttempts, validateSignature,
+                                      verify)
 import           RSCoin.Notary.Error (NotaryError (..))
 
 data Storage = Storage
@@ -51,12 +53,14 @@ data Storage = Storage
 
       -- | Last periodId, known to Notary.
     , _periodId       :: PeriodId
+
+    , _periodStats    :: M.Map PublicKey Int
     } deriving (Show)
 
 $(makeLenses ''Storage)
 
 emptyNotaryStorage :: Storage
-emptyNotaryStorage = Storage M.empty M.empty M.empty M.empty M.empty (-1)
+emptyNotaryStorage = Storage M.empty M.empty M.empty M.empty M.empty (-1) M.empty
 
 -- Erase occurrences published (address, transaction) from storage
 forgetAddrTx :: Address -> Transaction -> Update Storage ()
@@ -110,6 +114,33 @@ addSignature tx addr sg@(sigAddr, sig) = do
         when (not $ validateSignature sig sigAddr tx) $
           throwM NEInvalidSignature
 
+-- @TODO move to RSCoin.Core.XXX module
+verifyChain :: PublicKey
+               -> [(Signature, PublicKey)]
+               -> Bool
+verifyChain _ [] = True
+verifyChain pk ((sig, nextPk):rest) = (verify pk sig nextPk) && (verifyChain nextPk rest)
+
+addMSAddress :: Address -- new multisig address itself
+             -> Strategy
+             -> (Address, Signature) -- *address of party* who adds address and it's signature of `(Address, Strategy)`
+             -> [(Signature, PublicKey)] -- certificate chain to authorize *address of party*
+                                         -- head is cert, given by *root*
+             -> Update Storage ()
+addMSAddress addr strategy sig chain@((_, firstPk):_) = do
+  when (not $ any (flip verifyChain chain) chainRootPKs) $
+     throwM NEInvalidChain
+  periodStats %= M.adjust (+1) firstPk . M.alter (Just . fromMaybe 0) firstPk
+  noOfAttempts <- fromJust . M.lookup firstPk <$> use periodStats
+  when (noOfAttempts > notaryMaxNoOfAttempts) $
+     throwM NEBlocked
+  addMSAddressDo addr strategy sig
+addMSAddress _ _ _ [] = throwM NEInvalidChain
+
+-- @TODO implement
+addMSAddressDo :: Address -> Strategy -> (Address, Signature) -> Update Storage ()
+addMSAddressDo = undefined
+
 -- | By given (tx, addr) retreives list of collected signatures.
 -- If list is complete enough to complete strategy, (tx, addr) pair
 -- and all corresponding data occurrences get removed from Storage.
@@ -144,6 +175,7 @@ announceNewPeriod HBlock{..} = do
       addresses %= M.union hbAddresses
       forM_ (concatMap txInputs hbTransactions) processTxIn
       forM_ (concatMap computeOutputAddrids hbTransactions) $ uncurry processTxOut
+      periodStats .= M.empty
   where
     processTxIn addrId = do
         addrM <- M.lookup addrId <$> use utxo

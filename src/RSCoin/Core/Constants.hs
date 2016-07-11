@@ -20,6 +20,8 @@ module RSCoin.Core.Constants
        , shardDelta
        , rpcTimeout
        , bankSecretKey
+       , chainRootPKs
+       , notaryMaxNoOfAttempts
        , PlatformLayout(..)
        ) where
 
@@ -32,7 +34,7 @@ import           System.Directory           (getHomeDirectory)
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Core.CompileConfig  as CC
-import           RSCoin.Core.Crypto         (Hash, SecretKey,
+import           RSCoin.Core.Crypto         (Hash, PublicKey, SecretKey,
                                              constructPublicKey,
                                              constructSecretKey, hash)
 import           RSCoin.Core.Primitives     (Address (Address), Coin)
@@ -61,6 +63,14 @@ defaultLayout' :: Host -> PlatformLayout
 defaultLayout' bankHost
     = let PlatformLayout (_, bPort) sAddr = defaultLayout
        in PlatformLayout (bankHost, bPort) sAddr
+
+-- @TODO fill in with bank's PK, Attain's PK
+chainRootPKs :: [PublicKey]
+chainRootPKs = []
+
+-- @TODO move to Notary config
+notaryMaxNoOfAttempts :: Int
+notaryMaxNoOfAttempts = 5
 
 defaultLayout :: PlatformLayout
 defaultLayout = PlatformLayout

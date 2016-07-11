@@ -25,6 +25,8 @@ data NotaryError
     | NEStrategyNotSupported Text  -- ^ Address's strategy is not supported, with name provided
     | NEUnrelatedSignature         -- ^ Signature provided doesn't correspond to any of address' parties
     | NEInvalidSignature           -- ^ Invalid signature provided
+    | NEInvalidChain
+    | NEBlocked
     deriving (Eq, Show, Typeable)
 
 instance Exception NotaryError where
@@ -37,6 +39,8 @@ instance Buildable NotaryError where
     build (NEStrategyNotSupported s) = bprint ("NEStrategyNotSupported, strategy " % stext) s
     build NEUnrelatedSignature       = "NEUnrelatedSignature"
     build NEInvalidSignature         = "NEInvalidSignature"
+    build NEInvalidChain         = "NEInvalidChain"
+    build NEBlocked         = "NEBlocked"
 
 toObj
     :: MessagePack a
@@ -49,6 +53,8 @@ instance MessagePack NotaryError where
     toObject (NEStrategyNotSupported s) = toObj (2, s)
     toObject NEUnrelatedSignature       = toObj (3, ())
     toObject NEInvalidSignature         = toObj (4, ())
+    toObject NEInvalidChain = toObj (5,())
+    toObject NEBlocked = toObj (6, ())
 
     fromObject obj = do
         (i, payload) <- fromObject obj
@@ -58,4 +64,6 @@ instance MessagePack NotaryError where
             2 -> NEStrategyNotSupported <$> fromObject payload
             3 -> pure NEUnrelatedSignature
             4 -> pure NEInvalidSignature
+            5 -> pure NEInvalidChain
+            6 -> pure NEBlocked
             _ -> Nothing

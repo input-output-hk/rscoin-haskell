@@ -1,6 +1,7 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE TemplateHaskell    #-}
 
 -- | The most basic primitives from the paper.
 
@@ -34,7 +35,7 @@ type Color = Int
 data Coin = Coin
     { getColor :: Color
     , getCoin  :: Rational
-    } deriving (Show, Eq, Ord)
+    } deriving (Show,Eq,Ord,ToJSON,FromJSON,Generic)
 
 reportError :: String -> Coin -> Coin -> a
 reportError s c1 c2 =

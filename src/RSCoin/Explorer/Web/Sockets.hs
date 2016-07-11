@@ -17,8 +17,7 @@ import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid.Advanced        (query')
 import           Data.Aeson                (FromJSON, ToJSON (toJSON),
                                             eitherDecode, encode)
-import           Data.Aeson.TH             (deriveFromJSON, deriveJSON,
-                                            deriveToJSON)
+import           Data.Aeson.TH             (deriveJSON, deriveToJSON)
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Either.Combinators   (mapLeft)
 import qualified Data.Map                  as M
@@ -50,7 +49,7 @@ data IntroductoryMsg =
     IMAddressInfo C.Address
     deriving (Show)
 
-$(deriveFromJSON defaultOptions ''IntroductoryMsg)
+$(deriveJSON defaultOptions ''IntroductoryMsg)
 
 customDecode
     :: FromJSON a
@@ -69,7 +68,7 @@ data AddressInfoMsg =
     AIGetBalance
     deriving (Show)
 
-$(deriveFromJSON defaultOptions ''AddressInfoMsg)
+$(deriveJSON defaultOptions ''AddressInfoMsg)
 
 instance WS.WebSocketsData (ErrorableMsg AddressInfoMsg) where
     fromLazyByteString = customDecode

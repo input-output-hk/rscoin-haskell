@@ -28,6 +28,7 @@ import qualified Data.ByteString.Lazy      as BSL
 import           Data.Either.Combinators   (mapLeft)
 import qualified Data.Map.Lazy             as ML
 import qualified Data.Map.Strict           as M
+import           Data.Maybe                (catMaybes, fromMaybe)
 import qualified Data.Set                  as S
 import           Data.Text                 (Text, pack)
 import qualified Network.WebSockets        as WS
@@ -37,7 +38,8 @@ import           Serokell.Aeson.Options    (defaultOptions, leaveTagOptions)
 import qualified RSCoin.Core               as C
 
 import qualified RSCoin.Explorer.AcidState as DB
-import           RSCoin.Explorer.Channel   (Channel, readChannel)
+import           RSCoin.Explorer.Channel   (Channel, ChannelItem (..),
+                                            readChannel)
 
 -- | Run-time errors which may happen within this server.
 data ServerError =
@@ -96,9 +98,6 @@ data OutcomingMsg
       -- | Sent within `AddressInfo` session.
       OMBalance !C.PeriodId
                 !SerializableCoinsMap
-    |
-      -- | Temporary dummy message
-      OMHeyNow
     deriving (Show)
 
 mkOMBalance :: C.PeriodId -> C.CoinsMap -> OutcomingMsg
@@ -116,9 +115,9 @@ instance WS.WebSocketsData OutcomingMsg where
 type ConnectionId = Word
 
 data ConnectionsState = ConnectionsState
-    { _csCounter     :: !Word
-    , _csIds         :: !(M.Map ConnectionId WS.Connection)
-    , _csConnections :: !(M.Map C.Address (S.Set ConnectionId))
+    { _csCounter      :: !Word
+    , _csIdToConn     :: !(M.Map ConnectionId WS.Connection)
+    , _csAddrToConnId :: !(M.Map C.Address (S.Set ConnectionId))
     }
 
 $(makeLenses ''ConnectionsState)
@@ -129,16 +128,16 @@ addConnection
 addConnection addr conn = do
     i <- use csCounter
     csCounter += 1
-    csIds . at i .= Just conn
-    csConnections . at addr %= Just . (maybe (S.singleton i) (S.insert i))
+    csIdToConn . at i .= Just conn
+    csAddrToConnId . at addr %= Just . (maybe (S.singleton i) (S.insert i))
     return i
 
 dropConnection
     :: MonadState ConnectionsState m
     => C.Address -> ConnectionId -> m ()
 dropConnection addr connId = do
-    csIds . at connId .= Nothing
-    csConnections . at addr %= fmap (S.delete connId)
+    csIdToConn . at connId .= Nothing
+    csAddrToConnId . at addr %= fmap (S.delete connId)
 
 type ConnectionsVar = MVar ConnectionsState
 
@@ -151,8 +150,8 @@ mkConnectionsState :: ConnectionsState
 mkConnectionsState =
     ConnectionsState
     { _csCounter = 0
-    , _csIds = M.empty
-    , _csConnections = M.empty
+    , _csIdToConn = M.empty
+    , _csAddrToConnId = M.empty
     }
 
 modifyConnectionsState
@@ -200,9 +199,33 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
 
 sender :: Channel -> ServerMonad ()
 sender channel = do
-    _ <- readChannel channel
+    ChannelItem{ciTransactions = txs} <- readChannel channel
+    st <- view ssDataBase
+    let inputs = concatMap C.txInputs txs
+        outputs = concatMap C.txOutputs txs
+        outputAddresses = S.fromList $ map fst outputs
+        inputToAddr
+            :: MonadIO m
+            => C.AddrId -> m (Maybe C.Address)
+        inputToAddr (txId,idx,_) =
+            fmap (fst . (!! idx) . C.txOutputs) <$> query' st (DB.GetTx txId)
+    affectedAddresses <-
+        mappend outputAddresses . S.fromList . catMaybes <$>
+        mapM inputToAddr inputs
+    mapM_ notifyAboutAddressUpdate affectedAddresses
+
+notifyAboutAddressUpdate :: C.Address -> ServerMonad ()
+notifyAboutAddressUpdate addr = do
+    st <- view ssDataBase
     connectionsState <- liftIO . readMVar =<< view ssConnections
-    mapM_ (flip send OMHeyNow) $ M.elems (connectionsState ^. csIds)
+    (pId,balance) <- query' st $ DB.GetAddressBalance addr
+    let connIds =
+            fromMaybe S.empty $ connectionsState ^. csAddrToConnId . at addr
+        idToConn i = connectionsState ^. csIdToConn . at i
+        foldrStep connId l = maybe l (: l) $ idToConn connId
+        connections = S.foldr foldrStep [] connIds
+        msg = mkOMBalance pId balance
+    mapM_ (flip send msg) connections
 
 -- | Given access to Explorer's data base and channel, returns
 -- WebSockets server application.

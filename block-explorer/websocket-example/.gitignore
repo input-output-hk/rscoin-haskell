@@ -7,3 +7,4 @@
 index.js
 app.js
 *.tix
+/src/RSCoin

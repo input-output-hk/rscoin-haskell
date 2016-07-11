@@ -1,9 +1,7 @@
-import           Distribution.Simple
-import           Distribution.Simple.LocalBuildInfo
-import           System.Process
-import           System.Exit
+import           Distribution.Simple (defaultMainWithHooks, simpleUserHooks, UserHooks (postBuild))
+import           System.Process      (system)
 
-import           Control.Monad (void)
+import           Control.Monad       (void)
 
 main = defaultMainWithHooks $ simpleUserHooks { postBuild = buildPureScript }
 

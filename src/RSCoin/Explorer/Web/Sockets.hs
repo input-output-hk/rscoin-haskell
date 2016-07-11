@@ -11,9 +11,10 @@ module RSCoin.Explorer.Web.Sockets
        ( mkWsApp
        ) where
 
-import           Control.Concurrent.MVar   (MVar, modifyMVar, newMVar)
+import           Control.Concurrent        (forkIO)
+import           Control.Concurrent.MVar   (MVar, modifyMVar, newMVar, readMVar)
 import           Control.Lens              (at, makeLenses, use, view, (%=),
-                                            (+=), (.=))
+                                            (+=), (.=), (^.))
 import           Control.Monad             (forever)
 import           Control.Monad.Catch       (finally)
 import           Control.Monad.Reader      (ReaderT, runReaderT)
@@ -36,11 +37,11 @@ import           Serokell.Aeson.Options    (defaultOptions, leaveTagOptions)
 import qualified RSCoin.Core               as C
 
 import qualified RSCoin.Explorer.AcidState as DB
-import           RSCoin.Explorer.Channel   (Channel)
+import           RSCoin.Explorer.Channel   (Channel, readChannel)
 
 -- | Run-time errors which may happen within this server.
 data ServerError =
-    ParseError Text
+    ParseError !Text
     deriving (Show)
 
 $(deriveJSON leaveTagOptions ''ServerError)
@@ -54,7 +55,7 @@ type ErrorableMsg msg = Either ServerError msg
 data IntroductoryMsg =
     -- | AddressInfo starts communication about given Address. Within
     -- this communication user can request various data about address.
-    IMAddressInfo C.Address
+    IMAddressInfo !C.Address
     deriving (Show)
 
 $(deriveJSON defaultOptions ''IntroductoryMsg)
@@ -90,10 +91,12 @@ newtype SerializableCoinsMap =
 data OutcomingMsg
     =
       -- | Sent in case of error.
-      OMError ServerError
+      OMError !ServerError
     |
       -- | Sent in response to `AddressInfo` message.
-      OMBalance SerializableCoinsMap
+      OMBalance !SerializableCoinsMap
+    | -- | Temporary dummy message
+      OMHeyNow
     deriving (Show)
 
 mkOMBalance :: C.CoinsMap -> OutcomingMsg
@@ -111,9 +114,9 @@ instance WS.WebSocketsData OutcomingMsg where
 type ConnectionId = Word
 
 data ConnectionsState = ConnectionsState
-    { _csCounter     :: Word
-    , _csIds         :: M.Map ConnectionId WS.Connection
-    , _csConnections :: M.Map C.Address (S.Set ConnectionId)
+    { _csCounter     :: !Word
+    , _csIds         :: !(M.Map ConnectionId WS.Connection)
+    , _csConnections :: !(M.Map C.Address (S.Set ConnectionId))
     }
 
 $(makeLenses ''ConnectionsState)
@@ -193,12 +196,18 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
         send conn . mkOMBalance =<<
         flip query' (DB.GetAddressCoins addr) =<< view ssDataBase
 
+sender :: Channel -> ServerMonad ()
+sender channel = do
+    _ <- readChannel channel
+    connectionsState <- liftIO . readMVar =<< view ssConnections
+    mapM_ (flip send OMHeyNow) $ M.elems (connectionsState ^. csIds)
+
 -- | Given access to Explorer's data base and channel, returns
 -- WebSockets server application.
 mkWsApp
     :: MonadIO m
     => Channel -> DB.State -> m WS.ServerApp
-mkWsApp _ st =
+mkWsApp channel st =
     liftIO $
     do connections <- newMVar mkConnectionsState
        let ss =
@@ -207,4 +216,4 @@ mkWsApp _ st =
                , _ssConnections = connections
                }
            app pc = runReaderT (handler pc) ss
-       return app
+       app <$ forkIO (runReaderT (sender channel) ss)

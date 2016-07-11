@@ -93,14 +93,16 @@ data OutcomingMsg
       -- | Sent in case of error.
       OMError !ServerError
     |
-      -- | Sent in response to `AddressInfo` message.
-      OMBalance !SerializableCoinsMap
-    | -- | Temporary dummy message
+      -- | Sent within `AddressInfo` session.
+      OMBalance !C.PeriodId
+                !SerializableCoinsMap
+    |
+      -- | Temporary dummy message
       OMHeyNow
     deriving (Show)
 
-mkOMBalance :: C.CoinsMap -> OutcomingMsg
-mkOMBalance = OMBalance . SerializableCoinsMap
+mkOMBalance :: C.PeriodId -> C.CoinsMap -> OutcomingMsg
+mkOMBalance pId = OMBalance pId . SerializableCoinsMap
 
 instance ToJSON SerializableCoinsMap where
     toJSON (SerializableCoinsMap m) = toJSON . ML.assocs $ m
@@ -193,8 +195,8 @@ addressInfoHandler :: C.Address -> WS.Connection -> ServerMonad ()
 addressInfoHandler addr conn = forever $ recv conn onReceive
   where
     onReceive AIGetBalance =
-        send conn . mkOMBalance =<<
-        flip query' (DB.GetAddressCoins addr) =<< view ssDataBase
+        send conn . uncurry mkOMBalance =<<
+        flip query' (DB.GetAddressBalance addr) =<< view ssDataBase
 
 sender :: Channel -> ServerMonad ()
 sender channel = do

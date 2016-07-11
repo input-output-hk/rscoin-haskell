@@ -9,7 +9,7 @@ module RSCoin.Explorer.AcidState
        , openState
        , openMemState
        , closeState
-       , GetAddressCoins (..)
+       , GetAddressBalance (..)
        , GetLastPeriodId (..)
        , GetTx (..)
        , AddHBlock (..)
@@ -43,8 +43,8 @@ closeState = closeAcidState
 instance MonadThrow (Update s) where
     throwM = throw
 
-getAddressCoins :: C.Address -> Query ES.Storage C.CoinsMap
-getAddressCoins = ES.getAddressCoins
+getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, C.CoinsMap)
+getAddressBalance = ES.getAddressBalance
 
 getLastPeriodId :: Query ES.Storage (Maybe C.PeriodId)
 getLastPeriodId = ES.getLastPeriodId
@@ -56,7 +56,7 @@ addHBlock :: C.PeriodId -> C.HBlock -> Update ES.Storage ()
 addHBlock = ES.addHBlock
 
 $(makeAcidic ''ES.Storage
-             [ 'getAddressCoins
+             [ 'getAddressBalance
              , 'getLastPeriodId
              , 'getTx
              , 'addHBlock

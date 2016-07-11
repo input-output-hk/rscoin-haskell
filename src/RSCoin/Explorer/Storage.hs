@@ -10,7 +10,7 @@ module RSCoin.Explorer.Storage
        , mkStorage
 
        , Query
-       , getAddressCoins
+       , getAddressBalance
        , getLastPeriodId
        , getTx
 
@@ -56,10 +56,12 @@ mkStorage =
 
 type Query a = forall m. MonadReader Storage m => m a
 
--- | Get amount of coins (as CoinsMap) available from given address.
-getAddressCoins :: C.Address -> Query C.CoinsMap
-getAddressCoins addr =
-    views assets $ accumulateAddrIds . M.findWithDefault S.empty addr
+-- | Get amount of coins (as CoinsMap) available from given
+-- address. Result is timestamped with id of ongoing period.
+getAddressBalance :: C.Address -> Query (C.PeriodId, C.CoinsMap)
+getAddressBalance addr =
+    (,) <$> (maybe 0 succ <$> getLastPeriodId) <*>
+    views assets (accumulateAddrIds . M.findWithDefault S.empty addr)
   where
     accumulateAddrIds = C.coinsToMap . map sel3 . S.toList
 

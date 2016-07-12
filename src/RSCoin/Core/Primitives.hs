@@ -1,7 +1,6 @@
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 -- | The most basic primitives from the paper.
 
@@ -16,12 +15,12 @@ module RSCoin.Core.Primitives
 
 import           Data.Aeson          (FromJSON, ToJSON)
 import           Data.Binary         (Binary (get, put))
-import           GHC.Generics        (Generic)
 import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.SafeCopy       (base, deriveSafeCopy)
 import           Data.Text.Buildable (Buildable (build))
 import qualified Data.Text.Format    as F
 import           Formatting          (bprint, float, int, (%))
+import           GHC.Generics        (Generic)
 
 import           Serokell.Util.Text  (listBuilderJSON, pairBuilder,
                                       tripleBuilder)
@@ -35,7 +34,7 @@ type Color = Int
 data Coin = Coin
     { getColor :: Color
     , getCoin  :: Rational
-    } deriving (Show,Eq,Ord,FromJSON,Generic)
+    } deriving (Show,Eq,Ord,Generic)
 
 reportError :: String -> Coin -> Coin -> a
 reportError s c1 c2 =

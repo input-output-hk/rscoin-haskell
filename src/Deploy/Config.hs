@@ -5,6 +5,7 @@
 module Config
        ( DeployConfig (..)
        , BankData (..)
+       , NotaryData (..)
        , MintetteData (..)
        , ExplorerData (..)
        , readDeployConfig
@@ -21,6 +22,7 @@ data DeployConfig = DeployConfig
     { dcDirectory :: !FilePath
     , dcExec      :: !Text
     , dcBank      :: !BankData
+    , dcNotary    :: !NotaryData
     , dcMintettes :: ![MintetteData]
     , dcExplorers :: ![ExplorerData]
     , dcPeriod    :: !Word
@@ -30,6 +32,10 @@ data BankData = BankData
     { bdSecret   :: !FilePath
     , bdSeverity :: !(Maybe Severity)
     -- , bdProfiling :: !(Maybe ProfilingType)
+    } deriving (Show)
+
+data NotaryData = NotaryData
+    { ndSeverity :: !(Maybe Severity)
     } deriving (Show)
 
 data MintetteData = MintetteData
@@ -47,6 +53,7 @@ $(A.deriveJSON defaultOptions ''DeployConfig)
 $(A.deriveJSON defaultOptions ''BankData)
 $(A.deriveJSON defaultOptions ''MintetteData)
 $(A.deriveJSON defaultOptions ''ExplorerData)
+$(A.deriveJSON defaultOptions ''NotaryData)
 
 readDeployConfig :: FilePath -> IO DeployConfig
 readDeployConfig fp =

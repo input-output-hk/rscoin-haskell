@@ -3,6 +3,8 @@ exec: "stack $NIX_STACK exec -- "
 bank:
   severity: Info
   secret: rscoin-key
+notary:
+  severity: Warning
 mintettes:
 - {}
 - {}

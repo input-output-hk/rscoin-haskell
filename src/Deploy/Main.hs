@@ -18,7 +18,7 @@ import qualified RSCoin.Core             as C
 
 import           Config                  (BankData (..), DeployConfig (..),
                                           ExplorerData (..), MintetteData (..),
-                                          readDeployConfig)
+                                          NotaryData (..), readDeployConfig)
 
 optionsParser :: Opts.Parser FilePath
 optionsParser =
@@ -123,6 +123,23 @@ startExplorer CommonParams{..} (idx,ExplorerData{..}) = do
 
 type PortsAndKeys = [(Int, C.PublicKey)]
 
+startNotary :: CommonParams -> NotaryData -> IO ThreadId
+startNotary CommonParams{..} NotaryData{..} = do
+    let workingDir = cpBaseDir </> "notary-workspace"
+        workingDirModern = toModernFilePath workingDir
+        dbDir = workingDir </> "notary-db"
+        notaryCommand = mconcat [cpExec, "rscoin-notary"]
+        severityArg =
+            maybe "" (sformat (" --log-severity " % shown)) ndSeverity
+        serveCommand =
+            sformat
+                (stext % " --path " % string % stext)
+                notaryCommand
+                dbDir
+                severityArg
+    Cherepakha.mkdir workingDirModern
+    forkIO (() <$ Cherepakha.shell serveCommand mempty)
+
 startBank :: CommonParams -> PortsAndKeys -> PortsAndKeys -> BankData -> IO ()
 startBank CommonParams{..} mintettes explorers BankData{..} = do
     let workingDir = cpBaseDir </> "bank-workspace"
@@ -206,6 +223,7 @@ main = do
             () <$
             Cherepakha.procStrict "killall" ["-q", "-s", "SIGINT", app] mempty
     killAll "rscoin-mintete"
+    killAll "rscoin-notary"
     killAll "rscoin-explorer"
     killAll "rscoin-bank"
     withTempDirectoryWorkaround absoluteDir "rscoin-deploy" $
@@ -223,9 +241,7 @@ main = do
                     mintettePorts =
                         map mintettePort [0 .. length dcMintettes - 1]
                     explorerPorts =
-                        map
-                            explorerPort
-                            [0 .. length dcExplorers - 1]
+                        map explorerPort [0 .. length dcExplorers - 1]
                 (mintetteThreads,mintetteKeys) <-
                     unzip <$> mapM (startMintette cp) (zip [0 ..] dcMintettes)
                 waitSec 2
@@ -234,5 +250,7 @@ main = do
                 waitSec 2
                 let mintettes = zip mintettePorts mintetteKeys
                     explorers = zip explorerPorts explorerKeys
+                notaryThread <- startNotary cp dcNotary
                 startBank cp mintettes explorers bd `finally`
-                    (mapM_ killThread $ mintetteThreads ++ explorerThreads)
+                    (mapM_ killThread $
+                     notaryThread : mintetteThreads ++ explorerThreads)

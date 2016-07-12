@@ -17,11 +17,13 @@ import           Control.Monad.Trans        (MonadIO (liftIO))
 import           Data.Acid.Advanced         (update')
 import           Data.List                  (genericLength)
 import qualified Data.Map                   as M
+import           Data.Maybe                 (fromMaybe)
 import           Formatting                 (build, sformat, (%))
 import           Test.QuickCheck            (NonEmptyList (..))
 
 import qualified RSCoin.Bank                as B
-import           RSCoin.Core                (Mintette (..), PlatformLayout (getNotaryAddr),
+import           RSCoin.Core                (Mintette (..),
+                                             PlatformLayout (getNotaryAddr),
                                              bankSecretKey, defaultLayout,
                                              defaultPeriodDelta,
                                              derivePublicKey, keyGen, logDebug,
@@ -40,11 +42,10 @@ import           Test.RSCoin.Full.Action    (Coloring (Coloring),
 import           Test.RSCoin.Full.Constants (bankUserAddressesCount, maxColor,
                                              minColor, userAddressesCount)
 import           Test.RSCoin.Full.Context   (BankInfo (..), MintetteInfo (..),
-                                             NotaryInfo (..),
-                                             MintetteNumber, Scenario (..),
-                                             TestContext (..), TestEnv,
-                                             UserInfo (..), UserNumber,
-                                             isActive, port, publicKey,
+                                             MintetteNumber, NotaryInfo (..),
+                                             Scenario (..), TestContext (..),
+                                             TestEnv, UserInfo (..), UserNumber,
+                                             buser, isActive, port, publicKey,
                                              secretKey, state, users)
 import qualified Test.RSCoin.Full.Mintette  as TM
 
@@ -146,8 +147,10 @@ sendInitialCoins
     :: WorkMode m
     => TestContext -> m ()
 sendInitialCoins ctx = do
-    genesisIdxs <- mapM U.genesisAddressIndex (map _userState $ _users ctx)
-    runReaderT (mapM_ doAction $ actions genesisIdxs) ctx
+    genesisIdx <-
+        fromMaybe reportFatalError <$>
+        U.genesisAddressIndex (ctx ^. buser . state)
+    runReaderT (mapM_ doAction $ actions genesisIdx) ctx
   where
     usersNum = length (ctx ^. users)
     addressesCount = userAddressesCount * usersNum + bankUserAddressesCount
@@ -166,14 +169,15 @@ sendInitialCoins ctx = do
     coloring =
         Just . Coloring . M.fromList . map (, recip (genericLength allColors)) $
         nonZeroColors
-    actions genesisList =
+    actions genesisIdx =
         map
             (\o ->
                   SubmitTransaction
                       Nothing
-                      (NonEmpty $ zipWith help genesisList (repeat partsToSend))
+                      (NonEmpty $ [(genesisIdx, partsToSend)])
                       o
                       coloring)
             outputs
-    help (Just genAdrInd) part = (genAdrInd, part)
-    help _ _ = error "[FATAL] RSCoin is broken: genesisAddressIndex return Nothing for bank user"
+    reportFatalError =
+        error
+            "[FATAL] RSCoin is broken: genesisAddressIndex returned Nothing for bank user"

@@ -8,6 +8,6 @@ mintettes:
 - {}
 - {}
 explorers:
-- {}
-period: 100
+- severity: Debug
+period: 30
 

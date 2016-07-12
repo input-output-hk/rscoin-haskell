@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -27,6 +28,8 @@ import qualified Data.Map.Lazy           as ML
 import           Data.Text               (Text, pack)
 import qualified Network.WebSockets      as WS
 
+import           GHC.Generics            (Generic)
+
 import           Serokell.Aeson.Options  (defaultOptions, leaveTagOptions)
 
 import qualified RSCoin.Core             as C
@@ -34,7 +37,7 @@ import qualified RSCoin.Core             as C
 -- | Run-time errors which may happen within this server.
 data ServerError =
     ParseError !Text
-    deriving (Show)
+    deriving (Show, Generic)
 
 $(deriveJSON leaveTagOptions ''ServerError)
 
@@ -48,7 +51,7 @@ data IntroductoryMsg =
     -- | AddressInfo starts communication about given Address. Within
     -- this communication user can request various data about address.
     IMAddressInfo !C.Address
-    deriving (Show)
+    deriving (Show,Generic)
 
 $(deriveJSON defaultOptions ''IntroductoryMsg)
 
@@ -80,7 +83,7 @@ data AddressInfoMsg
       -- `AIGetTransactions (0, 2)` requests two most recent
       -- transactions.
       AIGetTransactions !(Word, Word)
-    deriving (Show)
+    deriving (Show, Generic)
 
 $(deriveJSON defaultOptions ''AddressInfoMsg)
 
@@ -110,7 +113,7 @@ data OutcomingMsg
       -- | Sent within `AddressInfo` session. Has an indexed list of
       -- transactions referencing address over given PeriodId.
       OMTransactions !C.PeriodId ![(Word, C.Transaction)]
-    deriving (Show)
+    deriving (Show,Generic)
 
 mkOMBalance :: C.PeriodId -> C.CoinsMap -> OutcomingMsg
 mkOMBalance pId = OMBalance pId . SerializableCoinsMap

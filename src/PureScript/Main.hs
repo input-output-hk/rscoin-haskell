@@ -1,5 +1,6 @@
 
-import qualified RSCoin.Core.Primitives as P
+import qualified RSCoin.Core.Primitives   as P
+import qualified RSCoin.Explorer.WebTypes as T
 
 import           Data.Proxy                 (Proxy (..))
 import           Language.PureScript.Bridge (writePSTypes, buildBridge,
@@ -15,5 +16,8 @@ main =
         , mkSumType (Proxy :: Proxy P.TransactionId)
         , mkSumType (Proxy :: Proxy P.AddrId)
         , mkSumType (Proxy :: Proxy P.Transaction)
-        
+        , mkSumType (Proxy :: Proxy T.ServerError)
+        , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
+        , mkSumType (Proxy :: Proxy T.AddressInfoMsg)
+        , mkSumType (Proxy :: Proxy T.OutcomingMsg)
         ]

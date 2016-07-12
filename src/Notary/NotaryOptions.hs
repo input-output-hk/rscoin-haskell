@@ -13,56 +13,35 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (PlatformLayout (..), Severity (Error),
-                                         defaultBankHost, defaultLayout,
+import           RSCoin.Core            (Severity (Error), defaultBankHost,
                                          defaultSecretKeyPath)
 
 data Options = Options
-    { cliPort        :: Int
-    , cliPath        :: FilePath
-    --, cliSecretKeyPath :: FilePath
+    { cliPath        :: FilePath
     , cliLogSeverity :: Severity
     , cliMemMode     :: Bool
     , cliBankHost    :: ByteString
     } deriving Show
 
---data Mode
---    = Immediate
---    | Delayed { cliSignDelay   :: Int
---              , cliSignApprove :: Bool
---              }
---    deriving Show
-
 optionsParser :: FilePath -> Parser Options
 optionsParser _ = -- defaultSKPath
-    Options <$>
-    --modeParser
-    -- <*>
-    option
-        auto
-        (short 'p' <> long "port" <> value (snd $ getNotaryAddr defaultLayout) <> showDefault <>
-         help "Notary port to receive transactions") <*>
+    Options
+    <$>
     strOption
         (long "path" <> value "notary-db" <> showDefault <>
-         help "Path to Notary database") <*>
-    --strOption
-    --    (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault)
-    -- <*>
+         help "Path to Notary database")
+    <*>
     option
         auto
         (long "log-severity" <> value Error <> showDefault <>
-         help "Logging severity") <*>
-    switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
+         help "Logging severity")
+    <*>
+    switch
+        (short 'm' <> long "memory-mode" <> help "Run in memory mode")
+    <*>
     strOption
         (long "bank-host" <> value defaultBankHost <> showDefault <>
          help "Host name for bank")
-
---modeParser :: Parser Mode
---modeParser = subparser $
---  command "immediate" (info (pure Immediate) (progDesc "Immediately sign all incomming transactions.")) <>
---  command "delayed" (info (Delayed <$> delayParser <*> respTypeParser) (progDesc "Immediately sign all incomming transactions."))
---    where delayParser = option auto (long "delay" <> value defaultSignDelay <> showDefault)
---          respTypeParser = not <$> switch (long "reject" <> help "Reject transactions")
 
 getOptions :: IO Options
 getOptions = do

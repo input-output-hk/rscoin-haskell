@@ -16,6 +16,6 @@ main = do
     let open = if cliMemMode
                then N.openMemState
                else N.openState cliPath
-    let layout = (defaultLayout' cliBankHost) { getNotaryAddr = ("127.0.0.1", cliPort) }
+    let layout = defaultLayout' cliBankHost
     runRealMode layout $
-        bracket (liftIO open) (liftIO . N.closeState) (N.serve cliPort)
+        bracket (liftIO open) (liftIO . N.closeState) (N.serve $ snd $ getNotaryAddr layout)

@@ -49,6 +49,6 @@ notaryThread benchDir =
     runRealModeLocal $
     bracket
         (liftIO $ N.openState $ benchDir </> "notary-db")
-        (liftIO . N.closeState) $
+        (liftIO . N.closeState)
         (N.serve $ snd $ getNotaryAddr localPlatformLayout)
 

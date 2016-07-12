@@ -9,10 +9,11 @@ packages:
 - location:
     git: https://github.com/serokell/serokell-core.git
     commit: 61055f782b33ae9e439b46fafed3b2442c8e125c
+  extra-dep: true
 - location:
     git: https://github.com/serokell/msgpack-haskell.git
     commit: ec26163035b049bfeff09444a7142a6ce7332493
-  extra-dep: false
+  extra-dep: true
   subdirs:
     - msgpack
     - msgpack-rpc

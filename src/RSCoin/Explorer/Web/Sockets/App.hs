@@ -18,7 +18,9 @@ import           Control.Concurrent.MVar           (MVar, modifyMVar, newMVar,
 import           Control.Lens                      (at, makeLenses, use, view,
                                                     (%=), (+=), (.=), (^.))
 import           Control.Monad                     (forever)
-import           Control.Monad.Catch               (finally)
+import           Control.Monad.Catch               (Handler (Handler),
+                                                    SomeException, catches,
+                                                    finally)
 import           Control.Monad.Reader              (ReaderT, runReaderT)
 import           Control.Monad.State               (MonadState, State, runState)
 import           Control.Monad.Trans               (MonadIO (liftIO))
@@ -27,9 +29,12 @@ import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (catMaybes, fromMaybe)
 import qualified Data.Set                          as S
 import           Data.Text                         (Text)
-import           Formatting                        (build, int, sformat, (%))
+import           Data.Time.Units                   (Second)
+import           Formatting                        (build, int, sformat, shown,
+                                                    (%))
 import qualified Network.WebSockets                as WS
 
+import           Serokell.Util.Concurrent          (threadDelay)
 import           Serokell.Util.Text                (listBuilderJSON)
 
 import qualified RSCoin.Core                       as C
@@ -112,9 +117,10 @@ recv conn callback =
 wsLoggerName :: C.LoggerName
 wsLoggerName = "explorer WS"
 
-logInfo, logDebug
+logError, logInfo, logDebug
     :: MonadIO m
     => Text -> m ()
+logError = C.logError wsLoggerName
 logInfo = C.logInfo wsLoggerName
 logDebug = C.logDebug wsLoggerName
 
@@ -167,26 +173,41 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
             view ssDataBase
 
 sender :: Channel -> ServerMonad ()
-sender channel = do
-    ChannelItem{ciTransactions = txs} <- readChannel channel
-    logDebug "There is a new ChannelItem in Channel"
-    st <- view ssDataBase
-    let inputs = concatMap C.txInputs txs
-        outputs = concatMap C.txOutputs txs
-        outputAddresses = S.fromList $ map fst outputs
-        inputToAddr
-            :: MonadIO m
-            => C.AddrId -> m (Maybe C.Address)
-        inputToAddr (txId,idx,_) =
-            fmap (fst . (!! idx) . C.txOutputs) <$> query' st (DB.GetTx txId)
-    affectedAddresses <-
-        mappend outputAddresses . S.fromList . catMaybes <$>
-        mapM inputToAddr inputs
-    logDebug $
-        sformat
-            ("Affected addresses are: " % build)
-            (listBuilderJSON affectedAddresses)
-    mapM_ notifyAboutAddressUpdate affectedAddresses
+sender channel =
+    foreverSafe $
+    do ChannelItem{ciTransactions = txs} <- readChannel channel
+       logDebug "There is a new ChannelItem in Channel"
+       st <- view ssDataBase
+       let inputs = concatMap C.txInputs txs
+           outputs = concatMap C.txOutputs txs
+           outputAddresses = S.fromList $ map fst outputs
+           inputToAddr
+               :: MonadIO m
+               => C.AddrId -> m (Maybe C.Address)
+           inputToAddr (txId,idx,_) =
+               fmap (fst . (!! idx) . C.txOutputs) <$>
+               query' st (DB.GetTx txId)
+       affectedAddresses <-
+           mappend outputAddresses . S.fromList . catMaybes <$>
+           mapM inputToAddr inputs
+       logDebug $
+           sformat
+               ("Affected addresses are: " % build)
+               (listBuilderJSON affectedAddresses)
+       mapM_ notifyAboutAddressUpdate affectedAddresses
+  where
+    foreverSafe :: ServerMonad () -> ServerMonad ()
+    foreverSafe action = do
+        let catchConnectionError :: WS.ConnectionException -> ServerMonad ()
+            catchConnectionError e =
+                logError $ sformat ("Connection error happened: " % shown) e
+            catchWhateverError :: SomeException -> ServerMonad ()
+            catchWhateverError e = do
+                logError $ sformat ("Strange error happened: " % shown) e
+                threadDelay (2 :: Second)
+        action `catches`
+            [Handler catchConnectionError, Handler catchWhateverError]
+        foreverSafe action
 
 notifyAboutAddressUpdate :: C.Address -> ServerMonad ()
 notifyAboutAddressUpdate addr = do

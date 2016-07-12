@@ -55,7 +55,7 @@ instance Default FullTestConfig where
 config :: FullTestConfig
 config =
     def
-    { ftcGlobalSeverity = Warning
+    { ftcGlobalSeverity = Debug
     , ftcRealMode = False
     }
 

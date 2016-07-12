@@ -21,11 +21,13 @@ import           Formatting                 (build, sformat, (%))
 import           Test.QuickCheck            (NonEmptyList (..))
 
 import qualified RSCoin.Bank                as B
-import           RSCoin.Core                (Mintette (..), bankSecretKey,
+import           RSCoin.Core                (Mintette (..), PlatformLayout (getNotaryAddr),
+                                             bankSecretKey, defaultLayout,
                                              defaultPeriodDelta,
                                              derivePublicKey, keyGen, logDebug,
                                              logInfo, testingLoggerName)
 import qualified RSCoin.Mintette            as M
+import qualified RSCoin.Notary              as N
 import           RSCoin.Timed               (Second, WorkMode, for, ms,
                                              myThreadId, sec, wait,
                                              workWhileMVarEmpty)
@@ -38,6 +40,7 @@ import           Test.RSCoin.Full.Action    (Coloring (Coloring),
 import           Test.RSCoin.Full.Constants (bankUserAddressesCount, maxColor,
                                              minColor, userAddressesCount)
 import           Test.RSCoin.Full.Context   (BankInfo (..), MintetteInfo (..),
+                                             NotaryInfo (..),
                                              MintetteNumber, Scenario (..),
                                              TestContext (..), TestEnv,
                                              UserInfo (..), UserNumber,
@@ -49,11 +52,13 @@ periodDelta :: Second
 periodDelta = defaultPeriodDelta
 
 -- | Start all servers/workers and create TestContext.
+-- FIXME: we probably need to closeState here
 mkTestContext
     :: WorkMode m
     => MintetteNumber -> UserNumber -> Scenario -> m TestContext
 mkTestContext mNum uNum scen = do
     binfo <- BankInfo <$> bankKey <*> liftIO B.openMemState
+    ninfo <- NotaryInfo (snd $ getNotaryAddr defaultLayout) <$> liftIO N.openMemState
     minfos <- mapM mkMintette [0 .. mNum - 1]
     buinfo <- UserInfo <$> liftIO U.openMemState
     uinfos <-
@@ -64,11 +69,13 @@ mkTestContext mNum uNum scen = do
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     mapM_ (addMintetteToBank binfo) minfos
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
+    runNotary isActiveVar ninfo
+    shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     runBank isActiveVar binfo
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     initBUser buinfo
     mapM_ initUser uinfos
-    let ctx = TestContext binfo minfos buinfo uinfos scen isActiveVar
+    let ctx = TestContext binfo minfos ninfo buinfo uinfos scen isActiveVar
     sendInitialCoins ctx
     wait $ for periodDelta sec
     logInfo testingLoggerName "Successfully initialized system"
@@ -82,7 +89,7 @@ mkTestContext mNum uNum scen = do
 
 -- | Finish everything that's going on in TestEnv.
 finishTest :: WorkMode m => TestEnv m ()
-finishTest = () <$ (liftIO . flip tryPutMVar () =<< view isActive)
+finishTest = () <$ (liftIO . flip tryPutMVar () =<< view isActive) --FIXME: close state?
 
 runBank
     :: WorkMode m
@@ -91,7 +98,7 @@ runBank v b = do
     myTId <- myThreadId
     workWhileMVarEmpty v $
         B.runWorkerWithPeriod periodDelta (b ^. secretKey) (b ^. state)
-    workWhileMVarEmpty v $ B.serve (b ^. state) myTId pure
+    workWhileMVarEmpty v $ B.serve (b ^. state) myTId pure  -- FIXME: close state `finally`
 
 runMintettes
     :: WorkMode m
@@ -107,6 +114,11 @@ runMintettes v mts scen = do
   where
     partSize :: Double -> Int
     partSize d = assert (d >= 0 && d <= 1) $ floor $ genericLength mts * d
+
+runNotary
+    :: WorkMode m
+    => MVar () -> NotaryInfo -> m ()
+runNotary v n = workWhileMVarEmpty v $ N.serve (n ^. port) (n ^. state)
 
 addMintetteToBank
     :: MonadIO m

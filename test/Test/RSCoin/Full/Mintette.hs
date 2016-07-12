@@ -28,7 +28,7 @@ initialization conf v m = do
                 Just s -> FM.serve s
     workWhileMVarEmpty v $
         runner <$> view port <*> view state <*> view secretKey $ m
-    workWhileMVarEmpty v $ M.runWorker <$> view secretKey <*> view state $ m
+    workWhileMVarEmpty v $ M.runWorker <$> view secretKey <*> view state $ m  -- FIXME: close state
 
 defaultMintetteInit
     :: (WorkMode m)

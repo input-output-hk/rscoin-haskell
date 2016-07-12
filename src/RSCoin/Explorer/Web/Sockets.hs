@@ -8,7 +8,8 @@
 -- | WebSockets part of Explorer Web Server.
 
 module RSCoin.Explorer.Web.Sockets
-       ( mkWsApp
+       ( wsLoggerName
+       , mkWsApp
        ) where
 
 import           Control.Concurrent        (forkIO)
@@ -31,9 +32,11 @@ import qualified Data.Map.Strict           as M
 import           Data.Maybe                (catMaybes, fromMaybe)
 import qualified Data.Set                  as S
 import           Data.Text                 (Text, pack)
+import           Formatting                (build, int, sformat, (%))
 import qualified Network.WebSockets        as WS
 
 import           Serokell.Aeson.Options    (defaultOptions, leaveTagOptions)
+import           Serokell.Util.Text        (listBuilderJSON)
 
 import qualified RSCoin.Core               as C
 
@@ -200,35 +203,67 @@ recv conn callback =
     either (send conn . OMError) callback =<<
     liftIO (WS.receiveData conn)
 
+wsLoggerName :: C.LoggerName
+wsLoggerName = "explorer WS"
+
+logInfo, logDebug
+    :: MonadIO m
+    => Text -> m ()
+logInfo = C.logInfo wsLoggerName
+logDebug = C.logDebug wsLoggerName
+
 handler :: WS.PendingConnection -> ServerMonad ()
 handler pendingConn = do
+    logDebug "There is a new pending connection"
     conn <- liftIO $ WS.acceptRequest pendingConn
+    logDebug "Accepted new connection"
     liftIO $ WS.forkPingThread conn 30
     recv conn $ onReceive conn
   where
     onReceive conn (IMAddressInfo addr) = do
         connections <- view ssConnections
         connId <- modifyConnectionsState connections $ addConnection addr conn
+        logInfo $
+            sformat
+                ("Session about " % build %
+                 " is established, connection id is " %
+                 int)
+                addr
+                connId
         addressInfoHandler addr conn `finally`
             modifyConnectionsState connections (dropConnection addr connId)
 
 addressInfoHandler :: C.Address -> WS.Connection -> ServerMonad ()
 addressInfoHandler addr conn = forever $ recv conn onReceive
   where
-    onReceive AIGetBalance =
+    onReceive AIGetBalance = do
+        logDebug $ sformat ("Balance of " % build % " is requested") addr
         send conn . uncurry mkOMBalance =<<
-        flip query' (DB.GetAddressBalance addr) =<< view ssDataBase
-    onReceive AIGetTxNumber =
+            flip query' (DB.GetAddressBalance addr) =<< view ssDataBase
+    onReceive AIGetTxNumber = do
+        logDebug $
+            sformat
+                ("Number of transactions pointing to " % build %
+                 " is requested")
+                addr
         send conn . uncurry OMTxNumber =<<
-        flip query' (DB.GetAddressTxNumber addr) =<< view ssDataBase
-    onReceive (AIGetTransactions indices) =
+            flip query' (DB.GetAddressTxNumber addr) =<< view ssDataBase
+    onReceive (AIGetTransactions indices@(lo,hi)) = do
+        logDebug $
+            sformat
+                ("Transactions [" % int % ", " % int % "] pointing to " % build %
+                 " are requested")
+                lo
+                hi
+                addr
         send conn . uncurry OMTransactions =<<
-        flip query' (DB.GetAddressTransactions addr indices) =<<
-        view ssDataBase
+            flip query' (DB.GetAddressTransactions addr indices) =<<
+            view ssDataBase
 
 sender :: Channel -> ServerMonad ()
 sender channel = do
     ChannelItem{ciTransactions = txs} <- readChannel channel
+    logDebug "There is a new ChannelItem in Channel"
     st <- view ssDataBase
     let inputs = concatMap C.txInputs txs
         outputs = concatMap C.txOutputs txs
@@ -241,6 +276,10 @@ sender channel = do
     affectedAddresses <-
         mappend outputAddresses . S.fromList . catMaybes <$>
         mapM inputToAddr inputs
+    logDebug $
+        sformat
+            ("Affected addresses are: " % build)
+            (listBuilderJSON affectedAddresses)
     mapM_ notifyAboutAddressUpdate affectedAddresses
 
 notifyAboutAddressUpdate :: C.Address -> ServerMonad ()

@@ -15,7 +15,8 @@ import           Network.Wai                          (Middleware)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
-import           RSCoin.Core                          (SecretKey, Severity (..))
+import           RSCoin.Core                          (SecretKey, Severity (..),
+                                                       initLoggerByName)
 import           RSCoin.Timed                         (MsgPackRpc, WorkMode,
                                                        fork_, runRealMode)
 
@@ -59,4 +60,5 @@ launchWeb
     => Int -> Severity -> Channel -> State -> m ()
 launchWeb port sev ch st = do
     app <- Web.mkApplication ch st
+    liftIO $ initLoggerByName sev Web.wsLoggerName
     liftIO . run port . loggingMiddleware sev $ app

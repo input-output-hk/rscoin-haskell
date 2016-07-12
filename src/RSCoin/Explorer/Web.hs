@@ -1,7 +1,8 @@
 -- | Web part of Explorer.
 
 module RSCoin.Explorer.Web
-       ( mkApplication
+       ( wsLoggerName
+       , mkApplication
        ) where
 
 import           Control.Monad.Trans            (MonadIO)
@@ -12,7 +13,7 @@ import qualified Network.WebSockets             as WS
 import           RSCoin.Explorer.AcidState      (State)
 import           RSCoin.Explorer.Channel        (Channel)
 import           RSCoin.Explorer.Web.Servant    (servantApp)
-import           RSCoin.Explorer.Web.Sockets    (mkWsApp)
+import           RSCoin.Explorer.Web.Sockets    (mkWsApp, wsLoggerName)
 
 mkApplication
     :: MonadIO m

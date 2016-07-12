@@ -68,7 +68,6 @@ initLoggerByName (convertSeverity -> s) name = do
     stderrFormatter = simpleLogFormatter "[$time] [$loggername] $prio: $msg"
     stdoutFormatter h r@(pr,_) n
       | pr > DEBUG = simpleLogFormatter "[$loggername] $msg" h r n
-    stdoutFormatter h r n
       | otherwise = simpleLogFormatter "[$loggername] $msg" h r n
 
 type LoggerName = String

@@ -8,6 +8,8 @@ module RSCoin.Core.Constants
        , defaultAccountsNumber
        , defaultPort
        , defaultBankHost
+       , localhost
+       , localPlatformLayout
        , defaultLayout
        , defaultLayout'
        , bankPort
@@ -30,8 +32,11 @@ module RSCoin.Core.Constants
 import           Data.Binary                (Binary)
 import           Data.FileEmbed             (embedFile, makeRelativeToProject)
 import           Data.Maybe                 (fromJust, fromMaybe)
+import           Data.String                (IsString)
 import           Data.Time.Units            (Second)
+
 import           Language.Haskell.TH.Syntax (Lift (lift))
+
 import           System.Directory           (getHomeDirectory)
 import           System.FilePath            ((</>))
 
@@ -56,22 +61,32 @@ defaultAccountsNumber = 5
 defaultPort :: Num a => a
 defaultPort = 3000
 
-bankPort :: Port
-bankPort = snd $ getBankAddr defaultLayout
+localhost :: IsString s => s
+localhost = "127.0.0.1"
 
-defaultBankHost :: Host
-defaultBankHost = fst $ getBankAddr defaultLayout
-
-defaultLayout' :: Host -> PlatformLayout
-defaultLayout' bankHost
-    = let PlatformLayout (_, bPort) sAddr = defaultLayout
-       in PlatformLayout (bankHost, bPort) sAddr
+-- | Settings for local deployment
+localPlatformLayout :: PlatformLayout
+localPlatformLayout = PlatformLayout
+    { getBankAddr   = (localhost, 3000)
+    , getNotaryAddr = (localhost, 4001)
+    }
 
 defaultLayout :: PlatformLayout
 defaultLayout = PlatformLayout
     { getBankAddr   = $(lift $ CC.toAddr $ CC.rscDefaultBank   CC.rscoinConfig)
     , getNotaryAddr = $(lift $ CC.toAddr $ CC.rscDefaultNotary CC.rscoinConfig)
     }
+
+defaultLayout' :: Host -> PlatformLayout
+defaultLayout' bankHost
+    = let PlatformLayout (_, bPort) sAddr = defaultLayout
+       in PlatformLayout (bankHost, bPort) sAddr
+
+bankPort :: Port
+bankPort = snd $ getBankAddr defaultLayout
+
+defaultBankHost :: Host
+defaultBankHost = fst $ getBankAddr defaultLayout
 
 defaultPeriodDelta :: Second
 defaultPeriodDelta = 100

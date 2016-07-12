@@ -49,7 +49,6 @@ import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
 import           Data.Tuple.Select      (sel1, sel2, sel3)
-import           Debug.Trace
 import           Formatting             (build, int, sformat, shown, (%))
 import           Safe                   (atMay)
 
@@ -478,7 +477,6 @@ sendTransactionDo st maybeCache tx signatures = do
                                     signatures
     -- sending transaction only if
     -- it's "distributed signing" case ⇒ extraSignatures decided so
-    traceM $ "extraSignatures: " ++ show extraSignatures
     let willWeSend = null nonDefaultAddresses || isJust extraSignatures
     when willWeSend $ validateTransaction maybeCache tx allSignatures periodId
     update' st $ A.AddTemporaryTransaction periodId tx

@@ -2,11 +2,11 @@ module Bench.RSCoin.Local.InfraThreads
         ( addMintette
         , bankThread
         , mintetteThread
+        , notaryThread
         ) where
 
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
-import           Data.String                (IsString)
 import           Data.Time.Units            (TimeUnit)
 import           System.FilePath            ((</>))
 
@@ -14,17 +14,12 @@ import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (Mintette),
                                              PlatformLayout (..), PublicKey,
                                              SecretKey, bankSecretKey,
-                                             defaultPort)
+                                             defaultPort, localhost, localPlatformLayout)
 import qualified RSCoin.Mintette            as M
+import qualified RSCoin.Notary              as N
 import           RSCoin.Timed               (fork, runRealModeLocal)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
-
-localPlatformLayout :: PlatformLayout
-localPlatformLayout = PlatformLayout (localhost, 3000) (localhost, 3001)
-
-localhost :: IsString s => s
-localhost = "127.0.0.1"
 
 bankDir :: FilePath -> FilePath
 bankDir = (</> "bank-db")
@@ -48,3 +43,12 @@ mintetteThread mintetteId benchDir secretKey =
     \mintetteState ->
          do _ <- fork $ M.runWorker secretKey mintetteState
             M.serve (defaultPort + mintetteId) mintetteState secretKey
+
+notaryThread :: FilePath -> IO ()
+notaryThread benchDir =
+    runRealModeLocal $
+    bracket
+        (liftIO $ N.openState $ benchDir </> "notary-db")
+        (liftIO . N.closeState) $
+        (N.serve $ snd $ getNotaryAddr localPlatformLayout)
+

@@ -26,6 +26,7 @@ import           Control.Monad.Catch     (MonadMask)
 import           Control.Monad.Reader    (runReaderT)
 import           Control.Monad.Trans     (MonadIO, liftIO)
 import           System.Random           (StdGen, getStdGen)
+import           RSCoin.Core.Constants   (localPlatformLayout)
 
 class (MonadTimed m, MonadRpc m, MonadIO m,
        MonadMask m) => WorkMode m where

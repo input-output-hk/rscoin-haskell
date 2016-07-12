@@ -247,14 +247,16 @@ notifyAboutAddressUpdate :: C.Address -> ServerMonad ()
 notifyAboutAddressUpdate addr = do
     st <- view ssDataBase
     connectionsState <- liftIO . readMVar =<< view ssConnections
-    (pId,balance) <- query' st $ DB.GetAddressBalance addr
+    msgBalance <- uncurry mkOMBalance <$> query' st (DB.GetAddressBalance addr)
+    msgTxNumber <-
+        uncurry OMTxNumber <$> query' st (DB.GetAddressTxNumber addr)
     let connIds =
             fromMaybe S.empty $ connectionsState ^. csAddrToConnId . at addr
         idToConn i = connectionsState ^. csIdToConn . at i
         foldrStep connId l = maybe l (: l) $ idToConn connId
         connections = S.foldr foldrStep [] connIds
-        msg = mkOMBalance pId balance
-    mapM_ (flip send msg) connections
+        sendToAll msg = mapM_ (flip send msg) connections
+    mapM_ sendToAll [msgBalance, msgTxNumber]
 
 -- | Given access to Explorer's data base and channel, returns
 -- WebSockets server application.

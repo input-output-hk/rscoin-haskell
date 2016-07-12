@@ -26,13 +26,13 @@ import           Control.Lens          (at, makeLenses, use, view, views, (%=),
                                         (.=), _Just)
 import           Control.Monad         (unless)
 import           Control.Monad.Catch   (MonadThrow (throwM))
+import           Control.Monad.Extra   (whenJustM)
 import           Control.Monad.Reader  (MonadReader)
 import           Control.Monad.State   (MonadState)
 import           Data.List             (genericDrop, genericLength, genericTake)
 import qualified Data.Map.Strict       as M
 import           Data.Maybe            (fromMaybe)
 import           Data.SafeCopy         (base, deriveSafeCopy)
-import           Formatting            (build, sformat, (%))
 
 import qualified RSCoin.Core           as C
 
@@ -142,23 +142,19 @@ addHBlock pId C.HBlock{..} = do
     mapM_ applyTransaction hbTransactions
     lastPeriodId .= Just pId
 
-applyTransaction :: C.Transaction -> ExceptUpdate ()
+applyTransaction :: C.Transaction -> Update ()
 applyTransaction tx@C.Transaction{..} = do
     transactionsMap . at (C.hash tx) .= Just tx
     mapM_ (applyTxInput tx) txInputs
     mapM_ (applyTxOutput tx) txOutputs
 
-applyTxInput :: C.Transaction -> C.AddrId -> ExceptUpdate ()
-applyTxInput tx (oldTxId,idx,c) = do
-    oldTx <-
-        maybe
-            (throwM $
-             EEInternalError $
-             sformat ("transaction with id " % build % " wasn't found") oldTxId)
-            pure =<<
-        use (transactionsMap . at oldTxId)
-    let addr = fst $ C.txOutputs oldTx !! idx
-    changeAddressData tx (-c) addr
+applyTxInput :: C.Transaction -> C.AddrId -> Update ()
+applyTxInput tx (oldTxId,idx,c) =
+    whenJustM (use $ transactionsMap . at oldTxId) applyTxInputDo
+  where
+    applyTxInputDo oldTx = do
+        let addr = fst $ C.txOutputs oldTx !! idx
+        changeAddressData tx (-c) addr
 
 applyTxOutput :: C.Transaction -> (C.Address, C.Coin) -> Update ()
 applyTxOutput tx (addr,c) = changeAddressData tx c addr

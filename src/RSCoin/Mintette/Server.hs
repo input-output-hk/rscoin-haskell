@@ -36,6 +36,7 @@ import           RSCoin.Mintette.Error     (MintetteError (..))
 import           RSCoin.Timed              (ServerT, WorkMode,
                                             serverTypeRestriction0,
                                             serverTypeRestriction1,
+                                            serverTypeRestriction2,
                                             serverTypeRestriction3)
 
 logError, logWarning, logInfo, logDebug :: MonadIO m => Text -> m ()
@@ -49,7 +50,7 @@ serve port st sk = do
     idr1 <- serverTypeRestriction1
     idr2 <- serverTypeRestriction1
     idr3 <- serverTypeRestriction3
-    idr4 <- serverTypeRestriction3
+    idr4 <- serverTypeRestriction2
     idr5 <- serverTypeRestriction0
     idr6 <- serverTypeRestriction1
     idr7 <- serverTypeRestriction1
@@ -129,7 +130,7 @@ handleCheckTx
     -> State
     -> C.Transaction
     -> C.AddrId
-    -> C.Signature
+    -> [(C.Address, C.Signature)]
     -> ServerT m (Either MintetteError C.CheckConfirmation)
 handleCheckTx sk st tx addrId sg =
     toServer $
@@ -156,17 +157,14 @@ handleCommitTx
     => C.SecretKey
     -> State
     -> C.Transaction
-    -> C.PeriodId
     -> C.CheckConfirmations
-    -> ServerT m (Either MintetteError C.CommitConfirmation)
-handleCommitTx sk st tx pId cc =
+    -> ServerT m (Either MintetteError C.CommitAcknowledgment)
+handleCommitTx sk st tx cc =
     toServer $
     do logDebug $
-           format'
-               "There is an attempt to commit transaction ({}), provided periodId is {}."
-               (tx, pId)
+           formatSingle' "There is an attempt to commit transaction ({})." tx
        logDebug $ formatSingle' "Here are confirmations: {}" cc
-       res <- try $ update' st $ CommitTx sk tx pId cc
+       res <- try $ update' st $ CommitTx sk tx cc
        either onError onSuccess res
   where
     onError e =

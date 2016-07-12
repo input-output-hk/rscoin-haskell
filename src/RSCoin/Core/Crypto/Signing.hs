@@ -9,7 +9,9 @@ module RSCoin.Core.Crypto.Signing
        , PublicKey
        , sign
        , verify
+       , verifyChain
        , keyGen
+       , deterministicKeyGen
        , constructPublicKey
        , writePublicKey
        , readPublicKey
@@ -153,9 +155,18 @@ verify :: Binary t => PublicKey -> Signature -> t -> Bool
 verify (getPublicKey -> pubKey) (getSignature -> sig) t =
     E.dverify pubKey (H.getHash . H.hash $ encode t) sig
 
+-- | Verify chain of certificates.
+verifyChain :: PublicKey -> [(Signature, PublicKey)] -> Bool
+verifyChain _ [] = True
+verifyChain pk ((sig, nextPk):rest) = verify pk sig nextPk && verifyChain nextPk rest
+
 -- | Generate arbitrary (secret key, public key) key pair.
 keyGen :: IO (SecretKey, PublicKey)
 keyGen = bimap SecretKey PublicKey . swap <$> E.createKeypair
+
+-- | Creates key pair deterministically from 32 bytes.
+deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
+deterministicKeyGen seed = bimap PublicKey SecretKey <$> E.createKeypairFromSeed_ seed
 
 -- | Constructs public key from UTF-8 text.
 constructPublicKey :: Text -> Maybe PublicKey

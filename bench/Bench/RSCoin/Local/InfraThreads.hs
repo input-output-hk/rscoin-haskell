@@ -11,13 +11,17 @@ import           Data.Time.Units            (TimeUnit)
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Bank                as B
-import           RSCoin.Core                (Mintette (Mintette), PublicKey,
+import           RSCoin.Core                (Mintette (Mintette),
+                                             PlatformLayout (..), PublicKey,
                                              SecretKey, bankSecretKey,
                                              defaultPort)
 import qualified RSCoin.Mintette            as M
 import           RSCoin.Timed               (fork, runRealModeLocal)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
+
+localPlatformLayout :: PlatformLayout
+localPlatformLayout = PlatformLayout (localhost, 3000) (localhost, 3001)
 
 localhost :: IsString s => s
 localhost = "127.0.0.1"
@@ -32,7 +36,7 @@ addMintette mintetteId benchDir = B.addMintetteIO (bankDir benchDir) mintette
 
 bankThread :: (TimeUnit t) => t -> FilePath -> IO ()
 bankThread periodDelta benchDir
-    = B.launchBankReal periodDelta (benchDir </> "bank-db") bankSecretKey
+    = B.launchBankReal localPlatformLayout periodDelta (benchDir </> "bank-db") bankSecretKey
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir secretKey =

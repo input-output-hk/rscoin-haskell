@@ -9,17 +9,20 @@ module Options
 import qualified Data.Text              as T
 import           Options.Applicative    (Parser, auto, command, execParser,
                                          fullDesc, help, helper, info, long,
-                                         metavar, option, progDesc, short,
-                                         showDefault, subparser, value, (<>))
+                                         metavar, option, optional, progDesc,
+                                         short, showDefault, subparser, value,
+                                         (<>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultPeriodDelta,
+import           RSCoin.Core            (Severity (Error), Strategy,
+                                         defaultPeriodDelta,
                                          defaultSecretKeyPath)
 
 data Command
     = Serve FilePath
     | AddMintette String Int T.Text
+    | AddAddress (Maybe T.Text) Strategy
     | AddExplorer String Int T.Text Int
 
 data Options = Options
@@ -41,6 +44,9 @@ commandParser defaultSKPath =
              "add-mintette"
              (info addMintetteOpts (progDesc "Add given mintette to database")) <>
          command
+             "add-address"
+             (info addAddressOpts (progDesc "Add given address and corresponding strategy to database")) <>
+         command
              "add-explorer"
              (info addExplorerOpts (progDesc "Add given explorer to database")))
   where
@@ -51,6 +57,12 @@ commandParser defaultSKPath =
              value defaultSKPath <>
              showDefault <>
              metavar "PATH TO KEY")
+    addAddressOpts =
+        AddAddress <$> (optional . strOption) (long "address" <> help "Public key, determining address") <*>
+        option auto
+            (long "strategy" <>
+             help "Address's strategy (directly, not from file). Example: 'MOfNStrategy 5 (fromList [\"YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM=\"])'" <>
+             metavar "STRATEGY")
     addMintetteOpts =
         AddMintette <$> strOption (long "host") <*> option auto (long "port") <*>
         strOption

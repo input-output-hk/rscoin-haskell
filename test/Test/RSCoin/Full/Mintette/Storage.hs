@@ -17,27 +17,32 @@ import           Control.Monad                    (unless, when)
 import           Control.Monad.Catch              (MonadThrow (throwM))
 import           Control.Monad.State.Class        (MonadState)
 import qualified Data.Map                         as M
-import           Data.Maybe                       (fromJust, isJust)
+import           Data.Maybe                       (fromJust, fromMaybe, isJust)
 import qualified Data.Set                         as S
+import           Data.Tuple.Curry                 (uncurryN)
 import           Data.Tuple.Select                (sel1)
 import           Safe                             (atMay)
 
-import           RSCoin.Core                      (AddrId, PeriodId, SecretKey,
-                                                   Signature, Transaction (..),
+import           RSCoin.Core                      (AddrId,
+                                                   PeriodId, SecretKey,
+                                                   Signature, Strategy (..),
+                                                   Transaction (..),
                                                    computeOutputAddrids,
                                                    derivePublicKey,
+                                                   isStrategyCompleted,
                                                    mkCheckConfirmation, owners,
                                                    sign, validateSignature,
                                                    verifyCheckConfirmation)
 import qualified RSCoin.Core                      as C
 import           RSCoin.Mintette.Error            (MintetteError (..))
-import           RSCoin.Mintette.Storage          (Storage, checkIsActive,
-                                                   checkPeriodId, checkTxSum,
-                                                   dpk, logHead, logHeads,
-                                                   logSize, mintetteId,
-                                                   mintettes, pset,
-                                                   pushLogEntry, txset, utxo,
-                                                   utxoAdded, utxoDeleted)
+import           RSCoin.Mintette.Storage          (Storage, addresses,
+                                                   checkIsActive, checkPeriodId,
+                                                   checkTxSum, dpk, logHead,
+                                                   logHeads, logSize,
+                                                   mintetteId, mintettes,
+                                                   periodId, pset, pushLogEntry,
+                                                   txset, utxo, utxoAdded,
+                                                   utxoDeleted)
 
 import           Test.RSCoin.Full.Mintette.Config (MintetteConfig (..))
 
@@ -50,7 +55,7 @@ checkNotDoubleSpent :: MintetteConfig
                     -> SecretKey
                     -> Transaction
                     -> AddrId
-                    -> Signature
+                    -> [(C.Address, C.Signature)]
                     -> ExceptUpdate C.CheckConfirmation
 checkNotDoubleSpent conf sk tx addrId sg = do
     unless (checkActive conf) checkIsActive
@@ -66,11 +71,13 @@ checkNotDoubleSpent conf sk tx addrId sg = do
       | storedTx == tx = finishCheck
       | otherwise = throwM $ MENotUnspent addrId
     notInPsetCase = do
-        addr <- M.lookup addrId <$> use utxo
-        maybe (throwM $ MENotUnspent addrId) checkSignatureAndFinish addr
-    checkSignatureAndFinish a
-      | validateSignature sg a tx = finishCheck
-      | otherwise = throwM MEInvalidSignature
+          addr <- M.lookup addrId <$> use utxo
+          maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
+    checkSignaturesAndFinish addr = do
+           strategy <- uses addresses $ fromMaybe DefaultStrategy . M.lookup addr
+           if isStrategyCompleted strategy addr sg tx
+                            then finishCheck
+                            else throwM MEInvalidSignature
     finishCheck
       | updateUtxoCheckTx conf = do
         pushLogEntry $ C.QueryEntry tx
@@ -82,11 +89,12 @@ checkNotDoubleSpent conf sk tx addrId sg = do
         finalize
       | otherwise = finalize
     finalize = do
+        pId <- use periodId
         hsh <- uses logHead (snd . fromJust)
         logSz <- use logSize
         if inverseCheckTx conf
         then throwM $ MENotUnspent addrId
-        else return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1)
+        else return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1) pId
 
 -- | Check that transaction is valid and whether it falls within
 -- mintette's remit.  If it's true, add transaction to storage and
@@ -94,12 +102,10 @@ checkNotDoubleSpent conf sk tx addrId sg = do
 commitTx :: MintetteConfig
          -> SecretKey
          -> Transaction
-         -> PeriodId
          -> C.CheckConfirmations
-         -> ExceptUpdate C.CommitConfirmation
-commitTx conf sk tx@Transaction{..} pId bundle = do
+         -> ExceptUpdate C.CommitAcknowledgment
+commitTx conf sk tx@Transaction{..} bundle = do
     unless (checkActive conf) checkIsActive
-    checkPeriodId pId
     checkTxSum tx
     mts <- use mintettes
     mId <- fromJust <$> use mintetteId
@@ -114,12 +120,13 @@ commitTx conf sk tx@Transaction{..} pId bundle = do
     checkInputConfirmed _ _ _
       | skipChecksCommitTx conf = return True
     checkInputConfirmed mts curDpk addrid = do
+        pId <- use periodId
         let addridOwners = owners mts (sel1 addrid)
             ownerConfirmed owner =
                 maybe
                     False
                     (\proof ->
-                          verifyCheckConfirmation proof tx addrid &&
+                          verifyCheckConfirmation proof tx addrid pId &&
                           verifyDpk curDpk owner proof) $
                 M.lookup (owner, addrid) bundle
             filtered = filter ownerConfirmed addridOwners
@@ -145,7 +152,7 @@ commitTxChecked
     -> SecretKey
     -> Transaction
     -> C.CheckConfirmations
-    -> ExceptUpdate C.CommitConfirmation
+    -> ExceptUpdate C.CommitAcknowledgment
 commitTxChecked _ False _ _ _ = throwM MENotConfirmed
 commitTxChecked conf True sk tx bundle = do
     pushLogEntry $ C.CommitEntry tx bundle
@@ -157,4 +164,4 @@ commitTxChecked conf True sk tx bundle = do
     hsh <- uses logHead (snd . fromJust)
     logSz <- use logSize
     let logChainHead = (hsh, logSz)
-    return (pk, sign sk (tx, logChainHead), logChainHead)
+    return $ C.CommitAcknowledgment pk (sign sk (tx, logChainHead)) logChainHead

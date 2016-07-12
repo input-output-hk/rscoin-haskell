@@ -26,6 +26,7 @@ module Test.RSCoin.Full.Action
 import           Control.Lens             (view, views)
 import           Control.Monad            (unless, void, when)
 import           Control.Monad.Catch      (throwM)
+import           Data.Acid.Advanced       (query')
 import           Data.Bifunctor           (second)
 import           Data.Function            (on)
 import           Data.List                (genericLength, nubBy)
@@ -34,11 +35,10 @@ import           Data.Text.Buildable      (Buildable (build))
 import           Data.Text.Lazy.Builder   (Builder)
 import           Formatting               (bprint, builder, int, shown, (%))
 import qualified Formatting
-import           Test.QuickCheck          (NonEmptyList (..))
-
 import           Serokell.Util            (indexModulo, indexModuloMay,
                                            listBuilderJSON, mapBuilder,
                                            pairBuilder)
+import           Test.QuickCheck          (NonEmptyList (..))
 
 import qualified RSCoin.Core              as C
 import           RSCoin.Timed             (Millisecond, WorkMode, after, invoke,
@@ -211,7 +211,7 @@ toAddress =
     either return $
     \(userIndex,addressIndex) ->
          do userState <- getUserState userIndex
-            publicAddresses <- U.getAllAddresses userState
+            publicAddresses <- query' userState U.GetOwnedDefaultAddresses
             return $ publicAddresses `indexModulo` addressIndex
 
 toInputs
@@ -219,7 +219,7 @@ toInputs
     => UserIndex -> FromAddresses -> TestEnv m Inputs
 toInputs userIndex (getNonEmpty -> fromIndexes) = do
     userState <- getUserState userIndex
-    allAddresses <- U.getAllAddresses userState
+    allAddresses <- query' userState U.GetOwnedDefaultAddresses
     addressesAmount <- mapM (U.getAmount userState) allAddresses
     when (null addressesAmount) $
         throwM $ TestError "No public addresses in this user"

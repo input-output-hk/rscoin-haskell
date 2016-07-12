@@ -15,7 +15,7 @@ module RSCoin.Core.Types
        , ActionLogHeads
        , CheckConfirmation (..)
        , CheckConfirmations
-       , CommitConfirmation
+       , CommitAcknowledgment (..)
        , ActionLogEntry (..)
        , ActionLog
        , LBlock (..)
@@ -26,6 +26,8 @@ module RSCoin.Core.Types
        , HBlock (..)
        , NewPeriodData (..)
        , formatNewPeriodData
+       , Strategy (..)
+       , AddressToStrategyMap
        ) where
 
 import           Control.Arrow          (first)
@@ -33,6 +35,7 @@ import           Data.Binary            (Binary (get, put), Get, Put)
 import qualified Data.Map               as M
 import           Data.Maybe             (fromJust, isJust)
 import           Data.SafeCopy          (base, deriveSafeCopy)
+import qualified Data.Set               as S
 import           Data.Text.Buildable    (Buildable (build))
 import qualified Data.Text.Format       as F
 import           Data.Text.Lazy.Builder (Builder)
@@ -41,7 +44,7 @@ import           Formatting             (bprint, int, string, (%))
 import qualified Formatting
 
 import           Serokell.Util.Text     (listBuilderJSON, listBuilderJSONIndent,
-                                         mapBuilder, pairBuilder)
+                                         mapBuilder, pairBuilder, tripleBuilder)
 
 import           RSCoin.Core.Crypto     (Hash, PublicKey, Signature)
 import           RSCoin.Core.Primitives (AddrId, Address, Transaction)
@@ -123,6 +126,7 @@ data CheckConfirmation = CheckConfirmation
     { ccMintetteKey       :: !PublicKey      -- ^ key of corresponding mintette
     , ccMintetteSignature :: !Signature      -- ^ signature for (tx, addrid, head)
     , ccHead              :: !ActionLogHead  -- ^ head of log
+    , ccPeriodId          :: !PeriodId       -- ^ period id when confirmation was made
     } deriving (Show, Eq)
 
 instance Binary CheckConfirmation where
@@ -130,7 +134,8 @@ instance Binary CheckConfirmation where
         put ccMintetteKey
         put ccMintetteSignature
         put ccHead
-    get = CheckConfirmation <$> get <*> get <*> get
+        put ccPeriodId
+    get = CheckConfirmation <$> get <*> get <*> get <*> get
 
 instance Buildable CheckConfirmation where
     build CheckConfirmation{..} =
@@ -147,9 +152,22 @@ type CheckConfirmations = M.Map (MintetteId, AddrId) CheckConfirmation
 instance Buildable CheckConfirmations where
     build = mapBuilder . map (first pairBuilder) . M.assocs
 
--- | CommitConfirmation is sent by mintette to user as an evidence
+-- | CommitAcknowledgment is sent by mintette to user as an evidence
 -- that mintette has included it into lower-level block.
-type CommitConfirmation = (PublicKey, Signature, ActionLogHead)
+data CommitAcknowledgment = CommitAcknowledgment
+    { caMintetteKey       :: !PublicKey      -- ^ key of corresponding mintette
+    , caMintetteSignature :: !Signature      -- ^ signature for (tx, logHead)
+    , caHead              :: !ActionLogHead  -- ^ head of log
+    } deriving (Show)
+
+instance Binary CommitAcknowledgment where
+    put CommitAcknowledgment{..} = do
+        put caMintetteKey
+        put caMintetteSignature
+        put caHead
+    get = CommitAcknowledgment <$> get <*> get <*> get
+
+$(deriveSafeCopy 0 'base ''CommitAcknowledgment)
 
 -- | Each mintette mantains a high-integrity action log, consisting of entries.
 data ActionLogEntry
@@ -228,6 +246,42 @@ instance Buildable LBlock where
                 , "}\n"
                 ]
 
+-- | Strategy of confirming transactions.
+-- Other strategies are possible, like "getting m out of n, but
+-- addresses [A,B,C] must sign". Primitive concept is using M/N.
+data Strategy
+    = DefaultStrategy                  -- ^ Strategy of "1 signature per addrid"
+    | MOfNStrategy Int (S.Set Address) -- ^ Strategy for getting `m` signatures
+                                       -- out of `length list`, where every signature
+                                       -- should be made by address in list `list`
+    deriving (Read, Show, Eq)
+
+$(deriveSafeCopy 0 'base ''Strategy)
+
+instance Binary Strategy where
+    put DefaultStrategy          = put (0 :: Int, ())
+    put (MOfNStrategy m parties) = put (1 :: Int, (m, parties))
+
+    get = do
+        (i, payload) <- get
+        pure $ case (i :: Int) of
+            0 -> DefaultStrategy
+            1 -> uncurry MOfNStrategy payload
+            _ -> error "unknow binary strategy"
+
+instance Buildable Strategy where
+    build DefaultStrategy = F.build "DefaultStrategy" ()
+    build (MOfNStrategy m addrs) = F.build template (m, listBuilderJSON addrs)
+      where
+        template =
+            mconcat
+                [ "Strategy {\n"
+                , "  m: {}\n"
+                , "  addresses: {}\n"
+                , "}\n"
+                ]
+
+
 -- | PeriodResult is sent by mintette to bank when period finishes.
 type PeriodResult = (PeriodId, [LBlock], ActionLog)
 
@@ -244,6 +298,8 @@ type Utxo = M.Map AddrId Address
 -- for the given period.
 type Pset = M.Map AddrId Transaction
 
+type AddressToStrategyMap = M.Map Address Strategy
+
 instance Buildable Dpk where
     build = listBuilderJSON . map pairBuilder
 
@@ -255,6 +311,7 @@ data HBlock = HBlock
     , hbTransactions :: ![Transaction]
     , hbSignature    :: !Signature
     , hbDpk          :: !Dpk
+    , hbAddresses    :: !AddressToStrategyMap
     } deriving (Show, Eq)
 
 $(deriveSafeCopy 0 'base ''HBlock)
@@ -265,13 +322,18 @@ instance Binary HBlock where
         put hbTransactions
         put hbSignature
         put hbDpk
-    get = HBlock <$> get <*> get <*> get <*> get
+        put hbAddresses
+    get = HBlock <$> get <*> get <*> get <*> get <*> get
 
 instance Buildable HBlock where
     build HBlock{..} =
         F.build
             template
-            (hbHash, listBuilderJSON hbTransactions, hbSignature, hbDpk)
+            ( hbHash
+            , listBuilderJSON hbTransactions
+            , hbSignature
+            , hbDpk
+            , listBuilderJSON hbAddresses)
       where
         template =
             mconcat
@@ -280,8 +342,12 @@ instance Buildable HBlock where
                 , "  transactions: {}\n"
                 , "  signature: {}\n"
                 , "  dpk: {}\n"
-                , "}\n"
-                ]
+                , "  addresses: {}\n"
+                , "}\n"]
+instance Buildable [HBlock] where
+  build = listBuilderJSON
+
+type NewMintetteIdPayload = (MintetteId, Utxo, AddressToStrategyMap)
 
 -- | Data sent by server on new period start. If mintette id changes,
 -- bank *must* include npdNewIdPayload.
@@ -290,7 +356,7 @@ data NewPeriodData = NewPeriodData
     , npdMintettes    :: !Mintettes                  -- ^ Mintettes list
     , npdHBlock       :: !HBlock                     -- ^ Last processed HBlock (needed to
                                                      -- update local mintette's utxo)
-    , npdNewIdPayload :: !(Maybe (MintetteId, Utxo)) -- ^ Data needed for mintette to
+    , npdNewIdPayload :: !(Maybe NewMintetteIdPayload) -- ^ Data needed for mintette to
                                                      -- restore state if it's Id changes
     , npdDpk          :: !Dpk                        -- ^ Dpk
     } deriving (Show, Eq)
@@ -307,11 +373,19 @@ instance Buildable Utxo where
 instance Buildable Pset where
     build mapping = listBuilderJSON $ M.toList mapping
 
+instance Buildable (Address, Signature) where
+    build = pairBuilder
+instance Buildable [(Address, Signature)] where
+    build = listBuilderJSONIndent 2
+
 instance Buildable [NewPeriodData] where
     build = listBuilderJSONIndent 2
 
-instance Buildable (MintetteId, Utxo) where
-    build = pairBuilder
+instance Buildable AddressToStrategyMap where
+    build = mapBuilder . M.assocs
+
+instance Buildable NewMintetteIdPayload where
+    build = tripleBuilder
 
 formatNewPeriodData :: Bool -> NewPeriodData -> Builder
 formatNewPeriodData withPayload NewPeriodData{..}

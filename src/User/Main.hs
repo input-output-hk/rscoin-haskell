@@ -18,7 +18,7 @@ main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     C.initLogging logSeverity
-    runRealMode bankHost $
+    runRealMode (C.defaultLayout' bankHost) $
         bracket
             (liftIO $ U.openState walletPath)
             (\st -> liftIO $ do

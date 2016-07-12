@@ -10,6 +10,7 @@ module RSCoin.Timed.PureRpc
     ( PureRpc
     , runPureRpc
     , runPureRpc_
+    , localPlatformLayout
     , Delays(..)
     ) where
 
@@ -29,9 +30,9 @@ import           System.Random           (StdGen)
 import           Data.MessagePack        (Object)
 import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
-import           RSCoin.Timed.MonadRpc   (Addr, BankSettings (..), Client (..),
-                                          Host, Method (..), MonadRpc (execClient, serve, getBankSettings),
-                                          RpcError (..), methodBody, methodName)
+import           RSCoin.Timed.MonadRpc   (Addr, Client (..), Host, Method (..), MonadRpc (execClient, getPlatformLayout, serve),
+                                          PlatformLayout (..), RpcError (..),
+                                          methodBody, methodName)
 import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
                                           localTime, mcs, minute, wait)
 import           RSCoin.Timed.Timed      (TimedT, evalTimedT, runTimedT)
@@ -48,6 +49,11 @@ data RpcStage = Request | Response
 localhost :: IsString s => s
 localhost = "127.0.0.1"
 
+-- | This should be used only in pure mode.
+localPlatformLayout :: PlatformLayout
+localPlatformLayout = PlatformLayout (localhost, 3000) (localhost, 3001)
+
+-- @TODO Remove these hard-coded values
 -- | Describes network nastyness
 newtype Delays = Delays
     { -- | Just delay if net packet delivered successfully
@@ -157,7 +163,8 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
       where
         sleepForever = wait (for 100500 minute) >> sleepForever
 
-    getBankSettings = pure $ BankSettings localhost
+    -- @TODO not sure it's ok when it comes to notaries
+    getPlatformLayout = pure $ localPlatformLayout
 
 waitDelay :: (MonadThrow m, MonadIO m, MonadCatch m) => RpcStage -> PureRpc m ()
 waitDelay stage =

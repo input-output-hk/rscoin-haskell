@@ -7,7 +7,7 @@ module RSCoin.User.Cache
        ( UserCache
        , mkUserCache
        , invalidateUserCache
-       , getOwnersByHash
+       , getOwnersByTxId
        , getOwnersByTx
        , getOwnersByAddrid
        ) where
@@ -60,7 +60,7 @@ getMintettesList maybeCache p =
                 then Just storedMintettes
                 else Nothing
     loadAndCache = do
-        loaded <- C.getMintettesList
+        loaded <- C.getMintettes
         case maybeCache of
             Nothing -> return ()
             Just c ->
@@ -73,10 +73,10 @@ getMintettesList maybeCache p =
                           })
         return loaded
 
-getOwnersByHash
+getOwnersByTxId
     :: WorkMode m
     => Maybe UserCache -> C.PeriodId -> C.TransactionId -> m [(C.Mintette, C.MintetteId)]
-getOwnersByHash maybeCache p tId = toOwners <$> getMintettesList maybeCache p
+getOwnersByTxId maybeCache p tId = toOwners <$> getMintettesList maybeCache p
   where
     toOwners mts =
         map
@@ -90,7 +90,7 @@ getOwnersByTx
     -> C.PeriodId
     -> C.Transaction
     -> m [(C.Mintette, C.MintetteId)]
-getOwnersByTx cache p = getOwnersByHash cache p . C.hash
+getOwnersByTx cache p = getOwnersByTxId cache p . C.hash
 
 getOwnersByAddrid
     :: WorkMode m
@@ -98,4 +98,4 @@ getOwnersByAddrid
     -> C.PeriodId
     -> C.AddrId
     -> m [(C.Mintette, C.MintetteId)]
-getOwnersByAddrid cache p = getOwnersByHash cache p . sel1
+getOwnersByAddrid cache p = getOwnersByTxId cache p . sel1

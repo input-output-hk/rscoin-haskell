@@ -17,49 +17,60 @@ module RSCoin.Core.Communication
        , commitTx
        , sendPeriodFinished
        , announceNewPeriod
+       , announceNewPeriodsToNotary
+       , getNotaryPeriod
+       , allocateMultisignatureAddress
+       , queryNotaryCompleteMSAddresses
+       , removeNotaryCompleteMSAddresses
        , announceNewBlock
-       , getMintettesList
        , P.unCps
        , getBlocks
        , getMintettes
+       , getAddresses
        , getLogs
        , getMintetteUtxo
        , getMintetteBlocks
        , getMintetteLogs
+       , publishTxToNotary
+       , getTxSignatures
+       , pollTxsFromNotary
        ) where
 
 import           Control.Exception          (Exception (..))
 import           Control.Monad.Catch        (catch, throwM)
 import           Control.Monad.Trans        (MonadIO, liftIO)
+import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
 import           Data.MessagePack           (MessagePack)
 import           Data.Monoid                ((<>))
+import           Data.Set                   (Set)
 import           Data.Text                  (Text, pack)
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Typeable              (Typeable)
-import           Formatting                 (int, sformat, (%))
-import qualified Formatting
+
+import           Formatting                 (int, sformat, shown, (%))
+import qualified Formatting                 as F (build)
+
 import qualified Network.MessagePack.Client as MP (RpcError (..))
 
 import           Safe                       (atMay)
 import           Serokell.Util.Text         (format', formatSingle',
-                                             listBuilderJSON,
-                                             listBuilderJSONIndent, pairBuilder,
-                                             show')
+                                             listBuilderJSONIndent, mapBuilder,
+                                             pairBuilder, show')
 
-import           RSCoin.Core.Crypto         (SecretKey, Signature)
+import           RSCoin.Core.Crypto         (PublicKey, SecretKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
-import           RSCoin.Core.Primitives     (AddrId, Transaction, TransactionId)
+import           RSCoin.Core.Primitives     (AddrId, Address, Transaction,
+                                             TransactionId)
 import qualified RSCoin.Core.Protocol       as P
-import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
-                                             CheckConfirmations,
-                                             CommitConfirmation, Explorer (..),
-                                             HBlock, LBlock, Mintette,
-                                             MintetteId, Mintettes,
+import           RSCoin.Core.Types          (ActionLog, AddressToStrategyMap,
+                                             CheckConfirmation, CheckConfirmations,
+                                             CommitAcknowledgment, Explorer (..), HBlock,
+                                             LBlock, Mintette, MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
-                                             PeriodResult, Utxo)
+                                             PeriodResult, Strategy, Utxo)
 import           RSCoin.Mintette.Error      (MintetteError (MEInactive))
 import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
                                              WorkMode)
@@ -112,6 +123,9 @@ callBank = handleErrors . P.callBankSafe
 
 callMintette :: (WorkMode m, MessagePack a) => Mintette -> P.Client a -> m a
 callMintette m = handleErrors . P.callMintetteSafe m
+
+callNotary :: (WorkMode m, MessagePack a) => P.Client a -> m a
+callNotary = handleErrors . P.callNotary
 
 withResult :: WorkMode m => IO () -> (a -> IO ()) -> m a -> m a
 withResult before after action = do
@@ -168,14 +182,6 @@ finishPeriod _ =
         (const $ logDebug "Successfully finished period") $
     callBank (P.call $ P.RSCBank P.FinishPeriod)
 
-getMintettesList :: WorkMode m => m [Mintette]
-getMintettesList =
-    withResult
-        (logDebug "Getting mintettes list")
-        (logDebug .
-         formatSingle' "Successfully got mintettes list: {}" . listBuilderJSON) $
-    callBank (P.call $ P.RSCBank P.GetMintettes)
-
 logFunction :: MonadIO m => MintetteError -> Text -> m ()
 logFunction MEInactive = logInfo
 logFunction _ = logWarning
@@ -185,7 +191,7 @@ checkNotDoubleSpent
     => Mintette
     -> Transaction
     -> AddrId
-    -> Signature
+    -> [(Address, Signature)]
     -> m (Either MintetteError CheckConfirmation)
 checkNotDoubleSpent m tx a s =
     withResult infoMessage (either onError onSuccess) $
@@ -203,16 +209,15 @@ commitTx
     :: WorkMode m
     => Mintette
     -> Transaction
-    -> PeriodId
     -> CheckConfirmations
-    -> m (Either MintetteError CommitConfirmation)
-commitTx m tx pId cc =
+    -> m (Either MintetteError CommitAcknowledgment)
+commitTx m tx cc =
     withResult infoMessage (either onError onSuccess) $
-    callMintette m $ P.call (P.RSCMintette P.CommitTx) tx pId cc
+    callMintette m $ P.call (P.RSCMintette P.CommitTx) tx cc
   where
     infoMessage =
         logInfo $
-        format' "Commit transaction {}, provided periodId is {}" (tx, pId)
+        formatSingle' "Commit transaction {}" tx
     onError e =
         logFunction e $ formatSingle' "Commit tx failed: {}" e
     onSuccess _ =
@@ -232,13 +237,57 @@ sendPeriodFinished mintette pId =
             "Received period result from mintette {}: \n Blocks: {}\n Logs: {}\n"
             (mintette, listBuilderJSONIndent 2 blks, lgs)
 
+announceNewPeriodsToNotary :: WorkMode m => PeriodId -> [HBlock] -> m ()
+announceNewPeriodsToNotary pId' hblocks = do
+    logInfo $ sformat ("Announce new periods to Notary, hblocks " % F.build % ", latest periodId " % int)
+        hblocks
+        pId'
+    callNotary $ P.call (P.RSCNotary P.AnnounceNewPeriodsToNotary) pId' hblocks
+
+getNotaryPeriod :: WorkMode m => m PeriodId
+getNotaryPeriod = do
+    logInfo "Getting period of Notary"
+    callNotary $ P.call $ P.RSCNotary P.GetNotaryPeriod
+
+allocateMultisignatureAddress
+    :: WorkMode m
+    => Address
+    -> Set Address
+    -> Int
+    -> (Address, Signature)
+    -> [(Signature, PublicKey)]
+    -> m ()
+allocateMultisignatureAddress msAddr parties m sigPair chain = do
+    logInfo $ sformat
+        ( "Allocate new multisig address " % F.build
+        % ", parties: "                    % shown
+        % ", required number: "            % int
+        % ", current party pair: "         % F.build
+        % ", certificate chain: "          % shown  -- @TODO: build doesn't work here
+        )
+        msAddr
+        parties
+        m
+        sigPair
+        chain
+    callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr parties m sigPair chain
+
+queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, Strategy)]
+queryNotaryCompleteMSAddresses = do
+    logInfo "Querying Notary complete MS addresses"
+    callNotary $ P.call $ P.RSCNotary P.QueryCompleteMS
+
+removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> m ()
+removeNotaryCompleteMSAddresses addresses = do
+    logInfo "Removing Notary complete MS addresses"
+    callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses
+
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do
-    logInfo $
-        format'
-            "Announce new period to mintette {}, new period data {}"
-            (mintette, npd)
-    callMintette mintette (P.call (P.RSCMintette P.AnnounceNewPeriod) npd)
+    logInfo $ sformat ("Announce new period to mintette " % F.build % ", new period data " % F.build)
+        mintette
+        npd
+    callMintette mintette $ P.call (P.RSCMintette P.AnnounceNewPeriod) npd
 
 -- TODO: sign here and check
 announceNewBlock
@@ -252,13 +301,13 @@ announceNewBlock explorer pId blk signature =
     infoMessage =
         logInfo $
         sformat
-            ("Announcing new (" % int % "-th) block to " % Formatting.build)
+            ("Announcing new (" % int % "-th) block to " % F.build)
             pId
             explorer
     successMessage (respPeriod,_) =
         logDebug $
         sformat
-            ("Received periodId " % int % " from explorer " % Formatting.build)
+            ("Received periodId " % int % " from explorer " % F.build)
             respPeriod
             explorer
 
@@ -279,6 +328,13 @@ getBlocks from to =
         logDebug $
             format' "Got higher-level blocks between {} {}: {}"
             (from, to, listBuilderJSONIndent 2 res)
+
+getAddresses :: WorkMode m => m AddressToStrategyMap
+getAddresses =
+    withResult
+        (logDebug "Getting list of addresses")
+        (logDebug . formatSingle' "Successfully got list of addresses {}" . mapBuilder . M.toList)
+        $ callBank $ P.call (P.RSCBank P.GetAddresses)
 
 getMintettes :: WorkMode m => m Mintettes
 getMintettes =
@@ -380,3 +436,56 @@ getMintetteLogs mId pId = do
             format'
                 "Successfully got logs for period id {}: {}"
                 (pId, listBuilderJSONIndent 2 $ map pairBuilder res)
+
+-- | Send transaction with public wallet address & signature for it,
+-- get list of signatures after Notary adds yours.
+publishTxToNotary
+    :: WorkMode m
+    => Transaction              -- ^ transaction to sign
+    -> Address                  -- ^ address of transaction input (individual, multisig or etc.)
+    -> (Address, Signature)     -- ^ party's public address and signature
+                                -- (made with it's secret key)
+    -> m [(Address, Signature)] -- ^ signatures for all parties already signed the transaction
+publishTxToNotary tx addr sg =
+    withResult infoMessage successMessage $
+    callNotary $ P.call (P.RSCNotary P.PublishTransaction) tx addr sg
+  where
+    infoMessage =
+        logDebug $
+        sformat ("Sending tx, signature to Notary: " % shown) (tx, sg)
+    successMessage res =
+        logDebug $ sformat ("Received signatures from Notary: " % shown) res
+
+-- | Read-only method of Notary. Returns current state of signatures
+-- for the given address (that implicitly defines addrids ~
+-- transaction inputs) and transaction itself.
+getTxSignatures :: WorkMode m => Transaction -> Address -> m [(Address, Signature)]
+getTxSignatures tx addr =
+    withResult infoMessage successMessage $
+    callNotary $ P.call (P.RSCNotary P.GetSignatures) tx addr
+  where
+    infoMessage =
+        logDebug $
+        sformat ("Getting signatures for tx " % shown % ", addr " % shown) tx addr
+    successMessage res =
+        logDebug $ sformat ("Received signatures from Notary: " % shown) res
+
+
+-- | This method is somewhat mystic because it's not used anywhere and
+-- it won't be until we have perfectly working UI. It's supposed to be
+-- used over time to detect transactions that you `may` want to
+-- sign. And then dialog pops up.
+pollTxsFromNotary
+    :: WorkMode m
+    => [Address] -> m [(Address, [(Transaction, [(Address, Signature)])])]
+pollTxsFromNotary addrs =
+    withResult infoMessage successMessage $
+    callNotary $ P.call (P.RSCNotary P.PollTransactions) addrs
+  where
+    infoMessage =
+        logDebug $
+        sformat
+            ("Polling transactions to sign for addresses: " % shown)
+            addrs
+    successMessage res =
+        logDebug $ sformat ("Received transactions to sign: " % shown) res

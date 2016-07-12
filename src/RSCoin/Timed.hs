@@ -25,7 +25,6 @@ import           Control.Monad           (join)
 import           Control.Monad.Catch     (MonadMask)
 import           Control.Monad.Reader    (runReaderT)
 import           Control.Monad.Trans     (MonadIO, liftIO)
-import           Data.ByteString         (ByteString)
 import           System.Random           (StdGen, getStdGen)
 
 class (MonadTimed m, MonadRpc m, MonadIO m,
@@ -34,12 +33,12 @@ class (MonadTimed m, MonadRpc m, MonadIO m,
 instance (MonadTimed m, MonadRpc m, MonadIO m,
        MonadMask m) => WorkMode m
 
-runRealMode :: ByteString -> MsgPackRpc a -> IO a
-runRealMode bankHost
-    = runTimedIO . flip runReaderT (BankSettings bankHost) . runMsgPackRpc
+runRealMode :: PlatformLayout -> MsgPackRpc a -> IO a
+runRealMode layout
+    = runTimedIO . flip runReaderT layout . runMsgPackRpc
 
 runRealModeLocal :: MsgPackRpc a -> IO a
-runRealModeLocal = runRealMode "127.0.0.1"
+runRealModeLocal = runRealMode localPlatformLayout
 
 runEmulationMode :: MonadIO m => Maybe StdGen -> Delays -> PureRpc IO a -> m a
 runEmulationMode genMaybe delays m =

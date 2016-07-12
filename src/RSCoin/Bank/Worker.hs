@@ -11,8 +11,10 @@ module RSCoin.Bank.Worker
 
 
 import           Control.Exception        (SomeException)
+import           Control.Monad            (forM_)
 import           Control.Monad.Catch      (catch)
 import           Control.Monad.Trans      (MonadIO (liftIO))
+
 import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
@@ -26,9 +28,10 @@ import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text       (formatSingle')
 
-import           RSCoin.Bank.AcidState    (GetExplorersAndPeriods (..),
-                                           GetHBlock (..), GetMintettes (..),
-                                           GetPeriodId (..),
+import           RSCoin.Bank.AcidState    (AddAddress (..),
+                                           GetExplorersAndPeriods (..),
+                                           GetHBlock (..), GetHBlocks (..),
+                                           GetMintettes (..), GetPeriodId (..),
                                            SetExplorerPeriod (..),
                                            StartNewPeriod (..), State)
 import           RSCoin.Core              (defaultPeriodDelta,
@@ -84,7 +87,7 @@ onPeriodFinished sk st = do
             mapM_
                 (\(m,mId) ->
                       C.announceNewPeriod m (newPeriodData !! mId) `catch`
-                      handlerAnnouncePeriod)
+                      handlerAnnouncePeriodM)
                 (zip newMintettes [0 ..])
             logInfo $
                 formatSingle'
@@ -95,13 +98,33 @@ onPeriodFinished sk st = do
                 formatSingle'
                     "Announced new period, sent these newPeriodData's:\n{}"
                     newPeriodData
+
     communicateWithExplorers sk st =<< query' st GetExplorersAndPeriods
+    initializeMultisignatureAddresses
+    announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsS
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)
-    handlerAnnouncePeriod (e :: SomeException) =
+    handlerAnnouncePeriodM (e :: SomeException) =
         logWarning $
-        formatSingle' "Error occurred in communicating with mintette {}" e
+        formatSingle' "Error occurred in communicating with mintette: {}" e
+    handlerAnnouncePeriodsS (e :: SomeException) =
+        logWarning $
+        formatSingle' "Error occurred in communicating with Notary: {}" e
+    initializeMultisignatureAddresses = do
+        newMSAddresses <- C.queryNotaryCompleteMSAddresses
+        forM_ newMSAddresses $ \(msAddr, strategy) -> do
+            logInfo $ sformat ("Creating MS address " % build % " with strategy " % build)
+                msAddr
+                strategy
+            update' st $ AddAddress msAddr strategy
+
+        logInfo "Removing new addresses from pool"
+        C.removeNotaryCompleteMSAddresses $ map fst newMSAddresses
+    announceNewPeriodsToNotary = do
+        pId <- C.getNotaryPeriod
+        pId' <- query' st GetPeriodId
+        C.announceNewPeriodsToNotary pId' =<< query' st (GetHBlocks pId pId')
 
 getPeriodResults
     :: WorkMode m

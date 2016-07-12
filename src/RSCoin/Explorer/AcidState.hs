@@ -10,6 +10,8 @@ module RSCoin.Explorer.AcidState
        , openMemState
        , closeState
        , GetAddressBalance (..)
+       , GetAddressTxNumber (..)
+       , GetAddressTransactions (..)
        , GetLastPeriodId (..)
        , GetTx (..)
        , AddHBlock (..)
@@ -21,15 +23,12 @@ import           Data.Acid               (AcidState, Query, Update,
                                           closeAcidState, makeAcidic,
                                           openLocalStateFrom)
 import           Data.Acid.Memory        (openMemoryState)
-import           Data.SafeCopy           (base, deriveSafeCopy)
 
 import qualified RSCoin.Core             as C
 
 import qualified RSCoin.Explorer.Storage as ES
 
 type State = AcidState ES.Storage
-
-$(deriveSafeCopy 0 'base ''ES.Storage)
 
 openState :: FilePath -> IO State
 openState fp = openLocalStateFrom fp ES.mkStorage
@@ -46,6 +45,15 @@ instance MonadThrow (Update s) where
 getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, C.CoinsMap)
 getAddressBalance = ES.getAddressBalance
 
+getAddressTxNumber :: C.Address -> Query ES.Storage (C.PeriodId, Word)
+getAddressTxNumber = ES.getAddressTxNumber
+
+getAddressTransactions
+    :: C.Address
+    -> (Word, Word)
+    -> Query ES.Storage (C.PeriodId, [(Word, C.Transaction)])
+getAddressTransactions = ES.getAddressTransactions
+
 getLastPeriodId :: Query ES.Storage (Maybe C.PeriodId)
 getLastPeriodId = ES.getLastPeriodId
 
@@ -57,6 +65,8 @@ addHBlock = ES.addHBlock
 
 $(makeAcidic ''ES.Storage
              [ 'getAddressBalance
+             , 'getAddressTxNumber
+             , 'getAddressTransactions
              , 'getLastPeriodId
              , 'getTx
              , 'addHBlock

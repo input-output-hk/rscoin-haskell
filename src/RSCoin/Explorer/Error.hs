@@ -5,17 +5,19 @@ module RSCoin.Explorer.Error
        ) where
 
 import           Control.Exception   (Exception (..))
+import           Data.Text           (Text)
 import           Data.Text.Buildable (Buildable (build))
 import           Data.Typeable       (Typeable)
-import           Formatting          (bprint, int, (%))
+import           Formatting          (bprint, int, stext, (%))
 
 import           RSCoin.Core         (PeriodId, rscExceptionFromException,
                                       rscExceptionToException)
 
-data ExplorerError = EEPeriodMismatch
-    { pmExpectedPeriod :: PeriodId
-    , pmReceivedPeriod :: PeriodId
-    } deriving (Show, Typeable)
+data ExplorerError
+    = EEPeriodMismatch { pmExpectedPeriod :: PeriodId
+                       , pmReceivedPeriod :: PeriodId}
+    | EEInternalError Text
+    deriving (Show,Typeable)
 
 instance Exception ExplorerError where
     toException = rscExceptionToException
@@ -27,3 +29,4 @@ instance Buildable ExplorerError where
             ("expected period " % int % ", but received " % int)
             pmExpectedPeriod
             pmReceivedPeriod
+    build (EEInternalError msg) = bprint ("internal error: " % stext) msg

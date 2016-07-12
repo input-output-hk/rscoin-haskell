@@ -23,7 +23,7 @@ import           Data.Tuple.Select      (sel3)
 import           RSCoin.Core.Coin       (coinsToMap)
 import           RSCoin.Core.Crypto     (Signature, hash, verify)
 import           RSCoin.Core.Primitives (AddrId, Address (..), Coin (..), Color,
-                                         Transaction (..))
+                                         Transaction (..), grey)
 
 instance Ord Transaction where
     compare = comparing hash
@@ -35,13 +35,13 @@ validateSum Transaction{..} =
     and [ totalInputs >= totalOutputs
         , greyInputs >= greyOutputs + totalUnpaintedSum ]
   where
-    inputs = coinsToMap $ map sel3 txInputs
+    inputs  = coinsToMap $ map sel3 txInputs
     outputs = coinsToMap $ map snd txOutputs
-    totalInputs = sum $ map getCoin $ M.elems inputs
+    totalInputs  = sum $ map getCoin $ M.elems inputs
     totalOutputs = sum $ map getCoin $ M.elems outputs
-    greyInputs = getCoin $ M.findWithDefault 0 0 inputs
-    greyOutputs = getCoin $ M.findWithDefault 0 0 outputs
-    txColors = delete 0 . nub $ (M.keys inputs ++ M.keys outputs)
+    greyInputs  = getCoin $ M.findWithDefault 0 grey inputs
+    greyOutputs = getCoin $ M.findWithDefault 0 grey outputs
+    txColors = delete grey $ nub $ (M.keys inputs ++ M.keys outputs)
     foldfoo0 color unp =
         let zero = Coin color 0
             outputOfThisColor = M.findWithDefault zero color outputs

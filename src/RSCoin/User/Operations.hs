@@ -21,6 +21,7 @@ module RSCoin.User.Operations
        , getAllPublicAddresses
        , getTransactionsHistory
        , getLastBlockId
+       , genesisAddressIndex
        , isInitialized
        , updateToBlockHeight
        , updateBlockchain
@@ -30,24 +31,24 @@ module RSCoin.User.Operations
        , TransactionData (..)
        , submitTransaction
        , submitTransactionRetry
+       , createCertificateChain
        ) where
 
 import           Control.Exception      (SomeException, assert, fromException)
-import           Control.Lens           ((^.))
 import           Control.Monad          (filterM, forM_, unless, void, when)
 import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
-import           Data.List              (genericIndex, genericLength, nubBy,
-                                         sortOn)
+import           Data.List              (elemIndex, genericIndex, genericLength,
+                                         nub, nubBy, sortOn)
 import qualified Data.Map               as M
-import           Data.Maybe             (fromJust, isNothing)
+import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing)
 import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
-import           Data.Tuple.Select      (sel1, sel3)
+import           Data.Tuple.Select      (sel1, sel2, sel3)
 import           Formatting             (build, int, sformat, shown, (%))
 import           Safe                   (atMay)
 
@@ -61,7 +62,8 @@ import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Cache      (UserCache)
 import           RSCoin.User.Error      (UserError (..), UserLogicError,
                                          isWalletSyncError)
-import           RSCoin.User.Logic      (validateTransaction)
+import           RSCoin.User.Logic      (SignatureBundle, getExtraSignatures,
+                                         joinBundles, validateTransaction)
 import qualified RSCoin.User.Wallet     as W
 
 walletInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
@@ -76,9 +78,9 @@ commitError e = do
 -- previous height state already.
 updateToBlockHeight :: WorkMode m => A.RSCoinUserState -> C.PeriodId -> m ()
 updateToBlockHeight st newHeight = do
-    C.HBlock{..} <- C.getBlockByHeight newHeight
+    hblock <- C.getBlockByHeight newHeight
     -- TODO validate this block with integrity check that we don't have
-    update' st $ A.WithBlockchainUpdate newHeight hbTransactions
+    update' st $ A.WithBlockchainUpdate newHeight hblock
 
 -- | Updates blockchain to the last height (that was requested in this
 -- function call). Returns bool indicating that blockchain was or
@@ -127,7 +129,7 @@ getAmount st address = do
 -- stands for "if update blockchain inside"
 getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m C.CoinsMap
 getUserTotalAmount upd st = do
-    addrs <- query' st A.GetPublicAddresses
+    addrs <- query' st A.GetOwnedDefaultAddresses
     when upd $ void $ updateBlockchain st False
     C.mergeCoinsMaps <$> mapM (getAmountNoUpdate st) addrs
 
@@ -143,7 +145,7 @@ getAmountNoUpdate st address =
 getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m C.CoinsMap
 getAmountByIndex st idx = do
     void $ updateBlockchain st False
-    addr <- (`atMay` idx) <$> query' st A.GetPublicAddresses
+    addr <- flip atMay idx <$> query' st A.GetOwnedDefaultAddresses
     maybe
         (throwM $
          InputProcessingError "invalid index was given to getAmountByIndex")
@@ -151,10 +153,15 @@ getAmountByIndex st idx = do
         addr
 
 -- | Returns list of public addresses available
-getAllPublicAddresses
-    :: MonadIO m
-    => A.RSCoinUserState -> m [C.Address]
-getAllPublicAddresses st = query' st A.GetPublicAddresses
+getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
+getAllPublicAddresses st = query' st A.GetOwnedDefaultAddresses
+
+genesisAddressIndex :: WorkMode m => A.RSCoinUserState -> m (Maybe Word)
+genesisAddressIndex st = do
+    adrList <- getAllPublicAddresses st
+    return $
+        fromIntegral <$>
+        elemIndex C.genesisAddress adrList
 
 -- | Returns transaction history that wallet holds
 getTransactionsHistory
@@ -172,8 +179,8 @@ isInitialized st = query' st A.IsInitialized
 -- as output S_{out}) into wallet. Blockchain won't be queried.
 addAddress
     :: MonadIO m
-    => A.RSCoinUserState -> C.SecretKey -> C.PublicKey -> [C.Transaction] -> m ()
-addAddress st sk pk = update' st . A.AddAddress (W.makeUserAddress sk pk)
+    => A.RSCoinUserState -> C.SecretKey -> C.PublicKey -> [C.Transaction] -> C.PeriodId -> m ()
+addAddress st sk pk ts = update' st . A.AddAddress (C.Address pk, sk) ts
 
 -- | Forms transaction given just amount of money to use. Tries to
 -- spend coins from accounts that have the least amount of money.
@@ -187,7 +194,7 @@ submitTransactionFromAll
     -> m C.Transaction
 submitTransactionFromAll st maybeCache addressTo amount =
     assert (C.getColor amount == 0) $
-    do addrs <- query' st A.GetPublicAddresses
+    do addrs <- query' st A.GetOwnedDefaultAddresses
        (indicesWithCoins :: [(Word, C.Coin)]) <-
            filter (not . C.isNegativeCoin . snd) <$>
            mapM
@@ -232,14 +239,12 @@ data TransactionData = TransactionData
     {
       -- | List of inputs, see `FormTransactionInput` description.
       tdInputs        :: [TransactionInput]
-    ,
       -- | Output address where to send coins.
-      tdOutputAddress :: C.Address
-    ,
+    , tdOutputAddress :: C.Address
       -- | List of coins to send. It may be empty, then will be
       -- calculated from inputs. Passing non-empty list is useful if
       -- one wants to color coins.
-      tdOutputCoins   :: [C.Coin]
+    , tdOutputCoins   :: [C.Coin]
     } deriving (Show)
 
 -- | Forms transaction out of user input and sends it to the net.
@@ -270,12 +275,10 @@ submitTransactionRetry tries st maybeCache td@TransactionData{..}
       (tx,signatures) <- constructAndSignTransaction st td
       tx <$ sendTransactionRetry tries st maybeCache tx signatures
 
-type Signatures = M.Map C.AddrId C.Signature
-
 constructAndSignTransaction
     :: forall m.
        WorkMode m
-    => A.RSCoinUserState -> TransactionData -> m (C.Transaction, Signatures)
+    => A.RSCoinUserState -> TransactionData -> m (C.Transaction, SignatureBundle)
 constructAndSignTransaction st TransactionData{..} = do
     () <$ updateBlockchain st False
     C.logInfo C.userLoggerName $
@@ -294,8 +297,8 @@ constructAndSignTransaction st TransactionData{..} = do
         commitError $
         formatSingle'
             "All input values should be positive, but encountered {}, that's not." $
-        head $ filter (not . C.isPositiveCoin) $ concatMap snd tdInputs
-    accounts <- query' st A.GetPublicAddresses
+        head $ filter (<= 0) $ concatMap snd tdInputs
+    accounts <- query' st A.GetOwnedAddresses
     let notInRange i = i >= genericLength accounts
     when (any notInRange $ map fst tdInputs) $
         commitError $
@@ -348,9 +351,8 @@ constructAndSignTransaction st TransactionData{..} = do
             M.fromList <$>
             mapM
                 (\(addrid',address') -> do
-                      privateKey <- (^. W.privateAddress) . fromJust <$>
-                          query' st (A.FindUserAddress address')
-                      return (addrid', C.sign privateKey outTr))
+                      (pK, sK) <- fromJust <$> query' st (A.FindUserAddress address')
+                      return (addrid', (pK, C.sign sK outTr)))
                 addrPairList
     when (not (null tdOutputCoins) && not (C.validateSum outTr)) $
         commitError $
@@ -360,13 +362,20 @@ constructAndSignTransaction st TransactionData{..} = do
         formatSingle'
             "Our code is broken and our auto-generated transaction is invalid: {}"
             outTr
-    return (outTr, signatures)
+    sigBundle <- M.fromList <$> mapM toSignatureBundle (M.assocs signatures)
+    return (outTr, sigBundle)
   where
+    toSignatureBundle (addrid,signPair) = do
+        address <- fromMaybe (error "Exception1 at toSignatureBundle in Operations.hs")
+                   <$> query' st (A.ResolveAddressLocally addrid)
+        str <- fromMaybe (error "Exception2 at toSignatureBundle in Operations.hs")
+                   <$> query' st (A.GetAddressStrategy address)
+        return (addrid, (address, str, [signPair]))
     pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])
     pair3merge = mappend
 
 -- For given address and coins to send from it it returns a
--- pair. First element is chosen addrids with user addresses to
+-- triple. First element is chosen addrids with user addresses to
 -- make signature map afterwards. The second is inputs of
 -- transaction, third is change outputs
 submitTransactionMapper
@@ -409,7 +418,7 @@ sendTransactionRetry
     -> A.RSCoinUserState
     -> Maybe UserCache
     -> C.Transaction
-    -> Signatures
+    -> SignatureBundle
     -> m ()
 sendTransactionRetry tries st maybeCache tx signatures
   | tries < 1 =
@@ -439,7 +448,7 @@ sendTransactionDo
     => A.RSCoinUserState
     -> Maybe UserCache
     -> C.Transaction
-    -> Signatures
+    -> SignatureBundle
     -> m ()
 sendTransactionDo st maybeCache tx signatures = do
     walletHeight <- query' st A.GetLastBlockId
@@ -454,14 +463,39 @@ sendTransactionDo st maybeCache tx signatures = do
         throwM $
         WalletSyncError $
         format'
-            ("Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {}).")
+            "Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {})."
             (walletHeight, lastAppliedBlock)
-    validateTransaction maybeCache tx signatures periodId
+    let nonDefaultAddresses =
+            M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
+            map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head $ sgns))) $
+            filter ((/= C.DefaultStrategy) . sel2 . snd) $
+            M.assocs signatures
+    extraSignatures <- getExtraSignatures tx nonDefaultAddresses 120
+    let allSignatures :: SignatureBundle
+        allSignatures = M.unionWith joinBundles
+                                    (fromMaybe M.empty extraSignatures)
+                                    signatures
+    -- sending transaction only if
+    -- it's "distributed signing" case ⇒ extraSignatures decided so
+    let willWeSend = null nonDefaultAddresses || isJust extraSignatures
+    when willWeSend $ validateTransaction maybeCache tx allSignatures periodId
     update' st $ A.AddTemporaryTransaction periodId tx
-    C.logInfo C.userLoggerName "Successfully sent a transaction!"
+    C.logInfo C.userLoggerName $
+        if willWeSend
+        then "Successfully sent a transaction!"
+        else "Somebody has sent a transaction, won't do it. Maybe retry later."
 
 isRetriableException :: SomeException -> Bool
 isRetriableException e
     | Just (_ :: UserLogicError) <- fromException e = True
     | isWalletSyncError e = True
     | otherwise = False
+
+-- | This method create certificate chain for user address with
+-- help of attain. WARNING! This method is just temporal solution
+-- for testing purposes until we will generate IOU.
+createCertificateChain :: C.PublicKey -> [(C.Signature, C.PublicKey)]
+createCertificateChain userPublicKey =
+    [ (C.sign C.attainSecretKey C.attainPublicKey, C.attainPublicKey)  -- @TODO: should introduce `seedPK`
+    , (C.sign C.attainSecretKey userPublicKey,     userPublicKey)
+    ]

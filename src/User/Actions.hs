@@ -14,27 +14,34 @@ import           Control.Exception       (SomeException)
 import           Control.Monad           (forM_, unless, void, when)
 import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
+
 import qualified Data.Acid               as ACID
+import           Data.Acid.Advanced      (query')
 import           Data.Function           (on)
 import           Data.List               (genericIndex, groupBy)
-import           Data.Maybe              (fromJust, isJust)
+import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
 import           Data.Monoid             ((<>))
+import qualified Data.Set                as S
+import qualified Data.Text               as T
 import qualified Data.Text.IO            as TIO
-import qualified Graphics.UI.Gtk         as G
+
+import           Formatting              (build, sformat, stext, (%))
 
 import           Serokell.Util.Text      (format', formatSingle', show')
 
-import           RSCoin.Core             as C
-import           RSCoin.Timed            (WorkMode, for, ms, wait)
-import qualified RSCoin.User             as U
-import           RSCoin.User.Error       (eWrap)
-import           RSCoin.User.Operations  (TransactionData (..), getAmount,
-                                          submitTransactionRetry,
-                                          updateBlockchain)
-
+import qualified Graphics.UI.Gtk         as G
 import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
 import           GUI.RSCoin.GUI          (startGUI)
 import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
+
+import qualified RSCoin.Core             as C
+import           RSCoin.Timed            (WorkMode, for, ms, wait)
+import qualified RSCoin.User             as U
+import           RSCoin.User.Error       (eWrap)
+import           RSCoin.User.Operations  (TransactionData (..),
+                                          getAmountNoUpdate,
+                                          submitTransactionRetry,
+                                          updateBlockchain)
 import qualified UserOptions             as O
 
 
@@ -56,34 +63,53 @@ processCommand
     => U.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ =
     eWrap $
-    do addresses <- U.getAllAddresses st
-       (wallets :: [(C.PublicKey, [C.Coin])]) <-
-           mapM
-               (\w -> (C.getAddress w, ) . C.coinsToList <$> getAmount st w)
-               addresses
+    do res <- updateBlockchain st False
+       unless res $ C.logInfo C.userLoggerName "Successfully updated blockchain."
+       addresses <- query' st U.GetOwnedAddresses
+       (wallets :: [(C.PublicKey, C.Strategy, [C.Coin])]) <-
+           mapM (\addr -> do
+                      coins <- C.coinsToList <$> getAmountNoUpdate st addr
+                      strategy <- query' st $ U.GetAddressStrategy addr
+                      return ( C.getAddress addr
+                             , fromMaybe C.DefaultStrategy strategy
+                             , coins))
+                addresses
        liftIO $
            do TIO.putStrLn "Here's the list of your accounts:"
               TIO.putStrLn
                   "# | Public ID                                    | Amount"
-              mapM_ formatAddressEntry $
-                  uncurry (zip3 [(1 :: Integer) ..]) $ unzip wallets
+              mapM_ formatAddressEntry $ ([(1 :: Integer) ..] `zip` wallets)
   where
     spaces = "                                                   "
-    formatAddressEntry :: (Integer, C.PublicKey, [C.Coin]) -> IO ()
-    formatAddressEntry (i,key,coins) = do
-        TIO.putStr $ format' "{}.  {} : " (i, key)
-        when (null coins) $ putStrLn "empty"
-        unless (null coins) $ TIO.putStrLn $ show' $ head coins
-        unless (length coins < 2) $
-            forM_ (tail coins) (TIO.putStrLn . formatSingle' (spaces <> "{}"))
+    formatAddressEntry :: (Integer, (C.PublicKey, C.Strategy, [C.Coin])) -> IO ()
+    formatAddressEntry (i, (key, strategy, coins)) = do
+       TIO.putStr $ format' "{}.  {} : " (i, key)
+       when (null coins) $ putStrLn "empty"
+       unless (null coins) $ TIO.putStrLn $ show' $ head coins
+       unless (length coins < 2) $
+           forM_ (tail coins)
+                 (TIO.putStrLn . formatSingle' (spaces <> "{}"))
+       case strategy of
+           C.DefaultStrategy -> return ()
+           C.MOfNStrategy m allowed -> do
+               TIO.putStrLn $ format'
+                    "    This is a multisig address ({}/{}) controlled by keys: "
+                    (m, length allowed)
+               forM_ allowed $ \allowedAddr -> do
+                   addresses <- query' st U.GetOwnedAddresses
+                   TIO.putStrLn $ formatSingle'
+                           (if allowedAddr `elem` addresses
+                            then "    * {} owned by you"
+                            else "    * {}")
+                           allowedAddr
 processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     eWrap $
     do let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
            inputs' = map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
                      groupBy ((==) `on` snd) $
-                     map (\(idx,o,c) -> (idx - 1, [Coin c (toRational o)]))
+                     map (\(idx,o,c) -> (idx - 1, [C.Coin c (toRational o)]))
                      inputs
-           outputs' = map (\(amount,color) -> Coin color (toRational amount))
+           outputs' = map (\(amount,color) -> C.Coin color (toRational amount))
                           outputCoins
            td = TransactionData
                 { tdInputs = inputs'
@@ -101,6 +127,30 @@ processCommand st O.UpdateBlockchain _ =
                then "Blockchain is updated already."
                else "Successfully updated blockchain."
 processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
+processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
+    when (null textAddrs) $
+        U.commitError "Can't create multisig with empty addrs list"
+
+    let partiesAddrs = mapMaybe (fmap C.Address . C.constructPublicKey) textAddrs
+    when (length partiesAddrs /= length textAddrs) $ do
+        let parsed = T.unlines (map show' partiesAddrs)
+        U.commitError $
+            sformat ("Some addresses were not parsed, parsed only those: " % stext) parsed
+    when (m > length partiesAddrs) $
+        U.commitError "Parameter m should be less than length of list"
+
+    msPublicKey <- maybe (snd <$> liftIO C.keyGen) return (mMSAddress >>= C.constructPublicKey)
+    (userAddress, userSK) <- head <$> query' st U.GetUserAddresses
+    let userSignature = C.sign userSK userAddress
+    let certChain     = U.createCertificateChain $ C.getAddress userAddress
+    C.allocateMultisignatureAddress
+        (C.Address msPublicKey)
+        (S.fromList partiesAddrs)
+        m
+        (userAddress, userSignature)
+        certChain
+    liftIO $ TIO.putStrLn $
+       sformat ("Your new address will be added in the next block: " % build) msPublicKey
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop
@@ -125,6 +175,7 @@ dumpCommand
     :: WorkMode m
     => U.RSCoinUserState -> O.DumpCommand -> m ()
 dumpCommand _ O.DumpMintettes = void C.getMintettes
+dumpCommand _ O.DumpAddresses = void C.getAddresses
 dumpCommand _ O.DumpPeriod = void C.getBlockchainHeight
 dumpCommand _ (O.DumpHBlocks from to) = void $ C.getBlocks from to
 dumpCommand _ (O.DumpHBlock pId) = void $ C.getBlockByHeight pId
@@ -135,4 +186,4 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
     liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<<
-    U.getAllAddresses st
+    query' st U.GetOwnedAddresses

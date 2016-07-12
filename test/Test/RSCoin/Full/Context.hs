@@ -8,12 +8,13 @@
 module Test.RSCoin.Full.Context
        ( BankInfo (..)
        , MintetteInfo (..)
+       , NotaryInfo (..)
        , UserInfo (..)
        , Scenario (..)
        , TestContext (..)
        , TestEnv
        , MintetteNumber (..), UserNumber (..)
-       , bank, mintettes, buser, users, scenario, isActive
+       , bank, mintettes, notary, buser, users, scenario, isActive
        , keys, secretKey, publicKey
        , state
        , port
@@ -28,6 +29,7 @@ import           System.Random           (Random)
 import qualified RSCoin.Bank             as B
 import           RSCoin.Core             (PublicKey, SecretKey, bankPort)
 import qualified RSCoin.Mintette         as M
+import qualified RSCoin.Notary           as N
 import qualified RSCoin.User             as U
 
 -- | Number of mintettes in system.
@@ -55,6 +57,13 @@ data MintetteInfo = MintetteInfo
 
 $(makeLenses ''MintetteInfo)
 
+data NotaryInfo = NotaryInfo
+    { _notaryPort  :: Int
+    , _notaryState :: N.RSCoinNotaryState
+    }
+
+$(makeLenses ''NotaryInfo)
+
 data UserInfo = UserInfo
     { _userState :: U.RSCoinUserState
     }
@@ -71,6 +80,7 @@ data Scenario
 data TestContext = TestContext
     { _bank      :: BankInfo
     , _mintettes :: [MintetteInfo]
+    , _notary    :: NotaryInfo
     , _buser     :: UserInfo  -- ^ user in bank mode
     , _users     :: [UserInfo]
     , _scenario  :: Scenario
@@ -107,6 +117,9 @@ instance WithState BankInfo B.State where
 instance WithState MintetteInfo M.State where
     state = mintetteState
 
+instance WithState NotaryInfo N.RSCoinNotaryState where
+    state = notaryState
+
 instance WithState UserInfo U.RSCoinUserState where
     state = userState
 
@@ -119,3 +132,6 @@ instance WithPort BankInfo where
 
 instance WithPort MintetteInfo where
     port = mintettePort
+
+instance WithPort NotaryInfo where
+    port = notaryPort

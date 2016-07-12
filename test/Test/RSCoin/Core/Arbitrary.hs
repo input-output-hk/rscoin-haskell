@@ -7,9 +7,9 @@ module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import           Test.QuickCheck      (Arbitrary (arbitrary), NonNegative (..),
-                                        Gen, oneof)
---import qualified Data.Map.Strict as M (fromListWith)
+import qualified Data.Map        as M
+import           Test.QuickCheck (Arbitrary (arbitrary), Gen, NonNegative (..),
+                                  choose, oneof)
 
 import qualified RSCoin.Core     as C
 
@@ -35,13 +35,23 @@ instance Arbitrary C.LBlock where
     arbitrary = C.LBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary C.HBlock where
-    arbitrary = C.HBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary =
+        C.HBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*>
+        pure M.empty
 
 instance Arbitrary C.CheckConfirmation where
-    arbitrary = C.CheckConfirmation <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary =
+        C.CheckConfirmation <$> arbitrary <*> arbitrary <*> arbitrary <*>
+        (abs <$> arbitrary)
 
 instance Arbitrary C.Signature where
     arbitrary = C.sign <$> arbitrary <*> (arbitrary :: Gen String)
+
+instance Arbitrary C.Strategy where
+    arbitrary = oneof [ pure C.DefaultStrategy
+                      , uncurry C.MOfNStrategy <$> gen']
+      where gen' = do ls <- arbitrary
+                      flip (,) ls <$> choose (1, length ls)
 
 instance Arbitrary C.NewPeriodData where
     arbitrary =

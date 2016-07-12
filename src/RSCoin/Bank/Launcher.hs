@@ -5,10 +5,10 @@
 -- with it.
 
 module RSCoin.Bank.Launcher
-       ( bankWrapperReal
-       , launchBankReal
+       ( launchBankReal
        , launchBank
        , addMintetteIO
+       , addAddressIO
        , addExplorerIO
        ) where
 
@@ -18,25 +18,25 @@ import           Data.Acid.Advanced    (update')
 import           Data.Functor          (void)
 import           Data.Time.Units       (TimeUnit)
 
-import           RSCoin.Core           (Explorer, Mintette, PeriodId, PublicKey,
-                                        SecretKey)
-import           RSCoin.Timed          (MsgPackRpc, ThreadId, WorkMode, fork,
-                                        killThread, runRealModeLocal)
+import           RSCoin.Core           (Address, Explorer, Mintette, PeriodId, PublicKey,
+                                        SecretKey, Strategy, defaultLayout')
+import           RSCoin.Timed          (MsgPackRpc, PlatformLayout, ThreadId,
+                                        WorkMode, fork, killThread, runRealMode)
 
-import           RSCoin.Bank.AcidState (AddExplorer (AddExplorer),
+import           RSCoin.Bank.AcidState (AddAddress (AddAddress), AddExplorer (AddExplorer),
                                         AddMintette (AddMintette), State,
                                         closeState, openState)
 import           RSCoin.Bank.Server    (serve)
 import           RSCoin.Bank.Worker    (runWorkerWithPeriod)
 
-bankWrapperReal :: FilePath -> (State -> MsgPackRpc a) -> IO a
-bankWrapperReal storagePath =
-    runRealModeLocal .
+bankWrapperReal :: PlatformLayout -> FilePath -> (State -> MsgPackRpc a) -> IO a
+bankWrapperReal layout storagePath =
+    runRealMode layout .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
-launchBankReal :: (TimeUnit t) => t -> FilePath -> SecretKey -> IO ()
-launchBankReal periodDelta storagePath sk =
-    bankWrapperReal storagePath $ void . launchBank periodDelta sk
+launchBankReal :: (TimeUnit t) => PlatformLayout -> t -> FilePath -> SecretKey -> IO ()
+launchBankReal layout periodDelta storagePath sk =
+    bankWrapperReal layout storagePath $ void . launchBank periodDelta sk
 
 launchBank
     :: (TimeUnit t, WorkMode m)
@@ -49,10 +49,14 @@ launchBank periodDelta sk st = do
         killThread tId
         fork $ runWorkerWithPeriod periodDelta sk st
 
+addAddressIO :: FilePath -> Address -> Strategy -> IO ()
+addAddressIO storagePath a s =
+    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $ flip update' (AddAddress a s)
+
 addMintetteIO :: FilePath -> Mintette -> PublicKey -> IO ()
 addMintetteIO storagePath m k =
-    bankWrapperReal storagePath $ flip update' (AddMintette m k)
+    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $ flip update' (AddMintette m k)
 
 addExplorerIO :: FilePath -> Explorer -> PeriodId -> IO ()
 addExplorerIO storagePath e pId =
-    bankWrapperReal storagePath $ flip update' (AddExplorer e pId)
+    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $ flip update' (AddExplorer e pId)

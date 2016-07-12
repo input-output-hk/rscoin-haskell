@@ -13,6 +13,8 @@ module RSCoin.Bank.Storage.Whole
        , Update
        , ExceptUpdate
        , explorersStorage
+       , getAddresses
+       , getAddressFromUtxo
        , getMintettes
        , getExplorers
        , getExplorersAndPeriods
@@ -21,6 +23,7 @@ module RSCoin.Bank.Storage.Whole
        , getHBlocks
        , getTransaction
        , getLogs
+       , addAddress
        , addMintette
        , addExplorer
        , setExplorerPeriod
@@ -28,7 +31,7 @@ module RSCoin.Bank.Storage.Whole
        ) where
 
 import           Control.Lens                  (Getter, makeLenses, to, use,
-                                                uses, (%%=), (%=), (+=))
+                                                uses, (%%=), (%=), (+=), (.=))
 import           Control.Monad                 (forM_, guard, unless)
 import           Control.Monad.Catch           (MonadThrow (throwM))
 import           Control.Monad.State           (MonadState, execState, runState)
@@ -88,6 +91,13 @@ data Storage = Storage
     ,
       -- | Mapping from transaction id to actual transaction with this id.
       _transactionMap   :: MP.Map C.TransactionId C.Transaction
+
+      -- | Known addresses accompanied with their strategies. Note that every address with
+      -- non-default strategy should be stored here in order to participate in transaction.
+    , _addresses        :: C.AddressToStrategyMap
+
+      -- | Pending addresses to publish within next HBlock.
+    , _pendingAddresses :: C.AddressToStrategyMap
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
@@ -103,9 +113,17 @@ mkStorage =
     , _blocks = []
     , _utxo = MP.empty
     , _transactionMap = MP.empty
+    , _addresses = MP.empty
+    , _pendingAddresses = MP.empty
     }
 
 type Query a = Getter Storage a
+
+getAddresses :: Query C.AddressToStrategyMap
+getAddresses = addresses
+
+getAddressFromUtxo :: AddrId -> Query (Maybe Address)
+getAddressFromUtxo addrId = utxo . to (MP.lookup addrId)
 
 getMintettes :: Query C.Mintettes
 getMintettes = mintettesStorage . MS.getMintettes
@@ -147,6 +165,13 @@ getLogs m left right =
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
+-- | Add given address to storage and associate given strategy with it.
+-- @TODO: Mind behaviour when address is being added more than once per period
+addAddress :: Address -> C.Strategy -> Update ()
+addAddress addr strategy = do
+    curAddresses <- use addresses
+    unless (addr `MP.member` curAddresses) $ pendingAddresses %= MP.insert addr strategy
+
 -- | Add given mintette to storage and associate given key with it.
 addMintette :: C.Mintette -> C.PublicKey -> Update ()
 addMintette m k = mintettesStorage %= execState (MS.addMintette m k)
@@ -182,11 +207,12 @@ startNewPeriod sk results = do
     payload' <- formPayload currentMintettes changedMintetteIx
     periodId' <- use periodId
     mintettes' <- use getMintettes
+    addresses' <- use addresses
     hblock' <- uses blocks head
     dpk <- use getDpk
     let npdPattern pl = NewPeriodData periodId' mintettes' hblock' pl dpk
         usersNPDs =
-          map (\i -> npdPattern ((i,) <$> (i `MP.lookup` payload')))
+          map (\i -> npdPattern ((i,,) <$> (i `MP.lookup` payload') <*> pure addresses'))
               [0 .. length currentMintettes - 1]
     return usersNPDs
 
@@ -195,7 +221,7 @@ startNewPeriodDo :: SecretKey
                  -> [Maybe PeriodResult]
                  -> ExceptUpdate [MintetteId]
 startNewPeriodDo sk 0 _ =
-    startNewPeriodFinally sk [] mkGenesisHBlock
+    startNewPeriodFinally sk [] $ const mkGenesisHBlock
 startNewPeriodDo sk pId results = do
     lastHBlock <- head <$> use blocks
     curDpk <- use getDpk
@@ -223,17 +249,26 @@ startNewPeriodDo sk pId results = do
 
 startNewPeriodFinally :: SecretKey
                       -> [(MintetteId, PeriodResult)]
-                      -> (SecretKey -> Dpk -> HBlock)
+                      -> (C.AddressToStrategyMap -> SecretKey -> Dpk -> HBlock)
                       -> ExceptUpdate [MintetteId]
 startNewPeriodFinally sk goodMintettes newBlockCtor = do
     periodId += 1
     updateIds <- updateMintettes sk goodMintettes
-    newBlock <- newBlockCtor sk <$> use getDpk
+    newAddrs <- updateAddresses
+    newBlock <- newBlockCtor newAddrs sk <$> use getDpk
     updateUtxo $ hbTransactions newBlock
     blocks %= (newBlock:)
     transactionMap %= (\map' -> foldl' (\m t -> MP.insert (hash t) t m)
         map' (hbTransactions newBlock))
     return updateIds
+
+updateAddresses :: Update C.AddressToStrategyMap
+updateAddresses = do
+    oldKnown <- use addresses
+    pending <- use pendingAddresses
+    addresses %= flip MP.union pending
+    pendingAddresses .= MP.empty
+    return $ pending MP.\\ oldKnown
 
 updateUtxo :: [Transaction] -> ExceptUpdate ()
 updateUtxo newTxs = do

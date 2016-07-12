@@ -16,6 +16,7 @@ import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
 import           RSCoin.Core                          (SecretKey, Severity (..),
+                                                       defaultLayout',
                                                        initLoggerByName)
 import           RSCoin.Timed                         (MsgPackRpc, WorkMode,
                                                        fork_, runRealMode)
@@ -28,7 +29,7 @@ import qualified RSCoin.Explorer.Web                  as Web
 
 explorerWrapperReal :: ByteString -> FilePath -> (State -> MsgPackRpc a) -> IO a
 explorerWrapperReal bankHost storagePath =
-    runRealMode bankHost .
+    runRealMode (defaultLayout' bankHost) .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
 launchExplorerReal :: ByteString

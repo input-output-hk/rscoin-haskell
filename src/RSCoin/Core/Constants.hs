@@ -3,10 +3,15 @@
 -- | This module contains all constants in rscoin.
 
 module RSCoin.Core.Constants
-       ( defaultSecretKeyPath
+       ( PlatformLayout (..)
+       , defaultSecretKeyPath
        , defaultAccountsNumber
        , defaultPort
        , defaultBankHost
+       , localhost
+       , localPlatformLayout
+       , defaultLayout
+       , defaultLayout'
        , bankPort
        , defaultPeriodDelta
        , epochDelta
@@ -18,22 +23,30 @@ module RSCoin.Core.Constants
        , shardDelta
        , rpcTimeout
        , bankSecretKey
+       , attainPublicKey
+       , attainSecretKey
+       , chainRootPKs
+       , notaryMSAttemptsLimit
        ) where
 
 import           Data.Binary                (Binary)
 import           Data.FileEmbed             (embedFile, makeRelativeToProject)
-import           Data.Maybe                 (fromJust)
+import           Data.Maybe                 (fromJust, fromMaybe)
 import           Data.String                (IsString)
 import           Data.Time.Units            (Second)
+
 import           Language.Haskell.TH.Syntax (Lift (lift))
+
 import           System.Directory           (getHomeDirectory)
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Core.CompileConfig  as CC
-import           RSCoin.Core.Crypto         (Hash, SecretKey,
+import           RSCoin.Core.Crypto         (Hash, PublicKey, SecretKey,
                                              constructPublicKey,
-                                             constructSecretKey, hash)
-import           RSCoin.Core.Primitives     (Address (Address), Coin)
+                                             constructSecretKey,
+                                             deterministicKeyGen, hash)
+import           RSCoin.Core.Primitives     (Address (Address), Coin (..))
+import           RSCoin.Timed.MonadRpc      (Host, PlatformLayout (..), Port)
 
 -- | Path used by default to read/write secret key.
 defaultSecretKeyPath :: IO FilePath
@@ -48,11 +61,32 @@ defaultAccountsNumber = 5
 defaultPort :: Num a => a
 defaultPort = 3000
 
-defaultBankHost :: IsString s => s
-defaultBankHost = "127.0.0.1"
+localhost :: IsString s => s
+localhost = "127.0.0.1"
 
-bankPort :: Num a => a
-bankPort = defaultPort
+-- | Settings for local deployment
+localPlatformLayout :: PlatformLayout
+localPlatformLayout = PlatformLayout
+    { getBankAddr   = (localhost, 3000)
+    , getNotaryAddr = (localhost, 4001)
+    }
+
+defaultLayout :: PlatformLayout
+defaultLayout = PlatformLayout
+    { getBankAddr   = $(lift $ CC.toAddr $ CC.rscDefaultBank   CC.rscoinConfig)
+    , getNotaryAddr = $(lift $ CC.toAddr $ CC.rscDefaultNotary CC.rscoinConfig)
+    }
+
+defaultLayout' :: Host -> PlatformLayout
+defaultLayout' bankHost
+    = let PlatformLayout (_, bPort) sAddr = defaultLayout
+       in PlatformLayout (bankHost, bPort) sAddr
+
+bankPort :: Port
+bankPort = snd $ getBankAddr defaultLayout
+
+defaultBankHost :: Host
+defaultBankHost = fst $ getBankAddr defaultLayout
 
 defaultPeriodDelta :: Second
 defaultPeriodDelta = 100
@@ -101,3 +135,25 @@ rpcTimeout = $(lift $ CC.rscRpcTimeout CC.rscoinConfig)
 bankSecretKey :: SecretKey
 bankSecretKey =
     constructSecretKey $ $(makeRelativeToProject "rscoin-key" >>= embedFile)
+
+-- | Attain public key pair. It's needed for multisignature address allocation.
+attainKeyPair :: (PublicKey, SecretKey)
+attainKeyPair =
+    fromMaybe (error "Invalid Attain address seed")
+    $ deterministicKeyGen "attain-service-public-addressgen"
+
+-- | Known public key of attain
+attainPublicKey :: PublicKey
+attainPublicKey = fst attainKeyPair
+
+-- @TODO Move it in proper place so nobody can know about it
+attainSecretKey :: SecretKey
+attainSecretKey = snd attainKeyPair
+
+-- | Built-in know root public keys.
+chainRootPKs :: [PublicKey]
+chainRootPKs = [attainPublicKey]
+
+-- @TODO move to Notary config
+notaryMSAttemptsLimit :: Int
+notaryMSAttemptsLimit = 5

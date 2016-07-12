@@ -20,9 +20,9 @@ import           Control.Monad.Catch     (MonadThrow (throwM))
 import           Data.Acid               (AcidState, Query, Update)
 import           Data.SafeCopy           (base, deriveSafeCopy)
 
-import           RSCoin.Core             (ActionLog, AddrId, CheckConfirmation,
-                                          CheckConfirmations,
-                                          CommitConfirmation, LBlock,
+import           RSCoin.Core             (ActionLog, AddrId, Address,
+                                          CheckConfirmation, CheckConfirmations,
+                                          CommitAcknowledgment, LBlock,
                                           MintetteId, NewPeriodData, PeriodId,
                                           PeriodResult, Pset, SecretKey,
                                           Signature, Transaction, Utxo)
@@ -52,15 +52,14 @@ checkNotDoubleSpent
     :: SecretKey
     -> Transaction
     -> AddrId
-    -> Signature
+    -> [(Address, Signature)]
     -> Update MS.Storage CheckConfirmation
 checkNotDoubleSpent = MS.checkNotDoubleSpent
 
 commitTx :: SecretKey
          -> Transaction
-         -> PeriodId
          -> CheckConfirmations
-         -> Update MS.Storage CommitConfirmation
+         -> Update MS.Storage CommitAcknowledgment
 commitTx = MS.commitTx
 
 finishPeriod :: SecretKey -> PeriodId -> Update MS.Storage PeriodResult

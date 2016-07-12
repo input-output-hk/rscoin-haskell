@@ -16,11 +16,12 @@ import           Data.Acid                         (Update, closeAcidState,
                                                     openLocalStateFrom)
 import           Data.Acid.Memory                  (openMemoryState)
 
-import           RSCoin.Core                       (AddrId, CheckConfirmation,
+import           RSCoin.Core                       (AddrId, Address,
+                                                    CheckConfirmation,
                                                     CheckConfirmations,
-                                                    CommitConfirmation,
-                                                    PeriodId, SecretKey,
-                                                    Signature, Transaction)
+                                                    CommitAcknowledgment,
+                                                    SecretKey, Signature,
+                                                    Transaction)
 import           RSCoin.Mintette.AcidState         (State)
 import qualified RSCoin.Mintette.AcidState         as OMA
 import qualified RSCoin.Mintette.Storage           as OMS
@@ -42,7 +43,7 @@ checkNotDoubleSpent
     -> SecretKey
     -> Transaction
     -> AddrId
-    -> Signature
+    -> [(Address, Signature)]
     -> Update OMS.Storage CheckConfirmation
 checkNotDoubleSpent = MS.checkNotDoubleSpent
 
@@ -50,9 +51,8 @@ commitTx
     :: MintetteConfig
     -> SecretKey
     -> Transaction
-    -> PeriodId
     -> CheckConfirmations
-    -> Update OMS.Storage CommitConfirmation
+    -> Update OMS.Storage CommitAcknowledgment
 commitTx = MS.commitTx
 
 $(makeAcidic ''OMS.Storage

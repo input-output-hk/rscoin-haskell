@@ -8,10 +8,11 @@
 
 module RSCoin.Core.Protocol
        ( BankMethod (..)
+       , DumpMethod (..)
        , MintetteMethod (..)
        , ExplorerMethod (..)
-       , DumpMethod (..)
        , RSCoinMethod (..)
+       , NotaryMethod (..)
        , WithResult
        , Server
        , T.Client
@@ -20,16 +21,18 @@ module RSCoin.Core.Protocol
        , call
        , execBank
        , execBankSafe
-       , execMintette
-       , execMintetteSafe
        , execExplorer
        , execExplorerSafe
+       , execMintette
+       , execMintetteSafe
+       , execNotary
        , callBank
        , callBankSafe
-       , callMintette
-       , callMintetteSafe
        , callExplorer
        , callExplorerSafe
+       , callMintette
+       , callMintetteSafe
+       , callNotary
        , unCps
        ) where
 
@@ -40,7 +43,8 @@ import           Data.Maybe              (fromJust)
 
 import           Data.MessagePack        (MessagePack)
 
-import           RSCoin.Core.Constants   (bankPort, rpcTimeout)
+
+import           RSCoin.Core.Constants   (rpcTimeout)
 import           RSCoin.Core.Crypto      ()
 import           RSCoin.Core.MessagePack ()
 import           RSCoin.Core.Types       (Explorer (..), Mintette (..))
@@ -50,19 +54,26 @@ import qualified RSCoin.Timed            as T
 
 -- | Requests used in RSCoin transport layer.
 data RSCoinMethod
-    = RSCBank BankMethod
-    | RSCMintette MintetteMethod
+    = RSCBank     BankMethod
     | RSCExplorer ExplorerMethod
+    | RSCMintette MintetteMethod
+    | RSCNotary   NotaryMethod
     | RSCDump DumpMethod
     deriving (Show)
 
 -- | Requests processed by a Bank.
 data BankMethod
     = GetMintettes
+    | GetAddresses
     | GetBlockchainHeight
     | GetHBlock
     | GetTransaction
     | FinishPeriod
+    deriving (Show)
+
+-- | Requests processed by Explorer.
+data ExplorerMethod
+    = EMNewBlock
     deriving (Show)
 
 -- | Requests processed by a Mintette.
@@ -73,12 +84,19 @@ data MintetteMethod
     | CommitTx
     deriving (Show)
 
--- | Requests processed by Explorer.
-data ExplorerMethod =
-    EMNewBlock
+-- | Requests for multisign transactions.
+data NotaryMethod
+    = AnnounceNewPeriodsToNotary
+    | AllocateMultisig
+    | GetNotaryPeriod
+    | GetSignatures
+    | PollTransactions
+    | PublishTransaction
+    | QueryCompleteMS
+    | RemoveCompleteMS
     deriving (Show)
 
--- | Requests for dumping state
+-- | Requests for dumping state.
 data DumpMethod
     = GetHBlocks
     | GetLogs
@@ -126,6 +144,11 @@ execBankSafe = (>>=) . callBankSafe
 execMintetteSafe :: MessagePack a => Mintette -> T.Client a -> WithResult a
 execMintetteSafe m = (>>=) . callMintetteSafe m
 
+
+-- | Send request to Notary.
+execNotary :: MessagePack a => T.Client a -> WithResult a
+execNotary = (>>=) . callNotary
+
 -- | Send a request to a Explorer using Continuation passing style (CPS).
 -- Raises an exception if Explorer doesn't respond in rpcTimeout time.
 execExplorerSafe :: MessagePack a => Explorer -> T.Client a -> WithResult a
@@ -136,8 +159,8 @@ callBank
     :: (MessagePack a, T.WorkMode m)
     => T.Client a -> m a
 callBank action = do
-    bankHost <- T.getHost <$> T.getBankSettings
-    T.execClient (bankHost, bankPort) action
+    bAddr <- T.getBankAddr <$> T.getPlatformLayout
+    T.execClient bAddr action
 
 -- | Send a request to a Mintette.
 callMintette
@@ -159,8 +182,8 @@ callBankSafe
     :: (MessagePack a, T.WorkMode m)
     => T.Client a -> m a
 callBankSafe action = do
-    bankHost <- T.getHost <$> T.getBankSettings
-    T.execClientTimeout rpcTimeout (bankHost, bankPort) action
+    bAddr <- T.getBankAddr <$> T.getPlatformLayout
+    T.execClientTimeout rpcTimeout bAddr action
 
 -- | Send a request to a Mintette.
 -- Raises an exception if Mintette doesn't respond in rpcTimeout time.
@@ -170,12 +193,17 @@ callMintetteSafe
 callMintetteSafe Mintette {..} action =
     T.execClientTimeout rpcTimeout (BS.pack mintetteHost, mintettePort) action
 
+callNotary :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
+callNotary action = do
+    sAddr <- T.getNotaryAddr <$> T.getPlatformLayout
+    T.execClientTimeout rpcTimeout sAddr action
+
 -- | Send a request to a Explorer.
 -- Raises an exception if Explorer doesn't respond in rpcTimeout time.
 callExplorerSafe
     :: (MessagePack a, T.WorkMode m)
     => Explorer -> T.Client a -> m a
-callExplorerSafe Explorer {..} action =
+callExplorerSafe Explorer{..} action =
     T.execClientTimeout rpcTimeout (BS.pack explorerHost, explorerPort) action
 
 -- | Reverse Continuation passing style (CPS) transformation

@@ -1,18 +1,17 @@
 -- | MessagePack serialization/deserialization for Core types
 
-module RSCoin.Core.MessagePack
-       (
-       ) where
+module RSCoin.Core.MessagePack  () where
 
-import           Data.Binary            (encode, decodeOrFail)
+import           Data.Binary            (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Int               (Int64)
-import           Data.MessagePack       (MessagePack (toObject, fromObject),
-                                         Object (ObjectExt, ObjectBin, ObjectInt), pack, unpack)
-import           Data.Ratio             (Ratio, numerator, denominator, (%))
-import           Data.Tuple.Select      (sel3)
+import           Data.MessagePack       (MessagePack (fromObject, toObject), Object (ObjectBin, ObjectExt, ObjectInt),
+                                         pack, unpack)
+import           Data.Ratio             (Ratio, denominator, numerator, (%))
 import           Data.Tuple.Curry       (uncurryN)
+import           Data.Tuple.Select      (sel3)
 
+import qualified Data.Set               as S
 import           RSCoin.Core.Crypto     ()
 import qualified RSCoin.Core.Primitives as C
 import qualified RSCoin.Core.Types      as C
@@ -36,7 +35,7 @@ uncurry5 :: (a -> b -> c -> d -> e -> f) -> (a, b, c, d, e) -> f
 uncurry5 = uncurryN
 
 -- msgpack library we use is awful :(
--- RЕАЛLY IT"S SО AWFUЛ
+-- RЕАЛLY IT"S S0 AWFUЛ
 instance MessagePack Int64 where
     toObject = toObject . toInt
     fromObject = fmap fromInt . fromObject
@@ -91,14 +90,32 @@ instance MessagePack C.Transaction where
 
 instance MessagePack C.CheckConfirmation where
     toObject C.CheckConfirmation{..} =
-        toObject (ccMintetteKey, ccMintetteSignature, ccHead)
-    fromObject = fmap (uncurry3 C.CheckConfirmation) . fromObject
+        toObject (ccMintetteKey, ccMintetteSignature, ccHead, ccPeriodId)
+    fromObject = fmap (uncurry4 C.CheckConfirmation) . fromObject
+
+instance MessagePack C.CommitAcknowledgment where
+    toObject C.CommitAcknowledgment{..} =
+        toObject (caMintetteKey, caMintetteSignature, caHead)
+    fromObject = fmap (uncurry3 C.CommitAcknowledgment) . fromObject
 
 instance MessagePack C.HBlock where
     toObject C.HBlock {..} =
-        toObject (hbHash, hbTransactions, hbSignature, hbDpk)
-    fromObject = fmap (uncurry4 C.HBlock) . fromObject
+        toObject (hbHash, hbTransactions, hbSignature, hbDpk, hbAddresses)
+    fromObject = fmap (uncurry5 C.HBlock) . fromObject
 
+instance MessagePack C.Strategy where
+    toObject C.DefaultStrategy = toObj (0, ())
+    toObject (C.MOfNStrategy m addrs) = toObj (1, (m, addrs))
+    fromObject obj = do
+      (i, args) <- fromObject obj
+      case (i :: Int) of
+        0 -> pure C.DefaultStrategy
+        1 -> uncurry2 C.MOfNStrategy <$> fromObject args
+        _ -> Nothing
+
+instance (Ord e, MessagePack e) => MessagePack (S.Set e) where
+    toObject = toObject . S.toList
+    fromObject = fmap S.fromList . fromObject
 toObj
     :: MessagePack a
     => (Int, a) -> Object

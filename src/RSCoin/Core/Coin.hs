@@ -32,7 +32,6 @@ import           Data.Ord               (comparing)
 
 import           RSCoin.Core.Primitives (Coin (..), Color)
 
-
 onColor :: Coin -> Coin -> Ordering
 onColor = comparing getColor
 

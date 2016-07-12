@@ -5,7 +5,9 @@
 
 module RSCoin.Core.CompileConfig
     ( RSCoinConfig (..)
+    , RSCoinServer (..)
     , rscoinConfigStr
+    , toAddr
     , rscoinConfig
     ) where
 
@@ -17,14 +19,26 @@ import           Data.String                     (IsString)
 import           Data.Yaml                       (decode)
 
 import           RSCoin.Core.CompileConfigHelper (defaultOptions)
+import           RSCoin.Timed.MonadRpc
 
-data RSCoinConfig = RSCoinConfig
-    { rscShardDivider :: !Int
-    , rscShardDelta   :: !Int
-    , rscRpcTimeout   :: !Word
+data RSCoinServer = RSCoinServer
+    { rscHost :: !String
+    , rscPort :: !Port
     } deriving (Show)
 
+data RSCoinConfig = RSCoinConfig
+    { rscShardDivider  :: !Int
+    , rscShardDelta    :: !Int
+    , rscRpcTimeout    :: !Word
+    , rscDefaultBank   :: !RSCoinServer
+    , rscDefaultNotary :: !RSCoinServer
+    } deriving (Show)
+
+$(A.deriveJSON defaultOptions ''RSCoinServer)
 $(A.deriveJSON defaultOptions ''RSCoinConfig)
+
+toAddr :: RSCoinServer -> (String, Port)
+toAddr (RSCoinServer host port) = (host, port)
 
 rscoinConfigStr :: IsString s => s
 rscoinConfigStr = $(makeRelativeToProject "rscoin.yaml" >>= embedStringFile)

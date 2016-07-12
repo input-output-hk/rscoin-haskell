@@ -8,26 +8,26 @@
 -- | This module describes user wallet state & actions
 
 module RSCoin.User.Wallet
-       ( UserAddress
-       , publicAddress
-       , privateAddress
-       , makeUserAddress
-       , toAddress
-       , validateUserAddress
+       ( validateKeyPair
        , TxHStatus (..)
        , TxHistoryRecord (..)
        , WalletStorageError (..)
        , WalletStorage
        , emptyWalletStorage
        , isInitialized
+
        , findUserAddress
        , getUserAddresses
-       , getPublicAddresses
-       , addTemporaryTransaction
+       , getOwnedAddresses
+       , getOwnedDefaultAddresses
        , getOwnedAddrIds
        , getTransactions
        , getLastBlockId
        , getTxsHistory
+       , getAddressStrategy
+       , resolveAddressLocally
+
+       , addTemporaryTransaction
        , withBlockchainUpdate
        , addAddress
        , initWallet
@@ -35,25 +35,25 @@ module RSCoin.User.Wallet
 
 import           Control.Applicative
 import           Control.Exception          (Exception)
-import           Control.Lens               ((%=), (.=), (<>=), (^.))
+import           Control.Lens               ((%=), (.=), (<>=))
 import qualified Control.Lens               as L
 import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
+import           Data.Bifunctor             (first)
 import           Data.Function              (on)
-import           Data.List                  (delete, find, groupBy, nub, sortOn,
-                                             (\\))
+import           Data.List                  (delete, find, groupBy, intersect,
+                                             nub, sortOn, (\\))
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust, isJust)
 import           Data.Monoid                ((<>))
 import           Data.Ord                   (comparing)
 import qualified Data.Set                   as S
 import qualified Data.Text                  as T
-import           Data.Text.Buildable        (Buildable (build))
-import           Data.Text.Lazy.Builder     (fromString)
+import           Data.Tuple                 (swap)
 
-import           Serokell.Util.Text         (format', formatSingle', show')
+import           Serokell.Util.Text         (format', formatSingle')
 
 import qualified RSCoin.Core                as C
 import           RSCoin.Core.Crypto         (PublicKey, SecretKey)
@@ -61,38 +61,8 @@ import           RSCoin.Core.Primitives     (AddrId, Address (..),
                                              Transaction (..))
 import           RSCoin.Core.Types          (PeriodId)
 
--- | User address as stored and seen by wallet owner.
-data UserAddress = UserAddress
-    { _privateAddress :: SecretKey -- ^ Secret key of the address
-    , _publicAddress  :: PublicKey -- ^ Public key aka 'address' as
-                                   -- visible the outside
-    } deriving (Show,Eq,Ord)
-
-$(L.makeLenses ''UserAddress)
-
-instance Buildable UserAddress where
-    build addr =
-        mconcat
-            [ "UserAddress with PK: "
-            , build $ addr ^. publicAddress
-            , "; SK: "
-            , fromString $
-              hideLast 10 (T.unpack $ show' $ addr ^. privateAddress)]
-      where
-        hideLast n str =
-            if n > length str
-                then str ++ "***"
-                else take (length str - n) str ++ replicate n '*'
-
-makeUserAddress :: SecretKey -> PublicKey -> UserAddress
-makeUserAddress = UserAddress
-
-toAddress :: UserAddress -> Address
-toAddress userAddress = C.Address $ userAddress ^. publicAddress
-
-validateUserAddress :: UserAddress -> Bool
-validateUserAddress uaddr =
-    C.checkKeyPair (uaddr ^. privateAddress, uaddr ^. publicAddress)
+validateKeyPair :: Address -> SecretKey -> Bool
+validateKeyPair addr sk = C.checkKeyPair (sk, getAddress addr)
 
 -- | This datatype represents the status of transaction in
 -- history. Rejected transactions are those who were "sent"
@@ -117,18 +87,23 @@ instance Ord TxHistoryRecord where
 -- this implementation to work.
 type TrAddrId = (Transaction, AddrId)
 data WalletStorage = WalletStorage
-    { _userAddresses :: [UserAddress]            -- ^ Addresses that user owns
-    , _userTxAddrids :: M.Map Address [TrAddrId] -- ^ Transactions that user is aware
-                                                 -- of and that reference user
-                                                 -- addresses, that were not spent
-                                                 -- (utxo basically)
-    , _periodDeleted :: [(Address, TrAddrId)]    -- ^ Support list for deleted events
-    , _periodAdded   :: [(Address, TrAddrId)]    -- ^ Support list for added events
-    , _lastBlockId   :: Maybe PeriodId           -- ^ Last blockchain height known
-                                                 -- to user (if known)
-
-    , _historyTxs    :: S.Set TxHistoryRecord    -- ^ History of all transactions
-                                                 -- being made (incomes + outcomes)
+    { -- | Address that user own. Owning is dictated by strategy. In
+      -- default strategy you should have secret key. But in general
+      -- it's not necessary.
+      _ownedAddresses :: M.Map Address (Maybe SecretKey)
+      -- | Transactions that user is aware of and that reference user
+      -- addresses, that were not spent (utxo basically)
+    , _userTxAddrids  :: M.Map Address [TrAddrId]
+      -- | Support list for deleted events
+    , _periodDeleted  :: [(Address, TrAddrId)]
+      -- | Support list for added events
+    , _periodAdded    :: [(Address, TrAddrId)]
+      -- | Last blockchain height known to user (if known)
+    , _lastBlockId    :: Maybe PeriodId
+      -- | History of all transactions being made (incomes + outcomes)
+    , _historyTxs     :: S.Set TxHistoryRecord
+      -- | Map from addresses to strategies that we own
+    , _addrStrategies :: M.Map Address C.Strategy
     } deriving (Show)
 
 $(L.makeLenses ''WalletStorage)
@@ -144,7 +119,7 @@ instance Exception WalletStorageError
 
 -- | Creates empty WalletStorage. Uninitialized.
 emptyWalletStorage :: WalletStorage
-emptyWalletStorage = WalletStorage [] M.empty [] [] Nothing S.empty
+emptyWalletStorage = WalletStorage M.empty M.empty [] [] Nothing S.empty M.empty
 
 -- Queries
 
@@ -153,7 +128,7 @@ type ExceptQuery a = forall m. (MonadReader WalletStorage m, MonadThrow m) => m 
 
 checkInitR :: (MonadReader WalletStorage m, MonadThrow m) => m a -> m a
 checkInitR action = do
-    a <- L.views userAddresses (not . null)
+    a <- L.views ownedAddresses (not . null)
     b <- L.views lastBlockId isJust
     if a && b
         then action
@@ -161,27 +136,71 @@ checkInitR action = do
 
 isInitialized :: ExceptQuery Bool
 isInitialized = do
-    a <- L.views userAddresses (not . null)
+    a <- L.views ownedAddresses (not . null)
     b <- L.views lastBlockId isJust
     return $ a && b
 
--- | Searches UserAddress correspondent to Address
-findUserAddress :: Address -> ExceptQuery (Maybe UserAddress)
-findUserAddress addr = checkInitR $
-    L.views userAddresses $ find ((== addr) . toAddress)
+-- | Searches UserAddress correspondent to Address. Returns (sk,pk)
+-- keypair *associated* with this address, the one that proves the
+-- ownership.  In case of DefaultStrategy it's just a keypair of
+-- address and it's sk itself. In case of MOfNStrategy it's another
+-- keypair of share you own (we assume there can be only one per
+-- wallet).
+findUserAddress :: Address -> ExceptQuery (Maybe (Address, SecretKey))
+findUserAddress addr = checkInitR $ do
+    secretKey <- L.views ownedAddresses (M.lookup addr)
+    case secretKey of
+        -- we don't own this address
+        Nothing        -> return Nothing
+        -- we own secret key
+        Just (Just sk) -> return $ Just (addr,sk)
+        -- we don't own the secret key of this address
+        Just Nothing   -> do
+            strategy <- fromJust <$> L.views addrStrategies (M.lookup addr)
+            case strategy of
+                C.DefaultStrategy -> throwM $ InternalError $
+                    "We have a notion of default strategy dut " <>
+                    "I can't find a correspondent secret key."
+                C.MOfNStrategy _ addrs -> do
+                    defaultOwnerAddress <-
+                        fromJust .
+                        find (`elem` addrs) <$>
+                        getOwnedDefaultAddresses
+                    fmap (defaultOwnerAddress,) . fromJust <$>
+                        L.views ownedAddresses (M.lookup defaultOwnerAddress)
 
--- | Get all available user addresses with private keys
-getUserAddresses :: ExceptQuery [UserAddress]
-getUserAddresses = checkInitR $ L.view userAddresses
+-- | Get all available user addresses that have private keys
+getUserAddresses :: ExceptQuery [(Address,SecretKey)]
+getUserAddresses =
+    checkInitR $
+    L.views ownedAddresses $ map (\(x,y) -> (x,fromJust y)) .
+                             filter (isJust . snd) .
+                             M.assocs
 
--- | Get all available user addresses w/o private keys
-getPublicAddresses :: ExceptQuery [Address]
-getPublicAddresses = checkInitR $ L.views userAddresses (map (Address . _publicAddress))
+-- | Puts bank's address on the first place if found
+rescheduleBankFirst :: [Address] -> [Address]
+rescheduleBankFirst addrs =
+    case find (== C.genesisAddress) addrs of
+        Nothing -> addrs
+        Just _ -> C.genesisAddress : (delete C.genesisAddress addrs)
+
+-- | Get all available user addresses
+getOwnedAddresses :: ExceptQuery [Address]
+getOwnedAddresses = checkInitR $ rescheduleBankFirst <$> L.views ownedAddresses M.keys
+
+-- | Get all user addresses with DefaultStrategy
+getOwnedDefaultAddresses :: ExceptQuery [Address]
+getOwnedDefaultAddresses = checkInitR $ do
+    addrs <- getOwnedAddresses
+    strategies <- L.view addrStrategies
+    return $
+        filter (\addr -> M.lookup addr strategies == Just C.DefaultStrategy)
+               addrs
 
 -- | Gets user-related UTXO (addrids he owns)
 getOwnedAddrIds :: Address -> ExceptQuery [AddrId]
 getOwnedAddrIds addr = do
-    addrOurs <- getPublicAddresses
+    addrOurs <- getOwnedAddresses
     unless (addr `elem` addrOurs) $
         throwM $
         BadRequest $
@@ -200,7 +219,7 @@ getOwnedAddrIds addr = do
 -- address. Address should be owned by wallet in MonadReader.
 getTransactions :: Address -> ExceptQuery [Transaction]
 getTransactions addr = checkInitR $ do
-    addrOurs <- getPublicAddresses
+    addrOurs <- getOwnedAddresses
     unless (addr `elem` addrOurs) $
         throwM $
         BadRequest $
@@ -222,18 +241,34 @@ getLastBlockId = checkInitR $ L.views lastBlockId fromJust
 getTxsHistory :: ExceptQuery [TxHistoryRecord]
 getTxsHistory = L.views historyTxs S.toList
 
+getAddressStrategy :: Address -> ExceptQuery (Maybe C.Strategy)
+getAddressStrategy addr = checkInitR $ L.views addrStrategies $ M.lookup addr
+
+resolveAddressLocally :: AddrId -> ExceptQuery (Maybe Address)
+resolveAddressLocally addrid =
+    checkInitR $
+    L.views userTxAddrids $
+    \addridMap ->
+         find
+             (\k -> case M.lookup k addridMap of
+                        Nothing -> False
+                        Just list -> addrid `elem` (map snd list)) $
+         M.keys addridMap
+
 -- Updates
 
 type ExceptUpdate a = forall m. (MonadState WalletStorage m, MonadThrow m) => m a
 
 checkInitS :: (MonadState WalletStorage m, MonadThrow m) => m a -> m a
 checkInitS action = do
-    a <- L.uses userAddresses (not . null)
+    a <- L.uses ownedAddresses (not . null)
     b <- L.uses lastBlockId isJust
     if a && b
         then action
         else throwM NotInitialized
 
+-- | Cleanup periodDeleted and periodAdded to the state before new
+-- period.
 restoreTransactions :: ExceptUpdate ()
 restoreTransactions = do
     deleted <- L.use periodDeleted
@@ -251,7 +286,7 @@ restoreTransactions = do
 -- which we expect to see tx in.
 addTemporaryTransaction :: PeriodId -> Transaction -> ExceptUpdate ()
 addTemporaryTransaction periodId tx@Transaction{..} = do
-    ownedAddresses <- L.uses userAddresses $ map toAddress
+    ownedAddrs <- L.uses ownedAddresses M.keys
     ownedTransactions <- L.uses userTxAddrids M.assocs
     forM_ txInputs $ \newaddrid ->
         forM_ ownedTransactions $ \(address,traddrids) ->
@@ -266,7 +301,7 @@ addTemporaryTransaction periodId tx@Transaction{..} = do
                      sortOn snd $
                      C.computeOutputAddrids tx
     forM_ outputAddr $ \(address,addrids) ->
-        when (address `elem` ownedAddresses) $
+        when (address `elem` ownedAddrs) $
            forM_ addrids $ \addrid -> do
                let p = (tx, addrid)
                userTxAddrids %= M.insertWith (++) address [p]
@@ -294,12 +329,6 @@ putHistoryRecords newHeight transactions = do
         confirmed = map setConfirmed inList
         rejected = map setRejected nonInList
     historyTxs %= S.union (S.fromList $ confirmed ++ rejected)
-    addrs <- L.uses userAddresses $ map toAddress
-    -- suppose nobody ever spends your output, i.e.
-    -- outcome transactions are always sent by you
-    let incomes = filter (\tx -> any (`elem` addrs) (map fst (C.txOutputs tx))) transactions
-        mapped = map (\tx -> TxHistoryRecord tx newHeight TxHConfirmed) incomes
-    historyTxs %= S.union (S.fromList mapped)
   where
     setConfirmed TxHistoryRecord{..} =
         TxHistoryRecord
@@ -318,8 +347,8 @@ putHistoryRecords newHeight transactions = do
 -- blockchain blocks. Sum validation for transactions
 -- is disabled, because HBlocks contain generative transactions for
 -- fee allocation.
-withBlockchainUpdate :: PeriodId -> [Transaction] -> ExceptUpdate ()
-withBlockchainUpdate newHeight transactions =
+withBlockchainUpdate :: PeriodId -> C.HBlock -> ExceptUpdate ()
+withBlockchainUpdate newHeight C.HBlock{..} =
     checkInitS $
     do currentHeight <- L.uses lastBlockId fromJust
        unless (currentHeight < newHeight) $
@@ -335,9 +364,24 @@ withBlockchainUpdate newHeight transactions =
                (newHeight, currentHeight)
 
        restoreTransactions
-       putHistoryRecords newHeight transactions
 
-       ownedAddresses <- L.uses userAddresses (map (Address . _publicAddress))
+       ownedAddrs0 <- L.uses ownedAddresses M.keys
+       -- Get strategies that we are related to
+       let newStrategies = M.filterWithKey (ownStrategy ownedAddrs0) hbAddresses
+       -- Add them to strategy list
+       addrStrategies <>= newStrategies
+       -- Also add addresses that we now control (e.g. multisig)
+       forM_ (M.keys newStrategies) $ \addr -> do
+           ownedAddrs <- L.uses ownedAddresses M.keys
+           unless (addr `elem` ownedAddrs) $
+             ownedAddresses %= M.insert addr Nothing
+
+       ownedAddrs1 <- L.uses ownedAddresses M.keys
+       forM_ ownedAddrs1 $ \addr -> userTxAddrids %= M.insertWith (++) addr []
+
+       putHistoryRecords newHeight hbTransactions
+
+       ownedAddrs <- L.uses ownedAddresses M.keys
        let addSomeTransactions tx@Transaction{..} = do
                -- first! add transactions that have output with address that we own
                let outputAddr :: [(Address, [AddrId])]
@@ -347,10 +391,11 @@ withBlockchainUpdate newHeight transactions =
                                     sortOn snd $
                                     C.computeOutputAddrids tx
                forM_ outputAddr $ \(address,addrids) ->
-                   when (address `elem` ownedAddresses) $
-                       forM_ addrids $ \addrid' ->
+                   when (address `elem` ownedAddrs) $
+                       forM_ addrids $ \addrid' -> do
                            userTxAddrids %= M.insertWith (++) address [(tx, addrid')]
-           removeSomeTransactions Transaction{..} = do
+                           historyTxs %= S.insert (TxHistoryRecord tx newHeight TxHConfirmed)
+           removeSomeTransactions tx@Transaction{..} = do
                (savedTransactions :: [(Address, (Transaction, AddrId))]) <-
                    concatMap
                        (\(addr,txs) ->
@@ -369,47 +414,59 @@ withBlockchainUpdate newHeight transactions =
                            txInputs
                forM_ toRemove $
                    \(useraddr,pair') ->
-                            userTxAddrids %= M.adjust (delete pair') useraddr
-       forM_ transactions addSomeTransactions
-       forM_ transactions removeSomeTransactions
+                        userTxAddrids %= M.adjust (delete pair') useraddr
+               unless (null toRemove) $
+                   historyTxs %= S.insert (TxHistoryRecord tx newHeight TxHConfirmed)
+       forM_ hbTransactions addSomeTransactions
+       forM_ hbTransactions removeSomeTransactions
+
        lastBlockId .= Just newHeight
   where
     reportBadRequest = throwM . BadRequest
+    ownStrategy ownedAddrs addr C.DefaultStrategy =
+        addr `elem` ownedAddrs
+    ownStrategy ownedAddrs _ (C.MOfNStrategy _ owners) =
+        not $ null $ S.elems owners `intersect` ownedAddrs
 
 -- | Puts given address and it's related transactions (that contain it
 -- as output S_{out}) into wallet. Blockchain won't be queried.
-addAddress :: UserAddress -> [Transaction] -> ExceptUpdate ()
-addAddress userAddress txs = do
-    unless (validateUserAddress userAddress) $
+-- Strategy assigned is default.
+addAddress :: (C.Address,SecretKey) -> [Transaction] -> PeriodId -> ExceptUpdate ()
+addAddress addressPair@(address,sk) txs periodId = do
+    unless (uncurry validateKeyPair addressPair) $
         throwM $
         BadRequest $
-        formatSingle'
-            ("Tried to add invalid address into storage {}. " <>
+        format'
+            ("Tried to add invalid address into storage ({},{}). " <>
              "SecretKey doesn't match with PublicKey.")
-            userAddress
+            addressPair
     let mappedTxs :: [Transaction]
-        mappedTxs =
-            filter (null . C.getAddrIdByAddress (toAddress userAddress)) txs
+        mappedTxs = filter (null . C.getAddrIdByAddress address) txs
     unless (null mappedTxs) $
         throwM $
         BadRequest $
         format'
-            ("Error while adding address {} to storage: {} transactions dosn't " <>
+            ("Error while adding address ({},{}) to storage: {} transactions dosn't " <>
              "contain it (address) as output. First bad transaction: {}")
-            (userAddress, length mappedTxs, head mappedTxs)
-    userAddresses <>= [userAddress]
+            (address, sk, length mappedTxs, head mappedTxs)
+    historyTxs <>=
+        S.fromList (map (\tx -> TxHistoryRecord tx periodId TxHConfirmed) txs)
+    ownedAddresses %= M.insert address (Just sk)
     userTxAddrids <>=
         M.singleton
-            (toAddress userAddress)
+            address
             (concatMap
                  (\t -> map (t, ) $
-                        C.getAddrIdByAddress (toAddress userAddress) t)
+                        C.getAddrIdByAddress address t)
                  txs)
+    addrStrategies %= M.insert address C.DefaultStrategy
 
 -- | Initialize wallet with list of addresses to hold and
 -- mode-specific parameter startHeight: if it's (Just i), then the
 -- height is set to i, if Nothing, then to -1 (bank-mode).
-initWallet :: [UserAddress] -> Maybe Int -> ExceptUpdate ()
+initWallet :: [(SecretKey,PublicKey)] -> Maybe Int -> ExceptUpdate ()
 initWallet addrs startHeight = do
-    lastBlockId .= (startHeight <|> Just (-1))
-    forM_ addrs $ flip addAddress []
+    let newHeight = startHeight <|> Just (-1)
+    lastBlockId .= newHeight
+    forM_ (map (first Address . swap) addrs) $ \p ->
+        addAddress p [] $ fromJust newHeight

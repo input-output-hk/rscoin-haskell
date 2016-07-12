@@ -8,21 +8,28 @@ module RSCoin.Core.CheckConfirmation
 import           RSCoin.Core.Crypto     (SecretKey, derivePublicKey, sign,
                                          verify)
 import           RSCoin.Core.Primitives (AddrId, Transaction)
-import           RSCoin.Core.Types      (ActionLogHead, CheckConfirmation (..))
+import           RSCoin.Core.Types      (ActionLogHead, CheckConfirmation (..),
+                                         PeriodId)
 
 mkCheckConfirmation :: SecretKey
                     -> Transaction
                     -> AddrId
                     -> ActionLogHead
+                    -> PeriodId
                     -> CheckConfirmation
-mkCheckConfirmation sk tx addrId ccHead =
+mkCheckConfirmation sk tx addrId ccHead ccPeriodId =
     CheckConfirmation
     { ..
     }
   where
     ccMintetteKey = derivePublicKey sk
-    ccMintetteSignature = sign sk (tx, addrId, ccHead)
+    ccMintetteSignature = sign sk (tx, addrId, ccHead, ccPeriodId)
 
-verifyCheckConfirmation :: CheckConfirmation -> Transaction -> AddrId -> Bool
-verifyCheckConfirmation CheckConfirmation{..} tx addrid =
-    verify ccMintetteKey ccMintetteSignature (tx, addrid, ccHead)
+verifyCheckConfirmation :: CheckConfirmation
+                        -> Transaction
+                        -> AddrId
+                        -> PeriodId
+                        -> Bool
+verifyCheckConfirmation CheckConfirmation{..} tx addrid periodId =
+    ccPeriodId == periodId &&
+    verify ccMintetteKey ccMintetteSignature (tx, addrid, ccHead, periodId)

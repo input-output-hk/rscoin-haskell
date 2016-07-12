@@ -6,7 +6,8 @@ test -z $1 && echo "No first argument" && exit
 
 dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-rscoin-bank --log-severity Debug add-mintette --host 127.0.0.1 --port 311$1 --key $(cat $dir/mintetteKeys/mintette$1/mintette$1.pub)
-cd $dir/mintetteKeys/mintette$1/ 
-rscoin-mintette --log-severity Debug --sk $dir/mintetteKeys/mintette$1/mintette$1.sec -p 311$1
+mpath=$dir/mintetteKeys/mintette$1/
+
+rscoin-bank --log-severity Debug add-mintette --host 127.0.0.1 --port 311$1 --key $(cat $mpath/mintette$1.pub)
+rscoin-mintette --log-severity Debug --path "$mpath/mintette-db" --sk $mpath/mintette$1.sec -p 311$1
 

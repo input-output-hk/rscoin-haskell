@@ -34,6 +34,7 @@ library
                      , RSCoin.Core.Logging
                      , RSCoin.Core.Owners
                      , RSCoin.Core.Primitives
+                     , RSCoin.Core.Strategy
                      , RSCoin.Core.Transaction
                      , RSCoin.Core.Types
                      , RSCoin.Explorer
@@ -47,6 +48,11 @@ library
                      , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
                      , RSCoin.Mintette.Worker
+                     , RSCoin.Notary
+                     , RSCoin.Notary.AcidState
+                     , RSCoin.Notary.Server
+                     , RSCoin.Notary.Storage
+                     , RSCoin.Notary.Error
                      , RSCoin.Timed
                      , RSCoin.Timed.MonadTimed
                      , RSCoin.Timed.MonadRpc
@@ -255,6 +261,26 @@ executable rscoin-mintette
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -O2
                        -fno-warn-orphans
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+
+executable rscoin-notary
+  main-is:             Main.hs
+  other-modules:       NotaryOptions
+  build-depends:       base >= 4.8 && < 4.9
+                     , bytestring
+                     , exceptions
+                     , mtl
+                     , optparse-applicative
+                     , rscoin
+                     , serokell-core
+                     , text
+                     , time-units
+  hs-source-dirs:      src/Notary
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -O2
   default-extensions:  OverloadedStrings
                      , RecordWildCards
                      , DeriveDataTypeable

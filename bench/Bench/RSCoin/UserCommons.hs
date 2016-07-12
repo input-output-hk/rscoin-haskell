@@ -13,14 +13,15 @@ import           Control.Monad              (forM_, when)
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint)
+import           Data.Acid.Advanced         (query')
 import           Data.ByteString            (ByteString)
 import           Data.Optional              (Optional, defaultTo, empty)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
 import           RSCoin.Core                (Address (..), Coin (..), Color,
-                                             bankSecretKey, finishPeriod,
-                                             keyGen)
+                                             bankSecretKey, defaultLayout',
+                                             finishPeriod, keyGen)
 import           RSCoin.Timed               (MsgPackRpc, for, runRealMode, sec,
                                              wait)
 import qualified RSCoin.User                as U
@@ -53,7 +54,7 @@ userThreadWithPath
     userId
     (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
   =
-    runRealMode bankHost $ bracket
+    runRealMode (defaultLayout' bankHost) $ bracket
         (liftIO $ U.openState walletPath)
         (\userState -> liftIO $ do
             createCheckpoint userState
@@ -61,7 +62,7 @@ userThreadWithPath
         (userAction userId)
 
 queryMyAddress :: U.RSCoinUserState -> MsgPackRpc Address
-queryMyAddress userState = head <$> U.getAllAddresses userState
+queryMyAddress userState = head <$> query' userState U.GetOwnedDefaultAddresses
 
 -- | Create user with 1 address and return it.
 initializeUser :: Word -> U.RSCoinUserState -> MsgPackRpc Address

@@ -25,7 +25,7 @@ import           RSCoin.Core                     (Address, PublicKey, SecretKey,
 
 import           Bench.RSCoin.FilePathUtils      (tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
-                                                  mintetteThread)
+                                                  mintetteThread, notaryThread)
 import           Bench.RSCoin.Logging            (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserCommons        (benchUserTransactions,
                                                   initializeBank,
@@ -66,6 +66,13 @@ establishMintettes benchDir mintettesNumber = do
     logInfo $ sformat ("Running " % int % " mintettes…") mintettesNumber
     runMintettes benchDir keyPairs
     logInfo $ sformat (int % " mintettes are launched") mintettesNumber
+    threadDelay $ 2 * 10 ^ (6 :: Int)
+
+establishNotary :: FilePath -> IO ()
+establishNotary benchDir = do
+    logInfo "Running notary..."
+    _ <- forkIO $ notaryThread benchDir
+    logInfo "Notary is launched"
     threadDelay $ 2 * 10 ^ (6 :: Int)
 
 establishBank :: FilePath -> Second -> IO ()
@@ -116,6 +123,7 @@ main = do
         initBenchLogger bSeverity
 
         establishMintettes benchDir mintettesNumber
+        establishNotary    benchDir
         establishBank      benchDir periodDelta
 
         let userIds    = [1 .. fromIntegral userNumber]

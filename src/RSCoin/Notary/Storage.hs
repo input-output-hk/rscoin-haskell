@@ -15,6 +15,7 @@ module RSCoin.Notary.Storage
         , getSignatures
         , pollTransactions
         , removeCompleteMSAddresses
+        , queryAllMSAdresses
         , queryCompleteMSAdresses
         ) where
 
@@ -179,6 +180,9 @@ allocateMSAddress msAddr parties m (partyAddr@(Address partyPK), partySig) chain
             when (resultParties /= parties || m /= resM) $
                 throwM $ NEInvalidArguments "result stratey is not equal to yours"
             allocationPool %= M.insert msAddr (strategy, S.insert partyAddr currentParties)
+
+queryAllMSAdresses :: Query Storage [(Address, (Strategy, Set Address))]
+queryAllMSAdresses = view $ allocationPool . to M.assocs
 
 queryCompleteMSAdresses :: Query Storage [(Address, Strategy)]
 queryCompleteMSAdresses =

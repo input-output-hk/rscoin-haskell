@@ -94,8 +94,8 @@ onPeriodFinished sk st = do
                 formatSingle'
                     "Announced new period, sent these newPeriodData's:\n{}"
                     newPeriodData
-    announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsS
     initializeMultisignatureAddresses
+    announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsS
   where
     -- TODO: catch appropriate exception according to protocol
     -- implementation (here and below)
@@ -105,10 +105,6 @@ onPeriodFinished sk st = do
     handlerAnnouncePeriodsS (e :: SomeException) =
         logWarning $
         formatSingle' "Error occurred in communicating with Notary: {}" e
-    announceNewPeriodsToNotary = do
-        pId <- C.getNotaryPeriod
-        pId' <- query' st GetPeriodId
-        C.announceNewPeriodsToNotary pId' =<< query' st (GetHBlocks pId pId')
     initializeMultisignatureAddresses = do
         newMSAddresses <- C.queryNotaryCompleteMSAddresses
         forM_ newMSAddresses $ \(msAddr, strategy) -> do
@@ -119,6 +115,10 @@ onPeriodFinished sk st = do
 
         logInfo "Removing new addresses from pool"
         C.removeNotaryCompleteMSAddresses $ map fst newMSAddresses
+    announceNewPeriodsToNotary = do
+        pId <- C.getNotaryPeriod
+        pId' <- query' st GetPeriodId
+        C.announceNewPeriodsToNotary pId' =<< query' st (GetHBlocks pId pId')
 
 getPeriodResults :: WorkMode m => Mintettes -> PeriodId -> m [Maybe PeriodResult]
 getPeriodResults mts pId = do

@@ -25,6 +25,7 @@ import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           AllocateMSAddress (..),
                                           GetPeriodId (..), GetSignatures (..),
                                           PollTransactions (..),
+                                          QueryAllMSAdresses (..),
                                           QueryCompleteMSAdresses (..),
                                           RemoveCompleteMSAddresses (..),
                                           RSCoinNotaryState)
@@ -175,5 +176,8 @@ handleAllocateMultisig
     -> [(C.Signature, C.PublicKey)]
     -> ServerT m ()
 handleAllocateMultisig st sAddr parties m sigPair chain = toServer $ do
-    logDebug "I don't want to debug this anymore :("
+    logDebug "Begining allocation MS address..."
     update' st $ AllocateMSAddress sAddr parties m sigPair chain
+
+    currentMSAddresses <- query' st QueryAllMSAdresses
+    logDebug $ sformat ("All addresses: " % shown) currentMSAddresses

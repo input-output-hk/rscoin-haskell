@@ -271,7 +271,7 @@ allocateMultisignatureAddress msAddr parties m sigPair chain = do
         m
         sigPair
         chain
-    callBank $ P.call (P.RSCNotary P.AllocateMultisig) msAddr parties m sigPair chain
+    callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr parties m sigPair chain
 
 queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, Strategy)]
 queryNotaryCompleteMSAddresses = do

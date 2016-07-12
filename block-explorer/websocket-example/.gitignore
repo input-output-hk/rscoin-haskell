@@ -8,3 +8,5 @@ index.js
 app.js
 *.tix
 /src/RSCoin
+/src/Data/
+/src/Prim.purs

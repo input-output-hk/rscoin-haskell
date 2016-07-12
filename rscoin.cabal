@@ -39,7 +39,7 @@ library
                      , RSCoin.Explorer
                      , RSCoin.Explorer.Error
                      , RSCoin.Explorer.Launcher
-                     , RSCoin.Explorer.Server
+                     , RSCoin.Explorer.WebTypes
                      , RSCoin.Mintette
                      , RSCoin.Mintette.Acidic
                      , RSCoin.Mintette.AcidState
@@ -77,10 +77,13 @@ library
                      , RSCoin.Core.Protocol
                      , RSCoin.Explorer.AcidState
                      , RSCoin.Explorer.Channel
+                     , RSCoin.Explorer.Server
                      , RSCoin.Explorer.Storage
                      , RSCoin.Explorer.Web
                      , RSCoin.Explorer.Web.Servant
                      , RSCoin.Explorer.Web.Sockets
+                     , RSCoin.Explorer.Web.Sockets.Types
+                     , RSCoin.Explorer.Web.Sockets.App
                      , RSCoin.User.AcidState
                      , RSCoin.User.Cache
   build-depends:       acid-state

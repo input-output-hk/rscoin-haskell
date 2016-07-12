@@ -23,6 +23,7 @@ data Command
     = Serve FilePath
     | AddMintette String Int T.Text
     | AddAddress (Maybe T.Text) Strategy
+    | AddExplorer String Int T.Text Int
 
 data Options = Options
     { cloCommand     :: Command
@@ -44,8 +45,10 @@ commandParser defaultSKPath =
              (info addMintetteOpts (progDesc "Add given mintette to database")) <>
          command
              "add-address"
-             (info addAddressOpts (progDesc "Add given address and corresponding strategy to database"))
-             )
+             (info addAddressOpts (progDesc "Add given address and corresponding strategy to database")) <>
+         command
+             "add-explorer"
+             (info addExplorerOpts (progDesc "Add given explorer to database")))
   where
     serveOpts =
         Serve <$>
@@ -66,6 +69,17 @@ commandParser defaultSKPath =
             (long "key" <>
              help "Mintette's public key (directly, not from file)" <>
              metavar "PUBLIC KEY")
+    addExplorerOpts =
+        AddExplorer <$> strOption (long "host") <*> option auto (long "port") <*>
+        strOption
+            (long "key" <>
+             help "Explorer's public key (directly, not from file)" <>
+             metavar "PUBLIC KEY") <*>
+        option
+            auto
+            (long "id" <> help "Id of period which this explorer expects" <>
+             value 0 <>
+             showDefault)
 
 optionsParser :: FilePath -> Parser Options
 optionsParser defaultSKPath =

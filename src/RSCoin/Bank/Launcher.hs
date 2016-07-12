@@ -1,13 +1,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections    #-}
 
--- | Functions launching Bank.
+-- | Convenience functions to launch bank or do high-level operations
+-- with it.
 
 module RSCoin.Bank.Launcher
        ( launchBankReal
        , launchBank
        , addMintetteIO
        , addAddressIO
+       , addExplorerIO
        ) where
 
 import           Control.Monad.Catch   (bracket)
@@ -16,12 +18,12 @@ import           Data.Acid.Advanced    (update')
 import           Data.Functor          (void)
 import           Data.Time.Units       (TimeUnit)
 
-import           RSCoin.Core           (Address, Mintette, PublicKey, SecretKey,
-                                        Strategy, defaultLayout')
+import           RSCoin.Core           (Address, Explorer, Mintette, PeriodId, PublicKey,
+                                        SecretKey, Strategy, defaultLayout')
 import           RSCoin.Timed          (MsgPackRpc, PlatformLayout, ThreadId,
                                         WorkMode, fork, killThread, runRealMode)
 
-import           RSCoin.Bank.AcidState (AddAddress (AddAddress),
+import           RSCoin.Bank.AcidState (AddAddress (AddAddress), AddExplorer (AddExplorer),
                                         AddMintette (AddMintette), State,
                                         closeState, openState)
 import           RSCoin.Bank.Server    (serve)
@@ -54,3 +56,7 @@ addAddressIO storagePath a s =
 addMintetteIO :: FilePath -> Mintette -> PublicKey -> IO ()
 addMintetteIO storagePath m k =
     bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $ flip update' (AddMintette m k)
+
+addExplorerIO :: FilePath -> Explorer -> PeriodId -> IO ()
+addExplorerIO storagePath e pId =
+    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $ flip update' (AddExplorer e pId)

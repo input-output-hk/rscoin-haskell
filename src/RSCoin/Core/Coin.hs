@@ -10,10 +10,11 @@ module RSCoin.Core.Coin
        , isNegativeCoin
        , sameColor
        , sumCoin
+       , groupCoinsList
        , CoinsMap
+       , zeroCoinsMap
        , coinsToList
        , coinsToMap
-       , groupCoinsList
        , coinsMapConsistent
        , mergeCoinsMaps
        , coinsMapsEqual
@@ -63,6 +64,10 @@ groupCoinsList coins =
     groupBy sameColor $ sortBy onColor $ filter isPositiveCoin coins
 
 type CoinsMap = M.Map Color Coin
+
+-- | CoinsMap representing absence of coins.
+zeroCoinsMap :: CoinsMap
+zeroCoinsMap = M.empty
 
 -- | Translates a map of coins to the list, sorted by color
 coinsToList :: CoinsMap -> [Coin]

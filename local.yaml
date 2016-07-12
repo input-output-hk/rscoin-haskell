@@ -1,0 +1,13 @@
+directory: .
+exec: "stack $NIX_STACK exec -- "
+bank:
+  severity: Info
+  secret: rscoin-key
+mintettes:
+- {}
+- {}
+- {}
+explorers:
+- {}
+period: 100
+

@@ -34,6 +34,7 @@ library
                      , RSCoin.Bank.Storage
                      , RSCoin.Core
                      , RSCoin.Core.ActionLog
+                     , RSCoin.Core.Aeson
                      , RSCoin.Core.CheckConfirmation
                      , RSCoin.Core.Constants
                      , RSCoin.Core.Coin
@@ -47,6 +48,10 @@ library
                      , RSCoin.Core.Strategy
                      , RSCoin.Core.Transaction
                      , RSCoin.Core.Types
+                     , RSCoin.Explorer
+                     , RSCoin.Explorer.Error
+                     , RSCoin.Explorer.Launcher
+                     , RSCoin.Explorer.Server
                      , RSCoin.Mintette
                      , RSCoin.Mintette.Acidic
                      , RSCoin.Mintette.AcidState
@@ -75,6 +80,9 @@ library
                      , RSCoin.Bank.AcidState
                      , RSCoin.Bank.Launcher
                      , RSCoin.Bank.Server
+                     , RSCoin.Bank.Storage.Explorers
+                     , RSCoin.Bank.Storage.Mintettes
+                     , RSCoin.Bank.Storage.Whole
                      , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Communication
@@ -84,6 +92,9 @@ library
                      , RSCoin.Core.Crypto.Signing
                      , RSCoin.Core.MessagePack
                      , RSCoin.Core.Protocol
+                     , RSCoin.Explorer.AcidState
+                     , RSCoin.Explorer.Storage
+                     , RSCoin.Explorer.Web
                      , RSCoin.User.AcidState
                      , RSCoin.User.Cache
   build-depends:       acid-state
@@ -121,6 +132,7 @@ library
                      , safe
                      , safecopy
                      , serokell-core
+                     , servant-server
                      , stm >= 2.4.4
                      , template-haskell
                      , text >= 1.2.2.0
@@ -132,6 +144,9 @@ library
                      , tuple >= 0.3.0.2
                      , unordered-containers
                      , vector
+                     , wai
+                     , wai-extra
+                     , warp
                      , yaml
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -255,6 +270,52 @@ executable rscoin-notary
   hs-source-dirs:      src/Notary
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -O2
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+
+executable rscoin-explorer
+  main-is:             Main.hs
+  other-modules:       ExplorerOptions
+  build-depends:       base
+                     , bytestring
+                     , mtl >= 2.2.1
+                     , optparse-applicative
+                     , rscoin
+                     , serokell-core
+  hs-source-dirs:      src/Explorer
+  default-language:    Haskell2010
+  ghc-options:         -O2 -threaded
+                       -rtsopts -with-rtsopts=-N
+                       -Wall -fno-warn-orphans
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+
+executable rscoin-deploy
+  main-is:             Main.hs
+  other-modules:       Config
+  build-depends:       aeson
+                     , base
+                     , filepath
+                     , formatting
+                     , optparse-applicative
+                     , rscoin
+                     , serokell-core
+                     , string-conversions
+                     , text
+                     , temporary
+                     , turtle
+                     , yaml
+  hs-source-dirs:      src/Deploy
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -rtsopts
+                       -with-rtsopts=-N
+                       -O2
+                       -Wall
                        -fno-warn-orphans
   default-extensions:  OverloadedStrings
                      , RecordWildCards

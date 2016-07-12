@@ -13,6 +13,7 @@ module RSCoin.Core.Primitives
        , grey
        ) where
 
+import           Data.Aeson          (ToJSON)
 import           Data.Binary         (Binary (get, put))
 import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.Maybe          (catMaybes, fromMaybe)
@@ -25,8 +26,7 @@ import           Formatting          (bprint, float, int, (%))
 import           Serokell.Util.Text  (listBuilderJSON, pairBuilder,
                                       tripleBuilder)
 
-import           RSCoin.Core.Crypto  (Hash, PublicKey, constructPublicKey,
-                                      printPublicKey)
+import           RSCoin.Core.Crypto  (Hash, PublicKey, constructPublicKey)
 
 type Color = Int
 
@@ -80,10 +80,8 @@ instance Num Coin where
 -- It is simply a public key.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Ord, Buildable, Binary, Eq, Hashable)
+    } deriving (Show, Ord, Buildable, Binary, Eq, Hashable, ToJSON)
 
-instance Show Address where
-    show (Address pk) = "Address " ++ printPublicKey pk
 instance Read Address where
     readsPrec i = catMaybes . map (\(k, s) -> flip (,) s . Address <$> constructPublicKey (removePrefix k)) . readsPrec i
       where removePrefix t = fromMaybe t $ T.stripPrefix (T.pack "Address ") t

@@ -18,6 +18,7 @@ import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
+import           Data.Maybe               (fromJust)
 import           Data.Monoid              ((<>))
 import           Data.Text                (Text)
 import           Data.Time.Units          (TimeUnit)
@@ -27,11 +28,13 @@ import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text       (formatSingle')
 
-import           RSCoin.Bank.AcidState    (AddAddress (..), GetHBlocks (..),
+import           RSCoin.Bank.AcidState    (AddAddress (..),
+                                           GetExplorersAndPeriods (..),
+                                           GetHBlock (..), GetHBlocks (..),
                                            GetMintettes (..), GetPeriodId (..),
+                                           SetExplorerPeriod (..),
                                            StartNewPeriod (..), State)
-import           RSCoin.Core              (Mintettes, PeriodId, PeriodResult,
-                                           defaultPeriodDelta,
+import           RSCoin.Core              (defaultPeriodDelta,
                                            formatNewPeriodData,
                                            sendPeriodFinished)
 import qualified RSCoin.Core              as C
@@ -49,11 +52,12 @@ logWarning = C.logWarning C.bankLoggerName
 logError :: MonadIO m => Text -> m ()
 logError = C.logError C.bankLoggerName
 
--- | Start worker which runs appropriate action when a period finishes
+-- | Start worker which runs appropriate action when a period
+-- finishes. Default period length is used.
 runWorker :: WorkMode m => C.SecretKey -> State -> m ()
 runWorker = runWorkerWithPeriod defaultPeriodDelta
 
--- | Start worker with provided period. Used in benchmarks. Also see 'runWorker'.
+-- | Start worker with provided period. Generalization of 'runWorker'.
 runWorkerWithPeriod :: (TimeUnit t, WorkMode m) => t -> C.SecretKey -> State -> m ()
 runWorkerWithPeriod periodDelta sk st = repeatForever (tu periodDelta) handler $ do
     t <- measureTime_ $ onPeriodFinished sk st
@@ -94,6 +98,8 @@ onPeriodFinished sk st = do
                 formatSingle'
                     "Announced new period, sent these newPeriodData's:\n{}"
                     newPeriodData
+
+    communicateWithExplorers sk st =<< query' st GetExplorersAndPeriods
     initializeMultisignatureAddresses
     announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsS
   where
@@ -120,7 +126,9 @@ onPeriodFinished sk st = do
         pId' <- query' st GetPeriodId
         C.announceNewPeriodsToNotary pId' =<< query' st (GetHBlocks pId pId')
 
-getPeriodResults :: WorkMode m => Mintettes -> PeriodId -> m [Maybe PeriodResult]
+getPeriodResults
+    :: WorkMode m
+    => C.Mintettes -> C.PeriodId -> m [Maybe C.PeriodResult]
 getPeriodResults mts pId = do
     res <- liftIO $ newIORef []
     mapM_ (f res) mts
@@ -137,3 +145,32 @@ getPeriodResults mts pId = do
                    "Error occurred in communicating with mintette {}"
                    e
            modifyIORef res (Nothing :)
+
+-- TODO: this communication must be more smart to prevent bank from
+-- spending too much time on communication with particular
+-- explorer. And there are more things to improve. For instance, error
+-- handling.
+communicateWithExplorers
+    :: WorkMode m
+    => C.SecretKey -> State -> [(C.Explorer, C.PeriodId)] -> m ()
+communicateWithExplorers sk st = mapM_ (communicateWithExplorer sk st)
+
+communicateWithExplorer
+    :: WorkMode m
+    => C.SecretKey -> State -> (C.Explorer, C.PeriodId) -> m ()
+communicateWithExplorer sk st (explorer,expectedPeriod) = do
+    latest <- pred <$> query' st GetPeriodId
+    newExpectedPeriod <-
+        last <$>
+        mapM
+            (sendBlockToExplorer sk st explorer)
+            [max 0 expectedPeriod .. latest]
+    update' st $ SetExplorerPeriod explorer newExpectedPeriod
+
+sendBlockToExplorer
+    :: WorkMode m
+    => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m C.PeriodId
+sendBlockToExplorer sk st explorer pId = do
+    blk <- fromJust <$> query' st (GetHBlock pId)
+    -- TODO: check sig!
+    fst <$> C.announceNewBlock explorer pId blk (C.sign sk (pId, blk))

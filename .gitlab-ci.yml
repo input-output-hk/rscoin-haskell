@@ -13,6 +13,8 @@ rscoin_test:
     - mkdir -p `pwd`/___restore
     - ln -s `pwd`/___restore /root/.stack
     - stack --no-terminal test rscoin
+    - stack --no-terminal test rscoin --test-arguments '--match "Test.RSCoin.Full" -a 3'
+    - stack --no-terminal test rscoin --test-arguments '--skip "Test.RSCoin.Full"'
 
 rscoin_bench:
   cache:

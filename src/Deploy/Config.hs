@@ -38,7 +38,7 @@ data MintetteData = MintetteData
     } deriving (Show)
 
 data ExplorerData = ExplorerData
-    { edSeverity :: !(Maybe Int)
+    { edSeverity :: !(Maybe Severity)
     -- , mdProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 

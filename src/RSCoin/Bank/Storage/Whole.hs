@@ -27,6 +27,8 @@ module RSCoin.Bank.Storage.Whole
        , addMintette
        , addExplorer
        , setExplorerPeriod
+       , suspendExplorer
+       , restoreExplorers
        , startNewPeriod
        ) where
 
@@ -187,6 +189,15 @@ addExplorer e expectedPid =
 setExplorerPeriod :: C.Explorer -> C.PeriodId -> Update ()
 setExplorerPeriod e expectedPid =
     explorersStorage %= execState (ES.setExplorerPeriod e expectedPid)
+
+-- | Temporarily delete explorer from storage until `restoreExplorers`
+-- is called.
+suspendExplorer :: C.Explorer -> Update ()
+suspendExplorer e = explorersStorage %= execState (ES.suspendExplorer e)
+
+-- | Restore all suspended explorers.
+restoreExplorers :: Update ()
+restoreExplorers = explorersStorage %= execState ES.restoreExplorers
 
 -- | When period finishes, Bank receives period results from
 -- mintettes, updates storage and starts new period with potentially

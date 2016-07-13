@@ -22,6 +22,8 @@ module RSCoin.Bank.AcidState
        , AddAddress (..)
        , AddExplorer (..)
        , SetExplorerPeriod (..)
+       , SuspendExplorer (..)
+       , RestoreExplorers (..)
        , StartNewPeriod (..)
        ) where
 
@@ -98,6 +100,12 @@ addExplorer = BS.addExplorer
 setExplorerPeriod :: Explorer -> PeriodId -> Update BS.Storage ()
 setExplorerPeriod = BS.setExplorerPeriod
 
+suspendExplorer :: Explorer -> Update BS.Storage ()
+suspendExplorer = BS.suspendExplorer
+
+restoreExplorers :: Update BS.Storage ()
+restoreExplorers = BS.restoreExplorers
+
 startNewPeriod
     :: SecretKey
     -> [Maybe PeriodResult]
@@ -118,5 +126,7 @@ $(makeAcidic ''BS.Storage
              , 'addAddress
              , 'addExplorer
              , 'setExplorerPeriod
+             , 'suspendExplorer
+             , 'restoreExplorers
              , 'startNewPeriod
              ])

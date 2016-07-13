@@ -15,10 +15,13 @@ module RSCoin.Bank.Storage.Explorers
        , Update
        , addExplorer
        , setExplorerPeriod
+       , suspendExplorer
+       , restoreExplorers
 
        ) where
 
-import           Control.Lens        (Getter, at, makeLenses, to, (.=))
+import           Control.Lens        (Getter, at, makeLenses, to, use, (.=),
+                                      (<>=))
 import           Control.Monad.State (State)
 import qualified Data.Map            as M
 import           Data.SafeCopy       (base, deriveSafeCopy)
@@ -30,7 +33,11 @@ data ExplorersStorage = ExplorersStorage
       -- | All explorers in storage. Explorer is associated with
       -- `PeriodId`. This is id of block which Explorer expects to
       -- receive.
-      _esExplorers :: M.Map C.Explorer C.PeriodId
+      _esExplorers          :: M.Map C.Explorer C.PeriodId
+    ,
+      -- | Some explorers may be suspended if something suspicious is
+      -- detected.
+      _esSuspendedExplorers :: M.Map C.Explorer C.PeriodId
     }
 
 $(makeLenses ''ExplorersStorage)
@@ -40,6 +47,7 @@ mkExplorersStorage :: ExplorersStorage
 mkExplorersStorage =
     ExplorersStorage
     { _esExplorers = M.empty
+    , _esSuspendedExplorers = M.empty
     }
 
 type Query a = Getter ExplorersStorage a
@@ -64,3 +72,17 @@ addExplorer e pId = esExplorers . at e .= Just pId
 -- doesn't exist.
 setExplorerPeriod :: C.Explorer -> C.PeriodId -> Update ()
 setExplorerPeriod = addExplorer
+
+-- | Temporarily delete explorer from storage until `restoreExplorers` is called.
+suspendExplorer :: C.Explorer -> Update ()
+suspendExplorer explorer = do
+    explorerData <- use $ esExplorers . at explorer
+    esExplorers . at explorer .= Nothing
+    esSuspendedExplorers . at explorer .= explorerData
+
+-- | Restore all suspended explorers.
+restoreExplorers :: Update ()
+restoreExplorers = do
+    suspended <- use esSuspendedExplorers
+    esExplorers <>= suspended
+    esSuspendedExplorers .= M.empty

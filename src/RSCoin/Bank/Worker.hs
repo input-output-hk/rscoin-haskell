@@ -34,8 +34,10 @@ import           RSCoin.Bank.AcidState    (AddAddress (..),
                                            GetExplorersAndPeriods (..),
                                            GetHBlock (..), GetHBlocks (..),
                                            GetMintettes (..), GetPeriodId (..),
+                                           RestoreExplorers (..),
                                            SetExplorerPeriod (..),
-                                           StartNewPeriod (..), State)
+                                           StartNewPeriod (..), State,
+                                           SuspendExplorer (..))
 import           RSCoin.Core              (defaultPeriodDelta,
                                            formatNewPeriodData,
                                            sendPeriodFinished)
@@ -113,6 +115,7 @@ onPeriodFinished sk st = do
 
     initializeMultisignatureAddresses
     announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsN
+    update' st RestoreExplorers
   where
     -- TODO: catch appropriate exception according to protocol implementation
     handlerAnnouncePeriodM (e :: SomeException) =
@@ -165,14 +168,17 @@ runExplorerWorker periodDelta mainIsBusy sk st =
     foreverSafe $
     do waitUntilPredicate (fmap not . liftIO $ readIORef mainIsBusy)
        blocksNumber <- query' st GetPeriodId
-       outdatedExplorers <-
-           filter ((/= blocksNumber) . snd) <$>
-           query' st GetExplorersAndPeriods
-       -- if all explorers are up-to-date, let's wait for this
-       -- interval, because most likely nothing will change
-       let interval :: Second = (convertUnit periodDelta) `div` 25
-       when (null outdatedExplorers) $ wait $ for interval sec
-       communicateWithExplorers sk st blocksNumber outdatedExplorers
+       explorersAndPeriods <- query' st GetExplorersAndPeriods
+       let outdated = filter ((/= blocksNumber) . snd) explorersAndPeriods
+           explorers = map fst explorersAndPeriods
+           -- if all explorers are up-to-date, let's wait for this
+           -- interval, because most likely nothing will change
+           interval :: Second = (convertUnit periodDelta) `div` 25
+       when (null outdated) $ wait (for interval sec)
+       failedExplorers <-
+           map fst . filter (not . snd) . zip explorers <$>
+           communicateWithExplorers sk st blocksNumber outdated
+       mapM_ (update' st . SuspendExplorer) failedExplorers
   where
     foreverSafe action = do
         action `catch` handler
@@ -188,39 +194,41 @@ runExplorerWorker periodDelta mainIsBusy sk st =
 
 communicateWithExplorers
     :: WorkMode m
-    => C.SecretKey -> State -> C.PeriodId -> [(C.Explorer, C.PeriodId)] -> m ()
+    => C.SecretKey -> State -> C.PeriodId -> [(C.Explorer, C.PeriodId)] -> m [Bool]
 communicateWithExplorers sk st blocksNumber =
-    mapM_ (communicateWithExplorer sk st blocksNumber) . sortOn (negate . snd)
+    mapM (communicateWithExplorer sk st blocksNumber) . sortOn (negate . snd)
 
 communicateWithExplorer
     :: WorkMode m
-    => C.SecretKey -> State -> C.PeriodId -> (C.Explorer, C.PeriodId) -> m ()
+    => C.SecretKey -> State -> C.PeriodId -> (C.Explorer, C.PeriodId) -> m Bool
 communicateWithExplorer sk st blocksNumber (explorer,expectedPeriod)
-  | blocksNumber == expectedPeriod = return ()
+  | blocksNumber == expectedPeriod = return True
   | expectedPeriod >= 0 && expectedPeriod < blocksNumber =
       sendBlockToExplorer sk st explorer expectedPeriod
   | otherwise =
-      logWarning $
-      sformat
-          (build % " expects block with strange PeriodId (" % int % ")")
-          explorer
-          expectedPeriod
+      False <$
+      (logWarning $
+       sformat
+           (build % " expects block with strange PeriodId (" % int % ")")
+           explorer
+           expectedPeriod)
 
 sendBlockToExplorer
     :: WorkMode m
-    => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m ()
+    => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m Bool
 sendBlockToExplorer sk st explorer pId = do
     blk <- fromMaybe reportFatalError <$> query' st (GetHBlock pId)
     let sendAndUpdate = do
             newExpectedPeriod <-
                 C.announceNewBlock explorer pId blk (C.sign sk (pId, blk))
             update' st $ SetExplorerPeriod explorer newExpectedPeriod
-    sendAndUpdate `catch` handler
+    (True <$ sendAndUpdate) `catch` handler
   where
     reportFatalError =
         error "[FATAL] GetHBlock returned Nothing in sendBlockToExplorer"
     -- TODO: catch appropriate exception according to protocol implementation
     handler (e :: SomeException) =
-        logWarning .
-        sformat ("Error occurred in communicating with explorer: " % build) $
-        e
+        False <$
+        (logWarning .
+         sformat ("Error occurred in communicating with explorer: " % build) $
+         e)

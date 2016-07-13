@@ -9,13 +9,13 @@ module Test.RSCoin.Full.Initialization
        ) where
 
 import           Control.Concurrent.MVar    (MVar, newEmptyMVar, tryPutMVar)
-import           Control.Concurrent.STM     (newTVarIO)
 import           Control.Exception          (assert)
 import           Control.Lens               (view, (^.))
 import           Control.Monad              (replicateM)
 import           Control.Monad.Reader       (runReaderT)
 import           Control.Monad.Trans        (MonadIO (liftIO))
 import           Data.Acid.Advanced         (update')
+import           Data.IORef                 (newIORef)
 import           Data.List                  (genericLength)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromMaybe)
@@ -98,7 +98,7 @@ runBank
     => MVar () -> BankInfo -> m ()
 runBank v b = do
     myTId <- myThreadId
-    mainIsBusy <- liftIO $ newTVarIO False
+    mainIsBusy <- liftIO $ newIORef False
     -- TODO: this code is a modified version of launchBank. Invent
     -- smth to share code
     workWhileMVarEmpty v $

@@ -11,15 +11,14 @@ module RSCoin.Bank.Worker
        ) where
 
 
-import           Control.Concurrent.STM   (TVar, atomically, readTVarIO,
-                                           writeTVar)
 import           Control.Monad            (forM_, when)
 import           Control.Monad.Catch      (SomeException, bracket_, catch)
 import           Control.Monad.Extra      (unlessM)
 import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
-import           Data.IORef               (modifyIORef, newIORef, readIORef)
+import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
+                                           newIORef, readIORef)
 import           Data.List                (sortOn)
 import           Data.Maybe               (fromMaybe)
 import           Data.Monoid              ((<>))
@@ -54,24 +53,26 @@ logError = C.logError C.bankLoggerName
 
 -- | Start worker which runs appropriate action when a period
 -- finishes. Default period length is used.
-runWorker :: WorkMode m => TVar Bool -> C.SecretKey -> State -> m ()
+runWorker
+    :: WorkMode m
+    => IORef Bool -> C.SecretKey -> State -> m ()
 runWorker = runWorkerWithPeriod defaultPeriodDelta
 
 -- | Start worker with provided period. Generalization of 'runWorker'.
--- TVar is used as synchornization primitive between this worker
+-- IORef is used as synchornization primitive between this worker
 -- and another worker (which communicates with explorers).
 -- Its value is True is empty iff this worker is doing something now.
 runWorkerWithPeriod
     :: (TimeUnit t, WorkMode m)
-    => t -> TVar Bool -> C.SecretKey -> State -> m ()
+    => t -> IORef Bool -> C.SecretKey -> State -> m ()
 runWorkerWithPeriod periodDelta mainIsBusy sk st = do
     repeatForever (tu periodDelta) handler worker
   where
     worker = do
         let br =
                 bracket_
-                    (liftIO . atomically $ writeTVar mainIsBusy True)
-                    (liftIO . atomically $ writeTVar mainIsBusy False)
+                    (liftIO $ atomicWriteIORef mainIsBusy True)
+                    (liftIO $ atomicWriteIORef mainIsBusy False)
         t <- br $ measureTime_ $ onPeriodFinished sk st
         logInfo $ sformat ("Finishing period took " % build) t
     handler e = do
@@ -159,10 +160,10 @@ getPeriodResults mts pId = do
 -- | Start worker which sends data to explorers.
 runExplorerWorker
     :: (TimeUnit t, WorkMode m)
-    => t -> TVar Bool -> C.SecretKey -> State -> m ()
+    => t -> IORef Bool -> C.SecretKey -> State -> m ()
 runExplorerWorker periodDelta mainIsBusy sk st =
     foreverSafe $
-    do waitUntilPredicate (fmap not . liftIO $ readTVarIO mainIsBusy)
+    do waitUntilPredicate (fmap not . liftIO $ readIORef mainIsBusy)
        blocksNumber <- query' st GetPeriodId
        outdatedExplorers <-
            filter ((/= blocksNumber) . snd) <$>

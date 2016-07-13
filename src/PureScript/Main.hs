@@ -1,10 +1,9 @@
--- import qualified RSCoin.Core.Primitives     as P
--- import qualified RSCoin.Explorer.WebTypes   as T
 import           Data.Proxy                 (Proxy (..))
 import           Language.PureScript.Bridge (BridgePart, buildBridge,
                                              defaultBridge, mkSumType, typeName,
                                              writePSTypes, (<|>), (^==))
-import           RSCoin.Explorer.WebTypes   (ServerError)
+import qualified RSCoin.Core.Primitives     as P
+import qualified RSCoin.Explorer.WebTypes   as T
 
 import           PSTypes                    (psPublicKey)
 
@@ -14,8 +13,9 @@ main =
     writePSTypes
         "block-explorer/websocket-example/src"
         (buildBridge customBridge)
-        [ mkSumType (Proxy :: Proxy ServerError)
-        -- mkSumType (Proxy :: Proxy P.Address)
+        [ mkSumType (Proxy :: Proxy T.ServerError)
+        , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
+        , mkSumType (Proxy :: Proxy P.Address)
         -- , mkSumType (Proxy :: Proxy P.Coin)
         -- , mkSumType (Proxy :: Proxy P.Color)
         -- , mkSumType (Proxy :: Proxy P.TransactionId)

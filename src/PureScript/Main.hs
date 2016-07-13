@@ -1,11 +1,13 @@
-import           Data.Proxy                 (Proxy (..))
-import           Language.PureScript.Bridge (BridgePart, buildBridge,
-                                             defaultBridge, mkSumType, typeName,
-                                             writePSTypes, (<|>), (^==))
-import qualified RSCoin.Core.Primitives     as P
-import qualified RSCoin.Explorer.WebTypes   as T
+import           Data.Proxy                         (Proxy (..))
+import           Language.PureScript.Bridge         (BridgePart, buildBridge,
+                                                     defaultBridge, mkSumType,
+                                                     typeName, writePSTypes,
+                                                     (<|>), (^==))
+import           Language.PureScript.Bridge.PSTypes (psInt)
+import qualified RSCoin.Core.Primitives             as P
+import qualified RSCoin.Explorer.WebTypes           as T
 
-import           PSTypes                    (psPublicKey)
+import           PSTypes                            (psPublicKey)
 
 main :: IO ()
 main =
@@ -15,19 +17,21 @@ main =
         (buildBridge customBridge)
         [ mkSumType (Proxy :: Proxy T.ServerError)
         , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
-        , mkSumType (Proxy :: Proxy P.Address)
-        -- , mkSumType (Proxy :: Proxy P.Coin)
-        -- , mkSumType (Proxy :: Proxy P.Color)
-        -- , mkSumType (Proxy :: Proxy P.TransactionId)
-        -- , mkSumType (Proxy :: Proxy P.AddrId)
-        -- , mkSumType (Proxy :: Proxy P.Transaction)
-        -- , mkSumType (Proxy :: Proxy T.ServerError)
-        -- , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
-        -- , mkSumType (Proxy :: Proxy T.AddressInfoMsg)
-        -- , mkSumType (Proxy :: Proxy T.OutcomingMsg)
-        ]
+        , mkSumType (Proxy :: Proxy T.AddressInfoMsg)
+        , mkSumType (Proxy :: Proxy P.Address)]
   where
-    customBridge = defaultBridge <|> publicKeyBridge
+    -- , mkSumType (Proxy :: Proxy P.Coin)
+    -- , mkSumType (Proxy :: Proxy P.Color)
+    -- , mkSumType (Proxy :: Proxy P.TransactionId)
+    -- , mkSumType (Proxy :: Proxy P.AddrId)
+    -- , mkSumType (Proxy :: Proxy P.Transaction)
+    -- , mkSumType (Proxy :: Proxy T.ServerError)
+    -- , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
+    -- , mkSumType (Proxy :: Proxy T.OutcomingMsg)
+    customBridge = defaultBridge <|> publicKeyBridge <|> wordBridge
 
 publicKeyBridge :: BridgePart
 publicKeyBridge = typeName ^== "PublicKey" >> return psPublicKey
+
+wordBridge :: BridgePart
+wordBridge = typeName ^== "Word" >> return psInt

@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Hash-related functions and types.
@@ -26,14 +25,13 @@ import           Data.String                (IsString)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
-import           GHC.Generics               (Generic)
 
 import           Serokell.Util              (show')
 
 -- | Hash is just a ByteString.
 newtype Hash =
     Hash { getHash :: ByteString }
-    deriving (Eq, Show, Binary, Ord, Hashable, MessagePack, IsString, Generic)
+    deriving (Eq, Show, Binary, Ord, Hashable, MessagePack, IsString)
 
 $(deriveSafeCopy 0 'base ''Hash)
 

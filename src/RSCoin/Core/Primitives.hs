@@ -42,7 +42,7 @@ grey = 0
 data Coin = Coin
     { getColor :: Color
     , getCoin  :: Rational
-    } deriving (Show,Eq,Ord,Generic)
+    } deriving (Show, Eq, Ord, Generic)
 
 reportError :: String -> Coin -> Coin -> a
 reportError s c1 c2 =

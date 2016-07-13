@@ -7,7 +7,8 @@ import           Language.PureScript.Bridge.PSTypes (psInt)
 import qualified RSCoin.Core.Primitives             as P
 import qualified RSCoin.Explorer.WebTypes           as T
 
-import           PSTypes                            (psPublicKey)
+import           PSTypes                            (psCoinsMap, psHash,
+                                                     psPublicKey, psRational)
 
 main :: IO ()
 main =
@@ -18,20 +19,28 @@ main =
         [ mkSumType (Proxy :: Proxy T.ServerError)
         , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
         , mkSumType (Proxy :: Proxy T.AddressInfoMsg)
+        , mkSumType (Proxy :: Proxy T.OutcomingMsg)
+        , mkSumType (Proxy :: Proxy P.Coin)
+        , mkSumType (Proxy :: Proxy P.Transaction)
         , mkSumType (Proxy :: Proxy P.Address)]
   where
-    -- , mkSumType (Proxy :: Proxy P.Coin)
-    -- , mkSumType (Proxy :: Proxy P.Color)
-    -- , mkSumType (Proxy :: Proxy P.TransactionId)
-    -- , mkSumType (Proxy :: Proxy P.AddrId)
-    -- , mkSumType (Proxy :: Proxy P.Transaction)
     -- , mkSumType (Proxy :: Proxy T.ServerError)
     -- , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
-    -- , mkSumType (Proxy :: Proxy T.OutcomingMsg)
-    customBridge = defaultBridge <|> publicKeyBridge <|> wordBridge
+    customBridge =
+        defaultBridge <|> publicKeyBridge <|> wordBridge <|> hashBridge <|>
+        rationalBridge <|> coinsMapBridge
 
 publicKeyBridge :: BridgePart
 publicKeyBridge = typeName ^== "PublicKey" >> return psPublicKey
 
 wordBridge :: BridgePart
 wordBridge = typeName ^== "Word" >> return psInt
+
+hashBridge :: BridgePart
+hashBridge = typeName ^== "Hash" >> return psHash
+
+rationalBridge :: BridgePart
+rationalBridge = typeName ^== "Ratio" >> return psRational
+
+coinsMapBridge :: BridgePart
+coinsMapBridge = typeName ^== "SerializableCoinsMap" >> return psCoinsMap

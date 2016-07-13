@@ -180,6 +180,8 @@ allocateMSAddress msAddr parties m (partyAddr@(Address partyPK), partySig) chain
             when (resultParties /= parties || m /= resM) $
                 throwM $ NEInvalidArguments "result stratey is not equal to yours"
             allocationPool %= M.insert msAddr (strategy, S.insert partyAddr currentParties)
+        Just (DefaultStrategy, _) ->
+            error "There is a DefaultStrategy in allocationPool"
 
 queryAllMSAdresses :: Query Storage [(Address, (Strategy, Set Address))]
 queryAllMSAdresses = view $ allocationPool . to M.assocs

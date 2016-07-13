@@ -22,4 +22,5 @@ import           RSCoin.Core.Primitives        as Exports
 import           RSCoin.Core.Protocol          as Exports
 import           RSCoin.Core.Strategy          as Exports
 import           RSCoin.Core.Transaction       as Exports
+import           RSCoin.Core.Trusted           as Exports
 import           RSCoin.Core.Types             as Exports

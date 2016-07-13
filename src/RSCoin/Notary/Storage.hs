@@ -35,9 +35,9 @@ import           Data.Set            (Set)
 import qualified Data.Set            as S hiding (Set)
 
 import           RSCoin.Core         (AddrId, Address (..),
-                                      AddressToStrategyMap, HBlock (..),
+                                      AddressToTxStrategyMap, HBlock (..),
                                       PeriodId, PublicKey, Signature,
-                                      Strategy (..), Transaction (..), Utxo,
+                                      Transaction (..), TxStrategy (..), Utxo,
                                       chainRootPKs, computeOutputAddrids,
                                       isStrategyCompleted,
                                       notaryMSAttemptsLimit, validateSignature,
@@ -58,13 +58,13 @@ data Storage = Storage
       -- | Mapping from newly allocated multisignature address to pair of sets of
       -- parties. First element is resulted party, second - is current. This Map is
       -- used only during multisignature address allocation process.
-    , _allocationPool :: Map Address (Strategy, Set Address)
+    , _allocationPool :: Map Address (TxStrategy, Set Address)
 
       -- | Number of attempts for user per period to allocate multisig address.
     , _periodStats    :: Map Address Int
 
       -- | Non-default addresses, registered in system (published to bank).
-    , _addresses      :: AddressToStrategyMap
+    , _addresses      :: AddressToTxStrategyMap
 
       -- | Mapping between addrid and address.
     , _utxo           :: Utxo
@@ -98,7 +98,7 @@ ifNotEmpty :: Foldable t => t a -> Maybe (t a)
 ifNotEmpty s | F.null s  = Nothing
              | otherwise = Just s
 
-getStrategy :: Address -> Update Storage Strategy
+getStrategy :: Address -> Update Storage TxStrategy
 getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> use addresses
 
 instance MonadThrow (Update s) where
@@ -183,10 +183,10 @@ allocateMSAddress msAddr parties m (partyAddr@(Address partyPK), partySig) chain
         Just (DefaultStrategy, _) ->
             error "There is a DefaultStrategy in allocationPool"
 
-queryAllMSAdresses :: Query Storage [(Address, (Strategy, Set Address))]
+queryAllMSAdresses :: Query Storage [(Address, (TxStrategy, Set Address))]
 queryAllMSAdresses = view $ allocationPool . to M.assocs
 
-queryCompleteMSAdresses :: Query Storage [(Address, Strategy)]
+queryCompleteMSAdresses :: Query Storage [(Address, TxStrategy)]
 queryCompleteMSAdresses =
     view
     $ allocationPool

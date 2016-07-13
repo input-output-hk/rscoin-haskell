@@ -84,7 +84,7 @@ getOwnedAddrIds :: C.Address -> A.Query WalletStorage [C.AddrId]
 getTransactions :: C.Address -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
 getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
-getAddressStrategy :: C.Address -> A.Query WalletStorage (Maybe C.Strategy)
+getAddressStrategy :: C.Address -> A.Query WalletStorage (Maybe C.TxStrategy)
 resolveAddressLocally :: C.AddrId -> A.Query WalletStorage (Maybe C.Address)
 
 isInitialized = W.isInitialized

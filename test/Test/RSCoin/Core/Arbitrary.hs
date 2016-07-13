@@ -47,7 +47,7 @@ instance Arbitrary C.CheckConfirmation where
 instance Arbitrary C.Signature where
     arbitrary = C.sign <$> arbitrary <*> (arbitrary :: Gen String)
 
-instance Arbitrary C.Strategy where
+instance Arbitrary C.TxStrategy where
     arbitrary = oneof [ pure C.DefaultStrategy
                       , uncurry C.MOfNStrategy <$> gen']
       where gen' = do ls <- arbitrary

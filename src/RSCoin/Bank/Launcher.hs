@@ -18,9 +18,9 @@ import           Data.Acid.Advanced    (update')
 import           Data.IORef            (newIORef)
 import           Data.Time.Units       (TimeUnit)
 
-import           RSCoin.Core           (Address, Explorer, Mintette, PeriodId,
-                                        PublicKey, SecretKey, Strategy,
-                                        defaultLayout')
+
+import           RSCoin.Core           (Address, Explorer, Mintette, PeriodId, PublicKey,
+                                        SecretKey, TxStrategy, defaultLayout')
 import           RSCoin.Timed          (MsgPackRpc, PlatformLayout, WorkMode,
                                         fork, fork_, killThread, runRealMode)
 
@@ -55,17 +55,15 @@ launchBank periodDelta sk st = do
     fork_ $ runExplorerWorker periodDelta mainIsBusy sk st
     serve st workerThread restartWorker
 
+addAddressIO :: FilePath -> Address -> TxStrategy -> IO ()
+addAddressIO storagePath a s =
+    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $ flip update' (AddAddress a s)
+
 -- | Add mintette to Bank inside IO Monad.
 addMintetteIO :: FilePath -> Mintette -> PublicKey -> IO ()
 addMintetteIO storagePath m k =
     bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $
     flip update' (AddMintette m k)
-
--- | Add address to Bank inside IO Monad.
-addAddressIO :: FilePath -> Address -> Strategy -> IO ()
-addAddressIO storagePath a s =
-    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $
-    flip update' (AddAddress a s)
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerIO :: FilePath -> Explorer -> PeriodId -> IO ()

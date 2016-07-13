@@ -65,14 +65,13 @@ import qualified RSCoin.Core.Logging        as L
 import           RSCoin.Core.Primitives     (AddrId, Address, Transaction,
                                              TransactionId)
 import qualified RSCoin.Core.Protocol       as P
-import           RSCoin.Core.Types          (ActionLog, AddressToStrategyMap,
-                                             CheckConfirmation,
-                                             CheckConfirmations,
-                                             CommitAcknowledgment,
-                                             Explorer (..), HBlock, LBlock,
-                                             Mintette, MintetteId, Mintettes,
+import           RSCoin.Core.Strategy       (AddressToTxStrategyMap, TxStrategy)
+import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
+                                             CheckConfirmations, CommitAcknowledgment,
+                                             Explorer (..), HBlock,
+                                             LBlock, Mintette, MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
-                                             PeriodResult, Strategy, Utxo)
+                                             PeriodResult, Utxo)
 import           RSCoin.Mintette.Error      (MintetteError (MEInactive))
 import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
                                              WorkMode)
@@ -278,7 +277,7 @@ allocateMultisignatureAddress msAddr parties m sigPair chain = do
         chain
     callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr parties m sigPair chain
 
-queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, Strategy)]
+queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, TxStrategy)]
 queryNotaryCompleteMSAddresses = do
     logInfo "Querying Notary complete MS addresses"
     callNotary $ P.call $ P.RSCNotary P.QueryCompleteMS
@@ -334,7 +333,7 @@ getBlocks from to =
             format' "Got higher-level blocks between {} {}: {}"
             (from, to, listBuilderJSONIndent 2 res)
 
-getAddresses :: WorkMode m => m AddressToStrategyMap
+getAddresses :: WorkMode m => m AddressToTxStrategyMap
 getAddresses =
     withResult
         (logDebug "Getting list of addresses")

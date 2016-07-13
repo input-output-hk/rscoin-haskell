@@ -33,11 +33,10 @@ import           RSCoin.Core.Logging           (logInfo, logWarning,
                                                 userLoggerName)
 import           RSCoin.Core.Primitives        (AddrId, Address,
                                                 Transaction (..))
-import           RSCoin.Core.Strategy          (isStrategyCompleted)
+import           RSCoin.Core.Strategy          (TxStrategy (..), isStrategyCompleted)
 import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitAcknowledgment (..), Mintette,
-                                                MintetteId, PeriodId,
-                                                Strategy (..))
+                                                MintetteId, PeriodId)
 import           RSCoin.Mintette.Error         (MintetteError)
 import           RSCoin.Timed                  (WorkMode)
 import           RSCoin.Timed.MonadTimed       (sec, timeout)
@@ -52,13 +51,13 @@ import           Serokell.Util.Text            (format', formatSingle',
 -- | SignatureBundle is a datatype that represents signatures needed
 -- to prove that address owners are OK with transaction spending money
 -- from that address
-type SignatureBundle = M.Map AddrId (Address, Strategy, [(Address,Signature)])
+type SignatureBundle = M.Map AddrId (Address, TxStrategy, [(Address,Signature)])
 
 -- | This type represents for each unique address in the given transaction:
 -- * Strategy of working on that address
 -- * Addrids that spend money from that address in tx
 -- * User's permission to spend money from address
-type AddressSignInfo = (Strategy, [AddrId], (Address,Signature))
+type AddressSignInfo = (TxStrategy, [AddrId], (Address,Signature))
 
 joinBundles
     :: (a, b, [(Address, Signature)])
@@ -116,7 +115,7 @@ getExtraSignatures tx requests time = do
     -- and addr `addr` and sigs are not ready
     perform :: WorkMode m
             => Address
-            -> m (Either Address (Bool, (Address, [(Address,Signature)])))
+            -> m (Either Address (Bool, (Address, [(Address, Signature)])))
     perform addr = do
         let returnRight b s = return $ Right (b,(addr,s))
             strategy = getStrategy addr
@@ -146,7 +145,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
     (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
     commitBundle bundle
   where
-    checkStrategy :: (Address, Strategy, [(Address, Signature)]) -> Bool
+    checkStrategy :: (Address, TxStrategy, [(Address, Signature)]) -> Bool
     checkStrategy (addr,str,sgns) = isStrategyCompleted str addr sgns tx
     processInput
         :: WorkMode m

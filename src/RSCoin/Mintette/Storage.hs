@@ -57,10 +57,10 @@ import           Data.Tuple.Select          (sel1)
 import           Safe                       (atMay, headMay)
 
 import           RSCoin.Core                (ActionLog, ActionLogHeads,
-                                             AddressToStrategyMap, HBlock (..),
+                                             AddressToTxStrategyMap, HBlock (..),
                                              Hash, LBlock, MintetteId,
                                              Mintettes, PeriodId, Pset,
-                                             SecretKey, Strategy (..), Utxo,
+                                             SecretKey, TxStrategy (..), Utxo,
                                              computeOutputAddrids,
                                              derivePublicKey, hbTransactions,
                                              isOwner, isStrategyCompleted,
@@ -71,25 +71,25 @@ import qualified RSCoin.Core                as C
 import           RSCoin.Mintette.Error      (MintetteError (..))
 
 data Storage = Storage
-    { _utxo          :: Utxo                 -- ^ Unspent transaction outputs
-    , _utxoDeleted   :: Utxo                 -- ^ Entries, deleted from utxo
-    , _utxoAdded     :: Utxo                 -- ^ Entries, added to utxo
-    , _pset          :: Pset                 -- ^ Set of checked transactions
-    , _txset         :: S.Set C.Transaction  -- ^ List of transaction sealing into ledger
-    , _lBlocks       :: [[LBlock]]           -- ^ Blocks are stored per period
-    , _actionLogs    :: [ActionLog]          -- ^ Logs are stored per period
-    , _logSize       :: Int                  -- ^ Total size of actionLogs
-    , _mintettes     :: Mintettes            -- ^ Mintettes for current period
-    , _mintetteId    :: Maybe MintetteId     -- ^ Id for current period
-    , _invMintetteId :: Maybe MintetteId     -- ^ Invariant for mintetteId
-    , _dpk           :: C.Dpk                -- ^ DPK for current period
-    , _logHeads      :: ActionLogHeads       -- ^ All known heads of logs
-    , _lastBankHash  :: Maybe Hash           -- ^ Hash of the last HBlock
-    , _addresses     :: AddressToStrategyMap -- ^ Complete list of system's addresses
-                                             -- accompanied with their strategies.
-                                             -- Should be up-to-date with
-                                             -- Bank::Storage::_addresses (updates are
-                                             -- propagated via HBlocks)
+    { _utxo          :: Utxo                    -- ^ Unspent transaction outputs
+    , _utxoDeleted   :: Utxo                    -- ^ Entries, deleted from utxo
+    , _utxoAdded     :: Utxo                    -- ^ Entries, added to utxo
+    , _pset          :: Pset                    -- ^ Set of checked transactions
+    , _txset         :: S.Set C.Transaction     -- ^ List of transaction sealing into ledger
+    , _lBlocks       :: [[LBlock]]              -- ^ Blocks are stored per period
+    , _actionLogs    :: [ActionLog]             -- ^ Logs are stored per period
+    , _logSize       :: Int                     -- ^ Total size of actionLogs
+    , _mintettes     :: Mintettes               -- ^ Mintettes for current period
+    , _mintetteId    :: Maybe MintetteId        -- ^ Id for current period
+    , _invMintetteId :: Maybe MintetteId        -- ^ Invariant for mintetteId
+    , _dpk           :: C.Dpk                   -- ^ DPK for current period
+    , _logHeads      :: ActionLogHeads          -- ^ All known heads of logs
+    , _lastBankHash  :: Maybe Hash              -- ^ Hash of the last HBlock
+    , _addresses     :: AddressToTxStrategyMap  -- ^ Complete list of system's addresses
+                                                -- accompanied with their strategies.
+                                                -- Should be up-to-date with
+                                                -- Bank::Storage::_addresses (updates are
+                                                -- propagated via HBlocks)
     }
 
 $(makeLenses ''Storage)
@@ -338,7 +338,7 @@ startPeriod C.NewPeriodData{..} = do
 -- correct checks are made here, so the server should make his best.
 -- It also doesn't set the mintetteId field, only invMintetteId, so
 -- startPeriod should be called after.
-onMintetteIdChanged :: MintetteId -> Utxo -> AddressToStrategyMap -> Update ()
+onMintetteIdChanged :: MintetteId -> Utxo -> AddressToTxStrategyMap -> Update ()
 onMintetteIdChanged newMid newUtxo newAddrs  = do
     utxoDeleted .= M.empty
     utxoAdded .= M.empty

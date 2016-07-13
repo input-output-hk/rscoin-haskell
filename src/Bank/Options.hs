@@ -15,14 +15,14 @@ import           Options.Applicative    (Parser, auto, command, execParser,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), Strategy,
+import           RSCoin.Core            (Severity (Error), TxStrategy,
                                          defaultPeriodDelta,
                                          defaultSecretKeyPath)
 
 data Command
     = Serve FilePath
     | AddMintette String Int T.Text
-    | AddAddress (Maybe T.Text) Strategy
+    | AddAddress (Maybe T.Text) TxStrategy
     | AddExplorer String Int T.Text Int
 
 data Options = Options

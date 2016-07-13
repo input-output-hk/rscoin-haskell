@@ -66,7 +66,7 @@ processCommand st O.ListAddresses _ =
     do res <- updateBlockchain st False
        unless res $ C.logInfo C.userLoggerName "Successfully updated blockchain."
        addresses <- query' st U.GetOwnedAddresses
-       (wallets :: [(C.PublicKey, C.Strategy, [C.Coin])]) <-
+       (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin])]) <-
            mapM (\addr -> do
                       coins <- C.coinsToList <$> getAmountNoUpdate st addr
                       strategy <- query' st $ U.GetAddressStrategy addr
@@ -81,7 +81,7 @@ processCommand st O.ListAddresses _ =
               mapM_ formatAddressEntry $ ([(1 :: Integer) ..] `zip` wallets)
   where
     spaces = "                                                   "
-    formatAddressEntry :: (Integer, (C.PublicKey, C.Strategy, [C.Coin])) -> IO ()
+    formatAddressEntry :: (Integer, (C.PublicKey, C.TxStrategy, [C.Coin])) -> IO ()
     formatAddressEntry (i, (key, strategy, coins)) = do
        TIO.putStr $ format' "{}.  {} : " (i, key)
        when (null coins) $ putStrLn "empty"

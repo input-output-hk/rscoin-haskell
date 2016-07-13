@@ -24,9 +24,6 @@ module RSCoin.Core.Constants
        , shardDelta
        , rpcTimeout
        , bankSecretKey
-       , attainPublicKey
-       , attainSecretKey
-       , chainRootPKs
        , notaryMSAttemptsLimit
        ) where
 
@@ -44,8 +41,7 @@ import           System.FilePath            ((</>))
 import qualified RSCoin.Core.CompileConfig  as CC
 import           RSCoin.Core.Crypto         (Hash, PublicKey, SecretKey,
                                              constructPublicKey,
-                                             constructSecretKey,
-                                             deterministicKeyGen, hash)
+                                             constructSecretKey, hash)
 import           RSCoin.Core.Primitives     (Address (Address), Coin (..))
 import           RSCoin.Timed.MonadRpc      (Host, PlatformLayout (..), Port)
 
@@ -81,7 +77,7 @@ defaultLayout = PlatformLayout
 defaultLayout' :: Host -> PlatformLayout
 defaultLayout' bankHost
     = let PlatformLayout (_, bPort) sAddr = defaultLayout
-       in PlatformLayout (bankHost, bPort) sAddr
+      in PlatformLayout (bankHost, bPort) sAddr
 
 bankPort :: Port
 bankPort = snd $ getBankAddr defaultLayout
@@ -138,24 +134,6 @@ rpcTimeout = $(lift $ CC.rscRpcTimeout CC.rscoinConfig)
 bankSecretKey :: SecretKey
 bankSecretKey =
     constructSecretKey $ $(makeRelativeToProject "rscoin-key" >>= embedFile)
-
--- | Attain public key pair. It's needed for multisignature address allocation.
-attainKeyPair :: (PublicKey, SecretKey)
-attainKeyPair =
-    fromMaybe (error "Invalid Attain address seed")
-    $ deterministicKeyGen "attain-service-public-addressgen"
-
--- | Known public key of attain
-attainPublicKey :: PublicKey
-attainPublicKey = fst attainKeyPair
-
--- @TODO Move it in proper place so nobody can know about it
-attainSecretKey :: SecretKey
-attainSecretKey = snd attainKeyPair
-
--- | Built-in know root public keys.
-chainRootPKs :: [PublicKey]
-chainRootPKs = [attainPublicKey]
 
 -- @TODO move to Notary config
 notaryMSAttemptsLimit :: Int

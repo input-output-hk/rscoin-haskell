@@ -26,8 +26,6 @@ module RSCoin.Core.Types
        , HBlock (..)
        , NewPeriodData (..)
        , formatNewPeriodData
-       , Strategy (..)
-       , AddressToStrategyMap
        ) where
 
 import           Control.Arrow          (first)
@@ -35,7 +33,6 @@ import           Data.Binary            (Binary (get, put), Get, Put)
 import qualified Data.Map               as M
 import           Data.Maybe             (fromJust, isJust)
 import           Data.SafeCopy          (base, deriveSafeCopy)
-import qualified Data.Set               as S
 import           Data.Text.Buildable    (Buildable (build))
 import qualified Data.Text.Format       as F
 import           Data.Text.Lazy.Builder (Builder)
@@ -48,6 +45,7 @@ import           Serokell.Util.Text     (listBuilderJSON, listBuilderJSONIndent,
 
 import           RSCoin.Core.Crypto     (Hash, PublicKey, Signature)
 import           RSCoin.Core.Primitives (AddrId, Address, Transaction)
+import           RSCoin.Core.Strategy   (AddressToTxStrategyMap)
 
 -- | Periods are indexed by sequence of numbers starting from 0.
 type PeriodId = Int
@@ -246,41 +244,6 @@ instance Buildable LBlock where
                 , "}\n"
                 ]
 
--- | Strategy of confirming transactions.
--- Other strategies are possible, like "getting m out of n, but
--- addresses [A,B,C] must sign". Primitive concept is using M/N.
-data Strategy
-    = DefaultStrategy                  -- ^ Strategy of "1 signature per addrid"
-    | MOfNStrategy Int (S.Set Address) -- ^ Strategy for getting `m` signatures
-                                       -- out of `length list`, where every signature
-                                       -- should be made by address in list `list`
-    deriving (Read, Show, Eq)
-
-$(deriveSafeCopy 0 'base ''Strategy)
-
-instance Binary Strategy where
-    put DefaultStrategy          = put (0 :: Int, ())
-    put (MOfNStrategy m parties) = put (1 :: Int, (m, parties))
-
-    get = do
-        (i, payload) <- get
-        pure $ case (i :: Int) of
-            0 -> DefaultStrategy
-            1 -> uncurry MOfNStrategy payload
-            _ -> error "unknow binary strategy"
-
-instance Buildable Strategy where
-    build DefaultStrategy = F.build "DefaultStrategy" ()
-    build (MOfNStrategy m addrs) = F.build template (m, listBuilderJSON addrs)
-      where
-        template =
-            mconcat
-                [ "Strategy {\n"
-                , "  m: {}\n"
-                , "  addresses: {}\n"
-                , "}\n"
-                ]
-
 
 -- | PeriodResult is sent by mintette to bank when period finishes.
 type PeriodResult = (PeriodId, [LBlock], ActionLog)
@@ -298,8 +261,6 @@ type Utxo = M.Map AddrId Address
 -- for the given period.
 type Pset = M.Map AddrId Transaction
 
-type AddressToStrategyMap = M.Map Address Strategy
-
 instance Buildable Dpk where
     build = listBuilderJSON . map pairBuilder
 
@@ -311,7 +272,7 @@ data HBlock = HBlock
     , hbTransactions :: ![Transaction]
     , hbSignature    :: !Signature
     , hbDpk          :: !Dpk
-    , hbAddresses    :: !AddressToStrategyMap
+    , hbAddresses    :: !AddressToTxStrategyMap
     } deriving (Show, Eq)
 
 $(deriveSafeCopy 0 'base ''HBlock)
@@ -347,7 +308,7 @@ instance Buildable HBlock where
 instance Buildable [HBlock] where
   build = listBuilderJSON
 
-type NewMintetteIdPayload = (MintetteId, Utxo, AddressToStrategyMap)
+type NewMintetteIdPayload = (MintetteId, Utxo, AddressToTxStrategyMap)
 
 -- | Data sent by server on new period start. If mintette id changes,
 -- bank *must* include npdNewIdPayload.
@@ -381,7 +342,7 @@ instance Buildable [(Address, Signature)] where
 instance Buildable [NewPeriodData] where
     build = listBuilderJSONIndent 2
 
-instance Buildable AddressToStrategyMap where
+instance Buildable AddressToTxStrategyMap where
     build = mapBuilder . M.assocs
 
 instance Buildable NewMintetteIdPayload where

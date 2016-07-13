@@ -14,6 +14,7 @@ import           Data.Tuple.Select      (sel3)
 import qualified Data.Set               as S
 import           RSCoin.Core.Crypto     ()
 import qualified RSCoin.Core.Primitives as C
+import qualified RSCoin.Core.Strategy   as C
 import qualified RSCoin.Core.Types      as C
 
 toInt :: Integral a => a -> Int
@@ -109,15 +110,27 @@ instance MessagePack C.HBlock where
         toObject (hbHash, hbTransactions, hbSignature, hbDpk, hbAddresses)
     fromObject = fmap (uncurry5 C.HBlock) . fromObject
 
-instance MessagePack C.Strategy where
-    toObject C.DefaultStrategy = toObj (0, ())
+instance MessagePack C.TxStrategy where
+    toObject C.DefaultStrategy        = toObj (0, ())
     toObject (C.MOfNStrategy m addrs) = toObj (1, (m, addrs))
+
     fromObject obj = do
-      (i, args) <- fromObject obj
-      case (i :: Int) of
-        0 -> pure C.DefaultStrategy
-        1 -> uncurry2 C.MOfNStrategy <$> fromObject args
-        _ -> Nothing
+        (i, args) <- fromObject obj
+        case (i :: Int) of
+            0 -> pure C.DefaultStrategy
+            1 -> uncurry2 C.MOfNStrategy <$> fromObject args
+            _ -> Nothing
+
+instance MessagePack C.AllocationStrategy where
+    toObject C.SharedStrategy         = toObj (0, ())
+    toObject (C.UserStrategy m addrs) = toObj (1, (m, addrs))
+
+    fromObject obj = do
+        (i, args) <- fromObject obj
+        case (i :: Int) of
+            0 -> pure C.SharedStrategy
+            1 -> uncurry2 C.UserStrategy <$> fromObject args
+            _ -> Nothing
 
 instance (Ord e, MessagePack e) => MessagePack (S.Set e) where
     toObject = toObject . S.toList

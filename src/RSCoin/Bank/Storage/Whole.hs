@@ -96,10 +96,10 @@ data Storage = Storage
 
       -- | Known addresses accompanied with their strategies. Note that every address with
       -- non-default strategy should be stored here in order to participate in transaction.
-    , _addresses        :: C.AddressToStrategyMap
+    , _addresses        :: C.AddressToTxStrategyMap
 
       -- | Pending addresses to publish within next HBlock.
-    , _pendingAddresses :: C.AddressToStrategyMap
+    , _pendingAddresses :: C.AddressToTxStrategyMap
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
@@ -121,7 +121,7 @@ mkStorage =
 
 type Query a = Getter Storage a
 
-getAddresses :: Query C.AddressToStrategyMap
+getAddresses :: Query C.AddressToTxStrategyMap
 getAddresses = addresses
 
 getAddressFromUtxo :: AddrId -> Query (Maybe Address)
@@ -169,7 +169,7 @@ type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
 -- | Add given address to storage and associate given strategy with it.
 -- @TODO: Mind behaviour when address is being added more than once per period
-addAddress :: Address -> C.Strategy -> Update ()
+addAddress :: Address -> C.TxStrategy -> Update ()
 addAddress addr strategy = do
     curAddresses <- use addresses
     unless (addr `MP.member` curAddresses) $ pendingAddresses %= MP.insert addr strategy
@@ -260,7 +260,7 @@ startNewPeriodDo sk pId results = do
 
 startNewPeriodFinally :: SecretKey
                       -> [(MintetteId, PeriodResult)]
-                      -> (C.AddressToStrategyMap -> SecretKey -> Dpk -> HBlock)
+                      -> (C.AddressToTxStrategyMap -> SecretKey -> Dpk -> HBlock)
                       -> ExceptUpdate [MintetteId]
 startNewPeriodFinally sk goodMintettes newBlockCtor = do
     periodId += 1
@@ -273,7 +273,7 @@ startNewPeriodFinally sk goodMintettes newBlockCtor = do
         map' (hbTransactions newBlock))
     return updateIds
 
-updateAddresses :: Update C.AddressToStrategyMap
+updateAddresses :: Update C.AddressToTxStrategyMap
 updateAddresses = do
     oldKnown <- use addresses
     pending <- use pendingAddresses

@@ -103,7 +103,7 @@ data WalletStorage = WalletStorage
       -- | History of all transactions being made (incomes + outcomes)
     , _historyTxs     :: S.Set TxHistoryRecord
       -- | Map from addresses to strategies that we own
-    , _addrStrategies :: M.Map Address C.Strategy
+    , _addrStrategies :: M.Map Address C.TxStrategy
     } deriving (Show)
 
 $(L.makeLenses ''WalletStorage)
@@ -241,7 +241,7 @@ getLastBlockId = checkInitR $ L.views lastBlockId fromJust
 getTxsHistory :: ExceptQuery [TxHistoryRecord]
 getTxsHistory = L.views historyTxs S.toList
 
-getAddressStrategy :: Address -> ExceptQuery (Maybe C.Strategy)
+getAddressStrategy :: Address -> ExceptQuery (Maybe C.TxStrategy)
 getAddressStrategy addr = checkInitR $ L.views addrStrategies $ M.lookup addr
 
 resolveAddressLocally :: AddrId -> ExceptQuery (Maybe Address)

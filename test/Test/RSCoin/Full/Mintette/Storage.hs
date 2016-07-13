@@ -25,7 +25,7 @@ import           Safe                             (atMay)
 
 import           RSCoin.Core                      (AddrId,
                                                    PeriodId, SecretKey,
-                                                   Signature, Strategy (..),
+                                                   Signature, TxStrategy (..),
                                                    Transaction (..),
                                                    computeOutputAddrids,
                                                    derivePublicKey,

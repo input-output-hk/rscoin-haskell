@@ -151,7 +151,7 @@ handleGetSignatures st tx addr = toServer $ do
 handleQueryCompleteMS
     :: WorkMode m
     => RSCoinNotaryState
-    -> ServerT m [(C.Address, C.Strategy)]
+    -> ServerT m [(C.Address, C.TxStrategy)]
 handleQueryCompleteMS st = toServer $ do
     res <- query' st QueryCompleteMSAdresses
     logDebug $ sformat ("Getting complete MS: " % shown) res

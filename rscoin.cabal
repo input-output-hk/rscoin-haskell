@@ -36,6 +36,7 @@ library
                      , RSCoin.Core.Primitives
                      , RSCoin.Core.Strategy
                      , RSCoin.Core.Transaction
+                     , RSCoin.Core.Trusted
                      , RSCoin.Core.Types
                      , RSCoin.Explorer
                      , RSCoin.Explorer.Error

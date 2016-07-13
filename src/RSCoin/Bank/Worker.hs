@@ -12,9 +12,9 @@ module RSCoin.Bank.Worker
 
 
 import           Control.Concurrent.MVar  (MVar, putMVar, takeMVar)
-import           Control.Exception        (SomeException)
 import           Control.Monad            (forM_, when)
-import           Control.Monad.Catch      (bracket_, catch)
+import           Control.Monad.Catch      (SomeException, bracket_, catch,
+                                           finally)
 import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
@@ -161,8 +161,7 @@ runExplorerWorker
     => t -> MVar () -> C.SecretKey -> State -> m ()
 runExplorerWorker periodDelta semaphore sk st =
     foreverSafe $
-    do liftIO $ takeMVar semaphore
-       liftIO $ putMVar semaphore ()
+    do liftIO $ (takeMVar semaphore `finally` putMVar semaphore ())
        blocksNumber <- query' st GetPeriodId
        outdatedExplorers <-
            filter ((/= blocksNumber) . snd) <$>

@@ -11,10 +11,11 @@ module RSCoin.Bank.Worker
        ) where
 
 
-import           Control.Concurrent.MVar  (MVar, readMVar, takeMVar, tryPutMVar)
+import           Control.Concurrent.STM   (TVar, atomically, readTVarIO,
+                                           writeTVar)
 import           Control.Monad            (forM_, when)
-import           Control.Monad.Catch      (SomeException, bracket_, catch,
-                                           finally)
+import           Control.Monad.Catch      (SomeException, bracket_, catch)
+import           Control.Monad.Extra      (unlessM)
 import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
@@ -40,7 +41,7 @@ import           RSCoin.Core              (defaultPeriodDelta,
                                            formatNewPeriodData,
                                            sendPeriodFinished)
 import qualified RSCoin.Core              as C
-import           RSCoin.Timed             (Second, WorkMode, for, minute,
+import           RSCoin.Timed             (Second, WorkMode, for, minute, ms,
                                            repeatForever, sec, tu, wait)
 
 logDebug, logInfo, logWarning, logError
@@ -53,24 +54,24 @@ logError = C.logError C.bankLoggerName
 
 -- | Start worker which runs appropriate action when a period
 -- finishes. Default period length is used.
-runWorker :: WorkMode m => MVar () -> C.SecretKey -> State -> m ()
+runWorker :: WorkMode m => TVar Bool -> C.SecretKey -> State -> m ()
 runWorker = runWorkerWithPeriod defaultPeriodDelta
 
 -- | Start worker with provided period. Generalization of 'runWorker'.
--- Semaphore is used as synchornization primitive between this worker
+-- TVar is used as synchornization primitive between this worker
 -- and another worker (which communicates with explorers).
--- Semaphore is empty iff this worker is doing something now.
+-- Its value is True is empty iff this worker is doing something now.
 runWorkerWithPeriod
     :: (TimeUnit t, WorkMode m)
-    => t -> MVar () -> C.SecretKey -> State -> m ()
-runWorkerWithPeriod periodDelta semaphore sk st = do
+    => t -> TVar Bool -> C.SecretKey -> State -> m ()
+runWorkerWithPeriod periodDelta mainIsBusy sk st = do
     repeatForever (tu periodDelta) handler worker
   where
     worker = do
         let br =
                 bracket_
-                    (liftIO $ takeMVar semaphore)
-                    (liftIO $ tryPutMVar semaphore ())
+                    (liftIO . atomically $ writeTVar mainIsBusy True)
+                    (liftIO . atomically $ writeTVar mainIsBusy False)
         t <- br $ measureTime_ $ onPeriodFinished sk st
         logInfo $ sformat ("Finishing period took " % build) t
     handler e = do
@@ -158,10 +159,10 @@ getPeriodResults mts pId = do
 -- | Start worker which sends data to explorers.
 runExplorerWorker
     :: (TimeUnit t, WorkMode m)
-    => t -> MVar () -> C.SecretKey -> State -> m ()
-runExplorerWorker periodDelta semaphore sk st =
+    => t -> TVar Bool -> C.SecretKey -> State -> m ()
+runExplorerWorker periodDelta mainIsBusy sk st =
     foreverSafe $
-    do liftIO $ readMVar semaphore
+    do waitUntilPredicate (fmap not . liftIO $ readTVarIO mainIsBusy)
        blocksNumber <- query' st GetPeriodId
        outdatedExplorers <-
            filter ((/= blocksNumber) . snd) <$>
@@ -178,6 +179,11 @@ runExplorerWorker periodDelta semaphore sk st =
     handler (e :: SomeException) = do
         logError $ sformat ("Error occurred inside ExplorerWorker: " % build) e
         wait $ for 10 sec
+    shortWait = wait $ for 10 ms
+    -- It would be much more elegant to use MVar here, but it's not
+    -- supported by WorkMode
+    waitUntilPredicate predicate =
+        unlessM predicate $ shortWait >> waitUntilPredicate predicate
 
 communicateWithExplorers
     :: WorkMode m

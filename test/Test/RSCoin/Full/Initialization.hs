@@ -8,8 +8,8 @@ module Test.RSCoin.Full.Initialization
        , bankUserAddressesCount, userAddressesCount
        ) where
 
-import           Control.Concurrent.MVar    (MVar, newEmptyMVar, newMVar,
-                                             tryPutMVar)
+import           Control.Concurrent.MVar    (MVar, newEmptyMVar, tryPutMVar)
+import           Control.Concurrent.STM     (newTVarIO)
 import           Control.Exception          (assert)
 import           Control.Lens               (view, (^.))
 import           Control.Monad              (replicateM)
@@ -98,17 +98,17 @@ runBank
     => MVar () -> BankInfo -> m ()
 runBank v b = do
     myTId <- myThreadId
-    semaphore <- liftIO $ newMVar ()
+    mainIsBusy <- liftIO $ newTVarIO False
     -- TODO: this code is a modified version of launchBank. Invent
     -- smth to share code
     workWhileMVarEmpty v $
         B.runWorkerWithPeriod
             periodDelta
-            semaphore
+            mainIsBusy
             (b ^. secretKey)
             (b ^. state)
     workWhileMVarEmpty v $
-        B.runExplorerWorker periodDelta semaphore (b ^. secretKey) (b ^. state)
+        B.runExplorerWorker periodDelta mainIsBusy (b ^. secretKey) (b ^. state)
     workWhileMVarEmpty v $ B.serve (b ^. state) myTId pure  -- FIXME: close state `finally`
 
 runMintettes

@@ -11,7 +11,7 @@ module RSCoin.Bank.Worker
        ) where
 
 
-import           Control.Concurrent.MVar  (MVar, putMVar, takeMVar)
+import           Control.Concurrent.MVar  (MVar, readMVar, takeMVar, tryPutMVar)
 import           Control.Monad            (forM_, when)
 import           Control.Monad.Catch      (SomeException, bracket_, catch,
                                            finally)
@@ -70,7 +70,7 @@ runWorkerWithPeriod periodDelta semaphore sk st = do
         let br =
                 bracket_
                     (liftIO $ takeMVar semaphore)
-                    (liftIO $ putMVar semaphore ())
+                    (liftIO $ tryPutMVar semaphore ())
         t <- br $ measureTime_ $ onPeriodFinished sk st
         logInfo $ sformat ("Finishing period took " % build) t
     handler e = do
@@ -161,7 +161,7 @@ runExplorerWorker
     => t -> MVar () -> C.SecretKey -> State -> m ()
 runExplorerWorker periodDelta semaphore sk st =
     foreverSafe $
-    do liftIO $ (takeMVar semaphore `finally` putMVar semaphore ())
+    do liftIO $ readMVar semaphore
        blocksNumber <- query' st GetPeriodId
        outdatedExplorers <-
            filter ((/= blocksNumber) . snd) <$>

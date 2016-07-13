@@ -295,10 +295,9 @@ announceNewPeriod mintette npd = do
         npd
     callMintette mintette $ P.call (P.RSCMintette P.AnnounceNewPeriod) npd
 
--- TODO: sign here and check
 announceNewBlock
     :: WorkMode m
-    => Explorer -> PeriodId -> HBlock -> Signature -> m (PeriodId, Signature)
+    => Explorer -> PeriodId -> HBlock -> Signature -> m PeriodId
 announceNewBlock explorer pId blk signature =
     withResult infoMessage successMessage $
     P.callExplorer explorer $
@@ -310,7 +309,7 @@ announceNewBlock explorer pId blk signature =
             ("Announcing new (" % int % "-th) block to " % F.build)
             pId
             explorer
-    successMessage (respPeriod,_) =
+    successMessage respPeriod =
         logDebug $
         sformat
             ("Received periodId " % int % " from explorer " % F.build)

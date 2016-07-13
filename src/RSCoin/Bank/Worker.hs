@@ -172,5 +172,4 @@ sendBlockToExplorer
     => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m C.PeriodId
 sendBlockToExplorer sk st explorer pId = do
     blk <- fromJust <$> query' st (GetHBlock pId)
-    -- TODO: check sig!
-    fst <$> C.announceNewBlock explorer pId blk (C.sign sk (pId, blk))
+    C.announceNewBlock explorer pId blk (C.sign sk (pId, blk))

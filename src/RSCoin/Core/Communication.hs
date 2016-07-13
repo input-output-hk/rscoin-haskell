@@ -66,9 +66,11 @@ import           RSCoin.Core.Primitives     (AddrId, Address, Transaction,
                                              TransactionId)
 import qualified RSCoin.Core.Protocol       as P
 import           RSCoin.Core.Types          (ActionLog, AddressToStrategyMap,
-                                             CheckConfirmation, CheckConfirmations,
-                                             CommitAcknowledgment, Explorer (..), HBlock,
-                                             LBlock, Mintette, MintetteId, Mintettes,
+                                             CheckConfirmation,
+                                             CheckConfirmations,
+                                             CommitAcknowledgment,
+                                             Explorer (..), HBlock, LBlock,
+                                             Mintette, MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Strategy, Utxo)
 import           RSCoin.Mintette.Error      (MintetteError (MEInactive))
@@ -239,9 +241,13 @@ sendPeriodFinished mintette pId =
 
 announceNewPeriodsToNotary :: WorkMode m => PeriodId -> [HBlock] -> m ()
 announceNewPeriodsToNotary pId' hblocks = do
-    logInfo $ sformat ("Announce new periods to Notary, hblocks " % F.build % ", latest periodId " % int)
-        hblocks
-        pId'
+    logInfo $
+        sformat
+            ("Announce new periods to Notary, hblocks " % F.build %
+             ", latest periodId " %
+             int)
+            hblocks
+            pId'
     callNotary $ P.call (P.RSCNotary P.AnnounceNewPeriodsToNotary) pId' hblocks
 
 getNotaryPeriod :: WorkMode m => m PeriodId

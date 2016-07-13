@@ -17,6 +17,7 @@ data ExplorerError
     = EEPeriodMismatch { pmExpectedPeriod :: PeriodId
                        , pmReceivedPeriod :: PeriodId}
     | EEInternalError Text
+    | EEInvalidBankSignature
     deriving (Show,Typeable)
 
 instance Exception ExplorerError where
@@ -30,3 +31,4 @@ instance Buildable ExplorerError where
             pmExpectedPeriod
             pmReceivedPeriod
     build (EEInternalError msg) = bprint ("internal error: " % stext) msg
+    build EEInvalidBankSignature = "signature given by bank is not valid"

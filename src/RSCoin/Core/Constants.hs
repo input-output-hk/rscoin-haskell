@@ -16,6 +16,7 @@ module RSCoin.Core.Constants
        , defaultPeriodDelta
        , epochDelta
        , emissionHash
+       , bankPublicKey
        , genesisAddress
        , genesisValue
        , periodReward
@@ -31,7 +32,7 @@ module RSCoin.Core.Constants
 
 import           Data.Binary                (Binary)
 import           Data.FileEmbed             (embedFile, makeRelativeToProject)
-import           Data.Maybe                 (fromJust, fromMaybe)
+import           Data.Maybe                 (fromMaybe)
 import           Data.String                (IsString)
 import           Data.Time.Units            (Second)
 
@@ -99,12 +100,14 @@ emissionHash a =
     hash ("This emission hash is needed for all generative" ++
           "transactions to be different" :: String, a)
 
+bankPublicKey :: PublicKey
+bankPublicKey =
+    fromMaybe (error "[FATAL] Failed to parse Bank's public key") $
+    constructPublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
+
 -- | Special address used as output in genesis transaction
 genesisAddress :: Address
-genesisAddress =
-    Address $
-    fromJust $
-    constructPublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
+genesisAddress = Address bankPublicKey
 
 -- | This value is sent to genesisAddress in genesis transaction
 genesisValue :: Coin

@@ -5,7 +5,9 @@ module RSCoin.Explorer.Server
        ) where
 
 
-import           Control.Monad.Trans       (MonadIO)
+import           Control.Exception         (throwIO)
+import           Control.Monad             (unless)
+import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid.Advanced        (query', update')
 import           Data.Text                 (Text)
 import           Formatting                (int, sformat, (%))
@@ -18,6 +20,7 @@ import           RSCoin.Explorer.AcidState (AddHBlock (..),
                                             GetLastPeriodId (..), State)
 import           RSCoin.Explorer.Channel   (Channel, ChannelItem (..),
                                             writeChannel)
+import           RSCoin.Explorer.Error     (ExplorerError (EEInvalidBankSignature))
 
 logInfo, logDebug
     :: MonadIO m
@@ -42,10 +45,10 @@ handleNewHBlock
     -> C.HBlock
     -> C.Signature
     -> ServerT m C.PeriodId
-handleNewHBlock ch st newBlockId newBlock _ = do
-    -- TODO: check sig
-    logInfo $
-        sformat ("Received new block #" % int) newBlockId
+handleNewHBlock ch st newBlockId newBlock sig = do
+    logInfo $ sformat ("Received new block #" % int) newBlockId
+    unless (C.verify C.bankPublicKey sig (newBlockId, newBlock)) $
+        liftIO $ throwIO EEInvalidBankSignature
     expectedPid <- maybe 0 succ <$> query' st GetLastPeriodId
     let ret p = do
             logDebug $ sformat ("Now expected block is #" % int) p

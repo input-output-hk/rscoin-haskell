@@ -7,22 +7,24 @@
 module RSCoin.Bank.Worker
        ( runWorker
        , runWorkerWithPeriod
+       , runExplorerWorker
        ) where
 
 
+import           Control.Concurrent.MVar  (MVar, putMVar, takeMVar)
 import           Control.Exception        (SomeException)
 import           Control.Monad            (forM_)
-import           Control.Monad.Catch      (catch)
+import           Control.Monad.Catch      (bracket_, catch)
 import           Control.Monad.Trans      (MonadIO (liftIO))
-
 import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (modifyIORef, newIORef, readIORef)
-import           Data.Maybe               (fromJust)
+import           Data.List                (sortOn)
+import           Data.Maybe               (fromMaybe)
 import           Data.Monoid              ((<>))
 import           Data.Text                (Text)
 import           Data.Time.Units          (TimeUnit)
-import           Formatting               (build, sformat, (%))
+import           Formatting               (build, int, sformat, (%))
 
 import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
@@ -38,31 +40,39 @@ import           RSCoin.Core              (defaultPeriodDelta,
                                            formatNewPeriodData,
                                            sendPeriodFinished)
 import qualified RSCoin.Core              as C
-import           RSCoin.Timed             (WorkMode, minute, repeatForever, tu)
+import           RSCoin.Timed             (WorkMode, for, minute, repeatForever,
+                                           sec, tu, wait)
 
-logDebug :: MonadIO m => Text -> m ()
+logDebug, logInfo, logWarning, logError
+    :: MonadIO m
+    => Text -> m ()
 logDebug = C.logDebug C.bankLoggerName
-
-logInfo :: MonadIO m => Text -> m ()
 logInfo = C.logInfo C.bankLoggerName
-
-logWarning :: MonadIO m => Text -> m ()
 logWarning = C.logWarning C.bankLoggerName
-
-logError :: MonadIO m => Text -> m ()
 logError = C.logError C.bankLoggerName
 
 -- | Start worker which runs appropriate action when a period
 -- finishes. Default period length is used.
-runWorker :: WorkMode m => C.SecretKey -> State -> m ()
+runWorker :: WorkMode m => MVar () -> C.SecretKey -> State -> m ()
 runWorker = runWorkerWithPeriod defaultPeriodDelta
 
 -- | Start worker with provided period. Generalization of 'runWorker'.
-runWorkerWithPeriod :: (TimeUnit t, WorkMode m) => t -> C.SecretKey -> State -> m ()
-runWorkerWithPeriod periodDelta sk st = repeatForever (tu periodDelta) handler $ do
-    t <- measureTime_ $ onPeriodFinished sk st
-    logInfo $ sformat ("Finishing period took " % build) t
+-- Semaphore is used as synchornization primitive between this worker
+-- and another worker (which communicates with explorers).
+-- Semaphore is empty iff this worker is doing something now.
+runWorkerWithPeriod
+    :: (TimeUnit t, WorkMode m)
+    => t -> MVar () -> C.SecretKey -> State -> m ()
+runWorkerWithPeriod periodDelta semaphore sk st = do
+    repeatForever (tu periodDelta) handler worker
   where
+    worker = do
+        let br =
+                bracket_
+                    (liftIO $ takeMVar semaphore)
+                    (liftIO $ putMVar semaphore ())
+        t <- br $ measureTime_ $ onPeriodFinished sk st
+        logInfo $ sformat ("Finishing period took " % build) t
     handler e = do
         logError $
             formatSingle'
@@ -99,16 +109,15 @@ onPeriodFinished sk st = do
                     "Announced new period, sent these newPeriodData's:\n{}"
                     newPeriodData
 
-    communicateWithExplorers sk st =<< query' st GetExplorersAndPeriods
     initializeMultisignatureAddresses
-    announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsS
+    announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsN
   where
-    -- TODO: catch appropriate exception according to protocol
-    -- implementation (here and below)
+    -- TODO: catch appropriate exception according to protocol implementation
     handlerAnnouncePeriodM (e :: SomeException) =
         logWarning $
         formatSingle' "Error occurred in communicating with mintette: {}" e
-    handlerAnnouncePeriodsS (e :: SomeException) =
+    -- TODO: catch appropriate exception according to protocol implementation
+    handlerAnnouncePeriodsN (e :: SomeException) =
         logWarning $
         formatSingle' "Error occurred in communicating with Notary: {}" e
     initializeMultisignatureAddresses = do
@@ -146,30 +155,57 @@ getPeriodResults mts pId = do
                    e
            modifyIORef res (Nothing :)
 
--- TODO: this communication must be more smart to prevent bank from
--- spending too much time on communication with particular
--- explorer. And there are more things to improve. For instance, error
--- handling.
+-- | Start worker which sends data to explorers.
+runExplorerWorker
+    :: WorkMode m
+    => MVar () -> C.SecretKey -> State -> m ()
+runExplorerWorker semaphore sk st =
+    foreverSafe $
+    do liftIO $ takeMVar semaphore
+       liftIO $ putMVar semaphore ()
+       communicateWithExplorers sk st =<< query' st GetExplorersAndPeriods
+  where
+    foreverSafe action = do
+        action `catch` handler
+        foreverSafe action
+    handler (e :: SomeException) = do
+        logError $ sformat ("Error occurred inside ExplorerWorker: " % build) e
+        wait $ for 10 sec
+
 communicateWithExplorers
     :: WorkMode m
     => C.SecretKey -> State -> [(C.Explorer, C.PeriodId)] -> m ()
-communicateWithExplorers sk st = mapM_ (communicateWithExplorer sk st)
+communicateWithExplorers sk st =
+    mapM_ (communicateWithExplorer sk st) . sortOn (negate . snd)
 
 communicateWithExplorer
     :: WorkMode m
     => C.SecretKey -> State -> (C.Explorer, C.PeriodId) -> m ()
 communicateWithExplorer sk st (explorer,expectedPeriod) = do
     latest <- pred <$> query' st GetPeriodId
-    newExpectedPeriod <-
-        last <$>
-        mapM
-            (sendBlockToExplorer sk st explorer)
-            [max 0 expectedPeriod .. latest]
-    update' st $ SetExplorerPeriod explorer newExpectedPeriod
+    if expectedPeriod >= 0 && expectedPeriod <= latest
+        then sendBlockToExplorer sk st explorer expectedPeriod
+        else logWarning $
+             sformat
+                 (build % " expects block with strange PeriodId (" % int % ")")
+                 explorer
+                 expectedPeriod
 
 sendBlockToExplorer
     :: WorkMode m
-    => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m C.PeriodId
+    => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m ()
 sendBlockToExplorer sk st explorer pId = do
-    blk <- fromJust <$> query' st (GetHBlock pId)
-    C.announceNewBlock explorer pId blk (C.sign sk (pId, blk))
+    blk <- fromMaybe reportFatalError <$> query' st (GetHBlock pId)
+    let sendAndUpdate = do
+            newExpectedPeriod <-
+                C.announceNewBlock explorer pId blk (C.sign sk (pId, blk))
+            update' st $ SetExplorerPeriod explorer newExpectedPeriod
+    sendAndUpdate `catch` handler
+  where
+    reportFatalError =
+        error "[FATAL] GetHBlock returned Nothing in sendBlockToExplorer"
+    -- TODO: catch appropriate exception according to protocol implementation
+    handler (e :: SomeException) =
+        logWarning .
+        sformat ("Error occurred in communicating with explorer: " % build) $
+        e

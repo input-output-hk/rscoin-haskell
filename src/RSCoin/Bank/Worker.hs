@@ -13,7 +13,7 @@ module RSCoin.Bank.Worker
 
 import           Control.Concurrent.MVar  (MVar, putMVar, takeMVar)
 import           Control.Exception        (SomeException)
-import           Control.Monad            (forM_)
+import           Control.Monad            (forM_, when)
 import           Control.Monad.Catch      (bracket_, catch)
 import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Data.Acid                (createCheckpoint)
@@ -23,7 +23,7 @@ import           Data.List                (sortOn)
 import           Data.Maybe               (fromMaybe)
 import           Data.Monoid              ((<>))
 import           Data.Text                (Text)
-import           Data.Time.Units          (TimeUnit)
+import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
 
 import           Serokell.Util.Bench      (measureTime_)
@@ -40,8 +40,8 @@ import           RSCoin.Core              (defaultPeriodDelta,
                                            formatNewPeriodData,
                                            sendPeriodFinished)
 import qualified RSCoin.Core              as C
-import           RSCoin.Timed             (WorkMode, for, minute, repeatForever,
-                                           sec, tu, wait)
+import           RSCoin.Timed             (Second, WorkMode, for, minute,
+                                           repeatForever, sec, tu, wait)
 
 logDebug, logInfo, logWarning, logError
     :: MonadIO m
@@ -157,15 +157,21 @@ getPeriodResults mts pId = do
 
 -- | Start worker which sends data to explorers.
 runExplorerWorker
-    :: WorkMode m
-    => MVar () -> C.SecretKey -> State -> m ()
-runExplorerWorker semaphore sk st =
+    :: (TimeUnit t, WorkMode m)
+    => t -> MVar () -> C.SecretKey -> State -> m ()
+runExplorerWorker periodDelta semaphore sk st =
     foreverSafe $
     do liftIO $ takeMVar semaphore
        liftIO $ putMVar semaphore ()
        blocksNumber <- query' st GetPeriodId
-       communicateWithExplorers sk st blocksNumber =<<
+       outdatedExplorers <-
+           filter ((/= blocksNumber) . snd) <$>
            query' st GetExplorersAndPeriods
+       -- if all explorers are up-to-date, let's wait for this
+       -- interval, because most likely nothing will change
+       let interval :: Second = (convertUnit periodDelta) `div` 25
+       when (null outdatedExplorers) $ wait $ for interval sec
+       communicateWithExplorers sk st blocksNumber outdatedExplorers
   where
     foreverSafe action = do
         action `catch` handler
@@ -178,8 +184,7 @@ communicateWithExplorers
     :: WorkMode m
     => C.SecretKey -> State -> C.PeriodId -> [(C.Explorer, C.PeriodId)] -> m ()
 communicateWithExplorers sk st blocksNumber =
-    mapM_ (communicateWithExplorer sk st blocksNumber) .
-    sortOn (negate . snd) . filter ((/= blocksNumber) . snd)
+    mapM_ (communicateWithExplorer sk st blocksNumber) . sortOn (negate . snd)
 
 communicateWithExplorer
     :: WorkMode m

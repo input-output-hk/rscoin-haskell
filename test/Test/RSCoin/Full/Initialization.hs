@@ -100,7 +100,7 @@ runBank v b = do
     workWhileMVarEmpty v $
         B.runWorkerWithPeriod periodDelta (b ^. secretKey) (b ^. state)
     workWhileMVarEmpty v $
-        B.runExplorerWorker (b ^. secretKey) (b ^. state)
+        B.runExplorerWorker periodDelta (b ^. secretKey) (b ^. state)
     workWhileMVarEmpty v $ B.serve (b ^. state) myTId pure  -- FIXME: close state `finally`
 
 runMintettes

@@ -53,7 +53,7 @@ launchBank periodDelta sk st = do
     let startWorker = runWorkerWithPeriod periodDelta semaphore sk st
         restartWorker tId = killThread tId >> fork startWorker
     workerThread <- fork startWorker
-    fork_ $ runExplorerWorker semaphore sk st
+    fork_ $ runExplorerWorker periodDelta semaphore sk st
     serve st workerThread restartWorker
 
 -- | Add mintette to Bank inside IO Monad.

@@ -163,7 +163,9 @@ runExplorerWorker semaphore sk st =
     foreverSafe $
     do liftIO $ takeMVar semaphore
        liftIO $ putMVar semaphore ()
-       communicateWithExplorers sk st =<< query' st GetExplorersAndPeriods
+       blocksNumber <- query' st GetPeriodId
+       communicateWithExplorers sk st blocksNumber =<<
+           query' st GetExplorersAndPeriods
   where
     foreverSafe action = do
         action `catch` handler
@@ -174,22 +176,24 @@ runExplorerWorker semaphore sk st =
 
 communicateWithExplorers
     :: WorkMode m
-    => C.SecretKey -> State -> [(C.Explorer, C.PeriodId)] -> m ()
-communicateWithExplorers sk st =
-    mapM_ (communicateWithExplorer sk st) . sortOn (negate . snd)
+    => C.SecretKey -> State -> C.PeriodId -> [(C.Explorer, C.PeriodId)] -> m ()
+communicateWithExplorers sk st blocksNumber =
+    mapM_ (communicateWithExplorer sk st blocksNumber) .
+    sortOn (negate . snd) . filter ((/= blocksNumber) . snd)
 
 communicateWithExplorer
     :: WorkMode m
-    => C.SecretKey -> State -> (C.Explorer, C.PeriodId) -> m ()
-communicateWithExplorer sk st (explorer,expectedPeriod) = do
-    latest <- pred <$> query' st GetPeriodId
-    if expectedPeriod >= 0 && expectedPeriod <= latest
-        then sendBlockToExplorer sk st explorer expectedPeriod
-        else logWarning $
-             sformat
-                 (build % " expects block with strange PeriodId (" % int % ")")
-                 explorer
-                 expectedPeriod
+    => C.SecretKey -> State -> C.PeriodId -> (C.Explorer, C.PeriodId) -> m ()
+communicateWithExplorer sk st blocksNumber (explorer,expectedPeriod)
+  | blocksNumber == expectedPeriod = return ()
+  | expectedPeriod >= 0 && expectedPeriod < blocksNumber =
+      sendBlockToExplorer sk st explorer expectedPeriod
+  | otherwise =
+      logWarning $
+      sformat
+          (build % " expects block with strange PeriodId (" % int % ")")
+          explorer
+          expectedPeriod
 
 sendBlockToExplorer
     :: WorkMode m

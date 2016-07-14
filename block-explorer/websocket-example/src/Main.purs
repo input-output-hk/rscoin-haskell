@@ -25,8 +25,9 @@ main = do
 
     log <<< runURL =<< get socket.url
 
-    log "onopen: Sending 'hello'"
-    socket.send <<< Message <<< printJson <<< encodeJson <<< T.IMAddressInfo $ T.Address { getAddress: T.PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM=" }
+    let json = printJson <<< encodeJson <<< T.IMAddressInfo $ T.Address { getAddress: T.PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM=" }
+    log $ "onopen: Sending json: " <> json
+    socket.send $ Message json
 
 
   socket.onmessage $= \event -> do

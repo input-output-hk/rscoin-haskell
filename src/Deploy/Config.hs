@@ -49,7 +49,7 @@ data ExplorerData = ExplorerData
     -- , mdProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 
-$(A.deriveJSON leaveTagOptions  ''Severity)
+$(A.deriveJSON leaveTagOptions ''Severity)
 $(A.deriveJSON defaultOptions ''DeployConfig)
 $(A.deriveJSON defaultOptions ''BankData)
 $(A.deriveJSON defaultOptions ''MintetteData)

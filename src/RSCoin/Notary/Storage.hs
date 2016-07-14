@@ -31,6 +31,7 @@ import qualified Data.Foldable       as F
 import           Data.Map.Strict     (Map)
 import qualified Data.Map.Strict     as M hiding (Map)
 import           Data.Maybe          (fromJust, fromMaybe, isJust)
+import           Data.SafeCopy       (base, deriveSafeCopy)
 import           Data.Set            (Set)
 import qualified Data.Set            as S hiding (Set)
 
@@ -47,6 +48,19 @@ import           RSCoin.Core.Strategy (AddressToTxStrategyMap, AllocationParty (
 import           RSCoin.Core.Trusted  (bankColdPublic, chainRootPKs)
 import           RSCoin.Notary.Error (NotaryError (..))
 
+
+-- | Stores meta information for MS allocation by 'UserStrategy'.
+data UserMetaAllocation = UMA
+    { reqSig         :: Int
+    , allParties     :: Set Address
+    , currentParties :: Set Address
+    } deriving (Show)
+
+$(deriveSafeCopy 0 'base ''UserMetaAllocation)
+
+-- | Stores meta information for MS allocation by 'SharedStrategy'.
+type SharedMetaAllocation = Map AllocationParty Address
+
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
       _txPool         :: Map Address (Map Transaction (Map Address Signature))
@@ -58,13 +72,12 @@ data Storage = Storage
       -- | Mapping between address and a set of unspent addrids, owned by it.
     , _unspentAddrIds :: Map Address (Set AddrId)
 
-      -- | Mapping from newly allocated multisignature address to pair of sets of
-      -- parties. First element is resulted party, second - is current. This Map is
+      -- | Mapping from newly allocated multisignature address. This Map is
       -- used only during multisignature address allocation process for 'UserStrategy'.
-    , _userStrategyPool :: Map Address (TxStrategy, Set Address)
+    , _userStrategyPool :: Map Address UserMetaAllocation
 
       -- | Same as '_userStrategyPool' but this Map is used for 'SharedStrategy'.
-    , _sharedStrategyPool :: Map AllocationParty Address
+    , _sharedStrategyPool :: Map Address SharedMetaAllocation
 
       -- | Number of attempts for user per period to allocate multisig address.
     , _periodStats    :: Map Address Int
@@ -186,15 +199,21 @@ allocateMSAddress msAddr allocStrat (partyAddr@(Address partyPK), partySig) chai
             case mMSAddressSets of
                 Nothing ->
                     -- !!! WARNING !!! EASY OutOfMemory HERE!
-                    userStrategyPool %= M.insert msAddr (MOfNStrategy m parties, S.singleton partyAddr)
-                Just (strategy@(MOfNStrategy resM resultParties), currentParties) -> do
-                    when (partyAddr `S.notMember` resultParties) $
+                    userStrategyPool %= M.insert
+                        msAddr
+                        UMA { reqSig         = m
+                            , allParties     = parties
+                            , currentParties = S.singleton partyAddr }
+
+                Just uinfo@UMA{..} -> do
+                    when (partyAddr `S.notMember` allParties) $
                         throwM $ NEInvalidArguments "party set exists, but you is not a member!"
-                    when (resultParties /= parties || m /= resM) $
+                    when (allParties /= parties || m /= reqSig) $
                         throwM $ NEInvalidArguments "result stratey is not equal to yours"
-                    userStrategyPool %= M.insert msAddr (strategy, S.insert partyAddr currentParties)
-                Just (DefaultStrategy, _) ->
-                    error "There is a DefaultStrategy in userStrategyPool"
+
+                    userStrategyPool %= M.insert
+                        msAddr
+                        uinfo { currentParties = S.insert partyAddr currentParties }
 
         -- MS address allocation with User and Trusted party
         SharedStrategy tParty -> do
@@ -206,22 +225,19 @@ allocateMSAddress msAddr allocStrat (partyAddr@(Address partyPK), partySig) chai
                         throwM $ NEUnrelatedSignature "shared-strategy not signed by User pk"
                     guardMaxAttemps partyAddr
 
-            sharedStrategyPool %= M.insert tParty partyAddr
+            sharedStrategyPool %= M.insertWith M.union msAddr (M.singleton tParty partyAddr)
 
 
-queryAllMSAdresses :: Query Storage [(Address, (TxStrategy, Set Address))]
+queryAllMSAdresses :: Query Storage [(Address, UserMetaAllocation)]
 queryAllMSAdresses = view $ userStrategyPool . to M.assocs
 
 queryCompleteMSAdresses :: Query Storage [(Address, TxStrategy)]
 queryCompleteMSAdresses =
     view
     $ userStrategyPool
-    . to (M.filter
-        (\(MOfNStrategy _ resultParties, currentParties)  -- @TODO: remove non-exhaustive warning
-            -> S.size resultParties == S.size currentParties
-        ))
+    . to (M.filter $ \UMA{..} -> S.size allParties == S.size currentParties)
     . to M.assocs
-    . to (map $ second fst)
+    . to (map $ second $ \(UMA{..}) -> MOfNStrategy reqSig allParties)
 
 removeCompleteMSAddresses :: [Address] -> Update Storage ()
 removeCompleteMSAddresses completeAddrs = forM_ completeAddrs $ \adress ->

@@ -19,35 +19,34 @@ module RSCoin.Notary.Storage
         , queryCompleteMSAdresses
         ) where
 
-import           Control.Applicative (liftA2)
-import           Control.Exception   (throw)
-import           Control.Lens        (Lens', makeLenses, to, use, uses, view, (%=),
-                                      (.=))
-import           Control.Monad       (forM_, unless, when, (<=<))
-import           Control.Monad.Catch (MonadThrow (throwM))
+import           Control.Applicative  (liftA2)
+import           Control.Exception    (throw)
+import           Control.Lens         (Lens', makeLenses, to, use, uses, view,
+                                       (%=), (.=))
+import           Control.Monad        (forM_, unless, when, (<=<))
+import           Control.Monad.Catch  (MonadThrow (throwM))
 
-import           Data.Acid           (Query, Update, liftQuery)
-import qualified Data.Foldable       as F
-import           Data.Map.Strict     (Map)
-import qualified Data.Map.Strict     as M hiding (Map)
-import           Data.Maybe          (fromJust, fromMaybe, isJust)
-import           Data.SafeCopy       (base, deriveSafeCopy)
-import           Data.Set            (Set)
-import qualified Data.Set            as S hiding (Set)
+import           Data.Acid            (Query, Update, liftQuery)
+import qualified Data.Foldable        as F
+import           Data.Map.Strict      (Map)
+import qualified Data.Map.Strict      as M hiding (Map)
+import           Data.Maybe           (fromJust, fromMaybe, isJust)
+import           Data.SafeCopy        (base, deriveSafeCopy)
+import           Data.Set             (Set)
+import qualified Data.Set             as S hiding (Set)
 
-import           RSCoin.Core         (AddrId, Address (..),
-                                      HBlock (..),
-                                      PeriodId, PublicKey, Signature,
-                                      Transaction (..),  Utxo,
-                                      computeOutputAddrids,
-                                      notaryMSAttemptsLimit, validateSignature,
-                                      verify, verifyChain)
-import           RSCoin.Core.Strategy (AddressToTxStrategyMap, AllocationParty (..),
+import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
+                                       PeriodId, PublicKey, Signature,
+                                       Transaction (..), Utxo,
+                                       computeOutputAddrids,
+                                       notaryMSAttemptsLimit, validateSignature,
+                                       verify, verifyChain)
+import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
+                                       AllocationParty (..),
                                        AllocationStrategy (..), TxStrategy (..),
                                        isStrategyCompleted)
 import           RSCoin.Core.Trusted  (bankColdPublic, chainRootPKs)
-import           RSCoin.Notary.Error (NotaryError (..))
-
+import           RSCoin.Notary.Error  (NotaryError (..))
 
 -- | Stores meta information for MS allocation by 'UserStrategy'.
 data UserMetaAllocation = UMA

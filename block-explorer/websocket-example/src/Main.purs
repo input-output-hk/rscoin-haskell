@@ -9,6 +9,9 @@ import Debug.Trace (traceAnyM)
 
 import WebSocket (Connection(..), Message(..), URL(..), runMessageEvent, runMessage, runURL, newWebSocket)
 
+import RSCoin.Explorer.Web.Sockets.Types as T
+import RSCoin.Core.Primitives as T
+
 main = do
   Connection socket <- newWebSocket (URL "ws://localhost:8000") []
 
@@ -19,10 +22,8 @@ main = do
     log <<< runURL =<< get socket.url
 
     log "onopen: Sending 'hello'"
-    socket.send (Message "hello")
+    -- socket.send <<< Message <<< T.IntroductoryMsg $ T.Address "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
 
-    log "onopen: Sending 'goodbye'"
-    socket.send (Message "goodbye")
 
   socket.onmessage $= \event -> do
     traceAnyM event

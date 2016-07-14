@@ -21,7 +21,8 @@ module RSCoin.Explorer.Web.Sockets.Types
 
 import           Data.Aeson              (FromJSON, ToJSON (toJSON),
                                           eitherDecode, encode)
-import           Data.Aeson.TH           (deriveJSON, deriveToJSON)
+import           Data.Aeson.TH           (defaultOptions, deriveJSON,
+                                          deriveToJSON)
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Either.Combinators (mapLeft)
 import qualified Data.Map.Lazy           as ML
@@ -30,7 +31,6 @@ import qualified Network.WebSockets      as WS
 
 import           GHC.Generics            (Generic)
 
-import           Serokell.Aeson.Options  (defaultOptions, leaveTagOptions)
 
 import qualified RSCoin.Core             as C
 
@@ -39,7 +39,7 @@ data ServerError =
     ParseError !Text
     deriving (Show, Generic)
 
-$(deriveJSON leaveTagOptions ''ServerError)
+$(deriveJSON defaultOptions ''ServerError)
 
 type ErrorableMsg msg = Either ServerError msg
 

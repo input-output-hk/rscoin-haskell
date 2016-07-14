@@ -11,12 +11,11 @@ module Config
        , readDeployConfig
        ) where
 
-import qualified Data.Aeson.TH          as A
-import           Data.Text              (Text)
-import qualified Data.Yaml              as Y
-import           Serokell.Aeson.Options (defaultOptions, leaveTagOptions)
+import qualified Data.Aeson.TH as A
+import           Data.Text     (Text)
+import qualified Data.Yaml     as Y
 
-import           RSCoin.Core            (Severity)
+import           RSCoin.Core   (Severity)
 
 data DeployConfig = DeployConfig
     { dcDirectory :: !FilePath
@@ -48,12 +47,12 @@ data ExplorerData = ExplorerData
     -- , mdProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 
-$(A.deriveJSON leaveTagOptions ''Severity)
-$(A.deriveJSON defaultOptions ''DeployConfig)
-$(A.deriveJSON defaultOptions ''BankData)
-$(A.deriveJSON defaultOptions ''MintetteData)
-$(A.deriveJSON defaultOptions ''ExplorerData)
-$(A.deriveJSON defaultOptions ''NotaryData)
+$(A.deriveJSON A.defaultOptions ''Severity)
+$(A.deriveJSON A.defaultOptions ''DeployConfig)
+$(A.deriveJSON A.defaultOptions ''BankData)
+$(A.deriveJSON A.defaultOptions ''MintetteData)
+$(A.deriveJSON A.defaultOptions ''ExplorerData)
+$(A.deriveJSON A.defaultOptions ''NotaryData)
 
 readDeployConfig :: FilePath -> IO DeployConfig
 readDeployConfig fp =

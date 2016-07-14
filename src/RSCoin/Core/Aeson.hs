@@ -8,11 +8,9 @@ module RSCoin.Core.Aeson
        ) where
 
 import           Data.Aeson             (ToJSON, object, toJSON, (.=))
-import           Data.Aeson.TH          (deriveToJSON)
+import           Data.Aeson.TH          (deriveToJSON, defaultOptions)
 import qualified Data.Text              as T
 import           Formatting             (fixed, sformat)
-
-import           Serokell.Aeson.Options (defaultOptions)
 
 import           RSCoin.Core.Primitives (Coin (..), Transaction)
 

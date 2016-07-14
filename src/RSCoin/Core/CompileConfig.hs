@@ -11,15 +11,14 @@ module RSCoin.Core.CompileConfig
     , rscoinConfig
     ) where
 
-import qualified Data.Aeson.TH                   as A
-import           Data.FileEmbed                  (embedStringFile,
-                                                  makeRelativeToProject)
-import           Data.Maybe                      (fromMaybe)
-import           Data.String                     (IsString)
-import           Data.Yaml                       (decode)
+import qualified Data.Aeson.TH          as A
+import           Data.FileEmbed         (embedStringFile, makeRelativeToProject)
+import           Data.Maybe             (fromMaybe)
+import           Data.String            (IsString)
+import           Data.Yaml              (decode)
 
-import           RSCoin.Core.CompileConfigHelper (defaultOptions)
 import           RSCoin.Timed.MonadRpc
+import           Serokell.Aeson.Options (defaultOptions)
 
 data RSCoinServer = RSCoinServer
     { rscHost :: !String

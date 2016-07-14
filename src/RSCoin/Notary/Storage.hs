@@ -19,14 +19,14 @@ module RSCoin.Notary.Storage
         , queryCompleteMSAdresses
         ) where
 
+import           Control.Applicative (liftA2)
 import           Control.Exception   (throw)
-import           Control.Lens        (makeLenses, to, use, uses, view, (%=),
+import           Control.Lens        (Lens', makeLenses, to, use, uses, view, (%=),
                                       (.=))
 import           Control.Monad       (forM_, unless, when, (<=<))
 import           Control.Monad.Catch (MonadThrow (throwM))
 
 import           Data.Acid           (Query, Update, liftQuery)
-import           Data.Bifunctor      (second)
 import qualified Data.Foldable       as F
 import           Data.Map.Strict     (Map)
 import qualified Data.Map.Strict     as M hiding (Map)
@@ -227,17 +227,38 @@ allocateMSAddress msAddr allocStrat (partyAddr@(Address partyPK), partySig) chai
 
             sharedStrategyPool %= M.insertWith M.union msAddr (M.singleton tParty partyAddr)
 
-
-queryAllMSAdresses :: Query Storage [(Address, UserMetaAllocation)]
-queryAllMSAdresses = view $ userStrategyPool . to M.assocs
-
-queryCompleteMSAdresses :: Query Storage [(Address, TxStrategy)]
-queryCompleteMSAdresses =
+queryMSAddressesHelper
+    :: Lens' Storage (Map Address info)
+    -> (info -> Bool)
+    -> (info -> meta)
+    -> Query Storage [(Address, meta)]
+queryMSAddressesHelper poolLens selector mapper =
     view
-    $ userStrategyPool
-    . to (M.filter $ \UMA{..} -> S.size allParties == S.size currentParties)
+    $ poolLens
+    . to (M.filter selector)
+    . to (M.map mapper)
     . to M.assocs
-    . to (map $ second $ \(UMA{..}) -> MOfNStrategy reqSig allParties)
+
+-- | Query all Multisignature addresses.
+queryAllMSAdresses :: Query Storage [(Address, UserMetaAllocation)]
+queryAllMSAdresses = queryMSAddressesHelper userStrategyPool (const True) id
+
+-- | Query all completed multisignature addresses
+queryCompleteMSAdresses :: Query Storage [(Address, TxStrategy)]
+queryCompleteMSAdresses = liftA2 (++) queryCompleteUserAddresses queryCompleteSharedAddresses
+  where
+    queryCompleteUserAddresses :: Query Storage [(Address, TxStrategy)]
+    queryCompleteUserAddresses = queryMSAddressesHelper
+        userStrategyPool
+        (\UMA{..} -> S.size allParties == S.size currentParties)
+        (\UMA{..} -> MOfNStrategy reqSig allParties)
+
+    queryCompleteSharedAddresses :: Query Storage [(Address, TxStrategy)]
+    queryCompleteSharedAddresses = queryMSAddressesHelper
+        sharedStrategyPool
+        ((== 3) . M.size)  -- @TODO: harcoded constant. Replace with Enum?
+        (MOfNStrategy 3 . S.fromList . M.elems)
+
 
 removeCompleteMSAddresses :: [Address] -> Update Storage ()
 removeCompleteMSAddresses completeAddrs = forM_ completeAddrs $ \adress ->

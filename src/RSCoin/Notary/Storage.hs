@@ -58,8 +58,8 @@ data UserMetaAllocation = UMA
 
 $(deriveSafeCopy 0 'base ''UserMetaAllocation)
 
--- | Stores meta information for MS allocation by 'SharedStrategy'.
-type SharedMetaAllocation = Map AllocationParty Address
+-- | Stores meta information for MS allocation by 'TrustedStrategy'.
+type TrustedMetaAllocation = Map AllocationParty Address
 
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
@@ -76,8 +76,8 @@ data Storage = Storage
       -- used only during multisignature address allocation process for 'UserStrategy'.
     , _userStrategyPool :: Map Address UserMetaAllocation
 
-      -- | Same as '_userStrategyPool' but this Map is used for 'SharedStrategy'.
-    , _sharedStrategyPool :: Map Address SharedMetaAllocation
+      -- | Same as '_userStrategyPool' but this Map is used for 'TrustedStrategy'.
+    , _trustedStrategyPool :: Map Address TrustedMetaAllocation
 
       -- | Number of attempts for user per period to allocate multisig address.
     , _periodStats    :: Map Address Int
@@ -97,15 +97,15 @@ $(makeLenses ''Storage)
 emptyNotaryStorage :: Storage
 emptyNotaryStorage =
     Storage
-    { _txPool             = M.empty
-    , _txPoolAddrIds      = M.empty
-    , _unspentAddrIds     = M.empty
-    , _userStrategyPool   = M.empty
-    , _sharedStrategyPool = M.empty
-    , _periodStats        = M.empty
-    , _addresses          = M.empty
-    , _utxo               = M.empty
-    , _periodId           = -1
+    { _txPool              = M.empty
+    , _txPoolAddrIds       = M.empty
+    , _unspentAddrIds      = M.empty
+    , _userStrategyPool    = M.empty
+    , _trustedStrategyPool = M.empty
+    , _periodStats         = M.empty
+    , _addresses           = M.empty
+    , _utxo                = M.empty
+    , _periodId            = -1
     }
 
 -- Erase occurrences published (address, transaction) from storage
@@ -216,7 +216,7 @@ allocateMSAddress msAddr allocStrat (partyAddr@(Address partyPK), partySig) chai
                         uinfo { currentParties = S.insert partyAddr currentParties }
 
         -- MS address allocation with User and Trusted party
-        SharedStrategy tParty -> do
+        TrustedStrategy tParty -> do
             case tParty of
                 Trusted -> unless (verify bankColdPublic partySig partyAddr) $
                     throwM $ NEUnrelatedSignature "shared-strategy not signed by Bank cold"
@@ -225,7 +225,7 @@ allocateMSAddress msAddr allocStrat (partyAddr@(Address partyPK), partySig) chai
                         throwM $ NEUnrelatedSignature "shared-strategy not signed by User pk"
                     guardMaxAttemps partyAddr
 
-            sharedStrategyPool %= M.insertWith M.union msAddr (M.singleton tParty partyAddr)
+            trustedStrategyPool %= M.insertWith M.union msAddr (M.singleton tParty partyAddr)
 
 queryMSAddressesHelper
     :: Lens' Storage (Map Address info)
@@ -255,7 +255,7 @@ queryCompleteMSAdresses = liftA2 (++) queryCompleteUserAddresses queryCompleteSh
 
     queryCompleteSharedAddresses :: Query Storage [(Address, TxStrategy)]
     queryCompleteSharedAddresses = queryMSAddressesHelper
-        sharedStrategyPool
+        trustedStrategyPool
         ((== 3) . M.size)  -- @TODO: harcoded constant. Replace with Enum?
         (MOfNStrategy 3 . S.fromList . M.elems)
 

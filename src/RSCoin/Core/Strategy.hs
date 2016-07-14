@@ -73,15 +73,15 @@ $(deriveSafeCopy 0 'base ''AllocationParty)
 --     1. p-of-q where user address shared some trusted parties
 --     2. m-of-n among users
 data AllocationStrategy
-    = SharedStrategy AllocationParty  -- ^ strategy 1
-    | UserStrategy Int (Set Address)  -- ^ strategy 2
+    = TrustedStrategy AllocationParty  -- ^ strategy 1
+    | UserStrategy Int (Set Address)   -- ^ strategy 2
     deriving (Show)
 
 $(deriveSafeCopy 0 'base ''AllocationStrategy)
 
 instance Buildable AllocationStrategy where
-    build (SharedStrategy party) = bprint ("SharedStrategy : " % shown) party
-    build (UserStrategy m addrs) = bprint template m (listBuilderJSON addrs)
+    build (TrustedStrategy party) = bprint ("TrustedStrategy : " % shown) party
+    build (UserStrategy m addrs)  = bprint template m (listBuilderJSON addrs)
       where
         template = "AllocationStrategy {\n"  %
                    "  m: "         % int     % "\n" %

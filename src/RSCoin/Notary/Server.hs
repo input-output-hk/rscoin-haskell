@@ -12,7 +12,6 @@ import           Control.Monad.IO.Class  (MonadIO, liftIO)
 
 import           Data.Acid               (createCheckpoint)
 import           Data.Acid.Advanced      (query', update')
-import           Data.Set                (Set)
 import           Data.Text               (Text)
 
 import           Formatting              (build, int, shown, sformat, (%))
@@ -35,7 +34,7 @@ import           RSCoin.Timed            (ServerT, WorkMode,
                                           serverTypeRestriction1,
                                           serverTypeRestriction2,
                                           serverTypeRestriction3,
-                                          serverTypeRestriction5)
+                                          serverTypeRestriction4)
 
 logError, logDebug :: MonadIO m => Text -> m ()
 logError = C.logError C.notaryLoggerName
@@ -58,7 +57,7 @@ serve port notaryState = do
     idr5 <- serverTypeRestriction0
     idr6 <- serverTypeRestriction0
     idr7 <- serverTypeRestriction1
-    idr8 <- serverTypeRestriction5
+    idr8 <- serverTypeRestriction4
     P.serve
         port
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1
@@ -170,14 +169,13 @@ handleAllocateMultisig
     :: WorkMode m
     => RSCoinNotaryState
     -> C.Address
-    -> Set C.Address
-    -> Int
+    -> C.AllocationStrategy
     -> (C.Address, C.Signature)
     -> [(C.Signature, C.PublicKey)]
     -> ServerT m ()
-handleAllocateMultisig st sAddr parties m sigPair chain = toServer $ do
+handleAllocateMultisig st sAddr allocStrat sigPair chain = toServer $ do
     logDebug "Begining allocation MS address..."
-    update' st $ AllocateMSAddress sAddr parties m sigPair chain
+    update' st $ AllocateMSAddress sAddr allocStrat sigPair chain
 
     currentMSAddresses <- query' st QueryAllMSAdresses
     logDebug $ sformat ("All addresses: " % shown) currentMSAddresses

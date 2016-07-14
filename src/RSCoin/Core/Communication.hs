@@ -43,7 +43,6 @@ import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
 import           Data.MessagePack           (MessagePack)
 import           Data.Monoid                ((<>))
-import           Data.Set                   (Set)
 import           Data.Text                  (Text, pack)
 import           Data.Text.Buildable        (Buildable (build))
 import           Data.Typeable              (Typeable)
@@ -65,7 +64,8 @@ import qualified RSCoin.Core.Logging        as L
 import           RSCoin.Core.Primitives     (AddrId, Address, Transaction,
                                              TransactionId)
 import qualified RSCoin.Core.Protocol       as P
-import           RSCoin.Core.Strategy       (AddressToTxStrategyMap, TxStrategy)
+import           RSCoin.Core.Strategy       (AddressToTxStrategyMap,
+                                             AllocationStrategy, TxStrategy)
 import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              CheckConfirmations, CommitAcknowledgment,
                                              Explorer (..), HBlock,
@@ -257,25 +257,22 @@ getNotaryPeriod = do
 allocateMultisignatureAddress
     :: WorkMode m
     => Address
-    -> Set Address
-    -> Int
+    -> AllocationStrategy
     -> (Address, Signature)
     -> [(Signature, PublicKey)]
     -> m ()
-allocateMultisignatureAddress msAddr parties m sigPair chain = do
+allocateMultisignatureAddress msAddr allocStrat sigPair chain = do
     logInfo $ sformat
-        ( "Allocate new multisig address " % F.build
-        % ", parties: "                    % shown
-        % ", required number: "            % int
-        % ", current party pair: "         % F.build
-        % ", certificate chain: "          % shown  -- @TODO: build doesn't work here
+        ( "Allocate new ms address: " % F.build % "\n,"
+        % "allocation strategy: "     % F.build % "\n,"
+        % "current party pair: "      % F.build % "\n,"
+        % "certificate chain: "       % F.build % "\n,"
         )
         msAddr
-        parties
-        m
-        sigPair
-        chain
-    callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr parties m sigPair chain
+        allocStrat
+        (pairBuilder sigPair)
+        (mapBuilder chain)
+    callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr allocStrat sigPair chain
 
 queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, TxStrategy)]
 queryNotaryCompleteMSAddresses = do

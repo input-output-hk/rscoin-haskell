@@ -165,13 +165,7 @@ instance ToJSON PublicKey where
     toJSON = toJSON . B64.encode . pkToBs
 
 instance FromJSON PublicKey where
-<<<<<<< HEAD
-    parseJSON v = do
-        String s <- pure v
-        maybe empty pure $ constructPublicKey s
-=======
     parseJSON = fmap (bsToPk . B64.getJsonByteString) . parseJSON
->>>>>>> b95ff93... Add more JSON serialization instances and refactor existing ones
 
 -- | Sign a serializable value.
 sign :: Binary t => SecretKey -> t -> Signature

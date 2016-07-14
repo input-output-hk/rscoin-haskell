@@ -35,13 +35,15 @@ import           Data.Set            (Set)
 import qualified Data.Set            as S hiding (Set)
 
 import           RSCoin.Core         (AddrId, Address (..),
-                                      AddressToTxStrategyMap, HBlock (..),
+                                      HBlock (..),
                                       PeriodId, PublicKey, Signature,
-                                      Transaction (..), TxStrategy (..), Utxo,
+                                      Transaction (..),  Utxo,
                                       chainRootPKs, computeOutputAddrids,
                                       isStrategyCompleted,
                                       notaryMSAttemptsLimit, validateSignature,
                                       verify, verifyChain)
+import           RSCoin.Core.Strategy (AddressToTxStrategyMap, AllocationStrategy (..),
+                                       TxStrategy (..))
 import           RSCoin.Notary.Error (NotaryError (..))
 
 data Storage = Storage
@@ -140,17 +142,22 @@ addSignedTransaction tx addr sg@(sigAddr, sig) = do
         when (not $ validateSignature sig sigAddr tx) $
           throwM NEInvalidSignature
 
--- | Allocate new multisignature address by given chain of certificates.
+-- | Allocate new multisignature address by chosen strategy and
+-- given chain of certificates.
 allocateMSAddress
     :: Address                  -- ^ New multisig address itself
-    -> Set Address              -- ^ All parties of multisignature address
-    -> Int                      -- ^ Required number of parties' signatures
+    -> AllocationStrategy       -- ^ Strategy for MS address allocation
     -> (Address, Signature)     -- ^ *Address of party* who adds address and signature of 'Address'
     -> [(Signature, PublicKey)] -- ^ Certificate chain to authorize *address of party*.
                                 -- Head is cert, given by *root* (Attain)
     -> Update Storage ()
-allocateMSAddress msAddr parties m (partyAddr@(Address partyPK), partySig) chain = do
-    -- too many check :( I wish I know which one we shouldnt check
+allocateMSAddress
+    msAddr
+    (UserStrategy m parties)
+    (partyAddr@(Address partyPK), partySig)
+    chain
+  = do
+    -- too many checks :( I wish I know which one we shouldnt check
     when (partyPK /= snd (last chain)) $ -- @TODO: what if infinite list is given?
         throwM $ NEInvalidChain "last address of chain should be party address"
     unless (any (`verifyChain` chain) chainRootPKs) $
@@ -182,6 +189,7 @@ allocateMSAddress msAddr parties m (partyAddr@(Address partyPK), partySig) chain
             allocationPool %= M.insert msAddr (strategy, S.insert partyAddr currentParties)
         Just (DefaultStrategy, _) ->
             error "There is a DefaultStrategy in allocationPool"
+allocateMSAddress _ _ _ _ = error "TODO: implement new strategy"
 
 queryAllMSAdresses :: Query Storage [(Address, (TxStrategy, Set Address))]
 queryAllMSAdresses = view $ allocationPool . to M.assocs

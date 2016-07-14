@@ -31,6 +31,7 @@ module RSCoin.Timed.MonadRpc
        , serverTypeRestriction1
        , serverTypeRestriction2
        , serverTypeRestriction3
+       , serverTypeRestriction4
        , serverTypeRestriction5
        ) where
 
@@ -192,6 +193,11 @@ serverTypeRestriction2 = return id
 
 serverTypeRestriction3 :: Monad m => m ((d -> c -> b -> S.ServerT m a) -> (d -> c -> b -> S.ServerT m a))
 serverTypeRestriction3 = return id
+
+serverTypeRestriction4
+    :: Monad m
+    => m ((e -> d -> c -> b -> S.ServerT m a) -> (e -> d -> c -> b -> S.ServerT m a))
+serverTypeRestriction4 = return id
 
 serverTypeRestriction5
     :: Monad m

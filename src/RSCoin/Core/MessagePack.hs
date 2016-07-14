@@ -121,14 +121,25 @@ instance MessagePack C.TxStrategy where
             1 -> uncurry2 C.MOfNStrategy <$> fromObject args
             _ -> Nothing
 
+instance MessagePack C.AllocationParty where
+    toObject C.Trusted = toObject (1 :: Int)
+    toObject C.User    = toObject (2 :: Int)
+
+    fromObject obj = do
+        i <- fromObject obj
+        case (i :: Int) of
+            1 -> pure C.Trusted
+            2 -> pure C.User
+            _ -> Nothing
+
 instance MessagePack C.AllocationStrategy where
-    toObject C.SharedStrategy         = toObj (0, ())
+    toObject (C.SharedStrategy party) = toObj (0, party)
     toObject (C.UserStrategy m addrs) = toObj (1, (m, addrs))
 
     fromObject obj = do
         (i, args) <- fromObject obj
         case (i :: Int) of
-            0 -> pure C.SharedStrategy
+            0 -> C.SharedStrategy        <$> fromObject args
             1 -> uncurry2 C.UserStrategy <$> fromObject args
             _ -> Nothing
 

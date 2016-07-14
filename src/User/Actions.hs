@@ -145,8 +145,7 @@ processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
     let certChain     = U.createCertificateChain $ C.getAddress userAddress
     C.allocateMultisignatureAddress
         (C.Address msPublicKey)
-        (S.fromList partiesAddrs)
-        m
+        (C.UserStrategy m $ S.fromList partiesAddrs)
         (userAddress, userSignature)
         certChain
     liftIO $ TIO.putStrLn $

@@ -4,6 +4,7 @@
 
 module RSCoin.Core.Strategy
      ( AddressToTxStrategyMap
+     , AllocationParty    (..)
      , AllocationStrategy (..)
      , TxStrategy         (..)
      , isStrategyCompleted
@@ -16,7 +17,7 @@ import           Data.Set                   (Set)
 import qualified Data.Set                   as S hiding (Set)
 import           Data.Text.Buildable        (Buildable (build))
 
-import           Formatting                 (bprint, int, (%))
+import           Formatting                 (bprint, int, shown, (%))
 import qualified Formatting                 as F (build)
 
 import           Serokell.Util.Text         (listBuilderJSON)
@@ -59,19 +60,27 @@ instance Buildable TxStrategy where
 
 type AddressToTxStrategyMap = Map Address TxStrategy
 
+-- | This enumeration represents party for SharedStrategyAllocation
+data AllocationParty
+    = Trusted
+    | User
+    deriving (Show)
+
+$(deriveSafeCopy 0 'base ''AllocationParty)
+
 -- | Strategy of multisignature address allocation.
 -- Allows to cretate 2 types of MS addresses:
 --     1. p-of-q where user address shared some trusted parties
 --     2. m-of-n among users
--- Note: this type is isomorphic to 'Strategy' but used for type safety.
 data AllocationStrategy
-    = SharedStrategy                  -- ^ strategy 1
+    = SharedStrategy AllocationParty  -- ^ strategy 1
     | UserStrategy Int (Set Address)  -- ^ strategy 2
+    deriving (Show)
 
 $(deriveSafeCopy 0 'base ''AllocationStrategy)
 
 instance Buildable AllocationStrategy where
-    build SharedStrategy        = "SharedStrategy"
+    build (SharedStrategy party) = bprint ("SharedStrategy : " % shown) party
     build (UserStrategy m addrs) = bprint template m (listBuilderJSON addrs)
       where
         template = "AllocationStrategy {\n"  %

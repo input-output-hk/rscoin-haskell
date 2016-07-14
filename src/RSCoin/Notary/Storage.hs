@@ -179,7 +179,7 @@ allocateMSAddress msAddr allocStrat (partyAddr@(Address partyPK), partySig) chai
     -- too many checks :( I wish I know which one we shouldnt check
     | partyPK /= snd (last chain) = throwM $ -- @TODO: what if infinite list is given?
         NEInvalidChain "last address of chain should be party address"
-    | any (`verifyChain` chain) chainRootPKs = throwM $
+    | not $ any (`verifyChain` chain) chainRootPKs = throwM $
         NEInvalidChain "none of root pk's is fit for validating"
     | otherwise = case allocStrat of
         -- case when strategy is allocated only among users

@@ -9,7 +9,9 @@ import Data.Argonaut.Generic.Aeson as A
 import Serokell.Data.Char          (isLower, isPunctuation, isUpper, toLower)
 import Data.List                   (findIndex, (:))
 import Data.String                 (uncons, singleton)
-import Data.Maybe                  (maybe)
+import Data.Maybe                  (maybe')
+
+import Partial.Unsafe              (unsafeCrashWith)
 
 headToLower :: String -> String
-headToLower = maybe "" (\{head:h, tail:t} -> singleton (toLower h) <> t ) <<< uncons
+headToLower = maybe' (const $ unsafeCrashWith "headToLower: undefined") (\{head:h, tail:t} -> singleton (toLower h) <> t ) <<< uncons

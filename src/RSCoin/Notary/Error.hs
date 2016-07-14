@@ -27,7 +27,7 @@ data NotaryError
     | NEInvalidChain Text          -- ^ Invalid chain of certificates provided
     | NEInvalidSignature           -- ^ Invalid signature provided
     | NEStrategyNotSupported Text  -- ^ Address's strategy is not supported, with name provided
-    | NEUnrelatedSignature         -- ^ Signature provided doesn't correspond to any of address' parties
+    | NEUnrelatedSignature Text    -- ^ Signature provided doesn't correspond to any of address' parties
     deriving (Eq, Show, Typeable)
 
 instance Exception NotaryError where
@@ -42,7 +42,7 @@ instance Buildable NotaryError where
     build (NEInvalidChain msg)       = bprint ("NEInvalidChain: " % stext) msg
     build NEInvalidSignature         = "NEInvalidSignature"
     build (NEStrategyNotSupported s) = bprint ("NEStrategyNotSupported, strategy " % stext) s
-    build NEUnrelatedSignature       = "NEUnrelatedSignature"
+    build (NEUnrelatedSignature msg) = bprint ("NEUnrelatedSignature: " % stext) msg
 
 toObj
     :: MessagePack a
@@ -57,7 +57,7 @@ instance MessagePack NotaryError where
     toObject (NEInvalidChain msg)       = toObj (4, msg)
     toObject NEInvalidSignature         = toObj (5, ())
     toObject (NEStrategyNotSupported s) = toObj (6, s)
-    toObject NEUnrelatedSignature       = toObj (7, ())
+    toObject (NEUnrelatedSignature msg) = toObj (7, msg)
 
     fromObject obj = do
         (i, payload) <- fromObject obj
@@ -69,5 +69,5 @@ instance MessagePack NotaryError where
             4 -> NEInvalidChain         <$> fromObject payload
             5 -> pure NEInvalidSignature
             6 -> NEStrategyNotSupported <$> fromObject payload
-            7 -> pure NEUnrelatedSignature
+            7 -> NEUnrelatedSignature   <$> fromObject payload
             _ -> Nothing

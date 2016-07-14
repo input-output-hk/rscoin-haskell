@@ -38,12 +38,13 @@ import           RSCoin.Core         (AddrId, Address (..),
                                       HBlock (..),
                                       PeriodId, PublicKey, Signature,
                                       Transaction (..),  Utxo,
-                                      chainRootPKs, computeOutputAddrids,
-                                      isStrategyCompleted,
+                                      computeOutputAddrids,
                                       notaryMSAttemptsLimit, validateSignature,
                                       verify, verifyChain)
-import           RSCoin.Core.Strategy (AddressToTxStrategyMap, AllocationStrategy (..),
-                                       TxStrategy (..))
+import           RSCoin.Core.Strategy (AddressToTxStrategyMap, AllocationParty (..),
+                                       AllocationStrategy (..), TxStrategy (..),
+                                       isStrategyCompleted)
+import           RSCoin.Core.Trusted  (bankColdPublic, chainRootPKs)
 import           RSCoin.Notary.Error (NotaryError (..))
 
 data Storage = Storage
@@ -59,8 +60,11 @@ data Storage = Storage
 
       -- | Mapping from newly allocated multisignature address to pair of sets of
       -- parties. First element is resulted party, second - is current. This Map is
-      -- used only during multisignature address allocation process.
-    , _allocationPool :: Map Address (TxStrategy, Set Address)
+      -- used only during multisignature address allocation process for 'UserStrategy'.
+    , _userStrategyPool :: Map Address (TxStrategy, Set Address)
+
+      -- | Same as '_userStrategyPool' but this Map is used for 'SharedStrategy'.
+    , _sharedStrategyPool :: Map AllocationParty Address
 
       -- | Number of attempts for user per period to allocate multisig address.
     , _periodStats    :: Map Address Int
@@ -80,14 +84,15 @@ $(makeLenses ''Storage)
 emptyNotaryStorage :: Storage
 emptyNotaryStorage =
     Storage
-    { _txPool         = M.empty
-    , _txPoolAddrIds  = M.empty
-    , _unspentAddrIds = M.empty
-    , _allocationPool = M.empty
-    , _periodStats    = M.empty
-    , _addresses      = M.empty
-    , _utxo           = M.empty
-    , _periodId       = -1
+    { _txPool             = M.empty
+    , _txPoolAddrIds      = M.empty
+    , _unspentAddrIds     = M.empty
+    , _userStrategyPool   = M.empty
+    , _sharedStrategyPool = M.empty
+    , _periodStats        = M.empty
+    , _addresses          = M.empty
+    , _utxo               = M.empty
+    , _periodId           = -1
     }
 
 -- Erase occurrences published (address, transaction) from storage
@@ -105,6 +110,13 @@ getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> use addresses
 
 instance MonadThrow (Update s) where
     throwM = throw
+
+-- | Throws NEBlocked if user reaches limit of attempts (DDOS protection).
+guardMaxAttemps :: Address -> Update Storage ()
+guardMaxAttemps userAddr = do
+    periodStats %= M.insertWith (\new old -> min (old + new) notaryMSAttemptsLimit) userAddr 1
+    currentAttemtps <- uses periodStats $ fromJust . M.lookup userAddr
+    when (currentAttemtps >= notaryMSAttemptsLimit) $ throwM NEBlocked
 
 -- | Receives tx, addr, (addr, sig) pair, checks validity and publishes (tx, addr) to storage,
 -- adds (addr, sig) to list of already collected for particular (tx, addr) pair.
@@ -138,7 +150,7 @@ addSignedTransaction tx addr sg@(sigAddr, sig) = do
             -> throwM $ NEStrategyNotSupported "DefaultStrategy"
           MOfNStrategy _ addrs
             -> when (not $ any (sigAddr ==) addrs) $
-                 throwM NEUnrelatedSignature
+                 throwM $ NEUnrelatedSignature "in multi transaction"
         when (not $ validateSignature sig sigAddr tx) $
           throwM NEInvalidSignature
 
@@ -151,53 +163,59 @@ allocateMSAddress
     -> [(Signature, PublicKey)] -- ^ Certificate chain to authorize *address of party*.
                                 -- Head is cert, given by *root* (Attain)
     -> Update Storage ()
-allocateMSAddress
-    msAddr
-    (UserStrategy m parties)
-    (partyAddr@(Address partyPK), partySig)
-    chain
-  = do
+allocateMSAddress msAddr allocStrat (partyAddr@(Address partyPK), partySig) chain
     -- too many checks :( I wish I know which one we shouldnt check
-    when (partyPK /= snd (last chain)) $ -- @TODO: what if infinite list is given?
-        throwM $ NEInvalidChain "last address of chain should be party address"
-    unless (any (`verifyChain` chain) chainRootPKs) $
-        throwM $ NEInvalidChain "none of root pk's is fit for validating"
-    unless (verify partyPK partySig partyAddr) $
-        throwM NEUnrelatedSignature
-    when (partyAddr `S.notMember` parties) $
-        throwM $ NEInvalidArguments "party address not in set of addresses"
-    when (m <= 0) $
-        throwM $ NEInvalidArguments "required number of signatures should be positive"
-    when (m > S.size parties) $
-        throwM $ NEInvalidArguments "required number of signatures is greater then party size"
+    | partyPK /= snd (last chain) = throwM $ -- @TODO: what if infinite list is given?
+        NEInvalidChain "last address of chain should be party address"
+    | any (`verifyChain` chain) chainRootPKs = throwM $
+        NEInvalidChain "none of root pk's is fit for validating"
+    | otherwise = case allocStrat of
+        -- case when strategy is allocated only among users
+        UserStrategy m parties -> do
+            unless (verify partyPK partySig partyAddr) $
+                throwM $ NEUnrelatedSignature "user-strategy not signed with user pk"
+            when (partyAddr `S.notMember` parties) $
+                throwM $ NEInvalidArguments "party address not in set of addresses"
+            when (m <= 0) $
+                throwM $ NEInvalidArguments "required number of signatures should be positive"
+            when (m > S.size parties) $
+                throwM $ NEInvalidArguments "required number of signatures is greater then party size"
+            guardMaxAttemps partyAddr
 
-    periodStats %= M.insertWith (\new old -> min (old + new) notaryMSAttemptsLimit) partyAddr 1
-    currentAttemtps <- uses periodStats $ fromJust . M.lookup partyAddr
-    when (currentAttemtps >= notaryMSAttemptsLimit) $
-        throwM NEBlocked
+            mMSAddressSets <- uses userStrategyPool $ M.lookup msAddr
+            case mMSAddressSets of
+                Nothing ->
+                    -- !!! WARNING !!! EASY OutOfMemory HERE!
+                    userStrategyPool %= M.insert msAddr (MOfNStrategy m parties, S.singleton partyAddr)
+                Just (strategy@(MOfNStrategy resM resultParties), currentParties) -> do
+                    when (partyAddr `S.notMember` resultParties) $
+                        throwM $ NEInvalidArguments "party set exists, but you is not a member!"
+                    when (resultParties /= parties || m /= resM) $
+                        throwM $ NEInvalidArguments "result stratey is not equal to yours"
+                    userStrategyPool %= M.insert msAddr (strategy, S.insert partyAddr currentParties)
+                Just (DefaultStrategy, _) ->
+                    error "There is a DefaultStrategy in userStrategyPool"
 
-    mMSAddressSets <- uses allocationPool $ M.lookup msAddr
-    case mMSAddressSets of
-        Nothing ->
-            -- !!! WARNING !!! EASY OutOfMemory HERE!
-            allocationPool %= M.insert msAddr (MOfNStrategy m parties, S.singleton partyAddr)
-        Just (strategy@(MOfNStrategy resM resultParties), currentParties) -> do
-            when (partyAddr `S.notMember` resultParties) $
-                throwM $ NEInvalidArguments "party set exists, but you is not a member!"
-            when (resultParties /= parties || m /= resM) $
-                throwM $ NEInvalidArguments "result stratey is not equal to yours"
-            allocationPool %= M.insert msAddr (strategy, S.insert partyAddr currentParties)
-        Just (DefaultStrategy, _) ->
-            error "There is a DefaultStrategy in allocationPool"
-allocateMSAddress _ _ _ _ = error "TODO: implement new strategy"
+        -- MS address allocation with User and Trusted party
+        SharedStrategy tParty -> do
+            case tParty of
+                Trusted -> unless (verify bankColdPublic partySig partyAddr) $
+                    throwM $ NEUnrelatedSignature "shared-strategy not signed by Bank cold"
+                User    -> do
+                    unless (verify partyPK partySig partyAddr) $
+                        throwM $ NEUnrelatedSignature "shared-strategy not signed by User pk"
+                    guardMaxAttemps partyAddr
+
+            sharedStrategyPool %= M.insert tParty partyAddr
+
 
 queryAllMSAdresses :: Query Storage [(Address, (TxStrategy, Set Address))]
-queryAllMSAdresses = view $ allocationPool . to M.assocs
+queryAllMSAdresses = view $ userStrategyPool . to M.assocs
 
 queryCompleteMSAdresses :: Query Storage [(Address, TxStrategy)]
 queryCompleteMSAdresses =
     view
-    $ allocationPool
+    $ userStrategyPool
     . to (M.filter
         (\(MOfNStrategy _ resultParties, currentParties)  -- @TODO: remove non-exhaustive warning
             -> S.size resultParties == S.size currentParties
@@ -207,7 +225,7 @@ queryCompleteMSAdresses =
 
 removeCompleteMSAddresses :: [Address] -> Update Storage ()
 removeCompleteMSAddresses completeAddrs = forM_ completeAddrs $ \adress ->
-    allocationPool %= M.delete adress
+    userStrategyPool %= M.delete adress
 
 -- | By given (tx, addr) retreives list of collected signatures.
 -- If list is complete enough to complete strategy, (tx, addr) pair

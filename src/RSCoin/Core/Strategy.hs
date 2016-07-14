@@ -64,7 +64,7 @@ type AddressToTxStrategyMap = Map Address TxStrategy
 data AllocationParty
     = Trusted
     | User
-    deriving (Show)
+    deriving (Eq, Ord, Show)
 
 $(deriveSafeCopy 0 'base ''AllocationParty)
 

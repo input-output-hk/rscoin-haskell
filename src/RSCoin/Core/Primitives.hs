@@ -82,7 +82,12 @@ instance Num Coin where
 -- It is simply a public key.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show,Ord,Buildable,Binary,Eq,Hashable,ToJSON,FromJSON,Generic)
+    } deriving (Show,Ord,Buildable,Binary,Eq,Hashable,Generic)
+
+-- TODO: maybe later we'll want to use custom instances, but for now
+-- we do it this way to b surely consistent with Purescript
+instance ToJSON Address
+instance FromJSON Address
 
 instance Read Address where
     readsPrec i = catMaybes . map (\(k, s) -> flip (,) s . Address <$> constructPublicKey (removePrefix k)) . readsPrec i

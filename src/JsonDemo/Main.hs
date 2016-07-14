@@ -1,6 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
-import           Data.Aeson               (ToJSON (toJSON))
+import           Data.Aeson               (ToJSON (toJSON), encode)
 import           Data.Text.Buildable      (Buildable (build))
 
 import           Serokell.Util            (show')
@@ -30,7 +30,7 @@ main = do
         hash = C.hash ()
         addr = C.Address key
         tx = C.Transaction [(hash, 0, coin)] [(addr, coin)]
-        err = W.ParseError "ошибка"
+        err = W.ParseError "error"
         introMsg = W.IMAddressInfo addr
         aiMsg = W.AIGetTransactions (0, 2)
         outMsg = W.OMTxNumber 8 10
@@ -48,5 +48,6 @@ main = do
             print v
             print $ show' v
             print $ toJSON v
+            print . encode . toJSON $ v
             putStrLn "___"
     mapM_ printAsNeeded values

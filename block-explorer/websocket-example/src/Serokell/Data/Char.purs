@@ -31,6 +31,7 @@ isAlphanum c = Re.test (unsafePartial $ fromRight $ Re.regex "^\\w$" Re.noFlags)
 isLetter :: Char -> Boolean
 isLetter c = Re.test (unsafePartial $ fromRight $ Re.regex "^[a-zA-Z]$" Re.noFlags) (Str.singleton c)
 
+-- FIXME: implement this as Haskells variant https://hackage.haskell.org/package/base-4.9.0.0/docs/Data-Char.html
 isPunctuation :: Char -> Boolean
 isPunctuation c = Re.test (unsafePartial $ fromRight $ Re.regex "^[!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~]$" Re.noFlags) (Str.singleton c)
 

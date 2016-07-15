@@ -6,15 +6,57 @@ module Test.RSCoin.Core.MessagePackSpec
 
 import           Data.Int                   (Int64)
 import           Data.Maybe                 (fromJust)
-import           Data.MessagePack           (MessagePack (..),
-                                             pack, unpack)
+import           Data.MessagePack           (MessagePack (..), pack, unpack)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
-import           Test.QuickCheck            ((===))
+import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, scale,
+                                             (===))
 
 import qualified RSCoin.Core                as C
 
 import           Test.RSCoin.Core.Arbitrary ()
+
+makeSmall :: Gen a -> Gen a
+makeSmall = scale f
+  where
+    -- f = (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3))
+    f 0 = 0
+    f 1 = 1
+    f 2 = 2
+    f 3 = 3
+    f 4 = 3
+    f n
+      | n < 0 = n
+      | otherwise =
+          (round . (sqrt :: Double -> Double) . realToFrac . (`div` 3)) n
+
+newtype SmallLBlock =
+    SmallLBlock C.LBlock
+    deriving (MessagePack,Show,Eq)
+
+instance Arbitrary SmallLBlock where
+    arbitrary = SmallLBlock <$> makeSmall arbitrary
+
+newtype SmallHBlock =
+    SmallHBlock C.HBlock
+    deriving (MessagePack,Show,Eq)
+
+instance Arbitrary SmallHBlock where
+    arbitrary = SmallHBlock <$> makeSmall arbitrary
+
+newtype SmallNewPeriodData =
+    SmallNewPeriodData C.NewPeriodData
+    deriving (MessagePack,Show,Eq)
+
+instance Arbitrary SmallNewPeriodData where
+    arbitrary = SmallNewPeriodData <$> makeSmall arbitrary
+
+newtype SmallTransaction =
+    SmallTransaction C.Transaction
+    deriving (MessagePack,Show,Eq)
+
+instance Arbitrary SmallTransaction where
+    arbitrary = SmallTransaction <$> makeSmall arbitrary
 
 spec :: Spec
 spec =
@@ -41,13 +83,13 @@ spec =
             prop "Address" $
                 \(a :: C.Address) -> a === mid a
             prop "NewPeriodData" $
-                \(a :: C.NewPeriodData) -> a === mid a
+                \(a :: SmallNewPeriodData) -> a === mid a
             prop "LBlock" $
-                \(a :: C.LBlock) -> a === mid a
+                \(a :: SmallLBlock) -> a === mid a
             prop "HBlock" $
-                \(a :: C.HBlock) -> a === mid a
+                \(a :: SmallHBlock) -> a === mid a
             prop "Transaction" $
-                \(a :: C.Transaction) -> a === mid a
+                \(a :: SmallTransaction) -> a === mid a
             prop "CheckConfirmation" $
                 \(a :: C.CheckConfirmation) -> a === mid a
             prop "ActionLogEntry" $

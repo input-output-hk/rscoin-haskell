@@ -32,7 +32,8 @@ instance Arbitrary C.Transaction where
     arbitrary = C.Transaction <$> arbitrary <*> arbitrary
 
 instance Arbitrary C.LBlock where
-    arbitrary = C.LBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary =
+        C.LBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary C.HBlock where
     arbitrary =

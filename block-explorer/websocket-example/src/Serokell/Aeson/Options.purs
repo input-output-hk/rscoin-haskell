@@ -16,7 +16,7 @@ import Data.Array                    (filter, findIndex, drop)
 import Partial.Unsafe                (unsafeCrashWith)
 
 headToLower :: String -> String
-headToLower = maybe' (const $ unsafeCrashWith "headToLower: undefined") (\{head:h, tail:t} -> singleton (toLower h) <> t ) <<< uncons
+headToLower = maybe' (\ _ -> unsafeCrashWith "headToLower: undefined") (\{head:h, tail:t} -> singleton (toLower h) <> t ) <<< uncons
 
 stripFieldPrefix :: String -> String
 stripFieldPrefix = dropWhile (not <<< isUpper)

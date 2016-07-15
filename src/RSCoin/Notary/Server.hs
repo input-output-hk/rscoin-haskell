@@ -4,6 +4,14 @@
 
 module RSCoin.Notary.Server
         ( serve
+        , handlePublishTx
+        , handlePollTxs
+        , handleAnnounceNewPeriods
+        , handleGetPeriodId
+        , handleGetSignatures
+        , handleQueryCompleteMS
+        , handleRemoveCompleteMS
+        , handleAllocateMultisig
         ) where
 
 import           Control.Exception       (throwIO)
@@ -14,20 +22,20 @@ import           Data.Acid               (createCheckpoint)
 import           Data.Acid.Advanced      (query', update')
 import           Data.Text               (Text)
 
-import           Formatting              (build, int, shown, sformat, (%))
+import           Formatting              (build, int, sformat, shown, (%))
 
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
 import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           AddSignedTransaction (..),
-                                          AnnounceNewPeriods (..),
                                           AllocateMSAddress (..),
+                                          AnnounceNewPeriods (..),
                                           GetPeriodId (..), GetSignatures (..),
                                           PollTransactions (..),
                                           QueryAllMSAdresses (..),
                                           QueryCompleteMSAdresses (..),
-                                          RemoveCompleteMSAddresses (..),
-                                          RSCoinNotaryState)
+                                          RSCoinNotaryState,
+                                          RemoveCompleteMSAddresses (..))
 import           RSCoin.Notary.Error     (NotaryError)
 import           RSCoin.Timed            (ServerT, WorkMode,
                                           serverTypeRestriction0,
@@ -42,6 +50,17 @@ logError = C.logError C.notaryLoggerName
 --logInfo = C.logInfo C.notaryLoggerName
 logDebug = C.logDebug C.notaryLoggerName
 
+toServer1 a a1  = toServer0 $ a a1
+toServer2 a a1 a2  = toServer0 $ a a1 a2
+toServer3 a a1 a2 a3  = toServer0 $ a a1 a2 a3
+toServer4 a a1 a2 a3 a4  = toServer0 $ a a1 a2 a3 a4
+
+toServer0 :: WorkMode m => IO a -> ServerT m a
+toServer0 action = liftIO $ action `catch` handler
+  where
+    handler (e :: NotaryError) = do
+        logError $ sformat build e
+        throwIO e
 
 -- | Run Notary server which will process incoming sing requests.
 serve
@@ -50,20 +69,20 @@ serve
     -> RSCoinNotaryState
     -> m ()
 serve port notaryState = do
-    idr1 <- serverTypeRestriction3
-    idr2 <- serverTypeRestriction1
-    idr3 <- serverTypeRestriction2
-    idr4 <- serverTypeRestriction2
-    idr5 <- serverTypeRestriction0
-    idr6 <- serverTypeRestriction0
-    idr7 <- serverTypeRestriction1
-    idr8 <- serverTypeRestriction4
+    idr1 <- (.toServer3) <$> serverTypeRestriction3
+    idr2 <- (.toServer1) <$> serverTypeRestriction1
+    idr3 <- (.toServer2) <$> serverTypeRestriction2
+    idr4 <- (.toServer2) <$> serverTypeRestriction2
+    idr5 <- (.toServer0) <$> serverTypeRestriction0
+    idr6 <- (.toServer0) <$> serverTypeRestriction0
+    idr7 <- (.toServer1) <$> serverTypeRestriction1
+    idr8 <- (.toServer4) <$> serverTypeRestriction4
     P.serve
         port
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1
             $ handlePublishTx notaryState
         , P.method (P.RSCNotary P.PollTransactions)           $ idr2
-            $ pollTxs notaryState
+            $ handlePollTxs notaryState
         , P.method (P.RSCNotary P.GetSignatures)              $ idr3
             $ handleGetSignatures notaryState
         , P.method (P.RSCNotary P.AnnounceNewPeriodsToNotary) $ idr4
@@ -78,31 +97,24 @@ serve port notaryState = do
             $ handleAllocateMultisig notaryState
         ]
 
-toServer :: WorkMode m => IO a -> ServerT m a
-toServer action = liftIO $ action `catch` handler
-  where
-    handler (e :: NotaryError) = do
-        logError $ sformat build e
-        throwIO e
-
-pollTxs
-    :: WorkMode m
+handlePollTxs
+    :: MonadIO m
     => RSCoinNotaryState
     -> [C.Address]
-    -> ServerT m [(C.Address, [(C.Transaction, [(C.Address, C.Signature)])])]
-pollTxs st addrs = toServer $ do
+    -> m [(C.Address, [(C.Transaction, [(C.Address, C.Signature)])])]
+handlePollTxs st addrs = do
     res <- query' st $ PollTransactions addrs
     --logDebug $ format' "Receiving polling request by addresses {}: {}" (addrs, res)
     return res
 
 handlePublishTx
-    :: WorkMode m
+    :: MonadIO m
     => RSCoinNotaryState
     -> C.Transaction
     -> C.Address
     -> (C.Address, C.Signature)
-    -> ServerT m [(C.Address, C.Signature)]
-handlePublishTx st tx addr sg = toServer $ do
+    -> m [(C.Address, C.Signature)]
+handlePublishTx st tx addr sg = do
     update' st $ AddSignedTransaction tx addr sg
     liftIO $ createCheckpoint st
     res <- update' st $ AcquireSignatures tx addr
@@ -113,33 +125,30 @@ handlePublishTx st tx addr sg = toServer $ do
     return res
 
 handleAnnounceNewPeriods
-    :: WorkMode m
+    :: MonadIO m
     => RSCoinNotaryState
     -> C.PeriodId
     -> [C.HBlock]
-    -> ServerT m ()
-handleAnnounceNewPeriods st pId hblocks = toServer $ do
+    -> m ()
+handleAnnounceNewPeriods st pId hblocks = do
     update' st $ AnnounceNewPeriods pId hblocks
     logDebug $ sformat ("New period announcement, hblocks " % build % " from periodId " % int)
         hblocks
         pId
 
-handleGetPeriodId
-    :: WorkMode m
-    => RSCoinNotaryState
-    -> ServerT m C.PeriodId
-handleGetPeriodId st = toServer $ do
+handleGetPeriodId :: MonadIO m => RSCoinNotaryState -> m C.PeriodId
+handleGetPeriodId st = do
     res <- query' st GetPeriodId
     logDebug $ sformat ("Getting periodId: " % int) res
     return res
 
 handleGetSignatures
-    :: WorkMode m
+    :: MonadIO m
     => RSCoinNotaryState
     -> C.Transaction
     -> C.Address
-    -> ServerT m [(C.Address, C.Signature)]
-handleGetSignatures st tx addr = toServer $ do
+    -> m [(C.Address, C.Signature)]
+handleGetSignatures st tx addr = do
     res <- query' st $ GetSignatures tx addr
     logDebug $ sformat ("Getting signatures for tx " % build % ", addr " % build % ": " % build)
         tx
@@ -148,32 +157,32 @@ handleGetSignatures st tx addr = toServer $ do
     return res
 
 handleQueryCompleteMS
-    :: WorkMode m
+    :: MonadIO m
     => RSCoinNotaryState
-    -> ServerT m [(C.Address, C.TxStrategy)]
-handleQueryCompleteMS st = toServer $ do
+    -> m [(C.Address, C.TxStrategy)]
+handleQueryCompleteMS st = do
     res <- query' st QueryCompleteMSAdresses
     logDebug $ sformat ("Getting complete MS: " % shown) res
     return res
 
 handleRemoveCompleteMS
-    :: WorkMode m
+    :: MonadIO m
     => RSCoinNotaryState
     -> [C.Address]
-    -> ServerT m ()
-handleRemoveCompleteMS st addresses = toServer $ do
+    -> m ()
+handleRemoveCompleteMS st addresses = do
     logDebug $ sformat ("Removing complete MS of " % shown) addresses
     update' st $ RemoveCompleteMSAddresses addresses
 
 handleAllocateMultisig
-    :: WorkMode m
+    :: MonadIO m
     => RSCoinNotaryState
     -> C.Address
     -> C.AllocationStrategy
     -> (C.Address, C.Signature)
     -> [(C.Signature, C.PublicKey)]
-    -> ServerT m ()
-handleAllocateMultisig st sAddr allocStrat sigPair chain = toServer $ do
+    -> m ()
+handleAllocateMultisig st sAddr allocStrat sigPair chain = do
     logDebug "Begining allocation MS address..."
     update' st $ AllocateMSAddress sAddr allocStrat sigPair chain
 

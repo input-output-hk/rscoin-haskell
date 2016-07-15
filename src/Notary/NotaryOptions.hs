@@ -21,6 +21,7 @@ data Options = Options
     , cliLogSeverity :: Severity
     , cliMemMode     :: Bool
     , cliBankHost    :: ByteString
+    , cliWebPort     :: Int
     } deriving Show
 
 optionsParser :: FilePath -> Parser Options
@@ -42,6 +43,11 @@ optionsParser _ = -- defaultSKPath
     strOption
         (long "bank-host" <> value defaultBankHost <> showDefault <>
          help "Host name for bank")
+    <*>
+    option
+        auto
+        (long "web-port" <> value 8090 <> showDefault <>
+         help "Web port")
 
 getOptions :: IO Options
 getOptions = do

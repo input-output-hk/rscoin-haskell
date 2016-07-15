@@ -338,8 +338,10 @@ executable rscoin-json-demo
   main-is:             Main.hs
   build-depends:       aeson
                      , base
+                     , bytestring
                      , rscoin
                      , serokell-core
+                     , text
                      , text-format
   hs-source-dirs:      src/JsonDemo
   default-language:    Haskell2010

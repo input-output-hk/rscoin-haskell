@@ -1,7 +1,10 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
 import           Data.Aeson               (ToJSON (toJSON), encode)
+import           Data.ByteString.Lazy     (toStrict)
 import           Data.Text.Buildable      (Buildable (build))
+import           Data.Text.Encoding       (decodeUtf8)
+import qualified Data.Text.IO             as TIO
 
 import           Serokell.Util            (show')
 
@@ -46,8 +49,8 @@ main = do
             , V outMsg]
         printAsNeeded (V v) = do
             print v
-            print $ show' v
+            TIO.putStrLn $ show' v
             print $ toJSON v
-            print . encode . toJSON $ v
-            putStrLn "___"
+            TIO.putStrLn . decodeUtf8 . toStrict . encode . toJSON $ v
+            TIO.putStrLn "___"
     mapM_ printAsNeeded values

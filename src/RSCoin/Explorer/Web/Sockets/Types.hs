@@ -21,16 +21,15 @@ module RSCoin.Explorer.Web.Sockets.Types
 
 import           Data.Aeson              (FromJSON, ToJSON (toJSON),
                                           eitherDecode, encode)
-import           Data.Aeson.TH           (defaultOptions, deriveJSON,
-                                          deriveToJSON)
+import           Data.Aeson.TH           (deriveJSON, deriveToJSON)
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Either.Combinators (mapLeft)
 import qualified Data.Map.Lazy           as ML
 import           Data.Text               (Text, pack)
+import           GHC.Generics            (Generic)
 import qualified Network.WebSockets      as WS
 
-import           GHC.Generics            (Generic)
-
+import           Serokell.Aeson.Options  (defaultOptionsPS)
 
 import qualified RSCoin.Core             as C
 
@@ -39,7 +38,7 @@ data ServerError =
     ParseError !Text
     deriving (Show, Generic)
 
-$(deriveJSON defaultOptions ''ServerError)
+$(deriveJSON defaultOptionsPS ''ServerError)
 
 type ErrorableMsg msg = Either ServerError msg
 
@@ -53,7 +52,7 @@ data IntroductoryMsg =
     IMAddressInfo !C.Address
     deriving (Show,Generic)
 
-$(deriveJSON defaultOptions ''IntroductoryMsg)
+$(deriveJSON defaultOptionsPS ''IntroductoryMsg)
 
 customDecode
     :: FromJSON a
@@ -85,7 +84,7 @@ data AddressInfoMsg
       AIGetTransactions !(Word, Word)
     deriving (Show, Generic)
 
-$(deriveJSON defaultOptions ''AddressInfoMsg)
+$(deriveJSON defaultOptionsPS ''AddressInfoMsg)
 
 instance WS.WebSocketsData (ErrorableMsg AddressInfoMsg) where
     fromLazyByteString = customDecode
@@ -121,7 +120,7 @@ mkOMBalance pId = OMBalance pId . SerializableCoinsMap
 instance ToJSON SerializableCoinsMap where
     toJSON (SerializableCoinsMap m) = toJSON . ML.assocs $ m
 
-$(deriveToJSON defaultOptions ''OutcomingMsg)
+$(deriveToJSON defaultOptionsPS ''OutcomingMsg)
 
 instance WS.WebSocketsData OutcomingMsg where
     fromLazyByteString = error "Attempt to deserialize OutcomingMsg is illegal"

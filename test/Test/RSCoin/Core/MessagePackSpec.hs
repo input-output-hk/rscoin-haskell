@@ -72,6 +72,8 @@ spec =
                 \(a :: C.Coin) -> a === mid a
             prop "Mintette" $
                 \(a :: C.Mintette) -> a === mid a
+            prop "Explorer" $
+                \(a :: C.Explorer) -> a === mid a
             prop "Hash" $
                 \(a :: C.Hash) -> a === mid a
             prop "Integer" $

@@ -31,7 +31,6 @@ import           Data.Bifunctor             (bimap)
 import           Data.Binary                (Binary (get, put), decodeOrFail,
                                              encode)
 import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Base64     as B64
 import           Data.Hashable              (Hashable (hashWithSalt))
 import           Data.Maybe                 (fromMaybe)
 import           Data.MessagePack           (MessagePack (fromObject, toObject))
@@ -42,7 +41,6 @@ import           Data.Serialize             (Get, Put)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
-import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Format           as F
 import qualified Data.Text.IO               as TIO
 import qualified Data.Text.Lazy             as TL
@@ -52,6 +50,7 @@ import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            (takeDirectory)
 import           Test.QuickCheck            (Arbitrary (arbitrary), vector)
 
+import qualified Serokell.Util.Base64       as B64
 import           Serokell.Util.Exceptions   (throwText)
 import           Serokell.Util.Text         (show')
 
@@ -120,8 +119,11 @@ newtype PublicKey = PublicKey
     { getPublicKey :: E.PublicKey
     } deriving (Eq, Ord)
 
+pkToBs :: PublicKey -> BS.ByteString
+pkToBs = E.unPublicKey . getPublicKey
+
 instance Buildable PublicKey where
-    build = build . decodeUtf8 . B64.encode . E.unPublicKey . getPublicKey
+    build = build .  B64.encode . pkToBs
 
 instance Show PublicKey where
     show pk = "PublicKey { getPublicKey = " ++ T.unpack (show' pk) ++ " }"
@@ -145,7 +147,7 @@ instance Arbitrary PublicKey where
     arbitrary = derivePublicKey <$> arbitrary
 
 instance ToJSON PublicKey where
-    toJSON = toJSON . show'
+    toJSON = toJSON . B64.encode . pkToBs
 
 instance FromJSON PublicKey where
     parseJSON v = do
@@ -173,14 +175,13 @@ keyGen = bimap SecretKey PublicKey . swap <$> E.createKeypair
 
 -- | Creates key pair deterministically from 32 bytes.
 deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
-deterministicKeyGen seed = bimap PublicKey SecretKey <$> E.createKeypairFromSeed_ seed
+deterministicKeyGen seed =
+    bimap PublicKey SecretKey <$> E.createKeypairFromSeed_ seed
 
 -- | Constructs public key from UTF-8 text.
 constructPublicKey :: Text -> Maybe PublicKey
-constructPublicKey (encodeUtf8 -> s) =
-    case B64.decode s of
-        Left _ -> Nothing
-        Right t -> Just $ PublicKey $ E.PublicKey t
+constructPublicKey =
+    either (const Nothing) (Just . PublicKey . E.PublicKey) . B64.decode
 
 -- | Write PublicKey to a file.
 writePublicKey :: FilePath -> PublicKey -> IO ()

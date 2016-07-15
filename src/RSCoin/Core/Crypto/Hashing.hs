@@ -15,34 +15,31 @@ import           Data.Aeson                 (ToJSON (toJSON))
 import           Data.Binary                (Binary, encode)
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Base64     as B64
 import           Data.ByteString.Lazy       (toStrict)
-import           Data.Either.Combinators    (mapLeft)
 import           Data.Hashable              (Hashable)
 import           Data.MessagePack           (MessagePack)
 import           Data.SafeCopy              (base, deriveSafeCopy)
 import           Data.String                (IsString)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
-import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
 
-import           Serokell.Util              (show')
+import qualified Serokell.Util.Base64       as B64
 
 -- | Hash is just a ByteString.
-newtype Hash =
-    Hash { getHash :: ByteString }
-    deriving (Eq, Show, Binary, Ord, Hashable, MessagePack, IsString)
+newtype Hash = Hash
+    { getHash :: ByteString
+    } deriving (Eq,Show,Binary,Ord,Hashable,MessagePack,IsString)
 
 $(deriveSafeCopy 0 'base ''Hash)
 
 instance Buildable Hash where
-    build = build . decodeUtf8 . B64.encode . getHash
+    build = build . B64.encode . getHash
 
 hashLengthBytes :: Integral a => a
 hashLengthBytes = 256 `div` 8
 
 parseHash :: T.Text -> Either T.Text Hash
-parseHash = mapLeft T.pack . B64.decode . encodeUtf8 >=> constructHashChecked
+parseHash = B64.decode >=> constructHashChecked
   where
     constructHashChecked bs
       | BS.length bs == hashLengthBytes = pure $ Hash bs
@@ -58,4 +55,4 @@ hash :: Binary t => t -> Hash
 hash = Hash . blake2b256 . toStrict . encode
 
 instance ToJSON Hash where
-    toJSON = toJSON . show'
+    toJSON = toJSON . B64.encode . getHash

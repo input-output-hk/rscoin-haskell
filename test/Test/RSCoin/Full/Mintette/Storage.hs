@@ -19,30 +19,27 @@ import           Control.Monad.State.Class        (MonadState)
 import qualified Data.Map                         as M
 import           Data.Maybe                       (fromJust, fromMaybe, isJust)
 import qualified Data.Set                         as S
-import           Data.Tuple.Curry                 (uncurryN)
 import           Data.Tuple.Select                (sel1)
 import           Safe                             (atMay)
 
-import           RSCoin.Core                      (AddrId,
-                                                   PeriodId, SecretKey,
-                                                   Signature, TxStrategy (..),
+import           RSCoin.Core                      (AddrId, SecretKey,
                                                    Transaction (..),
+                                                   TxStrategy (..),
                                                    computeOutputAddrids,
                                                    derivePublicKey,
                                                    isStrategyCompleted,
                                                    mkCheckConfirmation, owners,
-                                                   sign, validateSignature,
+                                                   sign,
                                                    verifyCheckConfirmation)
 import qualified RSCoin.Core                      as C
 import           RSCoin.Mintette.Error            (MintetteError (..))
 import           RSCoin.Mintette.Storage          (Storage, addresses,
-                                                   checkIsActive, checkPeriodId,
-                                                   checkTxSum, dpk, logHead,
-                                                   logHeads, logSize,
-                                                   mintetteId, mintettes,
-                                                   periodId, pset, pushLogEntry,
-                                                   txset, utxo, utxoAdded,
-                                                   utxoDeleted)
+                                                   checkIsActive, checkTxSum,
+                                                   dpk, logHead, logHeads,
+                                                   logSize, mintetteId,
+                                                   mintettes, periodId, pset,
+                                                   pushLogEntry, txset, utxo,
+                                                   utxoAdded, utxoDeleted)
 
 import           Test.RSCoin.Full.Mintette.Config (MintetteConfig (..))
 

@@ -9,6 +9,7 @@
 
 module Test.RSCoin.Timed.MonadTimedSpec
        ( spec
+       , timeoutProp -- workaround warning, remove after it's used
        ) where
 
 import           Control.Concurrent.MVar     (newEmptyMVar, putMVar, takeMVar)

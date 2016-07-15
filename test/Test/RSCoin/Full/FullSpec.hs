@@ -24,11 +24,11 @@ import           RSCoin.Timed               (WorkMode)
 import qualified RSCoin.User                as U
 
 import           Test.RSCoin.Core.Arbitrary ()
-import           Test.RSCoin.Full.Action    (UserAction (..), getUserState)
+import           Test.RSCoin.Full.Action    (getUserState)
 -- import           Test.RSCoin.Full.Context        (buser, state)
 import           Test.RSCoin.Full.Property  (FullPropertyEmulation,
                                              FullPropertyRealMode, assertFP,
-                                             doActionFP, pickFP, runTestEnvFP,
+                                             pickFP, runTestEnvFP,
                                              runWorkModeFP)
 import qualified Test.RSCoin.Full.Property  as FP (FullProperty)
 

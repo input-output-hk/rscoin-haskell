@@ -48,9 +48,13 @@ main = do
             , V aiMsg
             , V outMsg]
         printAsNeeded (V v) = do
+            TIO.putStrLn "Show"
             print v
+            TIO.putStrLn "Buildable"
             TIO.putStrLn $ show' v
+            TIO.putStrLn "ToJSON"
             print $ toJSON v
+            TIO.putStrLn "encode"
             TIO.putStrLn . decodeUtf8 . toStrict . encode . toJSON $ v
             TIO.putStrLn "___"
     mapM_ printAsNeeded values

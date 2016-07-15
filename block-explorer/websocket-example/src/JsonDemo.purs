@@ -7,12 +7,12 @@ import Control.Monad.Eff.Console (log)
 import Data.Tuple (Tuple (..))
 import Data.Tuple.Nested (tuple3)
 
-import Data.Argonaut.Generic.Aeson (encodeJson, decodeJson)
-import Data.Argonaut.Printer       (printJson)
+import Data.Argonaut.Printer (printJson)
 
 import RSCoin.Explorer.Web.Sockets.Types as W
 import RSCoin.Core.Primitives            as C
 import Data.Types                        as C
+import Serokell.Aeson.Helper (encodeJson)
 
 data V = V { getV :: forall v. v } --this doesn't work either
 
@@ -43,4 +43,3 @@ main = do
 	  helper aiMsg
 	  helper outMsg
   helper'
-

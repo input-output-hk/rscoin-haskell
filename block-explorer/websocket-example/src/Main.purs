@@ -9,12 +9,12 @@ import Debug.Trace (traceAnyM)
 
 import WebSocket (Connection(..), Message(..), URL(..), runMessageEvent, runMessage, runURL, newWebSocket)
 
-import Data.Argonaut.Generic.Aeson (encodeJson, decodeJson)
 import Data.Argonaut.Printer       (printJson)
 
 import RSCoin.Explorer.Web.Sockets.Types as T
 import RSCoin.Core.Primitives            as T
 import Data.Types                        as T
+import Serokell.Aeson.Helper (encodeJson)
 
 main = do
   Connection socket <- newWebSocket (URL "ws://localhost:8000") []

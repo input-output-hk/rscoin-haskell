@@ -1,17 +1,19 @@
--- This options should mirror options from this Haskell module https://gitlab.serokell.io/serokell-team/serokell-core/blob/master/src/Serokell/Aeson/Options.hs
+-- This options should mirror options from this Haskell module
+-- https://gitlab.serokell.io/serokell-team/serokell-core/blob/master/src/Serokell/Aeson/Options.hs
 
 module Serokell.Aeson.Options where
 
 import Prelude
 
-import Data.Argonaut.Generic.Aeson as A
-import Serokell.Data.Char          (isLower, isPunctuation, isUpper, toLower)
-import Data.String                 (uncons, singleton, dropWhile, toCharArray,
-                                    fromCharArray)
-import Data.Maybe                  (maybe', maybe)
-import Data.Array                  (filter, findIndex, drop)
+import Data.Argonaut.Generic.Aeson   as A
+import Data.Argonaut.Generic.Options (Options)
+import Serokell.Data.Char            (isLower, isPunctuation, isUpper, toLower)
+import Data.String                   (uncons, singleton, dropWhile, toCharArray,
+                                      fromCharArray)
+import Data.Maybe                    (maybe', maybe)
+import Data.Array                    (filter, findIndex, drop)
 
-import Partial.Unsafe              (unsafeCrashWith)
+import Partial.Unsafe                (unsafeCrashWith)
 
 headToLower :: String -> String
 headToLower = maybe' (const $ unsafeCrashWith "headToLower: undefined") (\{head:h, tail:t} -> singleton (toLower h) <> t ) <<< uncons
@@ -30,14 +32,5 @@ stripConstructorPrefix t =
     decrementSafe i = i - 1
     ts = toCharArray t
 
--- FIXME: aeson options differ from options in Argonaut.Generic.Aeson
--- There is no `fieldLabelModifier, and instead of this we have to use
--- userEncoding and userDecoding which is a bit more complex!
---
--- defaultOptions :: A.Options
--- defaultOptions =
---     A.defaultOptions
---     { A.fieldLabelModifier =
---
--- leaveTagOptions :: A.Options
--- leaveTagOptions = defaultOptions { A.constructorTagModifier = id }
+defaultOptions :: Options
+defaultOptions = A.options

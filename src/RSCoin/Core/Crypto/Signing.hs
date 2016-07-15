@@ -60,6 +60,12 @@ newtype Signature = Signature
     { getSignature :: E.Signature
     } deriving (Eq,Show)
 
+sigToBs :: Signature -> BS.ByteString
+sigToBs = E.unSignature . getSignature
+
+bsToSig :: BS.ByteString -> Signature
+bsToSig = Signature . E.Signature
+
 putCopyBinary :: Binary a => a -> Contained Put
 putCopyBinary = contain . safePut . encode
 
@@ -82,12 +88,18 @@ instance Buildable Signature where
     build _ = "Signature"
 
 instance MessagePack Signature where
-    toObject = toObject . E.unSignature . getSignature
-    fromObject obj = Signature . E.Signature <$> fromObject obj
+    toObject = toObject . sigToBs
+    fromObject obj = bsToSig <$> fromObject obj
 
 instance Binary Signature where
-    get = Signature . E.Signature <$> get
-    put = put . E.unSignature . getSignature
+    get = bsToSig <$> get
+    put = put . sigToBs
+
+instance ToJSON Signature where
+    toJSON = toJSON . B64.encode . sigToBs
+
+instance FromJSON Signature where
+    parseJSON = fmap (bsToSig . B64.getJsonByteString) . parseJSON
 
 newtype SecretKey = SecretKey
     { getSecretKey :: E.SecretKey
@@ -122,6 +134,9 @@ newtype PublicKey = PublicKey
 pkToBs :: PublicKey -> BS.ByteString
 pkToBs = E.unPublicKey . getPublicKey
 
+bsToPk :: BS.ByteString -> PublicKey
+bsToPk = PublicKey . E.PublicKey
+
 instance Buildable PublicKey where
     build = build .  B64.encode . pkToBs
 
@@ -132,16 +147,16 @@ instance Hashable PublicKey where
     hashWithSalt s = hashWithSalt s . E.unPublicKey . getPublicKey
 
 instance Binary PublicKey where
-    get = PublicKey . E.PublicKey <$> get
-    put = put . E.unPublicKey . getPublicKey
+    get = bsToPk <$> get
+    put = put . pkToBs
 
 instance SafeCopy PublicKey where
     putCopy = putCopyBinary
     getCopy = getCopyBinary
 
 instance MessagePack PublicKey where
-    toObject = toObject . E.unPublicKey . getPublicKey
-    fromObject = fmap (PublicKey . E.PublicKey) . fromObject
+    toObject = toObject . pkToBs
+    fromObject = fmap bsToPk . fromObject
 
 instance Arbitrary PublicKey where
     arbitrary = derivePublicKey <$> arbitrary
@@ -150,9 +165,13 @@ instance ToJSON PublicKey where
     toJSON = toJSON . B64.encode . pkToBs
 
 instance FromJSON PublicKey where
+<<<<<<< HEAD
     parseJSON v = do
         String s <- pure v
         maybe empty pure $ constructPublicKey s
+=======
+    parseJSON = fmap (bsToPk . B64.getJsonByteString) . parseJSON
+>>>>>>> b95ff93... Add more JSON serialization instances and refactor existing ones
 
 -- | Sign a serializable value.
 sign :: Binary t => SecretKey -> t -> Signature

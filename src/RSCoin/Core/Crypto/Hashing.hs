@@ -11,7 +11,8 @@ module RSCoin.Core.Crypto.Hashing
 
 import           Control.Monad              ((>=>))
 import qualified Crypto.Hash.BLAKE2.BLAKE2b as BLAKE2
-import           Data.Aeson                 (ToJSON (toJSON))
+import           Data.Aeson                 (FromJSON (parseJSON),
+                                             ToJSON (toJSON))
 import           Data.Binary                (Binary, encode)
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString            as BS
@@ -55,4 +56,7 @@ hash :: Binary t => t -> Hash
 hash = Hash . blake2b256 . toStrict . encode
 
 instance ToJSON Hash where
-    toJSON = toJSON . B64.encode . getHash
+    toJSON = toJSON . B64.JsonByteString . getHash
+
+instance FromJSON Hash where
+    parseJSON = fmap (Hash . B64.getJsonByteString) . parseJSON

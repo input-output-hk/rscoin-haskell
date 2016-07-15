@@ -256,7 +256,7 @@ queryCompleteMSAdresses = liftA2 (++) queryCompleteUserAddresses queryCompleteSh
     queryCompleteSharedAddresses = queryMSAddressesHelper
         trustedStrategyPool
         ((== 3) . M.size)  -- @TODO: harcoded constant. Replace with Enum?
-        (MOfNStrategy 3 . S.fromList . M.elems)
+        (MOfNStrategy 2 . S.fromList . M.elems)  -- 2/3 strategy for transactions
 
 
 removeCompleteMSAddresses :: [Address] -> Update Storage ()

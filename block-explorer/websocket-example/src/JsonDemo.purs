@@ -25,7 +25,7 @@ helper v = do
 main = do
   let coin     = C.Coin {getColor: 0, getCoin: C.Rational "0.3242342"}
       key      = C.PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
-      hash     = C.Hash "\SOWQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168"
+      hash     = C.Hash "DldRwCblQ7Loqy6wYJnaodHl30d3j3eH+qtFzfEv46g="
       addr     = C.Address { getAddress:  key }
       tx       = C.Transaction {txInputs: [tuple3 hash 0 coin], txOutputs: [(Tuple addr coin)]}
       err      = W.ParseError "error"

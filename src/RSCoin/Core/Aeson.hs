@@ -24,7 +24,7 @@ instance ToJSON Coin where
         let prec = 5
         in object
                [ "getColor" .= getColor
-               , "getValue" .= showFPrec prec (realToFrac getCoin)]
+               , "getCoin" .= showFPrec prec (realToFrac getCoin)]
 
 $(deriveToJSON defaultOptionsPS ''Transaction)
 

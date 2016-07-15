@@ -73,6 +73,12 @@ instance MessagePack C.Mintette where
         toObject (toObject mintetteHost, toObject mintettePort)
     fromObject = fmap (uncurry2 C.Mintette) . fromObject
 
+instance MessagePack C.Explorer where
+    toObject C.Explorer{..} =
+        toObject
+            (toObject explorerHost, toObject explorerPort, toObject explorerKey)
+    fromObject = fmap (uncurry3 C.Explorer) . fromObject
+
 instance MessagePack C.NewPeriodData where
     toObject C.NewPeriodData{..} =
         toObject

@@ -16,16 +16,18 @@ import qualified Data.Map.Strict       as M
 import           Serokell.Util.Text    (format', formatSingle', mapBuilder,
                                         show')
 
-import           RSCoin.Bank.AcidState (GetAddresses (..), GetHBlock (..),
-                                        GetHBlocks (..), GetLogs (..),
-                                        GetMintettes (..), GetPeriodId (..),
-                                        GetTransaction (..), State)
+import           RSCoin.Bank.AcidState (GetAddresses (..),
+                                        GetExplorersAndPeriods (..),
+                                        GetHBlock (..), GetHBlocks (..),
+                                        GetLogs (..), GetMintettes (..),
+                                        GetPeriodId (..), GetTransaction (..),
+                                        State)
 import           RSCoin.Bank.Error     (BankError)
-import           RSCoin.Core           (ActionLog, AddressToStrategyMap, HBlock,
-                                        MintetteId, Mintettes, PeriodId,
-                                        Transaction, TransactionId,
-                                        bankLoggerName, bankPort, logDebug,
-                                        logError, logInfo)
+import           RSCoin.Core           (ActionLog, AddressToStrategyMap,
+                                        Explorers, HBlock, MintetteId,
+                                        Mintettes, PeriodId, Transaction,
+                                        TransactionId, bankLoggerName, bankPort,
+                                        logDebug, logError, logInfo)
 import qualified RSCoin.Core.Protocol  as C
 import qualified RSCoin.Timed          as T
 
@@ -42,6 +44,7 @@ serve st workerThread restartWorkerAction = do
     idr6 <- T.serverTypeRestriction2
     idr7 <- T.serverTypeRestriction3
     idr8 <- T.serverTypeRestriction0
+    idr9 <- T.serverTypeRestriction0
     C.serve
         bankPort
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
@@ -53,6 +56,7 @@ serve st workerThread restartWorkerAction = do
         , C.method (C.RSCDump C.GetHBlocks) $ idr6 $ serveGetHBlocks st
         , C.method (C.RSCDump C.GetHBlocks) $ idr7 $ serveGetLogs st
         , C.method (C.RSCBank C.GetAddresses) $ idr8 $ serveGetAddresses st
+        , C.method (C.RSCBank C.GetExplorers) $ idr9 $ serveGetExplorers st
         ]
 
 toServer :: T.WorkMode m => m a -> T.ServerT m a
@@ -134,3 +138,11 @@ serveGetLogs st m from to =
        logDebug bankLoggerName $
            format' "Getting action logs of mintette {} with range of entries {} to {}: {}" (m, from, to, mLogs)
        return mLogs
+
+serveGetExplorers
+    :: T.WorkMode m
+    => State -> T.ServerT m Explorers
+serveGetExplorers st = do
+    curPeriod <- query' st GetPeriodId
+    map fst . filter ((== curPeriod) . snd) <$>
+        query' st GetExplorersAndPeriods

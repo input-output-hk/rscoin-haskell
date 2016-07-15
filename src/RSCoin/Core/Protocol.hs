@@ -64,6 +64,7 @@ data RSCoinMethod
 -- | Requests processed by a Bank.
 data BankMethod
     = GetMintettes
+    | GetExplorers
     | GetAddresses
     | GetBlockchainHeight
     | GetHBlock

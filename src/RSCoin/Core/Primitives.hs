@@ -14,7 +14,6 @@ module RSCoin.Core.Primitives
        , grey
        ) where
 
-import           Data.Aeson          (FromJSON, ToJSON)
 import           Data.Binary         (Binary (get, put))
 import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.Maybe          (catMaybes, fromMaybe)
@@ -83,11 +82,6 @@ instance Num Coin where
 newtype Address = Address
     { getAddress :: PublicKey
     } deriving (Show,Ord,Buildable,Binary,Eq,Hashable,Generic)
-
--- TODO: maybe later we'll want to use custom instances, but for now
--- we do it this way to b surely consistent with Purescript
-instance ToJSON Address
-instance FromJSON Address
 
 instance Read Address where
     readsPrec i = catMaybes . map (\(k, s) -> flip (,) s . Address <$> constructPublicKey (removePrefix k)) . readsPrec i

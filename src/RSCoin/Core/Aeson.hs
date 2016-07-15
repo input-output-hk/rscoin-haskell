@@ -8,13 +8,13 @@ module RSCoin.Core.Aeson
        ) where
 
 import           Data.Aeson             (ToJSON, object, toJSON, (.=))
-import           Data.Aeson.TH          (deriveToJSON)
+import           Data.Aeson.TH          (deriveJSON, deriveToJSON)
 import qualified Data.Text              as T
 import           Formatting             (fixed, sformat)
 
 import           Serokell.Aeson.Options (defaultOptionsPS)
 
-import           RSCoin.Core.Primitives (Coin (..), Transaction)
+import           RSCoin.Core.Primitives (Address, Coin (..), Transaction)
 
 showFPrec :: Int -> Double -> T.Text
 showFPrec prec = T.dropWhileEnd (== '0') . sformat (fixed prec)
@@ -27,3 +27,5 @@ instance ToJSON Coin where
                , "getValue" .= showFPrec prec (realToFrac getCoin)]
 
 $(deriveToJSON defaultOptionsPS ''Transaction)
+
+$(deriveJSON defaultOptionsPS ''Address)

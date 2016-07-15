@@ -6,12 +6,12 @@ module Serokell.Aeson.Options where
 import Prelude
 
 import Data.Argonaut.Generic.Aeson   as A
-import Data.Argonaut.Generic.Options (Options)
+import Data.Argonaut.Generic.Options (Options (..))
 import Serokell.Data.Char            (isLower, isPunctuation, isUpper, toLower)
 import Data.String                   (uncons, singleton, dropWhile, toCharArray,
                                       fromCharArray)
 import Data.Maybe                    (maybe', maybe)
-import Data.Array                    (filter, findIndex, drop)
+import Data.Array                    (filter, findIndex, drop, elemLastIndex)
 
 import Partial.Unsafe                (unsafeCrashWith)
 
@@ -32,5 +32,13 @@ stripConstructorPrefix t =
     decrementSafe i = i - 1
     ts = toCharArray t
 
+fixArgonautBug :: String -> String
+fixArgonautBug t =
+    fromCharArray <<< maybe ts (flip drop ts <<< succ) $ elemLastIndex '.' ts
+  where
+    succ n = n + 1
+    ts = toCharArray t
+
 defaultOptions :: Options
-defaultOptions = A.options
+defaultOptions = case A.options of
+                   Options opts -> Options $ opts { constructorTagModifier = headToLower <<< stripConstructorPrefix <<< fixArgonautBug }

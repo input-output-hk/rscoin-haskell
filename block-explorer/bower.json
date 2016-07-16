@@ -9,6 +9,10 @@
   "license": "BSD3",
   "dependencies": {
     "purescript-pux": "^5.0.1",
-    "purescript-pux-devtool": "^3.0.0"
+    "purescript-pux-devtool": "^3.0.0",
+    "purescript-argonaut-core": "^1.0.0",
+    "purescript-debug": "^1.0.0",
+    "purescript-argonaut-generic-codecs": "^2.0.0",
+    "purescript-websocket-simple": "^0.4.0"
   }
 }

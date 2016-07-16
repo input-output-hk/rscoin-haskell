@@ -1,54 +1,45 @@
 module Main where
 
-import Prelude
-
-import Thermite as T
-
-import React as R
-import React.DOM as R
-import React.DOM.Props as RP
-import ReactDOM as RDOM
-
+import App.Routes (match)
+import App.Layout (Action(PageView), State, view, update)
+import Control.Bind ((=<<))
 import Control.Monad.Eff (Eff)
-import DOM (DOM) as DOM
-import DOM.HTML (window) as DOM
-import DOM.HTML.Types (htmlDocumentToParentNode) as DOM
-import DOM.HTML.Window (document) as DOM
-import DOM.Node.ParentNode (querySelector) as DOM
+import DOM (DOM)
+import Prelude (bind, pure)
+import Pux (App, Config, CoreEffects, fromSimple, renderToDOM, start)
+import Pux.Devtool (Action, start) as Pux.Devtool
+import Pux.Router (sampleUrl)
+import Signal ((~>))
 
-import Data.Maybe (fromJust)
-import Data.Nullable (toMaybe)
-import Partial.Unsafe (unsafePartial)
+type AppEffects = (dom :: DOM)
 
-data Action = Increment | Decrement
+-- | App configuration
+config :: forall eff. State -> Eff (dom :: DOM | eff) (Config State Action AppEffects)
+config state = do
+  -- | Create a signal of URL changes.
+  urlSignal <- sampleUrl
 
-type State = { counter :: Int }
+  -- | Map a signal of URL changes to PageView actions.
+  let routeSignal = urlSignal ~> \r -> PageView (match r)
 
-initialState :: State
-initialState = { counter: 0 }
+  pure
+    { initialState: state
+    , update: fromSimple update
+    , view: view
+    , inputs: [routeSignal] }
 
-render :: T.Render State _ Action
-render dispatch _ state _ =
-    [ R.p' [ R.text "Value: "
-           , R.text $ show state.counter
-           ]
-    , R.p' [ R.button [ RP.onClick \_ -> dispatch Increment ]
-                      [ R.text "Increment" ]
-           , R.button [ RP.onClick \_ -> dispatch Decrement ]
-                      [ R.text "Decrement" ]
-           ]
-    ]
+-- | Entry point for the browser.
+main :: State -> Eff (CoreEffects AppEffects) (App State Action)
+main state = do
+  app <- start =<< config state
+  renderToDOM "#app" app.html
+  -- | Used by hot-reloading code in support/index.js
+  pure app
 
-performAction :: T.PerformAction _ State _ Action
-performAction Increment _ _ = void $ T.cotransform $ \state -> state { counter = state.counter + 1 }
-performAction Decrement _ _ = void $ T.cotransform $ \state -> state { counter = state.counter - 1 }
-
-spec :: T.Spec _ State _ Action
-spec = T.simpleSpec performAction render
-
-main :: Eff (dom :: DOM.DOM) Unit
-main = void do
-    let component = T.createClass spec initialState
-    document <- DOM.window >>= DOM.document
-    container <- unsafePartial (fromJust <<< toMaybe <$> DOM.querySelector "#container" (DOM.htmlDocumentToParentNode document))
-    RDOM.render (R.createFactory component {}) container
+-- | Entry point for the browser with pux-devtool injected.
+debug :: State -> Eff (CoreEffects AppEffects) (App State (Pux.Devtool.Action Action))
+debug state = do
+  app <- Pux.Devtool.start =<< config state
+  renderToDOM "#app" app.html
+  -- | Used by hot-reloading code in support/index.js
+  pure app

@@ -1,8 +1,9 @@
-/bower_components/
-/node_modules/
-/.pulp-cache/
-/output/
-/.psci*
-/src/.webpack.js
-index.js
+node_modules/
+bower_components/
+output/
+dist/
+static/dist
+.psci_modules
+npm-debug.log
+**DS_Store
 *.tix

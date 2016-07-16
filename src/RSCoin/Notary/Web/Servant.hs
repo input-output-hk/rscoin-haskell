@@ -55,9 +55,9 @@ type NotaryApi =
     :> ReqBody '[JSON] PublishTxInput
     :> Post '[JSON] [(C.Address, C.Signature)]
   :<|>
-  "allocateMutisig"
+  "allocateMultisig"
     :> ReqBody '[JSON] AllocateMSInput
-    :> Get '[JSON] ()
+    :> Post '[JSON] ()
   :<|>
   "getPeriodId"
     :> Get '[JSON] C.PeriodId

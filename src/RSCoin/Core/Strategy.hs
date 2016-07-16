@@ -79,6 +79,16 @@ data AllocationStrategy
 
 $(deriveSafeCopy 0 'base ''AllocationStrategy)
 
+instance Binary AllocationStrategy where
+    put (UserStrategy m addrs)          = put (0 :: Int, (m, addrs))
+    put _ = error "instance Binary AllocationStrategy not implemented"
+
+    get = do
+        (i, payload) <- get
+        pure $ case (i :: Int) of
+            0 -> uncurry UserStrategy payload
+            _ -> error "unknown allocation strategy"
+
 instance Buildable AllocationStrategy where
     build (TrustedStrategy party) = bprint ("TrustedStrategy : " % shown) party
     build (UserStrategy m addrs)  = bprint template m (listBuilderJSON addrs)

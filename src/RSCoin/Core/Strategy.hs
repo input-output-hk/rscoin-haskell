@@ -75,7 +75,7 @@ $(deriveSafeCopy 0 'base ''AllocationParty)
 data AllocationStrategy
     = TrustedStrategy AllocationParty  -- ^ strategy 1
     | UserStrategy Int (Set Address)   -- ^ strategy 2
-    deriving (Show)
+    deriving (Eq, Show)
 
 $(deriveSafeCopy 0 'base ''AllocationStrategy)
 

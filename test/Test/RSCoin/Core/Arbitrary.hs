@@ -66,6 +66,14 @@ instance Arbitrary C.NewPeriodData where
         <*> arbitrary
         <*> arbitrary
 
+instance Arbitrary C.AllocationParty where
+    arbitrary = arbitrary
+
+instance Arbitrary C.AllocationStrategy where
+    arbitrary = oneof [ C.TrustedStrategy <$> arbitrary
+                      , C.UserStrategy <$> arbitrary <*> arbitrary
+                      ]
+
 instance Arbitrary C.ActionLogEntry where
     arbitrary = oneof [ C.QueryEntry <$> arbitrary
                       , C.CommitEntry <$> arbitrary <*> arbitrary

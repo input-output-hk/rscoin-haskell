@@ -11,6 +11,7 @@ import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, scale,
                                              (===))
+import qualified Data.Set                   as S
 
 import qualified RSCoin.Core                as C
 
@@ -62,6 +63,12 @@ spec :: Spec
 spec =
     describe "MessagePack" $ do
         describe "Identity Properties" $ do
+            prop "Int64" $
+                \(a :: Int64) -> a === mid a
+            prop "Integer" $
+                \(a :: Integer) -> a === mid a
+            prop "Rational" $
+                \(a :: Rational) -> a === mid a                                 
             prop "Either Int Int" $
                 \(a :: Either Int Int) -> a === mid a
             prop "Either Int (Either Int Int)" $
@@ -70,30 +77,32 @@ spec =
                 \(a :: Either (Either Int Int) Int) -> a === mid a
             prop "Coin" $
                 \(a :: C.Coin) -> a === mid a
+            prop "Address" $
+                \(a :: C.Address) -> a === mid a            
             prop "Mintette" $
                 \(a :: C.Mintette) -> a === mid a
-            prop "Explorer" $
-                \(a :: C.Explorer) -> a === mid a
             prop "Hash" $
                 \(a :: C.Hash) -> a === mid a
-            prop "Integer" $
-                \(a :: Integer) -> a === mid a
-            prop "Rational" $
-                \(a :: Rational) -> a === mid a
-            prop "Int64" $
-                \(a :: Int64) -> a === mid a
-            prop "Address" $
-                \(a :: C.Address) -> a === mid a
+            prop "Explorer" $
+                \(a :: C.Explorer) -> a === mid a
             prop "NewPeriodData" $
-                \(a :: SmallNewPeriodData) -> a === mid a
+                \(a :: C.NewPeriodData) -> a === mid a
             prop "LBlock" $
-                \(a :: SmallLBlock) -> a === mid a
-            prop "HBlock" $
-                \(a :: SmallHBlock) -> a === mid a
+                \(a :: C.LBlock) -> a === mid a
             prop "Transaction" $
-                \(a :: SmallTransaction) -> a === mid a
+                \(a :: C.Transaction) -> a === mid a
             prop "CheckConfirmation" $
-                \(a :: C.CheckConfirmation) -> a === mid a
+                \(a :: C.CheckConfirmation) -> a === mid a      
+            prop "HBlock" $
+                \(a :: C.HBlock) -> a === mid a
+            prop "TxStrategy" $
+                \(a :: C.TxStrategy) -> a === mid a
+            prop "AllocationParty" $
+                \(a :: C.AllocationParty) -> a === mid a                                      
+            prop "AllocationStrategy" $
+                \(a :: C.AllocationStrategy) -> a === mid a
+            prop "Set" $
+                \(a :: S.Set Int) -> a === mid a
             prop "ActionLogEntry" $
                 \(a :: C.ActionLogEntry) -> a === mid a
 

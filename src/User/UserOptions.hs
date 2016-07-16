@@ -54,6 +54,8 @@ data UserCommand
                                         -- addresses; third is Nothing if we need to generate
                                         -- multisignature address.
     | Dump DumpCommand
+    -- @TODO move to rscoin-keygen
+    | SignSeed Text (Maybe FilePath)
     deriving (Show)
 
 data DumpCommand
@@ -198,7 +200,10 @@ userCommandParser =
                    argument
                        auto
                        (metavar "INDEX" <> help "Index of address to dump"))
-                  (progDesc "Dump address with given index.")))
+                  (progDesc "Dump address with given index.")) <>
+        command
+            "sign-seed"
+             (info signSeedOpts (progDesc "Sign seed with key.")))
   where
     formTransactionOpts =
         FormTransaction <$>
@@ -234,6 +239,15 @@ userCommandParser =
         <*>
         optional (strOption $
             long "ms-addr" <> help "New multisignature address")
+    signSeedOpts =
+        SignSeed
+        <$>
+        (strOption $
+            long "seed" <> help "Seed to sign")
+        <*>
+        optional (strOption $
+            short 'k' <> long "secret-key" <> help "Path to secret key" <>
+             metavar "PATH TO KEY")
 
 userOptionsParser :: FilePath -> Parser UserOptions
 userOptionsParser dskp =

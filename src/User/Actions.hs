@@ -17,12 +17,16 @@ import           Control.Monad.Trans     (liftIO)
 
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
+import qualified Data.Binary             as Bin
+import qualified Data.ByteString.Base64  as B64
+import           Data.ByteString.Lazy    (toStrict)
 import           Data.Function           (on)
 import           Data.List               (genericIndex, groupBy)
 import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
 import           Data.Monoid             ((<>))
 import qualified Data.Set                as S
 import qualified Data.Text               as T
+import           Data.Text.Encoding      (decodeUtf8, encodeUtf8)
 import qualified Data.Text.IO            as TIO
 
 import           Formatting              (build, sformat, stext, (%))
@@ -127,6 +131,18 @@ processCommand st O.UpdateBlockchain _ =
                then "Blockchain is updated already."
                else "Successfully updated blockchain."
 processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
+processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
+    sk <- maybe (pure C.attainSecretKey) C.readSecretKey mPath
+    (seedPk, seedSk) <- case B64.decode $ encodeUtf8 seedB64 of
+              Left _ -> fail "Wrong seed supplied (base64 decoding failed)"
+              Right s -> maybe (fail "Failed to derive keypair from seed") pure $ C.deterministicKeyGen s
+    liftIO $ TIO.putStrLn $
+       sformat ("Seed Pk: " % build) seedPk
+    let (pk, sig) = (C.derivePublicKey sk, C.sign sk seedPk)
+        sig64 = decodeUtf8 $ B64.encode $ toStrict $ Bin.encode sig
+    liftIO $ TIO.putStrLn $
+       sformat ("AttPk: " % build % ", AttSig: " % build) pk sig64
+
 processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
     when (null textAddrs) $
         U.commitError "Can't create multisig with empty addrs list"

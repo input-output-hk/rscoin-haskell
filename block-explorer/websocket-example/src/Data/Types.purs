@@ -1,9 +1,9 @@
 module Data.Types where
 
-import           Prelude
+import Prelude
 
-import           Data.Generic (class Generic, GenericSpine (..), GenericSignature (..))
-import           Data.Maybe (Maybe (..))
+import Data.Generic (class Generic, GenericSpine (..), GenericSignature (..))
+import Data.Maybe (Maybe (..))
 
 -- NOTE: these newtype wrappers and instances can/will be auto generated
 --

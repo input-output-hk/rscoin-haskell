@@ -67,7 +67,8 @@ instance Arbitrary C.NewPeriodData where
         <*> arbitrary
 
 instance Arbitrary C.AllocationParty where
-    arbitrary = arbitrary
+    arbitrary = oneof $ map pure [ C.Trusted
+                                 , C.User]
 
 instance Arbitrary C.AllocationStrategy where
     arbitrary = oneof [ C.TrustedStrategy <$> arbitrary

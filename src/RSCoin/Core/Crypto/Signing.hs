@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE FlexibleInstances    #-}
 
 -- | Signing-related functions and types.
 
@@ -52,7 +53,8 @@ import           Test.QuickCheck            (Arbitrary (arbitrary), vector)
 
 import qualified Serokell.Util.Base64       as B64
 import           Serokell.Util.Exceptions   (throwText)
-import           Serokell.Util.Text         (show')
+import           Serokell.Util.Text         (show', pairBuilder, listBuilderJSON)
+import Control.Monad ((>=>))
 
 import qualified RSCoin.Core.Crypto.Hashing as H
 
@@ -82,10 +84,15 @@ instance SafeCopy Signature where
     putCopy = putCopyBinary
     getCopy = getCopyBinary
 
+instance Buildable (Signature, PublicKey) where
+    build = pairBuilder
+
+instance Buildable [(Signature, PublicKey)] where
+  build = listBuilderJSON
+
 instance Buildable Signature where
-    -- Feel free to change it if you need actual Signature
-    -- build = build . F.Shown . getSignature
-    build _ = "Signature"
+    --build = build . decodeUtf8 . B64.encode . E.unSignature . getSignature
+    build = build . F.Shown . getSignature  -- @TODO: previoud version doesn't compile
 
 instance MessagePack Signature where
     toObject = toObject . sigToBs
@@ -106,7 +113,8 @@ newtype SecretKey = SecretKey
     } deriving (Eq, Ord)
 
 instance Buildable SecretKey where
-    build = build . F.Shown . getSecretKey
+    --build = build . decodeUtf8 . B64.encode . E.unSecretKey . getSecretKey
+    build = build . F.Shown . getSecretKey  -- @TODO: previous version doesn't compile
 
 instance Show SecretKey where
     show sk = "SecretKey { getSecretKey = " ++ T.unpack (show' sk) ++ " }"
@@ -170,12 +178,12 @@ instance FromJSON PublicKey where
 -- | Sign a serializable value.
 sign :: Binary t => SecretKey -> t -> Signature
 sign (getSecretKey -> secKey) =
-    Signature . E.dsign secKey . H.getHash . H.hash . encode
+    Signature . E.dsign secKey . H.getHash . H.hash
 
 -- | Verify signature for a serializable value.
 verify :: Binary t => PublicKey -> Signature -> t -> Bool
 verify (getPublicKey -> pubKey) (getSignature -> sig) t =
-    E.dverify pubKey (H.getHash . H.hash $ encode t) sig
+    E.dverify pubKey (H.getHash $ H.hash t) sig
 
 -- | Verify chain of certificates.
 verifyChain :: PublicKey -> [(Signature, PublicKey)] -> Bool

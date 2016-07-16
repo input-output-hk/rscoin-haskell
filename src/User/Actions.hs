@@ -17,16 +17,14 @@ import           Control.Monad.Trans     (liftIO)
 
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
-import qualified Data.Binary             as Bin
 import qualified Data.ByteString.Base64  as B64
-import           Data.ByteString.Lazy    (toStrict)
 import           Data.Function           (on)
 import           Data.List               (genericIndex, groupBy)
 import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
 import           Data.Monoid             ((<>))
 import qualified Data.Set                as S
 import qualified Data.Text               as T
-import           Data.Text.Encoding      (decodeUtf8, encodeUtf8)
+import           Data.Text.Encoding      (encodeUtf8)
 import qualified Data.Text.IO            as TIO
 
 import           Formatting              (build, sformat, stext, (%))
@@ -139,9 +137,8 @@ processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
     liftIO $ TIO.putStrLn $
        sformat ("Seed Pk: " % build) seedPk
     let (pk, sig) = (C.derivePublicKey sk, C.sign sk seedPk)
-        sig64 = decodeUtf8 $ B64.encode $ toStrict $ Bin.encode sig
     liftIO $ TIO.putStrLn $
-       sformat ("AttPk: " % build % ", AttSig: " % build) pk sig64
+       sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build) pk sig (C.verifyChain pk [(sig, seedPk)])
 
 processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
     when (null textAddrs) $
@@ -157,11 +154,13 @@ processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
 
     msPublicKey <- maybe (snd <$> liftIO C.keyGen) return (mMSAddress >>= C.constructPublicKey)
     (userAddress, userSK) <- head <$> query' st U.GetUserAddresses
-    let userSignature = C.sign userSK userAddress
+    let msAddr = C.Address msPublicKey
+        strat = C.UserStrategy m $ S.fromList partiesAddrs
+    let userSignature = C.sign userSK (msAddr, strat)
     let certChain     = U.createCertificateChain $ C.getAddress userAddress
     C.allocateMultisignatureAddress
-        (C.Address msPublicKey)
-        (C.UserStrategy m $ S.fromList partiesAddrs)
+        msAddr
+        strat
         (userAddress, userSignature)
         certChain
     liftIO $ TIO.putStrLn $

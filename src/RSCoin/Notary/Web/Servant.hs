@@ -7,42 +7,25 @@ module RSCoin.Notary.Web.Servant
         ( servantApp
         ) where
 
-import           Control.Exception       (throwIO)
 import           Control.Monad.Catch     (catch)
-import           Control.Monad.IO.Class  (MonadIO, liftIO)
 
-import           Data.Acid               (createCheckpoint)
-import           Data.Acid.Advanced      (query', update')
-import           Data.Text               (Text)
 
-import           Formatting              (build, int, sformat, shown, (%))
+import           Formatting              (build, sformat)
 
-import           Control.Monad.Catch     (Exception, catch, throwM)
 import           Control.Monad.Except    (throwError)
 import           Control.Monad.Reader    (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans     (liftIO)
-import           Data.Acid.Advanced      (query')
 import           Data.Tuple.Curry        (Curry, uncurryN)
-import           Data.Typeable           (Typeable)
 import           Network.Wai             (Application)
 import qualified RSCoin.Core             as C
-import qualified RSCoin.Core.Protocol    as P
 import           RSCoin.Notary.AcidState as S
 import           RSCoin.Notary.Error     (NotaryError)
 import qualified RSCoin.Notary.Server    as S
-import           RSCoin.Timed            (WorkMode (..), runRealMode)
 import           Servant                 ((:<|>) (..), (:>), (:~>) (Nat),
-                                          Capture,
-                                          FromHttpApiData (parseUrlPiece), Get,
+                                          Get,
                                           Handler, JSON, Post, Proxy (Proxy),
                                           ReqBody, ServerT, enter, err500,
-                                          parseUrlPiece, serve)
-
-type PublishTxInput =
-    ( C.Transaction
-    , C.Address
-    , (C.Address, C.Signature)
-    )
+                                          serve)
 type AllocateMSInput =
     ( C.Address
     , C.AllocationStrategy
@@ -51,10 +34,6 @@ type AllocateMSInput =
     )
 
 type NotaryApi =
-  "publishTx"
-    :> ReqBody '[JSON] PublishTxInput
-    :> Post '[JSON] [(C.Address, C.Signature)]
-  :<|>
   "allocateMultisig"
     :> ReqBody '[JSON] AllocateMSInput
     :> Post '[JSON] ()
@@ -68,8 +47,7 @@ notaryApi = Proxy
 type MyHandler = ReaderT S.RSCoinNotaryState IO
 
 servantServer :: ServerT NotaryApi MyHandler
-servantServer = method S.handlePublishTx
-              :<|> method S.handleAllocateMultisig
+servantServer = method S.handleAllocateMultisig
               :<|> method0 S.handleGetPeriodId
   where
     method :: (Curry (t -> IO b) b1) => (S.RSCoinNotaryState -> b1) -> t -> MyHandler b

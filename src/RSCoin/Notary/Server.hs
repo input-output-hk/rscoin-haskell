@@ -184,6 +184,7 @@ handleAllocateMultisig
     -> m ()
 handleAllocateMultisig st sAddr allocStrat sigPair chain = do
     logDebug "Begining allocation MS address..."
+    logDebug $ sformat ("SigPair: " % build % ", Chain: " % build) sigPair chain
     update' st $ AllocateMSAddress sAddr allocStrat sigPair chain
 
     currentMSAddresses <- query' st QueryAllMSAdresses

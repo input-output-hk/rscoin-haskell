@@ -27,7 +27,6 @@ instance ToJSON Coin where
                [ "getColor" .= getColor
                , "getCoin" .= showFPrec prec (realToFrac getCoin)]
 
-
 $(deriveToJSON defaultOptionsPS ''Transaction)
 
 $(deriveJSON defaultOptionsPS ''Address)

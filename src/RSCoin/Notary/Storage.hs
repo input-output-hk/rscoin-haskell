@@ -184,7 +184,7 @@ allocateMSAddress msAddr allocStrat (partyAddr@(Address partyPK), partySig) chai
     | otherwise = case allocStrat of
         -- case when strategy is allocated only among users
         UserStrategy m parties -> do
-            unless (verify partyPK partySig partyAddr) $
+            unless (verify partyPK partySig (msAddr, allocStrat)) $
                 throwM $ NEUnrelatedSignature "user-strategy not signed with user pk"
             when (partyAddr `S.notMember` parties) $
                 throwM $ NEInvalidArguments "party address not in set of addresses"

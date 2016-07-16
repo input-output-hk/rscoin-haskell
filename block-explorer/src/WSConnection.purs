@@ -44,4 +44,4 @@ wsSend :: forall a. Generic a => Connection -> a -> Aff (ws :: WEBSOCKET, err ::
 wsSend (Connection ws) value = liftEff do
     traceAnyM value
     log "onsend: Send message"
-    ws.send (Message <<< printJson $ encodeJson value)
+    ws.send <<< Message <<< printJson $ encodeJson value

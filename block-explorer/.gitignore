@@ -7,4 +7,4 @@ static/dist
 npm-debug.log
 **DS_Store
 *.tix
-src/RSCoin/
+src/RSCoin

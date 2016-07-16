@@ -14,7 +14,7 @@ main :: IO ()
 main =
     -- FIXME: https://gitlab.serokell.io/rscoin/rscoin/commit/fc8d36123dba122a4ce41053e1881ea5e1873030#note_1193
     writePSTypes
-        "block-explorer/websocket-example/src"
+        "block-explorer/src"
         (buildBridge customBridge)
         [ mkSumType (Proxy :: Proxy T.ServerError)
         , mkSumType (Proxy :: Proxy T.IntroductoryMsg)

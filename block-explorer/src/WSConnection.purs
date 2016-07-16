@@ -7,11 +7,11 @@ import Debug.Trace                 (traceAnyM)
 
 import Control.Monad.Aff           (Aff)
 import Control.Monad.Eff           (Eff)
-import Control.Monad.Eff.Var       (($=), get)
+import Control.Monad.Eff.Var       (($=))
 import Control.Monad.Eff.Class     (liftEff)
 import Control.Monad.Eff.Console   (CONSOLE, log)
 import Control.Monad.Eff.Exception (EXCEPTION)
-import Signal.Channel              (CHANNEL, Channel, channel, send, subscribe) as S
+import Signal.Channel              (Channel, send) as S
 
 import Data.Either                 (Either)
 import Data.Generic                (class Generic)

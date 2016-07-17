@@ -27,7 +27,6 @@ import           GHC.Generics        (Generic)
 import           Serokell.Util.Text  (listBuilderJSON, pairBuilder,
                                       tripleBuilder)
 
-import           Data.Aeson          (FromJSON, ToJSON)
 import           RSCoin.Core.Crypto  (Hash, PublicKey, constructPublicKey)
 
 type Color = Int

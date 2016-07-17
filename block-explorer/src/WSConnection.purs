@@ -1,5 +1,5 @@
 module App.WSConnection
-       ( Action
+       ( Action (..)
        , WSConnection
        , wsSend
        , wsInit
@@ -22,18 +22,19 @@ import Signal.Channel              (Channel, send) as S
 
 import Data.Either                 (Either)
 import Data.Generic                (class Generic)
-import Data.Argonaut.Core          (fromString)
+import Data.Argonaut.Core          (fromString, Json)
 import Data.Argonaut.Printer       (printJson)
 
 import Serokell.Aeson.Helper       (encodeJson, decodeJson)
 
-data Action a
+data Action
     = WSConnectionOpened
-    | WSReceivedData (Either String a)
+    | WSReceivedData Json
+    | WSConnectionClosed
 
 type WSConnection = Connection
 
-wsInit :: forall a. Generic a => S.Channel (Action a) -> String -> Eff (ws :: WEBSOCKET, err :: EXCEPTION, console :: CONSOLE) WSConnection
+wsInit :: forall eff. S.Channel Action -> String -> Eff (ws :: WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) WSConnection
 wsInit chan url = do
     connection@(Connection ws) <- newWebSocket (URL url) []
     ws.onopen $= \event -> do
@@ -44,10 +45,10 @@ wsInit chan url = do
         traceAnyM event
         let received = runMessage $ runMessageEvent event
         log "onmessage: Received"
-        S.send chan <<< WSReceivedData <<< decodeJson $ fromString received
+        S.send chan <<< WSReceivedData $ fromString received
     pure connection
 
-wsSend :: forall a. Generic a => Connection -> a -> Aff (ws :: WEBSOCKET, err :: EXCEPTION, console :: CONSOLE) Unit
+wsSend :: forall a eff. Generic a => Connection -> a -> Aff (ws :: WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) Unit
 wsSend (Connection ws) value = liftEff do
     traceAnyM value
     log "onsend: Send message"

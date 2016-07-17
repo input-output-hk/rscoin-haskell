@@ -1,15 +1,15 @@
 directory: .
-exec: "stack $NIX_STACK exec -- "
 bank:
-  severity: Info
   secret: rscoin-key
-notary:
-  severity: Warning
+notary: {}
 mintettes:
 - {}
 - {}
 - {}
 explorers:
-- severity: Debug
+- {}
 period: 30
+globalSeverity: Info
+notarySeverity: Info
+explorerSeverity: Info
 

@@ -1,24 +1,35 @@
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
-import           Control.Concurrent      (ThreadId, forkIO, killThread,
-                                          threadDelay)
-import           Control.Exception       (finally)
-import           Control.Monad           (forM_)
-import           Data.Maybe              (fromMaybe)
-import           Data.String.Conversions (cs)
-import           Formatting              (build, int, sformat, shown, stext,
-                                          string, (%))
-import qualified Options.Applicative     as Opts
-import           Serokell.Util.OptParse  (strArgument)
-import           System.FilePath         ((</>))
-import           System.IO.Temp          (createTempDirectory)
-import qualified Turtle                  as Cherepakha
+import           Control.Concurrent       (ThreadId, forkIO, killThread)
+import           Control.Exception        (finally)
+import           Control.Monad            (forM_)
+import           Control.Monad.Catch      (bracket)
+import           Control.Monad.Extra      (whenJust)
+import           Control.Monad.Trans      (MonadIO (liftIO))
+import           Data.Maybe               (fromMaybe)
+import           Data.String.Conversions  (cs)
+import           Data.Text                (Text)
+import           Formatting               (build, int, sformat, shown, stext,
+                                           string, (%))
+import qualified Options.Applicative      as Opts
+import           Serokell.Util.OptParse   (strArgument)
+import           System.FilePath          ((</>))
+import           System.IO.Temp           (withTempDirectory)
+import qualified Turtle                   as Cherepakha
 
-import qualified RSCoin.Core             as C
+import           Serokell.Util.Concurrent (threadDelay)
 
-import           Config                  (BankData (..), DeployConfig (..),
-                                          ExplorerData (..), MintetteData (..),
-                                          NotaryData (..), readDeployConfig)
+import qualified RSCoin.Bank              as B
+import qualified RSCoin.Core              as C
+import qualified RSCoin.Explorer          as E
+import qualified RSCoin.Mintette          as M
+import qualified RSCoin.Notary            as N
+import           RSCoin.Timed             (Second, fork_, runRealMode)
+
+import           Config                   (BankData (..), DeployConfig (..),
+                                           ExplorerData (..), MintetteData (..),
+                                           NotaryData (..), readDeployConfig)
 
 optionsParser :: Opts.Parser FilePath
 optionsParser =
@@ -34,13 +45,9 @@ getConfigPath =
              , Opts.progDesc "Wrapper tool to deploy rscoin locally"])
 
 data CommonParams = CommonParams
-    { cpExec    :: Cherepakha.Text
-    , cpBaseDir :: FilePath
+    { cpBaseDir :: FilePath
     , cpPeriod  :: Word
     } deriving (Show)
-
-waitSec :: Word -> IO ()
-waitSec = threadDelay . (* 1000000) . fromIntegral
 
 toModernFilePath :: FilePath -> Cherepakha.FilePath
 toModernFilePath = Cherepakha.fromText . cs
@@ -48,157 +55,78 @@ toModernFilePath = Cherepakha.fromText . cs
 startMintette :: CommonParams
               -> (Word, MintetteData)
               -> IO (ThreadId, C.PublicKey)
-startMintette CommonParams{..} (idx,MintetteData{..}) = do
+startMintette CommonParams{..} (idx,_) = do
     let workingDir = cpBaseDir </> mconcat ["mintette-workspace-", show idx]
         workingDirModern = toModernFilePath workingDir
-        skPath = workingDir </> "key"
-        pkPath = workingDir </> "key.pub"
-        keyGenCommand = mconcat [cpExec, "rscoin-keygen"]
-        fullKeyGenCommand = mconcat [keyGenCommand, " ", cs skPath]
-        runCommand = mconcat [cpExec, "rscoin-mintette"]
-        severityArg =
-            maybe "" (sformat (" --log-severity " % shown)) mdSeverity
         port = mintettePort idx
         dbDir = workingDir </> "mintette-db"
-        fullRunCommand =
-            sformat
-                (stext % " --sk " % string % " --port " %
-                 int %
-                 stext %
-                 " --bank-host 127.0.0.1 " %
-                 " --path " %
-                 string)
-                runCommand
-                skPath
-                port
-                severityArg
-                dbDir
     Cherepakha.mkdir workingDirModern
-    (Cherepakha.ExitSuccess,_) <-
-        Cherepakha.shellStrict fullKeyGenCommand mempty
-    key <-
-        fromMaybe (error "FATAL: constructPulicKey failed") .
-        C.constructPublicKey <$>
-        (Cherepakha.readTextFile $ toModernFilePath pkPath)
-    waitSec 1
-    (, key) <$> forkIO (() <$ Cherepakha.shell fullRunCommand mempty)
+    (sk,pk) <- C.keyGen
+    let start =
+            runRealMode C.localPlatformLayout $
+            bracket (liftIO $ M.openState dbDir) (liftIO . M.closeState) $
+            \st ->
+                 do fork_ $ M.runWorker sk st
+                    M.serve port st sk
+    (, pk) <$> forkIO start
 
-startExplorer :: CommonParams
-              -> (Word, ExplorerData)
-              -> IO (ThreadId, C.PublicKey)
-startExplorer CommonParams{..} (idx,ExplorerData{..}) = do
+startExplorer
+    :: Maybe C.Severity
+    -> CommonParams
+    -> (Word, ExplorerData)
+    -> IO (ThreadId, C.PublicKey)
+startExplorer severity CommonParams{..} (idx,ExplorerData{..}) = do
     let workingDir = cpBaseDir </> mconcat ["explorer-workspace-", show idx]
         workingDirModern = toModernFilePath workingDir
-        skPath = workingDir </> "key"
-        pkPath = workingDir </> "key.pub"
-        keyGenCommand = mconcat [cpExec, "rscoin-keygen"]
-        fullKeyGenCommand = mconcat [keyGenCommand, " ", cs skPath]
-        runCommand = mconcat [cpExec, "rscoin-explorer"]
-        severityArg =
-            maybe "" (sformat (" --log-severity " % shown)) edSeverity
         portRpc = explorerPort idx
         portWeb = explorerWebPort idx
         dbDir = workingDir </> "explorer-db"
-        fullRunCommand =
-            sformat
-                (stext % " --sk " % string % " --port-rpc " % int % " --port-web " % int % stext %
-                 " --bank-host 127.0.0.1 " %
-                 " --path " %
-                 string)
-                runCommand
-                skPath
+    Cherepakha.mkdir workingDirModern
+    (sk,pk) <- C.keyGen
+    let start =
+            E.launchExplorerReal
+                C.localhost
                 portRpc
                 portWeb
-                severityArg
+                (fromMaybe C.Warning severity)
                 dbDir
-    Cherepakha.mkdir workingDirModern
-    (Cherepakha.ExitSuccess,_) <-
-        Cherepakha.shellStrict fullKeyGenCommand mempty
-    key <-
-        fromMaybe (error "FATAL: constructPulicKey failed") .
-        C.constructPublicKey <$>
-        (Cherepakha.readTextFile $ toModernFilePath pkPath)
-    waitSec 1
-    (, key) <$> forkIO (() <$ Cherepakha.shell fullRunCommand mempty)
+                sk
+    (, pk) <$> forkIO start
 
-type PortsAndKeys = [(Int, C.PublicKey)]
-
-startNotary :: CommonParams -> NotaryData -> IO ThreadId
-startNotary CommonParams{..} NotaryData{..} = do
+startNotary :: Maybe C.Severity -> CommonParams -> NotaryData -> IO ThreadId
+startNotary severity CommonParams{..} NotaryData{..} = do
     let workingDir = cpBaseDir </> "notary-workspace"
         workingDirModern = toModernFilePath workingDir
         dbDir = workingDir </> "notary-db"
-        notaryCommand = mconcat [cpExec, "rscoin-notary"]
-        severityArg =
-            maybe "" (sformat (" --log-severity " % shown)) ndSeverity
-        serveCommand =
-            sformat
-                (stext % " --path " % string % stext)
-                notaryCommand
-                dbDir
-                severityArg
+        start =
+            N.launchNotaryReal
+                (fromMaybe C.Warning severity)
+                (Just dbDir)
+                notaryWebPort
+                C.localhost
     Cherepakha.mkdir workingDirModern
-    forkIO (() <$ Cherepakha.shell serveCommand mempty)
+    forkIO start
+
+type PortsAndKeys = [(Int, C.PublicKey)]
 
 startBank :: CommonParams -> PortsAndKeys -> PortsAndKeys -> BankData -> IO ()
 startBank CommonParams{..} mintettes explorers BankData{..} = do
     let workingDir = cpBaseDir </> "bank-workspace"
         workingDirModern = toModernFilePath workingDir
         dbDir = workingDir </> "bank-db"
-        bankCommand = mconcat [cpExec, "rscoin-bank"]
-        addMintetteCommand =
-            sformat
-                (stext % " --path " % string % " add-mintette " %
-                 " --host 127.0.0.1 " %
-                 " --port " %
-                 int %
-                 " --key " %
-                 build)
-                bankCommand
-                dbDir
-        addExplorerCommand =
-            sformat
-                (stext % " --path " % string % " add-explorer " %
-                 " --host 127.0.0.1 " %
-                 " --port " %
-                 int %
-                 " --key " %
-                 build)
-                bankCommand
-                dbDir
-        severityArg =
-            maybe "" (sformat (" --log-severity " % shown)) bdSeverity
-        serveCommand =
-            sformat
-                (stext % " --path " % string %
-                 " --period-delta " %
-                 int %
-                 stext %
-                 " serve " %
-                 " --secret-key " %
-                 string)
-                bankCommand
-                dbDir
-                cpPeriod
-                severityArg
-                bdSecret
+        periodDelta :: Second = fromIntegral cpPeriod
     Cherepakha.mkdir workingDirModern
     forM_
         mintettes
         (\(port,key) ->
-              Cherepakha.shellStrict (addMintetteCommand port key) mempty)
-    waitSec 1
+              B.addMintetteIO dbDir (C.Mintette C.localhost port) key)
     forM_
         explorers
         (\(port,key) ->
-              Cherepakha.shellStrict (addExplorerCommand port key) mempty)
-    waitSec 1
+              B.addExplorerIO dbDir (C.Explorer C.localhost port key) 0)
     Cherepakha.echo "Deployed successfully!"
-    () <$ Cherepakha.shell serveCommand mempty
-
-withTempDirectoryWorkaround :: FilePath -> String -> (FilePath -> IO a) -> IO a
-withTempDirectoryWorkaround baseDir template callback =
-    callback =<< createTempDirectory baseDir template
+    B.launchBankReal C.localPlatformLayout periodDelta dbDir =<<
+        C.readSecretKey bdSecret
 
 mintettePort :: Integral a => a -> Int
 mintettePort = (C.defaultPort + 1 +) . fromIntegral
@@ -209,34 +137,34 @@ explorerPort = (C.defaultPort + 3000 +) . fromIntegral
 explorerWebPort :: Integral a => a -> Int
 explorerWebPort = (C.defaultPort + 5000 +) . fromIntegral
 
+notaryWebPort :: Int
+notaryWebPort = 9000
+
 main :: IO ()
 main = do
     DeployConfig{..} <- readDeployConfig =<< getConfigPath
-    absoluteDir <-
-        ((</> dcDirectory) . cs . either (error . show) id . Cherepakha.toText) <$>
-        Cherepakha.pwd
-    absoluteSecret <-
-        ((</> bdSecret dcBank) .
-         cs . either (error . show) id . Cherepakha.toText) <$>
-        Cherepakha.pwd
-    let killAll app =
-            () <$
-            Cherepakha.procStrict "killall" ["-q", "-s", "SIGINT", app] mempty
-    killAll "rscoin-mintete"
-    killAll "rscoin-notary"
-    killAll "rscoin-explorer"
-    killAll "rscoin-bank"
-    withTempDirectoryWorkaround absoluteDir "rscoin-deploy" $
+    let makeAbsolute path =
+            ((</> path) . cs . either (error . show) id . Cherepakha.toText) <$>
+            Cherepakha.pwd
+        maybeInitLogger mSev name =
+            whenJust mSev $ flip C.initLoggerByName name
+    absoluteDir <- makeAbsolute dcDirectory
+    absoluteBankSecret <- makeAbsolute (bdSecret dcBank)
+    C.initLogging dcGlobalSeverity
+    maybeInitLogger dcBankSeverity C.bankLoggerName
+    maybeInitLogger dcNotarySeverity C.notaryLoggerName
+    maybeInitLogger dcMintetteSeverity C.mintetteLoggerName
+    maybeInitLogger dcExplorerSeverity C.explorerLoggerName
+    withTempDirectory absoluteDir "rscoin-deploy" $
         \tmpDir ->
              do let cp =
                         CommonParams
-                        { cpExec = dcExec
-                        , cpBaseDir = tmpDir
+                        { cpBaseDir = tmpDir
                         , cpPeriod = dcPeriod
                         }
                     bd =
                         dcBank
-                        { bdSecret = absoluteSecret
+                        { bdSecret = absoluteBankSecret
                         }
                     mintettePorts =
                         map mintettePort [0 .. length dcMintettes - 1]
@@ -244,13 +172,14 @@ main = do
                         map explorerPort [0 .. length dcExplorers - 1]
                 (mintetteThreads,mintetteKeys) <-
                     unzip <$> mapM (startMintette cp) (zip [0 ..] dcMintettes)
-                waitSec 2
                 (explorerThreads,explorerKeys) <-
-                    unzip <$> mapM (startExplorer cp) (zip [0 ..] dcExplorers)
-                waitSec 2
+                    unzip <$>
+                    mapM
+                        (startExplorer dcExplorerSeverity cp)
+                        (zip [0 ..] dcExplorers)
                 let mintettes = zip mintettePorts mintetteKeys
                     explorers = zip explorerPorts explorerKeys
-                notaryThread <- startNotary cp dcNotary
+                notaryThread <- startNotary dcNotarySeverity cp dcNotary
                 startBank cp mintettes explorers bd `finally`
                     (mapM_ killThread $
                      notaryThread : mintetteThreads ++ explorerThreads)

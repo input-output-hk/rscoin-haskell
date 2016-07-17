@@ -14,7 +14,7 @@ import Signal ((~>))
 type AppEffects = (dom :: DOM)
 
 -- | App configuration
-config :: forall eff. State -> Eff (dom :: DOM | eff) (Config State (Action Int) AppEffects)
+config :: forall eff. State -> Eff (dom :: DOM | eff) (Config State Action AppEffects)
 config state = do
   -- | Create a signal of URL changes.
   urlSignal <- sampleUrl
@@ -29,7 +29,7 @@ config state = do
     , inputs: [routeSignal] }
 
 -- | Entry point for the browser.
-main :: State -> Eff (CoreEffects AppEffects) (App State (Action Int))
+main :: State -> Eff (CoreEffects AppEffects) (App State Action )
 main state = do
   app <- start =<< config state
   renderToDOM "#app" app.html
@@ -37,7 +37,7 @@ main state = do
   pure app
 
 -- | Entry point for the browser with pux-devtool injected.
-debug :: State -> Eff (CoreEffects AppEffects) (App State (Pux.Devtool.Action (Action Int)))
+debug :: State -> Eff (CoreEffects AppEffects) (App State (Pux.Devtool.Action Action ))
 debug state = do
   app <- Pux.Devtool.start =<< config state
   renderToDOM "#app" app.html

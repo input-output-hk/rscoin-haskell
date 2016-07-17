@@ -6,7 +6,7 @@ import App.Routes (Route(Home, NotFound))
 import Prelude (($), map)
 import Pux.Html (Html, div, h1, p, text)
 
-data Action a
+data Action
   = Child (Counter.Action)
   | PageView Route
 
@@ -19,11 +19,11 @@ init =
   { route: NotFound
   , count: Counter.init }
 
-update :: Action Int -> State -> State
+update :: Action -> State -> State
 update (PageView route) state = state { route = route }
 update (Child action) state = state { count = Counter.update action state.count }
 
-view :: State -> Html (Action Int)
+view :: State -> Html Action
 view state =
   div
     []

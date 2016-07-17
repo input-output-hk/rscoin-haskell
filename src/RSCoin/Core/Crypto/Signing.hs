@@ -24,10 +24,9 @@ module RSCoin.Core.Crypto.Signing
        , printPublicKey
        ) where
 
-import           Control.Applicative        (empty)
 import qualified Crypto.Sign.Ed25519        as E
 import           Data.Aeson                 (FromJSON (parseJSON),
-                                             ToJSON (toJSON), Value (String))
+                                             ToJSON (toJSON))
 import           Data.Bifunctor             (bimap)
 import           Data.Binary                (Binary (get, put), decodeOrFail,
                                              encode)
@@ -54,7 +53,6 @@ import           Test.QuickCheck            (Arbitrary (arbitrary), vector)
 import qualified Serokell.Util.Base64       as B64
 import           Serokell.Util.Exceptions   (throwText)
 import           Serokell.Util.Text         (show', pairBuilder, listBuilderJSON)
-import Control.Monad ((>=>))
 
 import qualified RSCoin.Core.Crypto.Hashing as H
 

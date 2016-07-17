@@ -1,18 +1,21 @@
 module App.Layout where
 
-import Prelude          (($), map)
+import Prelude                   (($), map)
 
-import App.Counter      as Counter
-import App.NotFound     as NotFound
-import App.Routes       (Route(Home, NotFound))
-import App.WSConnection (WSConnection, Action (..)) as WS
+import App.Counter               as Counter
+import App.NotFound              as NotFound
+import App.Routes                (Route(Home, NotFound))
+import App.WSConnection          (WSConnection, Action, WEBSOCKET) as WS
+import Data.Maybe                (Maybe (..))
 
-import Data.Maybe       (Maybe (..))
+import Pux                       (EffModel, noEffects)
+import Pux.Html                  (Html, div, h1, p, text)
 
-import Pux.Html         (Html, div, h1, p, text)
+import Control.Monad.Eff.Console (CONSOLE)
+import DOM                       (DOM)
 
 data Action
-    = Child (Counter.Action)
+    = Child Counter.Action
     | PageView Route
     | WSAction WS.Action
     | Nop
@@ -30,11 +33,11 @@ init =
     , socket: Nothing
     }
 
-update :: Action -> State -> State
-update (PageView route) state = state { route = route }
-update (Child action) state = state { count = Counter.update action state.count }
-update (WSAction _) state = state
-update Nop state = state
+update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: WS.WEBSOCKET, dom :: DOM)
+update (PageView route) state = noEffects $ state { route = route }
+update (Child action) state = noEffects $ state { count = Counter.update action state.count }
+update (WSAction _) state = noEffects state
+update Nop state = noEffects state
 
 view :: State -> Html Action
 view state =

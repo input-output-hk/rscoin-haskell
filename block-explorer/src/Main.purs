@@ -1,6 +1,6 @@
 module Main where
 
-import Prelude                     (bind, pure)
+import Prelude                     (bind, pure, (<<<))
 
 import App.Routes                  (match)
 import App.Layout                  (Action(PageView, WSAction), State, view, update)
@@ -14,7 +14,7 @@ import DOM                         (DOM)
 
 import Data.Maybe                  (Maybe (..))
 
-import Pux                         (App, Config, CoreEffects, fromSimple, renderToDOM, start)
+import Pux                         (App, Config, CoreEffects, renderToDOM, start)
 import Pux.Devtool                 (Action, start) as Pux.Devtool
 import Pux.Router                  (sampleUrl)
 
@@ -30,13 +30,13 @@ config state = do
     -- | Create a signal of URL changes.
     urlSignal <- sampleUrl
     -- | Map a signal of URL changes to PageView actions.
-    let routeSignal = urlSignal ~> \r -> PageView (match r)
+    let routeSignal = urlSignal ~> PageView <<< match
     wsInput <- channel WS.WSConnectionClosed
     socket <- WS.wsInit wsInput "ws://localhost:8000"
     let wsSignal = subscribe wsInput ~> WSAction
     pure
         { initialState: state { socket = Just socket }
-        , update: fromSimple update
+        , update: update
         , view: view
         , inputs: [routeSignal, wsSignal]
         }

@@ -28,23 +28,23 @@ helper v = do
 
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
-  let coin     = Coin {getColor: 0, getCoin: Rational "0.3242342"}
-      key      = PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
-      hash     = Hash "DldRwCblQ7Loqy6wYJnaodHl30d3j3eH+qtFzfEv46g="
-      addr     = Address { getAddress:  key }
-      tx       = Transaction {txInputs: [tuple3 hash 0 coin], txOutputs: [(Tuple addr coin)]}
-      err      = W.ParseError "error"
-      introMsg = W.IMAddressInfo addr
-      aiMsg    = W.AIGetTransactions (Tuple 0 2)
-      outMsg   = W.OMTxNumber 8 10
-      helper'  = do
-          helper coin
-	  helper key
-	  helper hash
-	  helper addr
-	  helper tx
-	  helper err
-	  helper introMsg
-	  helper aiMsg
-	  helper outMsg
-  helper'
+    let coin     = Coin {getColor: 0, getCoin: Rational "0.3242342"}
+        key      = PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
+        hash     = Hash "DldRwCblQ7Loqy6wYJnaodHl30d3j3eH+qtFzfEv46g="
+        addr     = Address { getAddress:  key }
+        tx       = Transaction {txInputs: [tuple3 hash 0 coin], txOutputs: [(Tuple addr coin)]}
+        err      = W.ParseError "error"
+        introMsg = W.IMAddressInfo addr
+        aiMsg    = W.AIGetTransactions (Tuple 0 2)
+        outMsg   = W.OMTxNumber 8 10
+        helper'  = do
+            helper coin
+            helper key
+            helper hash
+            helper addr
+            helper tx
+            helper err
+            helper introMsg
+            helper aiMsg
+            helper outMsg
+    helper'

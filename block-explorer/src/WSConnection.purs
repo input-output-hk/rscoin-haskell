@@ -1,7 +1,14 @@
-module App.WSConnection where
+module App.WSConnection
+       ( Action
+       , WSConnection
+       , wsSend
+       , wsInit
+       , module WS
+       ) where
 
 import Prelude
 
+import WebSocket                   (WEBSOCKET) as WS
 import WebSocket                   (WEBSOCKET, Connection(Connection), Message(Message), URL(URL), runMessageEvent, runMessage, newWebSocket)
 import Debug.Trace                 (traceAnyM)
 

@@ -12,7 +12,6 @@ module Config
        ) where
 
 import qualified Data.Aeson.TH          as A
-import           Data.Text              (Text)
 import qualified Data.Yaml              as Y
 
 import           RSCoin.Core            (Severity)
@@ -20,35 +19,43 @@ import           RSCoin.Core            (Severity)
 import           Serokell.Aeson.Options (defaultOptions, leaveTagOptions)
 
 data DeployConfig = DeployConfig
-    { dcDirectory :: !FilePath
-    , dcExec      :: !Text
-    , dcBank      :: !BankData
-    , dcNotary    :: !NotaryData
-    , dcMintettes :: ![MintetteData]
-    , dcExplorers :: ![ExplorerData]
-    , dcPeriod    :: !Word
+    { dcDirectory        :: !FilePath
+    , dcBank             :: !BankData
+    , dcNotary           :: !NotaryData
+    , dcMintettes        :: ![MintetteData]
+    , dcExplorers        :: ![ExplorerData]
+    , dcPeriod           :: !Word
+    , dcGlobalSeverity   :: !Severity
+    , dcBankSeverity     :: !(Maybe Severity)
+    , dcNotarySeverity   :: !(Maybe Severity)
+    , dcMintetteSeverity :: !(Maybe Severity)
+    , dcExplorerSeverity :: !(Maybe Severity)
     } deriving (Show)
 
+-- TODO: profiling options are ignored now!
+
+data ProfilingType =
+    NotImplemented
+    deriving (Show)
+
 data BankData = BankData
-    { bdSecret   :: !FilePath
-    , bdSeverity :: !(Maybe Severity)
-    -- , bdProfiling :: !(Maybe ProfilingType)
+    { bdSecret    :: !FilePath
+    , bdProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 
 data NotaryData = NotaryData
-    { ndSeverity :: !(Maybe Severity)
+    { ndProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 
 data MintetteData = MintetteData
-    { mdSeverity :: !(Maybe Severity)
-    -- , mdProfiling :: !(Maybe ProfilingType)
+    { mdProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 
 data ExplorerData = ExplorerData
-    { edSeverity :: !(Maybe Severity)
-    -- , mdProfiling :: !(Maybe ProfilingType)
+    { edProfiling :: !(Maybe ProfilingType)
     } deriving (Show)
 
+$(A.deriveJSON leaveTagOptions ''ProfilingType)
 $(A.deriveJSON leaveTagOptions ''Severity)
 $(A.deriveJSON defaultOptions ''DeployConfig)
 $(A.deriveJSON defaultOptions ''BankData)

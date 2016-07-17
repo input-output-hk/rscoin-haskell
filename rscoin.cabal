@@ -51,10 +51,10 @@ library
                      , RSCoin.Mintette.Worker
                      , RSCoin.Notary
                      , RSCoin.Notary.AcidState
+                     , RSCoin.Notary.Error
+                     , RSCoin.Notary.Launcher
                      , RSCoin.Notary.Server
                      , RSCoin.Notary.Storage
-                     , RSCoin.Notary.Error
-                     , RSCoin.Notary.Web.Servant
                      , RSCoin.Timed
                      , RSCoin.Timed.MonadTimed
                      , RSCoin.Timed.MonadRpc
@@ -91,6 +91,7 @@ library
                      , RSCoin.Explorer.Web.Sockets
                      , RSCoin.Explorer.Web.Sockets.Types
                      , RSCoin.Explorer.Web.Sockets.App
+                     , RSCoin.Notary.Web.Servant
                      , RSCoin.User.AcidState
                      , RSCoin.User.Cache
   build-depends:       acid-state
@@ -318,8 +319,11 @@ executable rscoin-deploy
   other-modules:       Config
   build-depends:       aeson
                      , base
+                     , exceptions
+                     , extra
                      , filepath
                      , formatting
+                     , mtl
                      , optparse-applicative
                      , rscoin
                      , serokell-core

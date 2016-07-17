@@ -78,7 +78,6 @@ library
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Communication
                      , RSCoin.Core.CompileConfig
-                     , RSCoin.Core.Crypto.Helper
                      , RSCoin.Core.Crypto.Hashing
                      , RSCoin.Core.Crypto.Signing
                      , RSCoin.Core.MessagePack

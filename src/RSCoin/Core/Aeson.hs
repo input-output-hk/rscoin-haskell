@@ -15,7 +15,8 @@ import           Formatting             (fixed, sformat)
 import           Serokell.Aeson.Options (defaultOptionsPS)
 
 import           RSCoin.Core.Primitives (Address, Coin (..), Transaction)
-import           RSCoin.Core.Strategy   (AllocationParty, AllocationStrategy)
+import           RSCoin.Core.Strategy   (AllocationAddress, AllocationStrategy,
+                                         TxStrategy)
 
 showFPrec :: Int -> Double -> T.Text
 showFPrec prec = T.dropWhileEnd (== '0') . sformat (fixed prec)
@@ -30,5 +31,6 @@ instance ToJSON Coin where
 $(deriveToJSON defaultOptionsPS ''Transaction)
 
 $(deriveJSON defaultOptionsPS ''Address)
-$(deriveJSON defaultOptionsPS ''AllocationParty)
+$(deriveJSON defaultOptionsPS ''AllocationAddress)
 $(deriveJSON defaultOptionsPS ''AllocationStrategy)
+$(deriveJSON defaultOptionsPS ''TxStrategy)

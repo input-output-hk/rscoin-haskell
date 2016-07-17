@@ -31,7 +31,7 @@ import           Servant                 ((:<|>) (..), (:>), (:~>) (Nat),
 type AllocateMSInput =
     ( C.Address
     , C.AllocationStrategy
-    , (C.Address, C.Signature)
+    , C.Signature
     , [(C.Signature, C.PublicKey)]
     )
 

@@ -4,7 +4,7 @@
 
 module RSCoin.Core.Strategy
      ( AddressToTxStrategyMap
-     , AllocationParty    (..)
+     , AllocationAddress  (..)
      , AllocationStrategy (..)
      , TxStrategy         (..)
      , isStrategyCompleted
@@ -17,7 +17,7 @@ import           Data.Set                   (Set)
 import qualified Data.Set                   as S hiding (Set)
 import           Data.Text.Buildable        (Buildable (build))
 
-import           Formatting                 (bprint, int, shown, (%))
+import           Formatting                 (bprint, int, (%))
 import qualified Formatting                 as F (build)
 
 import           Serokell.Util.Text         (listBuilderJSON)
@@ -60,42 +60,54 @@ instance Buildable TxStrategy where
 
 type AddressToTxStrategyMap = Map Address TxStrategy
 
--- | This enumeration represents party for SharedStrategyAllocation
-data AllocationParty
-    = Trusted
-    | User
+-- | This represents party for AllocationStrategy.
+data AllocationAddress
+    = Trust Address  -- ^ PublicKey we believe
+    | User  Address  -- ^ PublicKey of other User
     deriving (Eq, Ord, Show)
 
-$(deriveSafeCopy 0 'base ''AllocationParty)
+$(deriveSafeCopy 0 'base ''AllocationAddress)
+
+instance Binary AllocationAddress where
+    put (Trust addr) = put (0 :: Int, addr)
+    put (User  addr) = put (1 :: Int, addr)
+
+    get = do
+        (i, addr) <- get
+        let ctor = case (i :: Int) of
+                       0 -> Trust
+                       1 -> User
+                       _ -> error "unknown binary AllocationAddress"
+        pure $ ctor addr
+
+instance Buildable AllocationAddress where
+    build (Trust addr) = bprint ("Trust : " % F.build) addr
+    build (User  addr) = bprint ("User  : " % F.build) addr
 
 -- | Strategy of multisignature address allocation.
--- Allows to cretate 2 types of MS addresses:
---     1. p-of-q where user address shared some trusted parties
---     2. m-of-n among users
-data AllocationStrategy
-    = TrustedStrategy AllocationParty  -- ^ strategy 1
-    | UserStrategy Int (Set Address)   -- ^ strategy 2
-    deriving (Eq, Show)
+data AllocationStrategy = AllocationStrategy
+    { party      :: AllocationAddress      -- ^ 'AllocationAddress' of current party.
+    , allParties :: Set AllocationAddress  -- ^ 'Set' of all parties for this address.
+    , txStrategy :: TxStrategy             -- ^ Transaction strategy after allocation.
+    } deriving (Eq, Show)
 
 $(deriveSafeCopy 0 'base ''AllocationStrategy)
 
 instance Binary AllocationStrategy where
-    put (UserStrategy m addrs)          = put (0 :: Int, (m, addrs))
-    put _ = error "instance Binary AllocationStrategy not implemented"
+    put AllocationStrategy{..} = do
+        put party
+        put allParties
+        put txStrategy
 
-    get = do
-        (i, payload) <- get
-        pure $ case (i :: Int) of
-            0 -> uncurry UserStrategy payload
-            _ -> error "unknown allocation strategy"
+    get = AllocationStrategy <$> get <*> get <*> get
 
 instance Buildable AllocationStrategy where
-    build (TrustedStrategy party) = bprint ("TrustedStrategy : " % shown) party
-    build (UserStrategy m addrs)  = bprint template m (listBuilderJSON addrs)
+    build AllocationStrategy{..} = bprint template party (listBuilderJSON allParties) txStrategy
       where
         template = "AllocationStrategy {\n"  %
-                   "  m: "         % int     % "\n" %
-                   "  addresses: " % F.build % "\n" %
+                   "  party: "      % F.build % "\n" %
+                   "  allParties: " % F.build % "\n" %
+                   "  txStrategy: " % F.build % "\n" %
                    "}\n"
 
 -- | Checks if the inner state of strategy allows us to send

@@ -258,10 +258,10 @@ allocateMultisignatureAddress
     :: WorkMode m
     => Address
     -> AllocationStrategy
-    -> (Address, Signature)
+    -> Signature
     -> [(Signature, PublicKey)]
     -> m ()
-allocateMultisignatureAddress msAddr allocStrat sigPair chain = do
+allocateMultisignatureAddress msAddr allocStrat signature chain = do
     logInfo $ sformat
         ( "Allocate new ms address: " % F.build % "\n,"
         % "allocation strategy: "     % F.build % "\n,"
@@ -270,9 +270,9 @@ allocateMultisignatureAddress msAddr allocStrat sigPair chain = do
         )
         msAddr
         allocStrat
-        (pairBuilder sigPair)
+        signature
         (mapBuilder chain)
-    callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr allocStrat sigPair chain
+    callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr allocStrat signature chain
 
 queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, TxStrategy)]
 queryNotaryCompleteMSAddresses = do

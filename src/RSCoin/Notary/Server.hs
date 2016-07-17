@@ -167,13 +167,13 @@ handleAllocateMultisig
     => RSCoinNotaryState
     -> C.Address
     -> C.AllocationStrategy
-    -> (C.Address, C.Signature)
+    -> C.Signature
     -> [(C.Signature, C.PublicKey)]
     -> m ()
-handleAllocateMultisig st sAddr allocStrat sigPair chain = do
+handleAllocateMultisig st sAddr allocStrat signature chain = do
     logDebug "Begining allocation MS address..."
-    logDebug $ sformat ("SigPair: " % build % ", Chain: " % build) sigPair chain
-    update' st $ AllocateMSAddress sAddr allocStrat sigPair chain
+    logDebug $ sformat ("SigPair: " % build % ", Chain: " % build) signature chain
+    update' st $ AllocateMSAddress sAddr allocStrat signature chain
 
     currentMSAddresses <- query' st QueryAllMSAdresses
     logDebug $ sformat ("All addresses: " % shown) currentMSAddresses

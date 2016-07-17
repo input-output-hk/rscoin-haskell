@@ -19,7 +19,6 @@ module RSCoin.Notary.Storage
         , queryCompleteMSAdresses
         ) where
 
-import           Control.Applicative  (liftA2)
 import           Control.Exception    (throw)
 import           Control.Lens         (Lens', makeLenses, to, use, uses, view,
                                        (%=), (.=))
@@ -42,23 +41,19 @@ import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
                                        notaryMSAttemptsLimit, validateSignature,
                                        verify, verifyChain)
 import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
-                                       AllocationParty (..),
+                                       AllocationAddress (..),
                                        AllocationStrategy (..), TxStrategy (..),
                                        isStrategyCompleted)
 import           RSCoin.Core.Trusted  (bankColdPublic, chainRootPKs)
 import           RSCoin.Notary.Error  (NotaryError (..))
 
--- | Stores meta information for MS allocation by 'UserStrategy'.
-data UserMetaAllocation = UMA
-    { reqSig         :: Int
-    , allParties     :: Set Address
-    , currentParties :: Set Address
+-- | Stores meta information for MS allocation by 'AlocationStrategy'.
+data AllocationInfo = AllocationInfo
+    { allocationStrategy   :: AllocationStrategy
+    , currentConfirmations :: Set Address
     } deriving (Show)
 
-$(deriveSafeCopy 0 'base ''UserMetaAllocation)
-
--- | Stores meta information for MS allocation by 'TrustedStrategy'.
-type TrustedMetaAllocation = Map AllocationParty Address
+$(deriveSafeCopy 0 'base ''AllocationInfo)
 
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
@@ -71,12 +66,9 @@ data Storage = Storage
       -- | Mapping between address and a set of unspent addrids, owned by it.
     , _unspentAddrIds :: Map Address (Set AddrId)
 
-      -- | Mapping from newly allocated multisignature address. This Map is
-      -- used only during multisignature address allocation process for 'UserStrategy'.
-    , _userStrategyPool :: Map Address UserMetaAllocation
-
-      -- | Same as '_userStrategyPool' but this Map is used for 'TrustedStrategy'.
-    , _trustedStrategyPool :: Map Address TrustedMetaAllocation
+      -- | Mapping from newly allocated multisignature addresses. This Map is
+      -- used only during multisignature address allocation process.
+    , _allocationStrategyPool :: Map Address AllocationInfo
 
       -- | Number of attempts for user per period to allocate multisig address.
     , _periodStats    :: Map Address Int
@@ -96,15 +88,14 @@ $(makeLenses ''Storage)
 emptyNotaryStorage :: Storage
 emptyNotaryStorage =
     Storage
-    { _txPool              = M.empty
-    , _txPoolAddrIds       = M.empty
-    , _unspentAddrIds      = M.empty
-    , _userStrategyPool    = M.empty
-    , _trustedStrategyPool = M.empty
-    , _periodStats         = M.empty
-    , _addresses           = M.empty
-    , _utxo                = M.empty
-    , _periodId            = -1
+    { _txPool                 = M.empty
+    , _txPoolAddrIds          = M.empty
+    , _unspentAddrIds         = M.empty
+    , _allocationStrategyPool = M.empty
+    , _periodStats            = M.empty
+    , _addresses              = M.empty
+    , _utxo                   = M.empty
+    , _periodId               = -1
     }
 
 -- Erase occurrences published (address, transaction) from storage
@@ -171,60 +162,59 @@ addSignedTransaction tx addr sg@(sigAddr, sig) = do
 allocateMSAddress
     :: Address                  -- ^ New multisig address itself
     -> AllocationStrategy       -- ^ Strategy for MS address allocation
-    -> (Address, Signature)     -- ^ *Address of party* who adds address and signature of 'Address'
+    -> Signature                -- ^ 'Signature' of @(msAddr, argStrategy)@
     -> [(Signature, PublicKey)] -- ^ Certificate chain to authorize *address of party*.
                                 -- Head is cert, given by *root* (Attain)
     -> Update Storage ()
-allocateMSAddress msAddr allocStrat (partyAddr@(Address partyPK), partySig) chain
-    -- too many checks :( I wish I know which one we shouldnt check
-    | partyPK /= snd (last chain) = throwM $ -- @TODO: what if infinite list is given?
+allocateMSAddress
+    msAddr
+    argStrategy@AllocationStrategy{..}
+    partySig
+    chain
+    -- too many checks :( I wish I know which one we shouldn't check
+    | partyPk /= snd (last chain) = throwM $  -- @TODO: check for length == 2
         NEInvalidChain "last address of chain should be party address"
     | not $ any (`verifyChain` chain) chainRootPKs = throwM $
         NEInvalidChain "none of root pk's is fit for validating"
-    | otherwise = case allocStrat of
-        -- case when strategy is allocated only among users
-        UserStrategy m parties -> do
-            unless (verify partyPK partySig (msAddr, allocStrat)) $
-                throwM $ NEUnrelatedSignature "user-strategy not signed with user pk"
-            when (partyAddr `S.notMember` parties) $
-                throwM $ NEInvalidArguments "party address not in set of addresses"
-            when (m <= 0) $
-                throwM $ NEInvalidArguments "required number of signatures should be positive"
-            when (m > S.size parties) $
-                throwM $ NEInvalidArguments "required number of signatures is greater then party size"
-            guardMaxAttemps partyAddr
+    | otherwise = do
+        -- @TODO: forbid DefaultStrategy
+        -- @TODO: check that strategy consistent with allParties
+        let signedData = (msAddr, argStrategy)
+        case party of
+            Trust {} -> unless (verify bankColdPublic partySig signedData) $
+                throwM $ NEUnrelatedSignature "(msAddr, strategy not signed with Bank cold"
+            User  {} -> unless (verify partyPk partySig signedData) $
+                throwM $ NEUnrelatedSignature "(msAddr, strategy) not signed with party sk"
+        when (party `S.notMember` allParties) $
+            throwM $ NEInvalidArguments "party address not in set of addresses"
+        --when (m <= 0) $
+        --    throwM $ NEInvalidArguments "required number of signatures should be positive"
+        --when (m > S.size parties) $
+        --    throwM $ NEInvalidArguments "required number of signatures is greater then party size"
 
-            mMSAddressSets <- uses userStrategyPool $ M.lookup msAddr
-            case mMSAddressSets of
-                Nothing ->
-                    -- !!! WARNING !!! EASY OutOfMemory HERE!
-                    userStrategyPool %= M.insert
-                        msAddr
-                        UMA { reqSig         = m
-                            , allParties     = parties
-                            , currentParties = S.singleton partyAddr }
+        -- @TODO: only for User party
+        -- guardMaxAttemps party
 
-                Just uinfo@UMA{..} -> do
-                    when (partyAddr `S.notMember` allParties) $
-                        throwM $ NEInvalidArguments "party set exists, but you is not a member!"
-                    when (allParties /= parties || m /= reqSig) $
-                        throwM $ NEInvalidArguments "result stratey is not equal to yours"
+        mMSAddressInfo <- uses allocationStrategyPool $ M.lookup msAddr
+        case mMSAddressInfo of
+            Nothing ->
+                -- !!! WARNING !!! EASY OutOfMemory HERE!
+                allocationStrategyPool %= M.insert
+                    msAddr
+                    AllocationInfo { allocationStrategy   = argStrategy
+                                   , currentConfirmations = S.singleton partyAddr }
+            Just ainfo@AllocationInfo{..} -> do
+                when (allocationStrategy /= argStrategy) $
+                    throwM $ NEInvalidArguments "result strategy for this MS address is not equal to yours"
 
-                    userStrategyPool %= M.insert
-                        msAddr
-                        uinfo { currentParties = S.insert partyAddr currentParties }
-
-        -- MS address allocation with User and Trusted party
-        TrustedStrategy tParty -> do
-            case tParty of
-                Trusted -> unless (verify bankColdPublic partySig partyAddr) $
-                    throwM $ NEUnrelatedSignature "shared-strategy not signed by Bank cold"
-                User    -> do
-                    unless (verify partyPK partySig partyAddr) $
-                        throwM $ NEUnrelatedSignature "shared-strategy not signed by User pk"
-                    guardMaxAttemps partyAddr
-
-            trustedStrategyPool %= M.insertWith M.union msAddr (M.singleton tParty partyAddr)
+                allocationStrategyPool %= M.insert
+                    msAddr
+                    ainfo { currentConfirmations = S.insert partyAddr currentConfirmations }
+  where
+    partyAddr = case party of
+        Trust addr -> addr
+        User  addr -> addr
+    Address partyPk = partyAddr
 
 queryMSAddressesHelper
     :: Lens' Storage (Map Address info)
@@ -239,29 +229,20 @@ queryMSAddressesHelper poolLens selector mapper =
     . to M.assocs
 
 -- | Query all Multisignature addresses.
-queryAllMSAdresses :: Query Storage [(Address, UserMetaAllocation)]
-queryAllMSAdresses = queryMSAddressesHelper userStrategyPool (const True) id
+queryAllMSAdresses :: Query Storage [(Address, AllocationInfo)]
+queryAllMSAdresses = queryMSAddressesHelper allocationStrategyPool (const True) id
 
 -- | Query all completed multisignature addresses
 queryCompleteMSAdresses :: Query Storage [(Address, TxStrategy)]
-queryCompleteMSAdresses = liftA2 (++) queryCompleteUserAddresses queryCompleteSharedAddresses
-  where
-    queryCompleteUserAddresses :: Query Storage [(Address, TxStrategy)]
-    queryCompleteUserAddresses = queryMSAddressesHelper
-        userStrategyPool
-        (\UMA{..} -> S.size allParties == S.size currentParties)
-        (\UMA{..} -> MOfNStrategy reqSig allParties)
-
-    queryCompleteSharedAddresses :: Query Storage [(Address, TxStrategy)]
-    queryCompleteSharedAddresses = queryMSAddressesHelper
-        trustedStrategyPool
-        ((== 3) . M.size)  -- @TODO: harcoded constant. Replace with Enum?
-        (MOfNStrategy 2 . S.fromList . M.elems)  -- 2/3 strategy for transactions
-
+queryCompleteMSAdresses = queryMSAddressesHelper
+        allocationStrategyPool
+        (\AllocationInfo{..} ->
+              S.size (allParties allocationStrategy) == S.size currentConfirmations)
+        (txStrategy . allocationStrategy)
 
 removeCompleteMSAddresses :: [Address] -> Update Storage ()
 removeCompleteMSAddresses completeAddrs = forM_ completeAddrs $ \adress ->
-    userStrategyPool %= M.delete adress
+    allocationStrategyPool %= M.delete adress
 
 -- | By given (tx, addr) retreives list of collected signatures.
 -- If list is complete enough to complete strategy, (tx, addr) pair

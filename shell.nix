@@ -46,7 +46,8 @@ let
           vector
         ];
         libraryPkgconfigDepends =
-          (with nixpkgs; [zlib git openssh autoreconfHook]) ++
+          (with nixpkgs; [zlib git openssh autoreconfHook stack 
+                          haskellPackages.purescript]) ++
           [pkgconfig cairo gtk3];
         license = stdenv.lib.licenses.gpl3;
       };

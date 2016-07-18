@@ -317,7 +317,8 @@ executable rscoin-explorer
 executable rscoin-deploy
   main-is:             Main.hs
   other-modules:       Config
-  build-depends:       aeson
+  build-depends:       acid-state
+                     , aeson
                      , base
                      , exceptions
                      , extra

@@ -180,6 +180,7 @@ allocateMSAddress
   = do
       -- too many checks :( I wish I know which one we shouldn't check
       -- but order of checks matters!!!
+      -- @TODO: Maybe verifyChain and check Trust for rootPk
       when (partyPk /= snd (last chain)) $ -- @TODO: check for length == 2
           throwM $  NEInvalidChain "last address of chain should be party address"
       unless (any (`verifyChain` chain) chainRootPKs) $

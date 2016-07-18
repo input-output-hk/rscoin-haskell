@@ -8,6 +8,7 @@ module Test.RSCoin.Core.Arbitrary
        ) where
 
 import qualified Data.Map        as M
+import qualified Data.Set        as S
 import           Test.QuickCheck (Arbitrary (arbitrary), Gen, NonNegative (..),
                                   choose, oneof)
 
@@ -48,6 +49,9 @@ instance Arbitrary C.CheckConfirmation where
         C.CheckConfirmation <$> arbitrary <*> arbitrary <*> arbitrary <*>
         (abs <$> arbitrary)
 
+instance Arbitrary C.CommitAcknowledgment where
+    arbitrary = C.CommitAcknowledgment <$> arbitrary <*> arbitrary <*> arbitrary
+
 instance Arbitrary C.Signature where
     arbitrary = C.sign <$> arbitrary <*> (arbitrary :: Gen String)
 
@@ -66,14 +70,17 @@ instance Arbitrary C.NewPeriodData where
         <*> arbitrary
         <*> arbitrary
 
-instance Arbitrary C.AllocationParty where
-    arbitrary = oneof $ map pure [ C.Trusted
-                                 , C.User]
+instance Arbitrary C.AllocationAddress where
+    arbitrary = oneof [ C.Trust <$> arbitrary
+                      , C.User <$> arbitrary]
+
+instance Arbitrary C.MSTxStrategy where
+    arbitrary = do
+        set <- arbitrary :: Gen (S.Set C.Address)
+        return $ C.MSTxStrategy (S.size set) set
 
 instance Arbitrary C.AllocationStrategy where
-    arbitrary = oneof [ C.TrustedStrategy <$> arbitrary
-                      , C.UserStrategy <$> arbitrary <*> arbitrary
-                      ]
+    arbitrary = C.AllocationStrategy <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary C.ActionLogEntry where
     arbitrary = oneof [ C.QueryEntry <$> arbitrary

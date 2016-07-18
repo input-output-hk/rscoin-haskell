@@ -85,20 +85,30 @@ spec =
                 \(a :: C.Hash) -> a === mid a
             prop "Explorer" $
                 \(a :: C.Explorer) -> a === mid a
-            prop "NewPeriodData" $
-                \(a :: C.NewPeriodData) -> a === mid a
-            prop "LBlock" $
-                \(a :: C.LBlock) -> a === mid a
-            prop "Transaction" $
-                \(a :: C.Transaction) -> a === mid a
+            {-prop "NewPeriodData" $
+                \(a :: C.NewPeriodData) -> a === mid a-}
+            prop "SmallNewPeriodData" $
+                \(a :: SmallNewPeriodData) -> a === mid a 
+            {-prop "LBlock" $
+                \(a :: C.LBlock) -> a === mid a-}
+            prop "SmallLBlock" $
+                \(a :: SmallLBlock) -> a === mid a                                  
+            {-prop "Transaction" $
+                \(a :: C.Transaction) -> a === mid a-}
+            prop "SmallTransaction" $
+                \(a :: SmallTransaction) -> a === mid a                                       
             prop "CheckConfirmation" $
-                \(a :: C.CheckConfirmation) -> a === mid a      
-            prop "HBlock" $
-                \(a :: C.HBlock) -> a === mid a
+                \(a :: C.CheckConfirmation) -> a === mid a
+            prop "CommitAcknowledgment" $
+                \(a :: C.CommitAcknowledgment) -> a === mid a           
+            {-prop "HBlock" $
+                \(a :: C.HBlock) -> a === mid a-}
+            prop "SmallHBlock" $
+                \(a :: SmallHBlock) -> a === mid a                                 
             prop "TxStrategy" $
                 \(a :: C.TxStrategy) -> a === mid a
-            prop "AllocationParty" $
-                \(a :: C.AllocationParty) -> a === mid a                                      
+            prop "MSTxStrategy" $
+                \(a :: C.MSTxStrategy) -> a === mid a                                      
             prop "AllocationStrategy" $
                 \(a :: C.AllocationStrategy) -> a === mid a
             prop "Set" $

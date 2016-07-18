@@ -14,6 +14,7 @@ import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, scale,
 import qualified Data.Set                   as S
 
 import qualified RSCoin.Core                as C
+import           RSCoin.Mintette.Error      (MintetteError)
 
 import           Test.RSCoin.Core.Arbitrary ()
 
@@ -68,17 +69,19 @@ spec =
             prop "Integer" $
                 \(a :: Integer) -> a === mid a
             prop "Rational" $
-                \(a :: Rational) -> a === mid a                                 
+                \(a :: Rational) -> a === mid a
             prop "Either Int Int" $
                 \(a :: Either Int Int) -> a === mid a
             prop "Either Int (Either Int Int)" $
                 \(a :: Either Int (Either Int Int)) -> a === mid a
             prop "Either (Either Int Int) Int" $
                 \(a :: Either (Either Int Int) Int) -> a === mid a
+            prop "Either MintetteError CheckConfirmation" $
+                \(a :: Either MintetteError C.CheckConfirmation) -> a === mid a
             prop "Coin" $
                 \(a :: C.Coin) -> a === mid a
             prop "Address" $
-                \(a :: C.Address) -> a === mid a            
+                \(a :: C.Address) -> a === mid a
             prop "Mintette" $
                 \(a :: C.Mintette) -> a === mid a
             prop "Hash" $
@@ -88,27 +91,27 @@ spec =
             {-prop "NewPeriodData" $
                 \(a :: C.NewPeriodData) -> a === mid a-}
             prop "SmallNewPeriodData" $
-                \(a :: SmallNewPeriodData) -> a === mid a 
+                \(a :: SmallNewPeriodData) -> a === mid a
             {-prop "LBlock" $
                 \(a :: C.LBlock) -> a === mid a-}
             prop "SmallLBlock" $
-                \(a :: SmallLBlock) -> a === mid a                                  
+                \(a :: SmallLBlock) -> a === mid a
             {-prop "Transaction" $
                 \(a :: C.Transaction) -> a === mid a-}
             prop "SmallTransaction" $
-                \(a :: SmallTransaction) -> a === mid a                                       
+                \(a :: SmallTransaction) -> a === mid a
             prop "CheckConfirmation" $
                 \(a :: C.CheckConfirmation) -> a === mid a
             prop "CommitAcknowledgment" $
-                \(a :: C.CommitAcknowledgment) -> a === mid a           
+                \(a :: C.CommitAcknowledgment) -> a === mid a
             {-prop "HBlock" $
                 \(a :: C.HBlock) -> a === mid a-}
             prop "SmallHBlock" $
-                \(a :: SmallHBlock) -> a === mid a                                 
+                \(a :: SmallHBlock) -> a === mid a
             prop "TxStrategy" $
                 \(a :: C.TxStrategy) -> a === mid a
             prop "MSTxStrategy" $
-                \(a :: C.MSTxStrategy) -> a === mid a                                      
+                \(a :: C.MSTxStrategy) -> a === mid a
             prop "AllocationStrategy" $
                 \(a :: C.AllocationStrategy) -> a === mid a
             prop "Set" $

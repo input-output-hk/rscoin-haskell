@@ -7,12 +7,14 @@ module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import qualified Data.Map        as M
-import qualified Data.Set        as S
-import           Test.QuickCheck (Arbitrary (arbitrary), Gen, NonNegative (..),
-                                  choose, oneof)
+import qualified Data.Map              as M
+import qualified Data.Set              as S
+import           Data.Text             (Text, pack)
+import           Test.QuickCheck       (Arbitrary (arbitrary), Gen, NonNegative (..),
+                                        choose, oneof)
 
-import qualified RSCoin.Core     as C
+import qualified RSCoin.Core           as C
+import           RSCoin.Mintette.Error (MintetteError (..))
 
 instance Arbitrary C.Coin where
     arbitrary = do
@@ -100,3 +102,21 @@ instance Arbitrary C.CoinsMap where
 
 --this instance isn't working at the moment, causes an error.
 -}
+
+
+{- Section for errors. Created after some crazy ResultMismatchError bug. -}
+instance Arbitrary Text where
+    arbitrary = pack <$> arbitrary
+
+-- @TODO: these instances are not typesafe enough
+instance Arbitrary MintetteError where
+    arbitrary = oneof [      MEInternal            <$> arbitrary
+                      , pure MEInactive
+                      ,      MEPeriodMismatch      <$> arbitrary <*> arbitrary
+                      , pure MEInvalidTxSums
+                      ,      MEInconsistentRequest <$> arbitrary
+                      ,      MENotUnspent          <$> arbitrary
+                      , pure MEInvalidSignature
+                      , pure MENotConfirmed
+                      , pure MEAlreadyActive
+                      ]

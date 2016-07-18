@@ -41,7 +41,6 @@ import           Data.Serialize             (Get, Put)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
-import qualified Data.Text.Format           as F
 import qualified Data.Text.IO               as TIO
 import qualified Data.Text.Lazy             as TL
 import           Data.Text.Lazy.Builder     (toLazyText)
@@ -59,7 +58,7 @@ import qualified RSCoin.Core.Crypto.Hashing as H
 
 newtype Signature = Signature
     { getSignature :: E.Signature
-    } deriving (Eq,Show)
+    } deriving (Eq)
 
 sigToBs :: Signature -> BS.ByteString
 sigToBs = E.unSignature . getSignature
@@ -87,11 +86,13 @@ instance Buildable (Signature, PublicKey) where
     build = pairBuilder
 
 instance Buildable [(Signature, PublicKey)] where
-  build = listBuilderJSON
+    build = listBuilderJSON
 
 instance Buildable Signature where
-    --build = build . decodeUtf8 . B64.encode . E.unSignature . getSignature
-    build = build . F.Shown . getSignature  -- @TODO: previoud version doesn't compile
+    build = build . B64.encode . E.unSignature . getSignature
+
+instance Show Signature where
+    show sig = "Signature { getSignature = " ++ T.unpack (show' sig) ++ " }"
 
 instance MessagePack Signature where
     toObject = toObject . sigToBs
@@ -113,7 +114,6 @@ newtype SecretKey = SecretKey
 
 instance Buildable SecretKey where
     build = build . B64.encode . E.unSecretKey . getSecretKey
-    --build = build . F.Shown . getSecretKey  -- @TODO: previous version doesn't compile
 
 instance Show SecretKey where
     show sk = "SecretKey { getSecretKey = " ++ T.unpack (show' sk) ++ " }"

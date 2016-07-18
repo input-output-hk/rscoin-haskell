@@ -42,6 +42,7 @@ import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
                                        computeOutputAddrids,
                                        notaryMSAttemptsLimit, validateSignature,
                                        verify, verifyChain)
+import           RSCoin.Core.Constants (bankPublicKey)
 import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
                                        AllocationAddress (..),
                                        AllocationStrategy (..), TxStrategy (..),
@@ -247,9 +248,12 @@ queryCompleteMSAdresses = queryMSAddressesHelper
               ainfo^.currentConfirmations.to S.size)
         (\ainfo -> ainfo^.allocationStrategy.txStrategy.txIso)
 
-removeCompleteMSAddresses :: [Address] -> Update Storage ()
-removeCompleteMSAddresses completeAddrs = forM_ completeAddrs $ \adress ->
-    allocationStrategyPool %= M.delete adress
+removeCompleteMSAddresses :: [Address] -> Signature -> Update Storage ()
+removeCompleteMSAddresses completeAddrs signedAddrs = do
+    unless (verify bankPublicKey signedAddrs completeAddrs) $
+        throwM $ NEUnrelatedSignature "addr list in remove MS query not signed by bank"
+    forM_ completeAddrs $ \adress ->
+        allocationStrategyPool %= M.delete adress
 
 -- | By given (tx, addr) retreives list of collected signatures.
 -- If list is complete enough to complete strategy, (tx, addr) pair

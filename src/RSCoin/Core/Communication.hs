@@ -279,10 +279,10 @@ queryNotaryCompleteMSAddresses = do
     logInfo "Querying Notary complete MS addresses"
     callNotary $ P.call $ P.RSCNotary P.QueryCompleteMS
 
-removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> m ()
-removeNotaryCompleteMSAddresses addresses = do
+removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> Signature -> m ()
+removeNotaryCompleteMSAddresses addresses signedAddrs = do
     logInfo "Removing Notary complete MS addresses"
-    callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses
+    callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses signedAddrs
 
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do

@@ -63,7 +63,7 @@ serve port notaryState = do
     idr4 <- serverTypeRestriction2
     idr5 <- serverTypeRestriction0
     idr6 <- serverTypeRestriction0
-    idr7 <- serverTypeRestriction1
+    idr7 <- serverTypeRestriction2
     idr8 <- serverTypeRestriction4
     P.serve
         port
@@ -157,10 +157,11 @@ handleRemoveCompleteMS
     :: MonadIO m
     => RSCoinNotaryState
     -> [C.Address]
+    -> C.Signature
     -> m ()
-handleRemoveCompleteMS st addresses = toServer $ do
+handleRemoveCompleteMS st addresses signedAddrs = toServer $ do
     logDebug $ sformat ("Removing complete MS of " % shown) addresses
-    update' st $ RemoveCompleteMSAddresses addresses
+    update' st $ RemoveCompleteMSAddresses addresses signedAddrs
 
 handleAllocateMultisig
     :: MonadIO m

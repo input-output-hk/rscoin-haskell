@@ -1,6 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns    #-}
-{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 -- | Signing-related functions and types.
 
@@ -41,7 +41,6 @@ import           Data.Serialize             (Get, Put)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (build))
-import qualified Data.Text.Format           as F
 import qualified Data.Text.IO               as TIO
 import qualified Data.Text.Lazy             as TL
 import           Data.Text.Lazy.Builder     (toLazyText)
@@ -52,7 +51,8 @@ import           Test.QuickCheck            (Arbitrary (arbitrary), vector)
 
 import qualified Serokell.Util.Base64       as B64
 import           Serokell.Util.Exceptions   (throwText)
-import           Serokell.Util.Text         (show', pairBuilder, listBuilderJSON)
+import           Serokell.Util.Text         (listBuilderJSON, pairBuilder,
+                                             show')
 
 import qualified RSCoin.Core.Crypto.Hashing as H
 
@@ -89,8 +89,8 @@ instance Buildable [(Signature, PublicKey)] where
   build = listBuilderJSON
 
 instance Buildable Signature where
-    --build = build . decodeUtf8 . B64.encode . E.unSignature . getSignature
-    build = build . F.Shown . getSignature  -- @TODO: previoud version doesn't compile
+    -- Feel free to change it if you need actual Signature.
+    build _ = "Signature"
 
 instance MessagePack Signature where
     toObject = toObject . sigToBs
@@ -111,8 +111,7 @@ newtype SecretKey = SecretKey
     } deriving (Eq, Ord)
 
 instance Buildable SecretKey where
-    --build = build . decodeUtf8 . B64.encode . E.unSecretKey . getSecretKey
-    build = build . F.Shown . getSecretKey  -- @TODO: previous version doesn't compile
+    build = build . B64.encode . E.unSecretKey . getSecretKey
 
 instance Show SecretKey where
     show sk = "SecretKey { getSecretKey = " ++ T.unpack (show' sk) ++ " }"

@@ -38,7 +38,7 @@ config state = do
         { initialState: state { socket = Just socket }
         , update: update
         , view: view
-        , inputs: [routeSignal, wsSignal]
+        , inputs: [wsSignal, routeSignal]
         }
 
 -- | Entry point for the browser.

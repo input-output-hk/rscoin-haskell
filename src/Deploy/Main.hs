@@ -1,35 +1,33 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
-import           Control.Concurrent       (ThreadId, forkIO, killThread)
-import           Control.Exception        (finally)
-import           Control.Monad            (forM_)
-import           Control.Monad.Catch      (bracket)
-import           Control.Monad.Extra      (whenJust)
-import           Control.Monad.Trans      (MonadIO (liftIO))
-import           Data.Maybe               (fromMaybe)
-import           Data.String.Conversions  (cs)
-import           Data.Text                (Text)
-import           Formatting               (build, int, sformat, shown, stext,
-                                           string, (%))
-import qualified Options.Applicative      as Opts
-import           Serokell.Util.OptParse   (strArgument)
-import           System.FilePath          ((</>))
-import           System.IO.Temp           (withTempDirectory)
-import qualified Turtle                   as Cherepakha
+import           Control.Concurrent      (ThreadId, forkIO, killThread)
+import           Control.Exception       (finally)
+import           Control.Monad           (forM_)
+import           Control.Monad.Catch     (bracket)
+import           Control.Monad.Extra     (whenJust)
+import           Control.Monad.Trans     (MonadIO (liftIO))
+import qualified Data.Acid               as ACID
+import           Data.Maybe              (fromMaybe)
+import           Data.String.Conversions (cs)
+import           Formatting              (sformat, stext, string, (%))
+import qualified Options.Applicative     as Opts
+import           Serokell.Util.OptParse  (strArgument)
+import           System.FilePath         ((</>))
+import           System.IO.Temp          (withTempDirectory)
+import qualified Turtle                  as Cherepakha
 
-import           Serokell.Util.Concurrent (threadDelay)
+import qualified RSCoin.Bank             as B
+import qualified RSCoin.Core             as C
+import qualified RSCoin.Explorer         as E
+import qualified RSCoin.Mintette         as M
+import qualified RSCoin.Notary           as N
+import           RSCoin.Timed            (Second, fork_, runRealMode)
+import qualified RSCoin.User             as U
 
-import qualified RSCoin.Bank              as B
-import qualified RSCoin.Core              as C
-import qualified RSCoin.Explorer          as E
-import qualified RSCoin.Mintette          as M
-import qualified RSCoin.Notary            as N
-import           RSCoin.Timed             (Second, fork_, runRealMode)
-
-import           Config                   (BankData (..), DeployConfig (..),
-                                           ExplorerData (..), MintetteData (..),
-                                           NotaryData (..), readDeployConfig)
+import           Config                  (BankData (..), DeployConfig (..),
+                                          ExplorerData (..), MintetteData (..),
+                                          NotaryData (..), readDeployConfig)
 
 optionsParser :: Opts.Parser FilePath
 optionsParser =
@@ -109,7 +107,11 @@ startNotary severity CommonParams{..} NotaryData{..} = do
 
 type PortsAndKeys = [(Int, C.PublicKey)]
 
-startBank :: CommonParams -> PortsAndKeys -> PortsAndKeys -> BankData -> IO ()
+startBank :: CommonParams
+          -> PortsAndKeys
+          -> PortsAndKeys
+          -> BankData
+          -> IO ThreadId
 startBank CommonParams{..} mintettes explorers BankData{..} = do
     let workingDir = cpBaseDir </> "bank-workspace"
         workingDirModern = toModernFilePath workingDir
@@ -124,9 +126,36 @@ startBank CommonParams{..} mintettes explorers BankData{..} = do
         explorers
         (\(port,key) ->
               B.addExplorerIO dbDir (C.Explorer C.localhost port key) 0)
-    Cherepakha.echo "Deployed successfully!"
-    B.launchBankReal C.localPlatformLayout periodDelta dbDir =<<
+    forkIO $
+        B.launchBankReal C.localPlatformLayout periodDelta dbDir =<<
         C.readSecretKey bdSecret
+
+-- TODO: we can setup other users similar way
+setupBankUser :: CommonParams -> BankData -> IO ()
+setupBankUser CommonParams{..} BankData{..} = do
+    let workingDir = cpBaseDir </> "user-workspace-bank"
+        workingDirModern = toModernFilePath workingDir
+        dbDir = workingDir </> "wallet-db"
+        addressesNum = 5
+        walletPathArg = sformat (" --wallet-path " % string % " ") dbDir
+    Cherepakha.mkdir workingDirModern
+    runRealMode C.localPlatformLayout $
+        bracket
+            (liftIO $ U.openState dbDir)
+            (\st ->
+                  liftIO $
+                  do ACID.createCheckpoint st
+                     U.closeState st) $
+        \st ->
+             U.initState st addressesNum $ Just bdSecret
+    Cherepakha.echo $
+        sformat ("Initialized bank user, db is stored in " % string) dbDir
+    -- doesn't work, invent something better
+    -- Cherepakha.export "BU_ARG" walletPathArg
+    Cherepakha.echo
+        "Use command below to do smth as bank user"
+    Cherepakha.echo $
+        sformat ("stack $NIX_STACK exec -- rscoin-user " % stext) walletPathArg
 
 mintettePort :: Integral a => a -> Int
 mintettePort = (C.defaultPort + 1 +) . fromIntegral
@@ -180,6 +209,10 @@ main = do
                 let mintettes = zip mintettePorts mintetteKeys
                     explorers = zip explorerPorts explorerKeys
                 notaryThread <- startNotary dcNotarySeverity cp dcNotary
-                startBank cp mintettes explorers bd `finally`
+                bankThread <- startBank cp mintettes explorers bd
+                setupBankUser cp bd
+                Cherepakha.echo "Deployed successfully!"
+                Cherepakha.sleep 100500 `finally`
                     (mapM_ killThread $
+                     bankThread :
                      notaryThread : mintetteThreads ++ explorerThreads)

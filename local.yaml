@@ -9,7 +9,7 @@ mintettes:
 explorers:
 - {}
 period: 30
-globalSeverity: Info
+globalSeverity: Warning
 notarySeverity: Info
 explorerSeverity: Info
 

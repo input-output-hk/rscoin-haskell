@@ -1,6 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns    #-}
-{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 -- | Signing-related functions and types.
 
@@ -52,7 +52,8 @@ import           Test.QuickCheck            (Arbitrary (arbitrary), vector)
 
 import qualified Serokell.Util.Base64       as B64
 import           Serokell.Util.Exceptions   (throwText)
-import           Serokell.Util.Text         (show', pairBuilder, listBuilderJSON)
+import           Serokell.Util.Text         (listBuilderJSON, pairBuilder,
+                                             show')
 
 import qualified RSCoin.Core.Crypto.Hashing as H
 
@@ -111,8 +112,8 @@ newtype SecretKey = SecretKey
     } deriving (Eq, Ord)
 
 instance Buildable SecretKey where
-    --build = build . decodeUtf8 . B64.encode . E.unSecretKey . getSecretKey
-    build = build . F.Shown . getSecretKey  -- @TODO: previous version doesn't compile
+    build = build . B64.encode . E.unSecretKey . getSecretKey
+    --build = build . F.Shown . getSecretKey  -- @TODO: previous version doesn't compile
 
 instance Show SecretKey where
     show sk = "SecretKey { getSecretKey = " ++ T.unpack (show' sk) ++ " }"

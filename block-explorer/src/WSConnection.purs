@@ -3,33 +3,35 @@ module App.WSConnection
        , WSConnection
        , wsSend
        , wsInit
+       , wsIntroMessage
        , module WS
        ) where
 
 import Prelude
 
-import WebSocket                   (WEBSOCKET) as WS
-import WebSocket                   (WEBSOCKET, Connection(Connection), Message(Message), URL(URL), runMessageEvent, runMessage, newWebSocket)
-import Debug.Trace                 (traceAnyM)
+import WebSocket                         (WEBSOCKET) as WS
+import WebSocket                         (WEBSOCKET, Connection(Connection), Message(Message), URL(URL), runMessageEvent, runMessage, newWebSocket)
+import Debug.Trace                       (traceAnyM)
 
-import Control.Monad.Aff           (Aff)
-import Control.Monad.Eff           (Eff)
-import Control.Monad.Eff.Var       (($=))
-import Control.Monad.Eff.Class     (liftEff)
-import Control.Monad.Eff.Console   (CONSOLE, log)
-import Control.Monad.Eff.Exception (EXCEPTION)
-import Signal.Channel              (Channel, send) as S
+import Control.Monad.Aff                 (Aff)
+import Control.Monad.Eff                 (Eff)
+import Control.Monad.Eff.Var             (($=))
+import Control.Monad.Eff.Class           (liftEff)
+import Control.Monad.Eff.Console         (CONSOLE, log)
+import Control.Monad.Eff.Exception       (EXCEPTION)
+import Signal.Channel                    (Channel, send) as S
 
-import Data.Either                 (Either)
-import Data.Generic                (class Generic)
-import Data.Argonaut.Core          (fromString, Json)
-import Data.Argonaut.Printer       (printJson)
+import Data.Either                       (Either)
+import Data.Argonaut.Core                (fromString)
+import Data.Argonaut.Printer             (printJson)
 
-import Serokell.Aeson.Helper       (encodeJson, decodeJson)
+import Serokell.Aeson.Helper             (encodeJson, decodeJson)
+
+import RSCoin.Explorer.Web.Sockets.Types (OutcomingMsg, AddressInfoMsg, IntroductoryMsg)
 
 data Action
     = WSConnectionOpened
-    | WSReceivedData Json
+    | WSReceivedData (Either String OutcomingMsg)
     | WSConnectionClosed
 
 type WSConnection = Connection
@@ -45,10 +47,16 @@ wsInit chan url = do
         traceAnyM event
         let received = runMessage $ runMessageEvent event
         log "onmessage: Received"
-        S.send chan <<< WSReceivedData $ fromString received
+        S.send chan <<< WSReceivedData <<< decodeJson $ fromString received
     pure connection
 
-wsSend :: forall a eff. Generic a => Connection -> a -> Aff (ws :: WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) Unit
+wsIntroMessage :: forall eff. Connection -> IntroductoryMsg -> Aff (ws :: WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) Unit
+wsIntroMessage (Connection ws) value = liftEff do
+    traceAnyM value
+    log "onsend: Send introductory message"
+    ws.send <<< Message <<< printJson $ encodeJson value
+
+wsSend :: forall eff. Connection -> AddressInfoMsg -> Aff (ws :: WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) Unit
 wsSend (Connection ws) value = liftEff do
     traceAnyM value
     log "onsend: Send message"

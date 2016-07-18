@@ -5,7 +5,7 @@ import Prelude                   (($), map)
 import App.Counter               as Counter
 import App.NotFound              as NotFound
 import App.Routes                (Route(Home, NotFound))
-import App.WSConnection          (WSConnection, Action, WEBSOCKET) as WS
+import App.WSConnection          (WSConnection, Action (..), WEBSOCKET) as WS
 import Data.Maybe                (Maybe (..))
 
 import Pux                       (EffModel, noEffects)
@@ -36,6 +36,7 @@ init =
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: WS.WEBSOCKET, dom :: DOM)
 update (PageView route) state = noEffects $ state { route = route }
 update (Child action) state = noEffects $ state { count = Counter.update action state.count }
+update (WSAction (WS.WSReceivedData msg)) state = noEffects state
 update (WSAction _) state = noEffects state
 update Nop state = noEffects state
 

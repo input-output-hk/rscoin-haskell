@@ -102,7 +102,7 @@ library
                      , blake2
                      , bytestring >= 0.10.6.0
                      , cereal
-                     , conduit-extra >= 1.1.11
+                     , conduit-extra
                      , containers
                      , data-default
                      , directory

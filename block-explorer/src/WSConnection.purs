@@ -27,7 +27,7 @@ import Data.Argonaut.Printer             (printJson)
 
 import Serokell.Aeson.Helper             (encodeJson, decodeJson)
 
-import RSCoin.Explorer.Web.Sockets.Types (OutcomingMsg, AddressInfoMsg, IntroductoryMsg)
+import App.RSCoin                            (OutcomingMsg, AddressInfoMsg, IntroductoryMsg)
 
 data Action
     = WSConnectionOpened

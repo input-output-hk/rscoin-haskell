@@ -1,4 +1,8 @@
-module Data.Types where
+module Data.Types
+       ( PublicKey (..)
+       , Hash (..)
+       , Rational (..)
+       ) where
 
 import Prelude
 

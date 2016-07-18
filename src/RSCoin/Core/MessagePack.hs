@@ -122,6 +122,10 @@ instance MessagePack C.TxStrategy where
             1 -> uncurry2 C.MOfNStrategy <$> fromObject args
             _ -> Nothing
 
+instance MessagePack C.MSTxStrategy where
+    toObject C.MSTxStrategy{..} = toObject (_sigNumber, _txParties)
+    fromObject = fmap (uncurry2 C.MSTxStrategy) . fromObject
+
 instance MessagePack C.AllocationAddress where
     toObject (C.Trust addr) = toObj (0, addr)
     toObject (C.User  addr) = toObj (1, addr)
@@ -134,7 +138,7 @@ instance MessagePack C.AllocationAddress where
             _ -> Nothing
 
 instance MessagePack C.AllocationStrategy where
-    toObject C.AllocationStrategy{..} = toObject (party, allParties, txStrategy)
+    toObject C.AllocationStrategy{..} = toObject (_party, _allParties, _txStrategy)
     fromObject = fmap (uncurry3 C.AllocationStrategy) . fromObject
 
 instance (Ord e, MessagePack e) => MessagePack (S.Set e) where

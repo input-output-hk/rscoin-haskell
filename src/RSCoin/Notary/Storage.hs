@@ -20,10 +20,12 @@ module RSCoin.Notary.Storage
         ) where
 
 import           Control.Exception    (throw)
-import           Control.Lens         (Lens', makeLenses, to, use, uses, view,
-                                       (%=), (.=))
+import           Control.Lens         (Lens', at, makeLenses, to, traversed,
+                                       use, uses, view, (%=), (%~), (&), (.=),
+                                       (?=), (^.), (^..), (^?))
 import           Control.Monad        (forM_, unless, when, (<=<))
 import           Control.Monad.Catch  (MonadThrow (throwM))
+import           Control.Monad.Extra  (whenJust)
 
 import           Data.Acid            (Query, Update, liftQuery)
 import qualified Data.Foldable        as F
@@ -43,17 +45,20 @@ import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
 import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
                                        AllocationAddress (..),
                                        AllocationStrategy (..), TxStrategy (..),
-                                       isStrategyCompleted)
+                                       address, allParties, isStrategyCompleted,
+                                       party, sigNumber, txIso, txParties,
+                                       txStrategy, _User)
 import           RSCoin.Core.Trusted  (bankColdPublic, chainRootPKs)
 import           RSCoin.Notary.Error  (NotaryError (..))
 
 -- | Stores meta information for MS allocation by 'AlocationStrategy'.
 data AllocationInfo = AllocationInfo
-    { allocationStrategy   :: AllocationStrategy
-    , currentConfirmations :: Set Address
+    { _allocationStrategy   :: AllocationStrategy
+    , _currentConfirmations :: Set Address
     } deriving (Show)
 
 $(deriveSafeCopy 0 'base ''AllocationInfo)
+$(makeLenses ''AllocationInfo)
 
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
@@ -171,49 +176,50 @@ allocateMSAddress
     argStrategy@AllocationStrategy{..}
     partySig
     chain
-    -- too many checks :( I wish I know which one we shouldn't check
-    | partyPk /= snd (last chain) = throwM $  -- @TODO: check for length == 2
-        NEInvalidChain "last address of chain should be party address"
-    | not $ any (`verifyChain` chain) chainRootPKs = throwM $
-        NEInvalidChain "none of root pk's is fit for validating"
-    | otherwise = do
-        -- @TODO: forbid DefaultStrategy
-        -- @TODO: check that strategy consistent with allParties
-        let signedData = (msAddr, argStrategy)
-        case party of
-            Trust {} -> unless (verify bankColdPublic partySig signedData) $
-                throwM $ NEUnrelatedSignature "(msAddr, strategy not signed with Bank cold"
-            User  {} -> unless (verify partyPk partySig signedData) $
-                throwM $ NEUnrelatedSignature "(msAddr, strategy) not signed with party sk"
-        when (party `S.notMember` allParties) $
-            throwM $ NEInvalidArguments "party address not in set of addresses"
-        --when (m <= 0) $
-        --    throwM $ NEInvalidArguments "required number of signatures should be positive"
-        --when (m > S.size parties) $
-        --    throwM $ NEInvalidArguments "required number of signatures is greater then party size"
+  = do
+      -- too many checks :( I wish I know which one we shouldn't check
+      -- but order of checks matters!!!
+      when (partyPk /= snd (last chain)) $ -- @TODO: check for length == 2
+          throwM $  NEInvalidChain "last address of chain should be party address"
+      unless (any (`verifyChain` chain) chainRootPKs) $
+          throwM $ NEInvalidChain "none of root pk's is fit for validating"
 
-        -- @TODO: only for User party
-        -- guardMaxAttemps party
+      let signedData = (msAddr, argStrategy)
+      case _party of
+          Trust {} -> unless (verify bankColdPublic partySig signedData) $
+              throwM $ NEUnrelatedSignature "(msAddr, strategy not signed with Bank cold"
+          User  {} -> unless (verify partyPk partySig signedData) $
+              throwM $ NEUnrelatedSignature "(msAddr, strategy) not signed with party sk"
 
-        mMSAddressInfo <- uses allocationStrategyPool $ M.lookup msAddr
-        case mMSAddressInfo of
-            Nothing ->
-                -- !!! WARNING !!! EASY OutOfMemory HERE!
-                allocationStrategyPool %= M.insert
-                    msAddr
-                    AllocationInfo { allocationStrategy   = argStrategy
-                                   , currentConfirmations = S.singleton partyAddr }
-            Just ainfo@AllocationInfo{..} -> do
-                when (allocationStrategy /= argStrategy) $
-                    throwM $ NEInvalidArguments "result strategy for this MS address is not equal to yours"
+      -- @TODO: check for Trust-User in set
+      when (argStrategy^.txStrategy.sigNumber <= 0) $
+          throwM $ NEInvalidArguments "required number of signatures should be positive"
+      when (argStrategy^.txStrategy.sigNumber > S.size _allParties) $
+          throwM $ NEInvalidArguments "required number of signatures is greater then party size"
+      when (S.toList _allParties ^.. traversed.address /=
+            argStrategy^.txStrategy.txParties.to S.toList) $
+          throwM $ NEInvalidArguments "parties in strategy are not equals to allocation ones"
+      when (_party `S.notMember` _allParties) $
+          throwM $ NEInvalidArguments "party address not in set of addresses"
 
-                allocationStrategyPool %= M.insert
-                    msAddr
-                    ainfo { currentConfirmations = S.insert partyAddr currentConfirmations }
+      whenJust (argStrategy ^? party._User) guardMaxAttemps
+
+      mMSAddressInfo <- uses allocationStrategyPool $ M.lookup msAddr
+      case mMSAddressInfo of
+          Nothing ->
+              -- !!! WARNING !!! EASY OutOfMemory HERE!
+              --allocationStrategyPool %= M.insert
+              allocationStrategyPool.at msAddr ?=
+                  AllocationInfo { _allocationStrategy   = argStrategy
+                                 , _currentConfirmations = S.singleton partyAddr }
+          Just ainfo -> do
+              when (ainfo^.allocationStrategy /= argStrategy) $
+                  throwM $ NEInvalidArguments "result strategy for this MS address is not equal to yours"
+
+              allocationStrategyPool.at msAddr ?=
+                  (ainfo & currentConfirmations %~ S.insert partyAddr)
   where
-    partyAddr = case party of
-        Trust addr -> addr
-        User  addr -> addr
+    partyAddr       = argStrategy^.party.address
     Address partyPk = partyAddr
 
 queryMSAddressesHelper
@@ -236,9 +242,10 @@ queryAllMSAdresses = queryMSAddressesHelper allocationStrategyPool (const True) 
 queryCompleteMSAdresses :: Query Storage [(Address, TxStrategy)]
 queryCompleteMSAdresses = queryMSAddressesHelper
         allocationStrategyPool
-        (\AllocationInfo{..} ->
-              S.size (allParties allocationStrategy) == S.size currentConfirmations)
-        (txStrategy . allocationStrategy)
+        (\ainfo ->
+              ainfo^.allocationStrategy.allParties.to S.size ==
+              ainfo^.currentConfirmations.to S.size)
+        (\ainfo -> ainfo^.allocationStrategy.txStrategy.txIso)
 
 removeCompleteMSAddresses :: [Address] -> Update Storage ()
 removeCompleteMSAddresses completeAddrs = forM_ completeAddrs $ \adress ->

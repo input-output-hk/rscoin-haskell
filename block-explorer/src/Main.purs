@@ -28,9 +28,9 @@ type AppEffects = (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 config :: forall eff. State -> Eff (channel :: CHANNEL, console :: CONSOLE, err :: EXCEPTION, ws :: C.WEBSOCKET, dom :: DOM | eff) (Config State Action AppEffects)
 config state = do
     -- | Create a signal of URL changes.
-    urlSignal <- sampleUrl
+    -- urlSignal <- sampleUrl
     -- | Map a signal of URL changes to PageView actions.
-    let routeSignal = urlSignal ~> PageView <<< match
+    -- let routeSignal = urlSignal ~> PageView <<< match
     wsInput <- channel C.ConnectionClosed
     socket <- C.init wsInput "ws://localhost:8000"
     let wsSignal = subscribe wsInput ~> SocketAction
@@ -38,7 +38,7 @@ config state = do
         { initialState: state { socket = Just socket }
         , update: update
         , view: view
-        , inputs: [wsSignal, routeSignal]
+        , inputs: [wsSignal]
         }
 
 -- | Entry point for the browser.

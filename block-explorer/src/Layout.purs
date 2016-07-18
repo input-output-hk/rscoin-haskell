@@ -49,10 +49,12 @@ update :: forall eff. Action -> State -> EffModel State Action (console :: CONSO
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state = noEffects state
 update (SocketAction (C.SendIntroData msg)) state =
-    onlyEffects state
+    { state: state
+    , effects:
         [ C.introMessage (unsafePartial $ fromJust state.socket) msg *> pure Nop
         -- FIXME: if socket isn't opened open some error page
         ]
+    }
 update (SocketAction _) state = noEffects state
 update (AddressChange address) state = noEffects $ state { address = address }
 update Nop state = noEffects state

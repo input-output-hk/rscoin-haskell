@@ -3,8 +3,8 @@ module Main where
 import Prelude                     (bind, pure, (<<<))
 
 import App.Routes                  (match)
-import App.Layout                  (Action(PageView, WSAction), State, view, update)
-import App.WSConnection            (wsInit, Action (..), WEBSOCKET) as WS
+import App.Layout                  (Action(PageView, SocketAction), State, view, update)
+import App.Connection              (init, Action (..), WEBSOCKET) as C
 
 import Control.Bind                ((=<<))
 import Control.Monad.Eff           (Eff)
@@ -21,19 +21,19 @@ import Pux.Router                  (sampleUrl)
 import Signal                      ((~>))
 import Signal.Channel              (channel, CHANNEL, subscribe)
 
-type AppEffects = (console :: CONSOLE, ws :: WS.WEBSOCKET, dom :: DOM)
+type AppEffects = (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 
 -- | App configuration
 -- TODO: use AppEffects also here!
-config :: forall eff. State -> Eff (channel :: CHANNEL, console :: CONSOLE, err :: EXCEPTION, ws :: WS.WEBSOCKET, dom :: DOM | eff) (Config State Action AppEffects)
+config :: forall eff. State -> Eff (channel :: CHANNEL, console :: CONSOLE, err :: EXCEPTION, ws :: C.WEBSOCKET, dom :: DOM | eff) (Config State Action AppEffects)
 config state = do
     -- | Create a signal of URL changes.
     urlSignal <- sampleUrl
     -- | Map a signal of URL changes to PageView actions.
     let routeSignal = urlSignal ~> PageView <<< match
-    wsInput <- channel WS.WSConnectionClosed
-    socket <- WS.wsInit wsInput "ws://localhost:8000"
-    let wsSignal = subscribe wsInput ~> WSAction
+    wsInput <- channel C.ConnectionClosed
+    socket <- C.init wsInput "ws://localhost:8000"
+    let wsSignal = subscribe wsInput ~> SocketAction
     pure
         { initialState: state { socket = Just socket }
         , update: update

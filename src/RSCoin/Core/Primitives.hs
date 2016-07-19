@@ -15,6 +15,7 @@ module RSCoin.Core.Primitives
        ) where
 
 import           Data.Binary         (Binary (get, put))
+import           Data.Data           (Data)
 import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.Maybe          (catMaybes, fromMaybe)
 import           Data.SafeCopy       (base, deriveSafeCopy)
@@ -41,7 +42,7 @@ grey = 0
 data Coin = Coin
     { getColor :: Color
     , getCoin  :: Rational
-    } deriving (Show, Eq, Ord, Generic)
+    } deriving (Show, Eq, Ord, Generic, Data)
 
 reportError :: String -> Coin -> Coin -> a
 reportError s c1 c2 =

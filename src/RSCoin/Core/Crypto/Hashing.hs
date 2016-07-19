@@ -17,6 +17,7 @@ import           Data.Binary                (Binary, encode)
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString            as BS
 import           Data.ByteString.Lazy       (toStrict)
+import           Data.Data                  (Data)
 import           Data.Hashable              (Hashable)
 import           Data.MessagePack           (MessagePack)
 import           Data.SafeCopy              (base, deriveSafeCopy)
@@ -29,7 +30,7 @@ import qualified Serokell.Util.Base64       as B64
 -- | Hash is just a ByteString.
 newtype Hash = Hash
     { getHash :: ByteString
-    } deriving (Eq,Show,Binary,Ord,Hashable,MessagePack,IsString)
+    } deriving (Eq,Show,Binary,Ord,Hashable,MessagePack,IsString, Data)
 
 $(deriveSafeCopy 0 'base ''Hash)
 

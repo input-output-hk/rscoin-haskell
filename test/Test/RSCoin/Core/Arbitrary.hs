@@ -9,6 +9,8 @@ module Test.RSCoin.Core.Arbitrary
 
 import qualified Data.Map              as M
 import qualified Data.Set              as S
+import qualified Data.Data             as D
+import           Data.List             (intersect)
 import           Data.Text             (Text, pack)
 import           Test.QuickCheck       (Arbitrary (arbitrary), Gen, NonNegative (..),
                                         choose, oneof)
@@ -110,13 +112,32 @@ instance Arbitrary Text where
 
 -- @TODO: these instances are not typesafe enough
 instance Arbitrary MintetteError where
-    arbitrary = oneof [      MEInternal            <$> arbitrary
-                      , pure MEInactive
-                      ,      MEPeriodMismatch      <$> arbitrary <*> arbitrary
-                      , pure MEInvalidTxSums
-                      ,      MEInconsistentRequest <$> arbitrary
-                      ,      MENotUnspent          <$> arbitrary
-                      , pure MEInvalidSignature
-                      , pure MENotConfirmed
-                      , pure MEAlreadyActive
-                      ]
+    arbitrary = do
+        let list = [ D.toConstr $ MEInternal undefined
+                   , D.toConstr MEInactive
+                   , D.toConstr $ MEPeriodMismatch undefined undefined
+                   , D.toConstr MEInvalidTxSums
+                   , D.toConstr $ MEInconsistentRequest undefined
+                   , D.toConstr $ MENotUnspent undefined 
+                   , D.toConstr MEInvalidSignature
+                   , D.toConstr MENotConfirmed
+                   , D.toConstr MEAlreadyActive
+                   ]
+            consList = D.dataTypeConstrs $ D.dataTypeOf (undefined :: MintetteError)
+        if (length $ intersect list consList) < (length consList)
+            then error "Missing constructors in MintetteError"
+            else helper
+
+helper :: Gen MintetteError
+helper = oneof [      MEInternal            <$> arbitrary
+               , pure MEInactive
+               ,      MEPeriodMismatch      <$> arbitrary <*> arbitrary
+               , pure MEInvalidTxSums
+               ,      MEInconsistentRequest <$> arbitrary
+               ,      MENotUnspent          <$> arbitrary
+               , pure MEInvalidSignature
+               , pure MENotConfirmed
+               , pure MEAlreadyActive
+               ]                 
+        
+        

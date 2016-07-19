@@ -21,6 +21,8 @@ import Pux.Router                  (sampleUrl)
 import Signal                      ((~>))
 import Signal.Channel              (channel, CHANNEL, subscribe)
 
+import Unsafe.Coerce               (unsafeCoerce)
+
 type AppEffects = (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 
 -- | App configuration
@@ -36,7 +38,7 @@ config state = do
     let wsSignal = subscribe wsInput ~> SocketAction
     pure
         { initialState: state { socket = Just socket }
-        , update: update
+        , update: unsafeCoerce update
         , view: view
         , inputs: [wsSignal]
         }

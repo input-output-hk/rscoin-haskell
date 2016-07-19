@@ -2,7 +2,7 @@ var path = require('path');
 var webpack = require('webpack');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 
-var port = process.env.PORT || 3000;
+var port = process.env.PORT || 10001;
 
 var config = {
   entry: [

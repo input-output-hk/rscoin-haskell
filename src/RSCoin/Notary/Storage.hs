@@ -198,12 +198,15 @@ allocateMSAddress
           throwM $ NEInvalidArguments "required number of signatures should be positive"
       when (argStrategy^.txStrategy.sigNumber > S.size _allParties) $
           throwM $ NEInvalidArguments "required number of signatures is greater then party size"
-      when (S.toList _allParties ^.. traversed.address /=
-            argStrategy^.txStrategy.txParties.to S.toList) $
-          throwM $ NEInvalidArguments "parties in strategy are not equals to allocation ones"
+      --when (S.toList _allParties ^.. traversed.address /=
+      --      argStrategy^.txStrategy.txParties.to S.toList) $
+      --    throwM $ NEInvalidArguments "parties in strategy are not equals to allocation ones"
+      unless (null $ argStrategy^.txStrategy.txParties) $
+          throwM $ NEInvalidArguments "txParties should be empty"
       when (_party `S.notMember` _allParties) $
           throwM $ NEInvalidArguments "party address not in set of addresses"
 
+      -- @TODO: DOS from Trust is available now
       whenJust (argStrategy ^? party._User) guardMaxAttemps
 
       mMSAddressInfo <- uses allocationStrategyPool $ M.lookup msAddr

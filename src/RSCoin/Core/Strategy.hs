@@ -6,31 +6,25 @@ module RSCoin.Core.Strategy
      ( AddressToTxStrategyMap
      , AllocationAddress  (..)
      , AllocationStrategy (..)
-     , MSTxStrategy       (..)
+     , PartyAddress       (..)
      , TxStrategy         (..)
 
      -- * 'AllocationAddress' lenses and prisms
-     , _Trust
-     , _User
      , address
 
       -- * 'AllocationStrategy' lenses
      , allParties
-     , party
-     , txStrategy
-
-     -- * 'MSTxStrategy' lenses and isos
      , sigNumber
-     , txIso
-     , txParties
 
      -- * Other helpers
+     , allocateTxFromAlloc
      , isStrategyCompleted
+     , partyToAllocation
      ) where
 
-import           Control.Lens               (Iso', iso, makeLenses, makePrisms)
+import           Control.Lens               (makeLenses, traversed, (^..))
 
-import           Data.Binary                (Binary (get, put))
+import           Data.Binary                (Binary (get, put), getWord8, putWord8)
 import           Data.Map                   (Map)
 import           Data.SafeCopy              (base, deriveSafeCopy)
 import           Data.Set                   (Set)
@@ -61,39 +55,6 @@ data TxStrategy
 
 $(deriveSafeCopy 0 'base ''TxStrategy)
 
--- | Data type only for multisignature address transaction strategies.
-data MSTxStrategy = MSTxStrategy
-  { _sigNumber :: Int
-  , _txParties :: Set Address
-  } deriving (Eq, Show)
-
-$(deriveSafeCopy 0 'base ''MSTxStrategy)
-$(makeLenses ''MSTxStrategy)
-$(makePrisms ''MSTxStrategy)
-
-txIso :: Iso' MSTxStrategy TxStrategy
-txIso = iso fromTx toMS
-  where
-    toMS DefaultStrategy = error "isomorphism from Default is not defined"
-    toMS (MOfNStrategy m addrs) = MSTxStrategy m addrs
-
-    fromTx MSTxStrategy{..} = MOfNStrategy _sigNumber _txParties
-
-instance Binary MSTxStrategy where
-    put MSTxStrategy{..} = do
-        put _sigNumber
-        put _txParties
-
-    get = MSTxStrategy <$> get <*> get
-
-instance Buildable MSTxStrategy where
-    build MSTxStrategy{..} = bprint template _sigNumber (listBuilderJSON _txParties)
-      where
-        template = "MSTxStrategy {\n" %
-                   "  sigNumber: "    % int     % "\n" %
-                   "  txParties: "    % F.build % "\n" %
-                   "}\n"
-
 instance Binary TxStrategy where
     put DefaultStrategy          = put (0 :: Int, ())
     put (MOfNStrategy m parties) = put (1 :: Int, (m, parties))
@@ -116,38 +77,66 @@ instance Buildable TxStrategy where
 
 type AddressToTxStrategyMap = Map Address TxStrategy
 
--- | This represents party for AllocationStrategy.
+-- | This represents party for AllocationStrategy in set of all participants.
 data AllocationAddress
-    = Trust { _address :: Address }  -- ^ PublicKey we believe
-    | User  { _address :: Address }  -- ^ PublicKey of other User
+    = TrustAlloc { _address :: Address }  -- ^ PublicKey we trust
+    | UserAlloc  { _address :: Address }  -- ^ PublicKey of other User
     deriving (Eq, Ord, Show)
 
 $(deriveSafeCopy 0 'base ''AllocationAddress)
 $(makeLenses ''AllocationAddress)
-$(makePrisms ''AllocationAddress)
 
 instance Binary AllocationAddress where
-    put (Trust addr) = put (0 :: Int, addr)
-    put (User  addr) = put (1 :: Int, addr)
+    put (TrustAlloc addr) = put (0 :: Int, addr)
+    put (UserAlloc  addr) = put (1 :: Int, addr)
 
     get = do
         (i, addr) <- get
         let ctor = case (i :: Int) of
-                       0 -> Trust
-                       1 -> User
+                       0 -> TrustAlloc
+                       1 -> UserAlloc
                        _ -> error "unknown binary AllocationAddress"
         pure $ ctor addr
 
 instance Buildable AllocationAddress where
-    build (Trust addr) = bprint ("Trust : " % F.build) addr
-    build (User  addr) = bprint ("User  : " % F.build) addr
+    build (TrustAlloc addr) = bprint ("TrustA : " % F.build) addr
+    build (UserAlloc  addr) = bprint ("UserA  : " % F.build) addr
+
+-- | This datatype represents party who sends request to Notary.
+data PartyAddress
+    = TrustParty
+        { generatedAddress :: Address  -- ^ New generated locally address.
+        , publicAddress    :: Address  -- ^ Identified address of 'TrustAlloc'
+        }
+    | UserParty
+        { generatedAddress :: Address  -- ^ Same as for 'TrustParty'
+        }
+    deriving (Show)
+
+$(deriveSafeCopy 0 'base ''PartyAddress)
+
+instance Binary PartyAddress where
+    put (TrustParty genAddr pubAddr) = putWord8 0 >> put genAddr >> put pubAddr
+    put (UserParty  genAddr)         = putWord8 1 >> put genAddr
+
+    get = do
+        i <- getWord8
+        case i of
+            0 -> TrustParty <$> get <*> get
+            1 -> UserParty  <$> get
+            _ -> error "unknown binary AllocationAddress"
+
+-- @TODO: not so pretty output but ok for now
+instance Buildable PartyAddress where
+    build (TrustParty genAddr pubAddr) =
+        bprint ("TrustP : " % F.build % ", " % F.build) genAddr pubAddr
+    build (UserParty  genAddr) = bprint ("UserP  : " % F.build) genAddr
 
 -- | Strategy of multisignature address allocation.
 -- @TODO: avoid duplication of sets in '_allParties' and '_txStrategy.txParties'
 data AllocationStrategy = AllocationStrategy
-    { _party      :: AllocationAddress      -- ^ 'AllocationAddress' of current party.
-    , _allParties :: Set AllocationAddress  -- ^ 'Set' of all parties for this address.
-    , _txStrategy :: MSTxStrategy           -- ^ Transaction strategy after allocation.
+    { _sigNumber  :: Int                    -- ^ Number of required signatures in transaction
+    , _allParties :: Set AllocationAddress  -- ^ 'Set' of all parties for this address
     } deriving (Eq, Show)
 
 $(deriveSafeCopy 0 'base ''AllocationStrategy)
@@ -155,23 +144,32 @@ $(makeLenses ''AllocationStrategy)
 
 instance Binary AllocationStrategy where
     put AllocationStrategy{..} = do
-        put _party
+        put _sigNumber
         put _allParties
-        put _txStrategy
 
-    get = AllocationStrategy <$> get <*> get <*> get
+    get = AllocationStrategy <$> get <*> get
 
 instance Buildable AllocationStrategy where
     build AllocationStrategy{..} = bprint template
-        _party
+        _sigNumber
         (listBuilderJSON _allParties)
-        _txStrategy
       where
         template = "AllocationStrategy {\n"  %
-                   "  party: "      % F.build % "\n" %
+                   "  sigNumber: "  % F.build % "\n" %
                    "  allParties: " % F.build % "\n" %
-                   "  txStrategy: " % F.build % "\n" %
                    "}\n"
+
+-- | Creates corresponding multisignature 'TxStrategy'.
+allocateTxFromAlloc :: AllocationStrategy -> TxStrategy
+allocateTxFromAlloc AllocationStrategy{..} =
+    MOfNStrategy
+        _sigNumber $
+        S.fromList $ (S.toList _allParties)^..traversed.address
+
+-- | Converts 'PartyAddress' to original 'AllocationAddress'.
+partyToAllocation :: PartyAddress -> AllocationAddress
+partyToAllocation TrustParty{..} = TrustAlloc publicAddress
+partyToAllocation UserParty{..}  = UserAlloc generatedAddress
 
 -- | Checks if the inner state of strategy allows us to send
 -- transaction and it will be accepted

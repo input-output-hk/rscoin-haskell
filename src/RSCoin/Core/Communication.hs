@@ -65,7 +65,8 @@ import           RSCoin.Core.Primitives     (AddrId, Address, Transaction,
                                              TransactionId)
 import qualified RSCoin.Core.Protocol       as P
 import           RSCoin.Core.Strategy       (AddressToTxStrategyMap,
-                                             AllocationStrategy, TxStrategy)
+                                             AllocationStrategy, PartyAddress,
+                                             TxStrategy)
 import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              CheckConfirmations, CommitAcknowledgment,
                                              Explorer (..), HBlock,
@@ -257,22 +258,25 @@ getNotaryPeriod = do
 allocateMultisignatureAddress
     :: WorkMode m
     => Address
+    -> PartyAddress
     -> AllocationStrategy
     -> Signature
     -> [(Signature, PublicKey)]
     -> m ()
-allocateMultisignatureAddress msAddr allocStrat signature chain = do
+allocateMultisignatureAddress msAddr partyAddr allocStrat signature chain = do
     logInfo $ sformat
         ( "Allocate new ms address: " % F.build % "\n,"
+        % "from party address: "      % F.build % "\n"
         % "allocation strategy: "     % F.build % "\n,"
         % "current party pair: "      % F.build % "\n,"
         % "certificate chain: "       % F.build % "\n,"
         )
         msAddr
+        partyAddr
         allocStrat
         signature
         (mapBuilder chain)
-    callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr allocStrat signature chain
+    callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr partyAddr allocStrat signature chain
 
 queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, TxStrategy)]
 queryNotaryCompleteMSAddresses = do

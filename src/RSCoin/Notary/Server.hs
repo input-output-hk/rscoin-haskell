@@ -41,7 +41,7 @@ import           RSCoin.Timed            (WorkMode,
                                           serverTypeRestriction1,
                                           serverTypeRestriction2,
                                           serverTypeRestriction3,
-                                          serverTypeRestriction4)
+                                          serverTypeRestriction5)
 
 toServer :: MonadIO m => IO a -> m a
 toServer action = liftIO $ action `catch` handler
@@ -64,7 +64,7 @@ serve port notaryState = do
     idr5 <- serverTypeRestriction0
     idr6 <- serverTypeRestriction0
     idr7 <- serverTypeRestriction2
-    idr8 <- serverTypeRestriction4
+    idr8 <- serverTypeRestriction5
     P.serve
         port
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1
@@ -167,14 +167,15 @@ handleAllocateMultisig
     :: MonadIO m
     => RSCoinNotaryState
     -> C.Address
+    -> C.PartyAddress
     -> C.AllocationStrategy
     -> C.Signature
     -> [(C.Signature, C.PublicKey)]
     -> m ()
-handleAllocateMultisig st sAddr allocStrat signature chain = do
+handleAllocateMultisig st msAddr partyAddr allocStrat signature chain = do
     logDebug "Begining allocation MS address..."
     logDebug $ sformat ("SigPair: " % build % ", Chain: " % build) signature chain
-    update' st $ AllocateMSAddress sAddr allocStrat signature chain
+    update' st $ AllocateMSAddress msAddr partyAddr allocStrat signature chain
 
     currentMSAddresses <- query' st QueryAllMSAdresses
     logDebug $ sformat ("All addresses: " % shown) currentMSAddresses

@@ -32,6 +32,7 @@ import           Servant                 ((:<|>) (..), (:>), (:~>) (Nat), Get,
 
 type AllocateMSInput =
     ( C.Address
+    , C.PartyAddress
     , C.AllocationStrategy
     , C.Signature
     , [(C.Signature, C.PublicKey)]

@@ -153,16 +153,14 @@ processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
 
     msPublicKey <- maybe (snd <$> liftIO C.keyGen) return (mMSAddress >>= C.constructPublicKey)
     (userAddress, userSK) <- head <$> query' st U.GetUserAddresses
-    let msAddr  = C.Address msPublicKey
-    let txStrat = C.MSTxStrategy m $ S.fromList partiesAddrs
-    let msStrat = C.AllocationStrategy
-                      (C.User userAddress)
-                      (S.fromList $ map C.User partiesAddrs)
-                      txStrat
+    let msAddr    = C.Address msPublicKey
+    let partyAddr = C.UserParty userAddress
+    let msStrat   = C.AllocationStrategy m $ S.fromList $ map C.UserAlloc partiesAddrs
     let userSignature = C.sign userSK (msAddr, msStrat)
     let certChain     = U.createCertificateChain $ C.getAddress userAddress
     C.allocateMultisignatureAddress
         msAddr
+        partyAddr
         msStrat
         userSignature
         certChain

@@ -20,12 +20,11 @@ module RSCoin.Notary.Storage
         ) where
 
 import           Control.Exception    (throw)
-import           Control.Lens         (Lens', at, makeLenses, to, traversed,
+import           Control.Lens         (Lens', at, makeLenses, to,
                                        use, uses, view, (%=), (%~), (&), (.=),
-                                       (?=), (^.), (^..), (^?))
+                                       (^.), (?=))
 import           Control.Monad        (forM_, unless, when, (<=<))
 import           Control.Monad.Catch  (MonadThrow (throwM))
-import           Control.Monad.Extra  (whenJust)
 
 import           Data.Acid            (Query, Update, liftQuery)
 import qualified Data.Foldable        as F
@@ -44,12 +43,10 @@ import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
                                        verify, verifyChain)
 import           RSCoin.Core.Constants (bankPublicKey)
 import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
-                                       AllocationAddress (..),
-                                       AllocationStrategy (..), TxStrategy (..),
-                                       address, allParties, isStrategyCompleted,
-                                       party, sigNumber, txIso, txParties,
-                                       txStrategy, _User)
-import           RSCoin.Core.Trusted  (bankColdPublic, chainRootPKs)
+                                       AllocationStrategy (..), PartyAddress (..), TxStrategy (..),
+                                       allParties, isStrategyCompleted,
+                                       partyToAllocation, allocateTxFromAlloc)
+import           RSCoin.Core.Trusted  (chainRootPKs)
 import           RSCoin.Notary.Error  (NotaryError (..))
 
 -- | Stores meta information for MS allocation by 'AlocationStrategy'.
@@ -167,6 +164,7 @@ addSignedTransaction tx addr sg@(sigAddr, sig) = do
 -- given chain of certificates.
 allocateMSAddress
     :: Address                  -- ^ New multisig address itself
+    -> PartyAddress             -- ^ Address of party who call this
     -> AllocationStrategy       -- ^ Strategy for MS address allocation
     -> Signature                -- ^ 'Signature' of @(msAddr, argStrategy)@
     -> [(Signature, PublicKey)] -- ^ Certificate chain to authorize *address of party*.
@@ -174,45 +172,39 @@ allocateMSAddress
     -> Update Storage ()
 allocateMSAddress
     msAddr
+    argPartyAddress
     argStrategy@AllocationStrategy{..}
     partySig
     chain
   = do
       -- too many checks :( I wish I know which one we shouldn't check
       -- but order of checks matters!!!
-      -- @TODO: Maybe verifyChain and check Trust for rootPk
+      let partyAddr@(Address partyPk) = generatedAddress argPartyAddress
       when (partyPk /= snd (last chain)) $ -- @TODO: check for length == 2
           throwM $  NEInvalidChain "last address of chain should be party address"
       unless (any (`verifyChain` chain) chainRootPKs) $
           throwM $ NEInvalidChain "none of root pk's is fit for validating"
 
       let signedData = (msAddr, argStrategy)
-      case _party of
-          Trust {} -> unless (verify bankColdPublic partySig signedData) $
-              throwM $ NEUnrelatedSignature "(msAddr, strategy not signed with Bank cold"
-          User  {} -> unless (verify partyPk partySig signedData) $
-              throwM $ NEUnrelatedSignature "(msAddr, strategy) not signed with party sk"
+      let Address checkPk = case argPartyAddress of
+              TrustParty{..} -> publicAddress
+              UserParty{..}  -> generatedAddress
 
-      -- @TODO: check for Trust-User in set
-      when (argStrategy^.txStrategy.sigNumber <= 0) $
+      unless (verify checkPk partySig signedData) $
+          throwM $ NEUnrelatedSignature "(msAddr, strategy) not signed with proper sk"
+      when (_sigNumber <= 0) $
           throwM $ NEInvalidArguments "required number of signatures should be positive"
-      when (argStrategy^.txStrategy.sigNumber > S.size _allParties) $
+      when (_sigNumber > S.size _allParties) $
           throwM $ NEInvalidArguments "required number of signatures is greater then party size"
-      --when (S.toList _allParties ^.. traversed.address /=
-      --      argStrategy^.txStrategy.txParties.to S.toList) $
-      --    throwM $ NEInvalidArguments "parties in strategy are not equals to allocation ones"
-      unless (null $ argStrategy^.txStrategy.txParties) $
-          throwM $ NEInvalidArguments "txParties should be empty"
-      when (_party `S.notMember` _allParties) $
+      when (partyToAllocation argPartyAddress `S.notMember` _allParties) $
           throwM $ NEInvalidArguments "party address not in set of addresses"
 
-      -- @TODO: DOS from Trust is available now
-      whenJust (argStrategy ^? party._User) guardMaxAttemps
+      -- @TODO: Should we allow DoS from Trust?
+      guardMaxAttemps partyAddr
 
       mMSAddressInfo <- uses allocationStrategyPool $ M.lookup msAddr
       case mMSAddressInfo of
           Nothing ->
-              -- !!! WARNING !!! EASY OutOfMemory HERE!
               --allocationStrategyPool %= M.insert
               allocationStrategyPool.at msAddr ?=
                   AllocationInfo { _allocationStrategy   = argStrategy
@@ -223,9 +215,6 @@ allocateMSAddress
 
               allocationStrategyPool.at msAddr ?=
                   (ainfo & currentConfirmations %~ S.insert partyAddr)
-  where
-    partyAddr       = argStrategy^.party.address
-    Address partyPk = partyAddr
 
 queryMSAddressesHelper
     :: Lens' Storage (Map Address info)
@@ -250,7 +239,7 @@ queryCompleteMSAdresses = queryMSAddressesHelper
         (\ainfo ->
               ainfo^.allocationStrategy.allParties.to S.size ==
               ainfo^.currentConfirmations.to S.size)
-        (\ainfo -> ainfo^.allocationStrategy.txStrategy.txIso)
+        (allocateTxFromAlloc . _allocationStrategy)
 
 removeCompleteMSAddresses :: [Address] -> Signature -> Update Storage ()
 removeCompleteMSAddresses completeAddrs signedAddrs = do

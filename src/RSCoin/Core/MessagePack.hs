@@ -122,24 +122,31 @@ instance MessagePack C.TxStrategy where
             1 -> uncurry2 C.MOfNStrategy <$> fromObject args
             _ -> Nothing
 
-instance MessagePack C.MSTxStrategy where
-    toObject C.MSTxStrategy{..} = toObject (_sigNumber, _txParties)
-    fromObject = fmap (uncurry2 C.MSTxStrategy) . fromObject
-
 instance MessagePack C.AllocationAddress where
-    toObject (C.Trust addr) = toObj (0, addr)
-    toObject (C.User  addr) = toObj (1, addr)
+    toObject (C.TrustAlloc addr) = toObj (0, addr)
+    toObject (C.UserAlloc  addr) = toObj (1, addr)
 
     fromObject obj = do
         (i, addr) <- fromObject obj
         case (i :: Int) of
-            0 -> C.Trust <$> fromObject addr
-            1 -> C.User  <$> fromObject addr
+            0 -> C.TrustAlloc <$> fromObject addr
+            1 -> C.UserAlloc  <$> fromObject addr
+            _ -> Nothing
+
+instance MessagePack C.PartyAddress where
+    toObject (C.TrustParty genAddr pubAddr) = toObj (0, (genAddr, pubAddr))
+    toObject (C.UserParty  genAddr)         = toObj (1, genAddr)
+
+    fromObject obj = do
+        (i, addrs) <- fromObject obj
+        case (i :: Int) of
+            0 -> uncurry C.TrustParty <$> fromObject addrs
+            1 ->         C.UserParty  <$> fromObject addrs
             _ -> Nothing
 
 instance MessagePack C.AllocationStrategy where
-    toObject C.AllocationStrategy{..} = toObject (_party, _allParties, _txStrategy)
-    fromObject = fmap (uncurry3 C.AllocationStrategy) . fromObject
+    toObject C.AllocationStrategy{..} = toObject (_sigNumber, _allParties)
+    fromObject = fmap (uncurry C.AllocationStrategy) . fromObject
 
 instance (Ord e, MessagePack e) => MessagePack (S.Set e) where
     toObject = toObject . S.toList

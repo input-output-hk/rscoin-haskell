@@ -113,7 +113,7 @@ view state =
                 ]
             , div
                 [ className "col-xs-2 col-xs-offset-1 text-right" ]
-                [ h5 [] [ "English" ]
+                [ text "English"
                 , span [ className "caret" ] []
                 ]
             ]

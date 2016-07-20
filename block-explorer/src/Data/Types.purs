@@ -11,6 +11,7 @@ import Data.Maybe (Maybe (..))
 
 -- NOTE: these newtype wrappers and instances can/will be auto generated
 --
+-- TODO: we can ditch this module using unwrapNewtypes option, read http://www.purescript.org/learn/generic/
 newtype PublicKey = PublicKey String
 
 instance showPublicKey :: Show PublicKey where

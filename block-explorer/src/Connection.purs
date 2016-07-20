@@ -13,6 +13,7 @@ import WebSocket                   (WEBSOCKET) as WS
 import WebSocket                   (WEBSOCKET, Connection(Connection), Message(Message), URL(URL), runMessageEvent, runMessage, newWebSocket) as W
 import Debug.Trace                 (traceAnyM)
 
+import Control.Bind                ((>>=))
 import Control.Monad.Aff           (Aff)
 import Control.Monad.Eff           (Eff)
 import Control.Monad.Eff.Var       (($=))
@@ -22,8 +23,8 @@ import Control.Monad.Eff.Exception (EXCEPTION)
 import Signal.Channel              (Channel, send) as S
 
 import Data.Either                 (Either)
-import Data.Argonaut.Core          (fromString)
 import Data.Argonaut.Printer       (printJson)
+import Data.Argonaut.Parser        (jsonParser)
 
 import Serokell.Aeson.Helper       (encodeJson, decodeJson)
 
@@ -48,7 +49,7 @@ init chan url = do
         traceAnyM event
         let received = W.runMessage $ W.runMessageEvent event
         log "onmessage: Received"
-        S.send chan <<< ReceivedData <<< decodeJson $ fromString received
+        S.send chan <<< ReceivedData $ jsonParser received >>= decodeJson
     pure connection
 
 introMessage :: forall eff. W.Connection -> IntroductoryMsg -> Aff (ws :: W.WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) Unit

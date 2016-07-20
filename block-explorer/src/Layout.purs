@@ -14,7 +14,8 @@ import App.RSCoin                  (emptyAddress, Address, newAddress,
 import Data.Maybe                  (Maybe (..), fromJust)
 
 import Pux                         (EffModel, noEffects, onlyEffects)
-import Pux.Html                    (Html, div, h1, p, text, input, button, link)
+import Pux.Html                    (Html, div, h1, p, text, input, button, link,
+                                    small, h3, h5, span)
 import Pux.Html.Attributes         (type_, value, rel, href, className)
 import Pux.Html.Events             (onChange, onClick)
 
@@ -67,10 +68,12 @@ update (SocketAction _) state = noEffects state
 update (AddressChange address) state = noEffects $ state { address = address }
 update Nop state = noEffects state
 
+-- TODO: make safe version of bootstrap like
+-- https://github.com/slamdata/purescript-halogen-bootstrap/blob/master/src/Halogen/Themes/Bootstrap3.purs
 view :: State -> Html Action
 view state =
   div
-    []
+    [ className "container-fluid" ]
     [ link
         [ rel "stylesheet"
         , type_ "text/css"
@@ -79,14 +82,41 @@ view state =
         []
     , div []
         [
-          h1 [] [ text "RSCoin Block Explorer" ]
-        , input [ type_ "text"
-                , value $ addressToString state.address
-                , onChange $ AddressChange <<< newAddress <<< _.value <<< _.target
-                ] []
-        , button [ onClick $ const $ SocketAction <<< C.SendIntroData $ IMAddressInfo state.address
-                 , className "btn btn-warning"
-                 ] [text "Search"]
+          div
+            [ className "page-header" ]
+            [ h1 [] [ text "RSCoin "
+                    , small [] [text "blockchain" ]
+                    ]
+            ]
+        , div
+            [ className "row bg-warning" ]
+            [ div
+                [ className "col-xs-3" ]
+                [ h5 [] [ text "RSCoin" ]
+                ]
+            , div
+                [ className "col-xs-5" ]
+                [ input
+                    [ type_ "text"
+                    , value $ addressToString state.address
+                    , onChange $ AddressChange <<< newAddress <<< _.value <<< _.target
+                    , className "form-control"
+                    ] []
+                ]
+            , div
+                [ className "col-xs-1" ]
+                [
+                  button
+                    [ onClick $ const $ SocketAction <<< C.SendIntroData $ IMAddressInfo state.address
+                    , className "btn btn-danger"
+                    ] [text "Search"]
+                ]
+            , div
+                [ className "col-xs-2 col-xs-offset-1 text-right" ]
+                [ h5 [] [ "English" ]
+                , span [ className "caret" ] []
+                ]
+            ]
         ]
     -- TODO: we will add router later
     -- , case state.route of

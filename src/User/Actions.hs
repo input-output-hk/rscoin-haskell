@@ -20,6 +20,7 @@ import           Data.Acid.Advanced      (query')
 import qualified Data.ByteString.Base64  as B64
 import           Data.Function           (on)
 import           Data.List               (find, genericIndex, groupBy)
+import qualified Data.Map                as M
 import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
 import           Data.Monoid             ((<>))
 import qualified Data.Set                as S
@@ -135,7 +136,7 @@ processCommand st O.UpdateBlockchain _ =
 processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
 processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
     sk <- maybe (pure C.attainSecretKey) C.readSecretKey mPath
-    (seedPk, seedSk) <- case B64.decode $ encodeUtf8 seedB64 of
+    (seedPk, _) <- case B64.decode $ encodeUtf8 seedB64 of
               Left _ -> fail "Wrong seed supplied (base64 decoding failed)"
               Right s -> maybe (fail "Failed to derive keypair from seed") pure $ C.deterministicKeyGen s
     liftIO $ TIO.putStrLn $
@@ -177,11 +178,6 @@ processCommand st (O.AddMultisigAddress m textUAddrs textTAddrs mMSAddress) _ = 
             U.commitError $
                 sformat ("Some addresses were not parsed, parsed only those: " % stext) parsed
         return partiesAddrs
-processCommand st O.ListAllocations _ = eWrap $ do
-    -- update local cache
-    U.retrieveAllocationsList st
-    msAddrsList <- query' st U.GetAllocationStrategies
-    liftIO $ TIO.putStrLn $ T.pack $ show msAddrsList
 processCommand st (O.ConfirmAllocation i) _ = eWrap $ do
     when (i <= 0) $ U.commitError $
         sformat ("Index i should be greater than 0 but given: " % int) i
@@ -204,8 +200,19 @@ processCommand st (O.ConfirmAllocation i) _ = eWrap $ do
         _allocationStrategy
         partySignature
         []
-
     liftIO $ TIO.putStrLn "Address allocation successfully confirmed!"
+processCommand st O.ListAllocations _ = eWrap $ do
+    -- update local cache
+    U.retrieveAllocationsList st
+    msAddrsList <- query' st U.GetAllocationStrategies
+    liftIO $ TIO.putStrLn $ T.pack $ show msAddrsList
+    msAddrsList <- (`zip` [(1::Int)..]) . M.assocs <$> query' st U.GetAllocationStrategies
+    when (null msAddrsList) $
+        liftIO $ putStrLn "Allocation address list is empty"
+    forM_ msAddrsList $ \((addr,allocStrat), i) -> do
+        let numLength = length $ show i
+        let pattern = "{}. {}\n  {}" <> (mconcat $ replicate numLength " ")
+        liftIO $ TIO.putStrLn $ format' pattern (i, addr, allocStrat)
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop

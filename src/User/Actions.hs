@@ -139,15 +139,13 @@ processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
     let (pk, sig) = (C.derivePublicKey sk, C.sign sk seedPk)
     liftIO $ TIO.putStrLn $
        sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build) pk sig (C.verifyChain pk [(sig, seedPk)])
-processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
-    when (null textAddrs) $
+processCommand st (O.AddMultisigAddress m textUAddrs textTAddrs mMSAddress) _ = do
+    when (null textUAddrs && null textTAddrs) $
         U.commitError "Can't create multisig with empty addrs list"
 
-    let partiesAddrs = mapMaybe (fmap C.Address . C.constructPublicKey) textAddrs
-    when (length partiesAddrs /= length textAddrs) $ do
-        let parsed = T.unlines (map show' partiesAddrs)
-        U.commitError $
-            sformat ("Some addresses were not parsed, parsed only those: " % stext) parsed
+    userAddrs  <- map C.UserAlloc  <$> parseTextAddresses textUAddrs
+    trustAddrs <- map C.TrustAlloc <$> parseTextAddresses textTAddrs
+    let partiesAddrs = userAddrs ++ trustAddrs
     when (m > length partiesAddrs) $
         U.commitError "Parameter m should be less than length of list"
 
@@ -155,7 +153,7 @@ processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
     (userAddress, userSK) <- head <$> query' st U.GetUserAddresses
     let msAddr    = C.Address msPublicKey
     let partyAddr = C.UserParty userAddress
-    let msStrat   = C.AllocationStrategy m $ S.fromList $ map C.UserAlloc partiesAddrs
+    let msStrat   = C.AllocationStrategy m $ S.fromList partiesAddrs
     let userSignature = C.sign userSK (msAddr, msStrat)
     let certChain     = U.createCertificateChain $ C.getAddress userAddress
     C.allocateMultisignatureAddress
@@ -166,6 +164,15 @@ processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
         certChain
     liftIO $ TIO.putStrLn $
        sformat ("Your new address will be added in the next block: " % build) msPublicKey
+  where
+    parseTextAddresses :: WorkMode m => [T.Text] -> m [C.Address]
+    parseTextAddresses textAddrs = do
+        let partiesAddrs = mapMaybe (fmap C.Address . C.constructPublicKey) textAddrs
+        when (length partiesAddrs /= length textAddrs) $ do
+            let parsed = T.unlines (map show' partiesAddrs)
+            U.commitError $
+                sformat ("Some addresses were not parsed, parsed only those: " % stext) parsed
+        return partiesAddrs
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop

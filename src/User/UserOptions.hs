@@ -47,12 +47,14 @@ data UserCommand
                                         -- Second argument
                                         -- represents the address to send,
                                         -- and amount. Forth argument is optional cache
+    -- | First argument represents number m of required signatures from addr;
+    -- second -- list of user parties' in addresses;
+    -- third -- list of trust parties' in addresses;
+    -- fourth is Nothing if we need to generate multisignature address.
     | AddMultisigAddress Int
                          [Text]
-                         (Maybe Text)   -- ^ First argument represents number m of required
-                                        -- signatures from addr; second -- list of parties'
-                                        -- addresses; third is Nothing if we need to generate
-                                        -- multisignature address.
+                         [Text]
+                         (Maybe Text)
     | Dump DumpCommand
     -- @TODO move to rscoin-keygen
     | SignSeed Text (Maybe FilePath)
@@ -106,7 +108,7 @@ userCommandParser =
              (info formTransactionOpts (progDesc "Form and send transaction.")) <>
          command
              "addMultisig"
-             (info addMultisigOpts (progDesc "Form and send transaction.")) <>
+             (info addMultisigOpts (progDesc "Create/confirm multisignature address allocation")) <>
          command
              "dump-blocks"
              (info
@@ -235,7 +237,10 @@ userCommandParser =
             (short 'm' <> help "Number m from m/n")
         <*>
         many (strOption $
-            long "addr" <> help "Addresses that would own")
+            long "uaddr" <> help "User party Addresses that would own this MS address")
+        <*>
+        many (strOption $
+            long "taddr" <> help "Trust party Addresses that would own this MS address")
         <*>
         optional (strOption $
             long "ms-addr" <> help "New multisignature address")

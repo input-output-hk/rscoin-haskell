@@ -28,9 +28,9 @@ type AppEffects = (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 config :: forall eff. State -> Eff (channel :: CHANNEL, console :: CONSOLE, err :: EXCEPTION, ws :: C.WEBSOCKET, dom :: DOM | eff) (Config State Action AppEffects)
 config state = do
     -- | Create a signal of URL changes.
-    -- urlSignal <- sampleUrl
+    urlSignal <- sampleUrl
     -- | Map a signal of URL changes to PageView actions.
-    -- let routeSignal = urlSignal ~> PageView <<< match
+    let routeSignal = urlSignal ~> PageView <<< match
 
     -- FIXME: C.init is blocking and whole application is waiting for
     -- socket connection. Do this async if possible or at least show Loading intro page
@@ -41,7 +41,7 @@ config state = do
         { initialState: state { socket = Just socket }
         , update: update
         , view: view
-        , inputs: [wsSignal]
+        , inputs: [wsSignal, routeSignal]
         }
 
 -- | Entry point for the browser.

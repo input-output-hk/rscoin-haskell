@@ -14,8 +14,8 @@ import App.RSCoin                  (emptyAddress, Address, newAddress,
 import Data.Maybe                  (Maybe (..), fromJust)
 
 import Pux                         (EffModel, noEffects, onlyEffects)
-import Pux.Html                    (Html, div, h1, p, text, input, button)
-import Pux.Html.Attributes         (type_, value)
+import Pux.Html                    (Html, div, h1, p, text, input, button, link)
+import Pux.Html.Attributes         (type_, value, rel, href, className)
 import Pux.Html.Events             (onChange, onClick)
 
 import Control.Apply               ((*>))
@@ -71,13 +71,23 @@ view :: State -> Html Action
 view state =
   div
     []
-    [ h1 [] [ text "RSCoin Block Explorer" ]
-    , input [ type_ "text"
-            , value $ addressToString state.address
-            , onChange $ AddressChange <<< newAddress <<< _.value <<< _.target
-            ] []
-    , button [ onClick $ const $ SocketAction <<< C.SendIntroData $ IMAddressInfo state.address
-             ] [text "Search"]
+    [ link
+        [ rel "stylesheet"
+        , type_ "text/css"
+        , href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+        ]
+        []
+    , div []
+        [
+          h1 [] [ text "RSCoin Block Explorer" ]
+        , input [ type_ "text"
+                , value $ addressToString state.address
+                , onChange $ AddressChange <<< newAddress <<< _.value <<< _.target
+                ] []
+        , button [ onClick $ const $ SocketAction <<< C.SendIntroData $ IMAddressInfo state.address
+                 , className "btn btn-warning"
+                 ] [text "Search"]
+        ]
     -- TODO: we will add router later
     -- , case state.route of
     --     Home -> map Child $ Counter.view state.count

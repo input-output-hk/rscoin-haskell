@@ -186,7 +186,7 @@ processCommand st (O.ConfirmAllocation i) _ = eWrap $ do
     when (i <= 0) $ U.commitError $
         sformat ("Index i should be greater than 0 but given: " % int) i
 
-    (msAddr, C.AllocationInfo{..}) <- query' st $ U.GetAllocationByIndex i
+    (msAddr, C.AllocationInfo{..}) <- query' st $ U.GetAllocationByIndex (i - 1)
     (userAddress, userSk) <- head <$> query' st U.GetUserAddresses
 
     let Just party = find ((== userAddress) . _address) $ _allParties _allocationStrategy

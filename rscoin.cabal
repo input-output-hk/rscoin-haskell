@@ -398,6 +398,7 @@ test-suite rscoin-test
   type:                exitcode-stdio-1.0
   build-depends:       base >=4.8 && <4.9
                      , acid-state >= 0.14.0
+                     , aeson
                      , async >= 2.0.1
                      , binary >= 0.7.5.0                     
                      , bytestring >= 0.10.6.0

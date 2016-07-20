@@ -8,6 +8,7 @@ module RSCoin.Bank.Launcher
        ( launchBankReal
        , launchBank
        , addMintetteIO
+       , addMintetteInPlace
        , addAddressIO
        , addExplorerIO
        ) where
@@ -28,7 +29,8 @@ import           RSCoin.Timed              (MsgPackRpc, PlatformLayout,
                                             runRealMode)
 
 import           RSCoin.Bank.AcidState     (AddAddress (AddAddress),
-                                            AddExplorer (AddExplorer), State,
+                                            AddExplorer (AddExplorer),
+                                            AddMintette (AddMintette), State,
                                             closeState, openState)
 import           RSCoin.Bank.Server        (serve)
 import           RSCoin.Bank.Worker        (runExplorerWorker,
@@ -67,6 +69,12 @@ addMintetteIO :: SecretKey -> Mintette -> PublicKey -> IO ()
 addMintetteIO sk m k = do
     let proof = sign sk (m, k)
     runRealMode (defaultLayout' "127.0.0.1") $ addPendingMintette m k proof
+
+-- | Adds mintette directly into bank's state
+addMintetteInPlace :: FilePath -> Mintette -> PublicKey -> IO ()
+addMintetteInPlace storagePath m k =
+    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $
+    flip update' (AddMintette m k)
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerIO :: FilePath -> Explorer -> PeriodId -> IO ()

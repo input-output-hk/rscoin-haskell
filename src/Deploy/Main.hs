@@ -123,13 +123,12 @@ startBank CommonParams{..} mintettes explorers BankData{..} = do
         explorers
         (\(port,key) ->
               B.addExplorerIO dbDir (C.Explorer C.localhost port key) 0)
-    threadId <- forkIO $
-        B.launchBankReal C.localPlatformLayout periodDelta dbDir bankSk
     forM_
         mintettes
         (\(port,key) ->
-              B.addMintetteIO bankSk (C.Mintette C.localhost port) key)
-    return threadId
+              B.addMintetteInPlace dbDir (C.Mintette C.localhost port) key)
+    forkIO $
+        B.launchBankReal C.localPlatformLayout periodDelta dbDir bankSk
 
 -- TODO: we can setup other users similar way
 setupBankUser :: CommonParams -> BankData -> IO ()

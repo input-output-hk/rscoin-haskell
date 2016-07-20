@@ -186,8 +186,6 @@ allocateMSAddress
       let partyAddr@(Address partyPk) = generatedAddress argPartyAddress
       when (partyPk /= snd (last chain)) $ -- @TODO: check for length == 2
           throwM $  NEInvalidChain "last address of chain should be party address"
-      unless (any (`verifyChain` chain) chainRootPKs) $
-          throwM $ NEInvalidChain "none of root pk's is fit for validating"
 
       let signedData      = (msAddr, argStrategy)
       let allocAddress    = partyToAllocation argPartyAddress
@@ -202,12 +200,13 @@ allocateMSAddress
       when (partyToAllocation argPartyAddress `S.notMember` _allParties) $
           throwM $ NEInvalidArguments "party address not in set of addresses"
 
-      -- @TODO: Should we allow DoS from Trust?
-      guardMaxAttemps partyAddr
-
       mMSAddressInfo <- uses allocationStrategyPool $ M.lookup msAddr
       case mMSAddressInfo of
-          Nothing ->
+          Nothing -> do
+              guardMaxAttemps partyAddr
+              unless (any (`verifyChain` chain) chainRootPKs) $
+                  throwM $ NEInvalidChain "none of root pk's is fit for validating"
+
               --allocationStrategyPool %= M.insert
               allocationStrategyPool.at msAddr ?=
                   AllocationInfo { _allocationStrategy   = argStrategy

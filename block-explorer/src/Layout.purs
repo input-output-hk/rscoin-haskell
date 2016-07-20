@@ -1,21 +1,27 @@
 module App.Layout where
 
-import Prelude                     (($), map, (<<<), const, pure, bind)
+import Prelude                     (($), map, (<<<), const, pure, bind, show,
+                                    (<>))
 
 import App.Counter                 as Counter
 import App.NotFound                as NotFound
 import App.Routes                  (Route(Home, NotFound))
 import App.Connection              (Connection, Action (..), WEBSOCKET,
                                     introMessage, send) as C
-import App.RSCoin                  (emptyAddress, Address, newAddress,
+import App.RSCoin                  (emptyAddress, Address (..), newAddress,
                                     addressToString, IntroductoryMsg (..),
-                                    AddressInfoMsg (..))
+                                    AddressInfoMsg (..), Coin (..),
+                                    Transaction (..), OutcomingMsg (..))
 
 import Data.Maybe                  (Maybe (..), fromJust)
+import Data.Tuple                  (Tuple (..))
+import Data.Either                 (fromRight)
+import Data.Array                  (concatMap, take)
 
 import Pux                         (EffModel, noEffects, onlyEffects)
 import Pux.Html                    (Html, div, h1, p, text, input, button, link,
-                                    small, h3, h5, span, table, tr, th)
+                                    small, h3, h5, span, table, tr, th, td,
+                                    thead, tbody)
 import Pux.Html.Attributes         (type_, value, rel, href, className)
 import Pux.Html.Events             (onChange, onClick)
 
@@ -34,23 +40,42 @@ data Action
     | Nop
 
 type State =
-    { route   :: Route
-    , count   :: Counter.State
-    , socket  :: Maybe C.Connection
-    , address :: Address
+    { route        :: Route
+    , count        :: Counter.State
+    , socket       :: Maybe C.Connection
+    , address      :: Address
+    , balance      :: Array (Tuple Int Coin)
+    , transactions :: Array (Tuple Address Coin)
     }
 
 init :: State
 init =
-    { route:   NotFound
-    , count:   Counter.init
-    , socket:  Nothing
-    , address: emptyAddress
+    { route:        NotFound
+    , count:        Counter.init
+    , socket:       Nothing
+    , address:      emptyAddress
+    , balance:      []
+    , transactions: []
     }
 
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 update (PageView route) state = noEffects $ state { route = route }
-update (SocketAction (C.ReceivedData msg)) state = noEffects state
+update (SocketAction (C.ReceivedData msg)) state =
+    case unsafePartial $ fromRight msg of
+        OMBalance _ arr ->
+            { state: state { balance = arr }
+            , effects:
+                [ do
+                    C.send socket' <<< AIGetTransactions $ Tuple 0 10
+                    pure Nop
+                ]
+            }
+        OMTransactions _ arr ->
+            noEffects $ state { transactions = take 10 $ concatMap getOutputs arr <> state.transactions }
+        _ -> noEffects state
+  where
+    socket' = unsafePartial $ fromJust state.socket
+    getOutputs (Tuple _ (Transaction tr)) = tr.txOutputs
 update (SocketAction (C.SendIntroData msg)) state =
     { state: state
     , effects:
@@ -123,22 +148,22 @@ view state =
                 [ className "col-xs-6" ]
                 [ table
                     [ className "table table-striped table-hover" ]
-                    [ tr
-                        []
+                    [ thead [] [ tr []
                         [ th [] [ text "Color" ]
                         , th [] [ text "Coin" ]
-                        ]
+                        ]]
+                    , tbody [] $ map coinRow state.balance
                     ]
                 ]
             , div
                 [ className "col-xs-6" ]
                 [ table
                     [ className "table table-striped table-hover" ]
-                    [ tr
-                        []
-                        [ th [] [ text "Color" ]
+                    [ thead [] [ tr []
+                        [ th [] [ text "Address" ]
                         , th [] [ text "Coin" ]
-                        ]
+                        ]]
+                    , tbody [] $ map transactionRow state.transactions
                     ]
                 ]
             ]
@@ -148,3 +173,14 @@ view state =
     --     Home -> map Child $ Counter.view state.count
     --     NotFound -> NotFound.view state
     ]
+  where
+    coinRow (Tuple _ (Coin c)) =
+        tr []
+           [ td [] [ text $ show c.getColor ]
+           , td [] [ text $ show c.getCoin ]
+           ]
+    transactionRow (Tuple addr (Coin c)) =
+        tr []
+           [ td [] [ text $ addressToString addr ]
+           , td [] [ text $ show c.getCoin ]
+           ]

@@ -44,7 +44,6 @@ import           Control.Lens               ((%=), (.=), (<>=))
 import qualified Control.Lens               as L
 import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
-import           Control.Monad.Extra        (whenM)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import           Data.Bifunctor             (first)
@@ -489,17 +488,7 @@ addAddress addressPair@(address,sk) txs periodId = do
 
 -- | Update '_msAddrsAllocations' by 'M.Map' from Notary.
 updateAllocationStrategies :: M.Map MSAddress AllocationInfo -> ExceptUpdate ()
-updateAllocationStrategies newMap = checkInitS $ do
-    -- remove old values
-    oldMsAddrs <- L.use msAddrAllocations
-    forM_ (M.keys oldMsAddrs) $ \msAddr ->
-        whenM (L.uses msAddrAllocations $ M.notMember msAddr) $
-            () <$ L.uses msAddrAllocations (M.delete msAddr)
-
-    -- insert new values
-    forM_ (M.assocs newMap) $ \(msAddr, ainfo) ->
-        L.uses msAddrAllocations $ M.insert msAddr ainfo
-
+updateAllocationStrategies newMap = checkInitS $ msAddrAllocations .= newMap
 
 -- | Initialize wallet with list of addresses to hold and
 -- mode-specific parameter startHeight: if it's (Just i), then the

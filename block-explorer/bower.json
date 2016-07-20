@@ -14,5 +14,8 @@
     "purescript-debug": "^1.0.0",
     "purescript-argonaut-generic-codecs": "^2.0.0",
     "purescript-websocket-simple": "^0.4.0"
+  },
+  "devDependencies": {
+    "purescript-psci-support": "^1.0.0"
   }
 }

@@ -1,13 +1,15 @@
 module App.Layout where
 
-import Prelude                     (($), map, (<<<), const, pure)
+import Prelude                     (($), map, (<<<), const, pure, bind)
 
 import App.Counter                 as Counter
 import App.NotFound                as NotFound
 import App.Routes                  (Route(Home, NotFound))
-import App.Connection              (Connection, Action (..), WEBSOCKET, introMessage) as C
+import App.Connection              (Connection, Action (..), WEBSOCKET,
+                                    introMessage, send) as C
 import App.RSCoin                  (emptyAddress, Address, newAddress,
-                                    addressToString, IntroductoryMsg (..))
+                                    addressToString, IntroductoryMsg (..),
+                                    AddressInfoMsg (..))
 
 import Data.Maybe                  (Maybe (..), fromJust)
 
@@ -51,10 +53,16 @@ update (SocketAction (C.ReceivedData msg)) state = noEffects state
 update (SocketAction (C.SendIntroData msg)) state =
     { state: state
     , effects:
-        [ C.introMessage (unsafePartial $ fromJust state.socket) msg *> pure Nop
+        [ do
+            C.introMessage socket' msg
+            C.send socket' AIGetTxNumber
+            C.send socket' AIGetBalance
+            pure Nop
         -- FIXME: if socket isn't opened open some error page
         ]
     }
+  where
+    socket' = unsafePartial $ fromJust state.socket
 update (SocketAction _) state = noEffects state
 update (AddressChange address) state = noEffects $ state { address = address }
 update Nop state = noEffects state

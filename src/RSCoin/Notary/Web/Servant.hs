@@ -1,7 +1,8 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeOperators         #-}
 
 module RSCoin.Notary.Web.Servant
         ( servantApp
@@ -23,25 +24,37 @@ import           RSCoin.Notary.AcidState as S
 import           RSCoin.Notary.Error     (NotaryError, logError)
 import qualified RSCoin.Notary.Server    as S
 
-import           Servant                 ((:<|>) (..), (:>), (:~>) (Nat),
-                                          Get,
-                                          Handler, JSON, Post, Proxy (Proxy),
-                                          ReqBody, ServerT, enter, err500,
-                                          serve)
+import           Servant                 ((:<|>) (..), (:>), (:~>) (Nat), Get,
+                                          Handler, Header, Headers, JSON, Post,
+                                          Proxy (Proxy), ReqBody, ServerT,
+                                          StdMethod (OPTIONS), Verb, addHeader,
+                                          enter, err500, serve)
+
 type AllocateMSInput =
     ( C.Address
+    , C.PartyAddress
     , C.AllocationStrategy
-    , (C.Address, C.Signature)
+    , C.Signature
     , [(C.Signature, C.PublicKey)]
     )
 
+type Options = Verb 'OPTIONS 200
+
+type PreHeaders =
+    Headers '[ Header "Access-Control-Allow-Origin" String
+             , Header "Access-Control-Allow-Methods" String
+             , Header "Access-Control-Allow-Headers" String]
+            ()
+
 type NotaryApi =
-  "allocateMultisig"
-    :> ReqBody '[JSON] AllocateMSInput
-    :> Post '[JSON] ()
+  "allocateMultisig" :>
+      Options '[JSON] PreHeaders
   :<|>
-  "getPeriodId"
-    :> Get '[JSON] C.PeriodId
+  "allocateMultisig" :>
+      ReqBody '[JSON] AllocateMSInput :>
+      Post '[JSON] (Headers '[Header "Access-Control-Allow-Origin" String] ())
+  :<|>
+  "getPeriodId" :> Get '[JSON] C.PeriodId
 
 notaryApi :: Proxy NotaryApi
 notaryApi = Proxy
@@ -49,10 +62,17 @@ notaryApi = Proxy
 type MyHandler = ReaderT S.RSCoinNotaryState IO
 
 servantServer :: ServerT NotaryApi MyHandler
-servantServer = method S.handleAllocateMultisig
-              :<|> method0 S.handleGetPeriodId
+servantServer =
+    return preHeaders
+    :<|> (\arg -> do method S.handleAllocateMultisig arg
+                     return $ addHeader "*" ())
+    :<|> method0 S.handleGetPeriodId
   where
-    method :: (Curry (t -> IO b) b1) => (S.RSCoinNotaryState -> b1) -> t -> MyHandler b
+    preHeaders = addHeader "*" $
+                 addHeader "POST, GET, OPTIONS" $
+                 addHeader "X-PINGOTHER, Content-Type" ()
+    method :: (Curry (t -> IO b) b1) =>
+              (S.RSCoinNotaryState -> b1) -> t -> MyHandler b
     method act arg = ask >>= \st -> liftIO (uncurryN (act st) arg)
     method0 act = ask >>= \st -> liftIO (act st)
 

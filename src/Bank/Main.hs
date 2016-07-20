@@ -5,11 +5,11 @@ import           Data.Time.Units (Second)
 
 import qualified Options         as Opts
 import qualified RSCoin.Bank     as B
-import           RSCoin.Core     (Address (Address), Explorer (..), Mintette (Mintette),
-                                  bankLoggerName, constructPublicKey,
-                                  defaultLayout', initLogging,
-                                  keyGen, logWarning, readPublicKey,
-                                  readSecretKey)
+import           RSCoin.Core     (Address (Address), Explorer (..),
+                                  Mintette (Mintette), bankLoggerName,
+                                  constructPublicKey, defaultLayout',
+                                  initLogging, keyGen, logWarning,
+                                  readPublicKey, readSecretKey)
 
 main :: IO ()
 main = do
@@ -21,11 +21,11 @@ main = do
         Opts.AddAddress pk' strategy -> do
             addr <- Address <$> maybe (snd <$> keyGen) readPk pk'
             B.addAddressIO cloPath addr strategy
-        Opts.AddMintette name port pk -> do
-            let m = Mintette name port
-            k <-
-                maybe (readPublicKeyFallback pk) return $ constructPublicKey pk
-            B.addMintetteIO cloPath m k
+        Opts.AddMintette skPath host port pk -> do
+            let m = Mintette host port
+            sk <- readSecretKey skPath
+            k <- maybe (readPublicKeyFallback pk) return $ constructPublicKey pk
+            B.addMintetteIO sk m k
         Opts.AddExplorer name port pk pId -> do
             k <-
                 maybe (readPublicKeyFallback pk) return $ constructPublicKey pk

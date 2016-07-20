@@ -12,24 +12,27 @@ module RSCoin.Bank.Launcher
        , addExplorerIO
        ) where
 
-import           Control.Monad.Catch   (bracket)
-import           Control.Monad.Trans   (liftIO)
-import           Data.Acid.Advanced    (update')
-import           Data.IORef            (newIORef)
-import           Data.Time.Units       (TimeUnit)
+import           Control.Monad.Catch       (bracket)
+import           Control.Monad.Trans       (liftIO)
+import           Data.Acid.Advanced        (update')
+import           Data.IORef                (newIORef)
+import           Data.Time.Units           (TimeUnit)
 
 
-import           RSCoin.Core           (Address, Explorer, Mintette, PeriodId, PublicKey,
-                                        SecretKey, TxStrategy, defaultLayout')
-import           RSCoin.Timed          (MsgPackRpc, PlatformLayout, WorkMode,
-                                        fork, fork_, killThread, runRealMode)
+import           RSCoin.Core               (Address, Explorer, Mintette,
+                                            PeriodId, PublicKey, SecretKey,
+                                            TxStrategy, defaultLayout', sign)
+import           RSCoin.Core.Communication (addPendingMintette)
+import           RSCoin.Timed              (MsgPackRpc, PlatformLayout,
+                                            WorkMode, fork, fork_, killThread,
+                                            runRealMode)
 
-import           RSCoin.Bank.AcidState (AddAddress (AddAddress),
-                                        AddExplorer (AddExplorer),
-                                        AddMintette (AddMintette), State,
-                                        closeState, openState)
-import           RSCoin.Bank.Server    (serve)
-import           RSCoin.Bank.Worker    (runExplorerWorker, runWorkerWithPeriod)
+import           RSCoin.Bank.AcidState     (AddAddress (AddAddress),
+                                            AddExplorer (AddExplorer), State,
+                                            closeState, openState)
+import           RSCoin.Bank.Server        (serve)
+import           RSCoin.Bank.Worker        (runExplorerWorker,
+                                            runWorkerWithPeriod)
 
 bankWrapperReal :: PlatformLayout -> FilePath -> (State -> MsgPackRpc a) -> IO a
 bankWrapperReal layout storagePath =
@@ -59,11 +62,11 @@ addAddressIO :: FilePath -> Address -> TxStrategy -> IO ()
 addAddressIO storagePath a s =
     bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $ flip update' (AddAddress a s)
 
--- | Add mintette to Bank inside IO Monad.
-addMintetteIO :: FilePath -> Mintette -> PublicKey -> IO ()
-addMintetteIO storagePath m k =
-    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $
-    flip update' (AddMintette m k)
+-- | Add mintette to Bank (send a request signed with bank's sk)
+addMintetteIO :: SecretKey -> Mintette -> PublicKey -> IO ()
+addMintetteIO sk m k = do
+    let proof = sign sk (m, k)
+    runRealMode (defaultLayout' "127.0.0.1") $ addPendingMintette m k proof
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerIO :: FilePath -> Explorer -> PeriodId -> IO ()

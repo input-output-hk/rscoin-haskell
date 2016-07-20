@@ -40,8 +40,9 @@ import           RSCoin.Bank.AcidState    (AddAddress (..),
                                            SuspendExplorer (..))
 import           RSCoin.Core              (defaultPeriodDelta,
                                            formatNewPeriodData,
-                                           sendPeriodFinished)
+                                           sendPeriodFinished, sign)
 import qualified RSCoin.Core              as C
+import           RSCoin.Core.Constants    (bankSecretKey)
 import           RSCoin.Timed             (Second, WorkMode, for, minute, ms,
                                            repeatForever, sec, tu, wait)
 
@@ -134,7 +135,9 @@ onPeriodFinished sk st = do
             update' st $ AddAddress msAddr strategy
 
         logInfo "Removing new addresses from pool"
-        C.removeNotaryCompleteMSAddresses $ map fst newMSAddresses
+        let msAddrs       = map fst newMSAddresses
+        let signedMsAddrs = sign bankSecretKey msAddrs
+        C.removeNotaryCompleteMSAddresses msAddrs signedMsAddrs
     announceNewPeriodsToNotary = do
         pId <- C.getNotaryPeriod
         pId' <- query' st GetPeriodId

@@ -33,15 +33,15 @@ import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           PollTransactions (..),
                                           QueryAllMSAdresses (..),
                                           QueryCompleteMSAdresses (..),
+                                          QueryMyMSRequests (..),
                                           RSCoinNotaryState,
                                           RemoveCompleteMSAddresses (..))
 import           RSCoin.Notary.Error     (NotaryError, logDebug, logError)
-import           RSCoin.Timed            (WorkMode,
-                                          serverTypeRestriction0,
+import           RSCoin.Timed            (WorkMode, serverTypeRestriction0,
                                           serverTypeRestriction1,
                                           serverTypeRestriction2,
                                           serverTypeRestriction3,
-                                          serverTypeRestriction4)
+                                          serverTypeRestriction5)
 
 toServer :: MonadIO m => IO a -> m a
 toServer action = liftIO $ action `catch` handler
@@ -63,8 +63,9 @@ serve port notaryState = do
     idr4 <- serverTypeRestriction2
     idr5 <- serverTypeRestriction0
     idr6 <- serverTypeRestriction0
-    idr7 <- serverTypeRestriction1
-    idr8 <- serverTypeRestriction4
+    idr7 <- serverTypeRestriction2
+    idr8 <- serverTypeRestriction5
+    idr9 <- serverTypeRestriction1
     P.serve
         port
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1
@@ -83,6 +84,8 @@ serve port notaryState = do
             $ handleRemoveCompleteMS notaryState
         , P.method (P.RSCNotary P.AllocateMultisig)           $ idr8
             $ handleAllocateMultisig notaryState
+        , P.method (P.RSCNotary P.QueryMyAllocMS)             $ idr9
+            $ handleQueryMyAllocationMS notaryState
         ]
 
 handlePollTxs
@@ -157,23 +160,35 @@ handleRemoveCompleteMS
     :: MonadIO m
     => RSCoinNotaryState
     -> [C.Address]
+    -> C.Signature
     -> m ()
-handleRemoveCompleteMS st addresses = toServer $ do
+handleRemoveCompleteMS st addresses signedAddrs = toServer $ do
     logDebug $ sformat ("Removing complete MS of " % shown) addresses
-    update' st $ RemoveCompleteMSAddresses addresses
+    update' st $ RemoveCompleteMSAddresses addresses signedAddrs
 
 handleAllocateMultisig
     :: MonadIO m
     => RSCoinNotaryState
     -> C.Address
+    -> C.PartyAddress
     -> C.AllocationStrategy
-    -> (C.Address, C.Signature)
+    -> C.Signature
     -> [(C.Signature, C.PublicKey)]
     -> m ()
-handleAllocateMultisig st sAddr allocStrat sigPair chain = do
+handleAllocateMultisig st msAddr partyAddr allocStrat signature chain = toServer $ do
     logDebug "Begining allocation MS address..."
-    logDebug $ sformat ("SigPair: " % build % ", Chain: " % build) sigPair chain
-    update' st $ AllocateMSAddress sAddr allocStrat sigPair chain
+    logDebug $ sformat ("SigPair: " % build % ", Chain: " % build) signature chain
+    update' st $ AllocateMSAddress msAddr partyAddr allocStrat signature chain
 
+    -- @TODO: get query only in Debug mode
     currentMSAddresses <- query' st QueryAllMSAdresses
     logDebug $ sformat ("All addresses: " % shown) currentMSAddresses
+
+handleQueryMyAllocationMS
+    :: MonadIO m
+    => RSCoinNotaryState
+    -> C.AllocationAddress
+    -> m [(C.MSAddress, C.AllocationInfo)]
+handleQueryMyAllocationMS st allocAddr = toServer $ do
+    logDebug "Querying my MS allocations..."
+    query' st $ QueryMyMSRequests allocAddr

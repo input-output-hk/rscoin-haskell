@@ -21,7 +21,7 @@ import           RSCoin.Core            (Severity (Error), TxStrategy,
 
 data Command
     = Serve FilePath
-    | AddMintette String Int T.Text
+    | AddMintette FilePath String Int T.Text
     | AddAddress (Maybe T.Text) TxStrategy
     | AddExplorer String Int T.Text Int
 
@@ -50,13 +50,12 @@ commandParser defaultSKPath =
              "add-explorer"
              (info addExplorerOpts (progDesc "Add given explorer to database")))
   where
-    serveOpts =
-        Serve <$>
-        strOption
-            (short 'k' <> long "secret-key" <> help "Path to secret key" <>
-             value defaultSKPath <>
-             showDefault <>
-             metavar "PATH TO KEY")
+    keyOption = strOption
+         (short 'k' <> long "secret-key" <> help "Path to secret key" <>
+          value defaultSKPath <>
+          showDefault <>
+          metavar "PATH TO KEY")
+    serveOpts = Serve <$> keyOption
     addAddressOpts =
         AddAddress <$> (optional . strOption) (long "address" <> help "Public key, determining address") <*>
         option auto
@@ -64,7 +63,10 @@ commandParser defaultSKPath =
              help "Address's strategy (directly, not from file). Example: 'MOfNStrategy 5 (fromList [\"YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM=\"])'" <>
              metavar "STRATEGY")
     addMintetteOpts =
-        AddMintette <$> strOption (long "host") <*> option auto (long "port") <*>
+        AddMintette <$>
+        keyOption <*>
+        strOption (long "host") <*>
+        option auto (long "port") <*>
         strOption
             (long "key" <>
              help "Mintette's public key (directly, not from file)" <>

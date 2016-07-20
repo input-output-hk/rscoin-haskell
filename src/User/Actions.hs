@@ -139,7 +139,6 @@ processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
     let (pk, sig) = (C.derivePublicKey sk, C.sign sk seedPk)
     liftIO $ TIO.putStrLn $
        sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build) pk sig (C.verifyChain pk [(sig, seedPk)])
-
 processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
     when (null textAddrs) $
         U.commitError "Can't create multisig with empty addrs list"
@@ -154,14 +153,16 @@ processCommand st (O.AddMultisigAddress m textAddrs mMSAddress) _ = do
 
     msPublicKey <- maybe (snd <$> liftIO C.keyGen) return (mMSAddress >>= C.constructPublicKey)
     (userAddress, userSK) <- head <$> query' st U.GetUserAddresses
-    let msAddr = C.Address msPublicKey
-        strat = C.UserStrategy m $ S.fromList partiesAddrs
-    let userSignature = C.sign userSK (msAddr, strat)
+    let msAddr    = C.Address msPublicKey
+    let partyAddr = C.UserParty userAddress
+    let msStrat   = C.AllocationStrategy m $ S.fromList $ map C.UserAlloc partiesAddrs
+    let userSignature = C.sign userSK (msAddr, msStrat)
     let certChain     = U.createCertificateChain $ C.getAddress userAddress
     C.allocateMultisignatureAddress
         msAddr
-        strat
-        (userAddress, userSignature)
+        partyAddr
+        msStrat
+        userSignature
         certChain
     liftIO $ TIO.putStrLn $
        sformat ("Your new address will be added in the next block: " % build) msPublicKey

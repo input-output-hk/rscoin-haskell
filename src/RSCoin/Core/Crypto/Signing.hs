@@ -58,7 +58,7 @@ import qualified RSCoin.Core.Crypto.Hashing as H
 
 newtype Signature = Signature
     { getSignature :: E.Signature
-    } deriving (Eq,Show)
+    } deriving (Eq)
 
 sigToBs :: Signature -> BS.ByteString
 sigToBs = E.unSignature . getSignature
@@ -86,11 +86,13 @@ instance Buildable (Signature, PublicKey) where
     build = pairBuilder
 
 instance Buildable [(Signature, PublicKey)] where
-  build = listBuilderJSON
+    build = listBuilderJSON
 
 instance Buildable Signature where
-    -- Feel free to change it if you need actual Signature.
-    build _ = "Signature"
+    build = build . B64.encode . E.unSignature . getSignature
+
+instance Show Signature where
+    show sig = "Signature { getSignature = " ++ T.unpack (show' sig) ++ " }"
 
 instance MessagePack Signature where
     toObject = toObject . sigToBs

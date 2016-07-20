@@ -10,13 +10,13 @@ import           Control.Concurrent    (MVar, newMVar, putMVar, takeMVar)
 import           Control.Monad.Catch   (catch, throwM)
 import           Control.Monad.Trans   (lift, liftIO)
 
-import           Data.Acid.Advanced    (query')
+import           Data.Acid.Advanced    (query', update')
 import qualified Data.Map.Strict       as M
 
 import           Serokell.Util.Text    (format', formatSingle', mapBuilder,
                                         show')
 
-import           RSCoin.Bank.AcidState (GetAddresses (..),
+import           RSCoin.Bank.AcidState (AddMintette (..), GetAddresses (..),
                                         GetExplorersAndPeriods (..),
                                         GetHBlock (..), GetHBlocks (..),
                                         GetLogs (..), GetMintettes (..),
@@ -25,11 +25,11 @@ import           RSCoin.Bank.AcidState (GetAddresses (..),
 import           RSCoin.Bank.Error     (BankError)
 
 import           RSCoin.Core           (ActionLog, AddressToTxStrategyMap,
-                                        Explorers, HBlock,
-                                        MintetteId, Mintettes, PeriodId,
-                                        Transaction, TransactionId,
-                                        bankLoggerName, bankPort, logDebug,
-                                        logError, logInfo)
+                                        Explorers, HBlock, Mintette, MintetteId,
+                                        Mintettes, PeriodId, PublicKey,
+                                        Signature, Transaction, TransactionId,
+                                        bankLoggerName, bankPort, bankPublicKey,
+                                        logDebug, logError, logInfo, verify)
 import qualified RSCoin.Core.Protocol  as C
 import qualified RSCoin.Timed          as T
 
@@ -47,6 +47,7 @@ serve st workerThread restartWorkerAction = do
     idr7 <- T.serverTypeRestriction3
     idr8 <- T.serverTypeRestriction0
     idr9 <- T.serverTypeRestriction0
+    idr10 <- T.serverTypeRestriction3
     C.serve
         bankPort
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
@@ -59,6 +60,8 @@ serve st workerThread restartWorkerAction = do
         , C.method (C.RSCDump C.GetHBlocks) $ idr7 $ serveGetLogs st
         , C.method (C.RSCBank C.GetAddresses) $ idr8 $ serveGetAddresses st
         , C.method (C.RSCBank C.GetExplorers) $ idr9 $ serveGetExplorers st
+        , C.method (C.RSCBank C.AddPendingMintette) $
+          idr10 $ serveAddPendingMintette st
         ]
 
 toServer :: T.WorkMode m => m a -> T.ServerT m a
@@ -119,6 +122,19 @@ serveFinishPeriod threadIdMVar restartAction =
        -- TODO: consider using modifyMVar_ here
        liftIO (takeMVar threadIdMVar) >>= restartAction >>=
            liftIO . putMVar threadIdMVar
+
+serveAddPendingMintette
+    :: T.WorkMode m
+    => State -> Mintette -> PublicKey -> Signature -> T.ServerT m ()
+serveAddPendingMintette st mintette pk proof =
+    toServer $
+    do logInfo bankLoggerName $ format' "Adding pending mintette {} with pk {}"
+                                        (mintette, pk)
+       if verify bankPublicKey proof (mintette,pk)
+       then update' st (AddMintette mintette pk)
+       else logError bankLoggerName $
+                format' "Tried to add mintette {} with pk {} with *failed* signature"
+                        (mintette,pk)
 
 -- Dumping Bank state
 

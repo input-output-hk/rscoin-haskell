@@ -70,6 +70,7 @@ data BankMethod
     | GetHBlock
     | GetTransaction
     | FinishPeriod
+    | AddPendingMintette
     deriving (Show)
 
 -- | Requests processed by Explorer.
@@ -94,6 +95,7 @@ data NotaryMethod
     | PollTransactions
     | PublishTransaction
     | QueryCompleteMS
+    | QueryMyAllocMS
     | RemoveCompleteMS
     deriving (Show)
 

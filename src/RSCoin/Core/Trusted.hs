@@ -5,8 +5,6 @@
 module RSCoin.Core.Trusted
         ( attainPublicKey
         , attainSecretKey
-        , bankColdPublic
-        , bankColdSecret
         , chainRootPKs
         ) where
 
@@ -30,21 +28,6 @@ attainPublicKey = fst attainKeyPair
 attainSecretKey :: SecretKey
 attainSecretKey = snd attainKeyPair
 
-{- Some predefined Bank key of cold storage (for new MS allocation strategy -}
-
-bankKeyPair :: (PublicKey, SecretKey)
-bankKeyPair =
-    fromMaybe (error "Invalid Bank address seed")
-    $ deterministicKeyGen "trusted-servicekey-cold-storage0"
-
--- | Public key of Bank cold storage.
-bankColdPublic :: PublicKey
-bankColdPublic = fst bankKeyPair
-
--- | Secret key of Trusted cold storage.
-bankColdSecret :: SecretKey
-bankColdSecret = snd bankKeyPair
-
 -- | Built-in know root public keys.
 chainRootPKs :: [PublicKey]
-chainRootPKs = [attainPublicKey, bankColdPublic]
+chainRootPKs = [attainPublicKey]

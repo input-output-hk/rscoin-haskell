@@ -25,11 +25,14 @@ module RSCoin.User.AcidState
        , GetTxsHistory (..)
        , GetAddressStrategy (..)
        , ResolveAddressLocally (..)
+       , GetAllocationStrategies (..)
+       , GetAllocationByIndex (..)
 
        -- * Updates
        , WithBlockchainUpdate (..)
        , AddAddress (..)
        , AddTemporaryTransaction (..)
+       , UpdateAllocationStrategies (..)
        , InitWallet (..)
        ) where
 
@@ -40,10 +43,12 @@ import           Control.Monad.Trans (MonadIO, liftIO)
 import           Data.Acid           (makeAcidic)
 import qualified Data.Acid           as A
 import           Data.Acid.Memory    as AM
+import           Data.Map            (Map)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 
 import qualified RSCoin.Core         as C
 import           RSCoin.Core.Crypto  (keyGen)
+import           RSCoin.Core.Strategy(AllocationInfo, MSAddress)
 import           RSCoin.Timed        (WorkMode)
 import           RSCoin.User.Logic   (getBlockchainHeight)
 import           RSCoin.User.Wallet  (TxHStatus, TxHistoryRecord, WalletStorage)
@@ -86,6 +91,8 @@ getLastBlockId :: A.Query WalletStorage Int
 getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
 getAddressStrategy :: C.Address -> A.Query WalletStorage (Maybe C.TxStrategy)
 resolveAddressLocally :: C.AddrId -> A.Query WalletStorage (Maybe C.Address)
+getAllocationStrategies :: A.Query WalletStorage (Map MSAddress AllocationInfo)
+getAllocationByIndex :: Int -> A.Query WalletStorage (MSAddress, AllocationInfo)
 
 isInitialized = W.isInitialized
 findUserAddress = W.findUserAddress
@@ -98,15 +105,19 @@ getLastBlockId = W.getLastBlockId
 getTxsHistory = W.getTxsHistory
 getAddressStrategy = W.getAddressStrategy
 resolveAddressLocally = W.resolveAddressLocally
+getAllocationStrategies = W.getAllocationStrategies
+getAllocationByIndex = W.getAllocationByIndex
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
 addAddress :: (C.Address,C.SecretKey) -> [C.Transaction] -> C.PeriodId -> A.Update WalletStorage ()
+updateAllocationStrategies :: Map MSAddress AllocationInfo -> A.Update WalletStorage ()
 initWallet :: [(C.SecretKey,C.PublicKey)] -> Maybe Int -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate
 addTemporaryTransaction = W.addTemporaryTransaction
 addAddress = W.addAddress
+updateAllocationStrategies = W.updateAllocationStrategies
 initWallet = W.initWallet
 
 $(makeAcidic
@@ -121,10 +132,13 @@ $(makeAcidic
       , 'getLastBlockId
       , 'getTxsHistory
       , 'getAddressStrategy
+      , 'getAllocationStrategies
+      , 'getAllocationByIndex
       , 'resolveAddressLocally
       , 'withBlockchainUpdate
       , 'addTemporaryTransaction
       , 'addAddress
+      , 'updateAllocationStrategies
       , 'initWallet])
 
 -- | This function generates 'n' new addresses ((pk,sk) pairs

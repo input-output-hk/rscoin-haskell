@@ -131,6 +131,7 @@ rpcTimeout = $(lift $ CC.rscRpcTimeout CC.rscoinConfig)
 
 -- | Bank's secret key which can be used to spend coins from genesis transaction.
 -- It's needed only for tests/benchmarks.
+-- UPD: it also needed for queries to Notary.
 bankSecretKey :: SecretKey
 bankSecretKey =
     constructSecretKey $ $(makeRelativeToProject "rscoin-key" >>= embedFile)

@@ -118,17 +118,18 @@ startBank CommonParams{..} mintettes explorers BankData{..} = do
         dbDir = workingDir </> "bank-db"
         periodDelta :: Second = fromIntegral cpPeriod
     Cherepakha.mkdir workingDirModern
-    forM_
-        mintettes
-        (\(port,key) ->
-              B.addMintetteIO dbDir (C.Mintette C.localhost port) key)
+    bankSk <- C.readSecretKey bdSecret
     forM_
         explorers
         (\(port,key) ->
               B.addExplorerIO dbDir (C.Explorer C.localhost port key) 0)
-    forkIO $
-        B.launchBankReal C.localPlatformLayout periodDelta dbDir =<<
-        C.readSecretKey bdSecret
+    threadId <- forkIO $
+        B.launchBankReal C.localPlatformLayout periodDelta dbDir bankSk
+    forM_
+        mintettes
+        (\(port,key) ->
+              B.addMintetteIO bankSk (C.Mintette C.localhost port) key)
+    return threadId
 
 -- TODO: we can setup other users similar way
 setupBankUser :: CommonParams -> BankData -> IO ()

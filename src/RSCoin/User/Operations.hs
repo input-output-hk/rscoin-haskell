@@ -32,6 +32,7 @@ module RSCoin.User.Operations
        , submitTransaction
        , submitTransactionRetry
        , createCertificateChain
+       , retrieveAllocationsList
        ) where
 
 import           Control.Exception      (SomeException, assert, fromException)
@@ -499,3 +500,17 @@ createCertificateChain userPublicKey =
     [ (C.sign C.attainSecretKey C.attainPublicKey, C.attainPublicKey)  -- @TODO: should introduce `seedPK`
     , (C.sign C.attainSecretKey userPublicKey,     userPublicKey)
     ]
+
+-- | Get list of all allocation address in which user participates.
+retrieveAllocationsList
+    :: forall m .
+       WorkMode m
+    => A.RSCoinUserState
+    -> (C.Address -> C.AllocationAddress)
+    -> m [(C.MSAddress, C.AllocationInfo)]
+retrieveAllocationsList st toAllocation = do
+    -- @TODO: only first address as party is supported now
+    fstUserAddress <- head <$> query' st A.GetOwnedAddresses
+    userAllocInfos <- C.queryNotaryMyMSAllocations $ toAllocation fstUserAddress
+    update' st $ A.UpdateAllocationStrategies $ M.fromList userAllocInfos
+    return userAllocInfos

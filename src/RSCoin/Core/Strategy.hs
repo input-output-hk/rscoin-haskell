@@ -3,24 +3,30 @@
 -- | Strategy-related data types and functions/helpers.
 
 module RSCoin.Core.Strategy
-     ( AddressToTxStrategyMap
-     , AllocationAddress  (..)
-     , AllocationStrategy (..)
-     , PartyAddress       (..)
-     , TxStrategy         (..)
+        ( AddressToTxStrategyMap
+        , AllocationAddress  (..)
+        , AllocationInfo     (..)
+        , AllocationStrategy (..)
+        , MSAddress
+        , PartyAddress       (..)
+        , TxStrategy         (..)
 
-     -- * 'AllocationAddress' lenses and prisms
-     , address
+          -- * 'AllocationAddress' lenses and prisms
+        , address
 
-      -- * 'AllocationStrategy' lenses
-     , allParties
-     , sigNumber
+          -- * 'AllocationInfo' lenses
+        , allocationStrategy
+        , currentConfirmations
 
-     -- * Other helpers
-     , allocateTxFromAlloc
-     , isStrategyCompleted
-     , partyToAllocation
-     ) where
+          -- * 'AllocationStrategy' lenses
+        , allParties
+        , sigNumber
+
+          -- * Other helpers
+        , allocateTxFromAlloc
+        , isStrategyCompleted
+        , partyToAllocation
+        ) where
 
 import           Control.Lens               (makeLenses, traversed, (^..))
 
@@ -40,6 +46,9 @@ import           Serokell.Util.Text         (listBuilderJSON)
 import           RSCoin.Core.Crypto.Signing (Signature)
 import           RSCoin.Core.Primitives     (Address, Transaction)
 import           RSCoin.Core.Transaction    (validateSignature)
+
+-- | Type alisas for places where address is used as multisignature address.
+type MSAddress = Address
 
 -- | Strategy of confirming transactions.
 -- Other strategies are possible, like "getting m out of n, but
@@ -159,6 +168,16 @@ instance Buildable AllocationStrategy where
                    "  sigNumber: "  % F.build % "\n" %
                    "  allParties: " % F.build % "\n" %
                    "}\n"
+
+-- | Stores meta information for MS allocation by 'AlocationStrategy'.
+data AllocationInfo = AllocationInfo
+    { _allocationStrategy   :: AllocationStrategy
+    , _currentConfirmations :: Map AllocationAddress Address
+    } deriving (Show)
+
+$(deriveSafeCopy 0 'base ''AllocationInfo)
+$(makeLenses ''AllocationInfo)
+
 
 -- | Creates corresponding multisignature 'TxStrategy'.
 allocateTxFromAlloc :: AllocationStrategy -> TxStrategy

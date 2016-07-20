@@ -16,6 +16,7 @@ module RSCoin.User.Wallet
        , emptyWalletStorage
        , isInitialized
 
+         -- * Queries
        , findUserAddress
        , getUserAddresses
        , getOwnedAddresses
@@ -26,10 +27,14 @@ module RSCoin.User.Wallet
        , getTxsHistory
        , getAddressStrategy
        , resolveAddressLocally
+       , getAllocationStrategies
+       , getAllocationByIndex
 
+         -- * Updates
        , addTemporaryTransaction
        , withBlockchainUpdate
        , addAddress
+       , updateAllocationStrategies
        , initWallet
        ) where
 
@@ -39,6 +44,7 @@ import           Control.Lens               ((%=), (.=), (<>=))
 import qualified Control.Lens               as L
 import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
+import           Control.Monad.Extra        (whenM)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import           Data.Bifunctor             (first)
@@ -59,7 +65,9 @@ import qualified RSCoin.Core                as C
 import           RSCoin.Core.Crypto         (PublicKey, SecretKey)
 import           RSCoin.Core.Primitives     (AddrId, Address (..),
                                              Transaction (..))
+import           RSCoin.Core.Strategy       (AllocationInfo, MSAddress)
 import           RSCoin.Core.Types          (PeriodId)
+
 
 validateKeyPair :: Address -> SecretKey -> Bool
 validateKeyPair addr sk = C.checkKeyPair (sk, getAddress addr)
@@ -90,20 +98,22 @@ data WalletStorage = WalletStorage
     { -- | Address that user own. Owning is dictated by strategy. In
       -- default strategy you should have secret key. But in general
       -- it's not necessary.
-      _ownedAddresses :: M.Map Address (Maybe SecretKey)
+      _ownedAddresses    :: M.Map Address (Maybe SecretKey)
       -- | Transactions that user is aware of and that reference user
       -- addresses, that were not spent (utxo basically)
-    , _userTxAddrids  :: M.Map Address [TrAddrId]
+    , _userTxAddrids     :: M.Map Address [TrAddrId]
       -- | Support list for deleted events
-    , _periodDeleted  :: [(Address, TrAddrId)]
+    , _periodDeleted     :: [(Address, TrAddrId)]
       -- | Support list for added events
-    , _periodAdded    :: [(Address, TrAddrId)]
+    , _periodAdded       :: [(Address, TrAddrId)]
       -- | Last blockchain height known to user (if known)
-    , _lastBlockId    :: Maybe PeriodId
+    , _lastBlockId       :: Maybe PeriodId
       -- | History of all transactions being made (incomes + outcomes)
-    , _historyTxs     :: S.Set TxHistoryRecord
+    , _historyTxs        :: S.Set TxHistoryRecord
       -- | Map from addresses to strategies that we own
-    , _addrStrategies :: M.Map Address C.TxStrategy
+    , _addrStrategies    :: M.Map Address C.TxStrategy
+      -- | List of pairs (multisignatureAddress, strategy) with user as party.
+    , _msAddrAllocations :: M.Map MSAddress AllocationInfo
     } deriving (Show)
 
 $(L.makeLenses ''WalletStorage)
@@ -119,9 +129,11 @@ instance Exception WalletStorageError
 
 -- | Creates empty WalletStorage. Uninitialized.
 emptyWalletStorage :: WalletStorage
-emptyWalletStorage = WalletStorage M.empty M.empty [] [] Nothing S.empty M.empty
+emptyWalletStorage = WalletStorage M.empty M.empty [] [] Nothing S.empty M.empty M.empty
 
+-- =======
 -- Queries
+-- =======
 
 type ExceptQuery a = forall m. (MonadReader WalletStorage m, MonadThrow m) => m a
 
@@ -255,7 +267,21 @@ resolveAddressLocally addrid =
                         Just list -> addrid `elem` (map snd list)) $
          M.keys addridMap
 
--- Updates
+-- | Get all 'M.Map' of MS addresses in which current user is party.
+getAllocationStrategies :: ExceptQuery (M.Map MSAddress AllocationInfo)
+getAllocationStrategies = checkInitR $ L.view msAddrAllocations
+
+-- | Get element in allocation strategies Map by index.
+getAllocationByIndex :: Int -> ExceptQuery (MSAddress, AllocationInfo)
+getAllocationByIndex i = checkInitR $ do
+    msAddrs <- L.view msAddrAllocations
+    when (i >= M.size msAddrs) $
+        throwM $ BadRequest "index i is greater than size of local ms list"
+    return $ M.elemAt i msAddrs
+
+-- ===============
+-- Updates section
+-- ===============
 
 type ExceptUpdate a = forall m. (MonadState WalletStorage m, MonadThrow m) => m a
 
@@ -460,6 +486,20 @@ addAddress addressPair@(address,sk) txs periodId = do
                         C.getAddrIdByAddress address t)
                  txs)
     addrStrategies %= M.insert address C.DefaultStrategy
+
+-- | Update '_msAddrsAllocations' by 'M.Map' from Notary.
+updateAllocationStrategies :: M.Map MSAddress AllocationInfo -> ExceptUpdate ()
+updateAllocationStrategies newMap = checkInitS $ do
+    -- remove old values
+    oldMsAddrs <- L.use msAddrAllocations
+    forM_ (M.keys oldMsAddrs) $ \msAddr ->
+        whenM (L.uses msAddrAllocations $ M.notMember msAddr) $
+            () <$ L.uses msAddrAllocations (M.delete msAddr)
+
+    -- insert new values
+    forM_ (M.assocs newMap) $ \(msAddr, ainfo) ->
+        L.uses msAddrAllocations $ M.insert msAddr ainfo
+
 
 -- | Initialize wallet with list of addresses to hold and
 -- mode-specific parameter startHeight: if it's (Just i), then the

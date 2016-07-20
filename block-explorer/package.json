@@ -14,7 +14,7 @@
     "clean": "rimraf static/dist && rimraf dist && rimraf output",
     "build": "npm run clean && webpack --config ./webpack.production.config.js --progress --profile --colors",
     "watch": "npm run clean && node ./webpack.config.js",
-    "serve": "http-server static --cors -p 3000",
+    "serve": "http-server static --cors -p 10000",
     "start": "npm run watch",
     "test": "pulp test"
   },

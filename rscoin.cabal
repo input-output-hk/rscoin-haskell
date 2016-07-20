@@ -370,7 +370,9 @@ executable rscoin-json-demo
 
 test-suite rscoin-test
   main-is:             Test.hs
-  other-modules:       Test.RSCoin.Core.Arbitrary
+  other-modules:       Test.RSCoin.Core.AesonSpec
+                     , Test.RSCoin.Core.Arbitrary
+                     , Test.RSCoin.Core.BinarySpec
                      , Test.RSCoin.Core.CoinSpec
                      , Test.RSCoin.Core.CryptoSpec
                      , Test.RSCoin.Core.MessagePackSpec

@@ -17,7 +17,7 @@ import           Test.RSCoin.Core.Arbitrary ()
 
 spec :: Spec
 spec =
-    describe "MessagePack" $ do
+    describe "Aeson" $ do
         describe "Identity Properties" $ do
             prop "Integer" $
                 \(a :: Integer) -> a === aesonMid a

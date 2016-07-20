@@ -4,11 +4,11 @@ import Prelude                     (($), map, (<<<), const, pure, bind, show,
                                     (<>))
 
 import App.Counter                 as Counter
-import App.NotFound                as NotFound
-import App.Routes                  (Route(Home, NotFound))
+-- import App.NotFound                as NotFound
+import App.Routes                  (Route(NotFound))
 import App.Connection              (Connection, Action (..), WEBSOCKET,
                                     introMessage, send) as C
-import App.RSCoin                  (emptyAddress, Address (..), newAddress,
+import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     addressToString, IntroductoryMsg (..),
                                     AddressInfoMsg (..), Coin (..),
                                     Transaction (..), OutcomingMsg (..))
@@ -18,9 +18,9 @@ import Data.Tuple                  (Tuple (..))
 import Data.Either                 (fromRight)
 import Data.Array                  (concatMap, take)
 
-import Pux                         (EffModel, noEffects, onlyEffects)
-import Pux.Html                    (Html, div, h1, p, text, input, button, link,
-                                    small, h3, h5, span, table, tr, th, td,
+import Pux                         (EffModel, noEffects)
+import Pux.Html                    (Html, div, h1, text, input, button, link,
+                                    small, h5, span, table, tr, th, td,
                                     thead, tbody)
 import Pux.Html.Attributes         (type_, value, rel, href, className)
 import Pux.Html.Events             (onChange, onClick)
@@ -29,7 +29,6 @@ import Control.Apply               ((*>))
 
 import DOM                         (DOM)
 import Control.Monad.Eff.Console   (CONSOLE)
-import Control.Monad.Eff.Exception (EXCEPTION, catchException)
 
 import Partial.Unsafe              (unsafePartial)
 

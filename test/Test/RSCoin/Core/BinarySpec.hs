@@ -7,13 +7,10 @@ module Test.RSCoin.Core.BinarySpec
 import           Data.Binary                (Binary, encode, decode)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
-import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, scale,
-                                             (===))
+import           Test.QuickCheck            ((===))
 import qualified Data.Set                   as S
 
 import qualified RSCoin.Core                as C
-import           RSCoin.Mintette.Error      (MintetteError)
-import           RSCoin.Notary.Error        (NotaryError)
 
 import           Test.RSCoin.Core.Arbitrary ()
 

@@ -33,6 +33,7 @@ import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           PollTransactions (..),
                                           QueryAllMSAdresses (..),
                                           QueryCompleteMSAdresses (..),
+                                          QueryMyMSRequests (..),
                                           RSCoinNotaryState,
                                           RemoveCompleteMSAddresses (..))
 import           RSCoin.Notary.Error     (NotaryError, logDebug, logError)
@@ -65,6 +66,7 @@ serve port notaryState = do
     idr6 <- serverTypeRestriction0
     idr7 <- serverTypeRestriction2
     idr8 <- serverTypeRestriction5
+    idr9 <- serverTypeRestriction1
     P.serve
         port
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1
@@ -83,6 +85,8 @@ serve port notaryState = do
             $ handleRemoveCompleteMS notaryState
         , P.method (P.RSCNotary P.AllocateMultisig)           $ idr8
             $ handleAllocateMultisig notaryState
+        , P.method (P.RSCNotary P.QueryMyAllocMS)             $ idr9
+            $ handleQueryMyAllocationMS notaryState
         ]
 
 handlePollTxs
@@ -172,10 +176,20 @@ handleAllocateMultisig
     -> C.Signature
     -> [(C.Signature, C.PublicKey)]
     -> m ()
-handleAllocateMultisig st msAddr partyAddr allocStrat signature chain = do
+handleAllocateMultisig st msAddr partyAddr allocStrat signature chain = toServer $ do
     logDebug "Begining allocation MS address..."
     logDebug $ sformat ("SigPair: " % build % ", Chain: " % build) signature chain
     update' st $ AllocateMSAddress msAddr partyAddr allocStrat signature chain
 
+    -- @TODO: get query only in Debug mode
     currentMSAddresses <- query' st QueryAllMSAdresses
     logDebug $ sformat ("All addresses: " % shown) currentMSAddresses
+
+handleQueryMyAllocationMS
+    :: MonadIO m
+    => RSCoinNotaryState
+    -> C.AllocationAddress
+    -> m [(C.MSAddress, C.AllocationInfo)]
+handleQueryMyAllocationMS st allocAddr = toServer $ do
+    logDebug "Querying my MS allocations..."
+    query' st $ QueryMyMSRequests allocAddr

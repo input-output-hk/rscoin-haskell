@@ -95,6 +95,7 @@ data NotaryMethod
     | PollTransactions
     | PublishTransaction
     | QueryCompleteMS
+    | QueryMyAllocMS
     | RemoveCompleteMS
     deriving (Show)
 

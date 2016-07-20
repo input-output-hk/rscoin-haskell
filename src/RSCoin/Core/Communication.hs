@@ -23,6 +23,7 @@ module RSCoin.Core.Communication
        , allocateMultisignatureAddress
        , queryNotaryCompleteMSAddresses
        , removeNotaryCompleteMSAddresses
+       , queryNotaryMyMSAllocations
        , announceNewBlock
        , P.unCps
        , getBlocks
@@ -65,9 +66,9 @@ import qualified RSCoin.Core.Logging        as L
 import           RSCoin.Core.Primitives     (AddrId, Address, Transaction,
                                              TransactionId)
 import qualified RSCoin.Core.Protocol       as P
-import           RSCoin.Core.Strategy       (AddressToTxStrategyMap,
-                                             AllocationStrategy, PartyAddress,
-                                             TxStrategy)
+import           RSCoin.Core.Strategy       (AddressToTxStrategyMap, AllocationAddress,
+                                             AllocationInfo, AllocationStrategy,
+                                             MSAddress, PartyAddress, TxStrategy)
 import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              CheckConfirmations,
                                              CommitAcknowledgment,
@@ -297,6 +298,14 @@ removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> Signature -> m ()
 removeNotaryCompleteMSAddresses addresses signedAddrs = do
     logInfo "Removing Notary complete MS addresses"
     callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses signedAddrs
+
+queryNotaryMyMSAllocations
+    :: WorkMode m
+    => AllocationAddress
+    -> m [(MSAddress, AllocationInfo)]
+queryNotaryMyMSAllocations allocAddr = do
+    logInfo "Calling Notary for my MS addresses..."
+    callNotary $ P.call (P.RSCNotary P.QueryMyAllocMS) allocAddr
 
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do

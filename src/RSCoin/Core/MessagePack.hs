@@ -148,6 +148,10 @@ instance MessagePack C.AllocationStrategy where
     toObject C.AllocationStrategy{..} = toObject (_sigNumber, _allParties)
     fromObject = fmap (uncurry C.AllocationStrategy) . fromObject
 
+instance MessagePack C.AllocationInfo where
+    toObject C.AllocationInfo{..} = toObject (_allocationStrategy, _currentConfirmations)
+    fromObject = fmap (uncurry C.AllocationInfo) . fromObject
+
 instance (Ord e, MessagePack e) => MessagePack (S.Set e) where
     toObject = toObject . S.toList
     fromObject = fmap S.fromList . fromObject

@@ -174,9 +174,6 @@ allocateMSAddress
       -- too many checks :( I wish I know which one we shouldn't check
       -- but order of checks matters!!!
       let partyAddr@(Address partyPk) = generatedAddress argPartyAddress
-      when (partyPk /= snd (last chain)) $ -- @TODO: check for length == 2
-          throwM $  NEInvalidChain "last address of chain should be party address"
-
       let signedData      = (msAddr, argStrategy)
       let allocAddress    = partyToAllocation argPartyAddress
       let Address checkPk = allocAddress^.address
@@ -194,6 +191,8 @@ allocateMSAddress
       case mMSAddressInfo of
           Nothing -> do
               guardMaxAttemps partyAddr
+              when (partyPk /= snd (last chain)) $ -- @TODO: check for length == 2
+                  throwM $  NEInvalidChain "last address of chain should be party address"
               unless (any (`verifyChain` chain) chainRootPKs) $
                   throwM $ NEInvalidChain "none of root pk's is fit for validating"
 

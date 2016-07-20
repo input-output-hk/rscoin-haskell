@@ -19,7 +19,7 @@ import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
 import qualified Data.ByteString.Base64  as B64
 import           Data.Function           (on)
-import           Data.List               (genericIndex, groupBy)
+import           Data.List               (find, genericIndex, groupBy)
 import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
 import           Data.Monoid             ((<>))
 import qualified Data.Set                as S
@@ -27,7 +27,7 @@ import qualified Data.Text               as T
 import           Data.Text.Encoding      (encodeUtf8)
 import qualified Data.Text.IO            as TIO
 
-import           Formatting              (build, sformat, stext, (%))
+import           Formatting              (build, int, sformat, stext, (%))
 
 import           Serokell.Util.Text      (format', formatSingle', show')
 
@@ -37,6 +37,10 @@ import           GUI.RSCoin.GUI          (startGUI)
 import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
 
 import qualified RSCoin.Core             as C
+import           RSCoin.Core.Strategy    (AllocationAddress (..),
+                                          AllocationInfo (..),
+                                          AllocationStrategy (..),
+                                          PartyAddress (..))
 import           RSCoin.Timed            (WorkMode, for, ms, wait)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
@@ -150,11 +154,11 @@ processCommand st (O.AddMultisigAddress m textUAddrs textTAddrs mMSAddress) _ = 
         U.commitError "Parameter m should be less than length of list"
 
     msPublicKey <- maybe (snd <$> liftIO C.keyGen) return (mMSAddress >>= C.constructPublicKey)
-    (userAddress, userSK) <- head <$> query' st U.GetUserAddresses
+    (userAddress, userSk) <- head <$> query' st U.GetUserAddresses
     let msAddr    = C.Address msPublicKey
     let partyAddr = C.UserParty userAddress
     let msStrat   = C.AllocationStrategy m $ S.fromList partiesAddrs
-    let userSignature = C.sign userSK (msAddr, msStrat)
+    let userSignature = C.sign userSk (msAddr, msStrat)
     let certChain     = U.createCertificateChain $ C.getAddress userAddress
     C.allocateMultisignatureAddress
         msAddr
@@ -178,6 +182,30 @@ processCommand st O.ListAllocations _ = eWrap $ do
     U.retrieveAllocationsList st
     msAddrsList <- query' st U.GetAllocationStrategies
     liftIO $ TIO.putStrLn $ T.pack $ show msAddrsList
+processCommand st (O.ConfirmAllocation i) _ = eWrap $ do
+    when (i <= 0) $ U.commitError $
+        sformat ("Index i should be greater than 0 but given: " % int) i
+
+    (msAddr, C.AllocationInfo{..}) <- query' st $ U.GetAllocationByIndex i
+    (userAddress, userSk) <- head <$> query' st U.GetUserAddresses
+
+    let Just party = find ((== userAddress) . _address) $ _allParties _allocationStrategy
+    partyAddr <- case party of
+        C.TrustAlloc {} -> do
+            (_, newPk) <- liftIO C.keyGen
+            return C.TrustParty { generatedAddress = C.Address newPk
+                                , publicAddress    = userAddress }
+        C.UserAlloc  {} -> return $ C.UserParty userAddress
+
+    let partySignature = C.sign userSk (msAddr, _allocationStrategy)
+    C.allocateMultisignatureAddress
+        msAddr
+        partyAddr
+        _allocationStrategy
+        partySignature
+        []
+
+    liftIO $ TIO.putStrLn "Address allocation successfully confirmed!"
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop

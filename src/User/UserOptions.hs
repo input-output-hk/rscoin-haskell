@@ -58,6 +58,7 @@ data UserCommand
 
     -- | List all addresses in which current user acts like party
     | ListAllocations
+    | ConfirmAllocation Int
     | Dump DumpCommand
     -- @TODO move to rscoin-keygen
     | SignSeed Text (Maybe FilePath)
@@ -117,7 +118,13 @@ userCommandParser =
              (info formTransactionOpts (progDesc "Form and send transaction.")) <>
          command
              "addMultisig"
-             (info addMultisigOpts (progDesc "Create/confirm multisignature address allocation")) <>
+             (info addMultisigOpts (progDesc "Create multisignature address allocation")) <>
+         command
+              "confirm"
+              (info
+                  confirmOpts
+                  (progDesc "Confirm MS address allocation from `rscoin-user list-alloc`")
+              ) <>
          command
              "dump-blocks"
              (info
@@ -253,6 +260,11 @@ userCommandParser =
         <*>
         optional (strOption $
             long "ms-addr" <> help "New multisignature address")
+    confirmOpts =
+        ConfirmAllocation
+        <$>
+        option auto
+            (short 'n' <> help "Index starting from 1 in `list-alloc`")
     signSeedOpts =
         SignSeed
         <$>

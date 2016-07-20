@@ -45,7 +45,7 @@ init =
     , address: emptyAddress
     }
 
-update :: forall eff. Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, err :: EXCEPTION | eff)
+update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state = noEffects state
 update (SocketAction (C.SendIntroData msg)) state =

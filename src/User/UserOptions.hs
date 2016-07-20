@@ -55,6 +55,9 @@ data UserCommand
                          [Text]
                          [Text]
                          (Maybe Text)
+
+    -- | List all addresses in which current user acts like party
+    | ListAllocations
     | Dump DumpCommand
     -- @TODO move to rscoin-keygen
     | SignSeed Text (Maybe FilePath)
@@ -98,6 +101,12 @@ userCommandParser =
                   (progDesc
                        ("List all available addresses from wallet " <>
                         "and information about them."))) <>
+         command
+              "list-alloc"
+              (info
+                  (pure ListAllocations)
+                  (progDesc "List all multisignature address allocations you need to confirm")
+              ) <>
          command
              "update"
              (info

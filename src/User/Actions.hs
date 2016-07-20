@@ -173,6 +173,11 @@ processCommand st (O.AddMultisigAddress m textUAddrs textTAddrs mMSAddress) _ = 
             U.commitError $
                 sformat ("Some addresses were not parsed, parsed only those: " % stext) parsed
         return partiesAddrs
+processCommand st O.ListAllocations _ = eWrap $ do
+    -- update local cache
+    U.retrieveAllocationsList st
+    msAddrsList <- query' st U.GetAllocationStrategies
+    liftIO $ TIO.putStrLn $ T.pack $ show msAddrsList
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop

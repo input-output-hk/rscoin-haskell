@@ -178,6 +178,15 @@ data AllocationInfo = AllocationInfo
 $(deriveSafeCopy 0 'base ''AllocationInfo)
 $(makeLenses ''AllocationInfo)
 
+instance Buildable AllocationInfo where
+    build AllocationInfo{..} = bprint template
+        _allocationStrategy
+        (listBuilderJSON _currentConfirmations)
+      where
+        template = "AllocationStrategy {\n"   %
+                   "  allocationStrategy: "   % F.build % "\n" %
+                   "  currentConfirmations: " % F.build % "\n" %
+                   "}\n"
 
 -- | Creates corresponding multisignature 'TxStrategy'.
 allocateTxFromAlloc :: AllocationStrategy -> TxStrategy

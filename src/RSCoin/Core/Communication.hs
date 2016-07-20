@@ -303,9 +303,17 @@ queryNotaryMyMSAllocations
     :: WorkMode m
     => AllocationAddress
     -> m [(MSAddress, AllocationInfo)]
-queryNotaryMyMSAllocations allocAddr = do
-    logInfo "Calling Notary for my MS addresses..."
-    callNotary $ P.call (P.RSCNotary P.QueryMyAllocMS) allocAddr
+queryNotaryMyMSAllocations allocAddr =
+    withResult
+        infoMessage
+        successMessage
+        $ callNotary $ P.call (P.RSCNotary P.QueryMyAllocMS) allocAddr
+  where
+    infoMessage = logInfo "Calling Notary for my MS addresses..."
+    successMessage res =
+        logDebug
+        $ sformat ("Retrieving from Notary: " % F.build)
+        $ mapBuilder res
 
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do

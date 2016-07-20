@@ -245,7 +245,7 @@ removeCompleteMSAddresses completeAddrs signedAddrs = do
 queryMyMSRequests :: AllocationAddress -> Query Storage [(MSAddress, AllocationInfo)]
 queryMyMSRequests allocAddress = queryMSAddressesHelper
     allocationStrategyPool
-    (\ainfo -> ainfo^.currentConfirmations.to (M.member allocAddress))
+    (\ainfo -> ainfo^.allocationStrategy.allParties.to (S.member allocAddress))
     id
 
 -- | By given (tx, addr) retreives list of collected signatures.

@@ -66,7 +66,9 @@ data TxStrategy
 $(deriveSafeCopy 0 'base ''TxStrategy)
 
 instance Binary TxStrategy where
-    put DefaultStrategy          = put (0 :: Int, ())
+    put DefaultStrategy          = put (zero, (zero, set))
+        where zero = 0 :: Int
+              set = S.fromList [] :: Set Address
     put (MOfNStrategy m parties) = put (1 :: Int, (m, parties))
 
     get = do

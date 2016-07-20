@@ -110,8 +110,8 @@ spec =
                 \(a :: SmallHBlock) -> a === mid a
             prop "TxStrategy" $
                 \(a :: C.TxStrategy) -> a === mid a
-            prop "MSTxStrategy" $
-                \(a :: C.MSTxStrategy) -> a === mid a
+            prop "PartyAddress" $
+                \(a :: C.PartyAddress) -> a === mid a
             prop "AllocationStrategy" $
                 \(a :: C.AllocationStrategy) -> a === mid a
             prop "Set" $

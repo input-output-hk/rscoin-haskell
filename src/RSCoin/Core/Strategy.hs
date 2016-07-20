@@ -112,7 +112,7 @@ data PartyAddress
     | UserParty
         { generatedAddress :: Address  -- ^ Same as for 'TrustParty'
         }
-    deriving (Show)
+    deriving (Eq, Show)
 
 $(deriveSafeCopy 0 'base ''PartyAddress)
 

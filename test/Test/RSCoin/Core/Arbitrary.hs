@@ -75,16 +75,17 @@ instance Arbitrary C.NewPeriodData where
         <*> arbitrary
 
 instance Arbitrary C.AllocationAddress where
-    arbitrary = oneof [ C.Trust <$> arbitrary
-                      , C.User <$> arbitrary]
+    arbitrary = oneof [ C.TrustAlloc <$> arbitrary
+                      , C.UserAlloc <$> arbitrary
+                      ]
 
-instance Arbitrary C.MSTxStrategy where
-    arbitrary = do
-        set <- arbitrary :: Gen (S.Set C.Address)
-        return $ C.MSTxStrategy (S.size set) set
+instance Arbitrary C.PartyAddress where
+    arbitrary = oneof [ C.TrustParty <$> arbitrary <*> arbitrary
+                      , C.UserParty <$> arbitrary
+                      ]
 
 instance Arbitrary C.AllocationStrategy where
-    arbitrary = C.AllocationStrategy <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = C.AllocationStrategy <$> arbitrary <*> arbitrary
 
 instance Arbitrary C.ActionLogEntry where
     arbitrary = oneof [ C.QueryEntry <$> arbitrary

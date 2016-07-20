@@ -3,30 +3,24 @@
 -- | Strategy-related data types and functions/helpers.
 
 module RSCoin.Core.Strategy
-        ( AddressToTxStrategyMap
-        , AllocationAddress  (..)
-        , AllocationInfo     (..)
-        , AllocationStrategy (..)
-        , MSAddress
-        , PartyAddress       (..)
-        , TxStrategy         (..)
+     ( AddressToTxStrategyMap
+     , AllocationAddress  (..)
+     , AllocationStrategy (..)
+     , PartyAddress       (..)
+     , TxStrategy         (..)
 
-          -- * 'AllocationAddress' lenses and prisms
-        , address
+     -- * 'AllocationAddress' lenses and prisms
+     , address
 
-          -- * 'AllocationInfo' lenses
-        , allocationStrategy
-        , currentConfirmations
+      -- * 'AllocationStrategy' lenses
+     , allParties
+     , sigNumber
 
-          -- * 'AllocationStrategy' lenses
-        , allParties
-        , sigNumber
-
-          -- * Other helpers
-        , allocateTxFromAlloc
-        , isStrategyCompleted
-        , partyToAllocation
-        ) where
+     -- * Other helpers
+     , allocateTxFromAlloc
+     , isStrategyCompleted
+     , partyToAllocation
+     ) where
 
 import           Control.Lens               (makeLenses, traversed, (^..))
 
@@ -47,9 +41,6 @@ import           RSCoin.Core.Crypto.Signing (Signature)
 import           RSCoin.Core.Primitives     (Address, Transaction)
 import           RSCoin.Core.Transaction    (validateSignature)
 
--- | Type alisas for places where address is used as multisignature address.
-type MSAddress = Address
-
 -- | Strategy of confirming transactions.
 -- Other strategies are possible, like "getting m out of n, but
 -- addresses [A,B,C] must sign". Primitive concept is using M/N.
@@ -66,16 +57,14 @@ data TxStrategy
 $(deriveSafeCopy 0 'base ''TxStrategy)
 
 instance Binary TxStrategy where
-    put DefaultStrategy          = put (zero, (zero, set))
-        where zero = 0 :: Int
-              set = S.fromList [] :: Set Address
-    put (MOfNStrategy m parties) = put (1 :: Int, (m, parties))
+    put DefaultStrategy          = putWord8 0 >> put ()
+    put (MOfNStrategy m parties) = putWord8 1 >> put m >> put parties
 
     get = do
-        (i, payload) <- get
-        pure $ case (i :: Int) of
-            0 -> DefaultStrategy
-            1 -> uncurry MOfNStrategy payload
+        i <- getWord8
+        case i of
+            0 -> pure DefaultStrategy
+            1 -> MOfNStrategy <$> get <*> get
             _ -> error "unknow binary strategy"
 
 instance Buildable TxStrategy where
@@ -170,16 +159,6 @@ instance Buildable AllocationStrategy where
                    "  sigNumber: "  % F.build % "\n" %
                    "  allParties: " % F.build % "\n" %
                    "}\n"
-
--- | Stores meta information for MS allocation by 'AlocationStrategy'.
-data AllocationInfo = AllocationInfo
-    { _allocationStrategy   :: AllocationStrategy
-    , _currentConfirmations :: Map AllocationAddress Address
-    } deriving (Show)
-
-$(deriveSafeCopy 0 'base ''AllocationInfo)
-$(makeLenses ''AllocationInfo)
-
 
 -- | Creates corresponding multisignature 'TxStrategy'.
 allocateTxFromAlloc :: AllocationStrategy -> TxStrategy

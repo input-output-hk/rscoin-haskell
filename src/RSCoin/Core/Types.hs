@@ -156,7 +156,7 @@ data CommitAcknowledgment = CommitAcknowledgment
     { caMintetteKey       :: !PublicKey      -- ^ key of corresponding mintette
     , caMintetteSignature :: !Signature      -- ^ signature for (tx, logHead)
     , caHead              :: !ActionLogHead  -- ^ head of log
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 instance Binary CommitAcknowledgment where
     put CommitAcknowledgment{..} = do

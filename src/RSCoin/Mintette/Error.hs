@@ -13,6 +13,7 @@ import           Data.Text               (Text)
 import           Data.Text.Buildable     (Buildable (build))
 import qualified Data.Text.Format        as F
 import           Data.Typeable           (Typeable)
+import           Data.Data               (Data)
 
 import           RSCoin.Core.Error       (rscExceptionFromException,
                                           rscExceptionToException)
@@ -32,7 +33,7 @@ data MintetteError
     | MENotConfirmed                      -- ^ Can't deduce that transaction was confirmed.
     | MEAlreadyActive                     -- ^ Can't start new period because mintette
                                           -- is already active.
-    deriving (Show, Typeable, Eq)
+    deriving (Show, Typeable, Eq, Data)
 
 instance Exception MintetteError where
     toException = rscExceptionToException

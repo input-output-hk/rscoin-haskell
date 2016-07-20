@@ -15,6 +15,7 @@ module RSCoin.Core.Primitives
        ) where
 
 import           Data.Binary         (Binary (get, put))
+import           Data.Data           (Data)
 import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.Maybe          (catMaybes, fromMaybe)
 import           Data.SafeCopy       (base, deriveSafeCopy)
@@ -41,7 +42,7 @@ grey = 0
 data Coin = Coin
     { getColor :: Color
     , getCoin  :: Rational
-    } deriving (Show, Eq, Ord, Generic)
+    } deriving (Show, Eq, Ord, Generic, Data)
 
 reportError :: String -> Coin -> Coin -> a
 reportError s c1 c2 =
@@ -81,11 +82,19 @@ instance Num Coin where
 -- It is simply a public key.
 newtype Address = Address
     { getAddress :: PublicKey
-    } deriving (Show,Ord,Buildable,Binary,Eq,Hashable,Generic)
+    } deriving (Show,Ord,Buildable,Eq,Hashable,Generic)
 
 instance Read Address where
-    readsPrec i = catMaybes . map (\(k, s) -> flip (,) s . Address <$> constructPublicKey (removePrefix k)) . readsPrec i
+    readsPrec i =
+        catMaybes .
+        map (\(k, s) -> flip (,) s . Address <$>
+                        constructPublicKey (removePrefix k)) .
+        readsPrec i
       where removePrefix t = fromMaybe t $ T.stripPrefix (T.pack "Address ") t
+
+instance Binary Address where
+    put Address{..} = put getAddress
+    get = Address <$> get
 
 -- | AddrId identifies usage of address as output of transaction.
 -- Basically, it is tuple of transaction identifier, index in list of outputs

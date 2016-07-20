@@ -5,7 +5,8 @@ module RSCoin.Core.MessagePack  () where
 import           Data.Binary            (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Int               (Int64)
-import           Data.MessagePack       (MessagePack (fromObject, toObject), Object (ObjectBin, ObjectExt, ObjectInt),
+import           Data.MessagePack       (MessagePack (fromObject, toObject),
+                                         Object (ObjectBin, ObjectExt, ObjectInt),
                                          pack, unpack)
 import           Data.Ratio             (Ratio, denominator, numerator, (%))
 import           Data.Tuple.Curry       (uncurryN)
@@ -121,27 +122,31 @@ instance MessagePack C.TxStrategy where
             1 -> uncurry2 C.MOfNStrategy <$> fromObject args
             _ -> Nothing
 
-instance MessagePack C.AllocationParty where
-    toObject C.Trusted = toObject (1 :: Int)
-    toObject C.User    = toObject (2 :: Int)
+instance MessagePack C.AllocationAddress where
+    toObject (C.TrustAlloc addr) = toObj (0, addr)
+    toObject (C.UserAlloc  addr) = toObj (1, addr)
 
     fromObject obj = do
-        i <- fromObject obj
+        (i, addr) <- fromObject obj
         case (i :: Int) of
-            1 -> pure C.Trusted
-            2 -> pure C.User
+            0 -> C.TrustAlloc <$> fromObject addr
+            1 -> C.UserAlloc  <$> fromObject addr
+            _ -> Nothing
+
+instance MessagePack C.PartyAddress where
+    toObject (C.TrustParty genAddr pubAddr) = toObj (0, (genAddr, pubAddr))
+    toObject (C.UserParty  genAddr)         = toObj (1, genAddr)
+
+    fromObject obj = do
+        (i, addrs) <- fromObject obj
+        case (i :: Int) of
+            0 -> uncurry C.TrustParty <$> fromObject addrs
+            1 ->         C.UserParty  <$> fromObject addrs
             _ -> Nothing
 
 instance MessagePack C.AllocationStrategy where
-    toObject (C.TrustedStrategy party) = toObj (0, party)
-    toObject (C.UserStrategy m addrs)  = toObj (1, (m, addrs))
-
-    fromObject obj = do
-        (i, args) <- fromObject obj
-        case (i :: Int) of
-            0 -> C.TrustedStrategy       <$> fromObject args
-            1 -> uncurry2 C.UserStrategy <$> fromObject args
-            _ -> Nothing
+    toObject C.AllocationStrategy{..} = toObject (_sigNumber, _allParties)
+    fromObject = fmap (uncurry C.AllocationStrategy) . fromObject
 
 instance (Ord e, MessagePack e) => MessagePack (S.Set e) where
     toObject = toObject . S.toList

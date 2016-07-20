@@ -13,6 +13,7 @@ module RSCoin.Core.Communication
        , getTransactionById
        , getGenesisBlock
        , finishPeriod
+       , addPendingMintette
        , checkNotDoubleSpent
        , commitTx
        , sendPeriodFinished
@@ -65,11 +66,13 @@ import           RSCoin.Core.Primitives     (AddrId, Address, Transaction,
                                              TransactionId)
 import qualified RSCoin.Core.Protocol       as P
 import           RSCoin.Core.Strategy       (AddressToTxStrategyMap,
-                                             AllocationStrategy, TxStrategy)
+                                             AllocationStrategy, PartyAddress,
+                                             TxStrategy)
 import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
-                                             CheckConfirmations, CommitAcknowledgment,
-                                             Explorer (..), HBlock,
-                                             LBlock, Mintette, MintetteId, Mintettes,
+                                             CheckConfirmations,
+                                             CommitAcknowledgment,
+                                             Explorer (..), HBlock, LBlock,
+                                             Mintette, MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Utxo)
 import           RSCoin.Mintette.Error      (MintetteError (MEInactive))
@@ -183,6 +186,14 @@ finishPeriod _ =
         (const $ logDebug "Successfully finished period") $
     callBank (P.call $ P.RSCBank P.FinishPeriod)
 
+addPendingMintette :: WorkMode m => Mintette -> PublicKey -> Signature -> m ()
+addPendingMintette mintette pk proof =
+    withResult
+        (logInfo $ format' "Sending addPendingMintette with mintette {} pk {}"
+                           (mintette, pk))
+        (const $ logDebug "Successfully sent request") $
+        callBank $ P.call (P.RSCBank P.AddPendingMintette) mintette pk proof
+
 logFunction :: MonadIO m => MintetteError -> Text -> m ()
 logFunction MEInactive = logInfo
 logFunction _ = logWarning
@@ -257,32 +268,35 @@ getNotaryPeriod = do
 allocateMultisignatureAddress
     :: WorkMode m
     => Address
+    -> PartyAddress
     -> AllocationStrategy
-    -> (Address, Signature)
+    -> Signature
     -> [(Signature, PublicKey)]
     -> m ()
-allocateMultisignatureAddress msAddr allocStrat sigPair chain = do
+allocateMultisignatureAddress msAddr partyAddr allocStrat signature chain = do
     logInfo $ sformat
         ( "Allocate new ms address: " % F.build % "\n,"
+        % "from party address: "      % F.build % "\n"
         % "allocation strategy: "     % F.build % "\n,"
         % "current party pair: "      % F.build % "\n,"
         % "certificate chain: "       % F.build % "\n,"
         )
         msAddr
+        partyAddr
         allocStrat
-        (pairBuilder sigPair)
+        signature
         (mapBuilder chain)
-    callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr allocStrat sigPair chain
+    callNotary $ P.call (P.RSCNotary P.AllocateMultisig) msAddr partyAddr allocStrat signature chain
 
 queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, TxStrategy)]
 queryNotaryCompleteMSAddresses = do
     logInfo "Querying Notary complete MS addresses"
     callNotary $ P.call $ P.RSCNotary P.QueryCompleteMS
 
-removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> m ()
-removeNotaryCompleteMSAddresses addresses = do
+removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> Signature -> m ()
+removeNotaryCompleteMSAddresses addresses signedAddrs = do
     logInfo "Removing Notary complete MS addresses"
-    callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses
+    callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses signedAddrs
 
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do

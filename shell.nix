@@ -1,4 +1,4 @@
-{ nixpkgs ? import <nixpkgs> {}, compiler ? "lts-6_1" }:
+{ nixpkgs ? import <nixpkgs> {}, compiler ? "lts-6_3" }:
 
 let
 
@@ -40,15 +40,15 @@ let
           transformers-base tuple unordered-containers vector
         ];
         testHaskellDepends = [
-          acid-state async base bytestring containers data-default exceptions
+          acid-state async base bytestring containers data-default exceptions conduit-extra
           hspec lens MonadRandom msgpack msgpack-rpc mtl QuickCheck random
           safe safecopy  stm text time-units transformers tuple
           vector
         ];
         libraryPkgconfigDepends =
-          (with nixpkgs; [zlib git openssh autoreconfHook stack 
+          (with nixpkgs; [zlib git openssh autoreconfHook stack nodejs
                           haskellPackages.purescript]) ++
-          [pkgconfig cairo gtk3];
+          [pkgconfig cairo gtk3 conduit-extra];
         license = stdenv.lib.licenses.gpl3;
       };
 

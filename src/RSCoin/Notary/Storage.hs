@@ -42,17 +42,20 @@ import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
                                        notaryMSAttemptsLimit, validateSignature,
                                        verify, verifyChain)
 import           RSCoin.Core.Constants (bankPublicKey)
-import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
+import           RSCoin.Core.Strategy (AddressToTxStrategyMap, AllocationAddress,
                                        AllocationStrategy (..), PartyAddress (..), TxStrategy (..),
-                                       allParties, isStrategyCompleted,
+                                       address, allParties, isStrategyCompleted,
                                        partyToAllocation, allocateTxFromAlloc)
 import           RSCoin.Core.Trusted  (chainRootPKs)
 import           RSCoin.Notary.Error  (NotaryError (..))
 
+-- | Type alisas for places where address is used as multisignature address.
+type MSAddress = Address
+
 -- | Stores meta information for MS allocation by 'AlocationStrategy'.
 data AllocationInfo = AllocationInfo
     { _allocationStrategy   :: AllocationStrategy
-    , _currentConfirmations :: Set Address
+    , _currentConfirmations :: Map AllocationAddress Address
     } deriving (Show)
 
 $(deriveSafeCopy 0 'base ''AllocationInfo)
@@ -71,7 +74,7 @@ data Storage = Storage
 
       -- | Mapping from newly allocated multisignature addresses. This Map is
       -- used only during multisignature address allocation process.
-    , _allocationStrategyPool :: Map Address AllocationInfo
+    , _allocationStrategyPool :: Map MSAddress AllocationInfo
 
       -- | Number of attempts for user per period to allocate multisig address.
     , _periodStats    :: Map Address Int
@@ -185,10 +188,9 @@ allocateMSAddress
       unless (any (`verifyChain` chain) chainRootPKs) $
           throwM $ NEInvalidChain "none of root pk's is fit for validating"
 
-      let signedData = (msAddr, argStrategy)
-      let Address checkPk = case argPartyAddress of
-              TrustParty{..} -> publicAddress
-              UserParty{..}  -> generatedAddress
+      let signedData      = (msAddr, argStrategy)
+      let allocAddress    = partyToAllocation argPartyAddress
+      let Address checkPk = allocAddress^.address
 
       unless (verify checkPk partySig signedData) $
           throwM $ NEUnrelatedSignature "(msAddr, strategy) not signed with proper sk"
@@ -208,13 +210,13 @@ allocateMSAddress
               --allocationStrategyPool %= M.insert
               allocationStrategyPool.at msAddr ?=
                   AllocationInfo { _allocationStrategy   = argStrategy
-                                 , _currentConfirmations = S.singleton partyAddr }
+                                 , _currentConfirmations = M.singleton allocAddress partyAddr }
           Just ainfo -> do
               when (ainfo^.allocationStrategy /= argStrategy) $
                   throwM $ NEInvalidArguments "result strategy for this MS address is not equal to yours"
 
               allocationStrategyPool.at msAddr ?=
-                  (ainfo & currentConfirmations %~ S.insert partyAddr)
+                  (ainfo & currentConfirmations %~ M.insert allocAddress partyAddr)
 
 queryMSAddressesHelper
     :: Lens' Storage (Map Address info)
@@ -238,7 +240,7 @@ queryCompleteMSAdresses = queryMSAddressesHelper
         allocationStrategyPool
         (\ainfo ->
               ainfo^.allocationStrategy.allParties.to S.size ==
-              ainfo^.currentConfirmations.to S.size)
+              ainfo^.currentConfirmations.to M.size)
         (allocateTxFromAlloc . _allocationStrategy)
 
 removeCompleteMSAddresses :: [Address] -> Signature -> Update Storage ()

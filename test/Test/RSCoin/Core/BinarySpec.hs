@@ -5,8 +5,6 @@ module Test.RSCoin.Core.BinarySpec
        ) where
 
 import           Data.Binary                (Binary, encode, decode)
-import           Data.Int                   (Int64)
-import           Data.Maybe                 (fromJust)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen, scale,

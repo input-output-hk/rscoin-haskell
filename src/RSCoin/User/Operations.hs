@@ -506,11 +506,12 @@ retrieveAllocationsList
     :: forall m .
        WorkMode m
     => A.RSCoinUserState
-    -> (C.Address -> C.AllocationAddress)
-    -> m [(C.MSAddress, C.AllocationInfo)]
-retrieveAllocationsList st toAllocation = do
+    -> m ()  -- [(C.MSAddress, C.AllocationInfo)]
+retrieveAllocationsList st = do
     -- @TODO: only first address as party is supported now
-    fstUserAddress <- head <$> query' st A.GetOwnedAddresses
-    userAllocInfos <- C.queryNotaryMyMSAllocations $ toAllocation fstUserAddress
-    update' st $ A.UpdateAllocationStrategies $ M.fromList userAllocInfos
-    return userAllocInfos
+    fstUserAddress  <- head <$> query' st A.GetOwnedAddresses
+    userAllocInfos  <- C.queryNotaryMyMSAllocations $ C.UserAlloc  fstUserAddress
+    trustAllocInfos <- C.queryNotaryMyMSAllocations $ C.TrustAlloc fstUserAddress
+    let allInfos = userAllocInfos ++ trustAllocInfos
+    update' st $ A.UpdateAllocationStrategies $ M.fromList allInfos
+    -- return allInfos

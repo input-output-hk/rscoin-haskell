@@ -3,30 +3,30 @@
 -- | Strategy-related data types and functions/helpers.
 
 module RSCoin.Core.Strategy
-        ( AddressToTxStrategyMap
-        , AllocationAddress  (..)
-        , AllocationInfo     (..)
-        , AllocationStrategy (..)
-        , MSAddress
-        , PartyAddress       (..)
-        , TxStrategy         (..)
+     ( AddressToTxStrategyMap
+     , AllocationAddress  (..)
+     , AllocationInfo     (..)
+     , AllocationStrategy (..)
+     , MSAddress
+     , PartyAddress       (..)
+     , TxStrategy         (..)
 
-          -- * 'AllocationAddress' lenses and prisms
-        , address
+     -- * 'AllocationAddress' lenses and prisms
+     , address
 
-          -- * 'AllocationInfo' lenses
-        , allocationStrategy
-        , currentConfirmations
+      -- * 'AllocationInfo' lenses
+     , allocationStrategy
+     , currentConfirmations
 
-          -- * 'AllocationStrategy' lenses
-        , allParties
-        , sigNumber
+      -- * 'AllocationStrategy' lenses
+     , allParties
+     , sigNumber
 
-          -- * Other helpers
-        , allocateTxFromAlloc
-        , isStrategyCompleted
-        , partyToAllocation
-        ) where
+     -- * Other helpers
+     , allocateTxFromAlloc
+     , isStrategyCompleted
+     , partyToAllocation
+     ) where
 
 import           Control.Lens               (makeLenses, traversed, (^..))
 
@@ -66,14 +66,14 @@ data TxStrategy
 $(deriveSafeCopy 0 'base ''TxStrategy)
 
 instance Binary TxStrategy where
-    put DefaultStrategy          = put (0 :: Int, ())
-    put (MOfNStrategy m parties) = put (1 :: Int, (m, parties))
+    put DefaultStrategy          = putWord8 0 >> put ()
+    put (MOfNStrategy m parties) = putWord8 1 >> put m >> put parties
 
     get = do
-        (i, payload) <- get
-        pure $ case (i :: Int) of
-            0 -> DefaultStrategy
-            1 -> uncurry MOfNStrategy payload
+        i <- getWord8
+        case i of
+            0 -> pure DefaultStrategy
+            1 -> MOfNStrategy <$> get <*> get
             _ -> error "unknow binary strategy"
 
 instance Buildable TxStrategy where
@@ -178,6 +178,15 @@ data AllocationInfo = AllocationInfo
 $(deriveSafeCopy 0 'base ''AllocationInfo)
 $(makeLenses ''AllocationInfo)
 
+instance Buildable AllocationInfo where
+    build AllocationInfo{..} = bprint template
+        _allocationStrategy
+        (listBuilderJSON _currentConfirmations)
+      where
+        template = "AllocationStrategy {\n"   %
+                   "  allocationStrategy: "   % F.build % "\n" %
+                   "  currentConfirmations: " % F.build % "\n" %
+                   "}\n"
 
 -- | Creates corresponding multisignature 'TxStrategy'.
 allocateTxFromAlloc :: AllocationStrategy -> TxStrategy

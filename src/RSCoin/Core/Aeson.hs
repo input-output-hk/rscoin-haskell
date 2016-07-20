@@ -7,7 +7,9 @@ module RSCoin.Core.Aeson
        (
        ) where
 
-import           Data.Aeson             (ToJSON, object, toJSON, (.=))
+import           Data.Aeson             (ToJSON, object, toJSON, (.=),
+                                         FromJSON, parseJSON, (.:))
+import           Data.Aeson.Types       (Value (..))
 import           Data.Aeson.TH          (deriveJSON, deriveToJSON)
 import qualified Data.Text              as T
 import           Formatting             (fixed, sformat)
@@ -27,6 +29,13 @@ instance ToJSON Coin where
         in object
                [ "getColor" .= getColor
                , "getCoin" .= showFPrec prec (realToFrac getCoin)]
+
+instance FromJSON Coin where
+    parseJSON (Object v) = Coin <$>
+                           v .: "getColor" <*>
+                           v .: "getCoin"
+    parseJSON _ = error "Error parsing coin JSON"
+    
 
 $(deriveToJSON defaultOptionsPS ''Transaction)
 

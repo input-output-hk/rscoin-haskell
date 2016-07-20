@@ -24,7 +24,8 @@ module RSCoin.Core.Strategy
 
 import           Control.Lens               (makeLenses, traversed, (^..))
 
-import           Data.Binary                (Binary (get, put), getWord8, putWord8)
+import           Data.Binary                (Binary (get, put), getWord8,
+                                             putWord8)
 import           Data.Map                   (Map)
 import           Data.SafeCopy              (base, deriveSafeCopy)
 import           Data.Set                   (Set)
@@ -145,9 +146,9 @@ $(makeLenses ''AllocationStrategy)
 instance Binary AllocationStrategy where
     put AllocationStrategy{..} = do
         put _sigNumber
-        put _allParties
+        put (S.toList _allParties)
 
-    get = AllocationStrategy <$> get <*> get
+    get = AllocationStrategy <$> get <*> (S.fromList <$> get)
 
 instance Buildable AllocationStrategy where
     build AllocationStrategy{..} = bprint template

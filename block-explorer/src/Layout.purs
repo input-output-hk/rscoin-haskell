@@ -15,7 +15,7 @@ import Data.Maybe                  (Maybe (..), fromJust)
 
 import Pux                         (EffModel, noEffects, onlyEffects)
 import Pux.Html                    (Html, div, h1, p, text, input, button, link,
-                                    small, h3, h5, span)
+                                    small, h3, h5, span, table, tr, th)
 import Pux.Html.Attributes         (type_, value, rel, href, className)
 import Pux.Html.Events             (onChange, onClick)
 
@@ -115,6 +115,31 @@ view state =
                 [ className "col-xs-2 col-xs-offset-1 text-right" ]
                 [ text "English"
                 , span [ className "caret" ] []
+                ]
+            ]
+        , div
+            [ className "row" ]
+            [ div
+                [ className "col-xs-6" ]
+                [ table
+                    [ className "table table-striped table-hover" ]
+                    [ tr
+                        []
+                        [ th [] [ text "Color" ]
+                        , th [] [ text "Coin" ]
+                        ]
+                    ]
+                ]
+            , div
+                [ className "col-xs-6" ]
+                [ table
+                    [ className "table table-striped table-hover" ]
+                    [ tr
+                        []
+                        [ th [] [ text "Color" ]
+                        , th [] [ text "Coin" ]
+                        ]
+                    ]
                 ]
             ]
         ]

@@ -15,6 +15,7 @@ import qualified Data.Set                   as S
 
 import qualified RSCoin.Core                as C
 import           RSCoin.Mintette.Error      (MintetteError)
+import           RSCoin.Notary.Error        (NotaryError)
 
 import           Test.RSCoin.Core.Arbitrary ()
 
@@ -80,6 +81,8 @@ spec =
                 \(a :: Either MintetteError C.CheckConfirmation) -> a === mid a
             prop "Coin" $
                 \(a :: C.Coin) -> a === mid a
+            prop "Signature" $
+                \(a :: C.Signature) -> a === mid a
             prop "Address" $
                 \(a :: C.Address) -> a === mid a
             prop "Mintette" $
@@ -112,12 +115,18 @@ spec =
                 \(a :: C.TxStrategy) -> a === mid a
             prop "PartyAddress" $
                 \(a :: C.PartyAddress) -> a === mid a
+            prop "AllocationAddress" $
+                \(a :: C.AllocationAddress) -> a === mid a
             prop "AllocationStrategy" $
                 \(a :: C.AllocationStrategy) -> a === mid a
             prop "Set" $
                 \(a :: S.Set Int) -> a === mid a
             prop "ActionLogEntry" $
                 \(a :: C.ActionLogEntry) -> a === mid a
+            prop "MintetteError" $
+                \(a :: MintetteError) -> a === mid a
+            prop "NotaryError" $
+                \(a :: NotaryError) -> a === mid a                                         
 
 mid :: MessagePack a => a -> a
 mid = fromJust . unpack . pack

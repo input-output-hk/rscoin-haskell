@@ -17,6 +17,7 @@ import           Test.QuickCheck       (Arbitrary (arbitrary), Gen, NonNegative 
 
 import qualified RSCoin.Core           as C
 import           RSCoin.Mintette.Error (MintetteError (..))
+import           RSCoin.Notary.Error   (NotaryError (..))
 
 instance Arbitrary C.Coin where
     arbitrary = do
@@ -141,4 +142,13 @@ helper = oneof [      MEInternal            <$> arbitrary
                , pure MEAlreadyActive
                ]                 
         
-        
+instance Arbitrary NotaryError where
+    arbitrary = oneof [ pure NEAddrNotRelativeToTx
+                      ,      NEAddrIdNotInUtxo <$> arbitrary
+                      , pure NEBlocked
+                      ,      NEInvalidArguments <$> arbitrary
+                      ,      NEInvalidChain <$> arbitrary
+                      , pure NEInvalidSignature
+                      ,      NEStrategyNotSupported <$> arbitrary
+                      ,      NEUnrelatedSignature <$> arbitrary
+                      ]

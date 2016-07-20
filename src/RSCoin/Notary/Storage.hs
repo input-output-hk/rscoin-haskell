@@ -14,9 +14,10 @@ module RSCoin.Notary.Storage
         , getPeriodId
         , getSignatures
         , pollTransactions
-        , removeCompleteMSAddresses
         , queryAllMSAdresses
         , queryCompleteMSAdresses
+        , queryMyMSRequests
+        , removeCompleteMSAddresses
         ) where
 
 import           Control.Exception    (throw)
@@ -237,18 +238,26 @@ queryAllMSAdresses = queryMSAddressesHelper allocationStrategyPool (const True) 
 -- | Query all completed multisignature addresses
 queryCompleteMSAdresses :: Query Storage [(Address, TxStrategy)]
 queryCompleteMSAdresses = queryMSAddressesHelper
-        allocationStrategyPool
-        (\ainfo ->
-              ainfo^.allocationStrategy.allParties.to S.size ==
-              ainfo^.currentConfirmations.to M.size)
-        (allocateTxFromAlloc . _allocationStrategy)
+    allocationStrategyPool
+    (\ainfo ->
+          ainfo^.allocationStrategy.allParties.to S.size ==
+          ainfo^.currentConfirmations.to M.size)
+    (allocateTxFromAlloc . _allocationStrategy)
 
+-- | Remove all addresses from list (bank only usage).
 removeCompleteMSAddresses :: [Address] -> Signature -> Update Storage ()
 removeCompleteMSAddresses completeAddrs signedAddrs = do
     unless (verify bankPublicKey signedAddrs completeAddrs) $
         throwM $ NEUnrelatedSignature "addr list in remove MS query not signed by bank"
     forM_ completeAddrs $ \adress ->
         allocationStrategyPool %= M.delete adress
+
+-- | Request all address which contains 'allocAddress' as party.
+queryMyMSRequests :: AllocationAddress -> Query Storage [(MSAddress, AllocationStrategy)]
+queryMyMSRequests allocAddress = queryMSAddressesHelper
+    allocationStrategyPool
+    (\ainfo -> ainfo^.currentConfirmations.to (M.member allocAddress))
+    _allocationStrategy
 
 -- | By given (tx, addr) retreives list of collected signatures.
 -- If list is complete enough to complete strategy, (tx, addr) pair

@@ -16,6 +16,7 @@ module RSCoin.Notary.AcidState
        , PollTransactions (..)
        , QueryAllMSAdresses (..)
        , QueryCompleteMSAdresses (..)
+       , QueryMyMSRequests (..)
        , RemoveCompleteMSAddresses (..)
 
          -- * Bracket functions
@@ -55,5 +56,6 @@ $(makeAcidic ''Storage
              , 'S.pollTransactions
              , 'S.queryAllMSAdresses
              , 'S.queryCompleteMSAdresses
+             , 'S.queryMyMSRequests
              , 'S.removeCompleteMSAddresses
              ])

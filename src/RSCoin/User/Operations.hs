@@ -26,6 +26,7 @@ module RSCoin.User.Operations
        , updateToBlockHeight
        , updateBlockchain
        , addAddress
+       , importAddress
        , submitTransactionFromAll
        , TransactionInput
        , TransactionData (..)
@@ -181,8 +182,24 @@ isInitialized st = query' st A.IsInitialized
 -- as output S_{out}) into wallet. Blockchain won't be queried.
 addAddress
     :: MonadIO m
-    => A.RSCoinUserState -> C.SecretKey -> C.PublicKey -> [C.Transaction] -> C.PeriodId -> m ()
+    => A.RSCoinUserState
+    -> C.SecretKey
+    -> C.PublicKey
+    -> [C.Transaction]
+    -> C.PeriodId
+    -> m ()
 addAddress st sk pk ts = update' st . A.AddAddress (C.Address pk, sk) ts
+
+-- | Same as addAddress, but queries blockchain automatically and
+-- queries transactions that affect this address
+importAddress
+    :: WorkMode m
+    => A.RSCoinUserState
+    -> (C.SecretKey, C.PublicKey)
+    -> Int
+    -> Maybe Int
+    -> m ()
+importAddress = undefined
 
 -- | Forms transaction given just amount of money to use. Tries to
 -- spend coins from accounts that have the least amount of money.

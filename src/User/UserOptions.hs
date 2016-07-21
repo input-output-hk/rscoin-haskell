@@ -29,24 +29,22 @@ import           Serokell.Util.OptParse (strOption)
 -- | Command that describes single action from command-line interface
 -- POV
 data UserCommand
-    = StartGUI                       -- ^ Start graphical user interface
-    | ListAddresses                  -- ^ List all addresses in wallet,
-                                     -- starting with 1
-    | UpdateBlockchain               -- ^ Query bank to update wallet
-                                     -- state according to blockchain
-                                     -- status
+    -- | Start graphical user interface
+    = StartGUI
+    -- | List all addresses in wallet, starting with 1
+    | ListAddresses
+    -- | Query bank to update wallet state according to blockchain
+    -- status
+    | UpdateBlockchain
+    -- | First argument represents inputs -- pairs (a,b,c), where a is
+    -- index (starting from 1) of address in wallet, b is positive
+    -- integer representing value to send. c is color.  Second
+    -- argument represents the address to send, and amount. Forth
+    -- argument is optional cache
     | FormTransaction [(Word, Int64, Int)]
                       Text
                       [(Int64, Int)]
-                      (Maybe UserCache) -- ^ First argument represents
-                                        -- inputs -- pairs (a,b,c), where a
-                                        -- is index (starting from 1) of
-                                        -- address in wallet, b is
-                                        -- positive integer representing
-                                        -- value to send. c is color.
-                                        -- Second argument
-                                        -- represents the address to send,
-                                        -- and amount. Forth argument is optional cache
+                      (Maybe UserCache)
     -- | First argument represents number m of required signatures from addr;
     -- second -- list of user parties' in addresses;
     -- third -- list of trust parties' in addresses;
@@ -55,10 +53,13 @@ data UserCommand
                          [Text]
                          [Text]
                          (Maybe Text)
-
     -- | List all addresses in which current user acts like party
     | ListAllocations
+    -- | For a request #N in local list send confirmation to a Notary
     | ConfirmAllocation Int
+    -- | Add a local address to storage (filepaths to sk and pk, then
+    -- blockchain heights to query -- minimum and maximum)
+    | ImportAddress FilePath FilePath Int (Maybe Int)
     | Dump DumpCommand
     -- @TODO move to rscoin-keygen
     | SignSeed Text (Maybe FilePath)
@@ -117,13 +118,19 @@ userCommandParser =
              "send"
              (info formTransactionOpts (progDesc "Form and send transaction.")) <>
          command
-             "addMultisig"
+             "add-multisig"
              (info addMultisigOpts (progDesc "Create multisignature address allocation")) <>
          command
               "confirm"
               (info
                   confirmOpts
                   (progDesc "Confirm MS address allocation from `rscoin-user list-alloc`")
+              ) <>
+         command
+              "add-local-address"
+              (info
+                  importAddressOpts
+                  (progDesc "Import address to storage given a (secretKey,publicKey) pair")
               ) <>
          command
              "dump-blocks"
@@ -265,6 +272,18 @@ userCommandParser =
         <$>
         option auto
             (short 'n' <> help "Index starting from 1 in `list-alloc`")
+    importAddressOpts =
+        ImportAddress
+        <$>
+        (strOption $ long "skPath" <> help "Path to file with binary-encoded secret key")
+        <*>
+        (strOption $ long "pkPath" <> help "Path to file with base64-encoded public key")
+        <*>
+        (option auto $ long "queryFrom" <> help "Height to query blockchain from" <> value 0)
+        <*>
+        (option (Just <$> auto) (long "queryTo" <>
+                                 help "Height to query blockchain to, default maxheight" <>
+                                 value Nothing))
     signSeedOpts =
         SignSeed
         <$>

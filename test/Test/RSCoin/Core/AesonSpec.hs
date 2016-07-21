@@ -19,16 +19,6 @@ spec :: Spec
 spec =
     describe "Aeson" $ do
         describe "Identity Properties" $ do
-            prop "Integer" $
-                \(a :: Integer) -> a === aesonMid a
-            prop "Rational" $
-                \(a :: Rational) -> a === aesonMid a
-            prop "Either Int Int" $
-                \(a :: Either Int Int) -> a === aesonMid a
-            prop "Either Int (Either Int Int)" $
-                \(a :: Either Int (Either Int Int)) -> a === aesonMid a
-            prop "Either (Either Int Int) Int" $
-                \(a :: Either (Either Int Int) Int) -> a === aesonMid a
             {-prop "Coin" $
                 \(a :: C.Coin) -> a === aesonMid a-}
             prop "Signature" $

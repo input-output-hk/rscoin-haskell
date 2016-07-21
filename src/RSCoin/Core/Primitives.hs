@@ -18,6 +18,7 @@ import           Data.Binary         (Binary (get, put))
 import           Data.Data           (Data)
 import           Data.Hashable       (Hashable (hashWithSalt))
 import           Data.Maybe          (catMaybes, fromMaybe)
+import           Data.Ord            (comparing)
 import           Data.SafeCopy       (base, deriveSafeCopy)
 import qualified Data.Text           as T
 import           Data.Text.Buildable (Buildable (build))
@@ -28,7 +29,8 @@ import           GHC.Generics        (Generic)
 import           Serokell.Util.Text  (listBuilderJSON, pairBuilder,
                                       tripleBuilder)
 
-import           RSCoin.Core.Crypto  (Hash, PublicKey, constructPublicKey)
+import           RSCoin.Core.Crypto  (Hash, hash, PublicKey,
+                                      constructPublicKey)
 
 type Color = Int
 
@@ -118,6 +120,9 @@ data Transaction = Transaction
     { txInputs  :: ![AddrId]
     , txOutputs :: ![(Address, Coin)]
     } deriving (Show, Eq, Generic)
+
+instance Ord Transaction where
+    compare = comparing hash
 
 instance Binary Transaction where
     put Transaction{..} = put (txInputs, txOutputs)

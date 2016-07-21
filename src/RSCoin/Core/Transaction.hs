@@ -25,9 +25,6 @@ import           RSCoin.Core.Crypto     (Signature, hash, verify)
 import           RSCoin.Core.Primitives (AddrId, Address (..), Coin (..), Color,
                                          Transaction (..), grey)
 
-instance Ord Transaction where
-    compare = comparing hash
-
 -- | Validates that sum of inputs for each color isn't greater than
 -- sum of outputs, and what's left can be painted by grey coins.
 validateSum :: Transaction -> Bool

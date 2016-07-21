@@ -46,6 +46,7 @@ type State =
     , address      :: Address
     , balance      :: Array (Tuple Int Coin)
     , transactions :: Array Transaction
+    , periodId     :: Int
     }
 
 init :: State
@@ -56,6 +57,7 @@ init =
     , address:      emptyAddress
     , balance:      []
     , transactions: []
+    , periodId:          0
     }
 
 txNum :: Int
@@ -65,8 +67,8 @@ update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state =
     case unsafePartial $ fromRight msg of
-        OMBalance _ arr ->
-            { state: state { balance = arr }
+        OMBalance pid arr ->
+            { state: state { balance = arr, periodId = pid }
             , effects:
                 [ do
                     C.send socket' <<< AIGetTransactions $ Tuple 0 txNum
@@ -154,10 +156,11 @@ view state =
                 , table
                     [ className "table table-striped table-hover" ]
                     [ thead [] [ tr []
-                        [ th [] [ text "Coin color" ]
+                        [ th [] [ text "Height" ]
+                        , th [] [ text "Coin color" ]
                         , th [] [ text "Coin amount" ]
                         ]]
-                    , tbody [] $ map (uncurry2 coinRow) state.balance
+                    , tbody [] $ map (uncurry2 $ coinRow state.periodId) state.balance
                     ]
                 ]
             , div
@@ -202,9 +205,10 @@ view state =
     --     NotFound -> NotFound.view state
     ]
   where
-    coinRow _ (Coin c) =
+    coinRow pid _ (Coin c) =
         tr []
-           [ td [] [ text $ show c.getColor ]
+           [ td [] [ text $ show pid ]
+           , td [] [ text $ show c.getColor ]
            , td [] [ text $ show c.getCoin ]
            ]
     txInputRow h i (Coin c) =

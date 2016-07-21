@@ -92,6 +92,7 @@ onPeriodFinished sk st = do
     logInfo $ formatSingle' "Period {} has just finished!" pId
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
+    initializeMultisignatureAddresses  -- init here to see them in next period
     periodResults <- getPeriodResults mintettes pId
     newPeriodData <- update' st $ StartNewPeriod sk periodResults
     liftIO $ createCheckpoint st
@@ -114,7 +115,6 @@ onPeriodFinished sk st = do
                     "Announced new period, sent these newPeriodData's:\n{}"
                     newPeriodData
 
-    initializeMultisignatureAddresses
     announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsN
     update' st RestoreExplorers
   where

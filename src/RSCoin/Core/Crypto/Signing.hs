@@ -198,30 +198,30 @@ deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
 deterministicKeyGen seed =
     bimap PublicKey SecretKey <$> E.createKeypairFromSeed_ seed
 
--- | Constructs public key from UTF-8 text.
+-- | Constructs public key from UTF-8 base64 text.
 constructPublicKey :: Text -> Maybe PublicKey
 constructPublicKey =
     either (const Nothing) (Just . PublicKey . E.PublicKey) . B64.decode
 
--- | Write PublicKey to a file.
+-- | Write PublicKey to a file (base64).
 writePublicKey :: FilePath -> PublicKey -> IO ()
 writePublicKey fp k = do
     ensureDirectoryExists fp
     TIO.writeFile fp $ show' k
 
--- | Read PublicKey from a file.
+-- | Read PublicKey from a file (base64).
 readPublicKey :: FilePath -> IO PublicKey
 readPublicKey fp =
     maybe (throwText "Failed to parse public key") return =<<
     (constructPublicKey <$> TIO.readFile fp)
 
--- | Write SecretKey to a file.
+-- | Write SecretKey to a file (binary format).
 writeSecretKey :: FilePath -> SecretKey -> IO ()
 writeSecretKey fp (E.unSecretKey . getSecretKey -> k) = do
     ensureDirectoryExists fp
     BS.writeFile fp k
 
--- | Read SecretKey from a file.
+-- | Read SecretKey from a file (binary format).
 readSecretKey :: FilePath -> IO SecretKey
 readSecretKey file = SecretKey . E.SecretKey <$> BS.readFile file
 

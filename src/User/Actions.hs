@@ -46,7 +46,8 @@ import           RSCoin.Timed            (WorkMode, for, ms, wait)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..),
-                                          getAmountNoUpdate,
+                                          getAllPublicAddresses,
+                                          getAmountNoUpdate, importAddress,
                                           submitTransactionRetry,
                                           updateBlockchain)
 import qualified UserOptions             as O
@@ -213,6 +214,16 @@ processCommand st O.ListAllocations _ = eWrap $ do
         let numLength = length $ show i
         let pattern = "{}. {}\n  {}" <> (mconcat $ replicate numLength " ")
         liftIO $ TIO.putStrLn $ format' pattern (i, addr, allocStrat)
+processCommand st (O.ImportAddress skPath pkPath heightFrom heightTo) _ = do
+    liftIO $ TIO.putStrLn "Reading sk/pk from files..."
+    sk <- liftIO $ C.readSecretKey skPath
+    pk <- liftIO $ C.readPublicKey pkPath
+    when (not $ C.checkKeyPair (sk,pk)) $
+        U.commitError "The provided pair doesn't match thus can't be used"
+    allAddrs <- getAllPublicAddresses st
+    when ((C.Address pk) `elem` allAddrs) $
+        U.commitError "Address  is already imported into wallet"
+    importAddress st (sk,pk) heightFrom heightTo
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop

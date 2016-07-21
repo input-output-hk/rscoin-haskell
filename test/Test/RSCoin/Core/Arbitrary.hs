@@ -115,40 +115,35 @@ instance Arbitrary Text where
 -- @TODO: these instances are not typesafe enough
 instance Arbitrary MintetteError where
     arbitrary = do
-        let list = [ D.toConstr $ MEInternal undefined
-                   , D.toConstr MEInactive
-                   , D.toConstr $ MEPeriodMismatch undefined undefined
-                   , D.toConstr MEInvalidTxSums
-                   , D.toConstr $ MEInconsistentRequest undefined
-                   , D.toConstr $ MENotUnspent undefined
-                   , D.toConstr MEInvalidSignature
-                   , D.toConstr MENotConfirmed
-                   , D.toConstr MEAlreadyActive
+        let list = [      MEInternal            <$> arbitrary
+                   , pure MEInactive
+                   ,      MEPeriodMismatch      <$> arbitrary <*> arbitrary
+                   , pure MEInvalidTxSums
+                   ,      MEInconsistentRequest <$> arbitrary
+                   ,      MENotUnspent          <$> arbitrary
+                   , pure MEInvalidSignature
+                   , pure MENotConfirmed
+                   , pure MEAlreadyActive
                    ]
-            consList = D.dataTypeConstrs $ D.dataTypeOf (undefined :: MintetteError)
-        if (length $ intersect list consList) < (length consList)
-            then error "Missing constructors in MintetteError"
-            else helper
-
-helper :: Gen MintetteError
-helper = oneof [      MEInternal            <$> arbitrary
-               , pure MEInactive
-               ,      MEPeriodMismatch      <$> arbitrary <*> arbitrary
-               , pure MEInvalidTxSums
-               ,      MEInconsistentRequest <$> arbitrary
-               ,      MENotUnspent          <$> arbitrary
-               , pure MEInvalidSignature
-               , pure MENotConfirmed
-               , pure MEAlreadyActive
-               ]
+        helper list (undefined :: MintetteError)
 
 instance Arbitrary NotaryError where
-    arbitrary = oneof [ pure NEAddrNotRelativeToTx
-                      ,      NEAddrIdNotInUtxo <$> arbitrary
-                      , pure NEBlocked
-                      ,      NEInvalidArguments <$> arbitrary
-                      ,      NEInvalidChain <$> arbitrary
-                      , pure NEInvalidSignature
-                      ,      NEStrategyNotSupported <$> arbitrary
-                      ,      NEUnrelatedSignature <$> arbitrary
-                      ]
+    arbitrary = do
+        let list = [ pure NEAddrNotRelativeToTx
+                   ,      NEAddrIdNotInUtxo <$> arbitrary
+                   , pure NEBlocked
+                   ,      NEInvalidArguments <$> arbitrary
+                   ,      NEInvalidChain <$> arbitrary
+                   , pure NEInvalidSignature
+                   ,      NEStrategyNotSupported <$> arbitrary
+                   ,      NEUnrelatedSignature <$> arbitrary
+                   ]
+        helper list (undefined :: NotaryError)
+
+helper :: D.Data b => [Gen a] -> b -> Gen a
+helper l val = do
+    let consLen = length $ D.dataTypeConstrs $ D.dataTypeOf val
+        ourLen  = length l
+    if ourLen < consLen
+        then error "Missing constructors in MintetteError"
+        else oneof l

@@ -1,7 +1,7 @@
 module App.Layout where
 
-import Prelude                     (($), map, (<<<), const, pure, bind, show,
-                                    (<>))
+import Prelude                     (($), map, (<<<), const, pure, bind, show)
+
 
 import App.Counter                 as Counter
 -- import App.NotFound                as NotFound
@@ -14,9 +14,10 @@ import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     Transaction (..), OutcomingMsg (..))
 
 import Data.Maybe                  (Maybe (..), fromJust)
-import Data.Tuple                  (Tuple (..))
+import Data.Tuple                  (Tuple (..), snd)
+import Data.Tuple.Nested           (uncurry2, uncurry3)
 import Data.Either                 (fromRight)
-import Data.Array                  (concatMap, take)
+import Data.Array                  (concatMap)
 
 import Pux                         (EffModel, noEffects)
 import Pux.Html                    (Html, div, h1, text, input, button, link,
@@ -44,7 +45,7 @@ type State =
     , socket       :: Maybe C.Connection
     , address      :: Address
     , balance      :: Array (Tuple Int Coin)
-    , transactions :: Array (Tuple Address Coin)
+    , transactions :: Array Transaction
     }
 
 init :: State
@@ -73,11 +74,10 @@ update (SocketAction (C.ReceivedData msg)) state =
                 ]
             }
         OMTransactions _ arr ->
-            noEffects $ state { transactions = take txNum $ concatMap getOutputs arr <> state.transactions }
+            noEffects $ state { transactions = map snd arr }
         _ -> noEffects state
   where
     socket' = unsafePartial $ fromJust state.socket
-    getOutputs (Tuple _ (Transaction tr)) = tr.txOutputs
 update (SocketAction (C.SendIntroData msg)) state =
     { state: state
     , effects:
@@ -145,39 +145,53 @@ view state =
                 ]
             ]
         , div
-            [ className "row" ]
+            [ className "col-xs-6" ]
             [ div
-                [ className "col-xs-6" ]
+                [ className "panel panel-default table-responsive" ]
                 [ div
-                    [ className "panel panel-default" ]
-                    [ div
-                        [ className "panel-heading" ]
-                        [ text "Balance" ]
-                    , table
-                        [ className "table table-striped table-hover" ]
-                        [ thead [] [ tr []
-                            [ th [] [ text "Color" ]
-                            , th [] [ text "Coin" ]
-                            ]]
-                        , tbody [] $ map coinRow state.balance
-                        ]
+                    [ className "panel-heading" ]
+                    [ text "Balance" ]
+                , table
+                    [ className "table table-striped table-hover" ]
+                    [ thead [] [ tr []
+                        [ th [] [ text "Coin color" ]
+                        , th [] [ text "Coin amount" ]
+                        ]]
+                    , tbody [] $ map (uncurry2 coinRow) state.balance
                     ]
                 ]
             , div
-                [ className "col-xs-6" ]
+                [ className "panel panel-default" ]
                 [ div
-                    [ className "panel panel-default" ]
-                    [ div
-                        [ className "panel-heading" ]
-                        [ text "Transaction feed" ]
-                    , table
-                        [ className "table table-striped table-hover" ]
-                        [ thead [] [ tr []
-                            [ th [] [ text "Address to" ]
-                            , th [] [ text "Coin" ]
-                            ]]
-                        , tbody [] $ map transactionRow state.transactions
-                        ]
+                    [ className "panel-heading" ]
+                    [ text "Transaction output feed" ]
+                , table
+                    [ className "table table-striped table-hover" ]
+                    [ thead [] [ tr []
+                        [ th [] [ text "Address to" ]
+                        , th [] [ text "Coin color" ]
+                        , th [] [ text "Coin amount" ]
+                        ]]
+                    , tbody [] <<< map (uncurry2 txOutputRow) $ concatMap (\(Transaction t) -> t.txOutputs) state.transactions
+                    ]
+                ]
+            ]
+        , div
+            [ className "col-xs-6" ]
+            [ div
+                [ className "panel panel-default" ]
+                [ div
+                    [ className "panel-heading" ]
+                    [ text "Transaction input feed" ]
+                , table
+                    [ className "table table-striped table-hover" ]
+                    [ thead [] [ tr []
+                        [ th [] [ text "Transaction hash from" ]
+                        , th [] [ text "Address index" ]
+                        , th [] [ text "Coin color" ]
+                        , th [] [ text "Coin amount" ]
+                        ]]
+                    , tbody [] <<< map (uncurry3 txInputRow) $ concatMap (\(Transaction t) -> t.txInputs) state.transactions
                     ]
                 ]
             ]
@@ -188,13 +202,21 @@ view state =
     --     NotFound -> NotFound.view state
     ]
   where
-    coinRow (Tuple _ (Coin c)) =
+    coinRow _ (Coin c) =
         tr []
            [ td [] [ text $ show c.getColor ]
            , td [] [ text $ show c.getCoin ]
            ]
-    transactionRow (Tuple addr (Coin c)) =
+    txInputRow h i (Coin c) =
         tr []
-           [ td [] [ text $ addressToString addr ]
+           [ td [] [ text $ show h ]
+           , td [] [ text $ show i ]
+           , td [] [ text $ show c.getColor ]
+           , td [] [ text $ show c.getCoin ]
+           ]
+    txOutputRow adr (Coin c) =
+        tr []
+           [ td [] [ text $ addressToString adr ]
+           , td [] [ text $ show c.getColor ]
            , td [] [ text $ show c.getCoin ]
            ]

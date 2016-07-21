@@ -35,6 +35,7 @@ module RSCoin.User.Operations
        , retrieveAllocationsList
        ) where
 
+import           Control.Arrow          ((***))
 import           Control.Exception      (SomeException, assert, fromException)
 import           Control.Monad          (filterM, forM_, unless, void, when)
 import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
@@ -42,7 +43,7 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query', update')
 import           Data.Function          (on)
 import           Data.List              (elemIndex, genericIndex, genericLength,
-                                         nub, nubBy, sortOn)
+                                         groupBy, nub, sortOn)
 import qualified Data.Map               as M
 import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing)
 import           Data.Monoid            ((<>))
@@ -292,28 +293,28 @@ constructAndSignTransaction st TransactionData{..} = do
                   tdInputs
             , tdOutputAddress
             , listBuilderJSONIndent 2 $ tdOutputCoins)
-    when (nubBy ((==) `on` fst) tdInputs /= tdInputs) $
-        commitError "All input addresses should have distinct indices."
-    unless (all C.isPositiveCoin $ concatMap snd tdInputs) $
+    -- If there are multiple
+    let tdInputsMerged :: [TransactionInput]
+        tdInputsMerged = map (foldr1 (\(a,b) (_,d) -> (a, b++d))) $
+                         groupBy ((==) `on` fst) $
+                         sortOn fst tdInputs
+    unless (all C.isPositiveCoin $ concatMap snd tdInputsMerged) $
         commitError $
         formatSingle'
             "All input values should be positive, but encountered {}, that's not." $
-        head $ filter (<= 0) $ concatMap snd tdInputs
+        head $ filter (not . C.isPositiveCoin) $ concatMap snd tdInputsMerged
     accounts <- query' st A.GetOwnedAddresses
     let notInRange i = i >= genericLength accounts
-    when (any notInRange $ map fst tdInputs) $
+    when (any notInRange $ map fst tdInputsMerged) $
         commitError $
         sformat
             ("Found an address id (" % int % ") that's not in [0 .. " % int %
              ")")
-            (head $ filter notInRange $ map fst tdInputs)
+            (head $ filter notInRange $ map fst tdInputsMerged)
             (length accounts)
     let accInputs :: [(C.Address, M.Map C.Color C.Coin)]
         accInputs =
-            map
-                (\(i,c) ->
-                      (accounts `genericIndex` i, C.coinsToMap c))
-                tdInputs
+            map ((accounts `genericIndex`) *** C.coinsToMap) tdInputsMerged
         hasEnoughFunds :: (C.Address, C.CoinsMap) -> m Bool
         hasEnoughFunds (acc,coinsMap) = do
             amountMap <- getAmountNoUpdate st acc

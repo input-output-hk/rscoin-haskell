@@ -206,10 +206,10 @@ processCommand st O.ListAllocations _ = eWrap $ do
     U.retrieveAllocationsList st
     msAddrsList <- query' st U.GetAllocationStrategies
     liftIO $ TIO.putStrLn $ T.pack $ show msAddrsList
-    msAddrsList <- (`zip` [(1::Int)..]) . M.assocs <$> query' st U.GetAllocationStrategies
-    when (null msAddrsList) $
+    msigAddrsList <- (`zip` [(1::Int)..]) . M.assocs <$> query' st U.GetAllocationStrategies
+    when (null msigAddrsList) $
         liftIO $ putStrLn "Allocation address list is empty"
-    forM_ msAddrsList $ \((addr,allocStrat), i) -> do
+    forM_ msigAddrsList $ \((addr,allocStrat), i) -> do
         let numLength = length $ show i
         let pattern = "{}. {}\n  {}" <> (mconcat $ replicate numLength " ")
         liftIO $ TIO.putStrLn $ format' pattern (i, addr, allocStrat)

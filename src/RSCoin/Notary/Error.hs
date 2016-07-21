@@ -9,6 +9,7 @@ module RSCoin.Notary.Error
 import           Control.Exception       (Exception (..))
 import           Control.Monad.IO.Class  (MonadIO)
 
+import           Data.Data               (Data)
 import           Data.MessagePack        (MessagePack (fromObject, toObject),
                                           Object)
 import           Data.Text               (Text)
@@ -33,7 +34,7 @@ data NotaryError
     | NEInvalidSignature           -- ^ Invalid signature provided
     | NEStrategyNotSupported Text  -- ^ Address's strategy is not supported, with name provided
     | NEUnrelatedSignature Text    -- ^ Signature provided doesn't correspond to any of address' parties
-    deriving (Eq, Show, Typeable)
+    deriving (Eq, Show, Typeable, Data)
 
 instance Exception NotaryError where
     toException   = rscExceptionToException

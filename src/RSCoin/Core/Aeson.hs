@@ -35,7 +35,7 @@ instance FromJSON Coin where
                            v .: "getColor" <*>
                            v .: "getCoin"
     parseJSON _ = error "Error parsing coin JSON"
-    
+
 
 $(deriveToJSON defaultOptionsPS ''Transaction)
 

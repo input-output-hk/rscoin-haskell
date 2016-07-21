@@ -151,7 +151,7 @@ view state =
         , div
             [ className "col-xs-6" ]
             [ div
-                [ className "panel panel-default table-responsive" ]
+                [ className "panel panel-default" ]
                 [ div
                     [ className "panel-heading" ]
                     [ text "Balance" ]

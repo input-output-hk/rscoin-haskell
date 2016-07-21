@@ -1,6 +1,7 @@
 module App.Layout where
 
-import Prelude                     (($), map, (<<<), const, pure, bind, show)
+import Prelude                     (($), map, (<<<), const, pure, bind, show,
+                                    (==))
 
 
 import App.Counter                 as Counter
@@ -24,7 +25,7 @@ import Pux.Html                    (Html, div, h1, text, input, button, link,
                                     small, h5, span, table, tr, th, td,
                                     thead, tbody)
 import Pux.Html.Attributes         (type_, value, rel, href, className)
-import Pux.Html.Events             (onChange, onClick)
+import Pux.Html.Events             (onChange, onClick, onKeyDown)
 
 import Control.Apply               ((*>))
 
@@ -129,6 +130,7 @@ view state =
                     [ type_ "text"
                     , value $ addressToString state.address
                     , onChange $ AddressChange <<< newAddress <<< _.value <<< _.target
+                    , onKeyDown $ \e -> if e.keyCode == 13 then clickSearch else Nop
                     , className "form-control"
                     ] []
                 ]
@@ -136,7 +138,7 @@ view state =
                 [ className "col-xs-1" ]
                 [
                   button
-                    [ onClick $ const $ SocketAction <<< C.SendIntroData $ IMAddressInfo state.address
+                    [ onClick $ const clickSearch
                     , className "btn btn-danger"
                     ] [text "Search"]
                 ]
@@ -224,3 +226,4 @@ view state =
            , td [] [ text $ show c.getColor ]
            , td [] [ text $ show c.getCoin ]
            ]
+    clickSearch = SocketAction <<< C.SendIntroData $ IMAddressInfo state.address

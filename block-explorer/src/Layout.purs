@@ -57,6 +57,9 @@ init =
     , transactions: []
     }
 
+txNum :: Int
+txNum = 15
+
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state =
@@ -65,12 +68,12 @@ update (SocketAction (C.ReceivedData msg)) state =
             { state: state { balance = arr }
             , effects:
                 [ do
-                    C.send socket' <<< AIGetTransactions $ Tuple 0 10
+                    C.send socket' <<< AIGetTransactions $ Tuple 0 txNum
                     pure Nop
                 ]
             }
         OMTransactions _ arr ->
-            noEffects $ state { transactions = take 10 $ concatMap getOutputs arr <> state.transactions }
+            noEffects $ state { transactions = take txNum $ concatMap getOutputs arr <> state.transactions }
         _ -> noEffects state
   where
     socket' = unsafePartial $ fromJust state.socket
@@ -113,7 +116,7 @@ view state =
                     ]
             ]
         , div
-            [ className "row bg-warning" ]
+            [ className "row navbar" ]
             [ div
                 [ className "col-xs-3" ]
                 [ h5 [] [ text "RSCoin" ]
@@ -145,24 +148,36 @@ view state =
             [ className "row" ]
             [ div
                 [ className "col-xs-6" ]
-                [ table
-                    [ className "table table-striped table-hover" ]
-                    [ thead [] [ tr []
-                        [ th [] [ text "Color" ]
-                        , th [] [ text "Coin" ]
-                        ]]
-                    , tbody [] $ map coinRow state.balance
+                [ div
+                    [ className "panel panel-default" ]
+                    [ div
+                        [ className "panel-heading" ]
+                        [ text "Balance" ]
+                    , table
+                        [ className "table table-striped table-hover" ]
+                        [ thead [] [ tr []
+                            [ th [] [ text "Color" ]
+                            , th [] [ text "Coin" ]
+                            ]]
+                        , tbody [] $ map coinRow state.balance
+                        ]
                     ]
                 ]
             , div
                 [ className "col-xs-6" ]
-                [ table
-                    [ className "table table-striped table-hover" ]
-                    [ thead [] [ tr []
-                        [ th [] [ text "Address" ]
-                        , th [] [ text "Coin" ]
-                        ]]
-                    , tbody [] $ map transactionRow state.transactions
+                [ div
+                    [ className "panel panel-default" ]
+                    [ div
+                        [ className "panel-heading" ]
+                        [ text "Transaction feed" ]
+                    , table
+                        [ className "table table-striped table-hover" ]
+                        [ thead [] [ tr []
+                            [ th [] [ text "Address to" ]
+                            , th [] [ text "Coin" ]
+                            ]]
+                        , tbody [] $ map transactionRow state.transactions
+                        ]
                     ]
                 ]
             ]

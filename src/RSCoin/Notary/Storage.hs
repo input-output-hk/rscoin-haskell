@@ -34,6 +34,8 @@ import           Data.Maybe            (fromJust, fromMaybe, isJust)
 import           Data.Set              (Set)
 import qualified Data.Set              as S hiding (Set)
 
+import           Formatting            (build, sformat, (%))
+
 import           RSCoin.Core           (AddrId, Address (..), HBlock (..),
                                         PeriodId, PublicKey, Signature,
                                         Transaction (..), Utxo,
@@ -179,7 +181,8 @@ allocateMSAddress
       let Address checkPk = allocAddress^.address
 
       unless (verify checkPk partySig signedData) $
-          throwM $ NEUnrelatedSignature "(msAddr, strategy) not signed with proper sk"
+          throwM $ NEUnrelatedSignature $
+              sformat ("(msAddr, strategy) not signed with proper sk for pk: " % build) partyAddr
       when (_sigNumber <= 0) $
           throwM $ NEInvalidArguments "required number of signatures should be positive"
       when (_sigNumber > S.size _allParties) $

@@ -168,7 +168,7 @@ applyTxOutput tx txHash (addr,c) = changeAddressData tx txHash c addr
 changeAddressData :: C.Transaction -> C.TransactionId -> C.Coin -> C.Address -> Update ()
 changeAddressData C.Transaction{..} txHash c addr = do
     ensureAddressExists addr
-    -- FIXME: @akegalj things fromJust should be safe here?
+    -- FIXME: @akegalj thinks fromJust should be safe here?
     txInputsSummaries <- mapM (\a -> mkSummaryAddrId a . fromJust <$> inputToAddr a) txInputs
     addresses . at addr . _Just . adTransactions %= (mkTransactionSummary txInputsSummaries :)
     addresses . at addr . _Just . adBalance %=
@@ -182,7 +182,7 @@ changeAddressData C.Transaction{..} txHash c addr = do
             , txsInputsSum = foldl' (\m (_, _, c) -> M.insertWith (+) (C.getColor c) c m) M.empty txInputs
             , txsOutputsSum = foldl' (\m (_, c) -> M.insertWith (+) (C.getColor c) c m) M.empty txOutputs
             }
-    -- TODO: use getTx that is already defined here
+    -- TODO: use getTx that is already defined in this module
     -- We have to promote Query to Update
     inputToAddr :: C.AddrId -> Update (Maybe C.Address)
     inputToAddr (txId,idx,_) =

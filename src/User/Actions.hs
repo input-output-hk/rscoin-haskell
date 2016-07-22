@@ -14,7 +14,6 @@ import           Control.Exception       (SomeException)
 import           Control.Monad           (forM_, unless, void, when)
 import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
-
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
 import qualified Data.ByteString.Base64  as B64
@@ -27,7 +26,6 @@ import qualified Data.Set                as S
 import qualified Data.Text               as T
 import           Data.Text.Encoding      (encodeUtf8)
 import qualified Data.Text.IO            as TIO
-
 import           Formatting              (build, int, sformat, stext, (%))
 
 import           Serokell.Util.Text      (format', formatSingle', show')
@@ -86,7 +84,7 @@ processCommand st O.ListAddresses _ =
            do TIO.putStrLn "Here's the list of your accounts:"
               TIO.putStrLn
                   "# | Public ID                                    | Amount"
-              mapM_ formatAddressEntry $ ([(1 :: Integer) ..] `zip` wallets)
+              mapM_ formatAddressEntry ([(1 :: Integer) ..] `zip` wallets)
   where
     spaces = "                                                   "
     formatAddressEntry :: (Integer, (C.PublicKey, C.TxStrategy, [C.Coin])) -> IO ()
@@ -212,18 +210,16 @@ processCommand st O.ListAllocations _ = eWrap $ do
         liftIO $ putStrLn "Allocation address list is empty"
     forM_ msigAddrsList $ \((addr,allocStrat), i) -> do
         let numLength = length $ show i
-        let pattern = "{}. {}\n  {}" <> (mconcat $ replicate numLength " ")
-        liftIO $ TIO.putStrLn $ format' pattern (i, addr, allocStrat)
+        let padding = foldr1 (%) (replicate numLength " ")
+        let form = int % ". " % build % "\n  " % build % padding
+        liftIO $ TIO.putStrLn $ sformat form i addr allocStrat
 processCommand st (O.ImportAddress skPath pkPath heightFrom heightTo) _ = do
     liftIO $ TIO.putStrLn "Reading sk/pk from files..."
     sk <- liftIO $ C.readSecretKey skPath
     pk <- liftIO $ C.readPublicKey pkPath
-    when (not $ C.checkKeyPair (sk,pk)) $
-        U.commitError "The provided pair doesn't match thus can't be used"
-    allAddrs <- getAllPublicAddresses st
-    when ((C.Address pk) `elem` allAddrs) $
-        U.commitError "Address  is already imported into wallet"
+    liftIO $ TIO.putStrLn "Starting blockchain query process"
     importAddress st (sk,pk) heightFrom heightTo
+    liftIO $ TIO.putStrLn "Finished, your address successfully added"
 processCommand st O.StartGUI opts@O.UserOptions{..} = do
     initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop

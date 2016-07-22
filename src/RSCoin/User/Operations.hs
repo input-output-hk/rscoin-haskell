@@ -36,38 +36,44 @@ module RSCoin.User.Operations
        , retrieveAllocationsList
        ) where
 
-import           Control.Arrow          ((***))
-import           Control.Exception      (SomeException, assert, fromException)
-import           Control.Monad          (filterM, forM_, unless, void, when)
-import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
-import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Data.Acid.Advanced     (query', update')
-import           Data.Function          (on)
-import           Data.List              (elemIndex, genericIndex, genericLength,
-                                         groupBy, nub, sortOn)
-import qualified Data.Map               as M
-import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing)
-import           Data.Monoid            ((<>))
-import qualified Data.Text              as T
-import           Data.Text.Buildable    (Buildable)
-import qualified Data.Text.IO           as TIO
-import           Data.Tuple.Select      (sel1, sel2, sel3)
-import           Formatting             (build, int, sformat, shown, (%))
-import           Safe                   (atMay)
+import           Control.Arrow             ((***))
+import           Control.Exception         (SomeException, assert,
+                                            fromException)
+import           Control.Monad             (filterM, forM_, unless, void, when)
+import           Control.Monad.Catch       (MonadThrow, catch, throwM, try)
+import           Control.Monad.Extra       (whenJust)
+import           Control.Monad.IO.Class    (MonadIO, liftIO)
+import           Control.Monad.State       (StateT (..), execStateT, get,
+                                            modify)
+import           Control.Monad.Trans.Class (lift)
+import           Data.Acid.Advanced        (query', update')
+import           Data.Function             (on)
+import           Data.List                 (delete, elemIndex, genericIndex,
+                                            genericLength, groupBy, nub, sortOn)
+import qualified Data.Map                  as M
+import           Data.Maybe                (fromJust, fromMaybe, isJust,
+                                            isNothing)
+import           Data.Monoid               ((<>))
+import qualified Data.Text                 as T
+import           Data.Text.Buildable       (Buildable)
+import qualified Data.Text.IO              as TIO
+import           Data.Tuple.Select         (sel1, sel2, sel3)
+import           Formatting                (build, int, sformat, shown, (%))
+import           Safe                      (atMay)
 
-import           Serokell.Util          (format', formatSingle',
-                                         listBuilderJSON, listBuilderJSONIndent,
-                                         pairBuilder)
+import           Serokell.Util             (format', formatSingle',
+                                            listBuilderJSON,
+                                            listBuilderJSONIndent, pairBuilder)
 
-import qualified RSCoin.Core            as C
-import           RSCoin.Timed           (WorkMode, for, sec, wait)
-import qualified RSCoin.User.AcidState  as A
-import           RSCoin.User.Cache      (UserCache)
-import           RSCoin.User.Error      (UserError (..), UserLogicError,
-                                         isWalletSyncError)
-import           RSCoin.User.Logic      (SignatureBundle, getExtraSignatures,
-                                         joinBundles, validateTransaction)
-import qualified RSCoin.User.Wallet     as W
+import qualified RSCoin.Core               as C
+import           RSCoin.Timed              (WorkMode, for, sec, wait)
+import qualified RSCoin.User.AcidState     as A
+import           RSCoin.User.Cache         (UserCache)
+import           RSCoin.User.Error         (UserError (..), UserLogicError,
+                                            isWalletSyncError)
+import           RSCoin.User.Logic         (SignatureBundle, getExtraSignatures,
+                                            joinBundles, validateTransaction)
+import qualified RSCoin.User.Wallet        as W
 
 walletInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
 walletInitialized st = query' st A.IsInitialized
@@ -199,7 +205,49 @@ importAddress
     -> Int
     -> Maybe Int
     -> m ()
-importAddress = undefined
+importAddress st (sk,pk) fromH toH0 = do
+    unless (C.checkKeyPair (sk,pk)) $
+        commitError "The provided pair doesn't match thus can't be used"
+    allAddrs <- getAllPublicAddresses st
+    when (C.Address pk `elem` allAddrs) $
+        commitError "Address  is already imported into wallet"
+    when (fromH < 0) $ commitError $
+            sformat ("Height 'from' " % int % " must be positive!") fromH
+    whenJust toH0 $ \toH -> do
+        when (toH < 0) $ commitError $
+            sformat ("Height 'to' " % int % " must be positive!") toH
+        when (toH < fromH) $ commitError $ sformat
+            ("Height 'from' " % int % "is greater than height 'to' " % int)
+            fromH toH
+    let toH = fromMaybe fromH toH0
+    walletHeight <- query' st A.GetLastBlockId
+    when (toH > walletHeight) $
+        let formatPattern = "Desired interval [" % int % "," % int %
+                "] must lie exactly within [0," % int % "]," %
+                " where " % int %
+                " is current wallet's top known blockchain height."
+        in commitError $ sformat formatPattern fromH toH walletHeight walletHeight
+    addrMap <- execStateT (gatherTransactionsDo [fromH..toH]) $
+                   M.singleton newAddress []
+    let txs = nub $ map fst $ concat $ M.elems addrMap
+    update' st $ A.AddAddress (newAddress,sk) txs walletHeight
+  where
+    newAddress = C.Address pk
+    gatherTransactionsDo
+        :: (WorkMode m) =>
+           [Int] -> StateT (M.Map C.Address [(C.Transaction, C.AddrId)]) m ()
+    gatherTransactionsDo [] = return ()
+    gatherTransactionsDo (periodId:otherPeriodIds) = do
+        C.HBlock{..} <- lift $ C.getBlockByHeight periodId
+        forM_ hbTransactions $ \tx ->
+            W.handleToAdd [newAddress] tx $ \address addrid ->
+                modify (M.insertWith (++) address [(tx, addrid)])
+        forM_ hbTransactions $ \tx -> do
+            currentTxs <- M.assocs <$> get
+            toRemove <- W.getToRemove currentTxs tx
+            forM_ toRemove $
+                \(useraddr,pair') -> modify (M.adjust (delete pair') useraddr)
+        gatherTransactionsDo otherPeriodIds
 
 -- | Forms transaction given just amount of money to use. Tries to
 -- spend coins from accounts that have the least amount of money.

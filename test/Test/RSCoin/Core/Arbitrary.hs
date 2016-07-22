@@ -90,6 +90,9 @@ instance Arbitrary C.PartyAddress where
 instance Arbitrary C.AllocationStrategy where
     arbitrary = C.AllocationStrategy <$> arbitrary <*> arbitrary
 
+instance Arbitrary C.AllocationInfo where
+    arbitrary = C.AllocationInfo <$> arbitrary <*> arbitrary
+
 instance Arbitrary C.ActionLogEntry where
     arbitrary = oneof [ C.QueryEntry <$> arbitrary
                       , C.CommitEntry <$> arbitrary <*> arbitrary

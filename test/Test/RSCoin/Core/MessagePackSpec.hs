@@ -119,6 +119,8 @@ spec =
                 \(a :: C.AllocationAddress) -> a === mid a
             prop "AllocationStrategy" $
                 \(a :: C.AllocationStrategy) -> a === mid a
+            prop "AllocationInfo" $
+                \(a :: C.AllocationInfo) -> a === mid a
             prop "Set" $
                 \(a :: S.Set Int) -> a === mid a
             prop "ActionLogEntry" $

@@ -173,7 +173,7 @@ instance Buildable AllocationStrategy where
 data AllocationInfo = AllocationInfo
     { _allocationStrategy   :: AllocationStrategy
     , _currentConfirmations :: Map AllocationAddress Address
-    } deriving (Show)
+    } deriving (Eq, Show)
 
 $(deriveSafeCopy 0 'base ''AllocationInfo)
 $(makeLenses ''AllocationInfo)

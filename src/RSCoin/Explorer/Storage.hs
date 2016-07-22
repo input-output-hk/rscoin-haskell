@@ -169,7 +169,7 @@ applyTransaction tx@C.Transaction{..} = do
     inputToAddr :: C.AddrId -> Update (Maybe C.Address)
     inputToAddr (txId,idx,_) =
         fmap (fst . (!! idx) . C.txOutputs) <$>
-        (preuse $ transactionsMap . at txId)
+        (use $ transactionsMap . at txId)
     mkSummaryAddrId (txId, ind, c) addr = (txId, ind, c, addr)
 
 applyTxInput :: TransactionSummary -> C.TransactionId -> C.AddrId -> Update ()

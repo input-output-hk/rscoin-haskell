@@ -31,6 +31,7 @@ import           Data.Bifunctor             (bimap)
 import           Data.Binary                (Binary (get, put), decodeOrFail,
                                              encode)
 import qualified Data.ByteString            as BS
+import           Data.Char                  (isSpace)
 import           Data.Hashable              (Hashable (hashWithSalt))
 import           Data.Maybe                 (fromMaybe)
 import           Data.MessagePack           (MessagePack (fromObject, toObject))
@@ -201,7 +202,9 @@ deterministicKeyGen seed =
 -- | Constructs public key from UTF-8 base64 text.
 constructPublicKey :: Text -> Maybe PublicKey
 constructPublicKey =
-    either (const Nothing) (Just . PublicKey . E.PublicKey) . B64.decode
+    either (const Nothing) (Just . PublicKey . E.PublicKey) . B64.decode . trim
+  where
+    trim = T.dropAround isSpace
 
 -- | Write PublicKey to a file (base64).
 writePublicKey :: FilePath -> PublicKey -> IO ()

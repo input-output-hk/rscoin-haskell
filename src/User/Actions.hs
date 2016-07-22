@@ -44,7 +44,6 @@ import           RSCoin.Timed            (WorkMode, for, ms, wait)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..),
-                                          getAllPublicAddresses,
                                           getAmountNoUpdate, importAddress,
                                           submitTransactionRetry,
                                           updateBlockchain)
@@ -214,9 +213,9 @@ processCommand st O.ListAllocations _ = eWrap $ do
         let form = int % ". " % build % "\n  " % build % padding
         liftIO $ TIO.putStrLn $ sformat form i addr allocStrat
 processCommand st (O.ImportAddress skPath pkPath heightFrom heightTo) _ = do
-    liftIO $ TIO.putStrLn "Reading sk/pk from files..."
-    sk <- liftIO $ C.readSecretKey skPath
-    pk <- liftIO $ C.readPublicKey pkPath
+    (sk,pk) <- liftIO $ do
+        TIO.putStrLn "Reading sk/pk from files..."
+        (,) <$> C.readSecretKey skPath <*> C.readPublicKey pkPath
     liftIO $ TIO.putStrLn "Starting blockchain query process"
     importAddress st (sk,pk) heightFrom heightTo
     liftIO $ TIO.putStrLn "Finished, your address successfully added"

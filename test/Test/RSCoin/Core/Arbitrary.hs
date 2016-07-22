@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -7,13 +8,14 @@ module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import qualified Data.Data             as D
-import           Data.List             (intersect)
-import qualified Data.Map              as M
-import qualified Data.Set              as S
-import           Data.Text             (Text, pack)
-import           Test.QuickCheck       (Arbitrary (arbitrary), Gen,
-                                        NonNegative (..), choose, oneof)
+import qualified Data.Data               as D
+import           Data.DeriveTH
+import           Data.List               (intersect)
+import qualified Data.Map                as M
+import qualified Data.Set                as S
+import           Data.Text               (Text, pack)
+import           Test.QuickCheck         (Arbitrary (arbitrary), Gen,
+                                          NonNegative (..), choose, oneof)
 
 import qualified RSCoin.Core           as C
 import           RSCoin.Mintette.Error (MintetteError (..))
@@ -112,38 +114,5 @@ instance Arbitrary C.CoinsMap where
 instance Arbitrary Text where
     arbitrary = pack <$> arbitrary
 
--- @TODO: these instances are not typesafe enough
-instance Arbitrary MintetteError where
-    arbitrary = do
-        let list = [      MEInternal            <$> arbitrary
-                   , pure MEInactive
-                   ,      MEPeriodMismatch      <$> arbitrary <*> arbitrary
-                   , pure MEInvalidTxSums
-                   ,      MEInconsistentRequest <$> arbitrary
-                   ,      MENotUnspent          <$> arbitrary
-                   , pure MEInvalidSignature
-                   , pure MENotConfirmed
-                   , pure MEAlreadyActive
-                   ]
-        helper list (undefined :: MintetteError)
-
-instance Arbitrary NotaryError where
-    arbitrary = do
-        let list = [ pure NEAddrNotRelativeToTx
-                   ,      NEAddrIdNotInUtxo <$> arbitrary
-                   , pure NEBlocked
-                   ,      NEInvalidArguments <$> arbitrary
-                   ,      NEInvalidChain <$> arbitrary
-                   , pure NEInvalidSignature
-                   ,      NEStrategyNotSupported <$> arbitrary
-                   ,      NEUnrelatedSignature <$> arbitrary
-                   ]
-        helper list (undefined :: NotaryError)
-
-helper :: D.Data b => [Gen a] -> b -> Gen a
-helper l val = do
-    let consLen = length $ D.dataTypeConstrs $ D.dataTypeOf val
-        ourLen  = length l
-    if ourLen < consLen
-        then error "Missing constructors in MintetteError"
-        else oneof l
+derive makeArbitrary ''MintetteError
+derive makeArbitrary ''NotaryError

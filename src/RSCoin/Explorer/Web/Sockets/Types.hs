@@ -10,7 +10,9 @@
 -- with client.
 
 module RSCoin.Explorer.Web.Sockets.Types
-       ( ServerError (..)
+       ( TransactionSummary (..)
+       , mkTransactionSummarySerializable
+       , ServerError (..)
        , ErrorableMsg
        , IntroductoryMsg (..)
        , AddressInfoMsg (..)
@@ -32,6 +34,46 @@ import qualified Network.WebSockets      as WS
 import           Serokell.Aeson.Options  (defaultOptionsPS)
 
 import qualified RSCoin.Core             as C
+
+
+-- | This type should be modified version of AddrId from RSCoin.Core
+type AddrId = (C.TransactionId, Int, C.Coin, C.Address)
+
+-- | This type should be modified version of Transaction from RSCoin.Core
+data TransactionSummary = TransactionSummary
+    { txsId         :: C.TransactionId
+    , txsInputs     :: [AddrId]
+    , txsOutputs    :: [(C.Address, C.Coin)]
+    , txsInputsSum  :: C.CoinsMap
+    , txsOutputsSum :: C.CoinsMap
+    } deriving (Show)
+
+newtype SerializableCoinsMap =
+    SerializableCoinsMap C.CoinsMap
+    deriving (Show)
+
+instance ToJSON SerializableCoinsMap where
+    toJSON (SerializableCoinsMap m) = toJSON . ML.assocs $ m
+
+data TransactionSummarySerializable = TransactionSummarySerializable
+    { txId         :: C.TransactionId
+    , txInputs     :: [AddrId]
+    , txOutputs    :: [(C.Address, C.Coin)]
+    , txInputsSum  :: SerializableCoinsMap
+    , txOutputsSum :: SerializableCoinsMap
+    } deriving (Show, Generic)
+
+$(deriveToJSON defaultOptionsPS ''TransactionSummarySerializable)
+
+mkTransactionSummarySerializable :: TransactionSummary -> TransactionSummarySerializable
+mkTransactionSummarySerializable TransactionSummary{..} =
+    TransactionSummarySerializable
+        { txId         = txsId
+        , txInputs     = txsInputs
+        , txOutputs    = txsOutputs
+        , txInputsSum  = SerializableCoinsMap txsInputsSum
+        , txOutputsSum = SerializableCoinsMap txsOutputsSum
+        }
 
 -- | Run-time errors which may happen within this server.
 data ServerError =
@@ -90,10 +132,6 @@ instance WS.WebSocketsData (ErrorableMsg AddressInfoMsg) where
     fromLazyByteString = customDecode
     toLazyByteString = error "Attempt to serialize AddressInfoMsg is illegal"
 
-newtype SerializableCoinsMap =
-    SerializableCoinsMap C.CoinsMap
-    deriving (Show)
-
 -- | This type contains all possible messages sent by this server.
 data OutcomingMsg
     =
@@ -111,14 +149,11 @@ data OutcomingMsg
     |
       -- | Sent within `AddressInfo` session. Has an indexed list of
       -- transactions referencing address over given PeriodId.
-      OMTransactions !C.PeriodId ![(Word, C.Transaction)]
+      OMTransactions !C.PeriodId ![(Word, TransactionSummarySerializable)]
     deriving (Show,Generic)
 
 mkOMBalance :: C.PeriodId -> C.CoinsMap -> OutcomingMsg
 mkOMBalance pId = OMBalance pId . SerializableCoinsMap
-
-instance ToJSON SerializableCoinsMap where
-    toJSON (SerializableCoinsMap m) = toJSON . ML.assocs $ m
 
 $(deriveToJSON defaultOptionsPS ''OutcomingMsg)
 

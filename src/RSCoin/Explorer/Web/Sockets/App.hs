@@ -25,6 +25,7 @@ import           Control.Monad.Reader              (ReaderT, runReaderT)
 import           Control.Monad.State               (MonadState, State, runState)
 import           Control.Monad.Trans               (MonadIO (liftIO))
 import           Data.Acid.Advanced                (query')
+import           Data.Bifunctor                    (second)
 import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (catMaybes, fromMaybe)
 import qualified Data.Set                          as S
@@ -46,7 +47,9 @@ import           RSCoin.Explorer.Web.Sockets.Types (AddressInfoMsg (..),
                                                     ErrorableMsg,
                                                     IntroductoryMsg (..),
                                                     OutcomingMsg (..),
-                                                    mkOMBalance)
+                                                    TransactionSummary,
+                                                    mkOMBalance,
+                                                    mkTransactionSummarySerializable)
 
 type ConnectionId = Word
 
@@ -168,9 +171,10 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
                 lo
                 hi
                 addr
-        send conn . uncurry OMTransactions =<<
+        send conn . uncurry OMTransactions . toSerializable =<<
             flip query' (DB.GetAddressTransactions addr indices) =<<
             view ssDataBase
+    toSerializable = second $ map $ second mkTransactionSummarySerializable
 
 sender :: Channel -> ServerMonad ()
 sender channel =

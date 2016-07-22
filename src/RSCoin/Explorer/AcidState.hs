@@ -17,16 +17,17 @@ module RSCoin.Explorer.AcidState
        , AddHBlock (..)
        ) where
 
-import           Control.Exception       (throw)
-import           Control.Monad.Catch     (MonadThrow (throwM))
-import           Data.Acid               (AcidState, Query, Update,
-                                          closeAcidState, makeAcidic,
-                                          openLocalStateFrom)
-import           Data.Acid.Memory        (openMemoryState)
+import           Control.Exception                 (throw)
+import           Control.Monad.Catch               (MonadThrow (throwM))
+import           Data.Acid                         (AcidState, Query, Update,
+                                                    closeAcidState, makeAcidic,
+                                                    openLocalStateFrom)
+import           Data.Acid.Memory                  (openMemoryState)
 
-import qualified RSCoin.Core             as C
+import qualified RSCoin.Core                       as C
 
-import qualified RSCoin.Explorer.Storage as ES
+import qualified RSCoin.Explorer.Storage           as ES
+import           RSCoin.Explorer.Web.Sockets.Types (TransactionSummary (..))
 
 type State = AcidState ES.Storage
 
@@ -51,7 +52,7 @@ getAddressTxNumber = ES.getAddressTxNumber
 getAddressTransactions
     :: C.Address
     -> (Word, Word)
-    -> Query ES.Storage (C.PeriodId, [(Word, C.Transaction)])
+    -> Query ES.Storage (C.PeriodId, [(Word, TransactionSummary)])
 getAddressTransactions = ES.getAddressTransactions
 
 getLastPeriodId :: Query ES.Storage (Maybe C.PeriodId)

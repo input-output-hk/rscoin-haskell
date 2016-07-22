@@ -11,5 +11,5 @@ explorers:
 period: 30
 globalSeverity: Warning
 notarySeverity: Info
-explorerSeverity: Info
+explorerSeverity: Debug
 

@@ -32,7 +32,7 @@ import           Control.Monad.State               (MonadState)
 import           Data.List                         (foldl', genericDrop,
                                                     genericLength, genericTake)
 import qualified Data.Map.Strict                   as M
-import           Data.Maybe                        (fromJust, fromMaybe)
+import           Data.Maybe                        (catMaybes, fromMaybe)
 import           Data.SafeCopy                     (base, deriveSafeCopy)
 
 import qualified RSCoin.Core                       as C
@@ -149,31 +149,13 @@ addHBlock pId C.HBlock{..} = do
 applyTransaction :: C.Transaction -> Update ()
 applyTransaction tx@C.Transaction{..} = do
     transactionsMap . at txHash .= Just tx
-    mapM_ (applyTxInput tx txHash) txInputs
-    mapM_ (applyTxOutput tx txHash) txOutputs
+    -- FIXME: @akegalj thinks fromJust should be safe here?
+    txInputsSummaries <- catMaybes <$> mapM (\a -> fmap (mkSummaryAddrId a) <$> inputToAddr a) txInputs
+    let txSummary = mkTransactionSummary txInputsSummaries
+    mapM_ (applyTxInput txSummary txHash) txInputs
+    mapM_ (applyTxOutput txSummary txHash) txOutputs
   where
     txHash = C.hash tx
-
-applyTxInput :: C.Transaction -> C.TransactionId -> C.AddrId -> Update ()
-applyTxInput tx txHash (oldTxId,idx,c) =
-    whenJustM (use $ transactionsMap . at oldTxId) applyTxInputDo
-  where
-    applyTxInputDo oldTx = do
-        let addr = fst $ C.txOutputs oldTx !! idx
-        changeAddressData tx txHash (-c) addr
-
-applyTxOutput :: C.Transaction -> C.TransactionId -> (C.Address, C.Coin) -> Update ()
-applyTxOutput tx txHash (addr,c) = changeAddressData tx txHash c addr
-
-changeAddressData :: C.Transaction -> C.TransactionId -> C.Coin -> C.Address -> Update ()
-changeAddressData C.Transaction{..} txHash c addr = do
-    ensureAddressExists addr
-    -- FIXME: @akegalj thinks fromJust should be safe here?
-    txInputsSummaries <- mapM (\a -> mkSummaryAddrId a . fromJust <$> inputToAddr a) txInputs
-    addresses . at addr . _Just . adTransactions %= (mkTransactionSummary txInputsSummaries :)
-    addresses . at addr . _Just . adBalance %=
-        M.insertWith (+) (C.getColor c) c
-  where
     mkTransactionSummary summaryTxInputs =
         TransactionSummary
             { txsId = txHash
@@ -187,8 +169,26 @@ changeAddressData C.Transaction{..} txHash c addr = do
     inputToAddr :: C.AddrId -> Update (Maybe C.Address)
     inputToAddr (txId,idx,_) =
         fmap (fst . (!! idx) . C.txOutputs) <$>
-        (use $ transactionsMap . at txId)
-    mkSummaryAddrId (txId, ind, c) addr' = (txId, ind, c, addr')
+        (preuse $ transactionsMap . at txId)
+    mkSummaryAddrId (txId, ind, c) addr = (txId, ind, c, addr)
+
+applyTxInput :: TransactionSummary -> C.TransactionId -> C.AddrId -> Update ()
+applyTxInput tx txHash (oldTxId,idx,c) =
+    whenJustM (use $ transactionsMap . at oldTxId) applyTxInputDo
+  where
+    applyTxInputDo oldTx = do
+        let addr = fst $ C.txOutputs oldTx !! idx
+        changeAddressData tx txHash (-c) addr
+
+applyTxOutput :: TransactionSummary -> C.TransactionId -> (C.Address, C.Coin) -> Update ()
+applyTxOutput tx txHash (addr,c) = changeAddressData tx txHash c addr
+
+changeAddressData :: TransactionSummary -> C.TransactionId -> C.Coin -> C.Address -> Update ()
+changeAddressData tx txHash c addr = do
+    ensureAddressExists addr
+    addresses . at addr . _Just . adTransactions %= (tx :)
+    addresses . at addr . _Just . adBalance %=
+        M.insertWith (+) (C.getColor c) c
 
 ensureAddressExists :: C.Address -> Update ()
 ensureAddressExists addr =

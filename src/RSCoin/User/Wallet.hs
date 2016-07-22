@@ -31,6 +31,8 @@ module RSCoin.User.Wallet
        , getAllocationByIndex
 
          -- * Updates
+       , handleToAdd
+       , getToRemove
        , addTemporaryTransaction
        , withBlockchainUpdate
        , addAddress
@@ -46,7 +48,7 @@ import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
-import           Data.Bifunctor             (first)
+import           Data.Bifunctor             (first, second)
 import           Data.Function              (on)
 import           Data.List                  (delete, find, groupBy, intersect,
                                              nub, sortOn, (\\))
@@ -184,16 +186,15 @@ findUserAddress addr = checkInitR $ do
 getUserAddresses :: ExceptQuery [(Address,SecretKey)]
 getUserAddresses =
     checkInitR $
-    L.views ownedAddresses $ map (\(x,y) -> (x,fromJust y)) .
-                             filter (isJust . snd) .
-                             M.assocs
+    L.views ownedAddresses $
+    map (second fromJust) . filter (isJust . snd) . M.assocs
 
 -- | Puts bank's address on the first place if found
 rescheduleBankFirst :: [Address] -> [Address]
 rescheduleBankFirst addrs =
     case find (== C.genesisAddress) addrs of
         Nothing -> addrs
-        Just _ -> C.genesisAddress : (delete C.genesisAddress addrs)
+        Just _ -> C.genesisAddress : delete C.genesisAddress addrs
 
 -- | Get all available user addresses
 getOwnedAddresses :: ExceptQuery [Address]
@@ -368,6 +369,40 @@ putHistoryRecords newHeight transactions = do
         , ..
         }
 
+-- | Given a set of owned addresses, transaction and handler performs
+-- handler action over every (addr,addrid) that this transaction adds
+-- to utxo
+handleToAdd
+    :: (Monad m)
+    => [Address] -> Transaction -> (Address -> AddrId -> m ()) -> m ()
+handleToAdd ownedAddrs tx@Transaction{..} handler = do
+    -- first! add transactions that have output with address that we own
+    let outputAddr :: [(Address, [AddrId])]
+        outputAddr = map (\a@((_,address):_) -> (address, map fst a)) $
+                         filter (not . null) $
+                         groupBy ((==) `on` snd) $
+                         sortOn snd $
+                         C.computeOutputAddrids tx
+    forM_ outputAddr $ \(address,addrids) ->
+        when (address `elem` ownedAddrs) $
+            forM_ addrids $ \addrid' -> handler address addrid'
+
+-- | Given a current set of addresses and transactions it returns ones
+-- that are spent in this state and can't be used anymore
+getToRemove
+    :: (Monad m)
+    => [(Address, [(Transaction, AddrId)])]
+    -> Transaction
+    -> m [(Address, (Transaction, AddrId))]
+getToRemove currentTxs Transaction{..} = do
+    let savedTransactions :: [(Address, (Transaction, AddrId))]
+        savedTransactions =
+            concatMap (\(addr,txs) -> map (addr, ) txs) currentTxs
+    -- second! remove transactions that are used as input of this tx
+    let transformFoo addrid =
+            filter (\(_,(_,addrid')) -> addrid' == addrid) savedTransactions
+    return $ nub $ concatMap transformFoo txInputs
+
 -- | Update state with bunch of transactions from new unobserved
 -- blockchain blocks. Sum validation for transactions
 -- is disabled, because HBlocks contain generative transactions for
@@ -407,43 +442,19 @@ withBlockchainUpdate newHeight C.HBlock{..} =
        putHistoryRecords newHeight hbTransactions
 
        ownedAddrs <- L.uses ownedAddresses M.keys
-       let addSomeTransactions tx@Transaction{..} = do
-               -- first! add transactions that have output with address that we own
-               let outputAddr :: [(Address, [AddrId])]
-                   outputAddr = map (\a@((_,address):_) -> (address, map fst a)) $
-                                    filter (not . null) $
-                                    groupBy ((==) `on` snd) $
-                                    sortOn snd $
-                                    C.computeOutputAddrids tx
-               forM_ outputAddr $ \(address,addrids) ->
-                   when (address `elem` ownedAddrs) $
-                       forM_ addrids $ \addrid' -> do
-                           userTxAddrids %= M.insertWith (++) address [(tx, addrid')]
-                           historyTxs %= S.insert (TxHistoryRecord tx newHeight TxHConfirmed)
-           removeSomeTransactions tx@Transaction{..} = do
-               (savedTransactions :: [(Address, (Transaction, AddrId))]) <-
-                   concatMap
-                       (\(addr,txs) ->
-                             map (addr, ) txs) <$>
-                   L.uses userTxAddrids M.assocs
-               -- second! remove transactions that are used as input of this tx
-               let toRemove :: [(Address, (Transaction, AddrId))]
-                   toRemove =
-                       nub $
-                       concatMap
-                           (\addrid ->
-                                 filter
-                                     (\(_,(_,addrid')) ->
-                                           addrid' == addrid)
-                                     savedTransactions)
-                           txInputs
-               forM_ toRemove $
-                   \(useraddr,pair') ->
-                        userTxAddrids %= M.adjust (delete pair') useraddr
-               unless (null toRemove) $
-                   historyTxs %= S.insert (TxHistoryRecord tx newHeight TxHConfirmed)
-       forM_ hbTransactions addSomeTransactions
-       forM_ hbTransactions removeSomeTransactions
+       forM_ hbTransactions $ \tx ->
+            handleToAdd ownedAddrs tx $ \address addrid -> do
+                userTxAddrids %= M.insertWith (++) address [(tx, addrid)]
+                historyTxs %= S.insert (TxHistoryRecord tx newHeight TxHConfirmed)
+       forM_ hbTransactions $ \tx -> do
+           currentTxs <- L.uses userTxAddrids M.assocs
+           toRemove <- getToRemove currentTxs tx
+           forM_ toRemove $
+               \(useraddr,pair') ->
+                    userTxAddrids %= M.adjust (delete pair') useraddr
+           unless (null toRemove) $
+               historyTxs %= S.insert (TxHistoryRecord tx newHeight TxHConfirmed)
+
 
        lastBlockId .= Just newHeight
   where

@@ -11,6 +11,7 @@
 
 module RSCoin.Explorer.Web.Sockets.Types
        ( TransactionSummary (..)
+       , TransactionSummarySerializable
        , mkTransactionSummarySerializable
        , ServerError (..)
        , ErrorableMsg

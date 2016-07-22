@@ -12,11 +12,12 @@ import App.Connection              (Connection, Action (..), WEBSOCKET,
 import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     addressToString, IntroductoryMsg (..),
                                     AddressInfoMsg (..), Coin (..),
-                                    Transaction (..), OutcomingMsg (..))
+                                    TransactionSummarySerializable (..),
+                                    OutcomingMsg (..))
 
 import Data.Maybe                  (Maybe (..), fromJust)
 import Data.Tuple                  (Tuple (..), snd)
-import Data.Tuple.Nested           (uncurry2, uncurry3)
+import Data.Tuple.Nested           (uncurry2, uncurry4)
 import Data.Either                 (fromRight)
 import Data.Array                  (concatMap)
 
@@ -46,7 +47,7 @@ type State =
     , socket       :: Maybe C.Connection
     , address      :: Address
     , balance      :: Array (Tuple Int Coin)
-    , transactions :: Array Transaction
+    , transactions :: Array TransactionSummarySerializable
     , periodId     :: Int
     }
 
@@ -177,7 +178,7 @@ view state =
                         , th [] [ text "Coin color" ]
                         , th [] [ text "Coin amount" ]
                         ]]
-                    , tbody [] <<< map (uncurry2 txOutputRow) $ concatMap (\(Transaction t) -> t.txOutputs) state.transactions
+                    , tbody [] <<< map (uncurry2 txOutputRow) $ concatMap (\(TransactionSummarySerializable t) -> t.txOutputs) state.transactions
                     ]
                 ]
             ]
@@ -196,7 +197,7 @@ view state =
                         , th [] [ text "Coin color" ]
                         , th [] [ text "Coin amount" ]
                         ]]
-                    , tbody [] <<< map (uncurry3 txInputRow) $ concatMap (\(Transaction t) -> t.txInputs) state.transactions
+                    , tbody [] <<< map (uncurry4 txInputRow) $ concatMap (\(TransactionSummarySerializable t) -> t.txInputs) state.transactions
                     ]
                 ]
             ]
@@ -213,7 +214,7 @@ view state =
            , td [] [ text $ show c.getColor ]
            , td [] [ text $ show c.getCoin ]
            ]
-    txInputRow h i (Coin c) =
+    txInputRow h i (Coin c) _ =
         tr []
            [ td [] [ text $ show h ]
            , td [] [ text $ show i ]

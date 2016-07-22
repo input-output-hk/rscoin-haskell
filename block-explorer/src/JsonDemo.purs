@@ -6,14 +6,12 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (log, CONSOLE)
 
 import Data.Tuple (Tuple (..))
-import Data.Tuple.Nested (tuple3)
+import Data.Tuple.Nested (tuple4)
 
 import Data.Argonaut.Printer (printJson)
 import Data.Generic (class Generic)
 
-import RSCoin.Explorer.Web.Sockets.Types as W
-import RSCoin.Core.Primitives            (Address(Address), Coin(Coin), Transaction(Transaction))
-import Data.Types                        (Hash(Hash), PublicKey(PublicKey), Rational(Rational))
+import App.RSCoin as W
 import Serokell.Aeson.Helper (encodeJson)
 
 data V = V { getV :: forall v. v } --this doesn't work either
@@ -28,11 +26,11 @@ helper v = do
 
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
-    let coin     = Coin {getColor: 0, getCoin: Rational "0.3242342"}
-        key      = PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
-        hash     = Hash "DldRwCblQ7Loqy6wYJnaodHl30d3j3eH+qtFzfEv46g="
-        addr     = Address { getAddress:  key }
-        tx       = Transaction {txInputs: [tuple3 hash 0 coin], txOutputs: [(Tuple addr coin)]}
+    let coin     = W.Coin {getColor: 0, getCoin: W.Rational "0.3242342"}
+        key      = W.PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
+        hash     = W.Hash "DldRwCblQ7Loqy6wYJnaodHl30d3j3eH+qtFzfEv46g="
+        addr     = W.Address { getAddress:  key }
+        tx       = W.TransactionSummarySerializable {txId: hash, txInputs: [tuple4 hash 0 coin addr], txOutputs: [(Tuple addr coin)], txInputsSum: [Tuple 0 coin], txOutputsSum: [Tuple 0 coin]}
         err      = W.ParseError "error"
         introMsg = W.IMAddressInfo addr
         aiMsg    = W.AIGetTransactions (Tuple 0 2)

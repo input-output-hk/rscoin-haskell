@@ -406,10 +406,11 @@ test-suite rscoin-test
                      , acid-state >= 0.14.0
                      , aeson
                      , async >= 2.0.1
-                     , binary >= 0.7.5.0                     
+                     , binary >= 0.7.5.0
                      , bytestring >= 0.10.6.0
                      , containers >= 0.5.6.2
                      , data-default
+                     , derive
                      , either
                      , exceptions >= 0.8.2.1
                      , extra

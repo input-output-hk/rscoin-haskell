@@ -8,6 +8,10 @@ dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 mpath=$dir/mintetteKeys/mintette$1/
 
-rscoin-bank --log-severity Debug add-mintette --host 127.0.0.1 --port 311$1 --key $(cat $mpath/mintette$1.pub)
-rscoin-mintette --log-severity Debug --path "$mpath/mintette-db" --sk $mpath/mintette$1.sec -p 311$1
-
+if [ -z $2 ]; then
+  rscoin-bank --log-severity Debug add-mintette --host 127.0.0.1 --port 311$1 --key $(cat $mpath/mintette$1.pub)
+  rscoin-mintette --log-severity Debug --path "$mpath/mintette-db" --sk $mpath/mintette$1.sec -p 311$1
+else
+  stack exec rscoin-bank     -- --log-severity Debug add-mintette --host 127.0.0.1 --port 311$1 --key $(cat $mpath/mintette$1.pub)
+  stack exec rscoin-mintette -- --log-severity Debug --path "$mpath/mintette-db" --sk $mpath/mintette$1.sec -p 311$1
+fi

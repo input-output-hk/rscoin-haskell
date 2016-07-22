@@ -127,7 +127,7 @@ userCommandParser =
                   (progDesc "Confirm MS address allocation from `rscoin-user list-alloc`")
               ) <>
          command
-              "add-local-address"
+              "import-address"
               (info
                   importAddressOpts
                   (progDesc "Import address to storage given a (secretKey,publicKey) pair")

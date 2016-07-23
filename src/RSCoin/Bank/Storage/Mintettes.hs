@@ -85,12 +85,17 @@ getActionLogs = msActionLogs
 
 type Update a = State MintettesStorage a
 
+-- | Add mintette to the storage
 addMintette :: C.Mintette -> C.PublicKey -> Update ()
 addMintette m k = do
     dpk <- use getDpk
     unless (k `elem` map fst dpk) $ msPendingMintettes %= ((m, k) :)
 
 -- type MintetteInfo = (Mintette, (PublicKey, Signature), ActionLog)
+
+-- | Update mintettes state, returning mintette id's that should
+-- change their utxo. Performs things as saving actionlogs, checking
+-- signatures, adding new mintettes and kicking old ones.
 updateMintettes :: C.SecretKey
                 -> [(C.MintetteId, C.PeriodResult)]
                 -> Update [C.MintetteId]
@@ -130,10 +135,11 @@ updateMintettes sk goodMintettes = do
     appendNewLogs = mapM_ appendNewLogDo goodMintettes
     appendNewLogDo (idx,(_,_,newLog)) = msActionLogs . ix idx %= (newLog ++)
 
--- Given the list of bad indices, new list to append and data list,
+-- | Given the list of bad indices, new list to append and data list,
 -- this function returns datalist with appended data and removed bad
 -- indices so that number of elements that change their place is
--- minimized.
+-- minimized. Return value is a pair where second element is exactly
+-- elements that changed their indices.
 replaceWithCare :: [Int] -> [a] -> [a] -> ([a], [Int])
 replaceWithCare bad new old = replaceWithCare' bad new old []
 

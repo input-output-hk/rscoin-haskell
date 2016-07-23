@@ -10,7 +10,7 @@ import           Control.Monad             (unless)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid.Advanced        (query', update')
 import           Data.Text                 (Text)
-import           Formatting                (int, sformat, (%))
+import           Formatting                (int, sformat, string, (%))
 
 import qualified RSCoin.Core               as C
 import           RSCoin.Timed              (ServerT, WorkMode,
@@ -55,6 +55,8 @@ handleNewHBlock ch st newBlockId newBlock sig = do
             return p
         upd = do
             update' st (AddHBlock newBlockId newBlock)
+            logDebug $ sformat ("Transaction hashes: " % string) $ show $ map C.hash $ C.hbTransactions newBlock
+            logDebug $ sformat ("Transactions: " % string) $ show $ C.hbTransactions newBlock
             writeChannel
                 ch
                 ChannelItem

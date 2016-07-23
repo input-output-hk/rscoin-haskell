@@ -152,8 +152,8 @@ applyTransaction tx@C.Transaction{..} = do
     -- FIXME: @akegalj thinks fromJust should be safe here?
     txInputsSummaries <- catMaybes <$> mapM (\a -> fmap (mkSummaryAddrId a) <$> inputToAddr a) txInputs
     let txSummary = mkTransactionSummary txInputsSummaries
-    mapM_ (applyTxInput txSummary txHash) txInputs
-    mapM_ (applyTxOutput txSummary txHash) txOutputs
+    mapM_ (applyTxInput txSummary) txInputs
+    mapM_ (applyTxOutput txSummary) txOutputs
   where
     txHash = C.hash tx
     mkTransactionSummary summaryTxInputs =
@@ -172,19 +172,19 @@ applyTransaction tx@C.Transaction{..} = do
         (use $ transactionsMap . at txId)
     mkSummaryAddrId (txId, ind, c) addr = (txId, ind, c, addr)
 
-applyTxInput :: TransactionSummary -> C.TransactionId -> C.AddrId -> Update ()
-applyTxInput tx txHash (oldTxId,idx,c) =
+applyTxInput :: TransactionSummary -> C.AddrId -> Update ()
+applyTxInput tx (oldTxId,idx,c) =
     whenJustM (use $ transactionsMap . at oldTxId) applyTxInputDo
   where
     applyTxInputDo oldTx = do
         let addr = fst $ C.txOutputs oldTx !! idx
-        changeAddressData tx txHash (-c) addr
+        changeAddressData tx (-c) addr
 
-applyTxOutput :: TransactionSummary -> C.TransactionId -> (C.Address, C.Coin) -> Update ()
-applyTxOutput tx txHash (addr,c) = changeAddressData tx txHash c addr
+applyTxOutput :: TransactionSummary -> (C.Address, C.Coin) -> Update ()
+applyTxOutput tx (addr,c) = changeAddressData tx c addr
 
-changeAddressData :: TransactionSummary -> C.TransactionId -> C.Coin -> C.Address -> Update ()
-changeAddressData tx txHash c addr = do
+changeAddressData :: TransactionSummary -> C.Coin -> C.Address -> Update ()
+changeAddressData tx c addr = do
     ensureAddressExists addr
     addresses . at addr . _Just . adTransactions %= (tx :)
     addresses . at addr . _Just . adBalance %=

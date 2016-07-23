@@ -11,6 +11,9 @@ import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid.Advanced        (query', update')
 import           Data.Text                 (Text)
 import           Formatting                (int, sformat, string, (%))
+import           Serokell.Util.Text        (format', formatSingle',
+                                            listBuilderJSONIndent, mapBuilder,
+                                            show')
 
 import qualified RSCoin.Core               as C
 import           RSCoin.Timed              (ServerT, WorkMode,
@@ -55,8 +58,9 @@ handleNewHBlock ch st newBlockId newBlock sig = do
             return p
         upd = do
             update' st (AddHBlock newBlockId newBlock)
-            logDebug $ sformat ("Transaction hashes: " % string) $ show $ map C.hash $ C.hbTransactions newBlock
-            logDebug $ sformat ("Transactions: " % string) $ show $ C.hbTransactions newBlock
+            logDebug $ formatSingle' "HBlock hash: {}" $ C.hash newBlock
+            logDebug $ formatSingle' "Transaction hashes: {}" $ listBuilderJSONIndent 2 $ map (C.hash :: C.Transaction -> C.Hash) $ C.hbTransactions newBlock
+            logDebug $ formatSingle' "Transactions: {}" $ listBuilderJSONIndent 2 $ C.hbTransactions newBlock
             writeChannel
                 ch
                 ChannelItem

@@ -51,13 +51,14 @@ import           Safe                          (atMay, headMay)
 
 import           Serokell.Util                 (enumerate)
 
-import           RSCoin.Core                   (ActionLog, ActionLogEntry (CloseEpochEntry),
+import           RSCoin.Core                   (ActionLog,
+                                                ActionLogEntry (CloseEpochEntry),
                                                 AddrId, Address (..), Dpk,
                                                 HBlock (..), MintetteId,
                                                 Mintettes, NewPeriodData (..),
                                                 PeriodId, PeriodResult,
                                                 PublicKey, SecretKey,
-                                                Transaction (..),
+                                                Transaction (..), bankPublicKey,
                                                 checkActionLog, checkLBlock,
                                                 computeOutputAddrids,
                                                 derivePublicKey, emissionHash,
@@ -76,28 +77,21 @@ data Storage = Storage
     {
       -- | Data about mintettes.
       _mintettesStorage :: MS.MintettesStorage
-    ,
       -- | Data about explorers.
-      _explorersStorage :: ES.ExplorersStorage
-    ,
+    , _explorersStorage :: ES.ExplorersStorage
       -- | Id of ongoing period. Doesn't mean anything if there is no
       -- active period.
-      _periodId         :: C.PeriodId
-    ,
+    , _periodId         :: C.PeriodId
       -- | List of all blocks from the very beginning. Head of this
       -- list is the most recent block.
-      _blocks           :: [C.HBlock]
-    ,
+    , _blocks           :: [C.HBlock]
       -- | Utxo for all the transaction ever made.
-      _utxo             :: C.Utxo
-    ,
+    , _utxo             :: C.Utxo
       -- | Mapping from transaction id to actual transaction with this id.
-      _transactionMap   :: MP.Map C.TransactionId C.Transaction
-
+    , _transactionMap   :: MP.Map C.TransactionId C.Transaction
       -- | Known addresses accompanied with their strategies. Note that every address with
       -- non-default strategy should be stored here in order to participate in transaction.
     , _addresses        :: C.AddressToTxStrategyMap
-
       -- | Pending addresses to publish within next HBlock.
     , _pendingAddresses :: C.AddressToTxStrategyMap
     } deriving (Typeable)
@@ -121,42 +115,56 @@ mkStorage =
 
 type Query a = Getter Storage a
 
+-- | Returns addresses (to strategies) map
 getAddresses :: Query C.AddressToTxStrategyMap
 getAddresses = addresses
 
+-- | Resolves addrid into address using local utxo
 getAddressFromUtxo :: AddrId -> Query (Maybe Address)
 getAddressFromUtxo addrId = utxo . to (MP.lookup addrId)
 
+-- | Returns mintettes list
 getMintettes :: Query C.Mintettes
 getMintettes = mintettesStorage . MS.getMintettes
 
+-- | Returns explorers list
 getExplorers :: Query C.Explorers
 getExplorers = explorersStorage . ES.getExplorers
 
+-- | Returns a map from all available explorers and periodIds related
+-- to them
 getExplorersAndPeriods :: Query [(C.Explorer, C.PeriodId)]
 getExplorersAndPeriods = explorersStorage . ES.getExplorersAndPeriods
 
+-- | Get dpk
 getDpk :: Query C.Dpk
 getDpk = mintettesStorage . MS.getDpk
 
+-- | Get current periodId
 getPeriodId :: Query C.PeriodId
 getPeriodId = periodId
 
+-- | Get last block by periodId
 getHBlock :: C.PeriodId -> Query (Maybe C.HBlock)
 getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
 
+-- | Resolve transaction hash into transaction
 getTransaction :: C.TransactionId -> Query (Maybe C.Transaction)
 getTransaction tId = transactionMap . to (MP.lookup tId)
 
 -- Dumping Bank state
 
+-- | Given two indices `(a,b)` swap them so `a < b` if needed, then
+-- take exactly `b` elements of list that come after first `a`.
 reverseFromTo :: Int -> Int -> [a] -> [a]
 reverseFromTo from to' = drop small . take big . reverse
     where (small, big) = (min from to', max from to')
 
+-- | Return HBLocks that are in blockchain now
 getHBlocks :: PeriodId -> PeriodId -> Query [HBlock]
 getHBlocks left right = blocks . to (reverseFromTo left right)
 
+-- | Get actionlogs
 getLogs :: MintetteId -> Int -> Int -> Query (Maybe ActionLog)
 getLogs m left right =
     mintettesStorage .
@@ -227,6 +235,9 @@ startNewPeriod sk results = do
               [0 .. length currentMintettes - 1]
     return usersNPDs
 
+-- | Calls a startNewPeriodFinally, previously processing
+-- PeriodResults, sorting them relatevely to logs and dpk. Also
+-- merging LBlocks and adding generative transaction.
 startNewPeriodDo :: SecretKey
                  -> PeriodId
                  -> [Maybe PeriodResult]
@@ -248,7 +259,7 @@ startNewPeriodDo sk pId results = do
         filteredResults =
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
         blockTransactions =
-            allocateCoins pk keys filteredResults pId :
+            allocateCoins keys filteredResults pId :
             mergeTransactions mintettes filteredResults
     startNewPeriodFinally
         sk
@@ -258,6 +269,9 @@ startNewPeriodDo sk pId results = do
     pk = derivePublicKey sk
     filterCheckedResults (idx,mres) = (idx, ) <$> mres
 
+-- | Finalize the period start. Update mintettes, addresses, create a
+-- new block, add transactions to transaction resolving map. Return a
+-- list of mintettes that should update their utxo.
 startNewPeriodFinally :: SecretKey
                       -> [(MintetteId, PeriodResult)]
                       -> (C.AddressToTxStrategyMap -> SecretKey -> Dpk -> HBlock)
@@ -273,6 +287,8 @@ startNewPeriodFinally sk goodMintettes newBlockCtor = do
         map' (hbTransactions newBlock))
     return updateIds
 
+-- | Add pending addresses to addresses map (addr -> strategy), return
+-- it as an argument
 updateAddresses :: Update C.AddressToTxStrategyMap
 updateAddresses = do
     oldKnown <- use addresses
@@ -281,6 +297,7 @@ updateAddresses = do
     pendingAddresses .= MP.empty
     return $ pending MP.\\ oldKnown
 
+-- | Given a set of transactions, change utxo in a correspondent way
 updateUtxo :: [Transaction] -> ExceptUpdate ()
 updateUtxo newTxs = do
     let shouldBeAdded = concatMap computeOutputAddrids newTxs
@@ -288,6 +305,8 @@ updateUtxo newTxs = do
     utxo %= MP.union (MP.fromList shouldBeAdded)
     forM_ shouldBeDeleted (\d -> utxo %= MP.delete d)
 
+-- | Process a check over PeriodResult to filter them, includes checks
+-- regarding pid and action logs check
 checkResult :: PeriodId
             -> HBlock
             -> (Maybe PeriodResult, PublicKey, ActionLog)
@@ -313,18 +332,20 @@ checkResult expectedPid lastHBlock (r,key,storedLog) = do
     isCloseEpoch (CloseEpochEntry _,_) = True
     isCloseEpoch _ = False
 
-allocateCoins :: PublicKey
-              -> [PublicKey]
+-- | Perform coins allocation based on default allocation strategy
+-- (hardcoded). Given the mintette's public keys it splits reward
+-- among bank and mintettes.
+allocateCoins :: [PublicKey]
               -> [(MintetteId, PeriodResult)]
               -> PeriodId
               -> Transaction
-allocateCoins pk mintetteKeys goodResults pId =
+allocateCoins mintetteKeys goodResults pId =
     Transaction
     { txInputs = [(emissionHash pId, 0, inputValue)]
     , txOutputs = (bankAddress, bankReward) : mintetteOutputs
     }
   where
-    bankAddress = Address pk
+    bankAddress = Address bankPublicKey
     (bankReward,goodMintetteRewards) =
         Strategies.allocateCoins
             Strategies.AllocateCoinsDefault
@@ -336,6 +357,8 @@ allocateCoins pk mintetteKeys goodResults pId =
         map (first $ Address . (mintetteKeys !!) . idxInGoodToGlobal) $
         enumerate goodMintetteRewards
 
+-- | Return all transactions that appear in periodResults collected
+-- from mintettes.
 mergeTransactions :: Mintettes -> [(MintetteId, PeriodResult)] -> [Transaction]
 mergeTransactions mts goodResults =
     M.foldrWithKey appendTxChecked [] txMap
@@ -358,6 +381,8 @@ mergeTransactions mts goodResults =
         in S.size (ownersSet `S.intersection` committedMintettes) >
            (S.size ownersSet `div` 2)
 
+-- | Given a list of mintettes with ids that changed it returns a map
+-- from mintette id to utxo it should now adopt.
 formPayload :: [a] -> [MintetteId] -> ExceptUpdate (MP.Map MintetteId C.Utxo)
 formPayload mintettes' changedId = do
     curUtxo <- use utxo
@@ -379,6 +404,8 @@ formPayload mintettes' changedId = do
                      changedId)
     return payload
 
+-- | Process mintettes, kick out some, return ids that changed (and
+-- need to update their utxo).
 updateMintettes :: SecretKey
                 -> [(MintetteId, PeriodResult)]
                 -> Update [MintetteId]

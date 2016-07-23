@@ -98,7 +98,7 @@ emissionHash a =
 
 bankPublicKey :: PublicKey
 bankPublicKey =
-    fromMaybe (error "[FATAL] Failed to parse Bank's public key") $
+    fromMaybe (error "[FATAL] Failed to parse hardcoded Bank's public key") $
     constructPublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
 
 -- | Special address used as output in genesis transaction

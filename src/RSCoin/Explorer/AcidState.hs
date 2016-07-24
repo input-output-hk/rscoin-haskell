@@ -61,7 +61,7 @@ getLastPeriodId = ES.getLastPeriodId
 getTx :: C.TransactionId -> Query ES.Storage (Maybe C.Transaction)
 getTx = ES.getTx
 
-addHBlock :: C.PeriodId -> C.HBlock -> Update ES.Storage ()
+addHBlock :: C.PeriodId -> C.HBlock -> C.EmissionId -> Update ES.Storage ()
 addHBlock = ES.addHBlock
 
 $(makeAcidic ''ES.Storage

@@ -12,6 +12,7 @@
 module RSCoin.Explorer.Web.Sockets.Types
        ( TransactionSummary (..)
        , TransactionSummarySerializable
+       , AddrId
        , mkTransactionSummarySerializable
        , ServerError (..)
        , ErrorableMsg
@@ -38,7 +39,7 @@ import qualified RSCoin.Core             as C
 
 
 -- | This type should be modified version of AddrId from RSCoin.Core
-type AddrId = (C.TransactionId, Int, C.Coin, C.Address)
+type AddrId = (C.TransactionId, Int, C.Coin, Maybe C.Address)
 
 -- | This type should be modified version of Transaction from RSCoin.Core
 data TransactionSummary = TransactionSummary

@@ -10,6 +10,8 @@ module RSCoin.Bank.AcidState
        , openMemState
        , closeState
        , GetMintettes (..)
+       , GetEmission (..)
+       , GetEmissions (..)
        , GetAddresses (..)
        , GetExplorers (..)
        , GetExplorersAndPeriods (..)
@@ -34,12 +36,13 @@ import           Data.Acid           (AcidState, Query, Update, closeAcidState,
                                       makeAcidic, openLocalStateFrom)
 import           Data.Acid.Memory    (openMemoryState)
 
-import           RSCoin.Core         (ActionLog, Address, AddressToTxStrategyMap,
+import           RSCoin.Core         (ActionLog, Address,
+                                      AddressToTxStrategyMap, EmissionId,
                                       Explorer, Explorers, HBlock, Mintette,
                                       MintetteId, Mintettes, NewPeriodData,
                                       PeriodId, PeriodResult, PublicKey,
-                                      SecretKey, Transaction, TxStrategy,
-                                      TransactionId)
+                                      SecretKey, Transaction, TransactionId,
+                                      TxStrategy)
 
 
 import qualified RSCoin.Bank.Storage as BS
@@ -57,6 +60,12 @@ closeState = closeAcidState
 
 instance MonadThrow (Update s) where
     throwM = throw
+
+getEmission :: PeriodId -> Query BS.Storage (Maybe TransactionId)
+getEmission = view . BS.getEmission
+
+getEmissions :: PeriodId -> PeriodId -> Query BS.Storage [TransactionId]
+getEmissions from to = view $ BS.getEmissions from to
 
 getAddresses :: Query BS.Storage AddressToTxStrategyMap
 getAddresses = view BS.getAddresses
@@ -114,6 +123,8 @@ startNewPeriod = BS.startNewPeriod
 
 $(makeAcidic ''BS.Storage
              [ 'getMintettes
+             , 'getEmission
+             , 'getEmissions
              , 'getAddresses
              , 'getExplorers
              , 'getExplorersAndPeriods

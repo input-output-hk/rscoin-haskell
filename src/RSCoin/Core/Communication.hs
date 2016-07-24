@@ -63,12 +63,13 @@ import           RSCoin.Core.Crypto         (PublicKey, SecretKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
-import           RSCoin.Core.Primitives     (AddrId, Address, Transaction,
-                                             TransactionId)
+import           RSCoin.Core.Primitives     (AddrId, Address, EmissionId,
+                                             Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
-import           RSCoin.Core.Strategy       (AddressToTxStrategyMap, AllocationAddress,
-                                             AllocationInfo, AllocationStrategy,
-                                             MSAddress, PartyAddress, TxStrategy)
+import           RSCoin.Core.Strategy       (AddressToTxStrategyMap,
+                                             AllocationAddress, AllocationInfo,
+                                             AllocationStrategy, MSAddress,
+                                             PartyAddress, TxStrategy)
 import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              CheckConfirmations,
                                              CommitAcknowledgment,
@@ -324,7 +325,7 @@ announceNewPeriod mintette npd = do
 
 announceNewBlock
     :: WorkMode m
-    => Explorer -> PeriodId -> HBlock -> Signature -> m PeriodId
+    => Explorer -> PeriodId -> (HBlock, EmissionId) -> Signature -> m PeriodId
 announceNewBlock explorer pId blk signature =
     withResult infoMessage successMessage $
     P.callExplorer explorer $

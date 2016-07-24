@@ -9,8 +9,8 @@ import           Data.Monoid         ((<>))
 import           Data.Text           (Text)
 import           Data.Text.Buildable (Buildable (build))
 import           Data.Typeable       (Typeable)
-import           RSCoin.Core         (rscExceptionToException,
-                                     rscExceptionFromException)
+import           RSCoin.Core         (rscExceptionFromException,
+                                      rscExceptionToException)
 
 data BankError
     = BEInternal Text                     -- ^ Should not happen.

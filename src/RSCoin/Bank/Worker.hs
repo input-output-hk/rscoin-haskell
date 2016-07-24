@@ -30,7 +30,7 @@ import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text       (formatSingle')
 
-import           RSCoin.Bank.AcidState    (AddAddress (..),
+import           RSCoin.Bank.AcidState    (AddAddress (..), GetEmission (..),
                                            GetExplorersAndPeriods (..),
                                            GetHBlock (..), GetHBlocks (..),
                                            GetMintettes (..), GetPeriodId (..),
@@ -221,9 +221,10 @@ sendBlockToExplorer
     => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m Bool
 sendBlockToExplorer sk st explorer pId = do
     blk <- fromMaybe reportFatalError <$> query' st (GetHBlock pId)
+    ems <- query' st (GetEmission pId)
     let sendAndUpdate = do
             newExpectedPeriod <-
-                C.announceNewBlock explorer pId blk (C.sign sk (pId, blk))
+                C.announceNewBlock explorer pId (blk,ems) (C.sign sk (pId, blk))
             update' st $ SetExplorerPeriod explorer newExpectedPeriod
     (True <$ sendAndUpdate) `catch` handler
   where

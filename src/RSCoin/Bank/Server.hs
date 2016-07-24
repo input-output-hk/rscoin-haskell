@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | Server implementation for Bank
 
@@ -17,6 +18,7 @@ import           Serokell.Util.Text    (format', formatSingle', mapBuilder,
                                         show')
 
 import           RSCoin.Bank.AcidState (AddMintette (..), GetAddresses (..),
+                                        GetEmission (..),
                                         GetExplorersAndPeriods (..),
                                         GetHBlock (..), GetHBlocks (..),
                                         GetLogs (..), GetMintettes (..),
@@ -94,6 +96,16 @@ serveGetHeight st =
     do pId <- query' st GetPeriodId
        logDebug bankLoggerName $ formatSingle' "Getting blockchain height: {}" pId
        return pId
+
+serveGetHBlockEmission :: T.WorkMode m
+               => State -> PeriodId -> T.ServerT m (Maybe (HBlock, Maybe TransactionId))
+serveGetHBlockEmission st pId =
+    toServer $
+    do mBlock <- query' st (GetHBlock pId)
+       emission <- query' st (GetEmission pId)
+       logDebug bankLoggerName $
+           format' "Getting higher-level block with periodId {} and emission {}: {}" (pId, emission, mBlock)
+       return $ (,emission) <$> mBlock
 
 serveGetHBlock :: T.WorkMode m
                => State -> PeriodId -> T.ServerT m (Maybe HBlock)

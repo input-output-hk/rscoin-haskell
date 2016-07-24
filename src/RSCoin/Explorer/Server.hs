@@ -45,10 +45,10 @@ handleNewHBlock
     => Channel
     -> State
     -> C.PeriodId
-    -> C.HBlock
+    -> (C.HBlock, C.EmissionId)
     -> C.Signature
     -> ServerT m C.PeriodId
-handleNewHBlock ch st newBlockId newBlock sig = do
+handleNewHBlock ch st newBlockId (newBlock, emission) sig = do
     logInfo $ sformat ("Received new block #" % int) newBlockId
     unless (C.verify C.bankPublicKey sig (newBlockId, newBlock)) $
         liftIO $ throwIO EEInvalidBankSignature
@@ -57,7 +57,7 @@ handleNewHBlock ch st newBlockId newBlock sig = do
             logDebug $ sformat ("Now expected block is #" % int) p
             return p
         upd = do
-            update' st (AddHBlock newBlockId newBlock)
+            update' st (AddHBlock newBlockId newBlock emission)
             logDebug $ formatSingle' "HBlock hash: {}" $ C.hash newBlock
             logDebug $ formatSingle' "Transaction hashes: {}" $ listBuilderJSONIndent 2 $ map (C.hash :: C.Transaction -> C.Hash) $ C.hbTransactions newBlock
             logDebug $ formatSingle' "Transactions: {}" $ listBuilderJSONIndent 2 $ C.hbTransactions newBlock

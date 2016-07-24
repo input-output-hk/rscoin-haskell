@@ -13,6 +13,8 @@ module RSCoin.Bank.Storage.Whole
        , Update
        , ExceptUpdate
        , explorersStorage
+       , getEmission
+       , getEmissions
        , getAddresses
        , getAddressFromUtxo
        , getMintettes
@@ -34,7 +36,7 @@ module RSCoin.Bank.Storage.Whole
 
 import           Control.Lens                  (Getter, makeLenses, to, use,
                                                 uses, (%%=), (%=), (+=), (.=))
-import           Control.Monad                 (forM_, guard, unless)
+import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (MonadThrow (throwM))
 import           Control.Monad.State           (MonadState, execState, runState)
 import           Data.Bifunctor                (first)
@@ -43,7 +45,7 @@ import qualified Data.HashMap.Lazy             as M
 import qualified Data.HashSet                  as S
 import           Data.List                     (unfoldr)
 import qualified Data.Map                      as MP
-import           Data.Maybe                    (mapMaybe)
+import           Data.Maybe                    (fromJust, isJust, mapMaybe)
 import           Data.SafeCopy                 (base, deriveSafeCopy)
 import           Data.Tuple.Select             (sel3)
 import           Data.Typeable                 (Typeable)
@@ -89,6 +91,8 @@ data Storage = Storage
     , _utxo             :: C.Utxo
       -- | Mapping from transaction id to actual transaction with this id.
     , _transactionMap   :: MP.Map C.TransactionId C.Transaction
+      -- | List off all emission hashes from the very beginning.
+    , _emissionHashes   :: [C.TransactionId]
       -- | Known addresses accompanied with their strategies. Note that every address with
       -- non-default strategy should be stored here in order to participate in transaction.
     , _addresses        :: C.AddressToTxStrategyMap
@@ -109,11 +113,20 @@ mkStorage =
     , _blocks = []
     , _utxo = MP.empty
     , _transactionMap = MP.empty
+    , _emissionHashes = []
     , _addresses = MP.empty
     , _pendingAddresses = MP.empty
     }
 
 type Query a = Getter Storage a
+
+-- | Returns emission hash made in provided period
+getEmission :: C.PeriodId -> Query (Maybe C.TransactionId)
+getEmission pId = emissionHashes . to (\b -> b `atMay` (length b - pId))
+
+-- | Return emission hashes provided in period range
+getEmissions :: PeriodId -> PeriodId -> Query [C.TransactionId]
+getEmissions left right = emissionHashes . to (reverseFromTo (max left 1) right)
 
 -- | Returns addresses (to strategies) map
 getAddresses :: Query C.AddressToTxStrategyMap
@@ -243,7 +256,7 @@ startNewPeriodDo :: SecretKey
                  -> [Maybe PeriodResult]
                  -> ExceptUpdate [MintetteId]
 startNewPeriodDo sk 0 _ =
-    startNewPeriodFinally sk [] $ const mkGenesisHBlock
+    startNewPeriodFinally sk [] (const mkGenesisHBlock) Nothing
 startNewPeriodDo sk pId results = do
     lastHBlock <- head <$> use blocks
     curDpk <- use getDpk
@@ -258,13 +271,17 @@ startNewPeriodDo sk pId results = do
             map (checkResult pId lastHBlock) $ zip3 results keys logs
         filteredResults =
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
+        emissionTransaction = allocateCoins keys filteredResults pId
+        checkEmission [(tid,_,_)] = return tid
+        checkEmission _ = throwM $ BEInternal "Emission transaction should have one transaction hash"
         blockTransactions =
-            allocateCoins keys filteredResults pId :
-            mergeTransactions mintettes filteredResults
+            emissionTransaction : mergeTransactions mintettes filteredResults
+    emissionTransactionId <- checkEmission $ C.txInputs emissionTransaction
     startNewPeriodFinally
         sk
         filteredResults
         (mkHBlock blockTransactions lastHBlock)
+        (Just emissionTransactionId)
   where
     pk = derivePublicKey sk
     filterCheckedResults (idx,mres) = (idx, ) <$> mres
@@ -272,16 +289,21 @@ startNewPeriodDo sk pId results = do
 -- | Finalize the period start. Update mintettes, addresses, create a
 -- new block, add transactions to transaction resolving map. Return a
 -- list of mintettes that should update their utxo.
-startNewPeriodFinally :: SecretKey
-                      -> [(MintetteId, PeriodResult)]
-                      -> (C.AddressToTxStrategyMap -> SecretKey -> Dpk -> HBlock)
-                      -> ExceptUpdate [MintetteId]
-startNewPeriodFinally sk goodMintettes newBlockCtor = do
+startNewPeriodFinally
+    :: SecretKey
+    -> [(MintetteId, PeriodResult)]
+    -> (C.AddressToTxStrategyMap -> SecretKey -> Dpk -> HBlock)
+    -> C.EmissionId
+    -> ExceptUpdate [MintetteId]
+startNewPeriodFinally sk goodMintettes newBlockCtor emissionTid = do
     periodId += 1
     updateIds <- updateMintettes sk goodMintettes
     newAddrs <- updateAddresses
     newBlock <- newBlockCtor newAddrs sk <$> use getDpk
     updateUtxo $ hbTransactions newBlock
+    -- TODO: this can be written more elegantly !
+    when (isJust emissionTid) $
+        emissionHashes %= (fromJust emissionTid :)
     blocks %= (newBlock:)
     transactionMap %= (\map' -> foldl' (\m t -> MP.insert (hash t) t m)
         map' (hbTransactions newBlock))

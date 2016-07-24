@@ -24,7 +24,7 @@ module RSCoin.Explorer.Storage
 
 import           Control.Lens                      (at, makeLenses, use, view,
                                                     views, (%=), (.=), _Just)
-import           Control.Monad                     (unless)
+import           Control.Monad                     (join, unless)
 import           Control.Monad.Catch               (MonadThrow (throwM))
 import           Control.Monad.Extra               (whenJustM)
 import           Control.Monad.Reader              (MonadReader)
@@ -32,13 +32,15 @@ import           Control.Monad.State               (MonadState)
 import           Data.List                         (foldl', genericDrop,
                                                     genericLength, genericTake)
 import qualified Data.Map.Strict                   as M
-import           Data.Maybe                        (catMaybes, fromMaybe)
+import           Data.Maybe                        (catMaybes, fromMaybe,
+                                                    isJust)
 import           Data.SafeCopy                     (base, deriveSafeCopy)
 
 import qualified RSCoin.Core                       as C
 
 import           RSCoin.Explorer.Error             (ExplorerError (..))
-import           RSCoin.Explorer.Web.Sockets.Types (TransactionSummary (..))
+import           RSCoin.Explorer.Web.Sockets.Types (AddrId,
+                                                    TransactionSummary (..))
 
 $(deriveSafeCopy 0 'base ''TransactionSummary)
 
@@ -69,6 +71,8 @@ data Storage = Storage
       -- | Mapping from transaction id to actual transaction with this
       -- id. Contains all transactions ever seen by this explorer.
       _transactionsMap :: M.Map C.TransactionId C.Transaction
+      -- | List off all emission hashes from the very beginning.
+    , _emissionHashes  :: [C.TransactionId]
     }
 
 $(makeLenses ''Storage)
@@ -134,8 +138,8 @@ type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 -- | Modify storage by applying given higher-level block. Period
 -- identifier is required to check that given HBlock is the next after
 -- last applied block.
-addHBlock :: C.PeriodId -> C.HBlock -> ExceptUpdate ()
-addHBlock pId C.HBlock{..} = do
+addHBlock :: C.PeriodId -> C.HBlock -> C.EmissionId -> ExceptUpdate ()
+addHBlock pId C.HBlock{..} emission = do
     expectedPid <- maybe 0 succ <$> use lastPeriodId
     unless (expectedPid == pId) $
         throwM
@@ -145,12 +149,20 @@ addHBlock pId C.HBlock{..} = do
             }
     mapM_ applyTransaction hbTransactions
     lastPeriodId .= Just pId
+    addEmission emission
+  where
+    addEmission (Just e) = emissionHashes %= (e:)
+    addEmission _ = pure ()
 
-applyTransaction :: C.Transaction -> Update ()
+applyTransaction :: C.Transaction -> ExceptUpdate ()
 applyTransaction tx@C.Transaction{..} = do
     transactionsMap . at txHash .= Just tx
     -- FIXME: @akegalj thinks fromJust should be safe here?
-    txInputsSummaries <- catMaybes <$> mapM (\a -> fmap (mkSummaryAddrId a) <$> inputToAddr a) txInputs
+    txInputsSummaries <-
+        mapM
+            (\a ->
+                  mkSummaryAddrId a =<< inputToAddr a)
+            txInputs
     let txSummary = mkTransactionSummary txInputsSummaries
     mapM_ (applyTxInput txSummary) txInputs
     mapM_ (applyTxOutput txSummary) txOutputs
@@ -158,19 +170,35 @@ applyTransaction tx@C.Transaction{..} = do
     txHash = C.hash tx
     mkTransactionSummary summaryTxInputs =
         TransactionSummary
-            { txsId = txHash
-            , txsInputs = summaryTxInputs
-            , txsOutputs = txOutputs
-            , txsInputsSum = foldl' (\m (_, _, c) -> M.insertWith (+) (C.getColor c) c m) M.empty txInputs
-            , txsOutputsSum = foldl' (\m (_, c) -> M.insertWith (+) (C.getColor c) c m) M.empty txOutputs
-            }
+        { txsId = txHash
+        , txsInputs = summaryTxInputs
+        , txsOutputs = txOutputs
+        , txsInputsSum = foldl'
+              (\m (_,_,c) ->
+                    M.insertWith (+) (C.getColor c) c m)
+              M.empty
+              txInputs
+        , txsOutputsSum = foldl'
+              (\m (_,c) ->
+                    M.insertWith (+) (C.getColor c) c m)
+              M.empty
+              txOutputs
+        }
     -- TODO: use getTx that is already defined in this module
     -- We have to promote Query to Update
-    inputToAddr :: C.AddrId -> Update (Maybe C.Address)
+    inputToAddr
+        :: C.AddrId -> Update (Maybe C.Address)
     inputToAddr (txId,idx,_) =
         fmap (fst . (!! idx) . C.txOutputs) <$>
         (use $ transactionsMap . at txId)
-    mkSummaryAddrId (txId, ind, c) addr = (txId, ind, c, addr)
+    mkSummaryAddrId :: C.AddrId -> (Maybe C.Address) -> ExceptUpdate AddrId
+    mkSummaryAddrId (txId,ind,c) addr
+      | isJust addr = return (txId, ind, c, addr)
+      | otherwise = do
+          hasEmission <- elem txId <$> use emissionHashes
+          if hasEmission
+              then return (txId, ind, c, Nothing)
+              else throwM $ EEInternalError "Invalid transaction id seen."
 
 applyTxInput :: TransactionSummary -> C.AddrId -> Update ()
 applyTxInput tx (oldTxId,idx,c) =

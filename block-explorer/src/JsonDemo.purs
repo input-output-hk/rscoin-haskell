@@ -6,6 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (log, CONSOLE)
 
 import Data.Tuple (Tuple (..))
+import Data.Maybe (Maybe (..))
 import Data.Tuple.Nested (tuple4)
 
 import Data.Argonaut.Printer (printJson)
@@ -30,7 +31,7 @@ main = do
         key      = W.PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
         hash     = W.Hash "DldRwCblQ7Loqy6wYJnaodHl30d3j3eH+qtFzfEv46g="
         addr     = W.Address { getAddress:  key }
-        tx       = W.TransactionSummarySerializable {txId: hash, txInputs: [tuple4 hash 0 coin addr], txOutputs: [(Tuple addr coin)], txInputsSum: [Tuple 0 coin], txOutputsSum: [Tuple 0 coin]}
+        tx       = W.TransactionSummarySerializable {txId: hash, txInputs: [tuple4 hash 0 coin $ Just addr], txOutputs: [(Tuple addr coin)], txInputsSum: [Tuple 0 coin], txOutputsSum: [Tuple 0 coin]}
         err      = W.ParseError "error"
         introMsg = W.IMAddressInfo addr
         aiMsg    = W.AIGetTransactions (Tuple 0 2)

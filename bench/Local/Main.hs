@@ -22,12 +22,14 @@ import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   Severity (..),
                                                   defaultPeriodDelta,
                                                   initLogging, keyGen)
+import           RSCoin.Timed                    (runRealModeLocal)
 
 import           Bench.RSCoin.FilePathUtils      (tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
                                                   mintetteThread, notaryThread)
 import           Bench.RSCoin.Logging            (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserCommons        (benchUserTransactions,
+                                                  finishBankPeriod,
                                                   initializeBank,
                                                   initializeUser, userThread)
 
@@ -57,7 +59,7 @@ generateMintetteKeys = flip replicateM keyGen . fromIntegral
 runMintettes :: FilePath -> KeyPairList -> IO ()
 runMintettes benchDir secretKeys
     = forM_ (zip [1..] secretKeys) $ \(mintetteId, (secretKey, publicKey)) -> do
-        addMintette mintetteId benchDir publicKey
+        addMintette mintetteId publicKey
         void $ forkIO $ mintetteThread mintetteId benchDir secretKey
 
 establishMintettes :: FilePath -> Word -> IO ()
@@ -65,6 +67,7 @@ establishMintettes benchDir mintettesNumber = do
     keyPairs <- generateMintetteKeys mintettesNumber
     logInfo $ sformat ("Running " % int % " mintettes…") mintettesNumber
     runMintettes benchDir keyPairs
+    runRealModeLocal finishBankPeriod
     logInfo $ sformat (int % " mintettes are launched") mintettesNumber
     threadDelay $ 2 * 10 ^ (6 :: Int)
 
@@ -122,9 +125,9 @@ main = do
         initLogging globalSeverity
         initBenchLogger bSeverity
 
-        establishMintettes benchDir mintettesNumber
         establishNotary    benchDir
         establishBank      benchDir periodDelta
+        establishMintettes benchDir mintettesNumber
 
         let userIds    = [1 .. fromIntegral userNumber]
         userAddresses <- initializeUsers benchDir userIds

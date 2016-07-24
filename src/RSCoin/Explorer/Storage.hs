@@ -86,6 +86,7 @@ mkStorage =
     { _addresses = M.empty
     , _lastPeriodId = Nothing
     , _transactionsMap = M.empty
+    , _emissionHashes = []
     }
 
 type Query a = forall m. MonadReader Storage m => m a

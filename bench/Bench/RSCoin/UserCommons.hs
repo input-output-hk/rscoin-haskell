@@ -3,6 +3,7 @@
 module Bench.RSCoin.UserCommons
         ( benchUserTransactions
         , executeTransaction
+        , finishBankPeriod
         , initializeBank
         , initializeUser
         , userThread
@@ -21,7 +22,8 @@ import           System.FilePath            ((</>))
 
 import           RSCoin.Core                (Address (..), Coin (..), Color,
                                              bankSecretKey, defaultLayout',
-                                             finishPeriod, keyGen)
+                                             finishPeriod, getBlockchainHeight,
+                                             keyGen, sign)
 import           RSCoin.Timed               (MsgPackRpc, for, runRealMode, sec,
                                              wait)
 import qualified RSCoin.User                as U
@@ -87,6 +89,13 @@ executeTransaction userState cache coinColor coinAmount addrToSend =
     inputMoneyInfo = [(0, outputMoney)]
     td = TransactionData inputMoneyInfo addrToSend outputMoney
 
+-- | Finishes current bank period.
+finishBankPeriod :: MsgPackRpc ()
+finishBankPeriod = do
+    currentPeriodId <- getBlockchainHeight
+    let signature    = sign bankSecretKey currentPeriodId
+    finishPeriod signature
+
 -- | Create user in `bankMode` and send coins to every user.
 initializeBank :: Word -> [Address] -> U.RSCoinUserState -> MsgPackRpc ()
 initializeBank coinsNum userAddresses bankUserState = do
@@ -99,9 +108,8 @@ initializeBank coinsNum userAddresses bankUserState = do
     forM_ userAddresses $
         executeTransaction bankUserState cache 0 (fromIntegral coinsNum)
     logDebug "Sent initial coins from bank to users"
-    logInfo
-        "Initialized user in bankMode, finishing period"
-    finishPeriod bankSecretKey
+    logInfo "Initialized user in bankMode, finishing period"
+    finishBankPeriod
     wait $ for 1 sec
 
 -- | Do `txNum` transactions to random address.

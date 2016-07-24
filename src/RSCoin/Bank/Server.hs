@@ -6,32 +6,40 @@ module RSCoin.Bank.Server
        ( serve
        ) where
 
-import           Control.Concurrent    (MVar, newMVar, putMVar, takeMVar)
-import           Control.Monad.Catch   (catch, throwM)
-import           Control.Monad.Trans   (lift, liftIO)
+import           Control.Concurrent             (MVar, newMVar)
+import           Control.Concurrent.MVar.Lifted (modifyMVar_)
+import           Control.Monad.Catch            (catch, throwM)
+import           Control.Monad.Trans            (lift, liftIO)
 
-import           Data.Acid.Advanced    (query', update')
-import qualified Data.Map.Strict       as M
+import           Data.Acid.Advanced             (query', update')
+import qualified Data.Map.Strict                as M
 
-import           Serokell.Util.Text    (format', formatSingle', mapBuilder,
-                                        show')
+import           Formatting                     (int, sformat, (%))
 
-import           RSCoin.Bank.AcidState (AddMintette (..), GetAddresses (..),
-                                        GetExplorersAndPeriods (..),
-                                        GetHBlock (..), GetHBlocks (..),
-                                        GetLogs (..), GetMintettes (..),
-                                        GetPeriodId (..), GetTransaction (..),
-                                        State)
-import           RSCoin.Bank.Error     (BankError)
+import           Serokell.Util.Text             (format', formatSingle',
+                                                 mapBuilder, show')
 
-import           RSCoin.Core           (ActionLog, AddressToTxStrategyMap,
-                                        Explorers, HBlock, Mintette, MintetteId,
-                                        Mintettes, PeriodId, PublicKey,
-                                        Signature, Transaction, TransactionId,
-                                        bankLoggerName, bankPort, bankPublicKey,
-                                        logDebug, logError, logInfo, verify)
-import qualified RSCoin.Core.Protocol  as C
-import qualified RSCoin.Timed          as T
+import           RSCoin.Bank.AcidState          (AddMintette (..),
+                                                 GetAddresses (..),
+                                                 GetExplorersAndPeriods (..),
+                                                 GetHBlock (..),
+                                                 GetHBlocks (..), GetLogs (..),
+                                                 GetMintettes (..),
+                                                 GetPeriodId (..),
+                                                 GetTransaction (..), State)
+import           RSCoin.Bank.Error              (BankError)
+
+import           RSCoin.Core                    (ActionLog,
+                                                 AddressToTxStrategyMap,
+                                                 Explorers, HBlock, Mintette,
+                                                 MintetteId, Mintettes,
+                                                 PeriodId, PublicKey, Signature,
+                                                 Transaction, TransactionId,
+                                                 bankLoggerName, bankPort,
+                                                 bankPublicKey, logDebug,
+                                                 logError, logInfo, verify)
+import qualified RSCoin.Core.Protocol           as C
+import qualified RSCoin.Timed                   as T
 
 serve
     :: T.WorkMode m
@@ -42,7 +50,7 @@ serve st workerThread restartWorkerAction = do
     idr2 <- T.serverTypeRestriction0
     idr3 <- T.serverTypeRestriction1
     idr4 <- T.serverTypeRestriction1
-    idr5 <- T.serverTypeRestriction0
+    idr5 <- T.serverTypeRestriction1
     idr6 <- T.serverTypeRestriction2
     idr7 <- T.serverTypeRestriction3
     idr8 <- T.serverTypeRestriction0
@@ -55,7 +63,7 @@ serve st workerThread restartWorkerAction = do
         , C.method (C.RSCBank C.GetHBlock) $ idr3 $ serveGetHBlock st
         , C.method (C.RSCBank C.GetTransaction) $ idr4 $ serveGetTransaction st
         , C.method (C.RSCBank C.FinishPeriod) $
-          idr5 $ serveFinishPeriod threadIdMVar restartWorkerAction
+          idr5 $ serveFinishPeriod st threadIdMVar restartWorkerAction
         , C.method (C.RSCDump C.GetHBlocks) $ idr6 $ serveGetHBlocks st
         , C.method (C.RSCDump C.GetHBlocks) $ idr7 $ serveGetLogs st
         , C.method (C.RSCBank C.GetAddresses) $ idr8 $ serveGetAddresses st
@@ -113,15 +121,26 @@ serveGetTransaction st tId =
            format' "Getting transaction with id {}: {}" (tId, t)
        return t
 
+-- !!! WARNING !!!
+-- Usage of this function may accidentally lead to finishing period twice in a
+-- row. But it is used only in benchmarks with infinite period so it is ok.
 serveFinishPeriod
     :: T.WorkMode m
-    => MVar T.ThreadId -> (T.ThreadId -> m T.ThreadId) -> T.ServerT m ()
-serveFinishPeriod threadIdMVar restartAction =
-    toServer $
-    do logInfo bankLoggerName $ "Forced finish of period was requested"
-       -- TODO: consider using modifyMVar_ here
-       liftIO (takeMVar threadIdMVar) >>= restartAction >>=
-           liftIO . putMVar threadIdMVar
+    => State
+    -> MVar T.ThreadId
+    -> (T.ThreadId -> m T.ThreadId)
+    -> Signature
+    -> T.ServerT m ()
+serveFinishPeriod st threadIdMVar restartAction periodIdSignature = toServer $ do
+    logInfo bankLoggerName "Forced finish of period was requested"
+
+    modifyMVar_ threadIdMVar $ \workerThreadId -> do
+        currentPeriodId <- query' st GetPeriodId
+        if verify bankPublicKey periodIdSignature currentPeriodId then
+            restartAction workerThreadId
+        else do
+            logError bankLoggerName $ sformat ("Incorrect signature for periodId=" % int) currentPeriodId
+            return workerThreadId
 
 serveAddPendingMintette
     :: T.WorkMode m

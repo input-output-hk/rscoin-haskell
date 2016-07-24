@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
@@ -10,7 +11,7 @@ module Test.RSCoin.Full.Property
        ( FullProperty
        , FullPropertyEmulation
        , FullPropertyRealMode
-       , launchPure
+       --, launchPure
        , toTestable
        , assertFP
        , pickFP
@@ -32,9 +33,7 @@ import           Test.QuickCheck.Monadic         (PropertyM, assert, monadic,
 import           Serokell.Util                   (listBuilderJSONIndent)
 
 import           RSCoin.Core                     (logDebug, testingLoggerName)
-import           RSCoin.Timed                    (Delays, MsgPackRpc, PureRpc,
-                                                  StdGen, WorkMode,
-                                                  runEmulationMode,
+import           RSCoin.Timed                    (MsgPackRpc, PureRpc, WorkMode,
                                                   runRealModeLocal)
 
 import           Test.RSCoin.Core.Arbitrary      ()
@@ -50,8 +49,8 @@ type FullProperty m = TestEnv (PropertyM m)
 type FullPropertyEmulation = FullProperty (PureRpc IO)
 type FullPropertyRealMode = FullProperty MsgPackRpc
 
-launchPure :: StdGen -> Delays -> PureRpc IO a -> IO a
-launchPure gen = runEmulationMode (Just gen)
+--launchPure :: StdGen -> Delays -> PureRpc IO a -> IO a
+--launchPure gen = runEmulationMode (Just gen)
 
 launchReal :: MsgPackRpc a -> IO a
 launchReal = runRealModeLocal
@@ -77,12 +76,12 @@ toTestable launcher fp mNum uNum = monadic unwrapProperty wrappedProperty
     (unwrapProperty :: m Property -> Property) = ioProperty . launcher
     (wrappedProperty :: PropertyM m a) = toPropertyM fp mNum uNum
 
-instance Testable (FullPropertyEmulation a) where
-    property fp =
-        property $
-        \gen ->
-             \delays ->
-                  toTestable (launchPure gen delays) fp
+--instance Testable (FullPropertyEmulation a) where
+--    property fp =
+--        property $
+--        \gen ->
+--             \delays ->
+--                  toTestable (launchPure gen delays) fp
 
 instance Testable (FullPropertyRealMode a) where
     property = property . toTestable launchReal

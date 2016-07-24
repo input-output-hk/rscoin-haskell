@@ -117,6 +117,7 @@ library
                      , hashable
                      , hslogger
                      , lens
+                     , lifted-base >= 0.2.3
                      , mtl
                      , MonadRandom
                      , monad-loops

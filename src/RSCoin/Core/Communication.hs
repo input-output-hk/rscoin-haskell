@@ -59,7 +59,7 @@ import           Serokell.Util.Text         (format', formatSingle',
                                              listBuilderJSONIndent, mapBuilder,
                                              pairBuilder, show')
 
-import           RSCoin.Core.Crypto         (PublicKey, SecretKey, Signature)
+import           RSCoin.Core.Crypto         (PublicKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
@@ -180,12 +180,12 @@ getGenesisBlock = do
     liftIO $ logDebug "Successfully got genesis block"
     return block
 
-finishPeriod :: WorkMode m => SecretKey -> m ()
-finishPeriod _ =
+finishPeriod :: WorkMode m => Signature -> m ()
+finishPeriod currentPeriodSignature =
     withResult
         (logInfo "Finishing period")
         (const $ logDebug "Successfully finished period") $
-    callBank (P.call $ P.RSCBank P.FinishPeriod)
+    callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
 
 addPendingMintette :: WorkMode m => Mintette -> PublicKey -> Signature -> m ()
 addPendingMintette mintette pk proof =

@@ -7,6 +7,7 @@ module RSCoin.Mintette.AcidState
        , getUtxoPset
        , getBlocks
        , getLogs
+       , getPeriodId
        , previousMintetteId
        , checkNotDoubleSpent
        , commitTx
@@ -44,6 +45,9 @@ getBlocks = MS.getBlocks
 
 getLogs :: PeriodId -> Query MS.Storage (Maybe ActionLog)
 getLogs = MS.getLogs
+
+getPeriodId :: Query MS.Storage PeriodId
+getPeriodId = MS.getPeriodId
 
 previousMintetteId :: Query MS.Storage (Maybe MintetteId)
 previousMintetteId = MS.previousMintetteId

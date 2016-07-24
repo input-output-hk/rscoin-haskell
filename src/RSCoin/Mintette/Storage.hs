@@ -19,6 +19,7 @@ module RSCoin.Mintette.Storage
        , getUtxoPset
        , getBlocks
        , getLogs
+       , getPeriodId
        -- | Other helper methods
        , checkIsActive
        , checkTxSum
@@ -41,8 +42,8 @@ module RSCoin.Mintette.Storage
 
 import           Control.Applicative        ((<|>))
 import           Control.Lens               (Getter, at, makeLenses, to, use,
-                                             uses, view, (%=), (+=), (.=),
-                                             (<>=), (<~))
+                                             uses, view, views, (%=), (+=),
+                                             (.=), (<>=), (<~))
 import           Control.Monad              (unless, when)
 import           Control.Monad.Catch        (MonadThrow (throwM))
 import           Control.Monad.Extra        (whenJust)
@@ -57,11 +58,11 @@ import           Data.Tuple.Select          (sel1)
 import           Safe                       (atMay, headMay)
 
 import           RSCoin.Core                (ActionLog, ActionLogHeads,
-                                             AddressToTxStrategyMap, HBlock (..),
-                                             Hash, LBlock, MintetteId,
-                                             Mintettes, PeriodId, Pset,
-                                             SecretKey, TxStrategy (..), Utxo,
-                                             computeOutputAddrids,
+                                             AddressToTxStrategyMap,
+                                             HBlock (..), Hash, LBlock,
+                                             MintetteId, Mintettes, PeriodId,
+                                             Pset, SecretKey, TxStrategy (..),
+                                             Utxo, computeOutputAddrids,
                                              derivePublicKey, hbTransactions,
                                              isOwner, isStrategyCompleted,
                                              mkCheckConfirmation, mkLBlock,
@@ -137,7 +138,8 @@ getLogs :: (MonadReader Storage m) => PeriodId -> m (Maybe ActionLog)
 getLogs pId =
     view $ actionLogs . to (\b -> b `atMay` (length b - pId - 1))
 
--- Dumping Mintette state
+getPeriodId :: (MonadReader Storage m) => m PeriodId
+getPeriodId = views lBlocks $ pred . length
 
 getUtxoPset :: (MonadReader Storage m) => m (Utxo, Pset)
 getUtxoPset = (,) <$> view utxo <*> view pset

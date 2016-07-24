@@ -84,6 +84,7 @@ data MintetteMethod
     | AnnounceNewPeriod
     | CheckTx
     | CommitTx
+    | GetMintettePeriod
     deriving (Show)
 
 -- | Requests for multisign transactions.

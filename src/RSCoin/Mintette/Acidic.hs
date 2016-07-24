@@ -18,6 +18,7 @@ module RSCoin.Mintette.Acidic
        , FinishEpoch (..)
        , GetBlocks (..)
        , GetLogs (..)
+       , GetPeriodId (..)
        ) where
 
 import           Data.Acid                 (closeAcidState, makeAcidic,
@@ -47,4 +48,5 @@ $(makeAcidic ''MS.Storage
              , 'S.finishEpoch
              , 'S.getBlocks
              , 'S.getLogs
+             , 'S.getPeriodId
              ])

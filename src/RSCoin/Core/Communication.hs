@@ -16,6 +16,7 @@ module RSCoin.Core.Communication
        , addPendingMintette
        , checkNotDoubleSpent
        , commitTx
+       , getMintettePeriod
        , sendPeriodFinished
        , announceNewPeriod
        , announceNewPeriodsToNotary
@@ -66,9 +67,10 @@ import qualified RSCoin.Core.Logging        as L
 import           RSCoin.Core.Primitives     (AddrId, Address, Transaction,
                                              TransactionId)
 import qualified RSCoin.Core.Protocol       as P
-import           RSCoin.Core.Strategy       (AddressToTxStrategyMap, AllocationAddress,
-                                             AllocationInfo, AllocationStrategy,
-                                             MSAddress, PartyAddress, TxStrategy)
+import           RSCoin.Core.Strategy       (AddressToTxStrategyMap,
+                                             AllocationAddress, AllocationInfo,
+                                             AllocationStrategy, MSAddress,
+                                             PartyAddress, TxStrategy)
 import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              CheckConfirmations,
                                              CommitAcknowledgment,
@@ -235,6 +237,18 @@ commitTx m tx cc =
         logFunction e $ formatSingle' "Commit tx failed: {}" e
     onSuccess _ =
         logInfo $ formatSingle' "Successfully committed transaction {}" tx
+
+getMintettePeriod :: WorkMode m => Mintette -> m (Maybe PeriodId)
+getMintettePeriod m =
+    withResult infoMessage (maybe onError onSuccess) $
+    callMintette m $ P.call (P.RSCMintette P.GetMintettePeriod)
+  where
+    infoMessage = logInfo $
+        sformat ("Getting minette period from mintette " % F.build) m
+    onError = logError $ sformat
+        ("getMintettePeriod failed for mintette " % F.build) m
+    onSuccess p =
+        logInfo $ sformat ("Successfully got the period: " % F.build) p
 
 sendPeriodFinished :: WorkMode m => Mintette -> PeriodId -> m PeriodResult
 sendPeriodFinished mintette pId =

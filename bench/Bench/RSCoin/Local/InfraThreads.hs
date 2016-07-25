@@ -21,11 +21,8 @@ import           RSCoin.Timed               (fork, runRealModeLocal)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 
-bankDir :: FilePath -> FilePath
-bankDir = (</> "bank-db")
-
-addMintette :: Int -> FilePath -> PublicKey -> IO ()
-addMintette mintetteId benchDir = B.addMintetteIO (bankDir benchDir) mintette
+addMintette :: Int -> PublicKey -> IO ()
+addMintette mintetteId = B.addMintetteIO bankSecretKey mintette
   where
     mintette = Mintette localhost (defaultPort + mintetteId)
 

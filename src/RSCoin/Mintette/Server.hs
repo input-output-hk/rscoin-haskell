@@ -19,16 +19,18 @@ import           Control.Monad.IO.Class    (MonadIO, liftIO)
 import           Data.Acid.Advanced        (query', update')
 import           Data.Monoid               ((<>))
 import           Data.Text                 (Text)
+import           Formatting                (int, sformat, (%))
 
 import           Serokell.Util.Text        (format', formatSingle',
                                             listBuilderJSONIndent, pairBuilder,
                                             show')
 
+
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
                                             GetBlocks (..), GetLogs (..),
-                                            GetUtxoPset (..),
+                                            GetPeriodId (..), GetUtxoPset (..),
                                             PreviousMintetteId (..),
                                             StartPeriod (..))
 import           RSCoin.Mintette.AcidState (State)
@@ -52,8 +54,9 @@ serve port st sk = do
     idr3 <- serverTypeRestriction3
     idr4 <- serverTypeRestriction2
     idr5 <- serverTypeRestriction0
-    idr6 <- serverTypeRestriction1
+    idr6 <- serverTypeRestriction0
     idr7 <- serverTypeRestriction1
+    idr8 <- serverTypeRestriction1
     C.serve port
         [ C.method (C.RSCMintette C.PeriodFinished) $
             idr1 $ handlePeriodFinished sk st
@@ -63,12 +66,14 @@ serve port st sk = do
             idr3 $ handleCheckTx sk st
         , C.method (C.RSCMintette C.CommitTx) $
             idr4 $ handleCommitTx sk st
+        , C.method (C.RSCMintette C.GetMintettePeriod) $
+            idr5 $ handleGetMintettePeriod st
         , C.method (C.RSCDump C.GetMintetteUtxo) $
-            idr5 $ handleGetUtxo st
+            idr6 $ handleGetUtxo st
         , C.method (C.RSCDump C.GetMintetteBlocks) $
-            idr6 $ handleGetBlocks st
+            idr7 $ handleGetBlocks st
         , C.method (C.RSCDump C.GetMintetteLogs) $
-            idr7 $ handleGetLogs st
+            idr8 $ handleGetLogs st
         ]
 
 toServer :: WorkMode m => IO a -> ServerT m a
@@ -172,6 +177,21 @@ handleCommitTx sk st tx cc =
     onSuccess res = do
         logInfo $ formatSingle' "Successfully committed transaction {}" tx
         return $ Right res
+
+handleGetMintettePeriod :: WorkMode m => State -> ServerT m (Maybe C.PeriodId)
+handleGetMintettePeriod st =
+    toServer $
+    do logDebug "Querying periodId"
+       res <- try $ query' st GetPeriodId
+       either onError onSuccess res
+  where
+    onError e = do
+        logFunction e "Failed to query periodId"
+        return Nothing
+    onSuccess pid = do
+        logInfo $ sformat ("Successfully returning periodId " % int) pid
+        return $ Just pid
+
 
 -- Dumping Mintette state
 

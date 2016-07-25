@@ -63,10 +63,9 @@ import           RSCoin.Core                   (ActionLog,
                                                 Transaction (..), bankPublicKey,
                                                 checkActionLog, checkLBlock,
                                                 computeOutputAddrids,
-                                                derivePublicKey, emissionHash,
-                                                hash, lbTransactions,
-                                                mkGenesisHBlock, mkHBlock,
-                                                owners)
+                                                emissionHash, hash,
+                                                lbTransactions, mkGenesisHBlock,
+                                                mkHBlock, owners)
 import qualified RSCoin.Core                   as C
 
 import           RSCoin.Bank.Error             (BankError (..))
@@ -283,7 +282,6 @@ startNewPeriodDo sk pId results = do
         (mkHBlock blockTransactions lastHBlock)
         (Just emissionTransactionId)
   where
-    pk = derivePublicKey sk
     filterCheckedResults (idx,mres) = (idx, ) <$> mres
 
 -- | Finalize the period start. Update mintettes, addresses, create a

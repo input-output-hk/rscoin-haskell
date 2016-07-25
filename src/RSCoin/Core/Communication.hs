@@ -16,6 +16,7 @@ module RSCoin.Core.Communication
        , addPendingMintette
        , checkNotDoubleSpent
        , commitTx
+       , getMintettePeriod
        , sendPeriodFinished
        , announceNewPeriod
        , announceNewPeriodsToNotary
@@ -59,7 +60,7 @@ import           Serokell.Util.Text         (format', formatSingle',
                                              listBuilderJSONIndent, mapBuilder,
                                              pairBuilder, show')
 
-import           RSCoin.Core.Crypto         (PublicKey, SecretKey, Signature)
+import           RSCoin.Core.Crypto         (PublicKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
@@ -181,12 +182,12 @@ getGenesisBlock = do
     liftIO $ logDebug "Successfully got genesis block"
     return block
 
-finishPeriod :: WorkMode m => SecretKey -> m ()
-finishPeriod _ =
+finishPeriod :: WorkMode m => Signature -> m ()
+finishPeriod currentPeriodSignature =
     withResult
         (logInfo "Finishing period")
         (const $ logDebug "Successfully finished period") $
-    callBank (P.call $ P.RSCBank P.FinishPeriod)
+    callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
 
 addPendingMintette :: WorkMode m => Mintette -> PublicKey -> Signature -> m ()
 addPendingMintette mintette pk proof =
@@ -236,6 +237,18 @@ commitTx m tx cc =
         logFunction e $ formatSingle' "Commit tx failed: {}" e
     onSuccess _ =
         logInfo $ formatSingle' "Successfully committed transaction {}" tx
+
+getMintettePeriod :: WorkMode m => Mintette -> m (Maybe PeriodId)
+getMintettePeriod m =
+    withResult infoMessage (maybe onError onSuccess) $
+    callMintette m $ P.call (P.RSCMintette P.GetMintettePeriod)
+  where
+    infoMessage = logInfo $
+        sformat ("Getting minette period from mintette " % F.build) m
+    onError = logError $ sformat
+        ("getMintettePeriod failed for mintette " % F.build) m
+    onSuccess p =
+        logInfo $ sformat ("Successfully got the period: " % F.build) p
 
 sendPeriodFinished :: WorkMode m => Mintette -> PeriodId -> m PeriodResult
 sendPeriodFinished mintette pId =

@@ -1,25 +1,25 @@
-# pux-starter-app
+# RSCoin Block Explorer
 
-Starter [Pux](https://github.com/alexmingoia/purescript-pux/) application using
-webpack with hot-reloading and time-travel debug using
-[pux-devtool](https://github.com/alexmingoia/pux-devtool).
-
-See the [Guide](https://alexmingoia.github.io/purescript-pux) for help learning
-Pux.
-
-![Pux starter app animation](support/pux-starter-app.gif)
+TODO: add some description here
 
 ## Installation
 
+For development:
 ```sh
-git clone git://github.com/alexmingoia/pux-starter-app.git example
-cd example
+cd block-explorer
 npm install
 npm start
 ```
 
-Visit `http://localhost:3000` in your browser, edit `src/purs/Layout.purs`
+Visit `http://localhost:3000` in your browser.
 and watch the magic!
+
+For deploy (`npm run build` will be run automatically on `stack build`):
+```sh
+cd block-explorer
+npm run build
+npm run serve
+```
 
 ## Available scripts
 

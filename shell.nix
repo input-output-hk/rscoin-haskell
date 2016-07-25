@@ -1,4 +1,4 @@
-{ nixpkgs ? import <nixpkgs> {}, compiler ? "lts-6_3" }:
+{ nixpkgs ? import <nixpkgs> {}, compiler ? "lts-6_7" }:
 
 let
 

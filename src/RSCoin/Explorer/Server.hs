@@ -10,10 +10,10 @@ import           Control.Monad             (unless)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid.Advanced        (query', update')
 import           Data.Text                 (Text)
-import           Formatting                (int, sformat, string, (%))
-import           Serokell.Util.Text        (format', formatSingle',
-                                            listBuilderJSONIndent, mapBuilder,
-                                            show')
+import           Formatting                (int, sformat, (%))
+import           Serokell.Util.Text        (formatSingle',
+                                            listBuilderJSONIndent)
+
 
 import qualified RSCoin.Core               as C
 import           RSCoin.Timed              (ServerT, WorkMode,

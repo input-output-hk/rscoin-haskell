@@ -37,12 +37,11 @@ import           Data.Acid           (AcidState, Query, Update, closeAcidState,
 import           Data.Acid.Memory    (openMemoryState)
 
 import           RSCoin.Core         (ActionLog, Address,
-                                      AddressToTxStrategyMap, EmissionId,
-                                      Explorer, Explorers, HBlock, Mintette,
-                                      MintetteId, Mintettes, NewPeriodData,
-                                      PeriodId, PeriodResult, PublicKey,
-                                      SecretKey, Transaction, TransactionId,
-                                      TxStrategy)
+                                      AddressToTxStrategyMap, Explorer,
+                                      Explorers, HBlock, Mintette, MintetteId,
+                                      Mintettes, NewPeriodData, PeriodId,
+                                      PeriodResult, PublicKey, SecretKey,
+                                      Transaction, TransactionId, TxStrategy)
 
 
 import qualified RSCoin.Bank.Storage as BS

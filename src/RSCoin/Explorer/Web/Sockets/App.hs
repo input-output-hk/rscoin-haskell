@@ -47,7 +47,6 @@ import           RSCoin.Explorer.Web.Sockets.Types (AddressInfoMsg (..),
                                                     ErrorableMsg,
                                                     IntroductoryMsg (..),
                                                     OutcomingMsg (..),
-                                                    TransactionSummary,
                                                     mkOMBalance,
                                                     mkTransactionSummarySerializable)
 

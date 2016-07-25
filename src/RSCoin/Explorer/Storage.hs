@@ -24,7 +24,7 @@ module RSCoin.Explorer.Storage
 
 import           Control.Lens                      (at, makeLenses, use, view,
                                                     views, (%=), (.=), _Just)
-import           Control.Monad                     (join, unless)
+import           Control.Monad                     (unless)
 import           Control.Monad.Catch               (MonadThrow (throwM))
 import           Control.Monad.Extra               (whenJustM)
 import           Control.Monad.Reader              (MonadReader)
@@ -32,8 +32,7 @@ import           Control.Monad.State               (MonadState)
 import           Data.List                         (foldl', genericDrop,
                                                     genericLength, genericTake)
 import qualified Data.Map.Strict                   as M
-import           Data.Maybe                        (catMaybes, fromMaybe,
-                                                    isJust)
+import           Data.Maybe                        (fromMaybe, isJust)
 import           Data.SafeCopy                     (base, deriveSafeCopy)
 
 import qualified RSCoin.Core                       as C

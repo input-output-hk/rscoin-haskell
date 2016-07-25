@@ -68,6 +68,7 @@ data BankMethod
     | GetAddresses
     | GetBlockchainHeight
     | GetHBlock
+    | GetHBlockEmission
     | GetTransaction
     | FinishPeriod
     | AddPendingMintette

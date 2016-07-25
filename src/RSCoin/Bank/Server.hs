@@ -9,8 +9,7 @@ module RSCoin.Bank.Server
 
 import           Control.Concurrent.MVar.Lifted (modifyMVar_)
 
-import           Control.Concurrent             (MVar, newMVar, putMVar,
-                                                 takeMVar)
+import           Control.Concurrent             (MVar, newMVar)
 import           Control.Monad.Catch            (catch, throwM)
 import           Control.Monad.Trans            (lift, liftIO)
 
@@ -59,6 +58,7 @@ serve st workerThread restartWorkerAction = do
     idr8 <- T.serverTypeRestriction0
     idr9 <- T.serverTypeRestriction0
     idr10 <- T.serverTypeRestriction3
+    idr11 <- T.serverTypeRestriction1
     C.serve
         bankPort
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
@@ -73,7 +73,8 @@ serve st workerThread restartWorkerAction = do
         , C.method (C.RSCBank C.GetExplorers) $ idr9 $ serveGetExplorers st
         , C.method (C.RSCBank C.AddPendingMintette) $
           idr10 $ serveAddPendingMintette st
-        ]
+        , C.method (C.RSCBank C.GetHBlockEmission) $
+          idr11 $ serveGetHBlockEmission st]
 
 toServer :: T.WorkMode m => m a -> T.ServerT m a
 toServer action = lift $ action `catch` handler

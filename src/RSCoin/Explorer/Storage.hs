@@ -148,9 +148,9 @@ addHBlock pId C.HBlock{..} emission = do
             { pmExpectedPeriod = expectedPid
             , pmReceivedPeriod = pId
             }
+    addEmission emission
     mapM_ applyTransaction hbTransactions
     lastPeriodId .= Just pId
-    addEmission emission
   where
     addEmission (Just e) = emissionHashes %= (e:)
     addEmission _ = pure ()

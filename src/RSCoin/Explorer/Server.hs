@@ -57,10 +57,11 @@ handleNewHBlock ch st newBlockId (newBlock, emission) sig = do
             logDebug $ sformat ("Now expected block is #" % int) p
             return p
         upd = do
-            update' st (AddHBlock newBlockId newBlock emission)
             logDebug $ formatSingle' "HBlock hash: {}" $ C.hash newBlock
+            logDebug $ formatSingle' "HBlock emission: {}" emission
             logDebug $ formatSingle' "Transaction hashes: {}" $ listBuilderJSONIndent 2 $ map (C.hash :: C.Transaction -> C.Hash) $ C.hbTransactions newBlock
             logDebug $ formatSingle' "Transactions: {}" $ listBuilderJSONIndent 2 $ C.hbTransactions newBlock
+            update' st (AddHBlock newBlockId newBlock emission)
             writeChannel
                 ch
                 ChannelItem

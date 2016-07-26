@@ -14,10 +14,11 @@ parser def =
 main :: IO ()
 main = do
     def <- defaultSecretKeyPath
-    fpSecret <-
+    fpName <-
         execParser $
         info (helper <*> parser def) (fullDesc <> progDesc "RSCoin's keygen")
-    let fpPublic = fpSecret <> ".pub"
+    let fpSecret = fpName <> ".sec"
+    let fpPublic = fpName <> ".pub"
     (sk,pk) <- keyGen
     writePublicKey fpPublic pk
     writeSecretKey fpSecret sk

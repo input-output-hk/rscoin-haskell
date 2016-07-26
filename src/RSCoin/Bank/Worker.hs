@@ -43,7 +43,7 @@ import           RSCoin.Core              (defaultPeriodDelta,
                                            sendPeriodFinished, sign)
 import qualified RSCoin.Core              as C
 import           RSCoin.Core.Constants    (bankSecretKey)
-import           RSCoin.Timed             (Second, WorkMode, for, minute, ms,
+import           RSCoin.Timed             (Second, WorkMode, for, ms,
                                            repeatForever, sec, tu, wait)
 
 logDebug, logInfo, logWarning, logError
@@ -81,9 +81,9 @@ runWorkerWithPeriod periodDelta mainIsBusy sk st = do
     handler e = do
         logError $
             formatSingle'
-                "Error was caught by worker, restarting in 1 minute: {}"
+                "Error was caught by worker, restarting in 20 seconds: {}"
                 e
-        return $ minute 1
+        return $ sec 20
 
 onPeriodFinished :: WorkMode m => C.SecretKey -> State -> m ()
 onPeriodFinished sk st = do

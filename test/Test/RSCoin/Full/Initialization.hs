@@ -24,7 +24,7 @@ import           Test.QuickCheck            (NonEmptyList (..))
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (..),
-                                             NodeContext (_notaryAddr),
+                                             NodeContext (_notaryAddr), SecretKey,
                                              bankSecretKey, defaultLayout,
                                              defaultPeriodDelta,
                                              derivePublicKey, keyGen, logDebug,
@@ -59,7 +59,7 @@ mkTestContext
     :: WorkMode m
     => MintetteNumber -> UserNumber -> Scenario -> m TestContext
 mkTestContext mNum uNum scen = do
-    binfo <- BankInfo <$> bankKey <*> liftIO B.openMemState
+    binfo <- BankInfo <$> bankKeyPair <*> liftIO B.openMemState
     ninfo <- NotaryInfo (snd $ _notaryAddr defaultLayout) <$> liftIO N.openMemState
     minfos <- mapM mkMintette [0 .. mNum - 1]
     buinfo <- UserInfo <$> liftIO U.openMemState
@@ -75,7 +75,7 @@ mkTestContext mNum uNum scen = do
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     runBank isActiveVar binfo
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
-    initBUser buinfo
+    initBUser buinfo bankSk
     mapM_ initUser uinfos
     let ctx = TestContext binfo minfos ninfo buinfo uinfos scen isActiveVar
     sendInitialCoins ctx
@@ -86,7 +86,9 @@ mkTestContext mNum uNum scen = do
     mkMintette idx =
         MintetteInfo <$> liftIO keyGen <*> liftIO M.openMemState <*>
         pure (2300 + fromIntegral idx)
-    bankKey = pure (bankSecretKey, derivePublicKey bankSecretKey)
+    bankSk = fromMaybe (error "Test Bank SK is Nothing") $ defaultLayout ^. bankSecretKey
+    bankPk = derivePublicKey bankSk
+    bankKeyPair = pure (bankSk, bankPk)
     shortWait = wait $ for 10 ms
 
 -- | Finish everything that's going on in TestEnv.
@@ -144,9 +146,11 @@ addMintetteToBank b mintette = do
 
 initBUser
     :: WorkMode m
-    => UserInfo -> m ()
-initBUser bu =
-    U.initStateBank (bu ^. state) (bankUserAddressesCount - 1) bankSecretKey
+    => UserInfo
+    -> SecretKey
+    -> m ()
+initBUser bu bankSk =
+    U.initStateBank (bu ^. state) (bankUserAddressesCount - 1) bankSk
 
 initUser
     :: WorkMode m

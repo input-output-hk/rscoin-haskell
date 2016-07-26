@@ -15,6 +15,7 @@ module RSCoin.Notary.Server
         ) where
 
 import           Control.Exception       (throwIO)
+import           Control.Lens            ((^.))
 import           Control.Monad.Catch     (catch)
 import           Control.Monad.IO.Class  (MonadIO, liftIO)
 
@@ -37,7 +38,8 @@ import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           RSCoinNotaryState,
                                           RemoveCompleteMSAddresses (..))
 import           RSCoin.Notary.Error     (NotaryError, logDebug, logError)
-import           RSCoin.Timed            (WorkMode, serverTypeRestriction0,
+import           RSCoin.Timed            (MonadRpc (getNodeContext),
+                                          WorkMode, serverTypeRestriction0,
                                           serverTypeRestriction1,
                                           serverTypeRestriction2,
                                           serverTypeRestriction3,
@@ -66,6 +68,10 @@ serve port notaryState = do
     idr7 <- serverTypeRestriction2
     idr8 <- serverTypeRestriction5
     idr9 <- serverTypeRestriction1
+
+    nodeCtx <- getNodeContext
+    let bankPublicKey = nodeCtx ^. C.bankPublicKey
+
     P.serve
         port
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1
@@ -81,7 +87,7 @@ serve port notaryState = do
         , P.method (P.RSCNotary P.QueryCompleteMS)            $ idr6
             $ handleQueryCompleteMS notaryState
         , P.method (P.RSCNotary P.RemoveCompleteMS)           $ idr7
-            $ handleRemoveCompleteMS notaryState
+            $ handleRemoveCompleteMS notaryState bankPublicKey
         , P.method (P.RSCNotary P.AllocateMultisig)           $ idr8
             $ handleAllocateMultisig notaryState
         , P.method (P.RSCNotary P.QueryMyAllocMS)             $ idr9
@@ -159,12 +165,13 @@ handleQueryCompleteMS st = toServer $ do
 handleRemoveCompleteMS
     :: MonadIO m
     => RSCoinNotaryState
+    -> C.PublicKey
     -> [C.Address]
     -> C.Signature
     -> m ()
-handleRemoveCompleteMS st addresses signedAddrs = toServer $ do
+handleRemoveCompleteMS st bankPublicKey addresses signedAddrs = toServer $ do
     logDebug $ sformat ("Removing complete MS of " % shown) addresses
-    update' st $ RemoveCompleteMSAddresses addresses signedAddrs
+    update' st $ RemoveCompleteMSAddresses bankPublicKey addresses signedAddrs
 
 handleAllocateMultisig
     :: MonadIO m

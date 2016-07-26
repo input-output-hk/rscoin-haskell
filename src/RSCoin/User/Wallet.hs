@@ -42,7 +42,7 @@ module RSCoin.User.Wallet
 
 import           Control.Applicative
 import           Control.Exception          (Exception)
-import           Control.Lens               ((%=), (.=), (<>=))
+import           Control.Lens               ((%=), (.=), (<>=), (^.))
 import qualified Control.Lens               as L
 import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
@@ -64,6 +64,7 @@ import           Serokell.Util.Text         (format', formatSingle')
 
 import qualified RSCoin.Core                as C
 import           RSCoin.Core.Crypto         (PublicKey, SecretKey)
+import           RSCoin.Core.NodeConfig     (NodeContext, genesisAddress)
 import           RSCoin.Core.Primitives     (AddrId, Address (..),
                                              Transaction (..))
 import           RSCoin.Core.Strategy       (AllocationInfo, MSAddress)
@@ -159,8 +160,8 @@ isInitialized = do
 -- address and it's sk itself. In case of MOfNStrategy it's another
 -- keypair of share you own (we assume there can be only one per
 -- wallet).
-findUserAddress :: Address -> ExceptQuery (Maybe (Address, SecretKey))
-findUserAddress addr = checkInitR $ do
+findUserAddress :: NodeContext -> Address -> ExceptQuery (Maybe (Address, SecretKey))
+findUserAddress nodeCtx addr = checkInitR $ do
     secretKey <- L.views ownedAddresses (M.lookup addr)
     case secretKey of
         -- we don't own this address
@@ -178,7 +179,7 @@ findUserAddress addr = checkInitR $ do
                     defaultOwnerAddress <-
                         fromJust .
                         find (`elem` addrs) <$>
-                        getOwnedDefaultAddresses
+                        getOwnedDefaultAddresses nodeCtx
                     fmap (defaultOwnerAddress,) . fromJust <$>
                         L.views ownedAddresses (M.lookup defaultOwnerAddress)
 
@@ -190,29 +191,32 @@ getUserAddresses =
     map (second fromJust) . filter (isJust . snd) . M.assocs
 
 -- | Puts bank's address on the first place if found
-rescheduleBankFirst :: [Address] -> [Address]
-rescheduleBankFirst addrs =
-    case find (== C.genesisAddress) addrs of
+rescheduleBankFirst :: NodeContext -> [Address] -> [Address]
+rescheduleBankFirst nodeCtx addrs =
+    case find (== ctxGenesisAddress) addrs of
         Nothing -> addrs
-        Just _ -> C.genesisAddress : delete C.genesisAddress addrs
+        Just _  -> ctxGenesisAddress : delete ctxGenesisAddress addrs
+  where
+    ctxGenesisAddress = nodeCtx^.genesisAddress
 
 -- | Get all available user addresses
-getOwnedAddresses :: ExceptQuery [Address]
-getOwnedAddresses = checkInitR $ rescheduleBankFirst <$> L.views ownedAddresses M.keys
+getOwnedAddresses :: NodeContext -> ExceptQuery [Address]
+getOwnedAddresses nodeCtx =
+    checkInitR $ rescheduleBankFirst nodeCtx <$> L.views ownedAddresses M.keys
 
 -- | Get all user addresses with DefaultStrategy
-getOwnedDefaultAddresses :: ExceptQuery [Address]
-getOwnedDefaultAddresses = checkInitR $ do
-    addrs <- getOwnedAddresses
+getOwnedDefaultAddresses :: NodeContext -> ExceptQuery [Address]
+getOwnedDefaultAddresses nodeCtx = checkInitR $ do
+    addrs <- getOwnedAddresses nodeCtx
     strategies <- L.view addrStrategies
     return $
         filter (\addr -> M.lookup addr strategies == Just C.DefaultStrategy)
                addrs
 
 -- | Gets user-related UTXO (addrids he owns)
-getOwnedAddrIds :: Address -> ExceptQuery [AddrId]
-getOwnedAddrIds addr = do
-    addrOurs <- getOwnedAddresses
+getOwnedAddrIds :: NodeContext -> Address -> ExceptQuery [AddrId]
+getOwnedAddrIds nodeCtx addr = do
+    addrOurs <- getOwnedAddresses nodeCtx
     unless (addr `elem` addrOurs) $
         throwM $
         BadRequest $
@@ -229,9 +233,9 @@ getOwnedAddrIds addr = do
 
 -- | Gets transaction that are somehow affect specified
 -- address. Address should be owned by wallet in MonadReader.
-getTransactions :: Address -> ExceptQuery [Transaction]
-getTransactions addr = checkInitR $ do
-    addrOurs <- getOwnedAddresses
+getTransactions :: NodeContext -> Address -> ExceptQuery [Transaction]
+getTransactions nodeCtx addr = checkInitR $ do
+    addrOurs <- getOwnedAddresses nodeCtx
     unless (addr `elem` addrOurs) $
         throwM $
         BadRequest $

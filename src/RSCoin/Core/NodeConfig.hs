@@ -7,12 +7,21 @@ module RSCoin.Core.NodeConfig
         , NetworkAddress
         , NodeContext (..)
         , Port
+
+          -- * 'NodeContext' lenses
+        , bankPublicKey
+        , bankSecretKey
+
+          -- * Other lenses
+        , genesisAddress
         ) where
 
-import           Control.Lens               (makeLenses)
+import           Control.Lens               (Getter, makeLenses, to)
 
 import           Data.ByteString            (ByteString)
+import           Data.SafeCopy              (base, deriveSafeCopy)
 
+import           RSCoin.Core.Primitives     (Address (..))
 import           RSCoin.Core.Crypto.Signing (PublicKey, SecretKey)
 
 
@@ -28,5 +37,8 @@ data NodeContext = NodeContext
     } deriving (Show)
 
 $(makeLenses ''NodeContext)
+$(deriveSafeCopy 0 'base ''NodeContext)
 
--- @TODO: all other lenses
+-- | Special address used as output in genesis transaction
+genesisAddress :: Getter NodeContext Address
+genesisAddress = bankPublicKey.to Address

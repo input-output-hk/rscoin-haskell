@@ -20,39 +20,34 @@ module RSCoin.Notary.Storage
         , removeCompleteMSAddresses
         ) where
 
-import           Control.Exception     (throw)
-import           Control.Lens          (Lens', at, makeLenses, to, use, uses,
-                                        view, (%=), (%~), (&), (.=), (?=), (^.))
-import           Control.Monad         (forM_, unless, when, (<=<))
-import           Control.Monad.Catch   (MonadThrow (throwM))
+import           Control.Exception      (throw)
+import           Control.Lens           (Lens', at, makeLenses, to, use, uses, view, (%=), (%~),
+                                         (&), (.=), (?=), (^.))
+import           Control.Monad          (forM_, unless, when, (<=<))
+import           Control.Monad.Catch    (MonadThrow (throwM))
 
-import           Data.Acid             (Query, Update, liftQuery)
-import qualified Data.Foldable         as F
-import           Data.Map.Strict       (Map)
-import qualified Data.Map.Strict       as M hiding (Map)
-import           Data.Maybe            (fromJust, fromMaybe, isJust)
-import           Data.Set              (Set)
-import qualified Data.Set              as S hiding (Set)
+import           Data.Acid              (Query, Update, liftQuery)
+import qualified Data.Foldable          as F
+import           Data.Map.Strict        (Map)
+import qualified Data.Map.Strict        as M hiding (Map)
+import           Data.Maybe             (fromJust, fromMaybe, isJust)
+import           Data.Set               (Set)
+import qualified Data.Set               as S hiding (Set)
 
-import           Formatting            (build, sformat, (%))
+import           Formatting             (build, sformat, (%))
 
-import           RSCoin.Core           (AddrId, Address (..), HBlock (..),
-                                        PeriodId, PublicKey, Signature,
-                                        Transaction (..), Utxo,
-                                        computeOutputAddrids,
-                                        notaryMSAttemptsLimit,
-                                        validateSignature, verify, verifyChain)
-import           RSCoin.Core.Constants (bankPublicKey)
-import           RSCoin.Core.Strategy  (AddressToTxStrategyMap,
-                                        AllocationAddress, AllocationInfo (..),
-                                        AllocationStrategy (..), MSAddress,
-                                        PartyAddress (..), TxStrategy (..),
-                                        address, allParties,
-                                        allocateTxFromAlloc, allocationStrategy,
-                                        currentConfirmations,
-                                        isStrategyCompleted, partyToAllocation)
-import           RSCoin.Core.Trusted   (chainRootPKs)
-import           RSCoin.Notary.Error   (NotaryError (..))
+import           RSCoin.Core            (AddrId, Address (..), HBlock (..), PeriodId, PublicKey,
+                                         Signature, Transaction (..), Utxo, computeOutputAddrids,
+                                         notaryMSAttemptsLimit, validateSignature, verify,
+                                         verifyChain)
+import           RSCoin.Core.Strategy   (AddressToTxStrategyMap, AllocationAddress,
+                                         AllocationInfo (..), AllocationStrategy (..), MSAddress,
+                                         PartyAddress (..), TxStrategy (..), address, allParties,
+                                         allocateTxFromAlloc, allocationStrategy,
+                                         currentConfirmations, isStrategyCompleted,
+                                         partyToAllocation)
+import           RSCoin.Core.Trusted    (chainRootPKs)
+import           RSCoin.Notary.Error    (NotaryError (..))
 
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
@@ -236,8 +231,8 @@ queryCompleteMSAdresses = queryMSAddressesHelper
     (allocateTxFromAlloc . _allocationStrategy)
 
 -- | Remove all addresses from list (bank only usage).
-removeCompleteMSAddresses :: [MSAddress] -> Signature -> Update Storage ()
-removeCompleteMSAddresses completeAddrs signedAddrs = do
+removeCompleteMSAddresses :: PublicKey -> [MSAddress] -> Signature -> Update Storage ()
+removeCompleteMSAddresses bankPublicKey completeAddrs signedAddrs = do
     unless (verify bankPublicKey signedAddrs completeAddrs) $
         throwM $ NEUnrelatedSignature "addr list in remove MS query not signed by bank"
     forM_ completeAddrs $ \adress ->

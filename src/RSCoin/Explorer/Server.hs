@@ -6,6 +6,7 @@ module RSCoin.Explorer.Server
 
 
 import           Control.Exception         (throwIO)
+import           Control.Lens              ((^.))
 import           Control.Monad             (unless)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid.Advanced        (query', update')
@@ -16,8 +17,8 @@ import           Serokell.Util.Text        (formatSingle',
 
 
 import qualified RSCoin.Core               as C
-import           RSCoin.Timed              (ServerT, WorkMode,
-                                            serverTypeRestriction3)
+import           RSCoin.Timed              (MonadRpc (getNodeContext), ServerT,
+                                            WorkMode, serverTypeRestriction3)
 
 import           RSCoin.Explorer.AcidState (AddHBlock (..),
                                             GetLastPeriodId (..), State)
@@ -36,21 +37,24 @@ serve
     => Int -> Channel -> State -> C.SecretKey -> m ()
 serve port ch st _ = do
     idr1 <- serverTypeRestriction3
+    nodeCtx <- getNodeContext
+    let bankPublicKey = nodeCtx ^. C.bankPublicKey
     C.serve
         port
-        [C.method (C.RSCExplorer C.EMNewBlock) $ idr1 $ handleNewHBlock ch st]
+        [C.method (C.RSCExplorer C.EMNewBlock) $ idr1 $ handleNewHBlock ch st bankPublicKey]
 
 handleNewHBlock
     :: WorkMode m
     => Channel
     -> State
+    -> C.PublicKey
     -> C.PeriodId
     -> (C.HBlock, C.EmissionId)
     -> C.Signature
     -> ServerT m C.PeriodId
-handleNewHBlock ch st newBlockId (newBlock, emission) sig = do
+handleNewHBlock ch st bankPublicKey newBlockId (newBlock, emission) sig = do
     logInfo $ sformat ("Received new block #" % int) newBlockId
-    unless (C.verify C.bankPublicKey sig (newBlockId, newBlock)) $
+    unless (C.verify bankPublicKey sig (newBlockId, newBlock)) $
         liftIO $ throwIO EEInvalidBankSignature
     expectedPid <- maybe 0 succ <$> query' st GetLastPeriodId
     let ret p = do

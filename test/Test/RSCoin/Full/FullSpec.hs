@@ -9,6 +9,8 @@ module Test.RSCoin.Full.FullSpec
        ) where
 
 import           Control.Monad.Extra        (whenJust)
+import           Control.Monad.Trans        (lift)
+
 import           Data.Default               (Default (def))
 import           Data.List                  (nub)
 import           Test.Hspec                 (Spec, before, describe)
@@ -20,7 +22,7 @@ import           RSCoin.Core                (Severity (..), bankLoggerName,
                                              initLoggerByName, initLogging,
                                              mintetteLoggerName,
                                              testingLoggerName, userLoggerName)
-import           RSCoin.Timed               (WorkMode)
+import           RSCoin.Timed               (MonadRpc (getNodeContext), WorkMode)
 import qualified RSCoin.User                as U
 
 import           Test.RSCoin.Core.Arbitrary ()
@@ -84,9 +86,10 @@ type FullProperty = forall m . WorkMode m => FP.FullProperty m ()
 
 prop_uniqueAddresses :: FullProperty
 prop_uniqueAddresses = do
+    nodeCtx <- lift $ lift $ getNodeContext
     idx <- pickFP arbitrary
     st <- runTestEnvFP $ getUserState idx
-    assertFP . isUnique =<< runWorkModeFP (U.getAllAddresses st)
+    assertFP . isUnique =<< runWorkModeFP (U.getAllAddresses st nodeCtx)
   where
     isUnique l = l == nub l
 

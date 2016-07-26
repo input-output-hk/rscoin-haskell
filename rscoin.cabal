@@ -359,6 +359,7 @@ executable rscoin-json-demo
   build-depends:       aeson
                      , base
                      , bytestring
+                     , lens >= 4.13
                      , rscoin
                      , serokell-core
                      , text
@@ -465,6 +466,7 @@ benchmark rscoin-bench-local
                      , exceptions
                      , filepath
                      , formatting
+                     , lens >= 4.13
                      , mtl
                      , optional-args
                      , optparse-generic
@@ -504,6 +506,7 @@ benchmark rscoin-bench-single-user
                      , extra
                      , filepath
                      , formatting
+                     , lens >= 4.13
                      , mtl
                      , optional-args
                      , optparse-generic
@@ -541,6 +544,7 @@ benchmark rscoin-bench-only-users
                      , filepath
                      , formatting
                      , mtl
+                     , lens >= 4.13
                      , optional-args
                      , optparse-generic
                      , rscoin
@@ -582,6 +586,7 @@ benchmark rscoin-bench-remote
                      , file-embed
                      , filepath
                      , formatting
+                     , lens >= 4.13
                      , mtl
                      , optional-args
                      , optparse-generic

@@ -11,12 +11,13 @@ module Bench.RSCoin.UserSingle
 
 import           Prelude                  hiding (appendFile, readFile)
 
+import           Control.Lens             ((^.))
 import           Control.Monad            (forM_, forever, when)
 import           Control.Monad.Extra      (whenM)
 import           Control.Monad.Trans      (liftIO)
 import           Data.IORef               (IORef, atomicWriteIORef, newIORef,
                                            readIORef)
-import           Data.Maybe               (fromMaybe)
+import           Data.Maybe               (fromJust, fromMaybe)
 import qualified Data.Text                as T
 import qualified Data.Text.IO             as TIO
 import           Formatting               (float, int, sformat, shown, stext,
@@ -25,7 +26,8 @@ import           System.Directory         (doesFileExist, removeFile)
 
 import           Serokell.Util.Bench      (getWallTime)
 
-import           RSCoin.Core              (Address (..), bankSecretKey, keyGen)
+import           RSCoin.Core              (Address (..), bankSecretKey, keyGen,
+                                           localPlatformLayout)
 import           RSCoin.Timed             (MsgPackRpc, Second, for, fork,
                                            killThread, sec, wait)
 import qualified RSCoin.User              as U
@@ -112,7 +114,10 @@ runSingleSuperUser logInterval txNum dumpFile bankUserState = do
     let additionalBankAddreses = 0
 
     logDebug "Before initStateBank"
-    U.initStateBank bankUserState additionalBankAddreses bankSecretKey
+    U.initStateBank
+        bankUserState
+        additionalBankAddreses
+        (fromJust $ localPlatformLayout ^. bankSecretKey)
     logDebug "After initStateBank"
 
     runSingleUser logInterval txNum dumpFile bankUserState

@@ -71,7 +71,7 @@ processCommand st O.ListAddresses _ =
     eWrap $
     do res <- updateBlockchain st False
        unless res $ C.logInfo C.userLoggerName "Successfully updated blockchain."
-       addresses <- query' st $ U.GetOwnedAddresses C.defaultLayout
+       addresses <- query' st $ U.GetOwnedAddresses C.defaultNodeContext
        (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin])]) <-
            mapM (\addr -> do
                       coins <- C.coinsToList <$> getAmountNoUpdate st addr
@@ -102,7 +102,7 @@ processCommand st O.ListAddresses _ =
                     "    This is a multisig address ({}/{}) controlled by keys: "
                     (m, length allowed)
                forM_ allowed $ \allowedAddr -> do
-                   addresses <- query' st $ U.GetOwnedAddresses C.defaultLayout
+                   addresses <- query' st $ U.GetOwnedAddresses C.defaultNodeContext
                    TIO.putStrLn $ formatSingle'
                            (if allowedAddr `elem` addresses
                             then "    * {} owned by you"
@@ -255,4 +255,4 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
     liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<<
-    query' st (U.GetOwnedAddresses C.defaultLayout)
+    query' st (U.GetOwnedAddresses C.defaultNodeContext)

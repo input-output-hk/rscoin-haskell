@@ -10,7 +10,7 @@ module Bench.RSCoin.UserCommons
         , userThreadWithPath
         ) where
 
-import           Control.Lens               ((^.))
+import           Control.Lens               ((&), (.~))
 import           Control.Monad              (forM_, when)
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
@@ -18,16 +18,15 @@ import           Control.Monad.Trans        (liftIO)
 import           Data.Acid                  (createCheckpoint)
 import           Data.Acid.Advanced         (query')
 import           Data.ByteString            (ByteString)
-import           Data.Maybe                 (fromJust)
 import           Data.Optional              (Optional, defaultTo, empty)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
 import           RSCoin.Core                (Address (..), Coin (..), Color,
-                                             bankSecretKey, defaultLayout',
                                              finishPeriod, getBlockchainHeight,
-                                             localPlatformLayout, keyGen, sign)
-import           RSCoin.Core.NodeConfig     (NodeContext)
+                                             keyGen, sign)
+import           RSCoin.Core.NodeConfig     (NodeContext, bankHost, defaultNodeContext,
+                                             testBankSecretKey)
 import           RSCoin.Timed               (MsgPackRpc, for, getNodeContext,
                                              runRealMode, sec, wait)
 import qualified RSCoin.User                as U
@@ -43,8 +42,8 @@ userThread
     -> (Word -> U.RSCoinUserState -> MsgPackRpc a)
     -> Word
     -> IO a
-userThread bankHost benchDir userAction userId
-    = userThreadWithPath bankHost benchDir userAction userId empty
+userThread newBankHost benchDir userAction userId
+    = userThreadWithPath newBankHost benchDir userAction userId empty
 
 userThreadWithPath
     :: ByteString
@@ -54,13 +53,13 @@ userThreadWithPath
     -> Optional FilePath
     -> IO a
 userThreadWithPath
-    bankHost
+    newBankHost
     benchDir
     userAction
     userId
     (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
   =
-    runRealMode (defaultLayout' bankHost) $ bracket
+    runRealMode (defaultNodeContext & bankHost .~ newBankHost) $ bracket
         (liftIO $ U.openState walletPath)
         (\userState -> liftIO $ do
             createCheckpoint userState
@@ -98,7 +97,7 @@ executeTransaction userState cache coinColor coinAmount addrToSend =
 finishBankPeriod :: MsgPackRpc ()
 finishBankPeriod = do
     currentPeriodId <- getBlockchainHeight
-    let signature    = sign (fromJust $ localPlatformLayout ^. bankSecretKey) currentPeriodId
+    let signature    = sign testBankSecretKey currentPeriodId
     finishPeriod signature
 
 -- | Create user in `bankMode` and send coins to every user.
@@ -110,7 +109,7 @@ initializeBank coinsNum userAddresses bankUserState = do
     U.initStateBank
         bankUserState
         additionalBankAddreses
-        (fromJust $ localPlatformLayout ^. bankSecretKey)
+        testBankSecretKey
     logDebug "After initStateBank"
     cache <- U.mkUserCache
     forM_ userAddresses $

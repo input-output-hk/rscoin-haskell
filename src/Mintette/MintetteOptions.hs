@@ -1,6 +1,6 @@
 -- | Command line options for Mintette
 
-module Options
+module MintetteOptions
        ( Options (..)
        , getOptions
        ) where
@@ -13,8 +13,8 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultBankHost,
-                                         defaultPort, defaultSecretKeyPath)
+import           RSCoin.Core            (Severity (Error), defaultPort,
+                                         defaultSecretKeyPath, localhost)
 
 data Options = Options
     { cloPort          :: Int
@@ -39,7 +39,7 @@ optionsParser defaultSKPath =
          help "Logging severity") <*>
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
     strOption
-        (long "bank-host" <> value defaultBankHost <> showDefault <>
+        (long "bank-host" <> value localhost <> showDefault <>
          help "Host name for bank")
 
 getOptions :: IO Options

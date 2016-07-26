@@ -13,8 +13,8 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultBankHost,
-                                         defaultPort, defaultSecretKeyPath)
+import           RSCoin.Core            (Severity (Error), defaultPort,
+                                         defaultSecretKeyPath, localhost)
 
 data Options = Options
     { cloPortRpc       :: Int
@@ -53,7 +53,7 @@ optionsParser defaultSKPath =
     strOption
         (mconcat
              [ long "bank-host"
-             , value defaultBankHost
+             , value localhost
              , showDefault
              , help "Host name for bank"])
 

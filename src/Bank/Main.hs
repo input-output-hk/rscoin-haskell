@@ -7,7 +7,7 @@ import qualified Options         as Opts
 import qualified RSCoin.Bank     as B
 import           RSCoin.Core     (Address (Address), Explorer (..),
                                   Mintette (Mintette), bankLoggerName,
-                                  constructPublicKey, defaultLayout',
+                                  constructPublicKey, defaultNodeContext,
                                   initLogging, keyGen, logWarning,
                                   readPublicKey, readSecretKey)
 
@@ -16,7 +16,6 @@ main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
     -- @TODO make Notary addr, bankPort configurable
-    let layout = defaultLayout' "127.0.0.1"
     case cloCommand of
         Opts.AddAddress pk' strategy -> do
             addr <- Address <$> maybe (snd <$> keyGen) readPk pk'
@@ -38,7 +37,7 @@ main = do
             B.addExplorerIO cloPath e pId
         Opts.Serve skPath -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
-            B.launchBankReal layout periodDelta cloPath =<< readSecretKey skPath
+            B.launchBankReal defaultNodeContext periodDelta cloPath =<< readSecretKey skPath
   where
     readPk pk = maybe (readPublicKeyFallback pk) return (constructPublicKey pk)
     readPublicKeyFallback pk = do

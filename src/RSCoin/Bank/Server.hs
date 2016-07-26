@@ -7,9 +7,8 @@ module RSCoin.Bank.Server
        ( serve
        ) where
 
-import           Control.Concurrent.MVar.Lifted (modifyMVar_)
-
 import           Control.Concurrent             (MVar, newMVar)
+import           Control.Concurrent.MVar.Lifted (modifyMVar_)
 import           Control.Lens                   ((^.))
 import           Control.Monad.Catch            (catch, throwM)
 import           Control.Monad.Trans            (lift, liftIO)
@@ -38,8 +37,8 @@ import           RSCoin.Core                    (ActionLog,
                                                  MintetteId, Mintettes,
                                                  PeriodId, PublicKey, Signature,
                                                  Transaction, TransactionId,
-                                                 bankLoggerName, bankPort,
-                                                 logDebug, logError, logInfo, verify)
+                                                 bankLoggerName, logDebug,
+                                                 logError, logInfo, verify)
 import qualified RSCoin.Core.NodeConfig         as NC
 import qualified RSCoin.Core.Protocol           as C
 import qualified RSCoin.Timed                   as T
@@ -63,6 +62,7 @@ serve st workerThread restartWorkerAction = do
 
     nodeCtx <- T.getNodeContext
     let bankPublicKey = nodeCtx ^. NC.bankPublicKey
+    let bankPort      = nodeCtx ^. NC.bankPort
 
     C.serve
         bankPort

@@ -27,8 +27,7 @@ import           Control.Monad.Reader        (runReaderT)
 import           Control.Monad.Trans         (MonadIO, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           System.Random               (StdGen, getStdGen)
-import           RSCoin.Core.Constants       (localPlatformLayout)
-import           RSCoin.Core.NodeConfig      (NodeContext)
+import           RSCoin.Core.NodeConfig      (NodeContext, defaultNodeContext)
 
 class (MonadTimed m, MonadRpc m, MonadIO m,
        MonadMask m, MonadBaseControl IO m) => WorkMode m where
@@ -41,7 +40,7 @@ runRealMode nodeContext
     = runTimedIO . flip runReaderT nodeContext . runMsgPackRpc
 
 runRealModeLocal :: MsgPackRpc a -> IO a
-runRealModeLocal = runRealMode localPlatformLayout
+runRealModeLocal = runRealMode defaultNodeContext
 
 runEmulationMode :: MonadIO m => Maybe StdGen -> Delays -> PureRpc IO a -> m a
 runEmulationMode genMaybe delays m =

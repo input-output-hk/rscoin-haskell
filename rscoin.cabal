@@ -263,10 +263,11 @@ executable rscoin-user
 
 executable rscoin-mintette
   main-is:             Main.hs
-  other-modules:       Options
+  other-modules:       MintetteOptions
   build-depends:       base >= 4.8 && < 4.9
                      , bytestring
                      , exceptions
+                     , lens >= 4.13
                      , mtl >= 2.2.1
                      , optparse-applicative
                      , rscoin
@@ -359,7 +360,6 @@ executable rscoin-json-demo
   build-depends:       aeson
                      , base
                      , bytestring
-                     , lens >= 4.13
                      , rscoin
                      , serokell-core
                      , text

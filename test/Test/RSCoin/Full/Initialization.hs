@@ -25,10 +25,10 @@ import           Test.QuickCheck            (NonEmptyList (..))
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (..),
                                              NodeContext (_notaryAddr), SecretKey,
-                                             bankSecretKey, defaultLayout,
+                                             defaultNodeContext,
                                              defaultPeriodDelta,
                                              derivePublicKey, keyGen, logDebug,
-                                             logInfo, testingLoggerName)
+                                             logInfo, testBankSecretKey, testingLoggerName)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import           RSCoin.Timed               (Second, WorkMode, for, ms,
@@ -60,7 +60,7 @@ mkTestContext
     => MintetteNumber -> UserNumber -> Scenario -> m TestContext
 mkTestContext mNum uNum scen = do
     binfo <- BankInfo <$> bankKeyPair <*> liftIO B.openMemState
-    ninfo <- NotaryInfo (snd $ _notaryAddr defaultLayout) <$> liftIO N.openMemState
+    ninfo <- NotaryInfo (snd $ _notaryAddr defaultNodeContext) <$> liftIO N.openMemState
     minfos <- mapM mkMintette [0 .. mNum - 1]
     buinfo <- UserInfo <$> liftIO U.openMemState
     uinfos <-
@@ -86,7 +86,7 @@ mkTestContext mNum uNum scen = do
     mkMintette idx =
         MintetteInfo <$> liftIO keyGen <*> liftIO M.openMemState <*>
         pure (2300 + fromIntegral idx)
-    bankSk = fromMaybe (error "Test Bank SK is Nothing") $ defaultLayout ^. bankSecretKey
+    bankSk = testBankSecretKey
     bankPk = derivePublicKey bankSk
     bankKeyPair = pure (bankSk, bankPk)
     shortWait = wait $ for 10 ms

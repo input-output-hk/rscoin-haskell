@@ -1,11 +1,15 @@
+module Main where
+
+import           Control.Lens        ((&), (.~))
 import           Control.Monad.Catch (bracket)
 import           Control.Monad.Trans (liftIO)
-import           RSCoin.Core         (defaultLayout', initLogging,
+
+import           RSCoin.Core         (bankHost, defaultNodeContext, initLogging,
                                       readSecretKey)
 import qualified RSCoin.Mintette     as M
 import           RSCoin.Timed        (fork_, runRealMode)
 
-import qualified Options             as Opts
+import qualified MintetteOptions     as Opts
 
 main :: IO ()
 main = do
@@ -16,7 +20,7 @@ main = do
             if cloMemMode
                 then M.openMemState
                 else M.openState cloPath
-    runRealMode (defaultLayout' cloBankHost) $
+    runRealMode (defaultNodeContext & bankHost .~ cloBankHost) $
         bracket (liftIO open) (liftIO . M.closeState) $
         \st ->
              do fork_ $ M.runWorker sk st

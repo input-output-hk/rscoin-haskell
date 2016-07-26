@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+import           Control.Lens        ((&), (.~))
 import           Control.Monad.Catch (MonadCatch, bracket, catch, throwM)
 import           Control.Monad.Trans (MonadIO, liftIO)
 import qualified Data.Acid           as ACID
@@ -18,7 +19,7 @@ main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     C.initLogging logSeverity
-    runRealMode (C.defaultLayout' bankHost) $
+    runRealMode (C.defaultNodeContext & C.bankHost .~ bankHost) $
         bracket
             (liftIO $ U.openState walletPath)
             (\st -> liftIO $ do

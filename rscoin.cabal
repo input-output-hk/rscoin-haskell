@@ -21,6 +21,7 @@ library
   exposed-modules:     RSCoin.Bank
                      , RSCoin.Bank.Error
                      , RSCoin.Bank.Storage
+
                      , RSCoin.Core
                      , RSCoin.Core.ActionLog
                      , RSCoin.Core.Aeson
@@ -32,16 +33,19 @@ library
                      , RSCoin.Core.HBlock
                      , RSCoin.Core.LBlock
                      , RSCoin.Core.Logging
+                     , RSCoin.Core.NodeConfig
                      , RSCoin.Core.Owners
                      , RSCoin.Core.Primitives
                      , RSCoin.Core.Strategy
                      , RSCoin.Core.Transaction
                      , RSCoin.Core.Trusted
                      , RSCoin.Core.Types
+
                      , RSCoin.Explorer
                      , RSCoin.Explorer.Error
                      , RSCoin.Explorer.Launcher
                      , RSCoin.Explorer.WebTypes
+
                      , RSCoin.Mintette
                      , RSCoin.Mintette.Acidic
                      , RSCoin.Mintette.AcidState
@@ -49,12 +53,14 @@ library
                      , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
                      , RSCoin.Mintette.Worker
+
                      , RSCoin.Notary
                      , RSCoin.Notary.AcidState
                      , RSCoin.Notary.Error
                      , RSCoin.Notary.Launcher
                      , RSCoin.Notary.Server
                      , RSCoin.Notary.Storage
+
                      , RSCoin.Timed
                      , RSCoin.Timed.MonadTimed
                      , RSCoin.Timed.MonadRpc
@@ -62,6 +68,7 @@ library
                      , RSCoin.Timed.Timed
                      , RSCoin.Timed.TimedIO
                      , RSCoin.Timed.Misc
+
                      , RSCoin.User
                      , RSCoin.User.Error
                      , RSCoin.User.Logic

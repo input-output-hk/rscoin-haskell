@@ -11,7 +11,7 @@ import           Network.Wai                          (Middleware)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
-import           RSCoin.Core                          (PlatformLayout (..),
+import           RSCoin.Core                          (NodeContext (..),
                                                        Severity (..),
                                                        defaultLayout')
 import           RSCoin.Notary.AcidState              (RSCoinNotaryState,
@@ -25,7 +25,7 @@ launchNotaryReal :: Severity -> Maybe FilePath -> Int -> ByteString -> IO ()
 launchNotaryReal logSeverity dbPath webPort bankHost = do
     let open = maybe openMemState openState dbPath
         layout = defaultLayout' bankHost
-        servePort = snd $ getNotaryAddr layout
+        servePort = snd $ _notaryAddr layout
     runRealMode layout $
         bracket (liftIO open) (liftIO . closeState) $
         \st ->

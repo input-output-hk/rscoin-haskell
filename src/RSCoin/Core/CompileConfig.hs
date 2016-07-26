@@ -17,7 +17,8 @@ import           Data.Maybe             (fromMaybe)
 import           Data.String            (IsString)
 import           Data.Yaml              (decode)
 
-import           RSCoin.Timed.MonadRpc
+import           RSCoin.Core.NodeConfig (Port)
+
 import           Serokell.Aeson.Options (defaultOptions)
 
 data RSCoinServer = RSCoinServer

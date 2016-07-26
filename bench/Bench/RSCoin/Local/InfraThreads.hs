@@ -12,7 +12,7 @@ import           System.FilePath            ((</>))
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (Mintette),
-                                             PlatformLayout (..), PublicKey,
+                                             NodeContext (..), PublicKey,
                                              SecretKey, bankSecretKey,
                                              defaultPort, localhost, localPlatformLayout)
 import qualified RSCoin.Mintette            as M
@@ -47,5 +47,5 @@ notaryThread benchDir =
     bracket
         (liftIO $ N.openState $ benchDir </> "notary-db")
         (liftIO . N.closeState)
-        (N.serve $ snd $ getNotaryAddr localPlatformLayout)
+        (N.serve $ snd $ _notaryAddr localPlatformLayout)
 

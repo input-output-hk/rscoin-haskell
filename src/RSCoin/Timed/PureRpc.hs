@@ -33,8 +33,9 @@ import           Data.MessagePack        (Object)
 import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
 import           RSCoin.Core.Constants   (localhost, localPlatformLayout)
-import           RSCoin.Timed.MonadRpc   (Addr, Client (..), Host, Method (..),
-                                          MonadRpc (execClient, getPlatformLayout, serve),
+import           RSCoin.Core.NodeConfig  (Host, NetworkAddress)
+import           RSCoin.Timed.MonadRpc   (Client (..), Method (..),
+                                          MonadRpc (execClient, getNodeContext, serve),
                                           RpcError (..), methodBody, methodName)
 import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
                                           localTime, mcs, minute, wait)
@@ -77,7 +78,7 @@ instance Default Delays where
     def = Delays . const . const . return . Just $ 0
 
 -- | Keeps servers' methods
-type Listeners m = Map.Map (Addr, String) ([Object] -> m Object)
+type Listeners m = Map.Map (NetworkAddress, String) ([Object] -> m Object)
 
 -- | Keeps global network information
 data NetInfo m = NetInfo
@@ -139,7 +140,7 @@ runPureRpc_ _randSeed _delays (PureRpc rpc) =
 -- TODO: use normal exceptions here
 request :: (Monad m, MonadThrow m, MessagePack a)
         => Client a
-        -> (Listeners (PureRpc m), Addr)
+        -> (Listeners (PureRpc m), NetworkAddress)
         -> PureRpc m a
 request (Client name args) (listeners', addr) =
     case Map.lookup (addr, name) listeners' of
@@ -174,7 +175,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
         sleepForever = wait (for 100500 minute) >> sleepForever
 
     -- @TODO not sure it's ok when it comes to notaries
-    getPlatformLayout = pure $ localPlatformLayout
+    getNodeContext = pure $ localPlatformLayout
 
 waitDelay :: (MonadThrow m, MonadIO m, MonadCatch m) => RpcStage -> PureRpc m ()
 waitDelay stage =

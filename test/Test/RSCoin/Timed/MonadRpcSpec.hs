@@ -14,12 +14,12 @@ import           Test.QuickCheck             (Property, Testable (property),
                                               ioProperty)
 import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, run)
 
+import           RSCoin.Core.NodeConfig      (Host, NetworkAddress, Port)
 import           RSCoin.Timed                (WorkMode, for, fork, fork_,
                                               killThread, ms, runRealModeLocal,
                                               wait)
-import           RSCoin.Timed.MonadRpc       (Addr, Client (..), Host,
-                                              MonadRpc (..), MsgPackRpc (..),
-                                              Port, call, method)
+import           RSCoin.Timed.MonadRpc       (Client (..), MonadRpc (..),
+                                              MsgPackRpc (..), call, method)
 import           RSCoin.Timed.PureRpc        (PureRpc, runPureRpc)
 
 import           Test.RSCoin.Timed.Arbitrary ()
@@ -61,7 +61,7 @@ port = 5000
 host :: Host
 host = "127.0.0.1"
 
-addr :: Addr
+addr :: NetworkAddress
 addr = (host, port)
 
 serverMethodShouldExecuteSimpleSpec

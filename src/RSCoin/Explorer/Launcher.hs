@@ -8,16 +8,17 @@ module RSCoin.Explorer.Launcher
        , launchWeb
        ) where
 
+import           Control.Lens                         ((&), (.~))
 import           Control.Monad.Catch                  (bracket)
 import           Control.Monad.Trans                  (MonadIO (liftIO))
-import           Data.ByteString                      (ByteString)
+
 import           Network.Wai                          (Middleware)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
 import           RSCoin.Core                          (SecretKey, Severity (..),
-                                                       defaultLayout',
                                                        initLoggerByName)
+import           RSCoin.Core.NodeConfig               (Host, bankHost, defaultNodeContext)
 import           RSCoin.Timed                         (MsgPackRpc, WorkMode,
                                                        fork_, runRealMode)
 
@@ -27,21 +28,23 @@ import           RSCoin.Explorer.Channel              (Channel, newChannel)
 import           RSCoin.Explorer.Server               (serve)
 import qualified RSCoin.Explorer.Web                  as Web
 
-explorerWrapperReal :: ByteString -> FilePath -> (State -> MsgPackRpc a) -> IO a
-explorerWrapperReal bankHost storagePath =
-    runRealMode (defaultLayout' bankHost) .
+explorerWrapperReal :: Host -> FilePath -> (State -> MsgPackRpc a) -> IO a
+explorerWrapperReal newBankHost storagePath =
+    runRealMode modifiedContext .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
+  where
+    modifiedContext = defaultNodeContext & bankHost .~ newBankHost
 
-launchExplorerReal :: ByteString
+launchExplorerReal :: Host
                    -> Int
                    -> Int
                    -> Severity
                    -> FilePath
                    -> SecretKey
                    -> IO ()
-launchExplorerReal bankHost portRpc portWeb severity storagePath sk = do
+launchExplorerReal newBankHost portRpc portWeb severity storagePath sk = do
     channel <- newChannel
-    explorerWrapperReal bankHost storagePath $
+    explorerWrapperReal newBankHost storagePath $
         \st ->
              do fork_ $ launchExplorer portRpc sk channel st
                 launchWeb portWeb severity channel st

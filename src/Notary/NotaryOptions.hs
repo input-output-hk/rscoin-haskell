@@ -13,8 +13,8 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultBankHost,
-                                         defaultSecretKeyPath)
+import           RSCoin.Core            (Severity (Error), defaultSecretKeyPath,
+                                         localhost)
 
 data Options = Options
     { cliPath        :: FilePath
@@ -41,7 +41,7 @@ optionsParser _ = -- defaultSKPath
         (short 'm' <> long "memory-mode" <> help "Run in memory mode")
     <*>
     strOption
-        (long "bank-host" <> value defaultBankHost <> showDefault <>
+        (long "bank-host" <> value localhost <> showDefault <>
          help "Host name for bank")
     <*>
     option

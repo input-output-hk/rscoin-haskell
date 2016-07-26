@@ -7,7 +7,7 @@ import           Control.Monad (forM)
 import           Data.Acid     (query)
 import qualified Data.Map      as M
 
-import           RSCoin.Core   (Coin (..), CoinAmount, PublicKey, defaultLayout, getAddress)
+import           RSCoin.Core   (Coin (..), CoinAmount, PublicKey, defaultNodeContext, getAddress)
 import           RSCoin.Timed  (runRealModeLocal)
 import           RSCoin.User   (GetOwnedDefaultAddresses (..), RSCoinUserState,
                                 getAmountNoUpdate)
@@ -22,7 +22,7 @@ data VerboseAddress = VA
 -- will just round the value.
 getAddresses :: RSCoinUserState -> IO [VerboseAddress]
 getAddresses st = do
-    as <- query st $ GetOwnedDefaultAddresses defaultLayout
+    as <- query st $ GetOwnedDefaultAddresses defaultNodeContext
     forM as $ \a -> runRealModeLocal $ do
         b <- M.findWithDefault 0 0 <$> getAmountNoUpdate st a
         return $ VA (getAddress a) (getCoin b)

@@ -32,8 +32,8 @@ import           System.Random           (StdGen)
 import           Data.MessagePack        (Object)
 import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
-import           RSCoin.Core.Constants   (localhost, localPlatformLayout)
-import           RSCoin.Core.NodeConfig  (Host, NetworkAddress)
+import           RSCoin.Core.Constants   (localhost)
+import           RSCoin.Core.NodeConfig  (Host, NetworkAddress, defaultNodeContext)
 import           RSCoin.Timed.MonadRpc   (Client (..), Method (..),
                                           MonadRpc (execClient, getNodeContext, serve),
                                           RpcError (..), methodBody, methodName)
@@ -175,7 +175,7 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
         sleepForever = wait (for 100500 minute) >> sleepForever
 
     -- @TODO not sure it's ok when it comes to notaries
-    getNodeContext = pure $ localPlatformLayout
+    getNodeContext = pure $ defaultNodeContext
 
 waitDelay :: (MonadThrow m, MonadIO m, MonadCatch m) => RpcStage -> PureRpc m ()
 waitDelay stage =

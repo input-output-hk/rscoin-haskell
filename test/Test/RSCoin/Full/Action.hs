@@ -211,7 +211,7 @@ toAddress =
     either return $
     \(userIndex,addressIndex) ->
          do userState <- getUserState userIndex
-            publicAddresses <- query' userState $ U.GetOwnedDefaultAddresses C.defaultLayout
+            publicAddresses <- query' userState $ U.GetOwnedDefaultAddresses C.defaultNodeContext
             return $ publicAddresses `indexModulo` addressIndex
 
 toInputs
@@ -219,7 +219,7 @@ toInputs
     => UserIndex -> FromAddresses -> TestEnv m Inputs
 toInputs userIndex (getNonEmpty -> fromIndexes) = do
     userState <- getUserState userIndex
-    allAddresses <- query' userState $ U.GetOwnedDefaultAddresses C.defaultLayout
+    allAddresses <- query' userState $ U.GetOwnedDefaultAddresses C.defaultNodeContext
     addressesAmount <- mapM (U.getAmount userState) allAddresses
     when (null addressesAmount) $
         throwM $ TestError "No public addresses in this user"

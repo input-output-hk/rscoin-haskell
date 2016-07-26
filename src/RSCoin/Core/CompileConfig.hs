@@ -17,13 +17,11 @@ import           Data.Maybe             (fromMaybe)
 import           Data.String            (IsString)
 import           Data.Yaml              (decode)
 
-import           RSCoin.Core.NodeConfig (Port)
-
 import           Serokell.Aeson.Options (defaultOptions)
 
 data RSCoinServer = RSCoinServer
     { rscHost :: !String
-    , rscPort :: !Port
+    , rscPort :: !Int
     } deriving (Show)
 
 data RSCoinConfig = RSCoinConfig
@@ -37,7 +35,7 @@ data RSCoinConfig = RSCoinConfig
 $(A.deriveJSON defaultOptions ''RSCoinServer)
 $(A.deriveJSON defaultOptions ''RSCoinConfig)
 
-toAddr :: RSCoinServer -> (String, Port)
+toAddr :: RSCoinServer -> (String, Int)
 toAddr (RSCoinServer host port) = (host, port)
 
 rscoinConfigStr :: IsString s => s

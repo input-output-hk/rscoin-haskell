@@ -10,8 +10,8 @@ module UserOptions
 import           Control.Applicative    (optional)
 
 import           RSCoin.Core            (MintetteId, PeriodId, Severity (Error),
-                                         defaultAccountsNumber, defaultBankHost,
-                                         defaultSecretKeyPath)
+                                         defaultAccountsNumber, defaultSecretKeyPath,
+                                         localhost)
 import           RSCoin.User            (UserCache)
 
 import           Data.ByteString        (ByteString)
@@ -326,7 +326,7 @@ userOptionsParser dskp =
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity") <*>
     strOption
-        (long "bank-host" <> value defaultBankHost <> showDefault <>
+        (long "bank-host" <> value localhost <> showDefault <>
          help "Host name for bank")
 
 -- | IO call that retrieves command line options

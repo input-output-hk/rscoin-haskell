@@ -25,11 +25,11 @@ import           Formatting                (int, sformat, (%))
 
 import           RSCoin.Core               (Address, Explorer, Mintette,
                                             PeriodId, PublicKey, SecretKey,
-                                            TxStrategy, defaultLayout', sign)
+                                            TxStrategy, sign)
 import           RSCoin.Core.Communication (addPendingMintette,
                                             getBlockchainHeight,
                                             getMintettePeriod)
-import           RSCoin.Core.NodeConfig    (NodeContext)
+import           RSCoin.Core.NodeConfig    (NodeContext, defaultNodeContext)
 import           RSCoin.Timed              (MsgPackRpc, WorkMode, fork, fork_,
                                             killThread, runRealMode)
 
@@ -43,16 +43,16 @@ import           RSCoin.Bank.Worker        (runExplorerWorker,
                                             runWorkerWithPeriod)
 
 bankWrapperReal :: NodeContext -> FilePath -> (State -> MsgPackRpc a) -> IO a
-bankWrapperReal layout storagePath =
-    runRealMode layout .
+bankWrapperReal nodeCtx storagePath =
+    runRealMode nodeCtx .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
 -- | Launch Bank in real mode. This function works indefinitely.
 launchBankReal
     :: (TimeUnit t)
     => NodeContext -> t -> FilePath -> SecretKey -> IO ()
-launchBankReal layout periodDelta storagePath sk =
-    bankWrapperReal layout storagePath $ launchBank periodDelta sk
+launchBankReal nodeCtx periodDelta storagePath sk =
+    bankWrapperReal nodeCtx storagePath $ launchBank periodDelta sk
 
 -- | Launch Bank in any WorkMode. This function works indefinitely.
 launchBank
@@ -68,14 +68,14 @@ launchBank periodDelta sk st = do
 
 addAddressIO :: FilePath -> Address -> TxStrategy -> IO ()
 addAddressIO storagePath a s =
-    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $ flip update' (AddAddress a s)
+    bankWrapperReal defaultNodeContext storagePath $ flip update' (AddAddress a s)
 
 -- | Add mintette to Bank (send a request signed with bank's sk)
 -- Also pings minttete to check that it's compatible
 addMintetteIO :: SecretKey -> Mintette -> PublicKey -> IO ()
 addMintetteIO sk m k = do
     let proof = sign sk (m, k)
-    runRealMode (defaultLayout' "127.0.0.1") $ do
+    runRealMode defaultNodeContext $ do
         bankPid <- getBlockchainHeight
         mintettePid <- getMintettePeriod m
         when (isNothing mintettePid) $
@@ -94,11 +94,11 @@ addMintetteIO sk m k = do
 -- | Adds mintette directly into bank's state
 addMintetteInPlace :: FilePath -> Mintette -> PublicKey -> IO ()
 addMintetteInPlace storagePath m k =
-    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $
+    bankWrapperReal defaultNodeContext storagePath $
     flip update' (AddMintette m k)
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerIO :: FilePath -> Explorer -> PeriodId -> IO ()
 addExplorerIO storagePath e pId =
-    bankWrapperReal (defaultLayout' "127.0.0.1") storagePath $
+    bankWrapperReal defaultNodeContext storagePath $
     flip update' (AddExplorer e pId)

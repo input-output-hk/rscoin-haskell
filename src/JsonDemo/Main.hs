@@ -1,6 +1,5 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
-import           Control.Lens             ((^.))
 import           Data.Aeson               (ToJSON (toJSON), encode)
 import           Data.ByteString.Lazy     (toStrict)
 import           Data.Text.Buildable      (Buildable (build))
@@ -30,7 +29,7 @@ instance Buildable W.OutcomingMsg where
 main :: IO ()
 main = do
     let coin = C.Coin 0 0.3242342
-        key  = C.defaultLayout ^. C.bankPublicKey
+        key  = C.testBankPublicKey
         hash = C.hash ()
         addr = C.Address key
         tx = C.Transaction [(hash, 0, coin)] [(addr, coin)]

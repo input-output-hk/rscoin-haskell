@@ -61,7 +61,7 @@ startMintette CommonParams{..} (idx,_) = do
     Cherepakha.mkdir workingDirModern
     (sk,pk) <- C.keyGen
     let start =
-            runRealMode C.localPlatformLayout $
+            runRealMode C.defaultNodeContext $
             bracket (liftIO $ M.openState dbDir) (liftIO . M.closeState) $
             \st ->
                  do fork_ $ M.runWorker sk st
@@ -128,7 +128,7 @@ startBank CommonParams{..} mintettes explorers BankData{..} = do
         (\(port,key) ->
               B.addMintetteInPlace dbDir (C.Mintette C.localhost port) key)
     forkIO $
-        B.launchBankReal C.localPlatformLayout periodDelta dbDir bankSk
+        B.launchBankReal C.defaultNodeContext periodDelta dbDir bankSk
 
 -- TODO: we can setup other users similar way
 setupBankUser :: CommonParams -> BankData -> IO ()
@@ -139,7 +139,7 @@ setupBankUser CommonParams{..} BankData{..} = do
         addressesNum = 5
         walletPathArg = sformat (" --wallet-path " % string % " ") dbDir
     Cherepakha.mkdir workingDirModern
-    runRealMode C.localPlatformLayout $
+    runRealMode C.defaultNodeContext $
         bracket
             (liftIO $ U.openState dbDir)
             (\st ->

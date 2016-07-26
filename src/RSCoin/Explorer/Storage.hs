@@ -34,6 +34,7 @@ import           Data.List                         (foldl', genericDrop,
 import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (fromMaybe, isJust)
 import           Data.SafeCopy                     (base, deriveSafeCopy)
+import           Data.Tuple.Select                 (sel3)
 
 import qualified RSCoin.Core                       as C
 
@@ -178,11 +179,13 @@ applyTransaction tx@C.Transaction{..} = do
                     M.insertWith (+) (C.getColor c) c m)
               M.empty
               txInputs
+        , txsInputsTotal = sum $ map (C.getCoin . sel3) txInputs
         , txsOutputsSum = foldl'
               (\m (_,c) ->
                     M.insertWith (+) (C.getColor c) c m)
               M.empty
               txOutputs
+        , txsOutputsTotal = sum $ map (C.getCoin . snd) txOutputs
         }
     -- TODO: use getTx that is already defined in this module
     -- We have to promote Query to Update

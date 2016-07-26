@@ -43,11 +43,13 @@ type AddrId = (C.TransactionId, Int, C.Coin, Maybe C.Address)
 
 -- | This type should be modified version of Transaction from RSCoin.Core
 data TransactionSummary = TransactionSummary
-    { txsId         :: C.TransactionId
-    , txsInputs     :: [AddrId]
-    , txsOutputs    :: [(C.Address, C.Coin)]
-    , txsInputsSum  :: C.CoinsMap
-    , txsOutputsSum :: C.CoinsMap
+    { txsId           :: C.TransactionId
+    , txsInputs       :: [AddrId]
+    , txsOutputs      :: [(C.Address, C.Coin)]
+    , txsInputsSum    :: C.CoinsMap
+    , txsInputsTotal  :: Rational
+    , txsOutputsSum   :: C.CoinsMap
+    , txsOutputsTotal :: Rational
     } deriving (Show)
 
 newtype SerializableCoinsMap =
@@ -58,11 +60,13 @@ instance ToJSON SerializableCoinsMap where
     toJSON (SerializableCoinsMap m) = toJSON . ML.assocs $ m
 
 data TransactionSummarySerializable = TransactionSummarySerializable
-    { txId         :: C.TransactionId
-    , txInputs     :: [AddrId]
-    , txOutputs    :: [(C.Address, C.Coin)]
-    , txInputsSum  :: SerializableCoinsMap
-    , txOutputsSum :: SerializableCoinsMap
+    { txId           :: C.TransactionId
+    , txInputs       :: [AddrId]
+    , txOutputs      :: [(C.Address, C.Coin)]
+    , txInputsSum    :: SerializableCoinsMap
+    , txInputsTotal  :: Rational
+    , txOutputsSum   :: SerializableCoinsMap
+    , txOutputsTotal :: Rational
     } deriving (Show, Generic)
 
 $(deriveToJSON defaultOptionsPS ''TransactionSummarySerializable)
@@ -70,11 +74,13 @@ $(deriveToJSON defaultOptionsPS ''TransactionSummarySerializable)
 mkTransactionSummarySerializable :: TransactionSummary -> TransactionSummarySerializable
 mkTransactionSummarySerializable TransactionSummary{..} =
     TransactionSummarySerializable
-        { txId         = txsId
-        , txInputs     = txsInputs
-        , txOutputs    = txsOutputs
-        , txInputsSum  = SerializableCoinsMap txsInputsSum
-        , txOutputsSum = SerializableCoinsMap txsOutputsSum
+        { txId           = txsId
+        , txInputs       = txsInputs
+        , txOutputs      = txsOutputs
+        , txInputsSum    = SerializableCoinsMap txsInputsSum
+        , txInputsTotal  = txsInputsTotal
+        , txOutputsSum   = SerializableCoinsMap txsOutputsSum
+        , txOutputsTotal = txsOutputsTotal
         }
 
 -- | Run-time errors which may happen within this server.

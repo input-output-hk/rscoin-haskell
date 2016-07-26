@@ -28,6 +28,7 @@ import           Control.Monad.Trans         (MonadIO, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           System.Random               (StdGen, getStdGen)
 import           RSCoin.Core.Constants       (localPlatformLayout)
+import           RSCoin.Core.NodeConfig      (NodeContext)
 
 class (MonadTimed m, MonadRpc m, MonadIO m,
        MonadMask m, MonadBaseControl IO m) => WorkMode m where
@@ -35,9 +36,9 @@ class (MonadTimed m, MonadRpc m, MonadIO m,
 instance (MonadTimed m, MonadRpc m, MonadIO m,
           MonadMask m, MonadBaseControl IO m) => WorkMode m
 
-runRealMode :: PlatformLayout -> MsgPackRpc a -> IO a
-runRealMode layout
-    = runTimedIO . flip runReaderT layout . runMsgPackRpc
+runRealMode :: NodeContext -> MsgPackRpc a -> IO a
+runRealMode nodeContext
+    = runTimedIO . flip runReaderT nodeContext . runMsgPackRpc
 
 runRealModeLocal :: MsgPackRpc a -> IO a
 runRealModeLocal = runRealMode localPlatformLayout

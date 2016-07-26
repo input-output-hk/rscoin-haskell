@@ -10,11 +10,7 @@
 -- and it's implementation using MessagePack.
 
 module RSCoin.Timed.MonadRpc
-       ( Port
-       , Host
-       , Addr
-       , MonadRpc (serve, execClient, getPlatformLayout)
-       , PlatformLayout (..)
+       ( MonadRpc (serve, execClient, getNodeContext)
        , MsgPackRpc
        , runMsgPackRpc
        , RpcType
@@ -42,7 +38,7 @@ import           Control.Monad.Reader        (MonadReader, ReaderT (..), ask,
 import           Control.Monad.Trans         (MonadIO, lift, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl, StM,
                                               liftBaseWith, restoreM)
-import qualified Data.ByteString             as BS
+
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Time.Units             (TimeUnit, convertUnit)
@@ -50,34 +46,20 @@ import           Data.Time.Units             (TimeUnit, convertUnit)
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
 
-import           RSCoin.Core.Crypto.Signing  (PublicKey, SecretKey)
+import           RSCoin.Core.NodeConfig      (NetworkAddress, NodeContext, Port)
 import           RSCoin.Timed.MonadTimed     (MonadTimed (timeout))
 import           RSCoin.Timed.TimedIO        (TimedIO)
 
 import           Data.MessagePack.Object     (MessagePack, Object (..),
                                               toObject)
 
-type Port = Int
-
-type Host = BS.ByteString
-
--- @ TODO: not good name for this alias
-type Addr = (Host, Port)
-
-data PlatformLayout = PlatformLayout
-    { getBankAddr      :: Addr
-    , getNotaryAddr    :: Addr
-    , getBankPublicKey :: PublicKey
-    , getBankSecretKey :: Maybe SecretKey  -- @TODO: not type-safe solution, ok for now, but...
-    } deriving (Show)
-
 -- | Defines protocol of RPC layer
 class MonadThrow r => MonadRpc r where
-    execClient :: MessagePack a => Addr -> Client a -> r a
+    execClient :: MessagePack a => NetworkAddress -> Client a -> r a
 
     serve :: Port -> [Method r] -> r ()
 
-    getPlatformLayout :: r PlatformLayout
+    getNodeContext :: r NodeContext
 
 -- | Same as MonadRpc, but we can set delays on per call basis.
 --   MonadRpc also has specified delays, but only for whole network.
@@ -87,16 +69,16 @@ class MonadThrow r => MonadRpc r where
 --    but it can be not convinient in pure implementation)
 -- TODO: Do we actually need this?
 -- class (MonadRpc r, MonadTimed r) => RpcDelayedMonad r where
---    execClientWithDelay  :: RelativeToNow -> Addr -> Client a -> r ()
+--    execClientWithDelay  :: RelativeToNow -> NetworkAddress -> Client a -> r ()
 --    serveWithDelay :: RelativeToNow -> Port -> [S.Method r] -> r ()
 
 
 -- Implementation for MessagePack
 
 newtype MsgPackRpc a = MsgPackRpc
-    { runMsgPackRpc :: ReaderT PlatformLayout TimedIO a
+    { runMsgPackRpc :: ReaderT NodeContext TimedIO a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadBase IO, MonadThrow,
-                MonadCatch, MonadMask, MonadTimed, MonadReader PlatformLayout)
+                MonadCatch, MonadMask, MonadTimed, MonadReader NodeContext)
 
 instance MonadBaseControl IO MsgPackRpc where
     type StM MsgPackRpc a = a
@@ -120,7 +102,7 @@ instance MonadRpc MsgPackRpc where
         convertMethod :: Method MsgPackRpc -> S.Method MsgPackRpc
         convertMethod Method{..} = S.method methodName methodBody
 
-    getPlatformLayout = ask
+    getNodeContext = ask
 
 instance MonadRpc m => MonadRpc (ReaderT r m) where
     execClient addr cli = lift $ execClient addr cli
@@ -132,11 +114,11 @@ instance MonadRpc m => MonadRpc (ReaderT r m) where
         convert r Method {..} =
             Method methodName (flip runReaderT r . methodBody)
 
-    getPlatformLayout = lift getPlatformLayout
+    getNodeContext = lift getNodeContext
 
 execClientTimeout
     :: (MonadTimed m, MonadRpc m, MessagePack a, TimeUnit t)
-    => t -> Addr -> Client a -> m a
+    => t -> NetworkAddress -> Client a -> m a
 execClientTimeout (convertUnit -> t) addr = timeout t . execClient addr
 
 -- * Client part

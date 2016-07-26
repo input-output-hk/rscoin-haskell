@@ -29,9 +29,9 @@ import           RSCoin.Core               (Address, Explorer, Mintette,
 import           RSCoin.Core.Communication (addPendingMintette,
                                             getBlockchainHeight,
                                             getMintettePeriod)
-import           RSCoin.Timed              (MsgPackRpc, PlatformLayout,
-                                            WorkMode, fork, fork_, killThread,
-                                            runRealMode)
+import           RSCoin.Core.NodeConfig    (NodeContext)
+import           RSCoin.Timed              (MsgPackRpc, WorkMode, fork, fork_,
+                                            killThread, runRealMode)
 
 import           RSCoin.Bank.AcidState     (AddAddress (AddAddress),
                                             AddExplorer (AddExplorer),
@@ -42,7 +42,7 @@ import           RSCoin.Bank.Server        (serve)
 import           RSCoin.Bank.Worker        (runExplorerWorker,
                                             runWorkerWithPeriod)
 
-bankWrapperReal :: PlatformLayout -> FilePath -> (State -> MsgPackRpc a) -> IO a
+bankWrapperReal :: NodeContext -> FilePath -> (State -> MsgPackRpc a) -> IO a
 bankWrapperReal layout storagePath =
     runRealMode layout .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
@@ -50,7 +50,7 @@ bankWrapperReal layout storagePath =
 -- | Launch Bank in real mode. This function works indefinitely.
 launchBankReal
     :: (TimeUnit t)
-    => PlatformLayout -> t -> FilePath -> SecretKey -> IO ()
+    => NodeContext -> t -> FilePath -> SecretKey -> IO ()
 launchBankReal layout periodDelta storagePath sk =
     bankWrapperReal layout storagePath $ launchBank periodDelta sk
 

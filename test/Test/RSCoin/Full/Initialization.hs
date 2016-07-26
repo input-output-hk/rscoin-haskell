@@ -24,7 +24,7 @@ import           Test.QuickCheck            (NonEmptyList (..))
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (..),
-                                             PlatformLayout (getNotaryAddr),
+                                             NodeContext (_notaryAddr),
                                              bankSecretKey, defaultLayout,
                                              defaultPeriodDelta,
                                              derivePublicKey, keyGen, logDebug,
@@ -60,7 +60,7 @@ mkTestContext
     => MintetteNumber -> UserNumber -> Scenario -> m TestContext
 mkTestContext mNum uNum scen = do
     binfo <- BankInfo <$> bankKey <*> liftIO B.openMemState
-    ninfo <- NotaryInfo (snd $ getNotaryAddr defaultLayout) <$> liftIO N.openMemState
+    ninfo <- NotaryInfo (snd $ _notaryAddr defaultLayout) <$> liftIO N.openMemState
     minfos <- mapM mkMintette [0 .. mNum - 1]
     buinfo <- UserInfo <$> liftIO U.openMemState
     uinfos <-

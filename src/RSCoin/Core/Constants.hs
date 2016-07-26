@@ -3,8 +3,7 @@
 -- | This module contains all constants in rscoin.
 
 module RSCoin.Core.Constants
-       ( PlatformLayout (..)
-       , defaultSecretKeyPath
+       ( defaultSecretKeyPath
        , defaultAccountsNumber
        , defaultPort
        , defaultBankHost
@@ -44,7 +43,7 @@ import           RSCoin.Core.Crypto         (Hash, PublicKey, SecretKey,
                                              constructPublicKey,
                                              constructSecretKey, hash)
 import           RSCoin.Core.Primitives     (Address (Address), Coin (..))
-import           RSCoin.Timed.MonadRpc      (Host, PlatformLayout (..), Port)
+import           RSCoin.Core.NodeConfig     (Host, NodeContext (..), Port)
 
 -- | Path used by default to read/write secret key.
 defaultSecretKeyPath :: IO FilePath
@@ -63,31 +62,31 @@ localhost :: IsString s => s
 localhost = "127.0.0.1"
 
 -- | Settings for local deployment
-localPlatformLayout :: PlatformLayout
-localPlatformLayout = PlatformLayout
-    { getBankAddr      = (localhost, 3000)
-    , getNotaryAddr    = (localhost, 4001)
-    , getBankPublicKey = testBankPublicKey
-    , getBankSecretKey = Nothing
+localPlatformLayout :: NodeContext
+localPlatformLayout = NodeContext
+    { _bankAddr      = (localhost, 3000)
+    , _notaryAddr    = (localhost, 4001)
+    , _bankPublicKey = testBankPublicKey
+    , _bankSecretKey = Nothing
     }
 
-defaultLayout :: PlatformLayout
-defaultLayout = PlatformLayout
-    { getBankAddr      = $(lift $ CC.toAddr $ CC.rscDefaultBank   CC.rscoinConfig)
-    , getNotaryAddr    = $(lift $ CC.toAddr $ CC.rscDefaultNotary CC.rscoinConfig)
-    , getBankPublicKey = testBankPublicKey
-    , getBankSecretKey = Nothing
+defaultLayout :: NodeContext
+defaultLayout = NodeContext
+    { _bankAddr      = $(lift $ CC.toAddr $ CC.rscDefaultBank   CC.rscoinConfig)
+    , _notaryAddr    = $(lift $ CC.toAddr $ CC.rscDefaultNotary CC.rscoinConfig)
+    , _bankPublicKey = testBankPublicKey
+    , _bankSecretKey = Nothing
     }
 
-defaultLayout' :: Host -> PlatformLayout
+defaultLayout' :: Host -> NodeContext
 defaultLayout' bankHost =
-    defaultLayout { getBankAddr = first (const bankHost) (getBankAddr defaultLayout) }
+    defaultLayout { _bankAddr = first (const bankHost) (_bankAddr defaultLayout) }
 
 bankPort :: Port
-bankPort = snd $ getBankAddr defaultLayout
+bankPort = snd $ _bankAddr defaultLayout
 
 defaultBankHost :: Host
-defaultBankHost = fst $ getBankAddr defaultLayout
+defaultBankHost = fst $ _bankAddr defaultLayout
 
 defaultPeriodDelta :: Second
 defaultPeriodDelta = 100

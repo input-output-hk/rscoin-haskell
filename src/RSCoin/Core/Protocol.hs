@@ -47,6 +47,7 @@ import           Data.MessagePack        (MessagePack)
 import           RSCoin.Core.Constants   (rpcTimeout)
 import           RSCoin.Core.Crypto      ()
 import           RSCoin.Core.MessagePack ()
+import           RSCoin.Core.NodeConfig  (NodeContext (..))
 import           RSCoin.Core.Types       (Explorer (..), Mintette (..))
 import qualified RSCoin.Timed            as T
 
@@ -164,7 +165,7 @@ callBank
     :: (MessagePack a, T.WorkMode m)
     => T.Client a -> m a
 callBank action = do
-    bAddr <- T.getBankAddr <$> T.getPlatformLayout
+    bAddr <- _bankAddr <$> T.getNodeContext
     T.execClient bAddr action
 
 -- | Send a request to a Mintette.
@@ -187,7 +188,7 @@ callBankSafe
     :: (MessagePack a, T.WorkMode m)
     => T.Client a -> m a
 callBankSafe action = do
-    bAddr <- T.getBankAddr <$> T.getPlatformLayout
+    bAddr <- _bankAddr <$> T.getNodeContext
     T.execClientTimeout rpcTimeout bAddr action
 
 -- | Send a request to a Mintette.
@@ -200,8 +201,8 @@ callMintetteSafe Mintette {..} action =
 
 callNotary :: (MessagePack a, T.WorkMode m) => T.Client a -> m a
 callNotary action = do
-    sAddr <- T.getNotaryAddr <$> T.getPlatformLayout
-    T.execClientTimeout rpcTimeout sAddr action
+    nAddr <- _notaryAddr <$> T.getNodeContext
+    T.execClientTimeout rpcTimeout nAddr action
 
 -- | Send a request to a Explorer.
 -- Raises an exception if Explorer doesn't respond in rpcTimeout time.

@@ -50,6 +50,7 @@ import           Data.Time.Units             (TimeUnit, convertUnit)
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
 
+import           RSCoin.Core.Crypto.Signing  (PublicKey, SecretKey)
 import           RSCoin.Timed.MonadTimed     (MonadTimed (timeout))
 import           RSCoin.Timed.TimedIO        (TimedIO)
 
@@ -60,11 +61,14 @@ type Port = Int
 
 type Host = BS.ByteString
 
+-- @ TODO: not good name for this alias
 type Addr = (Host, Port)
 
 data PlatformLayout = PlatformLayout
-    { getBankAddr   :: Addr
-    , getNotaryAddr :: Addr
+    { getBankAddr      :: Addr
+    , getNotaryAddr    :: Addr
+    , getBankPublicKey :: PublicKey
+    , getBankSecretKey :: Maybe SecretKey  -- @TODO: not type-safe solution, ok for now, but...
     } deriving (Show)
 
 -- | Defines protocol of RPC layer

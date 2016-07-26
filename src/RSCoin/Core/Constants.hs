@@ -27,6 +27,7 @@ module RSCoin.Core.Constants
        , notaryMSAttemptsLimit
        ) where
 
+import           Data.Bifunctor             (first)
 import           Data.Binary                (Binary)
 import           Data.FileEmbed             (embedFile, makeRelativeToProject)
 import           Data.Maybe                 (fromMaybe)
@@ -64,20 +65,23 @@ localhost = "127.0.0.1"
 -- | Settings for local deployment
 localPlatformLayout :: PlatformLayout
 localPlatformLayout = PlatformLayout
-    { getBankAddr   = (localhost, 3000)
-    , getNotaryAddr = (localhost, 4001)
+    { getBankAddr      = (localhost, 3000)
+    , getNotaryAddr    = (localhost, 4001)
+    , getBankPublicKey = testBankPublicKey
+    , getBankSecretKey = Nothing
     }
 
 defaultLayout :: PlatformLayout
 defaultLayout = PlatformLayout
-    { getBankAddr   = $(lift $ CC.toAddr $ CC.rscDefaultBank   CC.rscoinConfig)
-    , getNotaryAddr = $(lift $ CC.toAddr $ CC.rscDefaultNotary CC.rscoinConfig)
+    { getBankAddr      = $(lift $ CC.toAddr $ CC.rscDefaultBank   CC.rscoinConfig)
+    , getNotaryAddr    = $(lift $ CC.toAddr $ CC.rscDefaultNotary CC.rscoinConfig)
+    , getBankPublicKey = testBankPublicKey
+    , getBankSecretKey = Nothing
     }
 
 defaultLayout' :: Host -> PlatformLayout
-defaultLayout' bankHost
-    = let PlatformLayout (_, bPort) sAddr = defaultLayout
-      in PlatformLayout (bankHost, bPort) sAddr
+defaultLayout' bankHost =
+    defaultLayout { getBankAddr = first (const bankHost) (getBankAddr defaultLayout) }
 
 bankPort :: Port
 bankPort = snd $ getBankAddr defaultLayout
@@ -135,6 +139,10 @@ rpcTimeout = $(lift $ CC.rscRpcTimeout CC.rscoinConfig)
 bankSecretKey :: SecretKey
 bankSecretKey =
     constructSecretKey $ $(makeRelativeToProject "rscoin-key" >>= embedFile)
+
+-- | This Bank public key should be used only for tests and benchmarks.
+testBankPublicKey :: PublicKey
+testBankPublicKey = bankPublicKey
 
 -- @TODO move to Notary config
 notaryMSAttemptsLimit :: Int

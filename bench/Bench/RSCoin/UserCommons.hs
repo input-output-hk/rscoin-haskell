@@ -10,12 +10,15 @@ module Bench.RSCoin.UserCommons
         , userThreadWithPath
         ) where
 
+import           Control.Lens               ((^.))
 import           Control.Monad              (forM_, when)
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
+
 import           Data.Acid                  (createCheckpoint)
 import           Data.Acid.Advanced         (query')
 import           Data.ByteString            (ByteString)
+import           Data.Maybe                 (fromJust)
 import           Data.Optional              (Optional, defaultTo, empty)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
@@ -23,9 +26,10 @@ import           System.FilePath            ((</>))
 import           RSCoin.Core                (Address (..), Coin (..), Color,
                                              bankSecretKey, defaultLayout',
                                              finishPeriod, getBlockchainHeight,
-                                             keyGen, sign)
-import           RSCoin.Timed               (MsgPackRpc, for, runRealMode, sec,
-                                             wait)
+                                             localPlatformLayout, keyGen, sign)
+import           RSCoin.Core.NodeConfig     (NodeContext)
+import           RSCoin.Timed               (MsgPackRpc, for, getNodeContext,
+                                             runRealMode, sec, wait)
 import qualified RSCoin.User                as U
 import           RSCoin.User.Operations     (TransactionData (..),
                                              submitTransactionRetry)
@@ -63,8 +67,8 @@ userThreadWithPath
             U.closeState userState)
         (userAction userId)
 
-queryMyAddress :: U.RSCoinUserState -> MsgPackRpc Address
-queryMyAddress userState = head <$> query' userState U.GetOwnedDefaultAddresses
+queryMyAddress :: U.RSCoinUserState -> NodeContext -> MsgPackRpc Address
+queryMyAddress userState nodeCtx = head <$> query' userState (U.GetOwnedDefaultAddresses nodeCtx)
 
 -- | Create user with 1 address and return it.
 initializeUser :: Word -> U.RSCoinUserState -> MsgPackRpc Address
@@ -72,7 +76,8 @@ initializeUser userId userState = do
     let userAddressesNumber = 1
     logDebug $ sformat ("Initializing user " % int % "…") userId
     U.initState userState userAddressesNumber Nothing
-    queryMyAddress userState <*
+    nodeCtx <- getNodeContext
+    queryMyAddress userState nodeCtx <*
         logDebug (sformat ("Initialized user " % int % "…") userId)
 
 executeTransaction :: U.RSCoinUserState
@@ -93,7 +98,7 @@ executeTransaction userState cache coinColor coinAmount addrToSend =
 finishBankPeriod :: MsgPackRpc ()
 finishBankPeriod = do
     currentPeriodId <- getBlockchainHeight
-    let signature    = sign bankSecretKey currentPeriodId
+    let signature    = sign (fromJust $ localPlatformLayout ^. bankSecretKey) currentPeriodId
     finishPeriod signature
 
 -- | Create user in `bankMode` and send coins to every user.
@@ -102,7 +107,10 @@ initializeBank coinsNum userAddresses bankUserState = do
     logInfo "Initializaing user in bankMode…"
     let additionalBankAddreses = 0
     logDebug "Before initStateBank"
-    U.initStateBank bankUserState additionalBankAddreses bankSecretKey
+    U.initStateBank
+        bankUserState
+        additionalBankAddreses
+        (fromJust $ localPlatformLayout ^. bankSecretKey)
     logDebug "After initStateBank"
     cache <- U.mkUserCache
     forM_ userAddresses $

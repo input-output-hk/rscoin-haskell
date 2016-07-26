@@ -39,7 +39,7 @@ import           Data.Acid.Memory    (openMemoryState)
 import           RSCoin.Core         (ActionLog, Address,
                                       AddressToTxStrategyMap, Explorer,
                                       Explorers, HBlock, Mintette, MintetteId,
-                                      Mintettes, NewPeriodData, PeriodId,
+                                      Mintettes, NewPeriodData, NodeContext, PeriodId,
                                       PeriodResult, PublicKey, SecretKey,
                                       Transaction, TransactionId, TxStrategy)
 
@@ -115,7 +115,8 @@ restoreExplorers :: Update BS.Storage ()
 restoreExplorers = BS.restoreExplorers
 
 startNewPeriod
-    :: SecretKey
+    :: NodeContext
+    -> SecretKey
     -> [Maybe PeriodResult]
     -> Update BS.Storage [NewPeriodData]
 startNewPeriod = BS.startNewPeriod

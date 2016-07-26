@@ -37,9 +37,10 @@ module RSCoin.User.AcidState
        ) where
 
 import           Control.Exception   (throw, throwIO)
+import           Control.Lens        ((^.))
 import           Control.Monad       (replicateM, unless)
 import           Control.Monad.Catch (MonadThrow, throwM)
-import           Control.Monad.Trans (MonadIO, liftIO)
+import           Control.Monad.Trans (liftIO)
 import           Data.Acid           (makeAcidic)
 import qualified Data.Acid           as A
 import           Data.Acid.Memory    as AM
@@ -49,7 +50,7 @@ import           Data.SafeCopy       (base, deriveSafeCopy)
 import qualified RSCoin.Core         as C
 import           RSCoin.Core.Crypto  (keyGen)
 import           RSCoin.Core.Strategy(AllocationInfo, MSAddress)
-import           RSCoin.Timed        (WorkMode)
+import           RSCoin.Timed        (MonadRpc (getNodeContext), WorkMode)
 import           RSCoin.User.Logic   (getBlockchainHeight)
 import           RSCoin.User.Wallet  (TxHStatus, TxHistoryRecord, WalletStorage)
 import qualified RSCoin.User.Wallet  as W
@@ -81,12 +82,12 @@ closeState :: RSCoinUserState -> IO ()
 closeState = A.closeAcidState
 
 isInitialized :: A.Query WalletStorage Bool
-findUserAddress :: C.Address -> A.Query WalletStorage (Maybe (C.Address, C.SecretKey))
+findUserAddress :: C.NodeContext -> C.Address -> A.Query WalletStorage (Maybe (C.Address, C.SecretKey))
 getUserAddresses :: A.Query WalletStorage [(C.Address,C.SecretKey)]
-getOwnedAddresses :: A.Query WalletStorage [C.Address]
-getOwnedDefaultAddresses :: A.Query WalletStorage [C.Address]
-getOwnedAddrIds :: C.Address -> A.Query WalletStorage [C.AddrId]
-getTransactions :: C.Address -> A.Query WalletStorage [C.Transaction]
+getOwnedAddresses :: C.NodeContext -> A.Query WalletStorage [C.Address]
+getOwnedDefaultAddresses :: C.NodeContext -> A.Query WalletStorage [C.Address]
+getOwnedAddrIds :: C.NodeContext -> C.Address -> A.Query WalletStorage [C.AddrId]
+getTransactions :: C.NodeContext -> C.Address -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
 getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
 getAddressStrategy :: C.Address -> A.Query WalletStorage (Maybe C.TxStrategy)
@@ -147,8 +148,8 @@ $(makeAcidic
 -- it to known addresses (public key is hardcoded in
 -- RSCoin.Core.Constants).
 initState :: WorkMode m => RSCoinUserState -> Int -> Maybe FilePath -> m ()
-initState st n (Just skPath) = liftIO $ do
-    sk <- C.readSecretKey skPath
+initState st n (Just skPath) = do
+    sk <- liftIO $ C.readSecretKey skPath
     initStateBank st n sk
 initState st n Nothing = do
     height <- pred <$> getBlockchainHeight
@@ -160,11 +161,13 @@ initState st n Nothing = do
 -- | This function is is similar to the previous one, but is intended to
 -- be used in tests/benchmark, where bank's secret key is embeded and
 -- is not contained in file.
-initStateBank :: MonadIO m => RSCoinUserState -> Int -> C.SecretKey -> m ()
-initStateBank st n sk =
-    liftIO $
-    do let bankAddress = (sk, C.getAddress C.genesisAddress)
-       unless (W.validateKeyPair C.genesisAddress sk) $
+initStateBank :: WorkMode m => RSCoinUserState -> Int -> C.SecretKey -> m ()
+initStateBank st n sk = do
+    nodeCtx <- getNodeContext
+    let ctxGenAddress = nodeCtx ^. C.genesisAddress
+    liftIO $ do
+       let bankAddress = (sk, C.getAddress ctxGenAddress)
+       unless (W.validateKeyPair ctxGenAddress sk) $
            throwIO $
            W.BadRequest "Imported bank's secret key doesn't belong to bank."
        addresses <- replicateM n keyGen

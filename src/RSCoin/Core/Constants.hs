@@ -15,20 +15,17 @@ module RSCoin.Core.Constants
        , defaultPeriodDelta
        , epochDelta
        , emissionHash
-       , bankPublicKey
-       , genesisAddress
        , genesisValue
        , periodReward
        , shardDivider
        , shardDelta
+       , testBankPublicKey
        , rpcTimeout
-       , bankSecretKey
        , notaryMSAttemptsLimit
        ) where
 
 import           Data.Bifunctor             (first)
 import           Data.Binary                (Binary)
-import           Data.FileEmbed             (embedFile, makeRelativeToProject)
 import           Data.Maybe                 (fromMaybe)
 import           Data.String                (IsString)
 import           Data.Time.Units            (Second)
@@ -39,10 +36,9 @@ import           System.Directory           (getHomeDirectory)
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Core.CompileConfig  as CC
-import           RSCoin.Core.Crypto         (Hash, PublicKey, SecretKey,
-                                             constructPublicKey,
-                                             constructSecretKey, hash)
-import           RSCoin.Core.Primitives     (Address (Address), Coin (..))
+import           RSCoin.Core.Crypto         (Hash, PublicKey,
+                                             constructPublicKey, hash)
+import           RSCoin.Core.Primitives     (Coin (..))
 import           RSCoin.Core.NodeConfig     (Host, NodeContext (..), Port)
 
 -- | Path used by default to read/write secret key.
@@ -99,15 +95,6 @@ emissionHash a =
     hash ("This emission hash is needed for all generative" ++
           "transactions to be different" :: String, a)
 
-bankPublicKey :: PublicKey
-bankPublicKey =
-    fromMaybe (error "[FATAL] Failed to parse hardcoded Bank's public key") $
-    constructPublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
-
--- | Special address used as output in genesis transaction
-genesisAddress :: Address
-genesisAddress = Address bankPublicKey
-
 -- | This value is sent to genesisAddress in genesis transaction
 genesisValue :: Coin
 genesisValue = 100000000
@@ -132,16 +119,11 @@ shardDelta = $(lift $ CC.rscShardDelta CC.rscoinConfig)
 rpcTimeout :: Second
 rpcTimeout = $(lift $ CC.rscRpcTimeout CC.rscoinConfig)
 
--- | Bank's secret key which can be used to spend coins from genesis transaction.
--- It's needed only for tests/benchmarks.
--- UPD: it also needed for queries to Notary.
-bankSecretKey :: SecretKey
-bankSecretKey =
-    constructSecretKey $ $(makeRelativeToProject "rscoin-key" >>= embedFile)
-
 -- | This Bank public key should be used only for tests and benchmarks.
 testBankPublicKey :: PublicKey
-testBankPublicKey = bankPublicKey
+testBankPublicKey = fromMaybe
+    (error "[FATAL] Failed to parse hardcoded Bank's public key")
+    $ constructPublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
 
 -- @TODO move to Notary config
 notaryMSAttemptsLimit :: Int

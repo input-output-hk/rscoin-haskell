@@ -5,9 +5,13 @@ module Bench.RSCoin.Local.InfraThreads
         , notaryThread
         ) where
 
+import           Control.Lens               ((^.))
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
+
+import           Data.Maybe                 (fromJust)
 import           Data.Time.Units            (TimeUnit)
+
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Bank                as B
@@ -15,6 +19,7 @@ import           RSCoin.Core                (Mintette (Mintette),
                                              NodeContext (..), PublicKey,
                                              SecretKey, bankSecretKey,
                                              defaultPort, localhost, localPlatformLayout)
+import           RSCoin.Core.NodeConfig     (bankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import           RSCoin.Timed               (fork, runRealModeLocal)
@@ -22,13 +27,17 @@ import           RSCoin.Timed               (fork, runRealModeLocal)
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 
 addMintette :: Int -> PublicKey -> IO ()
-addMintette mintetteId = B.addMintetteIO bankSecretKey mintette
+addMintette mintetteId = B.addMintetteIO (fromJust $ localPlatformLayout^.bankSecretKey) mintette
   where
     mintette = Mintette localhost (defaultPort + mintetteId)
 
 bankThread :: (TimeUnit t) => t -> FilePath -> IO ()
-bankThread periodDelta benchDir
-    = B.launchBankReal localPlatformLayout periodDelta (benchDir </> "bank-db") bankSecretKey
+bankThread periodDelta benchDir =
+    B.launchBankReal
+        localPlatformLayout
+        periodDelta
+        (benchDir </> "bank-db")
+        (fromJust $ localPlatformLayout ^. bankSecretKey)
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir secretKey =

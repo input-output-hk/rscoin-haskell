@@ -39,6 +39,7 @@ module RSCoin.User.Operations
 import           Control.Arrow             ((***))
 import           Control.Exception         (SomeException, assert,
                                             fromException)
+import           Control.Lens              ((^.))
 import           Control.Monad             (filterM, forM_, unless, void, when)
 import           Control.Monad.Catch       (MonadThrow, catch, throwM, try)
 import           Control.Monad.Extra       (whenJust)
@@ -66,7 +67,8 @@ import           Serokell.Util             (format', formatSingle',
                                             listBuilderJSONIndent, pairBuilder)
 
 import qualified RSCoin.Core               as C
-import           RSCoin.Timed              (WorkMode, for, sec, wait)
+import           RSCoin.Timed              (MonadRpc (getNodeContext), WorkMode,
+                                            for, sec, wait)
 import qualified RSCoin.User.AcidState     as A
 import           RSCoin.User.Cache         (UserCache)
 import           RSCoin.User.Error         (UserError (..), UserLogicError,
@@ -138,7 +140,8 @@ getAmount st address = do
 -- stands for "if update blockchain inside"
 getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m C.CoinsMap
 getUserTotalAmount upd st = do
-    addrs <- query' st A.GetOwnedDefaultAddresses
+    nodeCtx <- getNodeContext
+    addrs <- query' st $ A.GetOwnedDefaultAddresses nodeCtx
     when upd $ void $ updateBlockchain st False
     C.mergeCoinsMaps <$> mapM (getAmountNoUpdate st) addrs
 
@@ -146,15 +149,17 @@ getUserTotalAmount upd st = do
 getAmountNoUpdate
     :: WorkMode m
     => A.RSCoinUserState -> C.Address -> m C.CoinsMap
-getAmountNoUpdate st address =
-    C.coinsToMap . map sel3 <$> query' st (A.GetOwnedAddrIds address)
+getAmountNoUpdate st address = do
+    nodeCtx <- getNodeContext
+    C.coinsToMap . map sel3 <$> query' st (A.GetOwnedAddrIds nodeCtx address)
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
 -- n is the number of accounts stored in wallet)
 getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m C.CoinsMap
 getAmountByIndex st idx = do
     void $ updateBlockchain st False
-    addr <- flip atMay idx <$> query' st A.GetOwnedDefaultAddresses
+    nodeCtx <- getNodeContext
+    addr <- flip atMay idx <$> query' st (A.GetOwnedDefaultAddresses nodeCtx)
     maybe
         (throwM $
          InputProcessingError "invalid index was given to getAmountByIndex")
@@ -163,14 +168,16 @@ getAmountByIndex st idx = do
 
 -- | Returns list of public addresses available
 getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
-getAllPublicAddresses st = query' st A.GetOwnedDefaultAddresses
+getAllPublicAddresses st = do
+    nodeCtx <- getNodeContext
+    query' st $ A.GetOwnedDefaultAddresses nodeCtx
 
 genesisAddressIndex :: WorkMode m => A.RSCoinUserState -> m (Maybe Word)
 genesisAddressIndex st = do
     adrList <- getAllPublicAddresses st
-    return $
-        fromIntegral <$>
-        elemIndex C.genesisAddress adrList
+    nodeCtx <- getNodeContext
+    let genAddr = nodeCtx ^. C.genesisAddress
+    return $ fromIntegral <$> elemIndex genAddr adrList
 
 -- | Returns transaction history that wallet holds
 getTransactionsHistory
@@ -263,7 +270,8 @@ submitTransactionFromAll
     -> m C.Transaction
 submitTransactionFromAll st maybeCache addressTo amount =
     assert (C.getColor amount == 0) $
-    do addrs <- query' st A.GetOwnedDefaultAddresses
+    do nodeCtx <- getNodeContext
+       addrs <- query' st $ A.GetOwnedDefaultAddresses nodeCtx
        (indicesWithCoins :: [(Word, C.Coin)]) <-
            filter (not . C.isNegativeCoin . snd) <$>
            mapM
@@ -370,7 +378,8 @@ constructAndSignTransaction st TransactionData{..} = do
         formatSingle'
             "All input values should be positive, but encountered {}, that's not." $
         head $ filter (not . C.isPositiveCoin) $ concatMap snd tdInputsMerged
-    accounts <- query' st A.GetOwnedAddresses
+    nodeCtx  <- getNodeContext
+    accounts <- query' st $ A.GetOwnedAddresses nodeCtx
     let notInRange i = i >= genericLength accounts
     when (any notInRange $ map fst tdInputsMerged) $
         commitError $
@@ -403,7 +412,6 @@ constructAndSignTransaction st TransactionData{..} = do
             " following account doesn't have enough coins: {}"
             (sel1 $ head overSpentAccounts)
     txPieces <-
-        liftIO $
         mapM
             (uncurry (submitTransactionMapper st tdOutputCoins tdOutputAddress))
             accInputs
@@ -420,7 +428,7 @@ constructAndSignTransaction st TransactionData{..} = do
             M.fromList <$>
             mapM
                 (\(addrid',address') -> do
-                      (pK, sK) <- fromJust <$> query' st (A.FindUserAddress address')
+                      (pK, sK) <- fromJust <$> query' st (A.FindUserAddress nodeCtx address')
                       return (addrid', (pK, C.sign sK outTr)))
                 addrPairList
     when (not (null tdOutputCoins) && not (C.validateSum outTr)) $
@@ -448,14 +456,16 @@ constructAndSignTransaction st TransactionData{..} = do
 -- make signature map afterwards. The second is inputs of
 -- transaction, third is change outputs
 submitTransactionMapper
-    :: A.RSCoinUserState
+    :: WorkMode m
+    => A.RSCoinUserState
     -> [C.Coin]
     -> C.Address
     -> C.Address
     -> C.CoinsMap
-    -> IO (Maybe ([(C.AddrId, C.Address)], [C.AddrId], [(C.Address, C.Coin)]))
+    -> m (Maybe ([(C.AddrId, C.Address)], [C.AddrId], [(C.Address, C.Coin)]))
 submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
-    (addrids :: [C.AddrId]) <- query' st (A.GetOwnedAddrIds address)
+    nodeCtx <- getNodeContext
+    (addrids :: [C.AddrId]) <- query' st (A.GetOwnedAddrIds nodeCtx address)
     let
         -- Pairs of chosen addrids and change for each color
         chosenMap0
@@ -577,7 +587,8 @@ retrieveAllocationsList
     -> m ()  -- [(C.MSAddress, C.AllocationInfo)]
 retrieveAllocationsList st = do
     -- @TODO: only first address as party is supported now
-    fstUserAddress  <- head <$> query' st A.GetOwnedAddresses
+    nodeCtx         <- getNodeContext
+    fstUserAddress  <- head <$> query' st (A.GetOwnedAddresses nodeCtx)
     userAllocInfos  <- C.queryNotaryMyMSAllocations $ C.UserAlloc  fstUserAddress
     trustAllocInfos <- C.queryNotaryMyMSAllocations $ C.TrustAlloc fstUserAddress
     let allInfos = userAllocInfos ++ trustAllocInfos

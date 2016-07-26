@@ -10,6 +10,7 @@ module RSCoin.Bank.Server
 import           Control.Concurrent.MVar.Lifted (modifyMVar_)
 
 import           Control.Concurrent             (MVar, newMVar)
+import           Control.Lens                   ((^.))
 import           Control.Monad.Catch            (catch, throwM)
 import           Control.Monad.Trans            (lift, liftIO)
 
@@ -38,8 +39,8 @@ import           RSCoin.Core                    (ActionLog,
                                                  PeriodId, PublicKey, Signature,
                                                  Transaction, TransactionId,
                                                  bankLoggerName, bankPort,
-                                                 bankPublicKey, logDebug,
-                                                 logError, logInfo, verify)
+                                                 logDebug, logError, logInfo, verify)
+import qualified RSCoin.Core.NodeConfig         as NC
 import qualified RSCoin.Core.Protocol           as C
 import qualified RSCoin.Timed                   as T
 
@@ -59,6 +60,10 @@ serve st workerThread restartWorkerAction = do
     idr9 <- T.serverTypeRestriction0
     idr10 <- T.serverTypeRestriction3
     idr11 <- T.serverTypeRestriction1
+
+    nodeCtx <- T.getNodeContext
+    let bankPublicKey = nodeCtx ^. NC.bankPublicKey
+
     C.serve
         bankPort
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
@@ -66,13 +71,13 @@ serve st workerThread restartWorkerAction = do
         , C.method (C.RSCBank C.GetHBlock) $ idr3 $ serveGetHBlock st
         , C.method (C.RSCBank C.GetTransaction) $ idr4 $ serveGetTransaction st
         , C.method (C.RSCBank C.FinishPeriod) $
-          idr5 $ serveFinishPeriod st threadIdMVar restartWorkerAction
+          idr5 $ serveFinishPeriod st threadIdMVar restartWorkerAction bankPublicKey
         , C.method (C.RSCDump C.GetHBlocks) $ idr6 $ serveGetHBlocks st
         , C.method (C.RSCDump C.GetHBlocks) $ idr7 $ serveGetLogs st
         , C.method (C.RSCBank C.GetAddresses) $ idr8 $ serveGetAddresses st
         , C.method (C.RSCBank C.GetExplorers) $ idr9 $ serveGetExplorers st
         , C.method (C.RSCBank C.AddPendingMintette) $
-          idr10 $ serveAddPendingMintette st
+          idr10 $ serveAddPendingMintette st bankPublicKey
         , C.method (C.RSCBank C.GetHBlockEmission) $
           idr11 $ serveGetHBlockEmission st]
 
@@ -143,9 +148,10 @@ serveFinishPeriod
     => State
     -> MVar T.ThreadId
     -> (T.ThreadId -> m T.ThreadId)
+    -> PublicKey
     -> Signature
     -> T.ServerT m ()
-serveFinishPeriod st threadIdMVar restartAction periodIdSignature = toServer $ do
+serveFinishPeriod st threadIdMVar restartAction bankPublicKey periodIdSignature = toServer $ do
     logInfo bankLoggerName "Forced finish of period was requested"
 
     modifyMVar_ threadIdMVar $ \workerThreadId -> do
@@ -158,8 +164,13 @@ serveFinishPeriod st threadIdMVar restartAction periodIdSignature = toServer $ d
 
 serveAddPendingMintette
     :: T.WorkMode m
-    => State -> Mintette -> PublicKey -> Signature -> T.ServerT m ()
-serveAddPendingMintette st mintette pk proof =
+    => State
+    -> PublicKey
+    -> Mintette
+    -> PublicKey
+    -> Signature
+    -> T.ServerT m ()
+serveAddPendingMintette st bankPublicKey mintette pk proof =
     toServer $
     do logInfo bankLoggerName $ format' "Adding pending mintette {} with pk {}"
                                         (mintette, pk)

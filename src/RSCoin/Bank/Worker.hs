@@ -11,10 +11,12 @@ module RSCoin.Bank.Worker
        ) where
 
 
+import           Control.Lens             ((^.))
 import           Control.Monad            (forM_, when)
 import           Control.Monad.Catch      (SomeException, bracket_, catch)
 import           Control.Monad.Extra      (unlessM)
 import           Control.Monad.Trans      (MonadIO (liftIO))
+
 import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
@@ -42,8 +44,9 @@ import           RSCoin.Core              (defaultPeriodDelta,
                                            formatNewPeriodData,
                                            sendPeriodFinished, sign)
 import qualified RSCoin.Core              as C
-import           RSCoin.Core.Constants    (bankSecretKey)
-import           RSCoin.Timed             (Second, WorkMode, for, ms,
+import           RSCoin.Core.NodeConfig   (bankSecretKey)
+import           RSCoin.Timed             (MonadRpc (getNodeContext), Second,
+                                           WorkMode, for, minute, ms,
                                            repeatForever, sec, tu, wait)
 
 logDebug, logInfo, logWarning, logError
@@ -94,7 +97,8 @@ onPeriodFinished sk st = do
     -- get [] here in this case (and it's fine).
     initializeMultisignatureAddresses  -- init here to see them in next period
     periodResults <- getPeriodResults mintettes pId
-    newPeriodData <- update' st $ StartNewPeriod sk periodResults
+    nodeCtx       <- getNodeContext
+    newPeriodData <- update' st $ StartNewPeriod nodeCtx sk periodResults
     liftIO $ createCheckpoint st
     newMintettes <- query' st GetMintettes
     if null newMintettes
@@ -135,8 +139,13 @@ onPeriodFinished sk st = do
             update' st $ AddAddress msAddr strategy
 
         logInfo "Removing new addresses from pool"
+        nodeCtx <- getNodeContext
+        let mCurBankSecKey = nodeCtx ^. bankSecretKey
+        let curBankSecKey  = fromMaybe
+                                (error "Bank secret key is set to Nothing in config!")
+                                mCurBankSecKey
         let msAddrs       = map fst newMSAddresses
-        let signedMsAddrs = sign bankSecretKey msAddrs
+        let signedMsAddrs = sign curBankSecKey msAddrs
         C.removeNotaryCompleteMSAddresses msAddrs signedMsAddrs
     announceNewPeriodsToNotary = do
         pId <- C.getNotaryPeriod

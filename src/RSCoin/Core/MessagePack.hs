@@ -2,6 +2,7 @@
 
 module RSCoin.Core.MessagePack  () where
 
+import           Data.Bifunctor         (bimap)
 import           Data.Binary            (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Int               (Int64)
@@ -62,8 +63,8 @@ instance (MessagePack a, MessagePack b) => MessagePack (Either a b) where
     fromObject _ = Nothing
 
 instance MessagePack C.Coin where
-    toObject (C.Coin c t) = toObject (c, C.getAmount t)
-    fromObject = fmap (\(c, t) -> C.Coin c $ C.CoinAmount t) . fromObject
+    toObject (C.Coin c t) = toObject (C.getC c, C.getAmount t)
+    fromObject = fmap (uncurry C.Coin . bimap C.Color C.CoinAmount) . fromObject
 
 instance MessagePack C.Address where
     toObject (C.Address c) = toObject c

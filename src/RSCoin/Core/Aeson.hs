@@ -14,7 +14,7 @@ import           Formatting             (fixed, sformat)
 
 import           Serokell.Aeson.Options (defaultOptionsPS)
 
-import           RSCoin.Core.Primitives (Address, Coin, CoinAmount (..),
+import           RSCoin.Core.Primitives (Address, Coin, CoinAmount (..), Color,
                                          Transaction)
 import           RSCoin.Core.Strategy   (AllocationAddress, AllocationStrategy,
                                          PartyAddress)
@@ -26,6 +26,7 @@ instance ToJSON CoinAmount where
     toJSON = String . showFPrec 5 . realToFrac . getAmount
 
 $(deriveToJSON defaultOptionsPS ''Transaction)
+$(deriveToJSON defaultOptionsPS ''Color)
 $(deriveToJSON defaultOptionsPS ''Coin)
 
 $(deriveJSON defaultOptionsPS ''Address)

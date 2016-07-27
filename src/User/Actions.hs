@@ -16,6 +16,7 @@ import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
 import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
+import           Data.Bifunctor          (bimap)
 import qualified Data.ByteString.Base64  as B64
 import           Data.Function           (on)
 import           Data.List               (find, genericIndex, groupBy)
@@ -112,9 +113,9 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     do let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
            inputs' = map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
                      groupBy ((==) `on` snd) $
-                     map (\(idx,o,c) -> (idx - 1, [C.Coin c (C.CoinAmount $ toRational o)]))
+                     map (\(idx,o,c) -> (idx - 1, [C.Coin (C.Color c) (C.CoinAmount $ toRational o)]))
                      inputs
-           outputs' = map (\(amount,color) -> C.Coin color (C.CoinAmount $ toRational amount))
+           outputs' = map (uncurry (flip C.Coin) . bimap (C.CoinAmount . toRational) C.Color)
                           outputCoins
            td = TransactionData
                 { tdInputs = inputs'

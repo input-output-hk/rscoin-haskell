@@ -27,11 +27,11 @@ helper v = do
 
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
-    let coin     = W.Coin {getColor: 0, getCoin: W.Rational "0.3242342"}
+    let coin     = W.Coin {getColor: 0, getCoin: W.CoinAmount "0.3242342"}
         key      = W.PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
         hash     = W.Hash "DldRwCblQ7Loqy6wYJnaodHl30d3j3eH+qtFzfEv46g="
         addr     = W.Address { getAddress:  key }
-        tx       = W.TransactionSummarySerializable {txId: hash, txInputs: [tuple4 hash 0 coin $ Just addr], txOutputs: [(Tuple addr coin)], txInputsSum: [Tuple 0 coin], txOutputsSum: [Tuple 0 coin], txInputsTotal: W.Rational "12", txOutputsTotal: W.Rational "12"}
+        tx       = W.TransactionSummarySerializable {txId: hash, txInputs: [tuple4 hash 0 coin $ Just addr], txOutputs: [(Tuple addr coin)], txInputsSum: [Tuple 0 coin], txOutputsSum: [Tuple 0 coin], txInputsTotal: W.CoinAmount "12", txOutputsTotal: W.CoinAmount "12"}
         err      = W.ParseError "error"
         introMsg = W.IMAddressInfo addr
         aiMsg    = W.AIGetTransactions (Tuple 0 2)

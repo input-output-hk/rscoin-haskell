@@ -1,7 +1,7 @@
 module Data.Types
        ( PublicKey (..)
        , Hash (..)
-       , Rational (..)
+       , CoinAmount (..)
        ) where
 
 import Prelude

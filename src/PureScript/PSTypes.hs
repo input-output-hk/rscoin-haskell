@@ -1,7 +1,7 @@
 module PSTypes
        ( psPublicKey
        , psHash
-       , psRational
+       , psCoinAmount
        , psCoinsMap
        ) where
 
@@ -13,8 +13,8 @@ psPublicKey = TypeInfo "" "Data.Types" "PublicKey" []
 psHash :: PSType
 psHash = TypeInfo "" "Data.Types" "Hash" []
 
-psRational :: PSType
-psRational = TypeInfo "" "Data.Types" "Rational" []
+psCoinAmount :: PSType
+psCoinAmount = TypeInfo "" "Data.Types" "CoinAmount" []
 
 -- FIXME: there must be a way to do this more elegantly but currently we don't have time
 -- NOTE: we can implement this using custom `Generic` or even better custom toJson/fromJson in Data.Types

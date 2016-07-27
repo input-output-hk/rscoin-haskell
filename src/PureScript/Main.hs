@@ -7,8 +7,8 @@ import           Language.PureScript.Bridge.PSTypes (psInt)
 import qualified RSCoin.Core.Primitives             as P
 import qualified RSCoin.Explorer.WebTypes           as T
 
-import           PSTypes                            (psCoinsMap, psHash,
-                                                     psPublicKey, psRational)
+import           PSTypes                            (psCoinAmount, psCoinsMap,
+                                                     psHash, psPublicKey)
 
 main :: IO ()
 main =
@@ -28,7 +28,7 @@ main =
     -- , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
     customBridge =
         defaultBridge <|> publicKeyBridge <|> wordBridge <|> hashBridge <|>
-        rationalBridge <|> coinsMapBridge
+        coinAmountBridge <|> coinsMapBridge
 
 publicKeyBridge :: BridgePart
 publicKeyBridge = typeName ^== "PublicKey" >> return psPublicKey
@@ -39,8 +39,8 @@ wordBridge = typeName ^== "Word" >> return psInt
 hashBridge :: BridgePart
 hashBridge = typeName ^== "Hash" >> return psHash
 
-rationalBridge :: BridgePart
-rationalBridge = typeName ^== "Ratio" >> return psRational
+coinAmountBridge :: BridgePart
+coinAmountBridge = typeName ^== "CoinAmount" >> return psCoinAmount
 
 coinsMapBridge :: BridgePart
 coinsMapBridge = typeName ^== "SerializableCoinsMap" >> return psCoinsMap

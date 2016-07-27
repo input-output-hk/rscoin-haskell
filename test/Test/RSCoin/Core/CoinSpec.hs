@@ -18,15 +18,15 @@ import           Test.RSCoin.Core.Arbitrary ()
 spec :: Spec
 spec =
     describe "Coin" $ do
-        describe "sameColor" $ do
+        describe "sameColor" $
             prop "returns true iff coins have same color" sameColorCorrect
-        describe "sumCoin" $ do
+        describe "sumCoin" $
             prop description_sumCoinReturnsSum sumCoinReturnsSum
-        describe "coinsToMap" $ do
+        describe "coinsToMap" $
             prop description_coinsToMapTest verifyStructureCoinsListToMap
-        describe "addCoinsMap" $ do
+        describe "addCoinsMap" $
             prop description_coinsMapSum verifyCoinsMapSum
-        describe "subtractCoinsMap" $ do
+        describe "subtractCoinsMap" $
             prop description_coinsMapSubtract verifyCoinsMapSubtract
   where
     description_sumCoinReturnsSum = "given non-empty list of coins with " ++
@@ -66,9 +66,7 @@ verifyStructureCoinsListToMap coins =
         sameCol = map (\(C.Coin _ c) ->
                        C.Coin col c) coins'
         cMap = C.coinsToMap sameCol
-    in if null coins'
-           then True
-           else M.size cMap == 1
+    in null coins' || (M.size cMap == 1)
 
 -- | These properties do the following:
 -- * generate two CoinsMap m1 and m2
@@ -80,10 +78,10 @@ verifyStructureCoinsListToMap coins =
 -- * the corresponding values in m1 and m2.
 
 verifyCoinsMapSum :: C.CoinsMap -> C.CoinsMap -> Bool
-verifyCoinsMapSum m1 m2 = coinsMapOperation (+) C.addCoinsMap m1 m2
+verifyCoinsMapSum = coinsMapOperation (+) C.addCoinsMap
 
 verifyCoinsMapSubtract :: C.CoinsMap -> C.CoinsMap -> Bool
-verifyCoinsMapSubtract m1 m2 = coinsMapOperation (-) C.subtractCoinsMap m1 m2
+verifyCoinsMapSubtract = coinsMapOperation (-) C.subtractCoinsMap
 
 coinsMapOperation :: (C.Coin -> C.Coin -> C.Coin)
                   -> (C.CoinsMap -> C.CoinsMap -> C.CoinsMap)

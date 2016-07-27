@@ -9,28 +9,47 @@ module RSCoin.Core.NodeConfig
         , Port
 
           -- * 'NodeContext' lenses
+        , bankAddr
         , bankPublicKey
         , bankSecretKey
+        , notaryAddr
 
           -- * Other lenses
         , bankHost
         , bankPort
         , genesisAddress
+        , notaryPort
 
           -- * Hardcoded constants for tests and benchmarks
         , defaultNodeContext
         , testBankPublicKey
         , testBankSecretKey
+
+          -- * Functions to read context from configuration file
+        , readDeployNodeContext
         ) where
 
+import           Control.Exception          (Exception, throwIO)
 import           Control.Lens               (Getter, Lens', makeLenses, to, (^.), _1, _2)
+import           Control.Monad              (when)
+
 import           Data.Bifunctor             (second)
 import           Data.ByteString            (ByteString)
-import           Data.Maybe                 (fromJust, fromMaybe)
+import qualified Data.Configurator          as Config
+import qualified Data.Configurator.Types    as Config
+import           Data.Configurator.Export   (renderHashMap)
+import qualified Data.HashMap.Strict        as HM
+import           Data.Maybe                 (fromJust, fromMaybe, isNothing)
 import           Data.SafeCopy              (base, deriveSafeCopy)
+import           Data.String                (IsString)
+import qualified Data.Text                  as T
+import           Data.Typeable              (Typeable)
 
-import           RSCoin.Core.Constants      (defaultPort, localhost)
-import           RSCoin.Core.Crypto.Signing (PublicKey, SecretKey, deterministicKeyGen)
+import           Formatting                 (build, sformat, stext, (%))
+
+import           RSCoin.Core.Constants      (defaultConfigurationFileName, defaultPort, localhost)
+import           RSCoin.Core.Crypto.Signing (PublicKey, SecretKey, constructPublicKey,
+                                             derivePublicKey, deterministicKeyGen)
 import           RSCoin.Core.Primitives     (Address (..))
 
 
@@ -64,6 +83,9 @@ bankHost = bankAddr._1
 bankPort :: Getter NodeContext Port
 bankPort = bankAddr._2
 
+notaryPort :: Getter NodeContext Port
+notaryPort = notaryAddr._2
+
 -- | Special address used as output in genesis transaction
 genesisAddress :: Getter NodeContext Address
 genesisAddress = bankPublicKey.to Address
@@ -75,3 +97,58 @@ testBankPublicKey = defaultNodeContext^.bankPublicKey
 -- | This Bank secret key should be used only for tests and benchmarks.
 testBankSecretKey :: SecretKey
 testBankSecretKey = fromJust $ defaultNodeContext^.bankSecretKey
+
+bankPublicKeyPropertyName :: IsString s => s
+bankPublicKeyPropertyName = "bank.publicKey"
+
+readRequiredDeployContext :: IO (Config.Config, NodeContext)
+readRequiredDeployContext = do
+    deployConfig <- Config.load [ Config.Required defaultConfigurationFileName ]
+
+    cfgBankHost   <- Config.require deployConfig "bank.host"
+    cfgBankPort   <- Config.require deployConfig "bank.port"
+    cfgNotaryHost <- Config.require deployConfig "notary.host"
+    cfgNotaryPort <- Config.require deployConfig "notary.port"
+
+    let obtainedContext = defaultNodeContext
+            { _bankAddr   = (cfgBankHost, cfgBankPort)
+            , _notaryAddr = (cfgNotaryHost, cfgNotaryPort)
+            }
+
+    return (deployConfig, obtainedContext)
+
+data ConfigurationReadException
+    = ConfigurationReadException T.Text
+    deriving (Show, Typeable)
+
+instance Exception ConfigurationReadException
+
+-- | Read config from 'defaultConfigurationFileName' and converts into 'NodeContext'.
+-- Tries to read also bank public key if it is not provided. If provied, then rewrites
+-- configuration file.
+readDeployNodeContext :: Maybe SecretKey -> IO NodeContext
+readDeployNodeContext (Just newBankSecretKey) = do
+    (deployConfig, obtainedContext) <- readRequiredDeployContext
+
+    let newBankPublicKey = derivePublicKey newBankSecretKey
+    let pkConfigValue    = Config.String $ sformat build newBankPublicKey
+    cfgBankPublicKey    <- Config.lookup deployConfig bankPublicKeyPropertyName
+
+    when (isNothing cfgBankPublicKey || pkConfigValue /= fromJust cfgBankPublicKey) $ do
+        deployConfigMap     <- Config.getMap deployConfig
+        let mapWithPublicKey = HM.insert bankPublicKeyPropertyName pkConfigValue deployConfigMap
+        let renderedConfig   = renderHashMap mapWithPublicKey
+        writeFile defaultConfigurationFileName renderedConfig
+
+    return obtainedContext
+        { _bankPublicKey = newBankPublicKey
+        , _bankSecretKey = Just newBankSecretKey }
+readDeployNodeContext Nothing = do
+    (deployConfig, obtainedContext) <- readRequiredDeployContext
+    cfgBankPublicKey  <- Config.require deployConfig bankPublicKeyPropertyName
+    case constructPublicKey cfgBankPublicKey of
+        Nothing -> throwIO
+            $ ConfigurationReadException
+            $ sformat (stext % " is not a valid public key in config file") cfgBankPublicKey
+        Just pk ->
+            return obtainedContext { _bankPublicKey = pk }

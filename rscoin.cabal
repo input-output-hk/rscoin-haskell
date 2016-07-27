@@ -110,6 +110,8 @@ library
                      , bytestring >= 0.10.6.0
                      , cereal
                      , conduit-extra
+                     , configurator >= 0.3.0.0
+                     , configurator-export >= 0.1.0.1
                      , containers
                      , data-default
                      , directory
@@ -182,7 +184,7 @@ executable rscoin-hs2purs
 
 executable rscoin-bank
   main-is:             Main.hs
-  other-modules:       Options
+  other-modules:       BankOptions
   build-depends:       base >= 4.8 && < 4.9
                      , mtl
                      , optparse-applicative

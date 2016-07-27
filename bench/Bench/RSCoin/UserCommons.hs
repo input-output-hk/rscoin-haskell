@@ -10,14 +10,12 @@ module Bench.RSCoin.UserCommons
         , userThreadWithPath
         ) where
 
-import           Control.Lens               ((&), (.~))
 import           Control.Monad              (forM_, when)
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 
 import           Data.Acid                  (createCheckpoint)
 import           Data.Acid.Advanced         (query')
-import           Data.ByteString            (ByteString)
 import           Data.Optional              (Optional, defaultTo, empty)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
@@ -25,10 +23,9 @@ import           System.FilePath            ((</>))
 import           RSCoin.Core                (Address (..), Coin (..), Color,
                                              finishPeriod, getBlockchainHeight,
                                              keyGen, sign)
-import           RSCoin.Core.NodeConfig     (NodeContext, bankHost, defaultNodeContext,
-                                             testBankSecretKey)
+import           RSCoin.Core.NodeConfig     (NodeContext, testBankSecretKey)
 import           RSCoin.Timed               (MsgPackRpc, for, getNodeContext,
-                                             runRealMode, sec, wait)
+                                             runRealModeUntrusted, sec, wait)
 import qualified RSCoin.User                as U
 import           RSCoin.User.Operations     (TransactionData (..),
                                              submitTransactionRetry)
@@ -37,29 +34,26 @@ import           Bench.RSCoin.FilePathUtils (dbFormatPath, walletPathPrefix)
 import           Bench.RSCoin.Logging       (logDebug, logInfo)
 
 userThread
-    :: ByteString
-    -> FilePath
+    :: FilePath
     -> (Word -> U.RSCoinUserState -> MsgPackRpc a)
     -> Word
     -> IO a
-userThread newBankHost benchDir userAction userId
-    = userThreadWithPath newBankHost benchDir userAction userId empty
+userThread benchDir userAction userId
+    = userThreadWithPath benchDir userAction userId empty
 
 userThreadWithPath
-    :: ByteString
-    -> FilePath
+    :: FilePath
     -> (Word -> U.RSCoinUserState -> MsgPackRpc a)
     -> Word
     -> Optional FilePath
     -> IO a
 userThreadWithPath
-    newBankHost
     benchDir
     userAction
     userId
     (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
   =
-    runRealMode (defaultNodeContext & bankHost .~ newBankHost) $ bracket
+    runRealModeUntrusted $ bracket
         (liftIO $ U.openState walletPath)
         (\userState -> liftIO $ do
             createCheckpoint userState

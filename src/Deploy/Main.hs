@@ -22,7 +22,7 @@ import qualified RSCoin.Core             as C
 import qualified RSCoin.Explorer         as E
 import qualified RSCoin.Mintette         as M
 import qualified RSCoin.Notary           as N
-import           RSCoin.Timed            (Second, fork_, runRealMode)
+import           RSCoin.Timed            (Second, fork_, runRealModeBank, runRealModeUntrusted)
 import qualified RSCoin.User             as U
 
 import           Config                  (BankData (..), DeployConfig (..),
@@ -61,7 +61,7 @@ startMintette CommonParams{..} (idx,_) = do
     Cherepakha.mkdir workingDirModern
     (sk,pk) <- C.keyGen
     let start =
-            runRealMode C.defaultNodeContext $
+            runRealModeUntrusted $
             bracket (liftIO $ M.openState dbDir) (liftIO . M.closeState) $
             \st ->
                  do fork_ $ M.runWorker sk st
@@ -83,7 +83,6 @@ startExplorer severity CommonParams{..} (idx,ExplorerData{..}) = do
     (sk,pk) <- C.keyGen
     let start =
             E.launchExplorerReal
-                C.localhost
                 portRpc
                 portWeb
                 (fromMaybe C.Warning severity)
@@ -101,7 +100,6 @@ startNotary severity CommonParams{..} NotaryData{..} = do
                 (fromMaybe C.Warning severity)
                 (Just dbDir)
                 notaryWebPort
-                C.localhost
     Cherepakha.mkdir workingDirModern
     forkIO start
 
@@ -122,13 +120,13 @@ startBank CommonParams{..} mintettes explorers BankData{..} = do
     forM_
         explorers
         (\(port,key) ->
-              B.addExplorerIO dbDir (C.Explorer C.localhost port key) 0)
+              B.addExplorerIO bankSk dbDir (C.Explorer C.localhost port key) 0)
     forM_
         mintettes
         (\(port,key) ->
-              B.addMintetteInPlace dbDir (C.Mintette C.localhost port) key)
+              B.addMintetteInPlace bankSk dbDir (C.Mintette C.localhost port) key)
     forkIO $
-        B.launchBankReal C.defaultNodeContext periodDelta dbDir bankSk
+        B.launchBankReal periodDelta dbDir bankSk
 
 -- TODO: we can setup other users similar way
 setupBankUser :: CommonParams -> BankData -> IO ()
@@ -139,7 +137,8 @@ setupBankUser CommonParams{..} BankData{..} = do
         addressesNum = 5
         walletPathArg = sformat (" --wallet-path " % string % " ") dbDir
     Cherepakha.mkdir workingDirModern
-    runRealMode C.defaultNodeContext $
+    bankSk <- C.readSecretKey bdSecret
+    runRealModeBank bankSk $
         bracket
             (liftIO $ U.openState dbDir)
             (\st ->

@@ -5,7 +5,6 @@ module NotaryOptions
         , getOptions
         ) where
 
-import           Data.ByteString        (ByteString)
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, option,
                                          progDesc, short, showDefault, switch,
@@ -13,14 +12,12 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultSecretKeyPath,
-                                         localhost)
+import           RSCoin.Core            (Severity (Error), defaultSecretKeyPath)
 
 data Options = Options
     { cliPath        :: FilePath
     , cliLogSeverity :: Severity
     , cliMemMode     :: Bool
-    , cliBankHost    :: ByteString
     , cliWebPort     :: Int
     } deriving Show
 
@@ -39,10 +36,6 @@ optionsParser _ = -- defaultSKPath
     <*>
     switch
         (short 'm' <> long "memory-mode" <> help "Run in memory mode")
-    <*>
-    strOption
-        (long "bank-host" <> value localhost <> showDefault <>
-         help "Host name for bank")
     <*>
     option
         auto

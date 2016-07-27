@@ -34,7 +34,7 @@ import           Serokell.Util                   (listBuilderJSONIndent)
 
 import           RSCoin.Core                     (logDebug, testingLoggerName)
 import           RSCoin.Timed                    (MsgPackRpc, PureRpc, WorkMode,
-                                                  runRealModeLocal)
+                                                  runRealModeUntrusted)
 
 import           Test.RSCoin.Core.Arbitrary      ()
 import           Test.RSCoin.Full.Action         (Action (doAction))
@@ -53,7 +53,7 @@ type FullPropertyRealMode = FullProperty MsgPackRpc
 --launchPure gen = runEmulationMode (Just gen)
 
 launchReal :: MsgPackRpc a -> IO a
-launchReal = runRealModeLocal
+launchReal = runRealModeUntrusted
 
 toPropertyM
     :: WorkMode m

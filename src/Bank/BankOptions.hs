@@ -1,6 +1,6 @@
 -- | Command line options for Bank
 
-module Options
+module BankOptions
        ( Command (..)
        , Options (..)
        , getOptions
@@ -9,20 +9,19 @@ module Options
 import qualified Data.Text              as T
 import           Options.Applicative    (Parser, auto, command, execParser,
                                          fullDesc, help, helper, info, long,
-                                         metavar, option, optional, progDesc,
+                                         metavar, option, progDesc,
                                          short, showDefault, subparser, value,
                                          (<>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), TxStrategy,
+import           RSCoin.Core            (Severity (Error),
                                          defaultPeriodDelta,
                                          defaultSecretKeyPath)
 
 data Command
-    = Serve FilePath
-    | AddMintette FilePath String Int T.Text
-    | AddAddress (Maybe T.Text) TxStrategy
+    = Serve
+    | AddMintette String Int T.Text
     | AddExplorer String Int T.Text Int
 
 data Options = Options
@@ -30,10 +29,11 @@ data Options = Options
     , cloPath        :: FilePath
     , cloPeriodDelta :: Integer
     , cloLogSeverity :: Severity
+    , cloSkPath      :: FilePath
     }
 
-commandParser :: FilePath -> Parser Command
-commandParser defaultSKPath =
+commandParser :: Parser Command
+commandParser =
     subparser
         (command
              "serve"
@@ -44,27 +44,12 @@ commandParser defaultSKPath =
              "add-mintette"
              (info addMintetteOpts (progDesc "Add given mintette to database")) <>
          command
-             "add-address"
-             (info addAddressOpts (progDesc "Add given address and corresponding strategy to database")) <>
-         command
              "add-explorer"
              (info addExplorerOpts (progDesc "Add given explorer to database")))
   where
-    keyOption = strOption
-         (short 'k' <> long "secret-key" <> help "Path to secret key" <>
-          value defaultSKPath <>
-          showDefault <>
-          metavar "PATH TO KEY")
-    serveOpts = Serve <$> keyOption
-    addAddressOpts =
-        AddAddress <$> (optional . strOption) (long "address" <> help "Public key, determining address") <*>
-        option auto
-            (long "strategy" <>
-             help "Address's strategy (directly, not from file). Example: 'MOfNStrategy 5 (fromList [\"YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM=\"])'" <>
-             metavar "STRATEGY")
+    serveOpts = pure Serve
     addMintetteOpts =
         AddMintette <$>
-        keyOption <*>
         strOption (long "host") <*>
         option auto (long "port") <*>
         strOption
@@ -85,18 +70,27 @@ commandParser defaultSKPath =
 
 optionsParser :: FilePath -> Parser Options
 optionsParser defaultSKPath =
-    Options <$> commandParser defaultSKPath <*>
+    Options
+    <$>
+    commandParser
+    <*>
     strOption
         (long "path" <> value "bank-db" <> showDefault <>
-         help "Path to database") <*>
+         help "Path to database")
+    <*>
     option
         auto
         (long "period-delta" <> value (toInteger defaultPeriodDelta) <>
-         showDefault <> help "Period length in seconds") <*>
+         showDefault <> help "Period length in seconds")
+    <*>
     option
         auto
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity")
+    <*>
+    strOption
+         (short 'k' <> long "secret-key" <> help "Path to bank secret key" <>
+          value defaultSKPath <> showDefault <> metavar "PATH TO KEY")
 
 getOptions :: IO Options
 getOptions = do

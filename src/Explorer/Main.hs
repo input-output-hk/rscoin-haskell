@@ -9,7 +9,6 @@ main = do
     C.initLogging cloLogSeverity
     sk <- C.readSecretKey cloSecretKeyPath
     E.launchExplorerReal
-        cloBankHost
         cloPortRpc
         cloPortWeb
         cloLogSeverity

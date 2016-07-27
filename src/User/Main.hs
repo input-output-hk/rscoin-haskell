@@ -1,14 +1,12 @@
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import           Control.Lens        ((&), (.~))
 import           Control.Monad.Catch (MonadCatch, bracket, catch, throwM)
 import           Control.Monad.Trans (MonadIO, liftIO)
 import qualified Data.Acid           as ACID
 import qualified Data.Text           as T
 
 import qualified RSCoin.Core         as C
-import           RSCoin.Timed        (runRealMode)
+import           RSCoin.Timed        (runRealModeUntrusted)
 import qualified RSCoin.User         as U
 import qualified RSCoin.User.Wallet  as W
 
@@ -19,7 +17,7 @@ main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     C.initLogging logSeverity
-    runRealMode (C.defaultNodeContext & C.bankHost .~ bankHost) $
+    runRealModeUntrusted $
         bracket
             (liftIO $ U.openState walletPath)
             (\st -> liftIO $ do

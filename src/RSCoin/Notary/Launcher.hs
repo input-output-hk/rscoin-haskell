@@ -1,10 +1,9 @@
 -- | Launch Notary stuff.
 
 module RSCoin.Notary.Launcher
-       ( launchNotaryReal
-       ) where
+        ( launchNotaryReal
+        ) where
 
-import           Control.Lens                         ((&), (.~))
 import           Control.Monad.Catch                  (bracket)
 import           Control.Monad.Trans                  (MonadIO, liftIO)
 
@@ -13,25 +12,21 @@ import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
 import           RSCoin.Core                          (Severity (..))
-import           RSCoin.Core.NodeConfig               (Host, NodeContext (_notaryAddr),
-                                                       bankHost, defaultNodeContext)
 import           RSCoin.Notary.AcidState              (RSCoinNotaryState,
                                                        closeState, openMemState,
                                                        openState)
-import           RSCoin.Notary.Server                 (serve)
+import           RSCoin.Notary.Server                 (serveNotary)
 import           RSCoin.Notary.Web.Servant            (servantApp)
-import           RSCoin.Timed                         (fork_, runRealMode)
+import           RSCoin.Timed                         (fork_, runRealModeUntrusted)
 
-launchNotaryReal :: Severity -> Maybe FilePath -> Int -> Host -> IO ()
-launchNotaryReal logSeverity dbPath webPort newBankHost = do
-    let open      = maybe openMemState openState dbPath
-        nodeCtx   = defaultNodeContext & bankHost .~ newBankHost
-        servePort = snd $ _notaryAddr nodeCtx
-    runRealMode nodeCtx $
-        bracket (liftIO open) (liftIO . closeState) $
-        \st ->
-             do fork_ $ serve servePort st
-                launchWeb webPort logSeverity st
+launchNotaryReal :: Severity -> Maybe FilePath -> Int -> IO ()
+launchNotaryReal logSeverity dbPath webPort = do
+    let openAction = maybe openMemState openState dbPath
+    runRealModeUntrusted $
+        bracket (liftIO openAction) (liftIO . closeState) $
+        \st -> do
+            fork_ $ serveNotary st
+            launchWeb webPort logSeverity st
 
 loggingMiddleware :: Severity -> Middleware
 loggingMiddleware Debug = logStdoutDev

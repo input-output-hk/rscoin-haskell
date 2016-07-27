@@ -23,9 +23,7 @@ import           Formatting                 (build, sformat, (%))
 import           Test.QuickCheck            (NonEmptyList (..))
 
 import qualified RSCoin.Bank                as B
-import           RSCoin.Core                (Mintette (..),
-                                             NodeContext (_notaryAddr), SecretKey,
-                                             defaultNodeContext,
+import           RSCoin.Core                (Mintette (..), SecretKey,
                                              defaultPeriodDelta,
                                              derivePublicKey, keyGen, logDebug,
                                              logInfo, testBankSecretKey, testingLoggerName)
@@ -60,7 +58,7 @@ mkTestContext
     => MintetteNumber -> UserNumber -> Scenario -> m TestContext
 mkTestContext mNum uNum scen = do
     binfo <- BankInfo <$> bankKeyPair <*> liftIO B.openMemState
-    ninfo <- NotaryInfo (snd $ _notaryAddr defaultNodeContext) <$> liftIO N.openMemState
+    ninfo <- NotaryInfo <$> liftIO N.openMemState
     minfos <- mapM mkMintette [0 .. mNum - 1]
     buinfo <- UserInfo <$> liftIO U.openMemState
     uinfos <-
@@ -131,7 +129,7 @@ runMintettes v mts scen = do
 runNotary
     :: WorkMode m
     => MVar () -> NotaryInfo -> m ()
-runNotary v n = workWhileMVarEmpty v $ N.serve (n ^. port) (n ^. state)
+runNotary v n = workWhileMVarEmpty v $ N.serveNotary (n ^. state)
 
 addMintetteToBank
     :: MonadIO m

@@ -3,7 +3,7 @@
 -- | Server implementation for Notary.
 
 module RSCoin.Notary.Server
-        ( serve
+        ( serveNotary
         , handlePublishTx
         , handlePollTxs
         , handleAnnounceNewPeriods
@@ -53,12 +53,11 @@ toServer action = liftIO $ action `catch` handler
         throwIO e
 
 -- | Run Notary server which will process incoming sing requests.
-serve
+serveNotary
     :: WorkMode m
-    => Int
-    -> RSCoinNotaryState
+    => RSCoinNotaryState
     -> m ()
-serve port notaryState = do
+serveNotary notaryState = do
     idr1 <- serverTypeRestriction3
     idr2 <- serverTypeRestriction1
     idr3 <- serverTypeRestriction2
@@ -71,9 +70,10 @@ serve port notaryState = do
 
     nodeCtx <- getNodeContext
     let bankPublicKey = nodeCtx ^. C.bankPublicKey
+    let notaryPort    = nodeCtx ^. C.notaryPort
 
     P.serve
-        port
+        notaryPort
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1
             $ handlePublishTx notaryState
         , P.method (P.RSCNotary P.PollTransactions)           $ idr2

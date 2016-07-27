@@ -58,9 +58,7 @@ data MintetteInfo = MintetteInfo
 $(makeLenses ''MintetteInfo)
 
 data NotaryInfo = NotaryInfo
-    { _notaryPort  :: Int
-    , _notaryState :: N.RSCoinNotaryState
-    }
+    { _notaryState :: N.RSCoinNotaryState }
 
 $(makeLenses ''NotaryInfo)
 
@@ -132,6 +130,3 @@ instance WithPort BankInfo where
 
 instance WithPort MintetteInfo where
     port = mintettePort
-
-instance WithPort NotaryInfo where
-    port = notaryPort

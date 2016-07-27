@@ -4,6 +4,7 @@
 
 module RSCoin.Core.Constants
         ( defaultAccountsNumber
+        , defaultConfigurationFileName
         , defaultSecretKeyPath
         , defaultPeriodDelta
         , defaultPort
@@ -85,3 +86,7 @@ rpcTimeout = $(lift $ CC.rscRpcTimeout CC.rscoinConfig)
 -- @TODO move to Notary config
 notaryMSAttemptsLimit :: Int
 notaryMSAttemptsLimit = 5
+
+-- | File name for running app with configuration of 'configurator' libary.
+defaultConfigurationFileName :: IsString s => s
+defaultConfigurationFileName = "deploy-rscoin.cfg"

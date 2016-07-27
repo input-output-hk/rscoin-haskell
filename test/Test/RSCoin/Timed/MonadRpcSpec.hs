@@ -16,7 +16,7 @@ import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, run)
 
 import           RSCoin.Core.NodeConfig      (Host, NetworkAddress, Port)
 import           RSCoin.Timed                (WorkMode, for, fork, fork_,
-                                              killThread, ms, runRealModeLocal,
+                                              killThread, ms, runRealModeUntrusted,
                                               wait)
 import           RSCoin.Timed.MonadRpc       (Client (..), MonadRpc (..),
                                               MsgPackRpc (..), call, method)
@@ -29,7 +29,7 @@ spec =
     describe "MonadRpc" $ do
         describe "MsgPackRpc" $ do
             describe "msgpack-rpc based implementation of RPC layer" $ do
-                runIO $ runRealModeLocal (fork_ server)
+                runIO $ runRealModeUntrusted (fork_ server)
                 prop "client should be able to execute server method" $
                     runMsgPackRpcProp serverMethodShouldExecuteSimpleSpec
         describe "PureRpc" $ do
@@ -44,7 +44,7 @@ assertPure :: Bool -> PureRpcProp ()
 assertPure b = modify (b &&)
 
 runMsgPackRpcProp :: MsgPackRpcProp () -> Property
-runMsgPackRpcProp = monadic $ ioProperty . runRealModeLocal
+runMsgPackRpcProp = monadic $ ioProperty . runRealModeUntrusted
 
 runPureRpcProp :: PureRpcProp () -> Property
 runPureRpcProp test =

@@ -46,7 +46,7 @@ import           RSCoin.Core              (defaultPeriodDelta,
 import qualified RSCoin.Core              as C
 import           RSCoin.Core.NodeConfig   (bankSecretKey)
 import           RSCoin.Timed             (MonadRpc (getNodeContext), Second,
-                                           WorkMode, for, minute, ms,
+                                           WorkMode, for, ms,
                                            repeatForever, sec, tu, wait)
 
 logDebug, logInfo, logWarning, logError

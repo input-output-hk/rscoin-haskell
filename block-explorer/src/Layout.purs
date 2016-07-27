@@ -46,7 +46,7 @@ type State =
     { route        :: Route
     , socket       :: Maybe C.Connection
     , address      :: Address
-    , balance      :: Array (Tuple Int Coin)
+    , balance      :: Array (Tuple Color Coin)
     , transactions :: Array TransactionSummarySerializable
     , periodId     :: Int
     }

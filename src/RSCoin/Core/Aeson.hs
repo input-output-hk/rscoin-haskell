@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Aeson instances.
 
@@ -7,37 +6,27 @@ module RSCoin.Core.Aeson
        (
        ) where
 
-import           Data.Aeson             (ToJSON, object, toJSON, (.=),
-                                         FromJSON, parseJSON, (.:))
-import           Data.Aeson.Types       (Value (..))
+import           Data.Aeson             (ToJSON, toJSON)
 import           Data.Aeson.TH          (deriveJSON, deriveToJSON)
+import           Data.Aeson.Types       (Value (..))
 import qualified Data.Text              as T
 import           Formatting             (fixed, sformat)
 
 import           Serokell.Aeson.Options (defaultOptionsPS)
 
-import           RSCoin.Core.Primitives (Address, Coin (..), Transaction)
+import           RSCoin.Core.Primitives (Address, Coin, CoinAmount (..),
+                                         Transaction)
 import           RSCoin.Core.Strategy   (AllocationAddress, AllocationStrategy,
                                          PartyAddress)
 
 showFPrec :: Int -> Double -> T.Text
 showFPrec prec = T.dropWhileEnd (== '0') . sformat (fixed prec)
 
-instance ToJSON Coin where
-    toJSON Coin{..} =
-        let prec = 5
-        in object
-               [ "getColor" .= getColor
-               , "getCoin" .= showFPrec prec (realToFrac getCoin)]
-
-instance FromJSON Coin where
-    parseJSON (Object v) = Coin <$>
-                           v .: "getColor" <*>
-                           v .: "getCoin"
-    parseJSON _ = error "Error parsing coin JSON"
-
+instance ToJSON CoinAmount where
+    toJSON = String . showFPrec 5 . realToFrac . getAmount
 
 $(deriveToJSON defaultOptionsPS ''Transaction)
+$(deriveToJSON defaultOptionsPS ''Coin)
 
 $(deriveJSON defaultOptionsPS ''Address)
 $(deriveJSON defaultOptionsPS ''AllocationAddress)

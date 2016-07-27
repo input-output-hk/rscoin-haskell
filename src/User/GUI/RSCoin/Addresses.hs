@@ -6,14 +6,14 @@ module GUI.RSCoin.Addresses
 import           Control.Monad (forM)
 import           Data.Acid     (query)
 import qualified Data.Map      as M
-import           RSCoin.Core   (Coin (..), PublicKey, getAddress)
+import           RSCoin.Core   (Coin (..), CoinAmount, PublicKey, getAddress)
 import           RSCoin.Timed  (runRealModeLocal)
 import           RSCoin.User   (GetOwnedDefaultAddresses (..), RSCoinUserState,
                                 getAmountNoUpdate)
 
 data VerboseAddress = VA
     { address :: PublicKey
-    , balance :: Rational
+    , balance :: CoinAmount
     }
 
 -- FIXME: this is used only in gui. Now that we are using Rational in

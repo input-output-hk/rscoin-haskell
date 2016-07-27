@@ -5,8 +5,7 @@ module RSCoin.Core.MessagePack  () where
 import           Data.Binary            (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Int               (Int64)
-import           Data.MessagePack       (MessagePack (fromObject, toObject),
-                                         Object (ObjectBin, ObjectExt, ObjectInt),
+import           Data.MessagePack       (MessagePack (fromObject, toObject), Object (ObjectBin, ObjectExt, ObjectInt),
                                          pack, unpack)
 import           Data.Ratio             (Ratio, denominator, numerator, (%))
 import           Data.Tuple.Curry       (uncurryN)
@@ -63,8 +62,8 @@ instance (MessagePack a, MessagePack b) => MessagePack (Either a b) where
     fromObject _ = Nothing
 
 instance MessagePack C.Coin where
-    toObject (C.Coin c t) = toObject (c, t)
-    fromObject = fmap (uncurry C.Coin) . fromObject
+    toObject (C.Coin c t) = toObject (c, C.getAmount t)
+    fromObject = fmap (\(c, t) -> C.Coin c $ C.CoinAmount t) . fromObject
 
 instance MessagePack C.Address where
     toObject (C.Address c) = toObject c

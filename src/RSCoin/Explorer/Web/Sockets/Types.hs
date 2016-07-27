@@ -47,9 +47,9 @@ data TransactionSummary = TransactionSummary
     , txsInputs       :: [AddrId]
     , txsOutputs      :: [(C.Address, C.Coin)]
     , txsInputsSum    :: C.CoinsMap
-    , txsInputsTotal  :: Rational
+    , txsInputsTotal  :: C.CoinAmount
     , txsOutputsSum   :: C.CoinsMap
-    , txsOutputsTotal :: Rational
+    , txsOutputsTotal :: C.CoinAmount
     } deriving (Show)
 
 newtype SerializableCoinsMap =
@@ -64,9 +64,9 @@ data TransactionSummarySerializable = TransactionSummarySerializable
     , txInputs       :: [AddrId]
     , txOutputs      :: [(C.Address, C.Coin)]
     , txInputsSum    :: SerializableCoinsMap
-    , txInputsTotal  :: Rational
+    , txInputsTotal  :: C.CoinAmount
     , txOutputsSum   :: SerializableCoinsMap
-    , txOutputsTotal :: Rational
+    , txOutputsTotal :: C.CoinAmount
     } deriving (Show, Generic)
 
 $(deriveToJSON defaultOptionsPS ''TransactionSummarySerializable)

@@ -18,7 +18,8 @@ import           Data.Bifunctor         (first)
 import           GUI.RSCoin.GUIAcid     (GUIState, addTransaction,
                                          getTransaction)
 import           RSCoin.Core            (Address (..), Coin (..),
-                                         Transaction (..), getTransactionById)
+                                         CoinAmount (..), Transaction (..),
+                                         getTransactionById)
 import           RSCoin.Timed           (WorkMode)
 
 -- | Transaction in a user-printable form.
@@ -50,12 +51,14 @@ fromTransaction st (Transaction i o) = do
             Just t -> return t
 
 -- | Calculates the balance change for the user caused by the transaction.
-getTransactionAmount :: [Address] -> ExplicitTransaction -> Rational
+getTransactionAmount :: [Address] -> ExplicitTransaction -> CoinAmount
 getTransactionAmount addrs (ExplicitTransaction i o) =
     calculate (map (first Just) o) - calculate i
   where
-    calculate [] = 0
-    calculate (x:xs) = calculate xs + (if isMy x then getCoin $ snd x else 0)
+    zeroCoin = CoinAmount 0
+
+    calculate [] = zeroCoin
+    calculate (x:xs) = calculate xs + (if isMy x then getCoin $ snd x else zeroCoin)
 
     isMy (Nothing, _) = False
     isMy (Just d, _) = getAddress d `elem` map getAddress addrs

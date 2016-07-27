@@ -31,8 +31,8 @@ data WalletModelNode = WalletModelNode
     { wIsSend  :: Bool
     , wStatus  :: TxHStatus
     , wHeight  :: Int
-    , wAddress :: T.Text
-    , wAmount  :: Rational
+    , wAddress :: T.Text    -- TODO: use Address here
+    , wAmount  :: Rational  -- TODO: use CoinAmount
     , wTxHR    :: TxHistoryRecord
     }
 

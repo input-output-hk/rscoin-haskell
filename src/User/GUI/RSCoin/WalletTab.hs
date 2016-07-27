@@ -184,7 +184,7 @@ toNodeMapper :: RSCoinUserState
 toNodeMapper st gst txhr@U.TxHistoryRecord{..} = do
     eTx <- runRealModeLocal $ fromTransaction gst txhTransaction
     addrs <- U.getAllAddresses st
-    let amountDiff = getTransactionAmount addrs eTx
+    let amountDiff = C.getAmount $ getTransactionAmount addrs eTx
         isIncome = amountDiff > 0
         headMaybe [] = Nothing
         headMaybe (x:_) = Just x

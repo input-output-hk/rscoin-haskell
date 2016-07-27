@@ -112,9 +112,9 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     do let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
            inputs' = map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
                      groupBy ((==) `on` snd) $
-                     map (\(idx,o,c) -> (idx - 1, [C.Coin c (toRational o)]))
+                     map (\(idx,o,c) -> (idx - 1, [C.Coin c (C.CoinAmount $ toRational o)]))
                      inputs
-           outputs' = map (\(amount,color) -> C.Coin color (toRational amount))
+           outputs' = map (\(amount,color) -> C.Coin color (C.CoinAmount $ toRational amount))
                           outputCoins
            td = TransactionData
                 { tdInputs = inputs'

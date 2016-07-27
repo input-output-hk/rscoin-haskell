@@ -6,6 +6,7 @@
 
 module RSCoin.Core.Primitives
        ( Color
+       , CoinAmount (..)
        , Coin (..)
        , Address (..)
        , AddrId
@@ -39,12 +40,16 @@ type Color = Int
 grey :: Color
 grey = 0
 
+newtype CoinAmount = CoinAmount
+    { getAmount :: Rational
+    } deriving (Eq,Show,Ord,Num,Fractional,RealFrac,Real,Data,Buildable,Hashable,Binary)
+
 -- | Coin is the least possible unit of currency.
 -- We use very simple model at this point.
 data Coin = Coin
     { getColor :: Color
-    , getCoin  :: Rational
-    } deriving (Show, Eq, Ord, Generic, Data)
+    , getCoin  :: CoinAmount
+    } deriving (Show,Eq,Ord,Generic,Data)
 
 reportError :: String -> Coin -> Coin -> a
 reportError s c1 c2 =
@@ -64,7 +69,7 @@ instance Buildable Coin where
         bprint (float % " coin(s) of color " % int) valueDouble col
       where
         valueDouble :: Double
-        valueDouble = fromRational c
+        valueDouble = fromRational $ getAmount c
 
 instance Num Coin where
     (+) c1@(Coin col c) c2@(Coin col' c')
@@ -146,6 +151,7 @@ type TransactionId = Hash
 -- | Emission is identified by transaction hash. Period 0 doesn't contain emission transaction so EmissionId for period 0 is Nothing
 type EmissionId = Maybe TransactionId
 
+$(deriveSafeCopy 0 'base ''CoinAmount)
 $(deriveSafeCopy 0 'base ''Coin)
 $(deriveSafeCopy 0 'base ''Address)
 $(deriveSafeCopy 0 'base ''Transaction)

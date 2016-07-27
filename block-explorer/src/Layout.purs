@@ -4,7 +4,6 @@ import Prelude                     (($), map, (<<<), const, pure, bind, show,
                                     (==))
 
 
-import App.Counter                 as Counter
 -- import App.NotFound                as NotFound
 import App.Routes                  (Route(NotFound))
 import App.Connection              (Connection, Action (..), WEBSOCKET,
@@ -17,9 +16,11 @@ import App.RSCoin                  (emptyAddress, Address, newAddress,
 
 import Data.Maybe                  (Maybe (..), fromJust)
 import Data.Tuple                  (Tuple (..), snd)
-import Data.Tuple.Nested           (uncurry2, uncurry4)
+import Data.Tuple.Nested           (uncurry2)
 import Data.Either                 (fromRight)
-import Data.Array                  (concatMap)
+import Data.Array                  (length)
+import Data.Generic                (gShow)
+import Debug.Trace                 (traceAny)
 
 import Pux                         (EffModel, noEffects)
 import Pux.Html                    (Html, div, h1, text, input, button, link,
@@ -43,7 +44,6 @@ data Action
 
 type State =
     { route        :: Route
-    , count        :: Counter.State
     , socket       :: Maybe C.Connection
     , address      :: Address
     , balance      :: Array (Tuple Int Coin)
@@ -54,12 +54,11 @@ type State =
 init :: State
 init =
     { route:        NotFound
-    , count:        Counter.init
     , socket:       Nothing
     , address:      emptyAddress
     , balance:      []
     , transactions: []
-    , periodId:          0
+    , periodId:     0
     }
 
 txNum :: Int
@@ -67,8 +66,8 @@ txNum = 15
 
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 update (PageView route) state = noEffects $ state { route = route }
-update (SocketAction (C.ReceivedData msg)) state =
-    case unsafePartial $ fromRight msg of
+update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
+    \_ -> case unsafePartial $ fromRight msg of
         OMBalance pid arr ->
             { state: state { balance = arr, periodId = pid }
             , effects:
@@ -150,54 +149,44 @@ view state =
                 ]
             ]
         , div
-            [ className "col-xs-6" ]
+            [ className "container" ]
             [ div
-                [ className "panel panel-default" ]
+                [ className "row" ]
                 [ div
-                    [ className "panel-heading" ]
-                    [ text "Balance" ]
-                , table
-                    [ className "table table-striped table-hover" ]
-                    [ thead [] [ tr []
-                        [ th [] [ text "Height" ]
-                        , th [] [ text "Coin color" ]
-                        , th [] [ text "Coin amount" ]
-                        ]]
-                    , tbody [] $ map (uncurry2 $ coinRow state.periodId) state.balance
+                    [ className "panel panel-default" ]
+                    [ div
+                        [ className "panel-heading" ]
+                        [ text "Balance" ]
+                    , table
+                        [ className "table table-striped table-hover" ]
+                        [ thead [] [ tr []
+                            [ th [] [ text "Height" ]
+                            , th [] [ text "Coin color" ]
+                            , th [] [ text "Coin amount" ]
+                            ]]
+                        , tbody [] $ map (uncurry2 $ coinRow state.periodId) state.balance
+                        ]
                     ]
                 ]
             , div
-                [ className "panel panel-default" ]
+                [ className "row" ]
                 [ div
-                    [ className "panel-heading" ]
-                    [ text "Transaction output feed" ]
-                , table
-                    [ className "table table-striped table-hover" ]
-                    [ thead [] [ tr []
-                        [ th [] [ text "Address to" ]
-                        , th [] [ text "Coin color" ]
-                        , th [] [ text "Coin amount" ]
-                        ]]
-                    , tbody [] <<< map (uncurry2 txOutputRow) $ concatMap (\(TransactionSummarySerializable t) -> t.txOutputs) state.transactions
-                    ]
-                ]
-            ]
-        , div
-            [ className "col-xs-6" ]
-            [ div
-                [ className "panel panel-default" ]
-                [ div
-                    [ className "panel-heading" ]
-                    [ text "Transaction input feed" ]
-                , table
-                    [ className "table table-striped table-hover" ]
-                    [ thead [] [ tr []
-                        [ th [] [ text "Transaction hash from" ]
-                        , th [] [ text "Address index" ]
-                        , th [] [ text "Coin color" ]
-                        , th [] [ text "Coin amount" ]
-                        ]]
-                    , tbody [] <<< map (uncurry4 txInputRow) $ concatMap (\(TransactionSummarySerializable t) -> t.txInputs) state.transactions
+                    [ className "panel panel-default" ]
+                    [ div
+                        [ className "panel-heading" ]
+                        [ text "Transaction input feed" ]
+                    , table
+                        [ className "table table-striped table-hover" ]
+                        [ thead [] [ tr []
+                            [ th [] [ text "Height" ]
+                            , th [] [ text "Transaction" ]
+                            , th [] [ text "Sent from" ]
+                            , th [] [ text "Total sent" ]
+                            , th [] [ text "Sent to" ]
+                            , th [] [ text "Total received" ]
+                            ]]
+                        , tbody [] $ map (\(TransactionSummarySerializable t) -> transactionRow state.periodId t) state.transactions
+                        ]
                     ]
                 ]
             ]
@@ -214,17 +203,26 @@ view state =
            , td [] [ text $ show c.getColor ]
            , td [] [ text $ show c.getCoin ]
            ]
-    txInputRow h i (Coin c) _ =
+--    txInputRow h i (Coin c) _ =
+--        tr []
+--           [ td [] [ text $ show h ]
+--           , td [] [ text $ show i ]
+--           , td [] [ text $ show c.getColor ]
+--           , td [] [ text $ show c.getCoin ]
+--           ]
+--    txOutputRow adr (Coin c) =
+--        tr []
+--           [ td [] [ text $ addressToString adr ]
+--           , td [] [ text $ show c.getColor ]
+--           , td [] [ text $ show c.getCoin ]
+--           ]
+    transactionRow pId t =
         tr []
-           [ td [] [ text $ show h ]
-           , td [] [ text $ show i ]
-           , td [] [ text $ show c.getColor ]
-           , td [] [ text $ show c.getCoin ]
-           ]
-    txOutputRow adr (Coin c) =
-        tr []
-           [ td [] [ text $ addressToString adr ]
-           , td [] [ text $ show c.getColor ]
-           , td [] [ text $ show c.getCoin ]
+           [ td [] [ text $ show pId ]
+           , td [] [ text $ show t.txId ]
+           , td [] [ text $ show $ length t.txInputs ]
+           , td [] [ text $ show t.txInputsTotal ]
+           , td [] [ text $ show $ length t.txOutputs ]
+           , td [] [ text $ show t.txOutputsTotal ]
            ]
     clickSearch = SocketAction <<< C.SendIntroData $ IMAddressInfo state.address

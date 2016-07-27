@@ -3,7 +3,6 @@ module App.Layout where
 import Prelude                     (($), map, (<<<), const, pure, bind, show,
                                     (==))
 
-
 -- import App.NotFound                as NotFound
 import App.Routes                  (Route(NotFound))
 import App.Connection              (Connection, Action (..), WEBSOCKET,
@@ -13,12 +12,13 @@ import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     AddressInfoMsg (..), Coin (..),
                                     TransactionSummarySerializable (..),
                                     OutcomingMsg (..), Color (..))
+import App.Types                   (Action (..), State (..))
+import App.View.AddressView        (view) as Address
 
 import Data.Maybe                  (Maybe (..), fromJust)
 import Data.Tuple                  (Tuple (..), snd)
 import Data.Tuple.Nested           (uncurry2)
 import Data.Either                 (fromRight)
-import Data.Array                  (length)
 import Data.Generic                (gShow)
 import Debug.Trace                 (traceAny)
 
@@ -35,31 +35,6 @@ import DOM                         (DOM)
 import Control.Monad.Eff.Console   (CONSOLE)
 
 import Partial.Unsafe              (unsafePartial)
-
-data Action
-    = PageView Route
-    | SocketAction C.Action
-    | AddressChange Address
-    | Nop
-
-type State =
-    { route        :: Route
-    , socket       :: Maybe C.Connection
-    , address      :: Address
-    , balance      :: Array (Tuple Color Coin)
-    , transactions :: Array TransactionSummarySerializable
-    , periodId     :: Int
-    }
-
-init :: State
-init =
-    { route:        NotFound
-    , socket:       Nothing
-    , address:      emptyAddress
-    , balance:      []
-    , transactions: []
-    , periodId:     0
-    }
 
 txNum :: Int
 txNum = 15
@@ -110,117 +85,10 @@ view state =
         , href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
         ]
         []
-    , div []
-        [
-          div
-            [ className "page-header" ]
-            [ h1 [] [ text "RSCoin "
-                    , small [] [text "blockchain" ]
-                    ]
-            ]
-        , div
-            [ className "row navbar" ]
-            [ div
-                [ className "col-xs-3" ]
-                [ h5 [] [ text "RSCoin" ]
-                ]
-            , div
-                [ className "col-xs-5" ]
-                [ input
-                    [ type_ "text"
-                    , value $ addressToString state.address
-                    , onChange $ AddressChange <<< newAddress <<< _.value <<< _.target
-                    , onKeyDown $ \e -> if e.keyCode == 13 then clickSearch else Nop
-                    , className "form-control"
-                    ] []
-                ]
-            , div
-                [ className "col-xs-1" ]
-                [
-                  button
-                    [ onClick $ const clickSearch
-                    , className "btn btn-danger"
-                    ] [text "Search"]
-                ]
-            , div
-                [ className "col-xs-2 col-xs-offset-1 text-right" ]
-                [ text "English"
-                , span [ className "caret" ] []
-                ]
-            ]
-        , div
-            [ className "container" ]
-            [ div
-                [ className "row" ]
-                [ div
-                    [ className "panel panel-default" ]
-                    [ div
-                        [ className "panel-heading" ]
-                        [ text "Balance" ]
-                    , table
-                        [ className "table table-striped table-hover" ]
-                        [ thead [] [ tr []
-                            [ th [] [ text "Height" ]
-                            , th [] [ text "Coin color" ]
-                            , th [] [ text "Coin amount" ]
-                            ]]
-                        , tbody [] $ map (uncurry2 $ coinRow state.periodId) state.balance
-                        ]
-                    ]
-                ]
-            , div
-                [ className "row" ]
-                [ div
-                    [ className "panel panel-default" ]
-                    [ div
-                        [ className "panel-heading" ]
-                        [ text "Transaction input feed" ]
-                    , table
-                        [ className "table table-striped table-hover" ]
-                        [ thead [] [ tr []
-                            [ th [] [ text "Transaction" ]
-                            , th [] [ text "Sent from" ]
-                            , th [] [ text "Total sent" ]
-                            , th [] [ text "Sent to" ]
-                            , th [] [ text "Total received" ]
-                            ]]
-                        , tbody [] $ map transactionRow state.transactions
-                        ]
-                    ]
-                ]
-            ]
-        ]
-    -- TODO: we will add router later
+    , Address.view state
+        -- TODO: we will add router later
     -- , case state.route of
     --     Home -> map Child $ Counter.view state.count
     --     NotFound -> NotFound.view state
     ]
-  where
-    coinRow pid _ (Coin {getColor:Color color, getCoin:coin}) =
-        tr []
-           [ td [] [ text $ show pid ]
-           , td [] [ text $ show color.getC ]
-           , td [] [ text $ show coin]
-           ]
---    txInputRow h i (Coin c) _ =
---        tr []
---           [ td [] [ text $ show h ]
---           , td [] [ text $ show i ]
---           , td [] [ text $ show c.getColor ]
---           , td [] [ text $ show c.getCoin ]
---           ]
---    txOutputRow adr (Coin c) =
---        tr []
---           [ td [] [ text $ addressToString adr ]
---           , td [] [ text $ show c.getColor ]
---           , td [] [ text $ show c.getCoin ]
---           ]
-    transactionRow (TransactionSummarySerializable t) =
-        tr []
-           [ td [] [ text $ show t.txId ]
-           , td [] [ text $ show $ length t.txInputs ]
-           , td [] [ text $ show t.txInputsTotal ]
-           , td [] [ text $ show $ length t.txOutputs ]
-           , td [] [ text $ show t.txOutputsTotal ]
-           ]
-    clickSearch = SocketAction <<< C.SendIntroData $ IMAddressInfo state.address
+

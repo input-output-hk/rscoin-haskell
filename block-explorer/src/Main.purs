@@ -3,8 +3,9 @@ module Main where
 import Prelude                     (bind, pure, (<<<))
 
 import App.Routes                  (match)
-import App.Layout                  (Action(PageView, SocketAction), State, view, update)
+import App.Layout                  (view, update)
 import App.Connection              (init, Action (..), WEBSOCKET) as C
+import App.Types                   (Action(PageView, SocketAction), State)
 
 import Control.Bind                ((=<<))
 import Control.Monad.Eff           (Eff)

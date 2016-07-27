@@ -20,6 +20,7 @@ main =
         , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
         , mkSumType (Proxy :: Proxy T.AddressInfoMsg)
         , mkSumType (Proxy :: Proxy T.OutcomingMsg)
+        , mkSumType (Proxy :: Proxy P.Color)
         , mkSumType (Proxy :: Proxy P.Coin)
         , mkSumType (Proxy :: Proxy T.TransactionSummarySerializable)
         , mkSumType (Proxy :: Proxy P.Address)]

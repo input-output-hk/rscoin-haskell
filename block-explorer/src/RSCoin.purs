@@ -5,6 +5,7 @@ module App.RSCoin
        , newAddress
        , emptyAddress
        , addressToString
+       , coinToColor
        ) where
 
 import Prelude                           (show, ($))
@@ -21,3 +22,6 @@ emptyAddress = newAddress ""
 
 addressToString :: P.Address -> String
 addressToString (P.Address obj) = show obj.getAddress
+
+coinToColor :: P.Coin -> Int
+coinToColor (P.Coin {getColor:P.Color c}) = c.getC

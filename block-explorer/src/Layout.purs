@@ -12,7 +12,7 @@ import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     addressToString, IntroductoryMsg (..),
                                     AddressInfoMsg (..), Coin (..),
                                     TransactionSummarySerializable (..),
-                                    OutcomingMsg (..))
+                                    OutcomingMsg (..), Color (..))
 
 import Data.Maybe                  (Maybe (..), fromJust)
 import Data.Tuple                  (Tuple (..), snd)
@@ -197,11 +197,11 @@ view state =
     --     NotFound -> NotFound.view state
     ]
   where
-    coinRow pid _ (Coin c) =
+    coinRow pid _ (Coin {getColor:Color color, getCoin:coin}) =
         tr []
            [ td [] [ text $ show pid ]
-           , td [] [ text $ show c.getColor ]
-           , td [] [ text $ show c.getCoin ]
+           , td [] [ text $ show color.getC ]
+           , td [] [ text $ show coin]
            ]
 --    txInputRow h i (Coin c) _ =
 --        tr []

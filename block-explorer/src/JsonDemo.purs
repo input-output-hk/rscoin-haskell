@@ -27,7 +27,7 @@ helper v = do
 
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
-    let coin     = W.Coin {getColor: 0, getCoin: W.CoinAmount "0.3242342"}
+    let coin     = W.Coin {getColor: W.Color {getC: 0}, getCoin: W.CoinAmount "0.3242342"}
         key      = W.PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
         hash     = W.Hash "DldRwCblQ7Loqy6wYJnaodHl30d3j3eH+qtFzfEv46g="
         addr     = W.Address { getAddress:  key }

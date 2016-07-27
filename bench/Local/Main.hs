@@ -5,7 +5,7 @@
 
 module Main where
 
-import           Control.Concurrent              (forkIO, threadDelay)
+import           Control.Concurrent              (forkIO)
 import           Control.Concurrent.Async        (forConcurrently)
 import           Control.Monad                   (forM_, replicateM, void)
 import           Data.Maybe                      (fromMaybe)
@@ -17,6 +17,7 @@ import           System.IO.Temp                  (withSystemTempDirectory)
 import           Options.Generic
 
 import           Serokell.Util.Bench             (ElapsedTime, measureTime_)
+import           Serokell.Util.Concurrent        (threadDelay)
 
 import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   Severity (..),
@@ -59,8 +60,24 @@ generateMintetteKeys = flip replicateM keyGen . fromIntegral
 runMintettes :: FilePath -> KeyPairList -> IO ()
 runMintettes benchDir secretKeys
     = forM_ (zip [1..] secretKeys) $ \(mintetteId, (secretKey, publicKey)) -> do
-        addMintette mintetteId publicKey
         void $ forkIO $ mintetteThread mintetteId benchDir secretKey
+        logInfo $ sformat ("Starting mintette number:" % int) mintetteId
+        threadDelay (1 :: Second)
+        addMintette mintetteId publicKey
+
+establishNotary :: FilePath -> IO ()
+establishNotary benchDir = do
+    logInfo "Running notary..."
+    _ <- forkIO $ notaryThread benchDir
+    logInfo "Notary is launched"
+    threadDelay (2 :: Second)
+
+establishBank :: FilePath -> Second -> IO ()
+establishBank benchDir periodDelta = do
+    logInfo "Running bank..."
+    _ <- forkIO $ bankThread periodDelta benchDir
+    logInfo "Bank is launched"
+    threadDelay (2 :: Second)
 
 establishMintettes :: FilePath -> Word -> IO ()
 establishMintettes benchDir mintettesNumber = do
@@ -69,21 +86,7 @@ establishMintettes benchDir mintettesNumber = do
     runMintettes benchDir keyPairs
     runRealModeLocal finishBankPeriod
     logInfo $ sformat (int % " mintettes are launched") mintettesNumber
-    threadDelay $ 2 * 10 ^ (6 :: Int)
-
-establishNotary :: FilePath -> IO ()
-establishNotary benchDir = do
-    logInfo "Running notary..."
-    _ <- forkIO $ notaryThread benchDir
-    logInfo "Notary is launched"
-    threadDelay $ 2 * 10 ^ (6 :: Int)
-
-establishBank :: FilePath -> Second -> IO ()
-establishBank benchDir periodDelta = do
-    logInfo "Running bank..."
-    _ <- forkIO $ bankThread periodDelta benchDir
-    logInfo "Bank is launched"
-    threadDelay $ 2 * 10 ^ (6 :: Int)
+    threadDelay (2 :: Second)
 
 initializeUsers :: FilePath -> [Word] -> IO [Address]
 initializeUsers benchDir userIds = do

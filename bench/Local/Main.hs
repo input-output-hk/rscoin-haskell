@@ -23,7 +23,7 @@ import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   Severity (..),
                                                   defaultPeriodDelta,
                                                   initLogging, keyGen)
-import           RSCoin.Timed                    (runRealModeLocal)
+import           RSCoin.Timed                    (runRealModeUntrusted)
 
 import           Bench.RSCoin.FilePathUtils      (tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
@@ -84,13 +84,13 @@ establishMintettes benchDir mintettesNumber = do
     keyPairs <- generateMintetteKeys mintettesNumber
     logInfo $ sformat ("Running " % int % " mintettes…") mintettesNumber
     runMintettes benchDir keyPairs
-    runRealModeLocal finishBankPeriod
+    runRealModeUntrusted finishBankPeriod
     logInfo $ sformat (int % " mintettes are launched") mintettesNumber
     threadDelay (2 :: Second)
 
 initializeUsers :: FilePath -> [Word] -> IO [Address]
 initializeUsers benchDir userIds = do
-    let initUserAction = userThread bankHost benchDir initializeUser
+    let initUserAction = userThread benchDir initializeUser
     logInfo $ sformat ("Initializing " % int % " users…") $ length userIds
     mapM initUserAction userIds
 
@@ -98,7 +98,6 @@ initializeSuperUser :: Word -> FilePath -> [Address] -> IO ()
 initializeSuperUser txNum benchDir userAddresses = do
     let bankId = 0
     userThread
-        bankHost
         benchDir
         (const $ initializeBank txNum userAddresses)
         bankId
@@ -109,7 +108,7 @@ runTransactions :: Word
                 -> IO ElapsedTime
 runTransactions txNum benchDir userIds = do
     let benchUserAction =
-            userThread bankHost benchDir $
+            userThread benchDir $
             benchUserTransactions txNum
     logInfo "Running transactions…"
     measureTime_ $ forConcurrently userIds benchUserAction

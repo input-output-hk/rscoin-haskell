@@ -5,14 +5,16 @@
 -- | Re-export RSCoin.Timed.*
 
 module RSCoin.Timed
-       ( module Exports
-       , WorkMode
-       , StdGen
-       , runRealMode
-       , runRealModeLocal
-       , runEmulationMode
-       , runEmulationMode_
-       ) where
+        ( module Exports
+        , StdGen
+        , WorkMode
+        , runEmulationMode
+        , runEmulationMode_
+        , runRealModeBank
+        , runRealModeDefaultContext
+        , runRealModeUntrusted
+        , runRealModeWithContext
+        ) where
 
 import           RSCoin.Timed.Misc           as Exports
 import           RSCoin.Timed.MonadRpc       as Exports
@@ -27,7 +29,9 @@ import           Control.Monad.Reader        (runReaderT)
 import           Control.Monad.Trans         (MonadIO, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           System.Random               (StdGen, getStdGen)
-import           RSCoin.Core.NodeConfig      (NodeContext, defaultNodeContext)
+import           RSCoin.Core.Crypto.Signing  (SecretKey)
+import           RSCoin.Core.NodeConfig      (NodeContext, defaultNodeContext,
+                                              readDeployNodeContext)
 
 class (MonadTimed m, MonadRpc m, MonadIO m,
        MonadMask m, MonadBaseControl IO m) => WorkMode m where
@@ -35,12 +39,22 @@ class (MonadTimed m, MonadRpc m, MonadIO m,
 instance (MonadTimed m, MonadRpc m, MonadIO m,
           MonadMask m, MonadBaseControl IO m) => WorkMode m
 
-runRealMode :: NodeContext -> MsgPackRpc a -> IO a
-runRealMode nodeContext
+runRealModeWithContext :: NodeContext -> MsgPackRpc a -> IO a
+runRealModeWithContext nodeContext
     = runTimedIO . flip runReaderT nodeContext . runMsgPackRpc
 
-runRealModeLocal :: MsgPackRpc a -> IO a
-runRealModeLocal = runRealMode defaultNodeContext
+runRealModeDefaultContext :: MsgPackRpc a -> IO a
+runRealModeDefaultContext = runRealModeWithContext defaultNodeContext
+
+runRealModeBank :: SecretKey -> MsgPackRpc a -> IO a
+runRealModeBank bankSecretKey bankAction = do
+    bankNodeContext <- readDeployNodeContext $ Just bankSecretKey
+    runRealModeWithContext bankNodeContext bankAction
+
+runRealModeUntrusted :: MsgPackRpc a -> IO a
+runRealModeUntrusted nodeAction = do
+    untrustedNodeContext <- readDeployNodeContext Nothing
+    runRealModeWithContext untrustedNodeContext nodeAction
 
 runEmulationMode :: MonadIO m => Maybe StdGen -> Delays -> PureRpc IO a -> m a
 runEmulationMode genMaybe delays m =

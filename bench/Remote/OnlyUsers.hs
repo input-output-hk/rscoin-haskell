@@ -4,7 +4,6 @@
 {-# LANGUAGE TypeOperators   #-}
 
 import           Control.Concurrent.Async   (forConcurrently)
-import           Data.ByteString            (ByteString)
 import           Data.Maybe                 (fromMaybe)
 import qualified Data.Text.IO               as TIO
 import           Formatting                 (build, fixed, int, sformat, stext,
@@ -32,7 +31,6 @@ data BenchOptions = BenchOptions
     , transactions  :: Maybe Word     <?> "number of transactions per user"
     , severity      :: Maybe Severity <?> "severity for global logger"
     , benchSeverity :: Maybe Severity <?> "severity for bench logger"
-    , bank          :: ByteString     <?> "bank host"
     , output        :: Maybe FilePath <?> "optional path to dump statistics"
     , mintettes     :: Maybe Word     <?> "number of mintettes (only for statistics)"
     , csv           :: Maybe FilePath <?> "optional path to dump statistics as csv"
@@ -45,34 +43,31 @@ instance ParseFields Severity
 instance ParseRecord Severity
 instance ParseRecord BenchOptions
 
-initializeUsers :: ByteString -> FilePath -> [Word] -> IO [Address]
-initializeUsers bankHost benchDir userIds = do
-    let initUserAction = userThread bankHost benchDir initializeUser
+initializeUsers :: FilePath -> [Word] -> IO [Address]
+initializeUsers benchDir userIds = do
+    let initUserAction = userThread benchDir initializeUser
     logInfo $ sformat ("Initializing " % int % " users…") $ length userIds
     mapM initUserAction userIds
 
 initializeSuperUser :: Word
-                    -> ByteString
                     -> FilePath
                     -> [Address]
                     -> IO ()
-initializeSuperUser txNum bankHost benchDir userAddresses = do
+initializeSuperUser txNum benchDir userAddresses = do
     let bankId = 0
     userThread
-        bankHost
         benchDir
         (const $ initializeBank txNum userAddresses)
         bankId
 
 runTransactions
-    :: ByteString
-    -> Word
+    :: Word
     -> FilePath
     -> [Word]
     -> IO ElapsedTime
-runTransactions bankHost transactionNum benchDir userIds = do
+runTransactions transactionNum benchDir userIds = do
     let benchUserAction =
-            userThread bankHost benchDir $ benchUserTransactions transactionNum
+            userThread benchDir $ benchUserTransactions transactionNum
     logInfo "Running transactions…"
     measureTime_ $ forConcurrently userIds benchUserAction
 
@@ -129,22 +124,19 @@ main = do
         globalSeverity = fromMaybe Error $ unHelpful severity
         bSeverity = fromMaybe Info $ unHelpful benchSeverity
         transactionNum = fromMaybe 1000 $ unHelpful transactions
-        bankHost = unHelpful bank
         csvPref = fromMaybe "" $ unHelpful csvPrefix
     withSystemTempDirectory tempBenchDirectory $
         \benchDir ->
              do initLogging globalSeverity
                 initBenchLogger bSeverity
                 let userIds = [1 .. userNumber]
-                userAddresses <- initializeUsers bankHost benchDir userIds
+                userAddresses <- initializeUsers benchDir userIds
                 initializeSuperUser
                     transactionNum
-                    bankHost
                     benchDir
                     userAddresses
                 t <-
                     runTransactions
-                        bankHost
                         transactionNum
                         benchDir
                         userIds

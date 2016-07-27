@@ -4,7 +4,6 @@
 
 import           Control.Exception          (finally)
 import           Control.Monad              (when)
-import           Data.ByteString            (ByteString)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Optional              (Optional (Specific), empty,
                                              optional)
@@ -25,8 +24,7 @@ import           Bench.RSCoin.UserSingle    (printDynamicTPS,
                                              runSingleSuperUser, runSingleUser)
 
 data BenchOptions = BenchOptions
-    { bank          :: ByteString     <?> "bank host"
-    , severity      :: Maybe Severity <?> "severity for global logger"
+    { severity      :: Maybe Severity <?> "severity for global logger"
     , benchSeverity :: Maybe Severity <?> "severity for bench logger"
     , transactions  :: Maybe Word     <?> "number of transactions"
     , walletDb      :: Maybe FilePath <?> "path to wallet (assuming it has enough money)"
@@ -44,15 +42,13 @@ instance ParseRecord BenchOptions
 run
     :: Maybe Word
     -> Word
-    -> ByteString
     -> FilePath
     -> Optional FilePath
     -> FilePath
     -> IO ElapsedTime
-run interval txNum bankHost benchDir optWalletPath dumpFile =
+run interval txNum benchDir optWalletPath dumpFile =
     measureTime_ $
     userThreadWithPath
-        bankHost
         benchDir
         (const $ doRun interval txNum dumpFile)
         0
@@ -64,7 +60,6 @@ main :: IO ()
 main = do
     BenchOptions{..}  <- getRecord "rscoin-bench-single-user"
 
-    let bankHost       = unHelpful bank
     let globalSeverity = fromMaybe Error $ unHelpful severity
     let bSeverity      = fromMaybe Info  $ unHelpful benchSeverity
     let txNum          = fromMaybe 100   $ unHelpful transactions
@@ -77,6 +72,6 @@ main = do
         initLogging globalSeverity
         initBenchLogger bSeverity
 
-        elapsedTime <- run interval txNum bankHost benchDir walletPath dumpFile
+        elapsedTime <- run interval txNum benchDir walletPath dumpFile
                        `finally` when shouldPrintTPS (printDynamicTPS dumpFile)
         logInfo $ sformat ("Elapsed time: " % build) elapsedTime

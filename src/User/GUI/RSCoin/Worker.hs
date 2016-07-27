@@ -16,7 +16,7 @@ import           GUI.RSCoin.GUIAcid      (GUIState)
 import qualified GUI.RSCoin.MainWindow   as M
 import           GUI.RSCoin.WalletTab    (updateWalletTab)
 import qualified RSCoin.Core             as C
-import           RSCoin.Timed            (WorkMode, runRealModeLocal)
+import           RSCoin.Timed            (WorkMode, runRealModeUntrusted)
 import qualified RSCoin.User             as U
 
 updateBlockchainWithProgress
@@ -70,7 +70,7 @@ updateBlockchainWithProgress st M.MainWindow{..} =
 startWorker :: U.RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
 startWorker st gst mw@M.MainWindow{..} = void $ forkIO $ forever $ do
     threadDelay $ 1 * 1000000
-    updated <- runRealModeLocal $ updateBlockchainWithProgress st mw
+    updated <- runRealModeUntrusted $ updateBlockchainWithProgress st mw
     when updated $ do
         G.postGUIAsync $ updateWalletTab st gst mw
         G.postGUIAsync $ updateAddressTab st mw

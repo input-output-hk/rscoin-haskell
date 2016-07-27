@@ -3,41 +3,36 @@
 import qualified Data.Text       as T
 import           Data.Time.Units (Second)
 
-import qualified Options         as Opts
+import qualified BankOptions     as Opts
 import qualified RSCoin.Bank     as B
-import           RSCoin.Core     (Address (Address), Explorer (..),
+import           RSCoin.Core     (Explorer (..),
                                   Mintette (Mintette), bankLoggerName,
-                                  constructPublicKey, defaultNodeContext,
-                                  initLogging, keyGen, logWarning,
+                                  constructPublicKey,
+                                  initLogging, logWarning,
                                   readPublicKey, readSecretKey)
 
 main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
-    -- @TODO make Notary addr, bankPort configurable
+    bankSecretKey <- readSecretKey cloSkPath
     case cloCommand of
-        Opts.AddAddress pk' strategy -> do
-            addr <- Address <$> maybe (snd <$> keyGen) readPk pk'
-            B.addAddressIO cloPath addr strategy
-        Opts.AddMintette skPath host port pk -> do
+        Opts.AddMintette host port pk -> do
             let m = Mintette host port
-            sk <- readSecretKey skPath
-            k <- maybe (readPublicKeyFallback pk) return $ constructPublicKey pk
-            B.addMintetteIO sk m k
+            k <- readPk pk
+            B.addMintetteIO bankSecretKey m k
         Opts.AddExplorer name port pk pId -> do
-            k <-
-                maybe (readPublicKeyFallback pk) return $ constructPublicKey pk
+            k <- readPk pk
             let e =
                     Explorer
                     { explorerHost = name
                     , explorerPort = port
                     , explorerKey = k
                     }
-            B.addExplorerIO cloPath e pId
-        Opts.Serve skPath -> do
+            B.addExplorerIO bankSecretKey cloPath e pId
+        Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
-            B.launchBankReal defaultNodeContext periodDelta cloPath =<< readSecretKey skPath
+            B.launchBankReal periodDelta cloPath bankSecretKey
   where
     readPk pk = maybe (readPublicKeyFallback pk) return (constructPublicKey pk)
     readPublicKeyFallback pk = do

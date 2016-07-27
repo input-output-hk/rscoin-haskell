@@ -18,7 +18,7 @@ import           Graphics.UI.Gtk                (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk                as G
 
 import qualified RSCoin.Core                    as C
-import           RSCoin.Timed                   (runRealModeLocal)
+import           RSCoin.Timed                   (runRealModeUntrusted)
 import           RSCoin.User                    (RSCoinUserState,
                                                  TxHStatus (..),
                                                  TxHistoryRecord (..))
@@ -182,7 +182,7 @@ toNodeMapper :: RSCoinUserState
              -> U.TxHistoryRecord
              -> IO WalletModelNode
 toNodeMapper st gst txhr@U.TxHistoryRecord{..} = do
-    eTx <- runRealModeLocal $ fromTransaction gst txhTransaction
+    eTx <- runRealModeUntrusted $ fromTransaction gst txhTransaction
     addrs <- U.getAllAddresses st C.defaultNodeContext
     let amountDiff = C.getAmount $ getTransactionAmount addrs eTx
         isIncome = amountDiff > 0
@@ -214,15 +214,15 @@ updateWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
 updateWalletTab st gst M.MainWindow{..} = do
     let WalletTab{..} = tabWallet
     addrs <- U.getAllAddresses st C.defaultNodeContext
-    transactionsHist <- runRealModeLocal $ U.getTransactionsHistory st
-    userAmount <- runRealModeLocal
+    transactionsHist <- runRealModeUntrusted $ U.getTransactionsHistory st
+    userAmount <- runRealModeUntrusted
         (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)
     let unconfirmed =
             filter
                 (\U.TxHistoryRecord{..} -> txhStatus == U.TxHUnconfirmed)
                 transactionsHist
         unconfirmedSum = do
-            txs <- mapM (runRealModeLocal . fromTransaction gst . U.txhTransaction)
+            txs <- mapM (runRealModeUntrusted . fromTransaction gst . U.txhTransaction)
                         unconfirmed
             return $ sum $ map (getTransactionAmount addrs) txs
     G.labelSetText labelCurrentBalance $ show $ C.getCoin userAmount

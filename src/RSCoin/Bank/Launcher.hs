@@ -9,7 +9,6 @@ module RSCoin.Bank.Launcher
        , launchBank
        , addMintetteIO
        , addMintetteInPlace
-       , addAddressIO
        , addExplorerIO
        ) where
 
@@ -23,18 +22,15 @@ import           Data.Time.Units           (TimeUnit)
 
 import           Formatting                (int, sformat, (%))
 
-import           RSCoin.Core               (Address, Explorer, Mintette,
-                                            PeriodId, PublicKey, SecretKey,
-                                            TxStrategy, sign)
+import           RSCoin.Core               (Explorer, Mintette, PeriodId,
+                                            PublicKey, SecretKey, sign)
 import           RSCoin.Core.Communication (addPendingMintette,
                                             getBlockchainHeight,
                                             getMintettePeriod)
-import           RSCoin.Core.NodeConfig    (NodeContext, defaultNodeContext)
 import           RSCoin.Timed              (MsgPackRpc, WorkMode, fork, fork_,
-                                            killThread, runRealMode)
+                                            killThread, runRealModeBank)
 
-import           RSCoin.Bank.AcidState     (AddAddress (AddAddress),
-                                            AddExplorer (AddExplorer),
+import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
                                             AddMintette (AddMintette), State,
                                             closeState, openState)
 import           RSCoin.Bank.Error         (BankError (BEInconsistentResponse))
@@ -42,40 +38,36 @@ import           RSCoin.Bank.Server        (serve)
 import           RSCoin.Bank.Worker        (runExplorerWorker,
                                             runWorkerWithPeriod)
 
-bankWrapperReal :: NodeContext -> FilePath -> (State -> MsgPackRpc a) -> IO a
-bankWrapperReal nodeCtx storagePath =
-    runRealMode nodeCtx .
+bankWrapperReal :: SecretKey -> FilePath -> (State -> MsgPackRpc a) -> IO a
+bankWrapperReal bankSk storagePath =
+    runRealModeBank bankSk .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
 -- | Launch Bank in real mode. This function works indefinitely.
 launchBankReal
     :: (TimeUnit t)
-    => NodeContext -> t -> FilePath -> SecretKey -> IO ()
-launchBankReal nodeCtx periodDelta storagePath sk =
-    bankWrapperReal nodeCtx storagePath $ launchBank periodDelta sk
+    => t -> FilePath -> SecretKey -> IO ()
+launchBankReal periodDelta storagePath bankSk =
+    bankWrapperReal bankSk storagePath $ launchBank periodDelta bankSk
 
 -- | Launch Bank in any WorkMode. This function works indefinitely.
 launchBank
     :: (TimeUnit t, WorkMode m)
     => t -> SecretKey -> State -> m ()
-launchBank periodDelta sk st = do
+launchBank periodDelta bankSk st = do
     mainIsBusy <- liftIO $ newIORef False
-    let startWorker = runWorkerWithPeriod periodDelta mainIsBusy sk st
+    let startWorker = runWorkerWithPeriod periodDelta mainIsBusy bankSk st
         restartWorker tId = killThread tId >> fork startWorker
     workerThread <- fork startWorker
-    fork_ $ runExplorerWorker periodDelta mainIsBusy sk st
+    fork_ $ runExplorerWorker periodDelta mainIsBusy bankSk st
     serve st workerThread restartWorker
-
-addAddressIO :: FilePath -> Address -> TxStrategy -> IO ()
-addAddressIO storagePath a s =
-    bankWrapperReal defaultNodeContext storagePath $ flip update' (AddAddress a s)
 
 -- | Add mintette to Bank (send a request signed with bank's sk)
 -- Also pings minttete to check that it's compatible
 addMintetteIO :: SecretKey -> Mintette -> PublicKey -> IO ()
-addMintetteIO sk m k = do
-    let proof = sign sk (m, k)
-    runRealMode defaultNodeContext $ do
+addMintetteIO bankSk m k = do
+    let proof = sign bankSk (m, k)
+    runRealModeBank bankSk $ do  -- @TODO: why not 'bankWrapperReal' here? Is it remote call?
         bankPid <- getBlockchainHeight
         mintettePid <- getMintettePeriod m
         when (isNothing mintettePid) $
@@ -92,13 +84,13 @@ addMintetteIO sk m k = do
         addPendingMintette m k proof
 
 -- | Adds mintette directly into bank's state
-addMintetteInPlace :: FilePath -> Mintette -> PublicKey -> IO ()
-addMintetteInPlace storagePath m k =
-    bankWrapperReal defaultNodeContext storagePath $
+addMintetteInPlace :: SecretKey -> FilePath -> Mintette -> PublicKey -> IO ()
+addMintetteInPlace bankSk storagePath m k =
+    bankWrapperReal bankSk storagePath $
     flip update' (AddMintette m k)
 
 -- | Add explorer to Bank inside IO Monad.
-addExplorerIO :: FilePath -> Explorer -> PeriodId -> IO ()
-addExplorerIO storagePath e pId =
-    bankWrapperReal defaultNodeContext storagePath $
+addExplorerIO :: SecretKey -> FilePath -> Explorer -> PeriodId -> IO ()
+addExplorerIO bankSk storagePath e pId =
+    bankWrapperReal bankSk storagePath $
     flip update' (AddExplorer e pId)

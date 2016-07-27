@@ -22,7 +22,7 @@ import           GUI.RSCoin.MainWindow   (TransactionsTab (..))
 import qualified GUI.RSCoin.MainWindow   as M
 import           GUI.RSCoin.WalletTab    (updateWalletTab)
 import qualified RSCoin.Core             as C
-import           RSCoin.Timed            (runRealModeLocal)
+import           RSCoin.Timed            (runRealModeUntrusted)
 import qualified RSCoin.User             as U
 
 import           Serokell.Util.Text      (readFractional)
@@ -73,7 +73,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
         reportSimpleError mainWindow "Amount should be positive."
         G.entrySetText (spinButtonSendAmount tabTransactions) ""
     constructDialog (Just address) (Right amount) = do
-        userAmount <- runRealModeLocal
+        userAmount <- runRealModeUntrusted
             (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)
         if amount > C.getCoin userAmount
         then do
@@ -82,7 +82,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
                  show (C.getCoin userAmount) ++ " coins."
             G.entrySetText (spinButtonSendAmount tabTransactions) $ show userAmount
         else do
-            tr <- runRealModeLocal $
+            tr <- runRealModeUntrusted $
                 U.submitTransactionFromAll st Nothing address $ C.Coin 0 amount
             liftIO $ addTransaction gst (C.hash tr) (Just tr)
             dialog <- G.messageDialogNew

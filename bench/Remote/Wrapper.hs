@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns    #-}
 {-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -68,7 +69,6 @@ data UsersParamsSingle = UsersParamsSingle
     , upsSeverity           :: !C.Severity
     , upsBranch             :: !T.Text
     , upsHostName           :: !T.Text
-    , upsBankHostName       :: !T.Text
     , upsProfiling          :: !(Maybe ProfilingType)
     } deriving (Show)
 
@@ -246,8 +246,6 @@ usersCommandSingle UsersParamsSingle{..} =
                 stext %
                 " --csvPrefix " %
                 stext %
-                " --bank " %
-                stext %
                 stext %
                 " +RTS -qg -RTS\"")
                (profilingBuildArgs upsProfiling)
@@ -258,7 +256,6 @@ usersCommandSingle UsersParamsSingle{..} =
                statsTmpFileName
                csvStatsTmpFileName
                csvPrefix
-               upsBankHostName
                (profilingRunArgs upsProfiling)] ++
          dealWithStats)
   where
@@ -424,14 +421,13 @@ genUserKey bankHost globalBranch UserData{..} = do
         C.constructPublicKey . T.filter (not . isSpace) <$>
         runSshStrict udHost (catAddressCommand bankHost)
 
-sendInitialCoins :: Word -> T.Text -> [C.PublicKey] -> IO ()
-sendInitialCoins txNum (encodeUtf8 -> bankHost) (map C.Address -> userAddresses) = do
+sendInitialCoins :: Word -> [C.PublicKey] -> IO ()
+sendInitialCoins txNum (map C.Address -> userAddresses) = do
     withSystemTempDirectory "tmp" impl
   where
     bankId = 0
     impl dir =
         userThread
-            bankHost
             dir
             (const $ initializeBank txNum userAddresses)
             bankId
@@ -518,7 +514,7 @@ remoteBench srp@SingleRunParams{..} = do
             , bpSeverity = bdSeverity srpBank
             , bpBranch = fromMaybe globalBranch $ bdBranch srpBank
             }
-        bankHost = bdHost srpBank
+        !bankHost = error "Bank host is not defined!"
         mintettes = srpMintettes
         userDatas Nothing = []
         userDatas (Just (UDSingle{..})) = [udsData]
@@ -560,7 +556,6 @@ remoteBench srp@SingleRunParams{..} = do
             , upsSeverity = fromMaybe C.Warning $ udSeverity udsData
             , upsBranch = fromMaybe globalBranch $ udBranch udsData
             , upsHostName = udHost udsData
-            , upsBankHostName = bankHost
             , upsProfiling = udProfiling udsData
             }
         runUsers (Just (UDMultiple{..})) = do
@@ -570,7 +565,7 @@ remoteBench srp@SingleRunParams{..} = do
             flip finally (TIO.putStrLn =<< collectUserTPS srp txNum datas) $
             do let stopUsers = () <$ mapConcurrently (stopUser . udHost) datas
                pks <- mapConcurrently (genUserKey bankHost globalBranch) datas
-               sendInitialCoins txNum bankHost pks
+               sendInitialCoins txNum pks
                () <$ mapConcurrently (updateUser bankHost) datas
                () <$
                    mapConcurrently (runUser logInterval bankHost txNum) datas `onException`

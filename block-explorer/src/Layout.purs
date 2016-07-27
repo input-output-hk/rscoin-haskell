@@ -12,8 +12,9 @@ import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     TransactionSummarySerializable (..),
                                     OutcomingMsg (..), Color (..))
 import App.Types                   (Action (..), State (..))
-import App.View.AddressView        (view) as Address
-import App.View.NotFound           as NotFound
+import App.View.Address            (view) as Address
+import App.View.NotFound           (view) as NotFound
+import App.View.Transaction        (view) as Transaction
 
 import Data.Maybe                  (Maybe (..), fromJust)
 import Data.Tuple                  (Tuple (..), snd)
@@ -87,6 +88,6 @@ view state =
         []
     , case state.route of
         Home -> Address.view state
-        Transaction s -> div [] [ text s ]
+        Transaction addr -> Transaction.view addr state
         NotFound -> NotFound.view state
     ]

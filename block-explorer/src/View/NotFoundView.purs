@@ -1,4 +1,4 @@
-module App.NotFound where
+module App.View.NotFound where
 
 import Pux.Html (Html, (#), div, h2, text)
 

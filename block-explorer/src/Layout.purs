@@ -3,8 +3,7 @@ module App.Layout where
 import Prelude                     (($), map, (<<<), const, pure, bind, show,
                                     (==))
 
--- import App.NotFound                as NotFound
-import App.Routes                  (Route(NotFound))
+import App.Routes                  (Route (..))
 import App.Connection              (Connection, Action (..), WEBSOCKET,
                                     introMessage, send) as C
 import App.RSCoin                  (emptyAddress, Address, newAddress,
@@ -14,6 +13,7 @@ import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     OutcomingMsg (..), Color (..))
 import App.Types                   (Action (..), State (..))
 import App.View.AddressView        (view) as Address
+import App.View.NotFound           as NotFound
 
 import Data.Maybe                  (Maybe (..), fromJust)
 import Data.Tuple                  (Tuple (..), snd)
@@ -85,10 +85,8 @@ view state =
         , href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
         ]
         []
-    , Address.view state
-        -- TODO: we will add router later
-    -- , case state.route of
-    --     Home -> map Child $ Counter.view state.count
-    --     NotFound -> NotFound.view state
+    , case state.route of
+        Home -> Address.view state
+        Transaction s -> div [] [ text s ]
+        NotFound -> NotFound.view state
     ]
-

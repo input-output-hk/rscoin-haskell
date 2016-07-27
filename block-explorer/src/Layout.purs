@@ -178,14 +178,13 @@ view state =
                     , table
                         [ className "table table-striped table-hover" ]
                         [ thead [] [ tr []
-                            [ th [] [ text "Height" ]
-                            , th [] [ text "Transaction" ]
+                            [ th [] [ text "Transaction" ]
                             , th [] [ text "Sent from" ]
                             , th [] [ text "Total sent" ]
                             , th [] [ text "Sent to" ]
                             , th [] [ text "Total received" ]
                             ]]
-                        , tbody [] $ map (\(TransactionSummarySerializable t) -> transactionRow state.periodId t) state.transactions
+                        , tbody [] $ map transactionRow state.transactions
                         ]
                     ]
                 ]
@@ -216,10 +215,9 @@ view state =
 --           , td [] [ text $ show c.getColor ]
 --           , td [] [ text $ show c.getCoin ]
 --           ]
-    transactionRow pId t =
+    transactionRow (TransactionSummarySerializable t) =
         tr []
-           [ td [] [ text $ show pId ]
-           , td [] [ text $ show t.txId ]
+           [ td [] [ text $ show t.txId ]
            , td [] [ text $ show $ length t.txInputs ]
            , td [] [ text $ show t.txInputsTotal ]
            , td [] [ text $ show $ length t.txOutputs ]

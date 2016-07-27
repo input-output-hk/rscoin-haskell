@@ -5,9 +5,7 @@
 
 module RSCoin.Core.CompileConfig
     ( RSCoinConfig (..)
-    , RSCoinServer (..)
     , rscoinConfigStr
-    , toAddr
     , rscoinConfig
     ) where
 
@@ -19,24 +17,13 @@ import           Data.Yaml              (decode)
 
 import           Serokell.Aeson.Options (defaultOptions)
 
-data RSCoinServer = RSCoinServer
-    { rscHost :: !String
-    , rscPort :: !Int
-    } deriving (Show)
-
 data RSCoinConfig = RSCoinConfig
     { rscShardDivider  :: !Int
     , rscShardDelta    :: !Int
     , rscRpcTimeout    :: !Word
-    , rscDefaultBank   :: !RSCoinServer
-    , rscDefaultNotary :: !RSCoinServer
     } deriving (Show)
 
-$(A.deriveJSON defaultOptions ''RSCoinServer)
 $(A.deriveJSON defaultOptions ''RSCoinConfig)
-
-toAddr :: RSCoinServer -> (String, Int)
-toAddr (RSCoinServer host port) = (host, port)
 
 rscoinConfigStr :: IsString s => s
 rscoinConfigStr = $(makeRelativeToProject "rscoin.yaml" >>= embedStringFile)

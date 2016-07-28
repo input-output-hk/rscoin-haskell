@@ -33,7 +33,6 @@ import App.RSCoin                  (OutcomingMsg, AddressInfoMsg, IntroductoryMs
 data Action
     = ConnectionOpened
     | ReceivedData (Either String OutcomingMsg)
-    | SendIntroData IntroductoryMsg
     | ConnectionClosed
 
 type Connection = W.Connection

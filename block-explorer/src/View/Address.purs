@@ -1,7 +1,7 @@
 module App.View.Address where
 
 import Prelude                     (($), map, (<<<), const, pure, bind, show,
-                                    (==))
+                                    (==), (<>))
 
 import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     addressToString, IntroductoryMsg (..),
@@ -10,7 +10,7 @@ import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     OutcomingMsg (..), Color (..))
 import App.Types                   (Action (..), State (..))
 import App.Connection              (Action (..)) as C
-import App.Routes                  (txUrl)
+import App.Routes                  (txUrl, Route (..), addressUrl) as R
 
 import Pux                         (EffModel, noEffects)
 import Pux.Html                    (Html, div, h1, text, input, button,
@@ -22,15 +22,16 @@ import Pux.Router                  (link)
 
 import Data.Tuple.Nested           (uncurry2)
 import Data.Array                  (length)
+import Data.Maybe                  (Maybe (..), fromMaybe)
 
-view :: State -> Html Action
-view state =
+view :: Maybe Address -> State -> Html Action
+view address state =
     div []
         [
           div
             [ className "page-header" ]
-            [ h1 [] [ text "RSCoin "
-                    , small [] [text "blockchain" ]
+            [ h1 [] [ text "Address "
+                    , small [] [text $ "info about address " <> addressString]
                     ]
             ]
         , div
@@ -45,7 +46,7 @@ view state =
                     [ type_ "text"
                     , value $ addressToString state.address
                     , onChange $ AddressChange <<< newAddress <<< _.value <<< _.target
-                    , onKeyDown $ \e -> if e.keyCode == 13 then clickSearch else Nop
+                    , onKeyDown $ \e -> if e.keyCode == 13 then Search else Nop
                     , className "form-control"
                     ] []
                 ]
@@ -53,9 +54,9 @@ view state =
                 [ className "col-xs-1" ]
                 [
                   button
-                    [ onClick $ const clickSearch
+                    [ onClick $ const Search
                     , className "btn btn-danger"
-                    ] [text "Search"]
+                    ] [ text "Search" ]
                 ]
             , div
                 [ className "col-xs-2 col-xs-offset-1 text-right" ]
@@ -127,10 +128,10 @@ view state =
 --           ]
     transactionRow (TransactionSummarySerializable t) =
         tr []
-           [ td [] [ link (txUrl t.txId) [] [ text $ show t.txId ] ]
+           [ td [] [ link (R.txUrl t.txId) [] [ text $ show t.txId ] ]
            , td [] [ text $ show $ length t.txInputs ]
            , td [] [ text $ show t.txInputsTotal ]
            , td [] [ text $ show $ length t.txOutputs ]
            , td [] [ text $ show t.txOutputsTotal ]
            ]
-    clickSearch = SocketAction <<< C.SendIntroData $ IMAddressInfo state.address
+    addressString = fromMaybe "" $ map addressToString address

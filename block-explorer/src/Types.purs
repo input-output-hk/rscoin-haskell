@@ -14,6 +14,7 @@ data Action
     = PageView Route
     | SocketAction C.Action
     | AddressChange Address
+    | Search
     | Nop
 
 type State =

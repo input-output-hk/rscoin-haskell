@@ -88,6 +88,6 @@ view state =
         []
     , case state.route of
         Home -> Address.view state
-        Transaction addr -> Transaction.view addr state
+        Transaction tId -> Transaction.view tId state
         NotFound -> NotFound.view state
     ]

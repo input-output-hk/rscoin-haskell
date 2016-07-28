@@ -10,13 +10,15 @@ import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     OutcomingMsg (..), Color (..))
 import App.Types                   (Action (..), State (..))
 import App.Connection              (Action (..)) as C
+import App.Routes                  (txUrl)
 
 import Pux                         (EffModel, noEffects)
-import Pux.Html                    (Html, div, h1, text, input, button, link,
+import Pux.Html                    (Html, div, h1, text, input, button,
                                     small, h5, span, table, tr, th, td,
                                     thead, tbody)
 import Pux.Html.Attributes         (type_, value, rel, href, className)
 import Pux.Html.Events             (onChange, onClick, onKeyDown)
+import Pux.Router                  (link)
 
 import Data.Tuple.Nested           (uncurry2)
 import Data.Array                  (length)
@@ -125,7 +127,7 @@ view state =
 --           ]
     transactionRow (TransactionSummarySerializable t) =
         tr []
-           [ td [] [ text $ show t.txId ]
+           [ td [] [ link (txUrl t.txId) [] [ text $ show t.txId ] ]
            , td [] [ text $ show $ length t.txInputs ]
            , td [] [ text $ show t.txInputsTotal ]
            , td [] [ text $ show $ length t.txOutputs ]

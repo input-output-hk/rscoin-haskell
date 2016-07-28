@@ -2,6 +2,7 @@ module Data.Types
        ( PublicKey (..)
        , Hash (..)
        , CoinAmount (..)
+       , TransactionId
        ) where
 
 import Prelude
@@ -24,6 +25,7 @@ instance genericPublicKey :: Generic PublicKey where
     fromSpine _ = Nothing
 
 newtype Hash = Hash String
+type TransactionId = Hash
 
 instance showHash :: Show Hash where
     show (Hash s) = s

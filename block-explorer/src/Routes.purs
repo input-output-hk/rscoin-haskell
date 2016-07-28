@@ -1,6 +1,6 @@
 module App.Routes where
 
-import Prelude (($), (<<<))
+import Prelude (($), (<<<), (<>), show)
 
 import Data.Functor ((<$), (<$>))
 import Data.Maybe (fromMaybe)
@@ -10,17 +10,22 @@ import Control.Alternative ((<|>))
 
 import Pux.Router (end, router, lit, str)
 
-import App.RSCoin (Address (..), PublicKey (..))
+import App.RSCoin (Hash (..), TransactionId)
 
 data Route
     = Home
-    | Transaction Address
+    | Transaction TransactionId
     | NotFound
 
 match :: String -> Route
 match url = fromMaybe NotFound $ router url $
     Home <$ end
     <|>
-    Transaction <<< mkAddress <$> (lit "tx" *> str) <* end
-  where
-    mkAddress addr = Address {getAddress: PublicKey addr}
+    Transaction <<< Hash <$> (lit txLit *> str) <* end
+
+txLit :: String
+txLit = "tx"
+
+txUrl :: TransactionId -> String
+txUrl tId = "/" <> txLit <> "/" <> show tId
+

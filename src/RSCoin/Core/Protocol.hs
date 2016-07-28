@@ -40,9 +40,7 @@ import           Control.Monad.IO.Class  (MonadIO, liftIO)
 import qualified Data.ByteString.Char8   as BS
 import           Data.IORef              (newIORef, readIORef, writeIORef)
 import           Data.Maybe              (fromJust)
-
 import           Data.MessagePack        (MessagePack)
-
 
 import           RSCoin.Core.Constants   (rpcTimeout)
 import           RSCoin.Core.Crypto      ()
@@ -52,6 +50,8 @@ import           RSCoin.Core.Types       (Explorer (..), Mintette (..))
 import qualified RSCoin.Timed            as T
 
 -- TODO: this module should provide more safety and expose better api
+-- Note that you can't match arguments in datatype constructors,
+-- they are used as 'tags' only.
 
 -- | Requests used in RSCoin transport layer.
 data RSCoinMethod
@@ -72,7 +72,8 @@ data BankMethod
     | GetHBlockEmission
     | GetTransaction
     | FinishPeriod
-    | AddPendingMintette
+    | AddMintetteAdhoc
+    | AddExplorerAdhoc
     deriving (Show)
 
 -- | Requests processed by Explorer.

@@ -12,35 +12,32 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultSecretKeyPath)
+import           RSCoin.Core            (Severity (Error),
+                                         defaultConfigurationFileName,
+                                         defaultSecretKeyPath)
 
 data Options = Options
     { cliPath        :: FilePath
     , cliLogSeverity :: Severity
     , cliMemMode     :: Bool
-    , cliWebPort     :: Int
+    , cliConfigPath  :: FilePath
     } deriving Show
 
 optionsParser :: FilePath -> Parser Options
-optionsParser _ = -- defaultSKPath
-    Options
-    <$>
+optionsParser _ =
+    Options <$>
     strOption
         (long "path" <> value "notary-db" <> showDefault <>
-         help "Path to Notary database")
-    <*>
+         help "Path to Notary database") <*>
     option
         auto
         (long "log-severity" <> value Error <> showDefault <>
-         help "Logging severity")
-    <*>
-    switch
-        (short 'm' <> long "memory-mode" <> help "Run in memory mode")
-    <*>
-    option
-        auto
-        (long "web-port" <> value 8090 <> showDefault <>
-         help "Web port")
+         help "Logging severity") <*>
+    switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
+    strOption
+        (long "config-path" <> help "Path to configuration file" <>
+         value defaultConfigurationFileName <>
+         showDefault)
 
 getOptions :: IO Options
 getOptions = do

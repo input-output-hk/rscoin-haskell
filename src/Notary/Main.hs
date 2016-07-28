@@ -13,4 +13,4 @@ main = do
             if cliMemMode
                 then Nothing
                 else Just cliPath
-    N.launchNotaryReal cliLogSeverity dbPath cliWebPort
+    N.launchNotaryReal cliLogSeverity dbPath $ Just cliConfigPath

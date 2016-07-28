@@ -53,7 +53,7 @@ type FullPropertyRealMode = FullProperty MsgPackRpc
 --launchPure gen = runEmulationMode (Just gen)
 
 launchReal :: MsgPackRpc a -> IO a
-launchReal = runRealModeUntrusted
+launchReal = runRealModeUntrusted Nothing
 
 toPropertyM
     :: WorkMode m

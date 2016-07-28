@@ -91,13 +91,13 @@ setNotebookIcons nb size = do
 
 ---------------
 
-startGUI :: U.RSCoinUserState -> GUIState -> IO ()
-startGUI st gst = do
+startGUI :: Maybe FilePath -> U.RSCoinUserState -> GUIState -> IO ()
+startGUI confPath st gst = do
     void G.initGUI
     (gmw, acw) <- importGlade
     mw@MainWindow{..} <- createMainWindow gmw
-    initMainWindow st gst mw acw
-    startWorker st gst mw
+    initMainWindow confPath st gst mw acw
+    startWorker confPath st gst mw
     void (mainWindow `on` G.deleteEvent $ liftIO G.mainQuit >> return False)
     G.widgetShowAll mainWindow
     G.mainGUI
@@ -117,15 +117,17 @@ createMainWindow gmw@GladeMainWindow {..} = do
         , ..
         }
 
-initMainWindow :: U.RSCoinUserState
-               -> GUIState
-               -> MainWindow
-               -> AddContactWindow
-               -> IO ()
-initMainWindow st gst mw@MainWindow{..} acw = do
-    initWalletTab st gst mw
-    initTransactionsTab st gst mw
-    initContactsTab st gst mw acw
-    initAddressesTab st mw
+initMainWindow
+    :: Maybe FilePath
+    -> U.RSCoinUserState
+    -> GUIState
+    -> MainWindow
+    -> AddContactWindow
+    -> IO ()
+initMainWindow confPath st gst mw@MainWindow{..} acw = do
+    initWalletTab confPath st gst mw
+    initTransactionsTab confPath st gst mw
+    initContactsTab confPath st gst mw acw
+    initAddressesTab confPath st mw
     loadIcons
     setNotebookIcons notebookMain G.IconSizeLargeToolbar

@@ -19,7 +19,7 @@ main = do
         Opts.AddMintette host port pk -> do
             let m = Mintette host port
             k <- readPk pk
-            B.addMintetteIO bankSecretKey m k
+            B.addMintetteIO (Just cloConfigPath) bankSecretKey m k
         Opts.AddExplorer name port pk pId -> do
             k <- readPk pk
             let e =
@@ -28,10 +28,14 @@ main = do
                     , explorerPort = port
                     , explorerKey = k
                     }
-            B.addExplorerIO bankSecretKey e pId
+            B.addExplorerIO (Just cloConfigPath) bankSecretKey e pId
         Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
-            B.launchBankReal periodDelta cloPath bankSecretKey
+            B.launchBankReal
+                periodDelta
+                cloPath
+                (Just cloConfigPath)
+                bankSecretKey
   where
     readPk pk = maybe (readPublicKeyFallback pk) return (constructPublicKey pk)
     readPublicKeyFallback pk = do

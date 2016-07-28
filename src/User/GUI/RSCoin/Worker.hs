@@ -67,11 +67,19 @@ updateBlockchainWithProgress st M.MainWindow{..} =
         v <- G.progressBarGetFraction progressBarUpdate
         G.progressBarSetFraction progressBarUpdate $ min 1.0 (v + t)
 
-startWorker :: U.RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
-startWorker st gst mw@M.MainWindow{..} = void $ forkIO $ forever $ do
-    threadDelay $ 1 * 1000000
-    updated <- runRealModeUntrusted $ updateBlockchainWithProgress st mw
-    when updated $ do
-        G.postGUIAsync $ updateWalletTab st gst mw
-        G.postGUIAsync $ updateAddressTab st mw
-    threadDelay $ 2 * 1000000
+startWorker :: Maybe FilePath
+            -> U.RSCoinUserState
+            -> GUIState
+            -> M.MainWindow
+            -> IO ()
+startWorker confPath st gst mw@M.MainWindow{..} =
+    void $
+    forkIO $
+    forever $
+    do threadDelay $ 1 * 1000000
+       updated <-
+           runRealModeUntrusted confPath $ updateBlockchainWithProgress st mw
+       when updated $
+           do G.postGUIAsync $ updateWalletTab confPath st gst mw
+              G.postGUIAsync $ updateAddressTab confPath st mw
+       threadDelay $ 2 * 1000000

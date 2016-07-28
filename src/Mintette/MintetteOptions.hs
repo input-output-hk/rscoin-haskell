@@ -5,7 +5,6 @@ module MintetteOptions
        , getOptions
        ) where
 
-import           Data.ByteString        (ByteString)
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, metavar,
                                          option, progDesc, short, showDefault,
@@ -13,8 +12,9 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultPort,
-                                         defaultSecretKeyPath, localhost)
+import           RSCoin.Core            (Severity (Error),
+                                         defaultConfigurationFileName,
+                                         defaultPort, defaultSecretKeyPath)
 
 data Options = Options
     { cloPort          :: Int
@@ -22,7 +22,7 @@ data Options = Options
     , cloSecretKeyPath :: FilePath
     , cloLogSeverity   :: Severity
     , cloMemMode       :: Bool
-    , cloBankHost      :: ByteString
+    , cloConfigPath    :: FilePath
     }
 
 optionsParser :: FilePath -> Parser Options
@@ -34,13 +34,15 @@ optionsParser defaultSKPath =
          help "Path to database") <*>
     strOption
         (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault) <*>
-    option auto
+    option
+        auto
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity") <*>
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
     strOption
-        (long "bank-host" <> value localhost <> showDefault <>
-         help "Host name for bank")
+        (long "config-path" <> help "Path to configuration file" <>
+         value defaultConfigurationFileName <>
+         showDefault)
 
 getOptions :: IO Options
 getOptions = do

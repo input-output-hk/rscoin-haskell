@@ -36,15 +36,19 @@ createTransactionsTab GladeMainWindow{..} =
         gButtonConfirmSend
         gButtonClearSend
 
-initTransactionsTab :: U.RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
-initTransactionsTab st gst mw = do
+initTransactionsTab :: Maybe FilePath
+                    -> U.RSCoinUserState
+                    -> GUIState
+                    -> M.MainWindow
+                    -> IO ()
+initTransactionsTab confPath st gst mw = do
     let tr@TransactionsTab{..} = M.tabTransactions mw
     sendAmountAdjustment <- G.adjustmentNew 0 0 99999999999 1 1 1
     G.spinButtonSetAdjustment spinButtonSendAmount sendAmountAdjustment
     void (buttonClearSend `on`
           G.buttonActivated $ onClearButtonPressed tr)
     void (buttonConfirmSend `on`
-          G.buttonActivated $ onSendButtonPressed st gst mw)
+          G.buttonActivated $ onSendButtonPressed confPath st gst mw)
     void (buttonChooseContacts `on`
           G.buttonActivated $ onChooseContactsButtonPressed gst mw)
 
@@ -53,8 +57,12 @@ onClearButtonPressed TransactionsTab{..} = do
     G.entrySetText entryPayTo ""
     G.entrySetText spinButtonSendAmount ""
 
-onSendButtonPressed :: U.RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
-onSendButtonPressed st gst mw@M.MainWindow{..} =
+onSendButtonPressed :: Maybe FilePath
+                    -> U.RSCoinUserState
+                    -> GUIState
+                    -> M.MainWindow
+                    -> IO ()
+onSendButtonPressed confPath st gst mw@M.MainWindow{..} =
     act `catch` handler
   where
     handler (e :: SomeException) =
@@ -73,7 +81,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
         reportSimpleError mainWindow "Amount should be positive."
         G.entrySetText (spinButtonSendAmount tabTransactions) ""
     constructDialog (Just address) (Right amount) = do
-        userAmount <- runRealModeUntrusted
+        userAmount <- runRealModeUntrusted confPath
             (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)
         if amount > C.getCoin userAmount
         then do
@@ -82,7 +90,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
                  show (C.getCoin userAmount) ++ " coins."
             G.entrySetText (spinButtonSendAmount tabTransactions) $ show userAmount
         else do
-            tr <- runRealModeUntrusted $
+            tr <- runRealModeUntrusted confPath $
                 U.submitTransactionFromAll st Nothing address $ C.Coin 0 amount
             liftIO $ addTransaction gst (C.hash tr) (Just tr)
             dialog <- G.messageDialogNew
@@ -94,7 +102,7 @@ onSendButtonPressed st gst mw@M.MainWindow{..} =
             void $ G.dialogRun dialog
             G.widgetDestroy dialog
             onClearButtonPressed tabTransactions
-            updateWalletTab st gst mw
+            updateWalletTab confPath st gst mw
 
 onChooseContactsButtonPressed :: GUIState -> M.MainWindow -> IO ()
 onChooseContactsButtonPressed gst M.MainWindow{..} = do

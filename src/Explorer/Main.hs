@@ -13,4 +13,5 @@ main = do
         cloPortWeb
         cloLogSeverity
         cloPath
+        (Just cloConfigPath)
         sk

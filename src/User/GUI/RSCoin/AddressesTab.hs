@@ -27,8 +27,8 @@ createAddressesTab GladeMainWindow{..} =
         gTreeViewAddressesView
     <$> G.listStoreNew []
 
-initAddressesTab :: RSCoinUserState -> MainWindow -> IO ()
-initAddressesTab st mw@MainWindow{..} = do
+initAddressesTab :: Maybe FilePath -> RSCoinUserState -> MainWindow -> IO ()
+initAddressesTab confPath st mw@MainWindow{..} = do
     let AddressesTab{..} = tabAddresses
     G.treeViewSetModel treeViewAddressesView addressesModel
     addressesCol <- G.treeViewColumnNew
@@ -58,12 +58,12 @@ initAddressesTab st mw@MainWindow{..} = do
         (sk, pk) <- C.keyGen
         -- period id doesn't matter because list is empty
         update st $ AddAddress (C.Address pk, sk) [] 0
-        updateAddressTab st mw
-    updateAddressTab st mw
+        updateAddressTab confPath st mw
+    updateAddressTab confPath st mw
 
-updateAddressTab :: RSCoinUserState -> MainWindow -> IO ()
-updateAddressTab st MainWindow{..} = do
+updateAddressTab :: Maybe FilePath -> RSCoinUserState -> MainWindow -> IO ()
+updateAddressTab confPath st MainWindow{..} = do
     let AddressesTab{..} = tabAddresses
     G.listStoreClear addressesModel
-    a <- getAddresses st
+    a <- getAddresses confPath st
     forM_ a $ G.listStoreAppend addressesModel

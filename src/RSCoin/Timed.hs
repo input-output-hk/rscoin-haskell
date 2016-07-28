@@ -40,20 +40,20 @@ instance (MonadTimed m, MonadRpc m, MonadIO m,
           MonadMask m, MonadBaseControl IO m) => WorkMode m
 
 runRealModeWithContext :: NodeContext -> MsgPackRpc a -> IO a
-runRealModeWithContext nodeContext
-    = runTimedIO . flip runReaderT nodeContext . runMsgPackRpc
+runRealModeWithContext nodeContext =
+    runTimedIO . flip runReaderT nodeContext . runMsgPackRpc
 
 runRealModeDefaultContext :: MsgPackRpc a -> IO a
 runRealModeDefaultContext = runRealModeWithContext defaultNodeContext
 
-runRealModeBank :: SecretKey -> MsgPackRpc a -> IO a
-runRealModeBank bankSecretKey bankAction = do
-    bankNodeContext <- readDeployNodeContext $ Just bankSecretKey
+runRealModeBank :: Maybe FilePath -> SecretKey -> MsgPackRpc a -> IO a
+runRealModeBank confPath bankSecretKey bankAction = do
+    bankNodeContext <- readDeployNodeContext (Just bankSecretKey) confPath
     runRealModeWithContext bankNodeContext bankAction
 
-runRealModeUntrusted :: MsgPackRpc a -> IO a
-runRealModeUntrusted nodeAction = do
-    untrustedNodeContext <- readDeployNodeContext Nothing
+runRealModeUntrusted :: Maybe FilePath -> MsgPackRpc a -> IO a
+runRealModeUntrusted confPath nodeAction = do
+    untrustedNodeContext <- readDeployNodeContext Nothing confPath
     runRealModeWithContext untrustedNodeContext nodeAction
 
 runEmulationMode :: MonadIO m => Maybe StdGen -> Delays -> PureRpc IO a -> m a

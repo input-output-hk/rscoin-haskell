@@ -5,7 +5,6 @@ module ExplorerOptions
        , getOptions
        ) where
 
-import           Data.ByteString        (ByteString)
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, metavar,
                                          option, progDesc, showDefault, value,
@@ -13,8 +12,9 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), defaultPort,
-                                         defaultSecretKeyPath, localhost)
+import           RSCoin.Core            (Severity (Error),
+                                         defaultConfigurationFileName,
+                                         defaultPort, defaultSecretKeyPath)
 
 data Options = Options
     { cloPortRpc       :: Int
@@ -22,15 +22,13 @@ data Options = Options
     , cloPath          :: FilePath
     , cloSecretKeyPath :: FilePath
     , cloLogSeverity   :: Severity
-    , cloBankHost      :: ByteString
+    , cloConfigPath    :: FilePath
     }
 
 optionsParser :: FilePath -> Parser Options
 optionsParser defaultSKPath =
     Options <$>
-    option
-        auto
-        (mconcat [long "port-rpc", value defaultPort, showDefault]) <*>
+    option auto (mconcat [long "port-rpc", value defaultPort, showDefault]) <*>
     option
         auto
         (mconcat [long "port-web", value (defaultPort + 1), showDefault]) <*>
@@ -52,10 +50,11 @@ optionsParser defaultSKPath =
              , help "Logging severity"]) <*>
     strOption
         (mconcat
-             [ long "bank-host"
-             , value localhost
-             , showDefault
-             , help "Host name for bank"])
+             [ long "config-path"
+             , help "Path to configuration file"
+             , value defaultConfigurationFileName
+             , showDefault])
+
 
 getOptions :: IO Options
 getOptions = do

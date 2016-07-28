@@ -12,15 +12,16 @@ import           Control.Concurrent.MVar.Lifted (modifyMVar_)
 import           Control.Lens                   ((^.))
 import           Control.Monad.Catch            (catch, throwM)
 import           Control.Monad.Trans            (lift, liftIO)
-
 import           Data.Acid.Advanced             (query', update')
 import qualified Data.Map.Strict                as M
 import           Formatting                     (int, sformat, (%))
+import qualified Formatting                     as F (build)
 
 import           Serokell.Util.Text             (format', formatSingle',
                                                  mapBuilder, show')
 
-import           RSCoin.Bank.AcidState          (AddMintette (..),
+import           RSCoin.Bank.AcidState          (AddExplorer (..),
+                                                 AddMintette (..),
                                                  GetAddresses (..),
                                                  GetEmission (..),
                                                  GetExplorersAndPeriods (..),
@@ -30,15 +31,15 @@ import           RSCoin.Bank.AcidState          (AddMintette (..),
                                                  GetPeriodId (..),
                                                  GetTransaction (..), State)
 import           RSCoin.Bank.Error              (BankError)
-
 import           RSCoin.Core                    (ActionLog,
                                                  AddressToTxStrategyMap,
-                                                 Explorers, HBlock, Mintette,
-                                                 MintetteId, Mintettes,
-                                                 PeriodId, PublicKey, Signature,
-                                                 Transaction, TransactionId,
-                                                 bankLoggerName, logDebug,
-                                                 logError, logInfo, verify)
+                                                 Explorer, Explorers, HBlock,
+                                                 Mintette, MintetteId,
+                                                 Mintettes, PeriodId, PublicKey,
+                                                 Signature, Transaction,
+                                                 TransactionId, bankLoggerName,
+                                                 logDebug, logError, logInfo,
+                                                 verify)
 import qualified RSCoin.Core.NodeConfig         as NC
 import qualified RSCoin.Core.Protocol           as C
 import qualified RSCoin.Timed                   as T
@@ -58,7 +59,8 @@ serve st workerThread restartWorkerAction = do
     idr8 <- T.serverTypeRestriction0
     idr9 <- T.serverTypeRestriction0
     idr10 <- T.serverTypeRestriction3
-    idr11 <- T.serverTypeRestriction1
+    idr11 <- T.serverTypeRestriction3
+    idr12 <- T.serverTypeRestriction1
 
     nodeCtx <- T.getNodeContext
     let bankPublicKey = nodeCtx ^. NC.bankPublicKey
@@ -76,10 +78,12 @@ serve st workerThread restartWorkerAction = do
         , C.method (C.RSCDump C.GetHBlocks) $ idr7 $ serveGetLogs st
         , C.method (C.RSCBank C.GetAddresses) $ idr8 $ serveGetAddresses st
         , C.method (C.RSCBank C.GetExplorers) $ idr9 $ serveGetExplorers st
-        , C.method (C.RSCBank C.AddPendingMintette) $
-          idr10 $ serveAddPendingMintette st bankPublicKey
+        , C.method (C.RSCBank C.AddMintetteAdhoc) $
+          idr10 $ serveAddMintetteAdhoc st bankPublicKey
+        , C.method (C.RSCBank C.AddExplorerAdhoc) $
+          idr11 $ serveAddExplorerAdhoc st bankPublicKey
         , C.method (C.RSCBank C.GetHBlockEmission) $
-          idr11 $ serveGetHBlockEmission st]
+          idr12 $ serveGetHBlockEmission st]
 
 toServer :: T.WorkMode m => m a -> T.ServerT m a
 toServer action = lift $ action `catch` handler
@@ -162,7 +166,7 @@ serveFinishPeriod st threadIdMVar restartAction bankPublicKey periodIdSignature 
             logError bankLoggerName $ sformat ("Incorrect signature for periodId=" % int) currentPeriodId
             return workerThreadId
 
-serveAddPendingMintette
+serveAddMintetteAdhoc
     :: T.WorkMode m
     => State
     -> PublicKey
@@ -170,15 +174,38 @@ serveAddPendingMintette
     -> PublicKey
     -> Signature
     -> T.ServerT m ()
-serveAddPendingMintette st bankPublicKey mintette pk proof =
+serveAddMintetteAdhoc st bankPublicKey mintette pk proof =
     toServer $
-    do logInfo bankLoggerName $ format' "Adding pending mintette {} with pk {}"
-                                        (mintette, pk)
+    do logInfo bankLoggerName $
+           sformat ("Adding mintette: " % F.build % " with pk " % F.build)
+                   mintette pk
        if verify bankPublicKey proof (mintette,pk)
        then update' st (AddMintette mintette pk)
        else logError bankLoggerName $
-                format' "Tried to add mintette {} with pk {} with *failed* signature"
-                        (mintette,pk)
+                sformat ("Tried to add mintette " % F.build %
+                         " with pk " % F.build % " with *failed* signature")
+                        mintette pk
+
+serveAddExplorerAdhoc
+    :: T.WorkMode m
+    => State
+    -> PublicKey
+    -> Explorer
+    -> PeriodId
+    -> Signature
+    -> T.ServerT m ()
+serveAddExplorerAdhoc st bankPublicKey explorer pId proof =
+    toServer $
+    do logInfo bankLoggerName $
+           sformat ("Adding explorer " % F.build % " with pid " % int)
+                   explorer pId
+       if verify bankPublicKey proof (explorer, pId)
+       then update' st (AddExplorer explorer pId)
+       else logError bankLoggerName $
+                sformat ("Tried to add explorer " % F.build %
+                         " with pid" % int % " with *failed* signature")
+                        explorer pId
+
 
 -- Dumping Bank state
 

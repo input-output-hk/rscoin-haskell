@@ -22,7 +22,8 @@ import qualified RSCoin.Core             as C
 import qualified RSCoin.Explorer         as E
 import qualified RSCoin.Mintette         as M
 import qualified RSCoin.Notary           as N
-import           RSCoin.Timed            (Second, fork_, runRealModeBank, runRealModeUntrusted)
+import           RSCoin.Timed            (Second, fork_, runRealModeBank,
+                                          runRealModeUntrusted)
 import qualified RSCoin.User             as U
 
 import           Config                  (BankData (..), DeployConfig (..),
@@ -120,7 +121,7 @@ startBank CommonParams{..} mintettes explorers BankData{..} = do
     forM_
         explorers
         (\(port,key) ->
-              B.addExplorerIO bankSk dbDir (C.Explorer C.localhost port key) 0)
+              B.addExplorerInPlace bankSk dbDir (C.Explorer C.localhost port key) 0)
     forM_
         mintettes
         (\(port,key) ->

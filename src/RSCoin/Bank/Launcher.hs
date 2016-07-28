@@ -10,6 +10,7 @@ module RSCoin.Bank.Launcher
        , addMintetteIO
        , addMintetteInPlace
        , addExplorerIO
+       , addExplorerInPlace
        ) where
 
 import           Control.Monad             (when)
@@ -24,7 +25,7 @@ import           Formatting                (int, sformat, (%))
 
 import           RSCoin.Core               (Explorer, Mintette, PeriodId,
                                             PublicKey, SecretKey, sign)
-import           RSCoin.Core.Communication (addPendingMintette,
+import           RSCoin.Core.Communication (addExplorerAdhoc, addMintetteAdhoc,
                                             getBlockchainHeight,
                                             getMintettePeriod)
 import           RSCoin.Timed              (MsgPackRpc, WorkMode, fork, fork_,
@@ -67,7 +68,7 @@ launchBank periodDelta bankSk st = do
 addMintetteIO :: SecretKey -> Mintette -> PublicKey -> IO ()
 addMintetteIO bankSk m k = do
     let proof = sign bankSk (m, k)
-    runRealModeBank bankSk $ do  -- @TODO: why not 'bankWrapperReal' here? Is it remote call?
+    runRealModeBank bankSk $ do
         bankPid <- getBlockchainHeight
         mintettePid <- getMintettePeriod m
         when (isNothing mintettePid) $
@@ -81,7 +82,7 @@ addMintetteIO bankSk m k = do
                      ". Check out, maybe mintette's state" %
                      " is old & incosistent.")
             mPid bankPid
-        addPendingMintette m k proof
+        addMintetteAdhoc m k proof
 
 -- | Adds mintette directly into bank's state
 addMintetteInPlace :: SecretKey -> FilePath -> Mintette -> PublicKey -> IO ()
@@ -90,7 +91,13 @@ addMintetteInPlace bankSk storagePath m k =
     flip update' (AddMintette m k)
 
 -- | Add explorer to Bank inside IO Monad.
-addExplorerIO :: SecretKey -> FilePath -> Explorer -> PeriodId -> IO ()
-addExplorerIO bankSk storagePath e pId =
+addExplorerIO :: SecretKey -> Explorer -> PeriodId -> IO ()
+addExplorerIO bankSk e pId = do
+    let proof = sign bankSk (e, pId)
+    runRealModeBank bankSk $ addExplorerAdhoc e pId proof
+
+-- | Add explorer to Bank inside IO Monad.
+addExplorerInPlace :: SecretKey -> FilePath -> Explorer -> PeriodId -> IO ()
+addExplorerInPlace bankSk storagePath e pId =
     bankWrapperReal bankSk storagePath $
     flip update' (AddExplorer e pId)

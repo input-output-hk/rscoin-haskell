@@ -5,11 +5,10 @@ import           Data.Time.Units (Second)
 
 import qualified BankOptions     as Opts
 import qualified RSCoin.Bank     as B
-import           RSCoin.Core     (Explorer (..),
-                                  Mintette (Mintette), bankLoggerName,
-                                  constructPublicKey,
-                                  initLogging, logWarning,
-                                  readPublicKey, readSecretKey)
+import           RSCoin.Core     (Explorer (..), Mintette (Mintette),
+                                  bankLoggerName, constructPublicKey,
+                                  initLogging, logWarning, readPublicKey,
+                                  readSecretKey)
 
 main :: IO ()
 main = do
@@ -29,7 +28,7 @@ main = do
                     , explorerPort = port
                     , explorerKey = k
                     }
-            B.addExplorerIO bankSecretKey cloPath e pId
+            B.addExplorerIO bankSecretKey e pId
         Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
             B.launchBankReal periodDelta cloPath bankSecretKey

@@ -13,7 +13,8 @@ module RSCoin.Core.Communication
        , getTransactionById
        , getGenesisBlock
        , finishPeriod
-       , addPendingMintette
+       , addMintetteAdhoc
+       , addExplorerAdhoc
        , checkNotDoubleSpent
        , commitTx
        , getMintettePeriod
@@ -189,13 +190,22 @@ finishPeriod currentPeriodSignature =
         (const $ logDebug "Successfully finished period") $
     callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
 
-addPendingMintette :: WorkMode m => Mintette -> PublicKey -> Signature -> m ()
-addPendingMintette mintette pk proof =
+addMintetteAdhoc :: WorkMode m => Mintette -> PublicKey -> Signature -> m ()
+addMintetteAdhoc mintette pk proof =
     withResult
-        (logInfo $ format' "Sending addPendingMintette with mintette {} pk {}"
-                           (mintette, pk))
-        (const $ logDebug "Successfully sent request") $
-        callBank $ P.call (P.RSCBank P.AddPendingMintette) mintette pk proof
+        (logInfo $ sformat ("Sending req to add mintette " % F.build % ", pk " % F.build)
+                           mintette pk)
+        (const $ logDebug "Request sent successfully") $
+        callBank $ P.call (P.RSCBank P.AddMintetteAdhoc) mintette pk proof
+
+addExplorerAdhoc :: WorkMode m => Explorer -> PeriodId -> Signature -> m ()
+addExplorerAdhoc explorer pId proof =
+    withResult
+        (logInfo $ sformat ("Sending req to add explorer " % F.build % ", pid " % int)
+                           explorer pId)
+        (const $ logDebug "Request sent successfully") $
+        callBank $ P.call (P.RSCBank P.AddExplorerAdhoc) explorer pId proof
+
 
 logFunction :: MonadIO m => MintetteError -> Text -> m ()
 logFunction MEInactive = logInfo

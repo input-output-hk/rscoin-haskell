@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 -- | Arbitrary instances for Core types.
@@ -8,18 +8,22 @@ module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import qualified Data.Data               as D
 import           Data.DeriveTH
-import           Data.List               (intersect)
-import qualified Data.Map                as M
-import qualified Data.Set                as S
-import           Data.Text               (Text, pack)
-import           Test.QuickCheck         (Arbitrary (arbitrary), Gen,
-                                          NonNegative (..), choose, oneof)
+import           Data.List             ()
+import qualified Data.Map              as M
+import           Data.Text             (Text, pack)
+import           Test.QuickCheck       (Arbitrary (arbitrary), Gen,
+                                        NonNegative (..), choose, oneof)
 
 import qualified RSCoin.Core           as C
 import           RSCoin.Mintette.Error (MintetteError (..))
 import           RSCoin.Notary.Error   (NotaryError (..))
+
+instance Arbitrary C.CoinAmount where
+    arbitrary = C.CoinAmount . abs <$> arbitrary
+
+instance Arbitrary C.Color where
+    arbitrary = C.Color . abs <$> arbitrary
 
 instance Arbitrary C.Coin where
     arbitrary = do

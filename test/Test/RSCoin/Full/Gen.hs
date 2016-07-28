@@ -2,7 +2,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
 
@@ -60,7 +59,7 @@ genWaitAction a =
     pure a -- at most 15 seconds
 
 genColor :: Gen C.Color
-genColor = choose (minColor, maxColor)
+genColor = C.Color <$> choose (C.getC minColor, C.getC maxColor)
 
 instance Arbitrary Coloring where
     arbitrary = do

@@ -51,10 +51,11 @@ data CommonParams = CommonParams
 toModernFilePath :: FilePath -> Cherepakha.FilePath
 toModernFilePath = Cherepakha.fromText . cs
 
-startMintette :: CommonParams
+startMintette :: FilePath
+              -> CommonParams
               -> (Word, MintetteData)
               -> IO (ThreadId, C.PublicKey)
-startMintette CommonParams{..} (idx,_) = do
+startMintette confPath CommonParams{..} (idx,_) = do
     let workingDir = cpBaseDir </> mconcat ["mintette-workspace-", show idx]
         workingDirModern = toModernFilePath workingDir
         port = mintettePort idx
@@ -62,7 +63,7 @@ startMintette CommonParams{..} (idx,_) = do
     Cherepakha.mkdir workingDirModern
     (sk,pk) <- C.keyGen
     let start =
-            runRealModeUntrusted $
+            runRealModeUntrusted (Just confPath) $
             bracket (liftIO $ M.openState dbDir) (liftIO . M.closeState) $
             \st ->
                  do fork_ $ M.runWorker sk st
@@ -70,11 +71,12 @@ startMintette CommonParams{..} (idx,_) = do
     (, pk) <$> forkIO start
 
 startExplorer
-    :: Maybe C.Severity
+    :: FilePath
+    -> Maybe C.Severity
     -> CommonParams
     -> (Word, ExplorerData)
     -> IO (ThreadId, C.PublicKey)
-startExplorer severity CommonParams{..} (idx,ExplorerData{..}) = do
+startExplorer confPath severity CommonParams{..} (idx,ExplorerData{..}) = do
     let workingDir = cpBaseDir </> mconcat ["explorer-workspace-", show idx]
         workingDirModern = toModernFilePath workingDir
         portRpc = explorerPort idx
@@ -88,11 +90,16 @@ startExplorer severity CommonParams{..} (idx,ExplorerData{..}) = do
                 portWeb
                 (fromMaybe C.Warning severity)
                 dbDir
+                (Just confPath)
                 sk
     (, pk) <$> forkIO start
 
-startNotary :: Maybe C.Severity -> CommonParams -> NotaryData -> IO ThreadId
-startNotary severity CommonParams{..} NotaryData{..} = do
+startNotary :: FilePath
+            -> Maybe C.Severity
+            -> CommonParams
+            -> NotaryData
+            -> IO ThreadId
+startNotary confPath severity CommonParams{..} NotaryData{..} = do
     let workingDir = cpBaseDir </> "notary-workspace"
         workingDirModern = toModernFilePath workingDir
         dbDir = workingDir </> "notary-db"
@@ -100,18 +107,20 @@ startNotary severity CommonParams{..} NotaryData{..} = do
             N.launchNotaryReal
                 (fromMaybe C.Warning severity)
                 (Just dbDir)
-                notaryWebPort
+                (Just confPath)
     Cherepakha.mkdir workingDirModern
     forkIO start
 
 type PortsAndKeys = [(Int, C.PublicKey)]
 
-startBank :: CommonParams
-          -> PortsAndKeys
-          -> PortsAndKeys
-          -> BankData
-          -> IO ThreadId
-startBank CommonParams{..} mintettes explorers BankData{..} = do
+startBank
+    :: FilePath
+    -> CommonParams
+    -> PortsAndKeys
+    -> PortsAndKeys
+    -> BankData
+    -> IO ThreadId
+startBank confPath CommonParams{..} mintettes explorers BankData{..} = do
     let workingDir = cpBaseDir </> "bank-workspace"
         workingDirModern = toModernFilePath workingDir
         dbDir = workingDir </> "bank-db"
@@ -121,17 +130,26 @@ startBank CommonParams{..} mintettes explorers BankData{..} = do
     forM_
         explorers
         (\(port,key) ->
-              B.addExplorerInPlace bankSk dbDir (C.Explorer C.localhost port key) 0)
+              B.addExplorerInPlace
+                  (Just confPath)
+                  bankSk
+                  dbDir
+                  (C.Explorer C.localhost port key)
+                  0)
     forM_
         mintettes
         (\(port,key) ->
-              B.addMintetteInPlace bankSk dbDir (C.Mintette C.localhost port) key)
-    forkIO $
-        B.launchBankReal periodDelta dbDir bankSk
+              B.addMintetteInPlace
+                  (Just confPath)
+                  bankSk
+                  dbDir
+                  (C.Mintette C.localhost port)
+                  key)
+    forkIO $ B.launchBankReal periodDelta dbDir (Just confPath) bankSk
 
 -- TODO: we can setup other users similar way
-setupBankUser :: CommonParams -> BankData -> IO ()
-setupBankUser CommonParams{..} BankData{..} = do
+setupBankUser :: FilePath -> CommonParams -> BankData -> IO ()
+setupBankUser confPath CommonParams{..} BankData{..} = do
     let workingDir = cpBaseDir </> "user-workspace-bank"
         workingDirModern = toModernFilePath workingDir
         dbDir = workingDir </> "wallet-db"
@@ -139,7 +157,7 @@ setupBankUser CommonParams{..} BankData{..} = do
         walletPathArg = sformat (" --wallet-path " % string % " ") dbDir
     Cherepakha.mkdir workingDirModern
     bankSk <- C.readSecretKey bdSecret
-    runRealModeBank bankSk $
+    runRealModeBank (Just confPath) bankSk $
         bracket
             (liftIO $ U.openState dbDir)
             (\st ->
@@ -166,12 +184,10 @@ explorerPort = (C.defaultPort + 3000 +) . fromIntegral
 explorerWebPort :: Integral a => a -> Int
 explorerWebPort = (C.defaultPort + 5000 +) . fromIntegral
 
-notaryWebPort :: Int
-notaryWebPort = 9000
-
 main :: IO ()
 main = do
-    DeployConfig{..} <- readDeployConfig =<< getConfigPath
+    confPath <- getConfigPath
+    DeployConfig{..} <- readDeployConfig confPath
     let makeAbsolute path =
             ((</> path) . cs . either (error . show) id . Cherepakha.toText) <$>
             Cherepakha.pwd
@@ -185,34 +201,32 @@ main = do
     maybeInitLogger dcMintetteSeverity C.mintetteLoggerName
     maybeInitLogger dcExplorerSeverity C.explorerLoggerName
     withTempDirectory absoluteDir "rscoin-deploy" $
-        \tmpDir ->
-             do let cp =
-                        CommonParams
-                        { cpBaseDir = tmpDir
-                        , cpPeriod = dcPeriod
-                        }
-                    bd =
-                        dcBank
-                        { bdSecret = absoluteBankSecret
-                        }
-                    mintettePorts =
-                        map mintettePort [0 .. length dcMintettes - 1]
-                    explorerPorts =
-                        map explorerPort [0 .. length dcExplorers - 1]
-                (mintetteThreads,mintetteKeys) <-
-                    unzip <$> mapM (startMintette cp) (zip [0 ..] dcMintettes)
-                (explorerThreads,explorerKeys) <-
-                    unzip <$>
-                    mapM
-                        (startExplorer dcExplorerSeverity cp)
-                        (zip [0 ..] dcExplorers)
-                let mintettes = zip mintettePorts mintetteKeys
-                    explorers = zip explorerPorts explorerKeys
-                notaryThread <- startNotary dcNotarySeverity cp dcNotary
-                bankThread <- startBank cp mintettes explorers bd
-                setupBankUser cp bd
-                Cherepakha.echo "Deployed successfully!"
-                Cherepakha.sleep 100500 `finally`
-                    (mapM_ killThread $
-                     bankThread :
-                     notaryThread : mintetteThreads ++ explorerThreads)
+        \tmpDir -> do
+            let cp =
+                    CommonParams
+                    { cpBaseDir = tmpDir
+                    , cpPeriod = dcPeriod
+                    }
+                bd =
+                    dcBank
+                    { bdSecret = absoluteBankSecret
+                    }
+                mintettePorts = map mintettePort [0 .. length dcMintettes - 1]
+                explorerPorts = map explorerPort [0 .. length dcExplorers - 1]
+            (mintetteThreads,mintetteKeys) <-
+                unzip <$>
+                mapM (startMintette confPath cp) (zip [0 ..] dcMintettes)
+            (explorerThreads,explorerKeys) <-
+                unzip <$>
+                mapM
+                    (startExplorer confPath dcExplorerSeverity cp)
+                    (zip [0 ..] dcExplorers)
+            let mintettes = zip mintettePorts mintetteKeys
+                explorers = zip explorerPorts explorerKeys
+            notaryThread <- startNotary confPath dcNotarySeverity cp dcNotary
+            bankThread <- startBank confPath cp mintettes explorers bd
+            setupBankUser confPath cp bd
+            Cherepakha.echo "Deployed successfully!"
+            Cherepakha.sleep 100500 `finally`
+                (mapM_ killThread $
+                 bankThread : notaryThread : mintetteThreads ++ explorerThreads)

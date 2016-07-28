@@ -6,27 +6,30 @@ module RSCoin.Notary.Launcher
 
 import           Control.Monad.Catch                  (bracket)
 import           Control.Monad.Trans                  (MonadIO, liftIO)
-
 import           Network.Wai                          (Middleware)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
-import           RSCoin.Core                          (Severity (..))
+import           RSCoin.Core                          (NodeContext (..),
+                                                       Severity (..),
+                                                       readDeployNodeContext)
 import           RSCoin.Notary.AcidState              (RSCoinNotaryState,
                                                        closeState, openMemState,
                                                        openState)
 import           RSCoin.Notary.Server                 (serveNotary)
 import           RSCoin.Notary.Web.Servant            (servantApp)
-import           RSCoin.Timed                         (fork_, runRealModeUntrusted)
+import           RSCoin.Timed                         (fork_,
+                                                       runRealModeUntrusted)
 
-launchNotaryReal :: Severity -> Maybe FilePath -> Int -> IO ()
-launchNotaryReal logSeverity dbPath webPort = do
+launchNotaryReal :: Severity -> Maybe FilePath -> Maybe FilePath -> IO ()
+launchNotaryReal logSeverity dbPath confPath = do
     let openAction = maybe openMemState openState dbPath
-    runRealModeUntrusted $
+    NodeContext{..} <- readDeployNodeContext Nothing confPath
+    runRealModeUntrusted confPath $
         bracket (liftIO openAction) (liftIO . closeState) $
         \st -> do
             fork_ $ serveNotary st
-            launchWeb webPort logSeverity st
+            launchWeb (snd _notaryAddr) logSeverity st
 
 loggingMiddleware :: Severity -> Middleware
 loggingMiddleware Debug = logStdoutDev

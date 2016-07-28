@@ -17,7 +17,7 @@ main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     C.initLogging logSeverity
-    runRealModeUntrusted $
+    runRealModeUntrusted (Just configPath) $
         bracket
             (liftIO $ U.openState walletPath)
             (\st -> liftIO $ do

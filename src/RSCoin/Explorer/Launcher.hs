@@ -18,7 +18,8 @@ import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 import           RSCoin.Core                          (SecretKey, Severity (..),
                                                        initLoggerByName)
 import           RSCoin.Timed                         (MsgPackRpc, WorkMode,
-                                                       fork_, runRealModeUntrusted)
+                                                       fork_,
+                                                       runRealModeUntrusted)
 
 import           RSCoin.Explorer.AcidState            (State, closeState,
                                                        openState)
@@ -26,20 +27,24 @@ import           RSCoin.Explorer.Channel              (Channel, newChannel)
 import           RSCoin.Explorer.Server               (serve)
 import qualified RSCoin.Explorer.Web                  as Web
 
-explorerWrapperReal :: FilePath -> (State -> MsgPackRpc a) -> IO a
-explorerWrapperReal storagePath =
-    runRealModeUntrusted .
+explorerWrapperReal :: FilePath
+                    -> Maybe FilePath
+                    -> (State -> MsgPackRpc a)
+                    -> IO a
+explorerWrapperReal storagePath confPath =
+    runRealModeUntrusted confPath .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
 launchExplorerReal :: Int
                    -> Int
                    -> Severity
                    -> FilePath
+                   -> Maybe FilePath
                    -> SecretKey
                    -> IO ()
-launchExplorerReal portRpc portWeb severity storagePath sk = do
+launchExplorerReal portRpc portWeb severity storagePath confPath sk = do
     channel <- newChannel
-    explorerWrapperReal storagePath $
+    explorerWrapperReal storagePath confPath $
         \st ->
              do fork_ $ launchExplorer portRpc sk channel st
                 launchWeb portWeb severity channel st

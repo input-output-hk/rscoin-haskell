@@ -23,7 +23,7 @@ import           RSCoin.Timed               (fork, runRealModeUntrusted)
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 
 addMintette :: Int -> PublicKey -> IO ()
-addMintette mintetteId = B.addMintetteIO testBankSecretKey mintette
+addMintette mintetteId = B.addMintetteIO Nothing testBankSecretKey mintette
   where
     mintette = Mintette localhost (defaultPort + mintetteId)
 
@@ -32,11 +32,12 @@ bankThread periodDelta benchDir =
     B.launchBankReal
         periodDelta
         (benchDir </> "bank-db")
+        Nothing
         testBankSecretKey
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir secretKey =
-    runRealModeUntrusted $
+    runRealModeUntrusted Nothing $
     bracket
         (liftIO $
          M.openState $ benchDir </> dbFormatPath "mintette-db" mintetteId)
@@ -47,9 +48,8 @@ mintetteThread mintetteId benchDir secretKey =
 
 notaryThread :: FilePath -> IO ()
 notaryThread benchDir =
-    runRealModeUntrusted $
+    runRealModeUntrusted Nothing $
     bracket
         (liftIO $ N.openState $ benchDir </> "notary-db")
         (liftIO . N.closeState)
         N.serveNotary
-

@@ -30,14 +30,15 @@ module RSCoin.Core.NodeConfig
         ) where
 
 import           Control.Exception          (Exception, throwIO)
-import           Control.Lens               (Getter, Lens', makeLenses, to, (^.), _1, _2)
+import           Control.Lens               (Getter, Lens', makeLenses, to,
+                                             (^.), _1, _2)
 import           Control.Monad              (when)
 
 import           Data.Bifunctor             (second)
 import           Data.ByteString            (ByteString)
 import qualified Data.Configurator          as Config
-import qualified Data.Configurator.Types    as Config
 import           Data.Configurator.Export   (renderHashMap)
+import qualified Data.Configurator.Types    as Config
 import qualified Data.HashMap.Strict        as HM
 import           Data.Maybe                 (fromJust, fromMaybe, isNothing)
 import           Data.SafeCopy              (base, deriveSafeCopy)
@@ -47,9 +48,12 @@ import           Data.Typeable              (Typeable)
 
 import           Formatting                 (build, sformat, stext, (%))
 
-import           RSCoin.Core.Constants      (defaultConfigurationFileName, defaultPort, localhost)
-import           RSCoin.Core.Crypto.Signing (PublicKey, SecretKey, constructPublicKey,
-                                             derivePublicKey, deterministicKeyGen)
+import           RSCoin.Core.Constants      (defaultConfigurationFileName,
+                                             defaultPort, localhost)
+import           RSCoin.Core.Crypto.Signing (PublicKey, SecretKey,
+                                             constructPublicKey,
+                                             derivePublicKey,
+                                             deterministicKeyGen)
 import           RSCoin.Core.Primitives     (Address (..))
 
 
@@ -101,17 +105,21 @@ testBankSecretKey = fromJust $ defaultNodeContext^.bankSecretKey
 bankPublicKeyPropertyName :: IsString s => s
 bankPublicKeyPropertyName = "bank.publicKey"
 
-readRequiredDeployContext :: IO (Config.Config, NodeContext)
-readRequiredDeployContext = do
-    deployConfig <- Config.load [ Config.Required defaultConfigurationFileName ]
+readRequiredDeployContext :: Maybe FilePath -> IO (Config.Config, NodeContext)
+readRequiredDeployContext configPath = do
+    deployConfig <-
+        Config.load
+            [ Config.Required
+                  (fromMaybe defaultConfigurationFileName configPath)]
 
     cfgBankHost   <- Config.require deployConfig "bank.host"
     cfgBankPort   <- Config.require deployConfig "bank.port"
     cfgNotaryHost <- Config.require deployConfig "notary.host"
     cfgNotaryPort <- Config.require deployConfig "notary.port"
 
-    let obtainedContext = defaultNodeContext
-            { _bankAddr   = (cfgBankHost, cfgBankPort)
+    let obtainedContext =
+            defaultNodeContext
+            { _bankAddr = (cfgBankHost, cfgBankPort)
             , _notaryAddr = (cfgNotaryHost, cfgNotaryPort)
             }
 
@@ -126,9 +134,9 @@ instance Exception ConfigurationReadException
 -- | Read config from 'defaultConfigurationFileName' and converts into 'NodeContext'.
 -- Tries to read also bank public key if it is not provided. If provied, then rewrites
 -- configuration file.
-readDeployNodeContext :: Maybe SecretKey -> IO NodeContext
-readDeployNodeContext (Just newBankSecretKey) = do
-    (deployConfig, obtainedContext) <- readRequiredDeployContext
+readDeployNodeContext :: Maybe SecretKey -> Maybe FilePath -> IO NodeContext
+readDeployNodeContext (Just newBankSecretKey) confPath = do
+    (deployConfig, obtainedContext) <- readRequiredDeployContext confPath
 
     let newBankPublicKey = derivePublicKey newBankSecretKey
     let pkConfigValue    = Config.String $ sformat build newBankPublicKey
@@ -143,8 +151,8 @@ readDeployNodeContext (Just newBankSecretKey) = do
     return obtainedContext
         { _bankPublicKey = newBankPublicKey
         , _bankSecretKey = Just newBankSecretKey }
-readDeployNodeContext Nothing = do
-    (deployConfig, obtainedContext) <- readRequiredDeployContext
+readDeployNodeContext Nothing confPath = do
+    (deployConfig, obtainedContext) <- readRequiredDeployContext confPath
     cfgBankPublicKey  <- Config.require deployConfig bankPublicKeyPropertyName
     case constructPublicKey cfgBankPublicKey of
         Nothing -> throwIO

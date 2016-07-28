@@ -54,7 +54,7 @@ userThreadWithPath
     userId
     (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
   =
-    runRealModeUntrusted $ bracket
+    runRealModeUntrusted Nothing $ bracket
         (liftIO $ U.openState walletPath)
         (\userState -> liftIO $ do
             createCheckpoint userState

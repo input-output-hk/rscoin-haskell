@@ -8,13 +8,6 @@ module UserOptions
        ) where
 
 import           Control.Applicative    (optional)
-
-import           RSCoin.Core            (MintetteId, PeriodId, Severity (Error),
-                                         defaultAccountsNumber, defaultSecretKeyPath,
-                                         localhost)
-import           RSCoin.User            (UserCache)
-
-import           Data.ByteString        (ByteString)
 import           Data.Int               (Int64)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -25,6 +18,13 @@ import           Options.Applicative    (Parser, argument, auto, command,
                                          subparser, switch, value)
 
 import           Serokell.Util.OptParse (strOption)
+
+import           RSCoin.Core            (MintetteId, PeriodId, Severity (Error),
+                                         defaultAccountsNumber,
+                                         defaultConfigurationFileName,
+                                         defaultSecretKeyPath)
+import           RSCoin.User            (UserCache)
+
 
 -- | Command that describes single action from command-line interface
 -- POV
@@ -87,7 +87,7 @@ data UserOptions = UserOptions
     , walletPath   :: FilePath    -- ^ Path to the wallet
     , guidbPath    :: FilePath    -- ^ Path to the gui database.
     , logSeverity  :: Severity    -- ^ Logging severity
-    , bankHost     :: ByteString
+    , configPath   :: FilePath    -- ^ Configuration file path
     } deriving (Show)
 
 userCommandParser :: Parser UserCommand
@@ -326,8 +326,10 @@ userOptionsParser dskp =
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity") <*>
     strOption
-        (long "bank-host" <> value localhost <> showDefault <>
-         help "Host name for bank")
+        (long "config-path" <> help "Path to configuration file" <>
+         value defaultConfigurationFileName <>
+         showDefault)
+
 
 -- | IO call that retrieves command line options
 getUserOptions :: IO UserOptions

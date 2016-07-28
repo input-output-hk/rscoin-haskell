@@ -140,15 +140,19 @@ instance Buildable TxHistoryRecord where
             , "\nStatus: "
             , build txhStatus]
 
-initWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
-initWalletTab st gst mw@M.MainWindow{..} = do
+initWalletTab :: Maybe FilePath
+              -> RSCoinUserState
+              -> GUIState
+              -> M.MainWindow
+              -> IO ()
+initWalletTab confPath st gst mw@M.MainWindow{..} = do
     void ((M.treeViewWallet tabWallet) `on` G.rowActivated $
         \l _ -> case l of
             (i:_) -> do
                 sz <- G.listStoreGetSize $ M.walletModel tabWallet
                 when (i < sz) $ dialogWithIndex i
             _ -> return ())
-    updateWalletTab st gst mw
+    updateWalletTab confPath st gst mw
   where
     sid = (id :: String -> String)
     dialogWithIndex i = do
@@ -177,12 +181,13 @@ initWalletTab st gst mw@M.MainWindow{..} = do
         void $ G.dialogRun dialog
         void $ G.widgetDestroy dialog
 
-toNodeMapper :: RSCoinUserState
+toNodeMapper :: Maybe FilePath
+             -> RSCoinUserState
              -> GUIState
              -> U.TxHistoryRecord
              -> IO WalletModelNode
-toNodeMapper st gst txhr@U.TxHistoryRecord{..} = do
-    eTx <- runRealModeUntrusted $ fromTransaction gst txhTransaction
+toNodeMapper confPath st gst txhr@U.TxHistoryRecord{..} = do
+    eTx <- runRealModeUntrusted confPath $ fromTransaction gst txhTransaction
     addrs <- U.getAllAddresses st C.defaultNodeContext
     let amountDiff = C.getAmount $ getTransactionAmount addrs eTx
         isIncome = amountDiff > 0
@@ -210,26 +215,37 @@ toNodeMapper st gst txhr@U.TxHistoryRecord{..} = do
                              (name, firstOutAddress)
         return $ WalletModelNode True txhStatus txhHeight out amountDiff txhr
 
-updateWalletTab :: RSCoinUserState -> GUIState -> M.MainWindow -> IO ()
-updateWalletTab st gst M.MainWindow{..} = do
+updateWalletTab :: Maybe FilePath
+                -> RSCoinUserState
+                -> GUIState
+                -> M.MainWindow
+                -> IO ()
+updateWalletTab confPath st gst M.MainWindow{..} = do
     let WalletTab{..} = tabWallet
     addrs <- U.getAllAddresses st C.defaultNodeContext
-    transactionsHist <- runRealModeUntrusted $ U.getTransactionsHistory st
-    userAmount <- runRealModeUntrusted
-        (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)
+    transactionsHist <-
+        runRealModeUntrusted confPath $ U.getTransactionsHistory st
+    userAmount <-
+        runRealModeUntrusted
+            confPath
+            (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)
     let unconfirmed =
             filter
-                (\U.TxHistoryRecord{..} -> txhStatus == U.TxHUnconfirmed)
+                (\U.TxHistoryRecord{..} ->
+                      txhStatus == U.TxHUnconfirmed)
                 transactionsHist
         unconfirmedSum = do
-            txs <- mapM (runRealModeUntrusted . fromTransaction gst . U.txhTransaction)
-                        unconfirmed
+            txs <-
+                mapM
+                    (runRealModeUntrusted confPath .
+                     fromTransaction gst . U.txhTransaction)
+                    unconfirmed
             return $ sum $ map (getTransactionAmount addrs) txs
     G.labelSetText labelCurrentBalance $ show $ C.getCoin userAmount
     G.labelSetText labelTransactionsNumber $ show $ length unconfirmed
     G.labelSetText labelUnconfirmedBalance . show =<< unconfirmedSum
     G.labelSetText labelCurrentAccount $ formatSingle' "{}" $ head addrs
-    nodes <- mapM (toNodeMapper st gst) transactionsHist
+    nodes <- mapM (toNodeMapper confPath st gst) transactionsHist
     G.listStoreClear walletModel
     mapM_ (G.listStoreAppend walletModel) $ reverse nodes
     return ()

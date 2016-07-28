@@ -227,7 +227,7 @@ processCommand st O.StartGUI opts@O.UserOptions{..} = do
         (ACID.openLocalStateFrom guidbPath emptyGUIAcid)
         (\cs -> do ACID.createCheckpoint cs
                    ACID.closeAcidState cs)
-        (\cs -> startGUI st cs)
+        (\cs -> startGUI (Just configPath) st cs)
   where
     initLoop =
         initializeStorage st opts `catch`

@@ -94,7 +94,7 @@ newtype PartToSend = PartToSend
 
 applyPartToSend :: PartToSend -> C.Coin -> C.Coin
 applyPartToSend (PartToSend p) coin =
-    coin { C.getCoin = toRational p * C.getCoin coin
+    coin { C.getCoin = C.CoinAmount (toRational p) * C.getCoin coin
          }
 
 -- | How much values of each color to send.
@@ -138,7 +138,7 @@ calculateOutputCoins (C.coinsToMap -> inputs) (Coloring coloring) =
     multiply color part =
         C.Coin
         { C.getColor = color
-        , C.getCoin = toRational part * greyCoins
+        , C.getCoin = C.CoinAmount (toRational part) * greyCoins
         }
     usedCoins =
         C.coinsToMap [C.Coin 0 . sum . map C.getCoin . M.elems $ addedCoins]

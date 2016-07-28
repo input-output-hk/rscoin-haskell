@@ -34,7 +34,7 @@ genRationalInRange lo hi =
     choose (fromRational lo, fromRational hi)
 
 genCoinInRange :: C.Color -> Rational -> Rational -> Gen C.Coin
-genCoinInRange col lo hi = C.Coin col <$> genRationalInRange lo hi
+genCoinInRange col lo hi = C.Coin col . C.CoinAmount <$> genRationalInRange lo hi
 
 instance Arbitrary TransactionValid where
     arbitrary =
@@ -52,7 +52,9 @@ instance Arbitrary TransactionValid where
                              (coin, (trid, ind, coin)))
                        inps
                genOutput C.Coin{..} =
-                   (,) <$> arbitrary <*> genCoinInRange getColor 0 getCoin
+                   (,) <$>
+                   arbitrary <*>
+                   genCoinInRange getColor 0 (C.getAmount getCoin)
            unpaintedOutputsMap <- mapM genOutput coins
            padCols <- arbitrary :: Gen [C.Color]
            let l
@@ -61,16 +63,26 @@ instance Arbitrary TransactionValid where
                l = genericLength padCols
                helper adr cl cn = (adr, C.Coin cl cn)
            padAddrs <- vector l :: Gen [C.Address]
-           C.Transaction inputs .
-               (M.elems unpaintedOutputsMap ++) <$>
-                 case M.lookup 0 unpaintedOutputsMap of
-                     Nothing -> return []
-                     Just (_,v) ->
-                         if null padCols
-                             then return []
-                             else do let (outpv,inpv) = (C.getCoin v, C.getCoin $ coins M.! 0)
-                                     v' <- genRationalInRange 0 (inpv-outpv)
-                                     return $ zipWith3 helper padAddrs padCols (repeat (v' / l))
+           C.Transaction inputs . (M.elems unpaintedOutputsMap ++) <$>
+               case M.lookup 0 unpaintedOutputsMap of
+                   Nothing -> return []
+                   Just (_,v) ->
+                       if null padCols
+                           then return []
+                           else do
+                               let (outpv,inpv) =
+                                       (C.getCoin v, C.getCoin $ coins M.! 0)
+                               v' <-
+                                   C.CoinAmount <$>
+                                   genRationalInRange
+                                       0
+                                       (C.getAmount (inpv - outpv))
+                               return $
+                                   zipWith3
+                                       helper
+                                       padAddrs
+                                       padCols
+                                       (repeat (v' / l))
 
 spec :: Spec
 spec =
@@ -79,7 +91,7 @@ spec =
             prop description_validateSumForValid validateSumCorrectForValid
             prop description_validateInputMoreOutput validateInputMoreThanOutput
             prop description_validateSumInputOutputCol validateOnlyInputColorsInOutput
-        describe "validateSignature" $ do
+        describe "validateSignature" $
             prop description_validateSignature validateSig
         describe "chooseAddresses" $ do
             prop description_chooseAddressesJustWhenPossible chooseAddressesJustWhenPossible

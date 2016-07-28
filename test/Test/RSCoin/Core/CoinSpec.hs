@@ -49,9 +49,9 @@ sameColorCorrect c1 c2 = (C.getColor c1 == C.getColor c2) == C.sameColor c1 c2
 
 sumCoinReturnsSum :: C.Color -> NonEmptyList Rational -> Bool
 sumCoinReturnsSum color (getNonEmpty -> values) =
-    let coins = map (C.Coin color) values
+    let coins = map (C.Coin color . C.CoinAmount) values
         s = C.sumCoin coins
-        expected = C.Coin color $ sum values
+        expected = C.Coin color $ C.CoinAmount $ sum values
     in s == expected
 
 -- | This property does the following:

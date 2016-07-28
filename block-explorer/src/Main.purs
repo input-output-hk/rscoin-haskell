@@ -6,6 +6,7 @@ import App.Routes                  (match)
 import App.Layout                  (view, update)
 import App.Connection              (init, Action (..), WEBSOCKET) as C
 import App.Types                   (Action(PageView, SocketAction), State)
+import App.Config                  (wsUrl)
 
 import Control.Bind                ((=<<))
 import Control.Monad.Eff           (Eff)
@@ -36,7 +37,7 @@ config state = do
     -- FIXME: C.init is blocking and whole application is waiting for
     -- socket connection. Do this async if possible or at least show Loading intro page
     wsInput <- channel C.ConnectionClosed
-    socket <- C.init wsInput "ws://localhost:8000"
+    socket <- C.init wsInput wsUrl
     let wsSignal = subscribe wsInput ~> SocketAction
     pure
         { initialState: state { socket = Just socket }

@@ -20,7 +20,8 @@ import           Data.Optional              (Optional, defaultTo, empty)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
-import           RSCoin.Core                (Address (..), Coin (..), Color,
+import           RSCoin.Core                (Address (..), Coin (..),
+                                             CoinAmount (..), Color,
                                              finishPeriod, getBlockchainHeight,
                                              keyGen, sign)
 import           RSCoin.Core.NodeConfig     (NodeContext, testBankSecretKey)
@@ -83,7 +84,7 @@ executeTransaction userState cache coinColor coinAmount addrToSend =
     () <$ submitTransactionRetry maxRetries userState (Just cache) td
   where
     maxRetries = 50
-    outputMoney = [Coin coinColor coinAmount]
+    outputMoney = [Coin coinColor (CoinAmount coinAmount)]
     inputMoneyInfo = [(0, outputMoney)]
     td = TransactionData inputMoneyInfo addrToSend outputMoney
 

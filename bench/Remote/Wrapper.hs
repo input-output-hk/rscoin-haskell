@@ -18,7 +18,6 @@ import           Data.Monoid                ((<>))
 import qualified Data.Text                  as T (filter, lines, strip, unlines,
                                                   unpack)
 import qualified Data.Text.Buildable        as B (build)
-import           Data.Text.Encoding         (encodeUtf8)
 import qualified Data.Text.IO               as TIO
 import           Data.Traversable           (for)
 import           Formatting                 (build, float, int, sformat, shown,

@@ -37,7 +37,7 @@ config state = do
     -- FIXME: C.init is blocking and whole application is waiting for
     -- socket connection. Do this async if possible or at least show Loading intro page
     wsInput <- channel C.ConnectionClosed
-    socket <- C.init wsInput wsUrl
+    socket <- C.init wsInput =<< wsUrl
     let wsSignal = subscribe wsInput ~> SocketAction
     pure
         { initialState: state { socket = Just socket }

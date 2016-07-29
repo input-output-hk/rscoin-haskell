@@ -20,6 +20,7 @@ data Options = Options
     { cliPath        :: FilePath
     , cliLogSeverity :: Severity
     , cliMemMode     :: Bool
+    , cliWebPort     :: Int
     , cliConfigPath  :: FilePath
     } deriving Show
 
@@ -34,6 +35,10 @@ optionsParser _ =
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity") <*>
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
+    option
+        auto
+        (long "web-port" <> value 8090 <> showDefault <>
+         help "Web port") <*>
     strOption
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigurationFileName <>

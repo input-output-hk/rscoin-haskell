@@ -108,6 +108,7 @@ startNotary confPath severity CommonParams{..} NotaryData{..} = do
                 (fromMaybe C.Warning severity)
                 (Just dbDir)
                 (Just confPath)
+                8090
     Cherepakha.mkdir workingDirModern
     forkIO start
 

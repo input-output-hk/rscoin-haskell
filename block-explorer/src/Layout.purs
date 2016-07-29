@@ -10,7 +10,7 @@ import App.RSCoin                  (emptyAddress, Address (..), newAddress,
                                     addressToString, IntroductoryMsg (..),
                                     AddressInfoMsg (..), Coin (..),
                                     TransactionSummarySerializable (..),
-                                    OutcomingMsg (..), Color (..))
+                                    OutcomingMsg (..), Color (..), ServerError (..))
 import App.Types                   (Action (..), State (..))
 import App.View.Address            (view) as Address
 import App.View.NotFound           (view) as NotFound
@@ -26,11 +26,12 @@ import Debug.Trace                 (traceAny)
 import Pux                         (EffModel, noEffects, onlyEffects)
 import Pux.Html                    (Html, div, h1, text, input, button, link,
                                     small, h5, span, table, tr, th, td,
-                                    thead, tbody, nav, a, ul, li, form)
+                                    thead, tbody, nav, a, ul, li, form, script,
+                                    strong)
 import Pux.Router                  (navigateTo, link) as R
 import Pux.Html.Attributes         (type_, value, rel, href, className,
                                     tabIndex, data_, title, role, aria,
-                                    placeholder)
+                                    placeholder, src)
 import Pux.Html.Events             (onChange, onClick, onKeyDown)
 
 import Control.Apply               ((*>))
@@ -71,6 +72,8 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             }
         OMTransactions _ arr ->
             noEffects $ state { transactions = map snd arr }
+        OMError (ParseError e) ->
+            noEffects $ state { error = Just e }
         _ -> noEffects state
   where
     socket' = unsafePartial $ fromJust state.socket
@@ -80,6 +83,7 @@ update Search state =
     onlyEffects state $
         [ liftEff $ R.navigateTo (R.addressUrl state.address) *> pure Nop
         ]
+update DismissError state = noEffects $ state { error = Nothing }
 update Nop state = noEffects state
 
 -- TODO: make safe version of bootstrap like
@@ -91,9 +95,15 @@ view state =
         [ link
             [ rel "stylesheet"
             , type_ "text/css"
-            , href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+            , href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
             ]
             []
+--        , script
+--            [ src "https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js" ]
+--            []
+--        , script
+--            [ src "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" ]
+--            []
         , nav
             [ className "navbar navbar-default" ]
             [ div
@@ -155,6 +165,29 @@ view state =
                     ]
                 ]
             ]
+        , case state.error of
+            Just e ->
+                div
+                    [ className "alert alert-warning alert-dismissible"
+                    , role "alert"
+                    ]
+                    [ button
+                        [ type_ "button"
+                        , className "close"
+                        , data_ "dismiss" "alert"
+                        , aria "label" "Close"
+                        , onClick $ const DismissError
+                        ]
+                        [ span
+                            [ aria "hidden" "true" ]
+                            [ text "×" ]
+                        ]
+                    , strong
+                        []
+                        [ text "Error! " ]
+                    , text e
+                    ]
+            Nothing -> div [] []
         , div
             [ className "container-fluid" ]
             [ case state.route of

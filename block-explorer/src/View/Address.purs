@@ -1,7 +1,7 @@
 module App.View.Address where
 
 import Prelude                     (($), map, (<<<), const, pure, bind, show,
-                                    (==), (<>))
+                                    (==))
 
 import App.RSCoin                  (emptyAddress, Address, newAddress,
                                     addressToString, IntroductoryMsg (..),
@@ -31,7 +31,7 @@ view address state =
           div
             [ className "page-header" ]
             [ h1 [] [ text "Address "
-                    , small [] [text $ "info about address " <> addressString]
+                    , small [] [text addressString]
                     ]
             ]
         , div

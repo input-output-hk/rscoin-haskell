@@ -15,6 +15,7 @@ data Action
     | SocketAction C.Action
     | AddressChange Address
     | Search
+    | DismissError
     | Nop
 
 type State =
@@ -24,6 +25,7 @@ type State =
     , balance      :: Array (Tuple Color Coin)
     , transactions :: Array TransactionSummarySerializable
     , periodId     :: Int
+    , error        :: Maybe String
     }
 
 init :: State
@@ -34,4 +36,5 @@ init =
     , balance:      []
     , transactions: []
     , periodId:     0
+    , error:        Nothing
     }

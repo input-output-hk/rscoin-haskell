@@ -187,8 +187,9 @@ explorerWebPort = (C.defaultPort + 5000 +) . fromIntegral
 
 main :: IO ()
 main = do
-    confPath <- getConfigPath
-    DeployConfig{..} <- readDeployConfig confPath
+    let confPath = C.defaultConfigurationFileName
+    deployLocalYamlPath <- getConfigPath
+    DeployConfig{..} <- readDeployConfig deployLocalYamlPath
     let makeAbsolute path =
             ((</> path) . cs . either (error . show) id . Cherepakha.toText) <$>
             Cherepakha.pwd

@@ -98,6 +98,8 @@ view state =
             , href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
             ]
             []
+            -- TODO: uncoment these scripts if you will be using more advanced
+            -- things from bootstrap that require js
 --        , script
 --            [ src "https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js" ]
 --            []
@@ -168,7 +170,7 @@ view state =
         , case state.error of
             Just e ->
                 div
-                    [ className "alert alert-warning alert-dismissible"
+                    [ className "alert alert-danger alert-dismissible"
                     , role "alert"
                     ]
                     [ button

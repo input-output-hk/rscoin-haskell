@@ -41,5 +41,8 @@ addressUrl address = litUrl addressLit <> T.addressToString address
 txUrl :: T.TransactionId -> String
 txUrl tId = litUrl txLit <> show tId
 
+homeUrl :: String
+homeUrl = "/"
+
 litUrl :: String -> String
 litUrl lit = "/" <> lit <> "/"

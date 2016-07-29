@@ -1,9 +1,9 @@
 module App.Layout where
 
 import Prelude                     (($), map, (<<<), const, pure, bind, show,
-                                    (==))
+                                    (==), negate)
 
-import App.Routes                  (Route (..), addressUrl) as R
+import App.Routes                  (Route (..), addressUrl, homeUrl) as R
 import App.Connection              (Connection, Action (..), WEBSOCKET,
                                     introMessage, send) as C
 import App.RSCoin                  (emptyAddress, Address (..), newAddress,
@@ -26,9 +26,11 @@ import Debug.Trace                 (traceAny)
 import Pux                         (EffModel, noEffects, onlyEffects)
 import Pux.Html                    (Html, div, h1, text, input, button, link,
                                     small, h5, span, table, tr, th, td,
-                                    thead, tbody)
-import Pux.Router                  (navigateTo)
-import Pux.Html.Attributes         (type_, value, rel, href, className)
+                                    thead, tbody, nav, a, ul, li, form)
+import Pux.Router                  (navigateTo, link) as R
+import Pux.Html.Attributes         (type_, value, rel, href, className,
+                                    tabIndex, data_, title, role, aria,
+                                    placeholder)
 import Pux.Html.Events             (onChange, onClick, onKeyDown)
 
 import Control.Apply               ((*>))
@@ -76,7 +78,7 @@ update (SocketAction _) state = noEffects state
 update (AddressChange address) state = noEffects $ state { address = address }
 update Search state =
     onlyEffects state $
-        [ liftEff $ navigateTo (R.addressUrl state.address) *> pure Nop
+        [ liftEff $ R.navigateTo (R.addressUrl state.address) *> pure Nop
         ]
 update Nop state = noEffects state
 
@@ -84,17 +86,81 @@ update Nop state = noEffects state
 -- https://github.com/slamdata/purescript-halogen-bootstrap/blob/master/src/Halogen/Themes/Bootstrap3.purs
 view :: State -> Html Action
 view state =
-  div
-    [ className "container-fluid" ]
-    [ link
-        [ rel "stylesheet"
-        , type_ "text/css"
-        , href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
-        ]
+    div
         []
-    , case state.route of
-        R.Home -> Address.view Nothing state
-        R.Address addr -> Address.view (Just addr) state
-        R.Transaction tId -> Transaction.view tId state
-        R.NotFound -> NotFound.view state
-    ]
+        [ link
+            [ rel "stylesheet"
+            , type_ "text/css"
+            , href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+            ]
+            []
+        , nav
+            [ className "navbar navbar-default" ]
+            [ div
+                [ className "container-fluid" ]
+                [ div
+                    [ className "navbar-header" ]
+                    [ R.link R.homeUrl
+                        [ className "navbar-brand"
+                        ]
+                        [ text "RS | COIN" ]
+                    ]
+                , ul
+                    [ className "nav navbar-nav navbar-right" ]
+                    [ li
+                        [ className "dropdown" ]
+                        [ a
+                            [ className "dropwdown-toggle"
+                            , href "#"
+                            , data_ "toggle" "dropdown"
+                            , aria "haspopup" "true"
+                            , aria "expanded" "false"
+                            ]
+                            [ text "English"
+                            , span
+                                [ className "caret" ]
+                                []
+                            ]
+                        , ul
+                            [ className "dropdown-menu" ]
+                            [ li
+                                []
+                                [ a
+                                    [ href "#" ]
+                                    [ text "English" ]
+                                ]
+                            ]
+                        ]
+                    ]
+                , div
+                    [ className "col-xs-6 navbar-form navbar-right" ]
+                    [ div
+                        [ className "input-group" ]
+                        [ input
+                            [ type_ "text"
+                            , value $ addressToString state.address
+                            , onChange $ AddressChange <<< newAddress <<< _.value <<< _.target
+                            , onKeyDown $ \e -> if e.keyCode == 13 then Search else Nop
+                            , className "form-control"
+                            , placeholder "Address"
+                            ] []
+                        , span
+                            [ className "input-group-btn" ]
+                            [ button
+                                [ onClick $ const Search
+                                , className "btn btn-danger"
+                                ] [ text "Search" ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        , div
+            [ className "container-fluid" ]
+            [ case state.route of
+                R.Home -> Address.view Nothing state
+                R.Address addr -> Address.view (Just addr) state
+                R.Transaction tId -> Transaction.view tId state
+                R.NotFound -> NotFound.view state
+            ]
+        ]

@@ -35,36 +35,6 @@ view address state =
                     ]
             ]
         , div
-            [ className "row navbar" ]
-            [ div
-                [ className "col-xs-3" ]
-                [ h5 [] [ text "RSCoin" ]
-                ]
-            , div
-                [ className "col-xs-5" ]
-                [ input
-                    [ type_ "text"
-                    , value $ addressToString state.address
-                    , onChange $ AddressChange <<< newAddress <<< _.value <<< _.target
-                    , onKeyDown $ \e -> if e.keyCode == 13 then Search else Nop
-                    , className "form-control"
-                    ] []
-                ]
-            , div
-                [ className "col-xs-1" ]
-                [
-                  button
-                    [ onClick $ const Search
-                    , className "btn btn-danger"
-                    ] [ text "Search" ]
-                ]
-            , div
-                [ className "col-xs-2 col-xs-offset-1 text-right" ]
-                [ text "English"
-                , span [ className "caret" ] []
-                ]
-            ]
-        , div
             [ className "container" ]
             [ div
                 [ className "row" ]

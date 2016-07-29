@@ -37,9 +37,7 @@ import           Control.Monad              (when)
 import           Data.Bifunctor             (second)
 import           Data.ByteString            (ByteString)
 import qualified Data.Configurator          as Config
-import           Data.Configurator.Export   (renderHashMap)
 import qualified Data.Configurator.Types    as Config
-import qualified Data.HashMap.Strict        as HM
 import           Data.Maybe                 (fromJust, fromMaybe, isNothing)
 import           Data.SafeCopy              (base, deriveSafeCopy)
 import           Data.String                (IsString)
@@ -138,15 +136,17 @@ readDeployNodeContext :: Maybe SecretKey -> Maybe FilePath -> IO NodeContext
 readDeployNodeContext (Just newBankSecretKey) confPath = do
     (deployConfig, obtainedContext) <- readRequiredDeployContext confPath
 
-    let newBankPublicKey = derivePublicKey newBankSecretKey
-    let pkConfigValue    = Config.String $ sformat build newBankPublicKey
-    cfgBankPublicKey    <- Config.lookup deployConfig bankPublicKeyPropertyName
+    cfgBankPublicKey <- Config.lookup deployConfig bankPublicKeyPropertyName
+    when (isNothing cfgBankPublicKey)
+        $ throwIO $ ConfigurationReadException
+        $ sformat ("Configuration file doesn't have property: " % stext) bankPublicKeyPropertyName
 
-    when (isNothing cfgBankPublicKey || pkConfigValue /= fromJust cfgBankPublicKey) $ do
-        deployConfigMap     <- Config.getMap deployConfig
-        let mapWithPublicKey = HM.insert bankPublicKeyPropertyName pkConfigValue deployConfigMap
-        let renderedConfig   = renderHashMap mapWithPublicKey
-        writeFile defaultConfigurationFileName renderedConfig
+    let Just cfgReadPublicKey = cfgBankPublicKey
+    let newBankPublicKey      = derivePublicKey newBankSecretKey
+    let pkConfigValue         = Config.String $ sformat build newBankPublicKey
+    when (pkConfigValue /= cfgReadPublicKey)
+        $ throwIO $ ConfigurationReadException
+        $ sformat ("Bank's derived PK " % build % " doesn't match PK in cfg file") newBankPublicKey
 
     return obtainedContext
         { _bankPublicKey = newBankPublicKey

@@ -111,7 +111,6 @@ library
                      , cereal
                      , conduit-extra
                      , configurator >= 0.3.0.0
-                     , configurator-export >= 0.1.0.1
                      , containers
                      , data-default
                      , directory

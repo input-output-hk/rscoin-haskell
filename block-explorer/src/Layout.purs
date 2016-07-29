@@ -123,7 +123,7 @@ view state =
                         [ className "dropdown" ]
                         [ a
                             [ className "dropwdown-toggle"
-                            , href "#"
+                            , data_ "target" "#"
                             , data_ "toggle" "dropdown"
                             , aria "haspopup" "true"
                             , aria "expanded" "false"
@@ -138,7 +138,7 @@ view state =
                             [ li
                                 []
                                 [ a
-                                    [ href "#" ]
+                                    [ data_ "target" "#" ]
                                     [ text "English" ]
                                 ]
                             ]

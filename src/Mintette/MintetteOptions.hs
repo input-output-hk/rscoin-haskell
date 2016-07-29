@@ -9,10 +9,11 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, metavar,
                                          option, progDesc, short, showDefault,
                                          switch, value, (<>))
+import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error),
+import           RSCoin.Core            (Severity (Error), configDirectory,
                                          defaultConfigurationFileName,
                                          defaultPort, defaultSecretKeyPath)
 
@@ -25,12 +26,12 @@ data Options = Options
     , cloConfigPath    :: FilePath
     }
 
-optionsParser :: FilePath -> Parser Options
-optionsParser defaultSKPath =
+optionsParser :: FilePath -> FilePath -> Parser Options
+optionsParser defaultSKPath configDir =
     Options <$>
     option auto (short 'p' <> long "port" <> value defaultPort <> showDefault) <*>
     strOption
-        (long "path" <> value "mintette-db" <> showDefault <>
+        (long "path" <> value (configDir </> "mintette-db") <> showDefault <>
          help "Path to database") <*>
     strOption
         (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault) <*>
@@ -47,7 +48,8 @@ optionsParser defaultSKPath =
 getOptions :: IO Options
 getOptions = do
     defaultSKPath <- defaultSecretKeyPath
+    configDir <- configDirectory
     execParser $
         info
-            (helper <*> optionsParser defaultSKPath)
+            (helper <*> optionsParser defaultSKPath configDir)
             (fullDesc <> progDesc "RSCoin's Mintette")

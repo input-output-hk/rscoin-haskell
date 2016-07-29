@@ -9,10 +9,11 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, metavar,
                                          option, progDesc, showDefault, value,
                                          (<>))
+import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error),
+import           RSCoin.Core            (Severity (Error), configDirectory,
                                          defaultConfigurationFileName,
                                          defaultPort, defaultSecretKeyPath)
 
@@ -25,8 +26,8 @@ data Options = Options
     , cloConfigPath    :: FilePath
     }
 
-optionsParser :: FilePath -> Parser Options
-optionsParser defaultSKPath =
+optionsParser :: FilePath -> FilePath -> Parser Options
+optionsParser defaultSKPath configDir =
     Options <$>
     option auto (mconcat [long "port-rpc", value defaultPort, showDefault]) <*>
     option
@@ -35,7 +36,7 @@ optionsParser defaultSKPath =
     strOption
         (mconcat
              [ long "path"
-             , value "explorer-db"
+             , value (configDir </> "explorer-db")
              , showDefault
              , help "Path to database"]) <*>
     strOption
@@ -59,7 +60,8 @@ optionsParser defaultSKPath =
 getOptions :: IO Options
 getOptions = do
     defaultSKPath <- defaultSecretKeyPath
+    configDir <- configDirectory
     execParser $
         info
-            (helper <*> optionsParser defaultSKPath)
+            (helper <*> optionsParser defaultSKPath configDir)
             (fullDesc <> progDesc "RSCoin Block Explorer")

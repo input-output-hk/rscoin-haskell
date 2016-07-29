@@ -185,6 +185,7 @@ executable rscoin-bank
   main-is:             Main.hs
   other-modules:       BankOptions
   build-depends:       base >= 4.8 && < 4.9
+                     , filepath
                      , mtl
                      , optparse-applicative
                      , rscoin
@@ -235,6 +236,7 @@ executable rscoin-user
                      , bytestring
                      , containers >= 0.5.6.2
                      , clock
+                     , filepath
                      , formatting
                      , exceptions >= 0.8.2.1
                      , gtk3 >= 0.14.2
@@ -266,6 +268,7 @@ executable rscoin-mintette
   main-is:             Main.hs
   other-modules:       MintetteOptions
   build-depends:       base >= 4.8 && < 4.9
+                     , filepath
                      , bytestring
                      , exceptions
                      , lens >= 4.13
@@ -286,6 +289,7 @@ executable rscoin-notary
   main-is:             Main.hs
   other-modules:       NotaryOptions
   build-depends:       base >= 4.8 && < 4.9
+                     , filepath
                      , bytestring
                      , exceptions
                      , mtl
@@ -309,6 +313,7 @@ executable rscoin-explorer
   main-is:             Main.hs
   other-modules:       ExplorerOptions
   build-depends:       base
+                     , filepath
                      , bytestring
                      , mtl >= 2.2.1
                      , optparse-applicative

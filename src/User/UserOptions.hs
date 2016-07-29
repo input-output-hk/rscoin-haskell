@@ -16,11 +16,12 @@ import           Options.Applicative    (Parser, argument, auto, command,
                                          info, long, many, metavar, option,
                                          progDesc, short, showDefault, some,
                                          subparser, switch, value)
+import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
 import           RSCoin.Core            (MintetteId, PeriodId, Severity (Error),
-                                         defaultAccountsNumber,
+                                         configDirectory, defaultAccountsNumber,
                                          defaultConfigurationFileName,
                                          defaultSecretKeyPath)
 import           RSCoin.User            (UserCache)
@@ -294,8 +295,8 @@ userCommandParser =
             short 'k' <> long "secret-key" <> help "Path to secret key" <>
              metavar "PATH TO KEY")
 
-userOptionsParser :: FilePath -> Parser UserOptions
-userOptionsParser dskp =
+userOptionsParser :: FilePath -> FilePath -> Parser UserOptions
+userOptionsParser dskp configDir =
     UserOptions <$> userCommandParser <*>
     switch
         (long "bank-mode" <>
@@ -316,7 +317,7 @@ userOptionsParser dskp =
          showDefault) <*>
     strOption
         (long "wallet-path" <> help "Path to wallet database." <>
-         value "wallet-db" <>
+         value (configDir </> "wallet-db") <>
          showDefault) <*>
     strOption
         (long "guidb-path" <> help "Path to gui database" <>
@@ -335,7 +336,8 @@ userOptionsParser dskp =
 getUserOptions :: IO UserOptions
 getUserOptions = do
     defaultSKPath <- defaultSecretKeyPath
+    configDir <- configDirectory
     execParser $
         info
-            (helper <*> userOptionsParser defaultSKPath)
+            (helper <*> userOptionsParser defaultSKPath configDir)
             (fullDesc <> progDesc "RSCoin user client")

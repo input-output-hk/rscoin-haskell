@@ -9,12 +9,12 @@ import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, option,
                                          progDesc, short, showDefault, switch,
                                          value, (<>))
+import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error),
-                                         defaultConfigurationFileName,
-                                         defaultSecretKeyPath)
+import           RSCoin.Core            (Severity (Error), configDirectory,
+                                         defaultConfigurationFileName)
 
 data Options = Options
     { cliPath        :: FilePath
@@ -25,10 +25,10 @@ data Options = Options
     } deriving Show
 
 optionsParser :: FilePath -> Parser Options
-optionsParser _ =
+optionsParser configDir =
     Options <$>
     strOption
-        (long "path" <> value "notary-db" <> showDefault <>
+        (long "path" <> value (configDir </> "notary-db") <> showDefault <>
          help "Path to Notary database") <*>
     option
         auto
@@ -46,8 +46,8 @@ optionsParser _ =
 
 getOptions :: IO Options
 getOptions = do
-    defaultSKPath <- defaultSecretKeyPath
+    configDir <- configDirectory
     execParser $
         info
-            (helper <*> optionsParser defaultSKPath)
+            (helper <*> optionsParser configDir)
             (fullDesc <> progDesc "RSCoin's Notary")

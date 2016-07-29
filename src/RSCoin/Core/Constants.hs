@@ -5,6 +5,7 @@
 module RSCoin.Core.Constants
         ( defaultAccountsNumber
         , defaultConfigurationFileName
+        , configDirectory
         , defaultSecretKeyPath
         , defaultPeriodDelta
         , defaultPort
@@ -32,9 +33,13 @@ import qualified RSCoin.Core.CompileConfig  as CC
 import           RSCoin.Core.Crypto         (Hash, hash)
 import           RSCoin.Core.Primitives     (Coin (..))
 
+-- | Configuration directory (~/.rscoin/ on linux)
+configDirectory :: IO FilePath
+configDirectory = (</> ".rscoin") <$> getHomeDirectory
+
 -- | Path used by default to read/write secret key.
 defaultSecretKeyPath :: IO FilePath
-defaultSecretKeyPath = (\h -> h </> ".rscoin" </> "key") <$> getHomeDirectory
+defaultSecretKeyPath = (</> "key") <$> configDirectory
 
 -- | The default number of accounts (sk-pk pairs) generated with the
 -- wallet (user part)

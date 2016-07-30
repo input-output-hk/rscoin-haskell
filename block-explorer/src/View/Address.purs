@@ -83,19 +83,6 @@ view address state =
            , td [] [ text $ show color.getC ]
            , td [] [ text $ show coin]
            ]
---    txInputRow h i (Coin c) _ =
---        tr []
---           [ td [] [ text $ show h ]
---           , td [] [ text $ show i ]
---           , td [] [ text $ show c.getColor ]
---           , td [] [ text $ show c.getCoin ]
---           ]
---    txOutputRow adr (Coin c) =
---        tr []
---           [ td [] [ text $ addressToString adr ]
---           , td [] [ text $ show c.getColor ]
---           , td [] [ text $ show c.getCoin ]
---           ]
     transactionRow (TransactionSummarySerializable t) =
         tr []
            [ td [] [ link (R.txUrl t.txId) [] [ text $ show t.txId ] ]

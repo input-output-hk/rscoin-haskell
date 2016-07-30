@@ -1,7 +1,7 @@
 module App.Layout where
 
 import Prelude                     (($), map, (<<<), const, pure, bind, show,
-                                    (==), negate)
+                                    (==), negate, flip)
 
 import App.Routes                  (Route (..), addressUrl, homeUrl) as R
 import App.Connection              (Connection, Action (..), WEBSOCKET,
@@ -16,11 +16,12 @@ import App.View.Address            (view) as Address
 import App.View.NotFound           (view) as NotFound
 import App.View.Transaction        (view) as Transaction
 
-import Data.Maybe                  (Maybe (..), fromJust)
+import Data.Maybe                  (Maybe (..), fromJust, maybe)
 import Data.Tuple                  (Tuple (..), snd)
 import Data.Tuple.Nested           (uncurry2)
 import Data.Either                 (fromRight)
 import Data.Generic                (gShow)
+import Data.Array                  (filter, head)
 import Debug.Trace                 (traceAny)
 
 import Pux                         (EffModel, noEffects, onlyEffects)
@@ -195,7 +196,9 @@ view state =
             [ case state.route of
                 R.Home -> Address.view Nothing state
                 R.Address addr -> Address.view (Just addr) state
-                R.Transaction tId -> Transaction.view tId state
+                R.Transaction tId ->
+					let getTransaction = head $ filter (\(TransactionSummarySerializable t) -> t.txId == tId) state.transactions
+					in  maybe (NotFound.view state) (flip Transaction.view state) getTransaction
                 R.NotFound -> NotFound.view state
             ]
         ]

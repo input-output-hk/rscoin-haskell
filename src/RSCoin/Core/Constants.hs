@@ -4,6 +4,7 @@
 
 module RSCoin.Core.Constants
         ( defaultAccountsNumber
+        , defaultConfigurationPath
         , defaultConfigurationFileName
         , configDirectory
         , defaultSecretKeyPath
@@ -93,5 +94,8 @@ notaryMSAttemptsLimit :: Int
 notaryMSAttemptsLimit = 5
 
 -- | File name for running app with configuration of 'configurator' libary.
-defaultConfigurationFileName :: IsString s => s
+defaultConfigurationPath :: IO FilePath
+defaultConfigurationPath = (</> defaultConfigurationFileName) <$> configDirectory
+
+defaultConfigurationFileName :: (IsString s) => s
 defaultConfigurationFileName = "deploy-rscoin.cfg"

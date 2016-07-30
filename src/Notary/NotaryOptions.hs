@@ -14,7 +14,7 @@ import           System.FilePath        ((</>))
 import           Serokell.Util.OptParse (strOption)
 
 import           RSCoin.Core            (Severity (Error), configDirectory,
-                                         defaultConfigurationFileName)
+                                         defaultConfigurationPath)
 
 data Options = Options
     { cliPath        :: FilePath
@@ -24,8 +24,8 @@ data Options = Options
     , cliConfigPath  :: FilePath
     } deriving Show
 
-optionsParser :: FilePath -> Parser Options
-optionsParser configDir =
+optionsParser :: FilePath -> FilePath -> Parser Options
+optionsParser configDir defaultConfigPath =
     Options <$>
     strOption
         (long "path" <> value (configDir </> "notary-db") <> showDefault <>
@@ -37,17 +37,17 @@ optionsParser configDir =
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
     option
         auto
-        (long "web-port" <> value 8090 <> showDefault <>
-         help "Web port") <*>
+        (long "web-port" <> value 8090 <> showDefault <> help "Web port") <*>
     strOption
         (long "config-path" <> help "Path to configuration file" <>
-         value defaultConfigurationFileName <>
+         value defaultConfigPath <>
          showDefault)
 
 getOptions :: IO Options
 getOptions = do
     configDir <- configDirectory
+    defaultConfigPath <- defaultConfigurationPath
     execParser $
         info
-            (helper <*> optionsParser configDir)
+            (helper <*> optionsParser configDir defaultConfigPath)
             (fullDesc <> progDesc "RSCoin's Notary")

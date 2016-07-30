@@ -46,7 +46,7 @@ import           Data.Typeable              (Typeable)
 
 import           Formatting                 (build, sformat, stext, (%))
 
-import           RSCoin.Core.Constants      (defaultConfigurationFileName,
+import           RSCoin.Core.Constants      (defaultConfigurationPath,
                                              defaultPort, localhost)
 import           RSCoin.Core.Crypto.Signing (PublicKey, SecretKey,
                                              constructPublicKey,
@@ -105,13 +105,12 @@ bankPublicKeyPropertyName = "bank.publicKey"
 
 readRequiredDeployContext :: Maybe FilePath -> IO (Config.Config, NodeContext)
 readRequiredDeployContext configPath = do
+    confFile <- defaultConfigurationPath
     deployConfig <-
-        Config.load
-            [ Config.Required
-                  (fromMaybe defaultConfigurationFileName configPath)]
+        Config.load [Config.Required (fromMaybe confFile configPath)]
 
-    cfgBankHost   <- Config.require deployConfig "bank.host"
-    cfgBankPort   <- Config.require deployConfig "bank.port"
+    cfgBankHost <- Config.require deployConfig "bank.host"
+    cfgBankPort <- Config.require deployConfig "bank.port"
     cfgNotaryHost <- Config.require deployConfig "notary.host"
     cfgNotaryPort <- Config.require deployConfig "notary.port"
 
@@ -120,7 +119,6 @@ readRequiredDeployContext configPath = do
             { _bankAddr = (cfgBankHost, cfgBankPort)
             , _notaryAddr = (cfgNotaryHost, cfgNotaryPort)
             }
-
     return (deployConfig, obtainedContext)
 
 data ConfigurationReadException
@@ -129,7 +127,7 @@ data ConfigurationReadException
 
 instance Exception ConfigurationReadException
 
--- | Read config from 'defaultConfigurationFileName' and converts into 'NodeContext'.
+-- | Read config from 'defaultConfigurationPath' and converts into 'NodeContext'.
 -- Tries to read also bank public key if it is not provided. If provied, then rewrites
 -- configuration file.
 readDeployNodeContext :: Maybe SecretKey -> Maybe FilePath -> IO NodeContext

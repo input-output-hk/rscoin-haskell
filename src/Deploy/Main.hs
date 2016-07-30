@@ -187,7 +187,7 @@ explorerWebPort = (C.defaultPort + 5000 +) . fromIntegral
 
 main :: IO ()
 main = do
-    let confPath = C.defaultConfigurationFileName
+    confPath <- C.defaultConfigurationPath
     deployLocalYamlPath <- getConfigPath
     DeployConfig{..} <- readDeployConfig deployLocalYamlPath
     let makeAbsolute path =

@@ -14,8 +14,8 @@ import           System.FilePath        ((</>))
 import           Serokell.Util.OptParse (strOption)
 
 import           RSCoin.Core            (Severity (Error), configDirectory,
-                                         defaultConfigurationFileName,
-                                         defaultPort, defaultSecretKeyPath)
+                                         defaultConfigurationPath, defaultPort,
+                                         defaultSecretKeyPath)
 
 data Options = Options
     { cloPort          :: Int
@@ -26,8 +26,8 @@ data Options = Options
     , cloConfigPath    :: FilePath
     }
 
-optionsParser :: FilePath -> FilePath -> Parser Options
-optionsParser defaultSKPath configDir =
+optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
+optionsParser defaultSKPath configDir defaultConfigPath =
     Options <$>
     option auto (short 'p' <> long "port" <> value defaultPort <> showDefault) <*>
     strOption
@@ -42,14 +42,15 @@ optionsParser defaultSKPath configDir =
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
     strOption
         (long "config-path" <> help "Path to configuration file" <>
-         value defaultConfigurationFileName <>
+         value defaultConfigPath <>
          showDefault)
 
 getOptions :: IO Options
 getOptions = do
     defaultSKPath <- defaultSecretKeyPath
     configDir <- configDirectory
+    defaultConfigPath <- defaultConfigurationPath
     execParser $
         info
-            (helper <*> optionsParser defaultSKPath configDir)
+            (helper <*> optionsParser defaultSKPath configDir defaultConfigPath)
             (fullDesc <> progDesc "RSCoin's Mintette")

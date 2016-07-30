@@ -41,7 +41,8 @@ import           RSCoin.Core.Strategy    (AllocationAddress (..),
                                           AllocationInfo (..),
                                           AllocationStrategy (..),
                                           PartyAddress (..))
-import           RSCoin.Timed            (WorkMode, for, ms, wait)
+import           RSCoin.Timed            (WorkMode, for, getNodeContext, ms,
+                                          wait)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..),
@@ -71,7 +72,8 @@ processCommand st O.ListAddresses _ =
     eWrap $
     do res <- updateBlockchain st False
        unless res $ C.logInfo C.userLoggerName "Successfully updated blockchain."
-       addresses <- query' st $ U.GetOwnedAddresses C.defaultNodeContext
+       nodeContext <- getNodeContext
+       addresses <- query' st $ U.GetOwnedAddresses nodeContext
        (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin])]) <-
            mapM (\addr -> do
                       coins <- C.coinsToList <$> getAmountNoUpdate st addr

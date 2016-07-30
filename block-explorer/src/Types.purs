@@ -4,7 +4,7 @@ import App.Routes                  (Route(NotFound))
 import App.Connection              (Connection, Action (..)) as C
 import App.RSCoin                  (emptyAddress, Address, Coin (..),
                                     TransactionSummarySerializable (..),
-                                    Color (..))
+                                    Color (..), IntroductoryMsg)
 
 import Data.Maybe                  (Maybe (..))
 import Data.Tuple                  (Tuple (..))
@@ -21,6 +21,7 @@ data Action
 type State =
     { route        :: Route
     , socket       :: Maybe C.Connection
+    , addressInfo  :: Maybe IntroductoryMsg
     , address      :: Address
     , balance      :: Array (Tuple Color Coin)
     , transactions :: Array TransactionSummarySerializable
@@ -32,6 +33,7 @@ init :: State
 init =
     { route:        NotFound
     , socket:       Nothing
+    , addressInfo:  Nothing
     , address:      emptyAddress
     , balance:      []
     , transactions: []

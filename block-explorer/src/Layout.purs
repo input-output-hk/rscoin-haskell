@@ -36,6 +36,7 @@ import Pux.Html.Attributes         (type_, value, rel, href, className,
 import Pux.Html.Events             (onChange, onClick, onKeyDown)
 
 import Control.Apply               ((*>))
+import Control.Alternative         ((<|>))
 
 import DOM                         (DOM)
 import Control.Monad.Eff.Console   (CONSOLE)
@@ -48,10 +49,12 @@ txNum = 15
 
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 update (PageView route@(R.Address addr)) state =
-    { state: state { route = route, address = addr }
+    { state: state { route = route, address = addr, addressInfo = Just iAddr <|> state.addressInfo }
     , effects:
         [ do
-            C.introMessage socket' $ IMAddressInfo addr
+            case state.addressInfo of
+                Just _ -> C.send socket' $ AIChangeAddress iAddr
+                Nothing -> C.introMessage socket' iAddr
             C.send socket' AIGetTxNumber
             C.send socket' AIGetBalance
             pure Nop
@@ -60,6 +63,7 @@ update (PageView route@(R.Address addr)) state =
     }
   where
     socket' = unsafePartial $ fromJust state.socket
+    iAddr = IMAddressInfo addr
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
     \_ -> case unsafePartial $ fromRight msg of

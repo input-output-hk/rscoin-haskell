@@ -132,6 +132,9 @@ data AddressInfoMsg
       -- `AIGetTransactions (0, 2)` requests two most recent
       -- transactions.
       AIGetTransactions !(Word, Word)
+    |
+      -- | Change user address TODO: improve this description
+      AIChangeAddress IntroductoryMsg
     deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''AddressInfoMsg)

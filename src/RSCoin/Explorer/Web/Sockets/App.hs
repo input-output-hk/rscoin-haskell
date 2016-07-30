@@ -126,6 +126,20 @@ logError = C.logError wsLoggerName
 logInfo = C.logInfo wsLoggerName
 logDebug = C.logDebug wsLoggerName
 
+introduceAddress :: WS.Connection -> IntroductoryMsg -> ServerMonad ()
+introduceAddress conn (IMAddressInfo addr) = do
+    connections <- view ssConnections
+    connId <- modifyConnectionsState connections $ addConnection addr conn
+    logInfo $
+        sformat
+            ("Session about " % build %
+                " is established, connection id is " %
+                int)
+            addr
+            connId
+    addressInfoHandler addr conn `finally`
+        modifyConnectionsState connections (dropConnection addr connId)
+
 handler :: WS.PendingConnection -> ServerMonad ()
 handler pendingConn = do
     logDebug "There is a new pending connection"
@@ -134,18 +148,7 @@ handler pendingConn = do
     liftIO $ WS.forkPingThread conn 30
     recv conn $ onReceive conn
   where
-    onReceive conn (IMAddressInfo addr) = do
-        connections <- view ssConnections
-        connId <- modifyConnectionsState connections $ addConnection addr conn
-        logInfo $
-            sformat
-                ("Session about " % build %
-                 " is established, connection id is " %
-                 int)
-                addr
-                connId
-        addressInfoHandler addr conn `finally`
-            modifyConnectionsState connections (dropConnection addr connId)
+    onReceive = introduceAddress
 
 addressInfoHandler :: C.Address -> WS.Connection -> ServerMonad ()
 addressInfoHandler addr conn = forever $ recv conn onReceive
@@ -173,6 +176,7 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
         send conn . uncurry OMTransactions . toSerializable =<<
             flip query' (DB.GetAddressTransactions addr indices) =<<
             view ssDataBase
+    onReceive (AIChangeAddress iAddr) = introduceAddress conn iAddr
     toSerializable = second $ map $ second mkTransactionSummarySerializable
 
 sender :: Channel -> ServerMonad ()

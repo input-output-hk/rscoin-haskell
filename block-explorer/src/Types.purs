@@ -21,7 +21,9 @@ data Action
 type State =
     { route        :: Route
     , socket       :: Maybe C.Connection
-    , addressInfo  :: Maybe IntroductoryMsg
+    -- FIXME: this is not optimal, if messages come out of order we could
+    -- have bug
+    , addressInfo  :: Array IntroductoryMsg
     , address      :: Address
     , balance      :: Array (Tuple Color Coin)
     , transactions :: Array TransactionSummarySerializable
@@ -33,7 +35,7 @@ init :: State
 init =
     { route:        NotFound
     , socket:       Nothing
-    , addressInfo:  Nothing
+    , addressInfo:  []
     , address:      emptyAddress
     , balance:      []
     , transactions: []

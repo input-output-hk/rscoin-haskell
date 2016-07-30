@@ -21,17 +21,17 @@ import Pux.Html.Events             (onChange, onClick, onKeyDown)
 import Pux.Router                  (link)
 
 import Data.Tuple.Nested           (uncurry2)
-import Data.Array                  (length)
-import Data.Maybe                  (Maybe (..), fromMaybe)
+import Data.Array                  (length, head)
+import Data.Maybe                  (fromMaybe)
 
-view :: Maybe Address -> State -> Html Action
-view address state =
+view :: State -> Html Action
+view state =
     div []
         [
           div
             [ className "page-header" ]
             [ h3 [] [ text "Address "
-                    , small [] [ text addressString ]
+                    , small [] [ text address ]
                     ]
             ]
         , div
@@ -91,4 +91,4 @@ view address state =
            , td [] [ text $ show $ length t.txOutputs ]
            , td [] [ text $ show t.txOutputsTotal ]
            ]
-    addressString = fromMaybe "" $ map addressToString address
+    address = fromMaybe "" <<< map (\(IMAddressInfo a) -> addressToString a) $ head state.addressInfo

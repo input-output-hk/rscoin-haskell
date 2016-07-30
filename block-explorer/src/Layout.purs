@@ -1,7 +1,7 @@
 module App.Layout where
 
 import Prelude                     (($), map, (<<<), const, pure, bind, show,
-                                    (==), negate, flip)
+                                    (==), negate, flip, (<>))
 
 import App.Routes                  (Route (..), addressUrl, homeUrl) as R
 import App.Connection              (Connection, Action (..), WEBSOCKET,
@@ -16,12 +16,12 @@ import App.View.Address            (view) as Address
 import App.View.NotFound           (view) as NotFound
 import App.View.Transaction        (view) as Transaction
 
-import Data.Maybe                  (Maybe (..), fromJust, maybe)
+import Data.Maybe                  (Maybe (..), fromJust, maybe, fromMaybe)
 import Data.Tuple                  (Tuple (..), snd)
 import Data.Tuple.Nested           (uncurry2)
 import Data.Either                 (fromRight)
 import Data.Generic                (gShow)
-import Data.Array                  (filter, head)
+import Data.Array                  (filter, head, singleton, take, tail)
 import Debug.Trace                 (traceAny)
 
 import Pux                         (EffModel, noEffects, onlyEffects)
@@ -47,12 +47,15 @@ import Partial.Unsafe              (unsafePartial)
 txNum :: Int
 txNum = 15
 
+addressInfoBuffer :: Int
+addressInfoBuffer = 10
+
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 update (PageView route@(R.Address addr)) state =
-    { state: state { route = route, address = addr, addressInfo = Just iAddr <|> state.addressInfo }
+    { state: state { route = route, address = addr, addressInfo = take addressInfoBuffer $ singleton iAddr <> state.addressInfo }
     , effects:
         [ do
-            case state.addressInfo of
+            case head state.addressInfo of
                 Just _ -> C.send socket' $ AIChangeAddress iAddr
                 Nothing -> C.introMessage socket' iAddr
             C.send socket' AIGetTxNumber
@@ -78,7 +81,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         OMTransactions _ arr ->
             noEffects $ state { transactions = map snd arr }
         OMError (ParseError e) ->
-            noEffects $ state { error = Just e }
+            noEffects $ state { error = Just e, addressInfo = fromMaybe [] $ tail state.addressInfo }
         _ -> noEffects state
   where
     socket' = unsafePartial $ fromJust state.socket
@@ -198,8 +201,8 @@ view state =
         , div
             [ className "container-fluid" ]
             [ case state.route of
-                R.Home -> Address.view Nothing state
-                R.Address addr -> Address.view (Just addr) state
+                R.Home -> Address.view state
+                R.Address _ -> Address.view state
                 R.Transaction tId ->
 					let getTransaction = head $ filter (\(TransactionSummarySerializable t) -> t.txId == tId) state.transactions
 					in  maybe (NotFound.view state) (flip Transaction.view state) getTransaction

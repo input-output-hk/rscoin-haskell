@@ -27,6 +27,8 @@ instance genericPublicKey :: Generic PublicKey where
 newtype Hash = Hash String
 type TransactionId = Hash
 
+derive instance eqHash :: Eq Hash
+
 instance showHash :: Show Hash where
     show (Hash s) = s
 

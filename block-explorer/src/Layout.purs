@@ -39,6 +39,7 @@ import Control.Apply               ((*>))
 import Control.Alternative         ((<|>))
 
 import DOM                         (DOM)
+import Control.Monad.Aff           (later')
 import Control.Monad.Eff.Console   (CONSOLE)
 import Control.Monad.Eff.Class     (liftEff)
 
@@ -51,7 +52,7 @@ addressInfoBuffer :: Int
 addressInfoBuffer = 10
 
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
-update (PageView route@(R.Address addr)) state =
+update pageAction@(PageView route@(R.Address addr)) state = waitForSocketReady
     { state: state { route = route, address = addr, addressInfo = take addressInfoBuffer $ singleton iAddr <> state.addressInfo }
     , effects:
         [ do
@@ -67,6 +68,11 @@ update (PageView route@(R.Address addr)) state =
   where
     socket' = unsafePartial $ fromJust state.socket
     iAddr = IMAddressInfo addr
+    -- TODO: use queue instead! Don't periodically check the flag, but save actions in queue and execute on ConectionOpened
+    waitForSocketReady action =
+        if state.socketReady
+            then action
+            else onlyEffects state [later' 500 $ pure pageAction]
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
     \_ -> case unsafePartial $ fromRight msg of
@@ -85,6 +91,8 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         _ -> noEffects state
   where
     socket' = unsafePartial $ fromJust state.socket
+update (SocketAction C.ConnectionOpened) state =
+    noEffects $ state { socketReady = true }
 update (SocketAction _) state = noEffects state
 update (AddressChange address) state = noEffects $ state { address = address }
 update Search state =

@@ -19,29 +19,31 @@ data Action
     | Nop
 
 type State =
-    { route        :: Route
-    , socket       :: Maybe C.Connection
-    , socketReady  :: Boolean
+    { route          :: Route
+    , socket         :: Maybe C.Connection
+    , socketReady    :: Boolean
+    , pendingActions :: Array Action
     -- FIXME: this is not optimal, if messages come out of order we could
     -- have bug
     -- Ideally, use queue for this.
-    , addressInfo  :: Array IntroductoryMsg
-    , address      :: Address
-    , balance      :: Array (Tuple Color Coin)
-    , transactions :: Array TransactionSummarySerializable
-    , periodId     :: Int
-    , error        :: Maybe String
+    , addressInfo    :: Array IntroductoryMsg
+    , address        :: Address
+    , balance        :: Array (Tuple Color Coin)
+    , transactions   :: Array TransactionSummarySerializable
+    , periodId       :: Int
+    , error          :: Maybe String
     }
 
 init :: State
 init =
-    { route:        NotFound
-    , socket:       Nothing
-    , socketReady:  false
-    , addressInfo:  []
-    , address:      emptyAddress
-    , balance:      []
-    , transactions: []
-    , periodId:     0
-    , error:        Nothing
+    { route:          NotFound
+    , socket:         Nothing
+    , socketReady:    false
+    , pendingActions: []
+    , addressInfo:    []
+    , address:        emptyAddress
+    , balance:        []
+    , transactions:   []
+    , periodId:       0
+    , error:          Nothing
     }

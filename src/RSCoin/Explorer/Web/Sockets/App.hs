@@ -159,7 +159,7 @@ handler pendingConn = do
     conn <- liftIO $ WS.acceptRequest pendingConn
     logDebug "Accepted new connection"
     liftIO $ WS.forkPingThread conn 30
-    recv conn $ onReceive conn
+    forever $ recv conn $ onReceive conn
   where
     onReceive conn (IMAddressInfo addr') = introduceAddress conn addr'
     onReceive conn (IMTransactionInfo tId) = do

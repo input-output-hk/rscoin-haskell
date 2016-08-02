@@ -106,8 +106,8 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                     pure Nop
                 ]
             }
-        OMError (ParseError e) ->
-            noEffects $ state { error = Just e }
+        OMError e ->
+            noEffects $ state { error = Just $ gShow e }
         _ -> noEffects state
   where
     socket' = unsafePartial $ fromJust state.socket

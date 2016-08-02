@@ -3,12 +3,12 @@ module App.View.Address where
 import Prelude                     (($), map, (<<<), const, pure, bind, show,
                                     (==))
 
-import App.RSCoin                  (emptyAddress, Address, newAddress,
+import App.Types                   (Action (..), State (..), queryToString,
+                                    emptyAddress, Address, newAddress,
                                     addressToString, IntroductoryMsg (..),
                                     AddressInfoMsg (..), Coin (..),
                                     TransactionSummarySerializable (..),
                                     OutcomingMsg (..), Color (..))
-import App.Types                   (Action (..), State (..))
 import App.Connection              (Action (..)) as C
 import App.Routes                  (txUrl, Route (..), addressUrl) as R
 
@@ -31,7 +31,7 @@ view state =
           div
             [ className "page-header" ]
             [ h3 [] [ text "Address "
-                    , small [] [ text address ]
+                    , small [] [ text queryInfo ]
                     ]
             ]
         , div
@@ -91,4 +91,4 @@ view state =
            , td [] [ text $ show $ length t.txOutputs ]
            , td [] [ text $ show t.txOutputsTotal ]
            ]
-    address = fromMaybe "" <<< map (\(IMAddressInfo a) -> addressToString a) $ head state.addressInfo
+    queryInfo = fromMaybe "" $ map queryToString state.queryInfo

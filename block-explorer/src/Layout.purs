@@ -1,9 +1,9 @@
 module App.Layout where
 
 import Prelude                     (($), map, (<<<), const, pure, bind,
-                                    (==), flip, (<>))
+                                    (==), flip, (<>), (/=), otherwise)
 
-import App.Routes                  (Route (..), addressUrl, homeUrl) as R
+import App.Routes                  (Route (..), addressUrl, homeUrl, txUrl, match) as R
 import App.Connection              (Action (..), WEBSOCKET,
                                     introMessage, send) as C
 import App.Types                   (Address (..), IntroductoryMsg (..),
@@ -11,12 +11,13 @@ import App.Types                   (Address (..), IntroductoryMsg (..),
                                     TransactionSummarySerializable (..),
                                     OutcomingMsg (..),
                                     Action (..), State, SearchQuery (..),
-                                    PublicKey (..))
+                                    PublicKey (..), ServerError (..), Hash (..))
 import App.View.Address            (view) as Address
 import App.View.NotFound           (view) as NotFound
 import App.View.Transaction        (view) as Transaction
 
-import Data.Maybe                  (Maybe(Nothing, Just), maybe, fromJust, isNothing)
+import Data.Maybe                  (Maybe(Nothing, Just), maybe, fromJust,
+                                    isNothing, isJust)
 
 import Data.Tuple                  (Tuple (..), snd)
 import Data.Either                 (fromRight)
@@ -36,7 +37,7 @@ import Pux.Html.Events             (onChange, onClick, onKeyDown)
 
 import Control.Apply               ((*>))
 import Control.Alternative         ((<|>))
-import Control.Applicative         (when)
+import Control.Applicative         (when, unless)
 
 import DOM                         (DOM)
 import Control.Monad.Eff.Console   (CONSOLE)
@@ -51,8 +52,8 @@ update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.
 update (PageView route@(R.Address addr)) state =
     { state: state { route = route }
     , effects:
-        [ do
-            if state.addressConnected
+        [ onNewQueryDo do
+            if state.isAuthenticated
                 then C.send socket' $ AIChangeAddress addr
                 else C.introMessage socket' $ IMAddressInfo addr
             pure Nop
@@ -61,12 +62,12 @@ update (PageView route@(R.Address addr)) state =
     }
   where
     socket' = unsafePartial $ fromJust state.socket
---    onNewQueryDo action | state.queryInfo == Just (SQAddress addr) = pure Nop -- ignore
---                        | otherwise = action
+    onNewQueryDo action | state.queryInfo == Just (SQAddress addr) = pure Nop -- ignore
+                        | otherwise = action
 update (PageView route@(R.Transaction tId)) state =
     { state: state { route = route, queryInfo = map SQTransaction getTransaction }
     , effects:
-        [ do
+        [ onNewQueryDo do
             when (isNothing getTransaction) $
                 C.introMessage socket' $ IMTransactionInfo tId
             pure Nop
@@ -75,7 +76,14 @@ update (PageView route@(R.Transaction tId)) state =
   where
     socket' = unsafePartial $ fromJust state.socket
     getTransaction =
+        queryGetTx state.queryInfo
+        <|>
         head (filter (\(TransactionSummarySerializable t) -> t.txId == tId) state.transactions)
+    queryGetTx (Just (SQTransaction tx@(TransactionSummarySerializable t)))
+        | t.txId == tId = Just tx
+    queryGetTx _ = Nothing
+    onNewQueryDo action | isJust getTransaction = pure Nop -- ignore
+                        | otherwise = action
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
     \_ -> case unsafePartial $ fromRight msg of
@@ -89,19 +97,32 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             }
         OMTransactions _ arr ->
             noEffects $ state { transactions = map snd arr }
-        OMTransaction tx ->
-            noEffects $ state { queryInfo = Just $ SQTransaction tx }
+        OMTransaction tx@(TransactionSummarySerializable t) ->
+            { state: state { queryInfo = Just $ SQTransaction tx }
+            , effects:
+                [ do
+                    let expectedUrl = R.txUrl t.txId
+                    unless (state.route == R.match expectedUrl) $
+                        liftEff $ R.navigateTo expectedUrl
+                    pure Nop
+                ]
+            }
         OMSessionEstablished addr ->
-            { state: state { queryInfo = Just $ SQAddress addr, addressConnected = true }
+            { state: state { queryInfo = Just $ SQAddress addr, isAuthenticated = true }
             , effects:
                 [ do
                     C.send socket' AIGetTxNumber
                     C.send socket' AIGetBalance
+                    let expectedUrl = R.addressUrl addr
+                    unless (state.route == R.match expectedUrl) $
+                        liftEff $ R.navigateTo expectedUrl
                     pure Nop
                 ]
             }
-        OMError e ->
-            noEffects $ state { error = Just $ gShow e }
+        OMError (ParseError e) ->
+            noEffects $ state { error = Just $ "ParseError: " <> e }
+        OMError (NotFound e) ->
+            noEffects $ state { error = Just $ "NotFound: " <> e }
         _ -> noEffects state
   where
     socket' = unsafePartial $ fromJust state.socket
@@ -109,8 +130,16 @@ update (SocketAction _) state = noEffects state
 update (SearchQueryChange sq) state = noEffects $ state { searchQuery = sq }
 update SearchButton state =
     onlyEffects state $
-        [ liftEff $ R.navigateTo (R.addressUrl $ Address { getAddress: PublicKey state.searchQuery }) *> pure Nop
+        [ do
+            if state.isAuthenticated
+                then C.send socket' $ AIChangeInfo addr tId
+                else C.introMessage socket' $ IMInfo addr tId
+            pure Nop
         ]
+  where
+    socket' = unsafePartial $ fromJust state.socket
+    addr = Address { getAddress: PublicKey state.searchQuery }
+    tId = Hash state.searchQuery
 update DismissError state = noEffects $ state { error = Nothing }
 update Nop state = noEffects state
 
@@ -182,7 +211,7 @@ view state =
                             , onChange $ SearchQueryChange <<< _.value <<< _.target
                             , onKeyDown $ \e -> if e.keyCode == 13 then SearchButton else Nop
                             , className "form-control"
-                            , placeholder "Address"
+                            , placeholder "Address / Transaction"
                             ] []
                         , span
                             [ className "input-group-btn" ]

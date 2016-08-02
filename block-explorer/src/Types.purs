@@ -49,7 +49,7 @@ type State =
     , socketReady      :: Boolean
     , pendingActions   :: Array Action
     , queryInfo        :: Maybe SearchQuery
-    , addressConnected :: Boolean
+    , isAuthenticated  :: Boolean
     , searchQuery      :: String
     , balance          :: Array (Tuple Color Coin)
     , transactions     :: Array TransactionSummarySerializable
@@ -64,7 +64,7 @@ init =
     , socketReady:      false
     , pendingActions:   []
     , queryInfo:        Nothing
-    , addressConnected: false
+    , isAuthenticated:  false
     , searchQuery:      ""
     , balance:          []
     , transactions:     []

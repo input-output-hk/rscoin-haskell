@@ -17,11 +17,11 @@ import           Control.Concurrent.MVar           (MVar, modifyMVar, newMVar,
                                                     readMVar)
 import           Control.Lens                      (at, makeLenses, use, view,
                                                     (%=), (+=), (.=), (^.))
-import           Control.Monad                     (forever)
+import           Control.Monad                     (forever, when)
 import           Control.Monad.Catch               (Handler (Handler),
                                                     SomeException, catches,
                                                     finally)
-import           Control.Monad.Catch               (MonadThrow (throwM))
+import           Control.Monad.Catch               (MonadThrow (throwM), catch)
 import           Control.Monad.Extra               (notM, whenM)
 import           Control.Monad.Reader              (ReaderT, runReaderT)
 import           Control.Monad.State               (MonadState, State, runState)
@@ -131,27 +131,43 @@ logError = C.logError wsLoggerName
 logInfo = C.logInfo wsLoggerName
 logDebug = C.logDebug wsLoggerName
 
-introduceAddress :: WS.Connection -> C.Address -> ServerMonad ()
-introduceAddress conn addr = do
+introduceAddress :: Bool -> WS.Connection -> C.Address -> ServerMonad ()
+introduceAddress sendResponseOnError conn addr = do
     checkAddressExistence
     connections <- view ssConnections
     connId <- modifyConnectionsState connections $ addConnection addr conn
     logInfo $
         sformat
-            ("Session about " % build %
-                " is established, connection id is " %
-                int)
+            ("Session about " % build % " is established, connection id is " %
+             int)
             addr
             connId
     addressInfoHandler addr conn `finally`
         modifyConnectionsState connections (dropConnection addr connId)
   where
     checkAddressExistence = do
-        whenM (notM $ flip query' (DB.AddressExists addr) =<< view ssDataBase) $ do
-            let e = "Address not found"
-            send conn $ OMError $ NotFound e
-            throwM $ EENotFound e
+        whenM (notM $ flip query' (DB.AddressExists addr) =<< view ssDataBase) $
+            do let e = "Address not found"
+               when sendResponseOnError $ send conn $ OMError $ NotFound e
+               throwM $ EENotFound e
         send conn $ OMSessionEstablished addr
+
+introduceTransaction :: WS.Connection -> C.TransactionId -> ServerMonad ()
+introduceTransaction conn tId = do
+    logDebug $ sformat ("Transaction " % build % " is requested") tId
+    send conn .
+        maybe
+            (OMError $ NotFound "Transaction not found")
+            (OMTransaction . mkTransactionSummarySerializable) =<<
+        flip query' (DB.GetTx tId) =<< view ssDataBase
+
+changeInfo :: WS.Connection -> C.Address -> C.TransactionId -> ServerMonad ()
+changeInfo conn addr tId =
+    introduceAddress False conn addr `catch` tryTransaction
+    where
+    tryTransaction :: ExplorerError -> ServerMonad ()
+    tryTransaction (EENotFound _) = introduceTransaction conn tId
+    tryTransaction e = throwM e
 
 handler :: WS.PendingConnection -> ServerMonad ()
 handler pendingConn = do
@@ -161,14 +177,9 @@ handler pendingConn = do
     liftIO $ WS.forkPingThread conn 30
     forever $ recv conn $ onReceive conn
   where
-    onReceive conn (IMAddressInfo addr') = introduceAddress conn addr'
-    onReceive conn (IMTransactionInfo tId) = do
-        logDebug $ sformat ("Transaction " % build % " is requested") tId
-        send conn .
-            maybe
-                (OMError $ NotFound "Transaction not found")
-                (OMTransaction . mkTransactionSummarySerializable) =<<
-            flip query' (DB.GetTx tId) =<< view ssDataBase
+    onReceive conn (IMAddressInfo addr') = introduceAddress True conn addr'
+    onReceive conn (IMTransactionInfo tId) = introduceTransaction conn tId
+    onReceive conn (IMInfo addr' tId) = changeInfo conn addr' tId
 
 addressInfoHandler :: C.Address -> WS.Connection -> ServerMonad ()
 addressInfoHandler addr conn = forever $ recv conn onReceive
@@ -196,7 +207,8 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
         send conn . uncurry OMTransactions . toSerializable =<<
             flip query' (DB.GetAddressTransactions addr indices) =<<
             view ssDataBase
-    onReceive (AIChangeAddress addr') = introduceAddress conn addr'
+    onReceive (AIChangeAddress addr') = introduceAddress True conn addr'
+    onReceive (AIChangeInfo addr' tId) = changeInfo conn addr' tId
     toSerializable = second $ map $ second mkTransactionSummarySerializable
 
 sender :: Channel -> ServerMonad ()

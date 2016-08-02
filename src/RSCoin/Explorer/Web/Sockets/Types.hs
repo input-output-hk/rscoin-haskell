@@ -105,10 +105,9 @@ data IntroductoryMsg
     |
       -- | Get transaction with this specific transaction Id
       IMTransactionInfo !C.TransactionId
--- TODO: we should add something like this for general search
---    |
---      -- | Get info either about AddressInfo or about TransactionInfo
---      IMInfo !C.Hash
+    |
+      -- | Get info either about AddressInfo or about TransactionInfo
+      IMInfo !C.Address !C.TransactionId
     deriving (Show,Generic)
 
 $(deriveJSON defaultOptionsPS ''IntroductoryMsg)
@@ -144,6 +143,9 @@ data AddressInfoMsg
     |
       -- | Change user address TODO: improve this description
       AIChangeAddress !C.Address
+    |
+      -- | Get info either about AddressInfo or about TransactionInfo
+      AIChangeInfo !C.Address !C.TransactionId
     deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''AddressInfoMsg)

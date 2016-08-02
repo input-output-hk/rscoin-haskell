@@ -1,39 +1,37 @@
 module App.Layout where
 
-import Prelude                     (($), map, (<<<), const, pure, bind, show,
-                                    (==), negate, flip, (<>), otherwise)
+import Prelude                     (($), map, (<<<), const, pure, bind,
+                                    (==), flip, (<>))
 
 import App.Routes                  (Route (..), addressUrl, homeUrl) as R
-import App.Connection              (Connection, Action (..), WEBSOCKET,
+import App.Connection              (Action (..), WEBSOCKET,
                                     introMessage, send) as C
-import App.Types                   (emptyAddress, Address (..), newAddress,
-                                    addressToString, IntroductoryMsg (..),
-                                    AddressInfoMsg (..), Coin (..),
+import App.Types                   (Address (..), IntroductoryMsg (..),
+                                    AddressInfoMsg (..),
                                     TransactionSummarySerializable (..),
-                                    OutcomingMsg (..), Color (..), ServerError (..),
-                                    Action (..), State (..), SearchQuery (..),
+                                    OutcomingMsg (..),
+                                    Action (..), State, SearchQuery (..),
                                     PublicKey (..))
 import App.View.Address            (view) as Address
 import App.View.NotFound           (view) as NotFound
 import App.View.Transaction        (view) as Transaction
 
-import Data.Maybe                  (Maybe (..), fromJust, maybe, fromMaybe, isNothing)
+import Data.Maybe                  (Maybe(Nothing, Just), maybe, fromJust, isNothing)
+
 import Data.Tuple                  (Tuple (..), snd)
-import Data.Tuple.Nested           (uncurry2)
 import Data.Either                 (fromRight)
 import Data.Generic                (gShow)
-import Data.Array                  (filter, head, singleton, take, tail)
+import Data.Array                  (filter, head)
 import Debug.Trace                 (traceAny)
 
 import Pux                         (EffModel, noEffects, onlyEffects)
-import Pux.Html                    (Html, div, h1, text, input, button, link,
-                                    small, h5, span, table, tr, th, td,
-                                    thead, tbody, nav, a, ul, li, form, script,
-                                    strong)
+import Pux.Html                    (Html, div, text, strong, span, button,
+                                    input, a, li, ul, nav, link)
+
 import Pux.Router                  (navigateTo, link) as R
-import Pux.Html.Attributes         (type_, value, rel, href, className,
-                                    tabIndex, data_, title, role, aria,
-                                    placeholder, src)
+import Pux.Html.Attributes         (className, aria, data_, type_, role,
+                                    placeholder, value, href, rel)
+
 import Pux.Html.Events             (onChange, onClick, onKeyDown)
 
 import Control.Apply               ((*>))
@@ -41,7 +39,6 @@ import Control.Alternative         ((<|>))
 import Control.Applicative         (when)
 
 import DOM                         (DOM)
-import Control.Monad.Aff           (later')
 import Control.Monad.Eff.Console   (CONSOLE)
 import Control.Monad.Eff.Class     (liftEff)
 
@@ -49,9 +46,6 @@ import Partial.Unsafe              (unsafePartial)
 
 txNum :: Int
 txNum = 15
-
-addressInfoBuffer :: Int
-addressInfoBuffer = 10
 
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 update (PageView route@(R.Address addr)) state =

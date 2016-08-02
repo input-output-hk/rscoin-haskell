@@ -1,27 +1,18 @@
 module App.View.Address where
 
-import Prelude                     (($), map, (<<<), const, pure, bind, show,
-                                    (==))
+import Prelude                     (($), map, show)
 
-import App.Types                   (Action (..), State (..), queryToString,
-                                    emptyAddress, Address, newAddress,
-                                    addressToString, IntroductoryMsg (..),
-                                    AddressInfoMsg (..), Coin (..),
-                                    TransactionSummarySerializable (..),
-                                    OutcomingMsg (..), Color (..))
-import App.Connection              (Action (..)) as C
-import App.Routes                  (txUrl, Route (..), addressUrl) as R
+import App.Types                    (Action, State, Coin(Coin), Color(Color),
+                                    TransactionSummarySerializable(TransactionSummarySerializable),
+                                    queryToString)
+import App.Routes                  (txUrl) as R
 
-import Pux                         (EffModel, noEffects)
-import Pux.Html                    (Html, div, h3, text, input, button,
-                                    small, h5, span, table, tr, th, td,
-                                    thead, tbody)
-import Pux.Html.Attributes         (type_, value, rel, href, className)
-import Pux.Html.Events             (onChange, onClick, onKeyDown)
+import Pux.Html (Html, tbody, text, th, tr, thead, table, div, small, h3, td)
+import Pux.Html.Attributes         (className)
 import Pux.Router                  (link)
 
 import Data.Tuple.Nested           (uncurry2)
-import Data.Array                  (length, head)
+import Data.Array                  (length)
 import Data.Maybe                  (fromMaybe)
 
 view :: State -> Html Action

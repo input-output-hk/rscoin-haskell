@@ -1,24 +1,15 @@
 module App.View.Transaction where
 
-import Prelude                     (($), map, (<<<), const, pure, bind, show,
-                                    (==), (<>))
+import Prelude                     (($), map, show)
 
-import App.RSCoin                  (emptyAddress, Address, newAddress,
-                                    addressToString, IntroductoryMsg (..),
-                                    AddressInfoMsg (..), Coin (..),
-                                    TransactionSummarySerializable (..),
-                                    OutcomingMsg (..), Color (..),
-                                    TransactionId)
-import App.Types                   (Action (..), State (..))
-import App.Connection              (Action (..)) as C
+import App.RSCoin                  (Coin(Coin), Color(Color),
+                                    TransactionSummarySerializable(TransactionSummarySerializable),
+                                    addressToString)
+import App.Types                   (Action, State)
 import App.Routes                  (txUrl, addressUrl)
 
-import Pux                         (EffModel, noEffects)
-import Pux.Html                    (Html, div, h3, text, input, button,
-                                    small, h5, span, table, tr, th, td,
-                                    thead, tbody)
-import Pux.Html.Attributes         (type_, value, rel, href, className)
-import Pux.Html.Events             (onChange, onClick, onKeyDown)
+import Pux.Html (Html, div, tbody, text, th, tr, thead, table, small, h3, td)
+import Pux.Html.Attributes         (className)
 import Pux.Router                  (link)
 
 import Data.Tuple.Nested           (uncurry2, uncurry4)

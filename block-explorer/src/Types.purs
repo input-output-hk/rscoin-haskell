@@ -7,19 +7,18 @@ module App.Types
        , queryToString
        ) where
 
-import Prelude                     (show, class Eq, eq)
+import Prelude                     (show, class Eq)
 
 import App.Routes                  (Route(NotFound))
-import App.Connection              (Connection, Action (..)) as C
+import App.Connection              (Connection, Action) as C
 import App.RSCoin                  as RSCoin
-import App.RSCoin                  (emptyAddress, Address, Coin (..),
-                                    TransactionSummarySerializable (..),
-                                    Color (..), IntroductoryMsg, TransactionId,
+import App.RSCoin                  (Coin, Color, Address,
+                                    TransactionSummarySerializable(TransactionSummarySerializable),
                                     addressToString)
 
 import Data.Maybe                  (Maybe (..))
-import Data.Tuple                  (Tuple (..))
-import Data.Generic                (class Generic, gEq)
+import Data.Tuple                  (Tuple)
+import Data.Generic                (gEq)
 
 
 data Action

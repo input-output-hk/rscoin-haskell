@@ -21,6 +21,8 @@ import           Control.Monad                     (forever)
 import           Control.Monad.Catch               (Handler (Handler),
                                                     SomeException, catches,
                                                     finally)
+import           Control.Monad.Catch               (MonadThrow (throwM))
+import           Control.Monad.Extra               (notM, whenM)
 import           Control.Monad.Reader              (ReaderT, runReaderT)
 import           Control.Monad.State               (MonadState, State, runState)
 import           Control.Monad.Trans               (MonadIO (liftIO))
@@ -43,10 +45,13 @@ import qualified RSCoin.Core                       as C
 import qualified RSCoin.Explorer.AcidState         as DB
 import           RSCoin.Explorer.Channel           (Channel, ChannelItem (..),
                                                     readChannel)
+import           RSCoin.Explorer.Error             (ExplorerError (EENotFound))
 import           RSCoin.Explorer.Web.Sockets.Types (AddressInfoMsg (..),
                                                     ErrorableMsg,
                                                     IntroductoryMsg (..),
                                                     OutcomingMsg (..),
+                                                    ServerError (NotFound),
+                                                    TransactionSummary (..),
                                                     mkOMBalance,
                                                     mkTransactionSummarySerializable)
 
@@ -126,8 +131,9 @@ logError = C.logError wsLoggerName
 logInfo = C.logInfo wsLoggerName
 logDebug = C.logDebug wsLoggerName
 
-introduceAddress :: WS.Connection -> IntroductoryMsg -> ServerMonad ()
-introduceAddress conn (IMAddressInfo addr) = do
+introduceAddress :: WS.Connection -> C.Address -> ServerMonad ()
+introduceAddress conn addr = do
+    checkAddressExistence
     connections <- view ssConnections
     connId <- modifyConnectionsState connections $ addConnection addr conn
     logInfo $
@@ -139,6 +145,13 @@ introduceAddress conn (IMAddressInfo addr) = do
             connId
     addressInfoHandler addr conn `finally`
         modifyConnectionsState connections (dropConnection addr connId)
+  where
+    checkAddressExistence = do
+        whenM (notM $ flip query' (DB.AddressExists addr) =<< view ssDataBase) $ do
+            let e = "Address not found"
+            send conn $ OMError $ NotFound e
+            throwM $ EENotFound e
+        send conn $ OMSessionEstablished addr
 
 handler :: WS.PendingConnection -> ServerMonad ()
 handler pendingConn = do
@@ -146,9 +159,16 @@ handler pendingConn = do
     conn <- liftIO $ WS.acceptRequest pendingConn
     logDebug "Accepted new connection"
     liftIO $ WS.forkPingThread conn 30
-    recv conn $ onReceive conn
+    forever $ recv conn $ onReceive conn
   where
-    onReceive = introduceAddress
+    onReceive conn (IMAddressInfo addr') = introduceAddress conn addr'
+    onReceive conn (IMTransactionInfo tId) = do
+        logDebug $ sformat ("Transaction " % build % " is requested") tId
+        send conn .
+            maybe
+                (OMError $ NotFound "Transaction not found")
+                (OMTransaction . mkTransactionSummarySerializable) =<<
+            flip query' (DB.GetTx tId) =<< view ssDataBase
 
 addressInfoHandler :: C.Address -> WS.Connection -> ServerMonad ()
 addressInfoHandler addr conn = forever $ recv conn onReceive
@@ -176,7 +196,7 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
         send conn . uncurry OMTransactions . toSerializable =<<
             flip query' (DB.GetAddressTransactions addr indices) =<<
             view ssDataBase
-    onReceive (AIChangeAddress iAddr) = introduceAddress conn iAddr
+    onReceive (AIChangeAddress addr') = introduceAddress conn addr'
     toSerializable = second $ map $ second mkTransactionSummarySerializable
 
 sender :: Channel -> ServerMonad ()
@@ -192,7 +212,7 @@ sender channel =
                :: MonadIO m
                => C.AddrId -> m (Maybe C.Address)
            inputToAddr (txId,idx,_) =
-               fmap (fst . (!! idx) . C.txOutputs) <$>
+               fmap (fst . (!! idx) . txsOutputs) <$>
                query' st (DB.GetTx txId)
        affectedAddresses <-
            mappend outputAddresses . S.fromList . catMaybes <$>

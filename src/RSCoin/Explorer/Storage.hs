@@ -15,6 +15,7 @@ module RSCoin.Explorer.Storage
        , getAddressTransactions
        , getLastPeriodId
        , getTx
+       , addressExists
 
        , Update
        , ExceptUpdate
@@ -71,7 +72,7 @@ data Storage = Storage
     ,
       -- | Mapping from transaction id to actual transaction with this
       -- id. Contains all transactions ever seen by this explorer.
-      _transactionsMap :: M.Map C.TransactionId C.Transaction
+      _transactionsMap :: M.Map C.TransactionId TransactionSummary
       -- | List off all emission hashes from the very beginning.
     , _emissionHashes  :: [C.TransactionId]
     }
@@ -131,8 +132,12 @@ getLastPeriodId :: Query (Maybe C.PeriodId)
 getLastPeriodId = view lastPeriodId
 
 -- | Get transaction with given id (if it can be found).
-getTx :: C.TransactionId -> Query (Maybe C.Transaction)
+getTx :: C.TransactionId -> Query (Maybe TransactionSummary)
 getTx i = view $ transactionsMap . at i
+
+-- | Cheks whether address exists in storage
+addressExists :: C.Address -> Query Bool
+addressExists addr = fmap isJust . view $ addresses . at addr
 
 type Update a = forall m. MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
@@ -158,7 +163,6 @@ addHBlock pId C.HBlock{..} emission = do
 
 applyTransaction :: C.Transaction -> ExceptUpdate ()
 applyTransaction tx@C.Transaction{..} = do
-    transactionsMap . at txHash .= Just tx
     -- FIXME: @akegalj thinks fromJust should be safe here?
     txInputsSummaries <-
         mapM
@@ -166,6 +170,7 @@ applyTransaction tx@C.Transaction{..} = do
                   mkSummaryAddrId a =<< inputToAddr a)
             txInputs
     let txSummary = mkTransactionSummary txInputsSummaries
+    transactionsMap . at txHash .= Just txSummary
     mapM_ (applyTxInput txSummary) txInputs
     mapM_ (applyTxOutput txSummary) txOutputs
   where
@@ -193,7 +198,7 @@ applyTransaction tx@C.Transaction{..} = do
     inputToAddr
         :: C.AddrId -> Update (Maybe C.Address)
     inputToAddr (txId,idx,_) =
-        fmap (fst . (!! idx) . C.txOutputs) <$>
+        fmap (fst . (!! idx) . txsOutputs) <$>
         (use $ transactionsMap . at txId)
     mkSummaryAddrId :: C.AddrId -> (Maybe C.Address) -> ExceptUpdate AddrId
     mkSummaryAddrId (txId,ind,c) addr
@@ -209,7 +214,7 @@ applyTxInput tx (oldTxId,idx,c) =
     whenJustM (use $ transactionsMap . at oldTxId) applyTxInputDo
   where
     applyTxInputDo oldTx = do
-        let addr = fst $ C.txOutputs oldTx !! idx
+        let addr = fst $ txsOutputs oldTx !! idx
         changeAddressData tx (-c) addr
 
 applyTxOutput :: TransactionSummary -> (C.Address, C.Coin) -> Update ()

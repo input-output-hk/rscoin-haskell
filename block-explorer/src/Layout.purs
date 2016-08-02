@@ -1,42 +1,42 @@
 module App.Layout where
 
-import Prelude                     (($), map, (<<<), const, pure, bind, show,
-                                    (==), negate, flip, (<>))
+import Prelude                     (($), map, (<<<), const, pure, bind,
+                                    (==), flip, (<>))
 
 import App.Routes                  (Route (..), addressUrl, homeUrl) as R
-import App.Connection              (Connection, Action (..), WEBSOCKET,
+import App.Connection              (Action (..), WEBSOCKET,
                                     introMessage, send) as C
-import App.RSCoin                  (emptyAddress, Address (..), newAddress,
-                                    addressToString, IntroductoryMsg (..),
-                                    AddressInfoMsg (..), Coin (..),
+import App.Types                   (Address (..), IntroductoryMsg (..),
+                                    AddressInfoMsg (..),
                                     TransactionSummarySerializable (..),
-                                    OutcomingMsg (..), Color (..), ServerError (..))
-import App.Types                   (Action (..), State (..))
+                                    OutcomingMsg (..),
+                                    Action (..), State, SearchQuery (..),
+                                    PublicKey (..))
 import App.View.Address            (view) as Address
 import App.View.NotFound           (view) as NotFound
 import App.View.Transaction        (view) as Transaction
 
-import Data.Maybe                  (Maybe (..), fromJust, maybe, fromMaybe)
+import Data.Maybe                  (Maybe(Nothing, Just), maybe, fromJust, isNothing)
+
 import Data.Tuple                  (Tuple (..), snd)
-import Data.Tuple.Nested           (uncurry2)
 import Data.Either                 (fromRight)
 import Data.Generic                (gShow)
-import Data.Array                  (filter, head, singleton, take, tail)
+import Data.Array                  (filter, head)
 import Debug.Trace                 (traceAny)
 
 import Pux                         (EffModel, noEffects, onlyEffects)
-import Pux.Html                    (Html, div, h1, text, input, button, link,
-                                    small, h5, span, table, tr, th, td,
-                                    thead, tbody, nav, a, ul, li, form, script,
-                                    strong)
+import Pux.Html                    (Html, div, text, strong, span, button,
+                                    input, a, li, ul, nav, link)
+
 import Pux.Router                  (navigateTo, link) as R
-import Pux.Html.Attributes         (type_, value, rel, href, className,
-                                    tabIndex, data_, title, role, aria,
-                                    placeholder, src)
+import Pux.Html.Attributes         (className, aria, data_, type_, role,
+                                    placeholder, value, href, rel)
+
 import Pux.Html.Events             (onChange, onClick, onKeyDown)
 
 import Control.Apply               ((*>))
 import Control.Alternative         ((<|>))
+import Control.Applicative         (when)
 
 import DOM                         (DOM)
 import Control.Monad.Eff.Console   (CONSOLE)
@@ -47,31 +47,40 @@ import Partial.Unsafe              (unsafePartial)
 txNum :: Int
 txNum = 15
 
-addressInfoBuffer :: Int
-addressInfoBuffer = 10
-
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 update (PageView route@(R.Address addr)) state =
-    { state: state { route = route, address = addr, addressInfo = take addressInfoBuffer $ singleton iAddr <> state.addressInfo }
+    { state: state { route = route }
     , effects:
         [ do
-            case head state.addressInfo of
-                Just _ -> C.send socket' $ AIChangeAddress iAddr
-                Nothing -> C.introMessage socket' iAddr
-            C.send socket' AIGetTxNumber
-            C.send socket' AIGetBalance
+            if state.addressConnected
+                then C.send socket' $ AIChangeAddress addr
+                else C.introMessage socket' $ IMAddressInfo addr
             pure Nop
         -- FIXME: if socket isn't opened open some error page
         ]
     }
   where
     socket' = unsafePartial $ fromJust state.socket
-    iAddr = IMAddressInfo addr
+--    onNewQueryDo action | state.queryInfo == Just (SQAddress addr) = pure Nop -- ignore
+--                        | otherwise = action
+update (PageView route@(R.Transaction tId)) state =
+    { state: state { route = route, queryInfo = map SQTransaction getTransaction }
+    , effects:
+        [ do
+            when (isNothing getTransaction) $
+                C.introMessage socket' $ IMTransactionInfo tId
+            pure Nop
+        ]
+    }
+  where
+    socket' = unsafePartial $ fromJust state.socket
+    getTransaction =
+        head (filter (\(TransactionSummarySerializable t) -> t.txId == tId) state.transactions)
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
     \_ -> case unsafePartial $ fromRight msg of
-        OMBalance pid arr ->
-            { state: state { balance = arr, periodId = pid }
+        OMBalance pId arr ->
+            { state: state { balance = arr, periodId = pId }
             , effects:
                 [ do
                     C.send socket' <<< AIGetTransactions $ Tuple 0 txNum
@@ -80,16 +89,27 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             }
         OMTransactions _ arr ->
             noEffects $ state { transactions = map snd arr }
-        OMError (ParseError e) ->
-            noEffects $ state { error = Just e, addressInfo = fromMaybe [] $ tail state.addressInfo }
+        OMTransaction tx ->
+            noEffects $ state { queryInfo = Just $ SQTransaction tx }
+        OMSessionEstablished addr ->
+            { state: state { queryInfo = Just $ SQAddress addr, addressConnected = true }
+            , effects:
+                [ do
+                    C.send socket' AIGetTxNumber
+                    C.send socket' AIGetBalance
+                    pure Nop
+                ]
+            }
+        OMError e ->
+            noEffects $ state { error = Just $ gShow e }
         _ -> noEffects state
   where
     socket' = unsafePartial $ fromJust state.socket
 update (SocketAction _) state = noEffects state
-update (AddressChange address) state = noEffects $ state { address = address }
-update Search state =
+update (SearchQueryChange sq) state = noEffects $ state { searchQuery = sq }
+update SearchButton state =
     onlyEffects state $
-        [ liftEff $ R.navigateTo (R.addressUrl state.address) *> pure Nop
+        [ liftEff $ R.navigateTo (R.addressUrl $ Address { getAddress: PublicKey state.searchQuery }) *> pure Nop
         ]
 update DismissError state = noEffects $ state { error = Nothing }
 update Nop state = noEffects state
@@ -158,16 +178,16 @@ view state =
                         [ className "input-group" ]
                         [ input
                             [ type_ "text"
-                            , value $ addressToString state.address
-                            , onChange $ AddressChange <<< newAddress <<< _.value <<< _.target
-                            , onKeyDown $ \e -> if e.keyCode == 13 then Search else Nop
+                            , value state.searchQuery
+                            , onChange $ SearchQueryChange <<< _.value <<< _.target
+                            , onKeyDown $ \e -> if e.keyCode == 13 then SearchButton else Nop
                             , className "form-control"
                             , placeholder "Address"
                             ] []
                         , span
                             [ className "input-group-btn" ]
                             [ button
-                                [ onClick $ const Search
+                                [ onClick $ const SearchButton
                                 , className "btn btn-danger"
                                 ] [ text "Search" ]
                             ]
@@ -204,8 +224,10 @@ view state =
                 R.Home -> Address.view state
                 R.Address _ -> Address.view state
                 R.Transaction tId ->
-					let getTransaction = head $ filter (\(TransactionSummarySerializable t) -> t.txId == tId) state.transactions
-					in  maybe (NotFound.view state) (flip Transaction.view state) getTransaction
+		            let
+                        queryGetTx (Just (SQTransaction tx)) = Just tx
+                        queryGetTx _ = Nothing
+					in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
                 R.NotFound -> NotFound.view state
             ]
         ]

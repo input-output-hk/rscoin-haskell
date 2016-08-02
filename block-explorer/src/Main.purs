@@ -1,6 +1,6 @@
 module Main where
 
-import Prelude                     (bind, pure, (<<<))
+import Prelude                     (bind, pure, (<<<), (==), (||), ($), (<>), otherwise, map)
 
 import App.Routes                  (match)
 import App.Layout                  (view, update)
@@ -15,8 +15,10 @@ import Control.Monad.Eff.Exception (EXCEPTION)
 import DOM                         (DOM)
 
 import Data.Maybe                  (Maybe (..))
+import Data.Array                  (singleton)
 
-import Pux                         (App, Config, CoreEffects, renderToDOM, start)
+import Pux                         (App, Config, CoreEffects, renderToDOM,
+                                    start, EffModel, noEffects)
 import Pux.Devtool                 (Action, start) as Pux.Devtool
 import Pux.Router                  (sampleUrl)
 
@@ -24,6 +26,17 @@ import Signal                      ((~>))
 import Signal.Channel              (channel, CHANNEL, subscribe)
 
 type AppEffects = (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
+
+maybeWaitSocket :: (Action -> State -> EffModel State Action AppEffects) -> Action -> State -> EffModel State Action AppEffects
+maybeWaitSocket update action@(SocketAction C.ConnectionOpened) state =
+    let effModel = update action $ state { socketReady = true }
+    in
+        { state: effModel.state { pendingActions = [] }
+        , effects: effModel.effects <> map pure effModel.state.pendingActions
+        }
+maybeWaitSocket update action state
+    | state.socketReady = update action state
+    | otherwise = noEffects $ state { pendingActions = state.pendingActions <> singleton action }
 
 -- | App configuration
 -- TODO: use AppEffects also here!
@@ -41,7 +54,7 @@ config state = do
     let wsSignal = subscribe wsInput ~> SocketAction
     pure
         { initialState: state { socket = Just socket }
-        , update: update
+        , update: maybeWaitSocket update
         , view: view
         , inputs: [wsSignal, routeSignal]
         }

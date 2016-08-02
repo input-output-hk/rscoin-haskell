@@ -21,6 +21,7 @@ data Options = Options
     { cloPort          :: Int
     , cloPath          :: FilePath
     , cloSecretKeyPath :: FilePath
+    , cloAutoCreateKey :: Bool
     , cloLogSeverity   :: Severity
     , cloMemMode       :: Bool
     , cloConfigPath    :: FilePath
@@ -34,7 +35,14 @@ optionsParser defaultSKPath configDir defaultConfigPath =
         (long "path" <> value (configDir </> "mintette-db") <> showDefault <>
          help "Path to database") <*>
     strOption
-        (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <> showDefault) <*>
+        (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <>
+         help "Path to the secret key" <>
+         showDefault) <*>
+    switch
+        (long "auto-create-sk" <>
+         help
+             ("If the \"sk\" is pointing to non-existing " <>
+              "file, generate a keypair")) <*>
     option
         auto
         (long "log-severity" <> value Error <> showDefault <>

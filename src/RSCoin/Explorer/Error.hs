@@ -16,6 +16,7 @@ import           RSCoin.Core         (PeriodId, rscExceptionFromException,
 data ExplorerError
     = EEPeriodMismatch { pmExpectedPeriod :: PeriodId
                        , pmReceivedPeriod :: PeriodId}
+    | EENotFound Text
     | EEInternalError Text
     | EEInvalidBankSignature
     deriving (Show,Typeable)
@@ -30,5 +31,6 @@ instance Buildable ExplorerError where
             ("expected period " % int % ", but received " % int)
             pmExpectedPeriod
             pmReceivedPeriod
+    build (EENotFound msg) = bprint ("resource not found: " % stext) msg
     build (EEInternalError msg) = bprint ("internal error: " % stext) msg
     build EEInvalidBankSignature = "signature given by bank is not valid"

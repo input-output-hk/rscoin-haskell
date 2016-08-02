@@ -11,25 +11,27 @@ module RSCoin.Explorer.Web.Servant
        ( servantApp
        ) where
 
-import           Control.Monad.Catch       (Exception, catch, throwM)
-import           Control.Monad.Except      (throwError)
-import           Control.Monad.Reader      (ReaderT, ask, runReaderT)
-import           Control.Monad.Trans       (liftIO)
-import           Data.Acid.Advanced        (query')
-import           Data.Typeable             (Typeable)
-import           Network.Wai               (Application)
-import           Servant                   ((:>), (:~>) (Nat), Capture,
-                                            FromHttpApiData (parseUrlPiece),
-                                            Get, Handler, JSON, Proxy (Proxy),
-                                            ServerT, enter, err404,
-                                            parseUrlPiece, serve)
+import           Control.Monad.Catch               (Exception, catch, throwM)
+import           Control.Monad.Except              (throwError)
+import           Control.Monad.Reader              (ReaderT, ask, runReaderT)
+import           Control.Monad.Trans               (liftIO)
+import           Data.Acid.Advanced                (query')
+import           Data.Typeable                     (Typeable)
+import           Network.Wai                       (Application)
+import           Servant                           ((:>), (:~>) (Nat), Capture, FromHttpApiData (parseUrlPiece),
+                                                    Get, Handler, JSON,
+                                                    Proxy (Proxy), ServerT,
+                                                    enter, err404,
+                                                    parseUrlPiece, serve)
 
-import qualified RSCoin.Core               as C
+import qualified RSCoin.Core                       as C
 
-import           RSCoin.Explorer.AcidState (GetTx (..), State)
+import           RSCoin.Explorer.AcidState         (GetTx (..), State)
+import           RSCoin.Explorer.Web.Sockets.Types (TransactionSummarySerializable,
+                                                    mkTransactionSummarySerializable)
 
 type ExplorerApi =
-    "tx" :> Capture "txid" C.TransactionId :> Get '[JSON] C.Transaction
+    "tx" :> Capture "txid" C.TransactionId :> Get '[JSON] TransactionSummarySerializable
 
 explorerApi :: Proxy ExplorerApi
 explorerApi = Proxy
@@ -52,8 +54,10 @@ convertHandler st act = do
     catcher :: WebError -> Handler a
     catcher NotFound = throwError err404
 
-handleGetTx :: C.TransactionId -> MyHandler C.Transaction
-handleGetTx i = maybe (throwM NotFound) pure =<< flip query' (GetTx i) =<< ask
+handleGetTx :: C.TransactionId -> MyHandler TransactionSummarySerializable
+handleGetTx i =
+    maybe (throwM NotFound) (pure . mkTransactionSummarySerializable) =<<
+    flip query' (GetTx i) =<< ask
 
 servantServer :: ServerT ExplorerApi MyHandler
 servantServer = handleGetTx

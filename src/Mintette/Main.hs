@@ -1,19 +1,35 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
-import           Control.Monad.Catch (bracket)
+import           Control.Exception   (SomeException)
+import           Control.Monad.Catch (bracket, throwM, try)
 import           Control.Monad.Trans (liftIO)
-
-import           RSCoin.Core         (initLogging, readSecretKey)
-import qualified RSCoin.Mintette     as M
-import           RSCoin.Timed        (fork_, runRealModeUntrusted)
+import           Data.Monoid         ((<>))
 
 import qualified MintetteOptions     as Opts
+import           RSCoin.Core         (initLogging, keyGen, readSecretKey,
+                                      writePublicKey, writeSecretKey)
+import qualified RSCoin.Mintette     as M
+import           RSCoin.Timed        (fork_, runRealModeUntrusted)
 
 main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
-    sk <- readSecretKey cloSecretKeyPath
+    skEither <- try $ readSecretKey cloSecretKeyPath
+    sk <- case skEither of
+        Left (_::SomeException) | cloAutoCreateKey -> do
+            putStrLn $ "Generating and putting secret keys into: " ++
+                       cloSecretKeyPath
+            let fpSecret = cloSecretKeyPath
+            let fpPublic = cloSecretKeyPath <> ".pub"
+            (sk,pk) <- keyGen
+            writePublicKey fpPublic pk
+            writeSecretKey fpSecret sk
+            putStrLn "Wrote a keypar on the disk"
+            return sk
+        Left err -> throwM err
+        Right sk -> return sk
     let open =
             if cloMemMode
                 then M.openMemState

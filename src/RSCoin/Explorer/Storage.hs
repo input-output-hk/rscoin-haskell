@@ -29,9 +29,10 @@ import           Control.Monad.Catch               (MonadThrow (throwM))
 import           Control.Monad.Extra               (whenJustM)
 import           Control.Monad.Reader              (MonadReader)
 import           Control.Monad.State               (MonadState)
+import qualified Data.IntMap.Strict                as I
+import qualified Data.Map.Strict                   as M
 import           Data.List                         (foldl', genericDrop,
                                                     genericLength, genericTake)
-import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (fromMaybe, isJust)
 import           Data.SafeCopy                     (base, deriveSafeCopy)
 import           Data.Tuple.Select                 (sel3)
@@ -176,14 +177,14 @@ applyTransaction tx@C.Transaction{..} = do
         , txsOutputs = txOutputs
         , txsInputsSum = foldl'
               (\m (_,_,c) ->
-                    M.insertWith (+) (C.getColor c) c m)
-              M.empty
+                    I.insertWith (+) (C.getC $ C.getColor c) c m)
+              I.empty
               txInputs
         , txsInputsTotal = sum $ map (C.getCoin . sel3) txInputs
         , txsOutputsSum = foldl'
               (\m (_,c) ->
-                    M.insertWith (+) (C.getColor c) c m)
-              M.empty
+                    I.insertWith (+) (C.getC $ C.getColor c) c m)
+              I.empty
               txOutputs
         , txsOutputsTotal = sum $ map (C.getCoin . snd) txOutputs
         }
@@ -219,7 +220,7 @@ changeAddressData tx c addr = do
     ensureAddressExists addr
     addresses . at addr . _Just . adTransactions %= (tx :)
     addresses . at addr . _Just . adBalance %=
-        M.insertWith (+) (C.getColor c) c
+        I.insertWith (+) (C.getC $ C.getColor c) c
 
 ensureAddressExists :: C.Address -> Update ()
 ensureAddressExists addr =

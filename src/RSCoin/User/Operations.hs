@@ -48,6 +48,7 @@ import           Control.Monad.State       (StateT (..), execStateT, get,
                                             modify)
 import           Control.Monad.Trans.Class (lift)
 import           Data.Acid.Advanced        (query', update')
+import qualified Data.IntMap.Strict        as I
 import           Data.Function             (on)
 import           Data.List                 (delete, elemIndex, genericIndex,
                                             genericLength, groupBy, nub, sortOn)
@@ -276,7 +277,7 @@ submitTransactionFromAll st maybeCache addressTo amount =
            filter (not . C.isNegativeCoin . snd) <$>
            mapM
                (\i ->
-                     (fromIntegral i + 1, ) . M.findWithDefault 0 0 <$>
+                     (fromIntegral i + 1, ) . I.findWithDefault 0 0 <$>
                      getAmountByIndex st i)
                [0 .. length addrs - 1]
        let totalAmount = C.sumCoin $ map snd indicesWithCoins
@@ -388,7 +389,7 @@ constructAndSignTransaction st TransactionData{..} = do
              ")")
             (head $ filter notInRange $ map fst tdInputsMerged)
             (length accounts)
-    let accInputs :: [(C.Address, M.Map C.Color C.Coin)]
+    let accInputs :: [(C.Address, I.IntMap C.Coin)]
         accInputs =
             map ((accounts `genericIndex`) *** C.coinsToMap) tdInputsMerged
         hasEnoughFunds :: (C.Address, C.CoinsMap) -> m Bool
@@ -397,10 +398,10 @@ constructAndSignTransaction st TransactionData{..} = do
             let sufficient =
                     all
                         (\col0 ->
-                              let weHave = M.findWithDefault 0 col0 amountMap
-                                  weSpend = M.findWithDefault 0 col0 coinsMap
+                              let weHave = I.findWithDefault 0 col0 amountMap
+                                  weSpend = I.findWithDefault 0 col0 coinsMap
                               in weHave >= weSpend)
-                        (M.keys coinsMap)
+                        (I.keys coinsMap)
             return sufficient
     overSpentAccounts <- filterM (fmap not . hasEnoughFunds) accInputs
     unless (null overSpentAccounts) $
@@ -470,7 +471,7 @@ submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
         -- Pairs of chosen addrids and change for each color
         chosenMap0
             :: Maybe [([C.AddrId], C.Coin)]
-        chosenMap0 = M.elems <$> C.chooseAddresses addrids requestedCoins
+        chosenMap0 = I.elems <$> C.chooseAddresses addrids requestedCoins
         chosenMap = fromJust chosenMap0
         -- All addrids from chosenMap
         inputAddrids = concatMap fst chosenMap

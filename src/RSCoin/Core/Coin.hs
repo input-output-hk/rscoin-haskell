@@ -22,15 +22,15 @@ module RSCoin.Core.Coin
        , subtractCoinsMap
        ) where
 
-import           Control.Exception      (assert)
-import           Control.Lens           (at, (%~), (&), _Just)
-import           Data.Foldable          (foldr')
-import           Data.List              (groupBy, sortBy)
-import qualified Data.Map               as M
-import           Data.Maybe             (fromJust)
-import           Data.Ord               (comparing)
+import           Control.Exception         (assert)
+import           Control.Lens              (at, (%~), (&), _Just)
+import           Data.Foldable             (foldr')
+import qualified Data.IntMap.Strict        as M
+import           Data.List                 (groupBy, sortBy)
+import           Data.Maybe                (fromJust)
+import           Data.Ord                  (comparing)
 
-import           RSCoin.Core.Primitives (Coin (..), Color)
+import           RSCoin.Core.Primitives (Coin (..), Color (..))
 
 onColor :: Coin -> Coin -> Ordering
 onColor = comparing getColor
@@ -63,7 +63,7 @@ groupCoinsList coins =
     filter (not . null) $
     groupBy sameColor $ sortBy onColor $ filter isPositiveCoin coins
 
-type CoinsMap = M.Map Color Coin
+type CoinsMap = M.IntMap Coin
 
 -- | CoinsMap representing absence of coins.
 zeroCoinsMap :: CoinsMap
@@ -75,14 +75,14 @@ coinsToList coinsMap = groupCoinsList $ M.elems coinsMap
 
 -- | Translates a list of coins to the map
 coinsToMap :: [Coin] -> CoinsMap
-coinsToMap = M.fromList . map (\c -> (getColor c, c)) . groupCoinsList
+coinsToMap = M.fromList . map (\c -> (getC . getColor $ c, c)) . groupCoinsList
 
 -- | Checks a consistency of map from color to coin
 coinsMapConsistent :: CoinsMap -> Bool
 coinsMapConsistent coins = all keyValid $ M.keys coins
   where
     keyValid k = let coin = fromJust $ M.lookup k coins
-                 in getColor coin == k
+                 in (getC $ getColor coin) == k
 
 -- | Given a empty list of coin maps (map
 mergeCoinsMaps :: [CoinsMap] -> CoinsMap

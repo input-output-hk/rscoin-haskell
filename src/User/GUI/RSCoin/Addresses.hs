@@ -3,15 +3,16 @@ module GUI.RSCoin.Addresses
     , getAddresses
     ) where
 
-import           Control.Monad (forM)
-import           Data.Acid     (query)
-import qualified Data.Map      as M
+import           Control.Monad           (forM)
+import           Data.Acid               (query)
+import qualified Data.IntMap.Strict      as M
 
-import           RSCoin.Core   (Coin (..), CoinAmount, PublicKey,
-                                defaultNodeContext, getAddress)
-import           RSCoin.Timed  (runRealModeUntrusted)
-import           RSCoin.User   (GetOwnedDefaultAddresses (..), RSCoinUserState,
-                                getAmountNoUpdate)
+import           RSCoin.Core             (Coin (..), CoinAmount, PublicKey,
+                                          defaultNodeContext, getAddress)
+import           RSCoin.Timed            (runRealModeUntrusted)
+import           RSCoin.User             (GetOwnedDefaultAddresses (..),
+                                          RSCoinUserState,
+                                          getAmountNoUpdate)
 
 data VerboseAddress = VA
     { address :: PublicKey

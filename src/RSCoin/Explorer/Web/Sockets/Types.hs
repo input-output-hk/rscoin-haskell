@@ -28,7 +28,7 @@ import           Data.Aeson              (FromJSON, ToJSON (toJSON),
 import           Data.Aeson.TH           (deriveJSON, deriveToJSON)
 import qualified Data.ByteString.Lazy    as BSL
 import           Data.Either.Combinators (mapLeft)
-import qualified Data.Map.Lazy           as ML
+import qualified Data.IntMap.Strict      as IS
 import           Data.Text               (Text, pack)
 import           GHC.Generics            (Generic)
 import qualified Network.WebSockets      as WS
@@ -57,7 +57,7 @@ newtype SerializableCoinsMap =
     deriving (Show)
 
 instance ToJSON SerializableCoinsMap where
-    toJSON (SerializableCoinsMap m) = toJSON . ML.assocs $ m
+    toJSON (SerializableCoinsMap m) = toJSON . IS.assocs $ m
 
 data TransactionSummarySerializable = TransactionSummarySerializable
     { txId           :: C.TransactionId

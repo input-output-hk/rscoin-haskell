@@ -15,15 +15,15 @@ module RSCoin.Core.Transaction
 import           Control.Arrow          ((&&&))
 import           Control.Exception      (assert)
 import           Data.Function          (on)
+import qualified Data.IntMap.Strict     as M
 import           Data.List              (delete, groupBy, nub, sortBy)
-import qualified Data.Map               as M
 import           Data.Ord               (comparing)
 import           Data.Tuple.Select      (sel3)
 
 import           RSCoin.Core.Coin       (coinsToMap)
 import           RSCoin.Core.Crypto     (Signature, hash, verify)
-import           RSCoin.Core.Primitives (AddrId, Address (..), Coin (..), Color,
-                                         Transaction (..), grey)
+import           RSCoin.Core.Primitives (AddrId, Address (..), Coin (..),
+                                         Color (..), Transaction (..), grey)
 
 -- | Validates that sum of inputs for each color isn't greater than
 -- sum of outputs, and what's left can be painted by grey coins.
@@ -36,11 +36,11 @@ validateSum Transaction{..} =
     outputs = coinsToMap $ map snd txOutputs
     totalInputs  = sum $ map getCoin $ M.elems inputs
     totalOutputs = sum $ map getCoin $ M.elems outputs
-    greyInputs  = getCoin $ M.findWithDefault 0 grey inputs
-    greyOutputs = getCoin $ M.findWithDefault 0 grey outputs
-    txColors = delete grey $ nub $ (M.keys inputs ++ M.keys outputs)
+    greyInputs  = getCoin $ M.findWithDefault 0 (getC grey) inputs
+    greyOutputs = getCoin $ M.findWithDefault 0 (getC grey) outputs
+    txColors = delete (getC grey) $ nub $ (M.keys inputs ++ M.keys outputs)
     foldfoo0 color unp =
-        let zero = Coin color 0
+        let zero = Coin (Color color) 0
             outputOfThisColor = M.findWithDefault zero color outputs
             inputOfThisColor = M.findWithDefault zero color inputs
         in if outputOfThisColor <= inputOfThisColor
@@ -56,9 +56,9 @@ validateSignature signature (Address pk) = verify pk signature
 
 -- | Given address and transaction returns total amount of money
 -- transaction transfers to address.
-getAmountByAddress :: Address -> Transaction -> M.Map Color Coin
+getAmountByAddress :: Address -> Transaction -> M.IntMap Coin
 getAmountByAddress addr Transaction{..} =
-    let pair c = (getColor c, c) in
+    let pair c = (getC $ getColor c, c) in
     M.fromListWith (+) $ map (pair . snd) $ filter ((==) addr . fst) txOutputs
 
 -- | Given address a and transaction returns all addrids that have
@@ -74,7 +74,7 @@ getAddrIdByAddress addr transaction@Transaction{..} =
 -- or equal to given value, for each color. Here 'optimal' stands for 'trying to
 -- include as many addrids as possible', so that means function takes
 -- addrids with smaller amount of money first.
-chooseAddresses :: [AddrId] -> M.Map Color Coin -> Maybe (M.Map Color ([AddrId], Coin))
+chooseAddresses :: [AddrId] -> M.IntMap Coin -> Maybe (M.IntMap ([AddrId], Coin))
 chooseAddresses addrids valueMap =
     chooseOptimal addrids' sel3 valueMap'
     where addrids' = filter ((/=0) . getCoin . sel3) addrids
@@ -84,14 +84,14 @@ chooseOptimal
     :: forall a.
        [a]                             -- ^ Elements we're choosing from
     -> (a -> Coin)                     -- ^ Getter of coins from the element
-    -> M.Map Color Coin                -- ^ Map with amount of coins for each color
-    -> Maybe (M.Map Color ([a], Coin)) -- ^ Map with chosen elements and change for each color
+    -> M.IntMap Coin                -- ^ Map with amount of coins for each color
+    -> Maybe (M.IntMap ([a], Coin)) -- ^ Map with chosen elements and change for each color
                                        -- If nothing, value can't be chosen (no money)
-chooseOptimal addrids getC valueMap =
+chooseOptimal addrids coinGetter valueMap =
     -- In case there are less colors in addrList than in valueList
     -- filler coins are added to short-circuit the comparison of lists.
     assert
-        (map (sum . map getC) addrList ++ repeat (Coin 0 0) >= M.elems valueMap) $
+        (map (sum . map coinGetter) addrList ++ repeat (Coin 0 0) >= M.elems valueMap) $
     M.fromList <$> mapM
         (\(color, value) ->
               (color,) <$> chooseHelper (M.findWithDefault [] color addrMap) value)
@@ -102,19 +102,19 @@ chooseOptimal addrids getC valueMap =
     -- color is sorted by coins amount.
     addrList :: [[a]]
     addrList =
-        groupBy ((==) `on` (getColor . getC)) $
-        sortBy (comparing (getColor . getC)) $
-        sortBy (comparing (getCoin . getC)) addrids
+        groupBy ((==) `on` (getColor . coinGetter)) $
+        sortBy (comparing (getColor . coinGetter)) $
+        sortBy (comparing (getCoin . coinGetter)) addrids
     -- addrMap :: M.Map Color [a]
     -- Map from each color to addrids with a coin of that color
-    addrMap = M.fromList $ map ((getColor . getC . head) &&& id) addrList
+    addrMap = M.fromList $ map ((getC . getColor . coinGetter . head) &&& id) addrList
     -- chooseHelper :: [a] -> Coin -> ([a], Coin)
     -- This function goes through a list of addrids and calculates the optimal
     chooseHelper list value =
         -- choice of addrids and the coins that are left
         let foldFoo o@(_,_,Just _) _ = o
             foldFoo (accum,values,Nothing) e =
-                let val = getC e
+                let val = coinGetter e
                     newAccum = accum + val
                     newValues = e : values
                 in ( newAccum

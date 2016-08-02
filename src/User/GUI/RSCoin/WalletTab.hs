@@ -8,7 +8,7 @@ module GUI.RSCoin.WalletTab
        ) where
 
 import           Control.Monad                  (join, void, when)
-import qualified Data.Map                       as M
+import qualified Data.IntMap.Strict             as M
 import           Data.Maybe                     (mapMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T

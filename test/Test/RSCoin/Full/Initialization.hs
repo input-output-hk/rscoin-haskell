@@ -17,14 +17,14 @@ import           Control.Monad.Trans        (MonadIO (liftIO))
 import           Data.Acid.Advanced         (update')
 import           Data.IORef                 (newIORef)
 import           Data.List                  (genericLength)
-import qualified Data.Map                   as M
+import qualified Data.IntMap.Strict         as M
 import           Data.Maybe                 (fromMaybe)
 import           Formatting                 (build, sformat, (%))
 import           Test.QuickCheck            (NonEmptyList (..))
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (..), SecretKey,
-                                             defaultPeriodDelta,
+                                             defaultPeriodDelta, Color (..),
                                              derivePublicKey, keyGen, logDebug,
                                              logInfo, testBankSecretKey, testingLoggerName)
 import qualified RSCoin.Mintette            as M
@@ -179,7 +179,7 @@ sendInitialCoins ctx = do
     allColors = [minColor .. maxColor]
     nonZeroColors = filter (/= 0) allColors
     coloring =
-        Just . Coloring . M.fromList . map (, recip (genericLength allColors)) $
+        Just . Coloring . M.fromList . map ((, recip (genericLength allColors)) . getC) $
         nonZeroColors
     actions genesisIdx =
         map

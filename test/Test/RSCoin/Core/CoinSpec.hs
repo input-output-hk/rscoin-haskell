@@ -6,7 +6,7 @@ module Test.RSCoin.Core.CoinSpec
        ( spec
        ) where
 
-import qualified Data.Map.Strict            as M (mapWithKey, member, size, (!))
+import qualified Data.IntMap.Strict            as M (mapWithKey, member, size, (!))
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (NonEmptyList (..))
@@ -90,7 +90,7 @@ coinsMapOperation :: (C.Coin -> C.Coin -> C.Coin)
                   -> Bool
 coinsMapOperation op mapFun mp1 mp2 =
     let f = M.mapWithKey (\col (C.Coin _ cn) ->
-                                    C.Coin col cn)
+                                    C.Coin (C.Color col) cn)
         (m1,m2) = (f mp1, f mp2)
         opMap = mapFun m1 m2
         step col coin = if col `M.member` m2

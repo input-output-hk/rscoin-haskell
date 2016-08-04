@@ -22,7 +22,7 @@ psCoinsMap :: PSType
 psCoinsMap =
     TypeInfo "purescript-prim" "Prim" "Array"
         [ TypeInfo "purescript-tuples" "Data.Tuple" "Tuple"
-             [ TypeInfo "" "RSCoin.Core.Primitives" "Color" []
+             [ TypeInfo "purescript-prim" "Prim" "Int" []
              , TypeInfo "" "RSCoin.Core.Primitives" "Coin" []
              ]
         ]

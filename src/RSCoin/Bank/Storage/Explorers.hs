@@ -32,10 +32,10 @@ data ExplorersStorage = ExplorersStorage
     { -- | All explorers in storage. Explorer is associated with
       -- `PeriodId`. This is id of block which Explorer expects to
       -- receive.
-      _esExplorers          :: M.Map C.Explorer C.PeriodId
+      _esExplorers          :: !(M.Map C.Explorer C.PeriodId)
       -- | Some explorers may be suspended if something suspicious is
       -- detected.
-    , _esSuspendedExplorers :: M.Map C.Explorer C.PeriodId
+    , _esSuspendedExplorers :: !(M.Map C.Explorer C.PeriodId)
     }
 
 $(makeLenses ''ExplorersStorage)

@@ -79,26 +79,26 @@ import qualified RSCoin.Bank.Strategies        as Strategies
 data Storage = Storage
     {
       -- | Data about mintettes.
-      _mintettesStorage :: MS.MintettesStorage
+      _mintettesStorage :: !MS.MintettesStorage
       -- | Data about explorers.
-    , _explorersStorage :: ES.ExplorersStorage
+    , _explorersStorage :: !ES.ExplorersStorage
       -- | Id of ongoing period. Doesn't mean anything if there is no
       -- active period.
-    , _periodId         :: C.PeriodId
+    , _periodId         :: !C.PeriodId
       -- | List of all blocks from the very beginning. Head of this
       -- list is the most recent block.
-    , _blocks           :: [C.HBlock]
+    , _blocks           :: ![C.HBlock]
       -- | Utxo for all the transaction ever made.
-    , _utxo             :: C.Utxo
+    , _utxo             :: !C.Utxo
       -- | Mapping from transaction id to actual transaction with this id.
-    , _transactionMap   :: MP.Map C.TransactionId C.Transaction
+    , _transactionMap   :: !(MP.Map C.TransactionId C.Transaction)
       -- | List off all emission hashes from the very beginning.
-    , _emissionHashes   :: [C.TransactionId]
+    , _emissionHashes   :: ![C.TransactionId]
       -- | Known addresses accompanied with their strategies. Note that every address with
       -- non-default strategy should be stored here in order to participate in transaction.
-    , _addresses        :: C.AddressToTxStrategyMap
+    , _addresses        :: !C.AddressToTxStrategyMap
       -- | Pending addresses to publish within next HBlock.
-    , _pendingAddresses :: C.AddressToTxStrategyMap
+    , _pendingAddresses :: !C.AddressToTxStrategyMap
     } deriving (Typeable)
 
 $(makeLenses ''Storage)

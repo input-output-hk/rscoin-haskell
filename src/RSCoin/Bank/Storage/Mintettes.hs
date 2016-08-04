@@ -56,7 +56,7 @@ data MintettesStorage = MintettesStorage
       _msDeadMintettes    :: !DeadMintettesMap
       -- | Mintettes' action logs. actionLogs[i] stores action log for
       -- i-th mintette.  Head of action log is the most recent entry.
-    , _msActionLogs       :: [C.ActionLog]
+    , _msActionLogs       :: ![C.ActionLog]
     }
 
 $(makeLenses ''MintettesStorage)

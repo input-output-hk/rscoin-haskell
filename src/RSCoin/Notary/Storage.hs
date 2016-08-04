@@ -51,30 +51,30 @@ import           RSCoin.Notary.Error    (NotaryError (..))
 
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
-      _txPool         :: Map Address (Map Transaction (Map Address Signature))
+      _txPool         :: !(Map Address (Map Transaction (Map Address Signature)))
 
       -- | Mapping between addrid and all pairs (addr, transaction),
       -- being kept in `txPool`, such that addrid serve as an input for transaction.
-    , _txPoolAddrIds  :: Map AddrId (Set (Address, Transaction))
+    , _txPoolAddrIds  :: !(Map AddrId (Set (Address, Transaction)))
 
       -- | Mapping between address and a set of unspent addrids, owned by it.
-    , _unspentAddrIds :: Map Address (Set AddrId)
+    , _unspentAddrIds :: !(Map Address (Set AddrId))
 
       -- | Mapping from newly allocated multisignature addresses. This Map is
       -- used only during multisignature address allocation process.
-    , _allocationStrategyPool :: Map MSAddress AllocationInfo
+    , _allocationStrategyPool :: !(Map MSAddress AllocationInfo)
 
       -- | Number of attempts for user per period to allocate multisig address.
-    , _periodStats    :: Map Address Int
+    , _periodStats    :: !(Map Address Int)
 
       -- | Non-default addresses, registered in system (published to bank).
-    , _addresses      :: AddressToTxStrategyMap
+    , _addresses      :: !AddressToTxStrategyMap
 
       -- | Mapping between addrid and address.
-    , _utxo           :: Utxo
+    , _utxo           :: !Utxo
 
       -- | Last periodId, known to Notary.
-    , _periodId       :: PeriodId
+    , _periodId       :: !PeriodId
     } deriving (Show)
 
 $(makeLenses ''Storage)

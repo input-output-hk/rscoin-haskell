@@ -72,21 +72,21 @@ import qualified RSCoin.Core                as C
 import           RSCoin.Mintette.Error      (MintetteError (..))
 
 data Storage = Storage
-    { _utxo          :: Utxo                    -- ^ Unspent transaction outputs
-    , _utxoDeleted   :: Utxo                    -- ^ Entries, deleted from utxo
-    , _utxoAdded     :: Utxo                    -- ^ Entries, added to utxo
-    , _pset          :: Pset                    -- ^ Set of checked transactions
-    , _txset         :: S.Set C.Transaction     -- ^ List of transaction sealing into ledger
-    , _lBlocks       :: [[LBlock]]              -- ^ Blocks are stored per period
-    , _actionLogs    :: [ActionLog]             -- ^ Logs are stored per period
-    , _logSize       :: Int                     -- ^ Total size of actionLogs
-    , _mintettes     :: Mintettes               -- ^ Mintettes for current period
-    , _mintetteId    :: Maybe MintetteId        -- ^ Id for current period
-    , _invMintetteId :: Maybe MintetteId        -- ^ Invariant for mintetteId
-    , _dpk           :: C.Dpk                   -- ^ DPK for current period
-    , _logHeads      :: ActionLogHeads          -- ^ All known heads of logs
-    , _lastBankHash  :: Maybe Hash              -- ^ Hash of the last HBlock
-    , _addresses     :: AddressToTxStrategyMap  -- ^ Complete list of system's addresses
+    { _utxo          :: !Utxo                    -- ^ Unspent transaction outputs
+    , _utxoDeleted   :: !Utxo                    -- ^ Entries, deleted from utxo
+    , _utxoAdded     :: !Utxo                    -- ^ Entries, added to utxo
+    , _pset          :: !Pset                    -- ^ Set of checked transactions
+    , _txset         :: !(S.Set C.Transaction)     -- ^ List of transaction sealing into ledger
+    , _lBlocks       :: ![[LBlock]]              -- ^ Blocks are stored per period
+    , _actionLogs    :: ![ActionLog]             -- ^ Logs are stored per period
+    , _logSize       :: !Int                     -- ^ Total size of actionLogs
+    , _mintettes     :: !Mintettes               -- ^ Mintettes for current period
+    , _mintetteId    :: !(Maybe MintetteId)        -- ^ Id for current period
+    , _invMintetteId :: !(Maybe MintetteId)        -- ^ Invariant for mintetteId
+    , _dpk           :: !C.Dpk                   -- ^ DPK for current period
+    , _logHeads      :: !ActionLogHeads          -- ^ All known heads of logs
+    , _lastBankHash  :: !(Maybe Hash)              -- ^ Hash of the last HBlock
+    , _addresses     :: !AddressToTxStrategyMap  -- ^ Complete list of system's addresses
                                                 -- accompanied with their strategies.
                                                 -- Should be up-to-date with
                                                 -- Bank::Storage::_addresses (updates are

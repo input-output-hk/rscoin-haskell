@@ -66,7 +66,7 @@ startMintette confPath CommonParams{..} (idx,_) = do
             runRealModeUntrusted (Just confPath) $
             bracket (liftIO $ M.openState dbDir) (liftIO . M.closeState) $
             \st ->
-                 do fork_ $ M.runWorker sk st
+                 do fork_ $ M.runWorker sk st dbDir
                     M.serve port st sk
     (, pk) <$> forkIO start
 

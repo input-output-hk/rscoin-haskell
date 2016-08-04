@@ -74,7 +74,7 @@ runWorker = runWorkerWithPeriod defaultPeriodDelta
 runWorkerWithPeriod
     :: (TimeUnit t, WorkMode m)
     => t -> IORef Bool -> C.SecretKey -> State -> FilePath -> m ()
-runWorkerWithPeriod periodDelta mainIsBusy sk st statePath =
+runWorkerWithPeriod periodDelta mainIsBusy sk st storagePath =
     repeatForever (tu periodDelta) handler worker
   where
     worker = do
@@ -82,7 +82,7 @@ runWorkerWithPeriod periodDelta mainIsBusy sk st statePath =
                 bracket_
                     (liftIO $ atomicWriteIORef mainIsBusy True)
                     (liftIO $ atomicWriteIORef mainIsBusy False)
-        t <- br $ measureTime_ $ onPeriodFinished sk st statePath
+        t <- br $ measureTime_ $ onPeriodFinished sk st storagePath
         logInfo $ sformat ("Finishing period took " % build) t
     handler e = do
         logError $
@@ -92,7 +92,7 @@ runWorkerWithPeriod periodDelta mainIsBusy sk st statePath =
         return $ sec 20
 
 onPeriodFinished :: WorkMode m => C.SecretKey -> State -> FilePath -> m ()
-onPeriodFinished sk st statePath = do
+onPeriodFinished sk st storagePath = do
     mintettes <- query' st GetMintettes
     pId <- query' st GetPeriodId
     logInfo $ formatSingle' "Period {} has just finished!" pId
@@ -107,7 +107,7 @@ onPeriodFinished sk st statePath = do
     when (pid `mod` 5 == 0) $ liftIO $ do
          createArchive st
          void $ TURT.shellStrict
-             (T.pack $ "rm -rf " ++ (statePath </> "Archive")) (return "")
+             (T.pack $ "rm -rf " ++ (storagePath </> "Archive")) (return "")
     newMintettes <- query' st GetMintettes
     if null newMintettes
         then logWarning "New mintettes list is empty!"

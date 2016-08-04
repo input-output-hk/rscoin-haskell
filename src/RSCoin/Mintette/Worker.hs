@@ -7,9 +7,13 @@ module RSCoin.Mintette.Worker
        , runWorker
        ) where
 
-import           Control.Monad             (unless)
+import           Control.Monad             (unless, void, when)
 import           Control.Monad.Trans       (liftIO)
-import           Data.Acid                 (createCheckpoint, update)
+import           Data.Acid                 (createArchive, createCheckpoint,
+                                            query, update)
+import qualified Data.Text                 as T
+import           System.FilePath           ((</>))
+import qualified Turtle.Prelude            as TURT
 
 import           Serokell.Util.Exceptions  ()
 import           Serokell.Util.Text        (formatSingle')
@@ -17,16 +21,16 @@ import           Serokell.Util.Text        (formatSingle')
 import           RSCoin.Core               (SecretKey, epochDelta, logError,
                                             mintetteLoggerName)
 
-import           RSCoin.Mintette.Acidic    (FinishEpoch (..))
+import           RSCoin.Mintette.Acidic    (FinishEpoch (..), GetPeriodId (..))
 import           RSCoin.Mintette.AcidState (State)
 import           RSCoin.Mintette.Error     (isMEInactive)
 
 import           RSCoin.Timed              (WorkMode, repeatForever, sec, tu)
 
 -- | Start worker which updates state when epoch finishes.
-runWorker :: WorkMode m => SecretKey -> State -> m ()
-runWorker sk st =
-    repeatForever (tu epochDelta) handler $ liftIO $ onEpochFinished sk st
+runWorker :: WorkMode m => SecretKey -> State -> FilePath -> m ()
+runWorker sk st storagePath =
+    repeatForever (tu epochDelta) handler $ liftIO $ onEpochFinished sk st storagePath
   where
     handler e = do
         unless (isMEInactive e) $
@@ -36,7 +40,11 @@ runWorker sk st =
                 e
         return $ sec 2
 
-onEpochFinished :: SecretKey -> State -> IO ()
-onEpochFinished sk st = do
+onEpochFinished :: SecretKey -> State -> FilePath -> IO ()
+onEpochFinished sk st storagePath = do
     update st $ FinishEpoch sk
     createCheckpoint st
+    pid <- query st GetPeriodId
+    when (pid `mod` 5 == 0) $ liftIO $ do
+         createArchive st
+         void $ TURT.shellStrict (T.pack $ "rm -rf " ++ (storagePath </> "Archive")) (return "")

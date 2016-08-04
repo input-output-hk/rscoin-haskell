@@ -46,12 +46,12 @@ launchExplorerReal portRpc portWeb severity storagePath confPath sk = do
     channel <- newChannel
     explorerWrapperReal storagePath confPath $
         \st ->
-             do fork_ $ launchExplorer portRpc sk channel st
+             do fork_ $ launchExplorer portRpc sk channel st storagePath
                 launchWeb portWeb severity channel st
 
 launchExplorer
     :: WorkMode m
-    => Int -> SecretKey -> Channel -> State -> m ()
+    => Int -> SecretKey -> Channel -> State -> FilePath -> m ()
 launchExplorer port sk ch st = serve port ch st sk
 
 loggingMiddleware :: Severity -> Middleware

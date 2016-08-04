@@ -37,5 +37,5 @@ main = do
     runRealModeUntrusted (Just cloConfigPath) $
         bracket (liftIO open) (liftIO . M.closeState) $
         \st ->
-             do fork_ $ M.runWorker sk st
+             do fork_ $ M.runWorker sk st cloPath
                 M.serve cloPort st sk

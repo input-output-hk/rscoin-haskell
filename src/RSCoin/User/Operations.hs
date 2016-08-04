@@ -51,7 +51,8 @@ import           Data.Acid.Advanced        (query', update')
 import qualified Data.IntMap.Strict        as I
 import           Data.Function             (on)
 import           Data.List                 (delete, elemIndex, genericIndex,
-                                            genericLength, groupBy, nub, sortOn)
+                                            genericLength, groupBy, nub, sortOn,
+                                            foldl1')
 import qualified Data.Map                  as M
 import           Data.Maybe                (fromJust, fromMaybe, isJust,
                                             isNothing)
@@ -419,7 +420,7 @@ constructAndSignTransaction st TransactionData{..} = do
     when (any isNothing txPieces) $
         commitError "Couldn't form transaction. Not enough funds."
     let (addrPairList,inputAddrids,outputs) =
-            foldl1 pair3merge $ map fromJust txPieces
+            foldl1' pair3merge $ map fromJust txPieces
         outTr =
             C.Transaction
             { txInputs = inputAddrids

@@ -36,6 +36,7 @@ import           Control.Monad.State         (MonadState (get, put, state),
 import           Control.Monad.Trans         (MonadIO, MonadTrans, lift, liftIO)
 import           Data.Function               (on)
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
+import           Data.List                   (foldl')
 import           Data.Maybe                  (fromJust)
 import           Data.Ord                    (comparing)
 
@@ -250,7 +251,7 @@ runTimedT timed = launchTimedT $ do
 
     -- Apply all handlers from stack.
     -- If handled ContException, ignore second handler from that layer
-    catchesSeq = foldl $ \act (h, hc) -> act `catches` [hc, h]
+    catchesSeq = foldl' $ \act (h, hc) -> act `catches` [hc, h]
 
 getNextThreadId :: Monad m => TimedT m ThreadId
 getNextThreadId = wrapCore . Core $ do

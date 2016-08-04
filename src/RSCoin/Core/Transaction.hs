@@ -14,6 +14,7 @@ module RSCoin.Core.Transaction
 
 import           Control.Arrow          ((&&&))
 import           Control.Exception      (assert)
+import           Data.Foldable          (foldr', foldl')
 import           Data.Function          (on)
 import qualified Data.IntMap.Strict     as M
 import           Data.List              (delete, groupBy, nub, sortBy)
@@ -46,7 +47,7 @@ validateSum Transaction{..} =
         in if outputOfThisColor <= inputOfThisColor
            then unp
            else M.insert color (outputOfThisColor - inputOfThisColor) unp
-    unpainted = foldr foldfoo0 M.empty txColors
+    unpainted = foldr' foldfoo0 M.empty txColors
     totalUnpaintedSum = sum $ map getCoin $ M.elems unpainted
 
 -- | Validates that signature is issued by public key associated with given
@@ -122,7 +123,7 @@ chooseOptimal addrids coinGetter valueMap =
                    , if newAccum >= value
                      then Just $ newAccum - value
                      else Nothing)
-        in case foldl foldFoo (Coin (getColor value) 0, [], Nothing) list of
+        in case foldl' foldFoo (Coin (getColor value) 0, [], Nothing) list of
                     (_,chosenAIds,Just whatsLeft) -> Just (chosenAIds, whatsLeft)
                     (_,_,Nothing) -> Nothing
 

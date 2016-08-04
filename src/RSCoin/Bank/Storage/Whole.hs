@@ -35,7 +35,8 @@ module RSCoin.Bank.Storage.Whole
        ) where
 
 import           Control.Lens                  (Getter, makeLenses, to, use,
-                                                uses, (%%=), (%=), (+=), (.=), (^.))
+                                                uses, (%%=), (%=), (+=), (.=),
+                                                (^.))
 import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (MonadThrow (throwM))
 import           Control.Monad.State           (MonadState, execState, runState)

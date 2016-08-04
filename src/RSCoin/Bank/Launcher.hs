@@ -63,7 +63,12 @@ launchBank
 launchBank periodDelta bankSk storagePath st = do
     mainIsBusy <- liftIO $ newIORef False
     let startWorker =
-            runWorkerWithPeriod periodDelta mainIsBusy bankSk st storagePath
+            runWorkerWithPeriod
+                periodDelta
+                mainIsBusy
+                bankSk
+                st
+                (Just storagePath)
         restartWorker tId = killThread tId >> fork startWorker
     workerThread <- fork startWorker
     fork_ $ runExplorerWorker periodDelta mainIsBusy bankSk st

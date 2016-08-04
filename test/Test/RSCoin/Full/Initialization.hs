@@ -15,18 +15,19 @@ import           Control.Monad              (replicateM)
 import           Control.Monad.Reader       (runReaderT)
 import           Control.Monad.Trans        (MonadIO (liftIO))
 import           Data.Acid.Advanced         (update')
+import qualified Data.IntMap.Strict         as M
 import           Data.IORef                 (newIORef)
 import           Data.List                  (genericLength)
-import qualified Data.IntMap.Strict         as M
 import           Data.Maybe                 (fromMaybe)
 import           Formatting                 (build, sformat, (%))
 import           Test.QuickCheck            (NonEmptyList (..))
 
 import qualified RSCoin.Bank                as B
-import           RSCoin.Core                (Mintette (..), SecretKey,
-                                             defaultPeriodDelta, Color (..),
+import           RSCoin.Core                (Color (..), Mintette (..),
+                                             SecretKey, defaultPeriodDelta,
                                              derivePublicKey, keyGen, logDebug,
-                                             logInfo, testBankSecretKey, testingLoggerName)
+                                             logInfo, testBankSecretKey,
+                                             testingLoggerName)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import           RSCoin.Timed               (Second, WorkMode, for, ms,
@@ -107,6 +108,7 @@ runBank v b = do
             mainIsBusy
             (b ^. secretKey)
             (b ^. state)
+            Nothing
     workWhileMVarEmpty v $
         B.runExplorerWorker periodDelta mainIsBusy (b ^. secretKey) (b ^. state)
     workWhileMVarEmpty v $ B.serve (b ^. state) myTId pure  -- FIXME: close state `finally`

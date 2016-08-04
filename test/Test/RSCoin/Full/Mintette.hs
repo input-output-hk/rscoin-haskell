@@ -9,6 +9,7 @@ module Test.RSCoin.Full.Mintette
 import           Control.Concurrent.MVar          (MVar)
 import           Control.Lens                     (view)
 
+import qualified RSCoin.Core                      as C
 import qualified RSCoin.Mintette                  as M
 import           RSCoin.Timed                     (WorkMode, workWhileMVarEmpty)
 
@@ -22,13 +23,15 @@ initialization
     :: (WorkMode m)
     => Maybe MintetteConfig -> MVar () -> MintetteInfo -> m ()
 initialization conf v m = do
-    let runner =
+    let runner :: (WorkMode m) => Int -> M.State -> C.SecretKey -> m ()
+        runner =
             case conf of
                 Nothing -> M.serve
                 Just s -> FM.serve s
+    workWhileMVarEmpty v $ runner <$> view port <*> view state <*> view secretKey $ m
+    -- FIXME: close state
     workWhileMVarEmpty v $
-        runner <$> view port <*> view state <*> view secretKey $ m
-    workWhileMVarEmpty v $ M.runWorker <$> view secretKey <*> view state $ m  -- FIXME: close state
+        M.runWorker <$> view secretKey <*> view state <*> return Nothing $ m
 
 defaultMintetteInit
     :: (WorkMode m)

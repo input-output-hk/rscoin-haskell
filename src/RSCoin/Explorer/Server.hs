@@ -8,6 +8,7 @@ module RSCoin.Explorer.Server
 import           Control.Exception         (throwIO)
 import           Control.Lens              ((^.))
 import           Control.Monad             (unless, void, when)
+import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid                 (createArchive, createCheckpoint)
 import           Data.Acid.Advanced        (query', update')
@@ -38,7 +39,7 @@ logDebug = C.logDebug C.explorerLoggerName
 
 serve
     :: WorkMode m
-    => Int -> Channel -> State -> C.SecretKey -> FilePath -> m ()
+    => Int -> Channel -> State -> C.SecretKey -> Maybe FilePath -> m ()
 serve port ch st _ storagePath = do
     idr1 <- serverTypeRestriction3
     nodeCtx <- getNodeContext
@@ -53,7 +54,7 @@ handleNewHBlock
     => Channel
     -> State
     -> C.PublicKey
-    -> FilePath
+    -> Maybe FilePath
     -> C.PeriodId
     -> (C.HBlock, C.EmissionId)
     -> C.Signature
@@ -84,13 +85,13 @@ handleNewHBlock ch st bankPublicKey storagePath newBlockId (newBlock,emission) s
                 { ciTransactions = C.hbTransactions newBlock
                 }
             liftIO $ createCheckpoint st
-            when (newBlockId `mod` 5 == 0) $
-                liftIO $
-                do createArchive st
-                   void $
-                       TURT.shellStrict
-                           (T.pack $ "rm -rf " ++ (storagePath </> "Archive"))
-                           (return "")
+            whenJust storagePath $ \stpath ->
+                when (newBlockId `mod` 5 == 0) $ liftIO $ do
+                    createArchive st
+                    void $
+                        TURT.shellStrict
+                            (T.pack $ "rm -rf " ++ (stpath </> "Archive"))
+                            (return "")
             ret (newBlockId + 1)
     if expectedPid == newBlockId
         then upd

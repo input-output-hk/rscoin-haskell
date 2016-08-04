@@ -22,7 +22,7 @@ import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
                                            newIORef, readIORef)
 import           Data.List                (sortOn)
-import           Data.Maybe               (fromMaybe)
+import           Data.Maybe               (fromJust, fromMaybe, isJust)
 import           Data.Monoid              ((<>))
 import           Data.Text                (Text)
 import qualified Data.Text                as T
@@ -64,7 +64,7 @@ logError = C.logError C.bankLoggerName
 -- finishes. Default period length is used.
 runWorker
     :: WorkMode m
-    => IORef Bool -> C.SecretKey -> State -> FilePath -> m ()
+    => IORef Bool -> C.SecretKey -> State -> Maybe FilePath -> m ()
 runWorker = runWorkerWithPeriod defaultPeriodDelta
 
 -- | Start worker with provided period. Generalization of 'runWorker'.
@@ -73,7 +73,7 @@ runWorker = runWorkerWithPeriod defaultPeriodDelta
 -- Its value is True is empty iff this worker is doing something now.
 runWorkerWithPeriod
     :: (TimeUnit t, WorkMode m)
-    => t -> IORef Bool -> C.SecretKey -> State -> FilePath -> m ()
+    => t -> IORef Bool -> C.SecretKey -> State -> Maybe FilePath -> m ()
 runWorkerWithPeriod periodDelta mainIsBusy sk st storagePath =
     repeatForever (tu periodDelta) handler worker
   where
@@ -91,7 +91,7 @@ runWorkerWithPeriod periodDelta mainIsBusy sk st storagePath =
                 e
         return $ sec 20
 
-onPeriodFinished :: WorkMode m => C.SecretKey -> State -> FilePath -> m ()
+onPeriodFinished :: WorkMode m => C.SecretKey -> State -> Maybe FilePath -> m ()
 onPeriodFinished sk st storagePath = do
     mintettes <- query' st GetMintettes
     pId <- query' st GetPeriodId
@@ -104,10 +104,11 @@ onPeriodFinished sk st storagePath = do
     newPeriodData <- update' st $ StartNewPeriod nodeCtx sk periodResults
     pid <- query' st GetPeriodId
     liftIO $ createCheckpoint st
-    when (pid `mod` 5 == 0) $ liftIO $ do
+    when (isJust storagePath && pid `mod` 5 == 0) $ liftIO $ do
          createArchive st
          void $ TURT.shellStrict
-             (T.pack $ "rm -rf " ++ (storagePath </> "Archive")) (return "")
+             (T.pack $ "rm -rf " ++ (fromJust storagePath </> "Archive"))
+             (return "")
     newMintettes <- query' st GetMintettes
     if null newMintettes
         then logWarning "New mintettes list is empty!"

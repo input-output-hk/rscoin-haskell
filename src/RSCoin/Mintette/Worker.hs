@@ -8,6 +8,7 @@ module RSCoin.Mintette.Worker
        ) where
 
 import           Control.Monad             (unless, void, when)
+import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (liftIO)
 import           Data.Acid                 (createArchive, createCheckpoint,
                                             query, update)
@@ -28,9 +29,10 @@ import           RSCoin.Mintette.Error     (isMEInactive)
 import           RSCoin.Timed              (WorkMode, repeatForever, sec, tu)
 
 -- | Start worker which updates state when epoch finishes.
-runWorker :: WorkMode m => SecretKey -> State -> FilePath -> m ()
+runWorker :: WorkMode m => SecretKey -> State -> Maybe FilePath -> m ()
 runWorker sk st storagePath =
-    repeatForever (tu epochDelta) handler $ liftIO $ onEpochFinished sk st storagePath
+    repeatForever (tu epochDelta) handler $
+    liftIO $ onEpochFinished sk st storagePath
   where
     handler e = do
         unless (isMEInactive e) $
@@ -40,11 +42,13 @@ runWorker sk st storagePath =
                 e
         return $ sec 2
 
-onEpochFinished :: SecretKey -> State -> FilePath -> IO ()
+onEpochFinished :: SecretKey -> State -> Maybe FilePath -> IO ()
 onEpochFinished sk st storagePath = do
     update st $ FinishEpoch sk
     createCheckpoint st
     pid <- query st GetPeriodId
-    when (pid `mod` 5 == 0) $ liftIO $ do
-         createArchive st
-         void $ TURT.shellStrict (T.pack $ "rm -rf " ++ (storagePath </> "Archive")) (return "")
+    whenJust storagePath $ \stpath ->
+        when (pid `mod` 5 == 0) $ liftIO $ do
+             createArchive st
+             void $ TURT.shellStrict
+                 (T.pack $ "rm -rf " ++ (stpath </> "Archive")) (return "")

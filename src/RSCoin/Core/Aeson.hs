@@ -20,7 +20,8 @@ import           RSCoin.Core.Strategy   (AllocationAddress, AllocationStrategy,
                                          PartyAddress)
 
 showFPrec :: Int -> Double -> T.Text
-showFPrec prec = T.dropWhileEnd (== '0') . sformat (fixed prec)
+showFPrec prec =
+    T.dropWhileEnd (== '.') . T.dropWhileEnd (== '0') . sformat (fixed prec)
 
 instance ToJSON CoinAmount where
     toJSON = String . showFPrec 5 . realToFrac . getAmount

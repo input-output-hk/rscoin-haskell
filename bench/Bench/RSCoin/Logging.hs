@@ -1,4 +1,4 @@
--- | Logigng within bench.
+-- | Logging within bench.
 
 module Bench.RSCoin.Logging
        ( benchLoggerName
@@ -15,7 +15,7 @@ import qualified Data.Text           as T
 import qualified RSCoin.Core.Logging as L
 
 benchLoggerName :: L.LoggerName
-benchLoggerName = "bench"
+benchLoggerName = "bhly875chsfsdf"
 
 initBenchLogger :: L.Severity -> IO ()
 initBenchLogger = flip L.initLoggerByName benchLoggerName

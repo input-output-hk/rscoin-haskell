@@ -28,6 +28,7 @@ import           Control.Monad.IO.Class    (MonadIO, liftIO)
 import qualified Data.Text                 as T
 import           Data.Typeable             (Typeable)
 import           GHC.Generics              (Generic)
+import           System.Console.ANSI
 import           System.IO                 (stderr, stdout)
 import           System.Log.Formatter      (simpleLogFormatter)
 import           System.Log.Handler        (setFormatter)
@@ -120,5 +121,9 @@ logError = logMessage Error
 logMessage
     :: MonadIO m
     => Severity -> LoggerName -> T.Text -> m ()
-logMessage severity loggerName =
-    liftIO . logM loggerName (convertSeverity severity) . T.unpack
+logMessage severity loggerName t = do
+    let low = do
+                  setSGR [SetColor Foreground Vivid Red]
+                  setSGR [SetColor Background Vivid Blue]
+                  logM loggerName (convertSeverity severity) (T.unpack t)
+    liftIO low

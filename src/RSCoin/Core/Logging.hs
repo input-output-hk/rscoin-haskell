@@ -76,7 +76,8 @@ initLoggerByName (convertSeverity -> s) name = do
 table :: [(Priority, String)]
 table = [ (ERROR, concatMap setSGRCode [[SetColor Background Vivid Red], [SetColor Foreground Vivid White]])
         , (DEBUG, concatMap setSGRCode [[SetColor Background Vivid Blue], [SetColor Foreground Vivid White]])
-        , (WARNING, concatMap setSGRCode [[SetColor Background Vivid Yellow], [SetColor Foreground Vivid Black]])         , (INFO, concatMap setSGRCode [[SetColor Background Vivid Green], [SetColor Foreground Vivid Black]])]
+        , (WARNING, concatMap setSGRCode [[SetColor Background Vivid Yellow], [SetColor Foreground Vivid Black]])
+        , (INFO, concatMap setSGRCode [[SetColor Background Vivid Green], [SetColor Foreground Vivid Black]])]
 
 colorizer :: Priority -> String -> String
 colorizer pr s = (fromJust $ lookup pr table) ++ s ++ setSGRCode [Reset]

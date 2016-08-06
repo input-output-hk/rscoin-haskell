@@ -23,7 +23,6 @@ import           Control.Monad.Catch               (Handler (Handler),
                                                     finally)
 import           Control.Monad.Catch               (MonadThrow (throwM), catch)
 import           Control.Monad.Extra               (notM, whenM)
-import           Control.Monad.Logger              as L hiding (logError, logDebug, logInfo)
 import           Control.Monad.Reader              (ReaderT, runReaderT)
 import           Control.Monad.State               (MonadState, State, runState)
 import           Control.Monad.Trans               (MonadIO (liftIO))
@@ -36,9 +35,6 @@ import           Data.Text                         (Text)
 import           Data.Time.Units                   (Second)
 import           Formatting                        (build, int, sformat, shown,
                                                     (%))
-import           GHC.SrcLoc                        as GHC
-import           GHC.Stack                         as GHC
-import           GHC.Stack                         (HasCallStack)
 import qualified Network.WebSockets                as WS
 
 import           Serokell.Util.Concurrent          (threadDelay)
@@ -135,40 +131,6 @@ logError = C.logError wsLoggerName
 logInfo = C.logInfo wsLoggerName
 logDebug = C.logDebug wsLoggerName
 
-mkLoggerLoc :: GHC.SrcLoc -> Loc
-mkLoggerLoc loc =
-  L.Loc { loc_filename = GHC.srcLocFile loc
-      , loc_package  = GHC.srcLocPackage loc
-      , loc_module   = GHC.srcLocModule loc
-      , loc_start    = ( GHC.srcLocStartLine loc
-                       , GHC.srcLocStartCol loc)
-      , loc_end      = ( GHC.srcLocEndLine loc
-                       , GHC.srcLocEndCol loc)
-      }
-
-defaultLoc :: Loc
-defaultLoc = Loc "<unknown>" "<unknown>" "<unknown>" (0,0) (0,0)
-
-locFromCS :: GHC.CallStack -> Loc
-locFromCS cs = case getCallStack cs of
-                 ((_, loc):_) -> mkLoggerLoc loc
-                 _            -> defaultLoc
-
-logCS :: (L.MonadLogger m, L.ToLogStr msg)
-      => GHC.CallStack
-      -> L.LogSource
-      -> L.LogLevel
-      -> msg
-      -> m ()
-logCS cs src lvl msg =
-  monadLoggerLog (locFromCS cs) src lvl msg
-
-logDebugCS :: L.MonadLogger m => GHC.CallStack -> Text -> m ()
-logDebugCS cs msg = logCS cs "" L.LevelDebug msg
-
-logDebug' :: (GHC.HasCallStack, L.MonadLogger m) => Text -> m ()
-logDebug' = logDebugCS callStack
-
 introduceAddress :: Bool -> WS.Connection -> C.Address -> ServerMonad ()
 introduceAddress sendResponseOnError conn addr = do
     checkAddressExistence
@@ -210,7 +172,6 @@ changeInfo conn addr tId =
 handler :: WS.PendingConnection -> ServerMonad ()
 handler pendingConn = do
     logDebug "There is a new pending connection"
---    logDebugCS "
     conn <- liftIO $ WS.acceptRequest pendingConn
     logDebug "Accepted new connection"
     liftIO $ WS.forkPingThread conn 30

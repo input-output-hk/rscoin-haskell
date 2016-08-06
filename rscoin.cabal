@@ -129,7 +129,6 @@ library
                      , lifted-base >= 0.2.3
                      , mtl
                      , MonadRandom
-                     , monad-logger >= 0.3.19
                      , monad-loops
                      , monad-control
                      , msgpack >= 1.0.0

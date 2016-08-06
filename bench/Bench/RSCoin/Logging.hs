@@ -15,7 +15,7 @@ import qualified Data.Text           as T
 import qualified RSCoin.Core.Logging as L
 
 benchLoggerName :: L.LoggerName
-benchLoggerName = "bhly875chsfsdf"
+benchLoggerName = "bench"
 
 initBenchLogger :: L.Severity -> IO ()
 initBenchLogger = flip L.initLoggerByName benchLoggerName

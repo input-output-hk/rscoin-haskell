@@ -25,6 +25,7 @@ module RSCoin.Core.Logging
        ) where
 
 import           Control.Monad.IO.Class    (MonadIO, liftIO)
+import           Data.Maybe                (fromJust)
 import qualified Data.Text                 as T
 import           Data.Typeable             (Typeable)
 import           GHC.Generics              (Generic)
@@ -67,10 +68,18 @@ initLoggerByName (convertSeverity -> s) name = do
         (flip setFormatter) stderrFormatter <$> streamHandler stderr ERROR
     updateGlobalLogger name $ setHandlers [stdoutHandler, stderrHandler]
   where
-    stderrFormatter = simpleLogFormatter "[$time] [$loggername] $prio: $msg"
+    stderrFormatter = simpleLogFormatter (colorizer ERROR "[$time] [$loggername] $prio: $msg")
     stdoutFormatter h r@(pr,_) n
-      | pr > DEBUG = simpleLogFormatter "[$loggername] $msg" h r n
-      | otherwise = simpleLogFormatter "[$loggername] $msg" h r n
+      | pr > DEBUG = simpleLogFormatter (colorizer pr "[$loggername:$prio]" ++ "$msg") h r n
+      | otherwise = simpleLogFormatter (colorizer pr "[$loggername:$prio]" ++ "$msg") h r n
+
+table :: [(Priority, String)]
+table = [ (ERROR, concatMap setSGRCode [[SetColor Background Vivid Red], [SetColor Foreground Vivid White]])
+        , (DEBUG, concatMap setSGRCode [[SetColor Background Vivid Blue], [SetColor Foreground Vivid White]])
+        , (WARNING, concatMap setSGRCode [[SetColor Background Vivid Yellow], [SetColor Foreground Vivid Black]])         , (INFO, concatMap setSGRCode [[SetColor Background Vivid Green], [SetColor Foreground Vivid Black]])]
+
+colorizer :: Priority -> String -> String
+colorizer pr s = (fromJust $ lookup pr table) ++ s ++ setSGRCode [Reset]
 
 type LoggerName = String
 
@@ -121,9 +130,5 @@ logError = logMessage Error
 logMessage
     :: MonadIO m
     => Severity -> LoggerName -> T.Text -> m ()
-logMessage severity loggerName t = do
-    let low = do
-                  setSGR [SetColor Foreground Vivid Red]
-                  setSGR [SetColor Background Vivid Blue]
-                  logM loggerName (convertSeverity severity) (T.unpack t)
-    liftIO low
+logMessage severity loggerName =
+    liftIO . logM loggerName (convertSeverity severity) . T.unpack

@@ -82,8 +82,7 @@ establishBank benchDir periodDelta = do
 establishMintettes :: FilePath -> Word -> IO ()
 establishMintettes benchDir mintettesNumber = do
     keyPairs <- generateMintetteKeys mintettesNumber
-    logInfo "I should be here"
-    logInfo $ sformat ("Runnin " % int % " mindfgfdgfdgtettes…") mintettesNumber
+    logInfo $ sformat ("Running" % int % " mintettes…") mintettesNumber
     runMintettes benchDir keyPairs
     runRealModeUntrusted Nothing finishBankPeriod
     logInfo $ sformat (int % " mintettes are launched") mintettesNumber

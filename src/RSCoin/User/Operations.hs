@@ -128,7 +128,7 @@ updateBlockchain st verbose = do
              "block's height in bank ({}). Critical error.")
             (walletHeight, lastBlockHeight)
     when (lastBlockHeight /= walletHeight) $ do
-        let delta = max 50 $ (lastBlockHeight - walletHeight) `div` 10
+        let delta = max 100 $ (lastBlockHeight - walletHeight) `div` 10
             periods =
                 takeWhile (< lastBlockHeight)
                     (iterate (+delta) (walletHeight + 1)) ++

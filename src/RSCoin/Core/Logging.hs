@@ -68,7 +68,7 @@ initLoggerByName (convertSeverity -> s) name = do
         (flip setFormatter) stderrFormatter <$> streamHandler stderr ERROR
     updateGlobalLogger name $ setHandlers [stdoutHandler, stderrHandler]
   where
-    stderrFormatter = simpleLogFormatter (colorizer ERROR "[$time] [$loggername] $prio: $msg")
+    stderrFormatter = simpleLogFormatter ("[$time] " ++ colorizer ERROR "[$loggername:$prio]: " ++ "$msg")
     stdoutFormatter h r@(pr,_) n
       | pr > DEBUG = simpleLogFormatter (colorizer pr "[$loggername:$prio]" ++ "$msg") h r n
       | otherwise = simpleLogFormatter (colorizer pr "[$loggername:$prio]" ++ "$msg") h r n

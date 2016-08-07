@@ -126,7 +126,10 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
                 }
        unless (isJust outputAddr) $
            U.commitError $ "Provided key can't be exported: " <> outputAddrStr
-       void $ submitTransactionRetry 2 st cache td
+       tx <- submitTransactionRetry 2 st cache td
+       C.logInfo C.userLoggerName $
+           sformat ("Successfully submitted transaction with hash: " % build) $
+               C.hash tx
 processCommand st O.UpdateBlockchain _ =
     eWrap $
     do res <- updateBlockchain st True
@@ -139,12 +142,15 @@ processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
     sk <- maybe (pure C.attainSecretKey) C.readSecretKey mPath
     (seedPk, _) <- case B64.decode $ encodeUtf8 seedB64 of
               Left _ -> fail "Wrong seed supplied (base64 decoding failed)"
-              Right s -> maybe (fail "Failed to derive keypair from seed") pure $ C.deterministicKeyGen s
+              Right s ->
+                  maybe (fail "Failed to derive keypair from seed") pure $
+                      C.deterministicKeyGen s
     liftIO $ TIO.putStrLn $
        sformat ("Seed Pk: " % build) seedPk
     let (pk, sig) = (C.derivePublicKey sk, C.sign sk seedPk)
     liftIO $ TIO.putStrLn $
-       sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build) pk sig (C.verifyChain pk [(sig, seedPk)])
+       sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build)
+           pk sig (C.verifyChain pk [(sig, seedPk)])
 processCommand st (O.AddMultisigAddress m textUAddrs textTAddrs mMSAddress) _ = do
     when (null textUAddrs && null textTAddrs) $
         U.commitError "Can't create multisig with empty addrs list"

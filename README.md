@@ -60,6 +60,16 @@ just two mintettes, central bank and allows you to perform transactions
 in bank-mode. In order to get a more sophisticated layout with more than
 one user and nine mintettes, please refer to script ``admin/demo9``.
 
+We also have testing and benchmarking. 
+
+```
+# Full tests, run 3 times
+stack test rscoin --test-arguments '--match "Test.RSCoin.Full" -a 3'
+# All other tests
+stack test rscoin --test-arguments '--match "Test.RSCoin.Full" -a 3'
+# And that's how to run bench:
+stack bench rscoin:rscoin-bench-local --benchmark-arguments "--users 2 --mintettes 1"
+```
 ---
 
 #### References

@@ -18,11 +18,9 @@ import           Data.Acid.Advanced             (query', update')
 import           Data.List                      (nub, (\\))
 import qualified Data.Map.Strict                as M
 import           Data.Maybe                     (catMaybes)
-import           Formatting                     (int, sformat, (%))
-import qualified Formatting                     as F (build)
+import           Formatting                     (build, int, sformat, (%))
 
-import           Serokell.Util.Text             (format', formatSingle',
-                                                 listBuilderJSON, mapBuilder,
+import           Serokell.Util.Text             (listBuilderJSON, mapBuilder,
                                                  show')
 
 import           RSCoin.Bank.AcidState          (AddExplorer (..),
@@ -101,21 +99,22 @@ serveGetAddresses :: T.WorkMode m => State -> T.ServerT m AddressToTxStrategyMap
 serveGetAddresses st =
     toServer $
     do mts <- query' st GetAddresses
-       logDebug bankLoggerName $ formatSingle' "Getting list of addresses: {}" $ mapBuilder $ M.toList mts
+       logDebug bankLoggerName $
+          sformat ("Getting list of addresses: " % build) $ mapBuilder $ M.toList mts
        return mts
 
 serveGetMintettes :: T.WorkMode m => State -> T.ServerT m Mintettes
 serveGetMintettes st =
     toServer $
     do mts <- query' st GetMintettes
-       logDebug bankLoggerName $ formatSingle' "Getting list of mintettes: {}" mts
+       logDebug bankLoggerName $ sformat ("Getting list of mintettes: " % build) mts
        return mts
 
 serveGetHeight :: T.WorkMode m => State -> T.ServerT m PeriodId
 serveGetHeight st =
     toServer $
     do pId <- query' st GetPeriodId
-       logDebug bankLoggerName $ formatSingle' "Getting blockchain height: {}" pId
+       logDebug bankLoggerName $ sformat ("Getting blockchain height: " % build) pId
        return pId
 
 serveGetHBlockEmission :: T.WorkMode m
@@ -125,7 +124,9 @@ serveGetHBlockEmission st pId =
     do mBlock <- query' st (GetHBlock pId)
        emission <- query' st (GetEmission pId)
        logDebug bankLoggerName $
-           format' "Getting higher-level block with periodId {} and emission {}: {}" (pId, emission, mBlock)
+           sformat ("Getting higher-level block with periodId " % build %
+                    " and emission " % build % ": " % build)
+                   pId emission mBlock
        return $ (,emission) <$> mBlock
 
 serveGetHBlocks :: T.WorkMode m
@@ -133,7 +134,7 @@ serveGetHBlocks :: T.WorkMode m
 serveGetHBlocks st (nub -> periodIds) =
     toServer $
     do logDebug bankLoggerName $
-           sformat ("Getting higher-level blocks in range: " % F.build) $
+           sformat ("Getting higher-level blocks in range: " % build) $
            listBuilderJSON periodIds
        blocks <-
            catMaybes <$>
@@ -143,7 +144,7 @@ serveGetHBlocks st (nub -> periodIds) =
            throwM $
            BEInconsistentResponse $
            sformat
-               ("Couldn't get blocks for the following periods: " % F.build) $
+               ("Couldn't get blocks for the following periods: " % build) $
            listBuilderJSON (periodIds \\ gotIndices)
        return $ map fst blocks
 
@@ -153,7 +154,7 @@ serveGetTransaction st tId =
     toServer $
     do t <- query' st (GetTransaction tId)
        logDebug bankLoggerName $
-           format' "Getting transaction with id {}: {}" (tId, t)
+           sformat ("Getting transaction with id " % build % ": " % build) tId t
        return t
 
 -- !!! WARNING !!!
@@ -175,7 +176,8 @@ serveFinishPeriod st threadIdMVar restartAction bankPublicKey periodIdSignature 
         if verify bankPublicKey periodIdSignature currentPeriodId then
             restartAction workerThreadId
         else do
-            logError bankLoggerName $ sformat ("Incorrect signature for periodId=" % int) currentPeriodId
+            logError bankLoggerName $
+                sformat ("Incorrect signature for periodId=" % int) currentPeriodId
             return workerThreadId
 
 serveAddMintetteAdhoc
@@ -189,13 +191,13 @@ serveAddMintetteAdhoc
 serveAddMintetteAdhoc st bankPublicKey mintette pk proof =
     toServer $
     do logInfo bankLoggerName $
-           sformat ("Adding mintette: " % F.build % " with pk " % F.build)
+           sformat ("Adding mintette: " % build % " with pk " % build)
                    mintette pk
        if verify bankPublicKey proof (mintette,pk)
        then update' st (AddMintette mintette pk)
        else logError bankLoggerName $
-                sformat ("Tried to add mintette " % F.build %
-                         " with pk " % F.build % " with *failed* signature")
+                sformat ("Tried to add mintette " % build %
+                         " with pk " % build % " with *failed* signature")
                         mintette pk
 
 serveAddExplorerAdhoc
@@ -209,12 +211,12 @@ serveAddExplorerAdhoc
 serveAddExplorerAdhoc st bankPublicKey explorer pId proof =
     toServer $
     do logInfo bankLoggerName $
-           sformat ("Adding explorer " % F.build % " with pid " % int)
+           sformat ("Adding explorer " % build % " with pid " % int)
                    explorer pId
        if verify bankPublicKey proof (explorer, pId)
        then update' st (AddExplorer explorer pId)
        else logError bankLoggerName $
-                sformat ("Tried to add explorer " % F.build %
+                sformat ("Tried to add explorer " % build %
                          " with pid" % int % " with *failed* signature")
                         explorer pId
 
@@ -228,7 +230,9 @@ serveGetLogs st m from to =
     toServer $
     do mLogs <- query' st (GetLogs m from to)
        logDebug bankLoggerName $
-           format' "Getting action logs of mintette {} with range of entries {} to {}: {}" (m, from, to, mLogs)
+           sformat ("Getting action logs of mintette " % build %
+                    " with range of entries " % int % " to " % int % ": " % build)
+                   m from to mLogs
        return mLogs
 
 serveGetExplorers

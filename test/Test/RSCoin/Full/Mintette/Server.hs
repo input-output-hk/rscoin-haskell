@@ -11,9 +11,9 @@ import           Control.Monad.Catch              (catch)
 import           Control.Monad.IO.Class           (MonadIO, liftIO)
 import           Data.Acid.Advanced               (query', update')
 import           Data.Text                        (Text)
+import           Formatting                       (build, sformat, (%))
 
-import           Serokell.Util.Text               (format', formatSingle',
-                                                   show')
+import           Serokell.Util.Text               (show')
 
 import qualified RSCoin.Core                      as C
 import           RSCoin.Mintette.Acidic           (GetUtxoPset (..))
@@ -83,22 +83,23 @@ handleCheckTx
 handleCheckTx sk st conf tx addrId sg =
     toServer $
     do logDebug $
-           format' "Checking addrid ({}) from transaction: {}" (addrId, tx)
+           sformat ("Checking addrid (" % build % ") from transaction: " % build) addrId tx
        (curUtxo,curPset) <- query' st GetUtxoPset
        logDebug $
-           format'
-               "My current utxo is: {}\nCurrent pset is: {}"
-               (curUtxo, curPset)
+           sformat
+               ("My current utxo is: " % build % "\nCurrent pset is: " % build)
+               curUtxo curPset
        res <- try $ update' st $ MA.CheckNotDoubleSpent conf sk tx addrId sg
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do
-        logWarning $ formatSingle' "CheckTx failed: {}" e
+        logWarning $ sformat ("CheckTx failed: " % build) e
         return Nothing
     onSuccess res = do
         logInfo $
-            format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
-        logInfo $ formatSingle' "Confirmation: {}" res
+            sformat ("Confirmed addrid (" % build %
+                     ") from transaction: " % build) addrId tx
+        logInfo $ sformat ("Confirmation: " % build) res
         return $ Just res
 
 handleCommitTx
@@ -112,14 +113,14 @@ handleCommitTx
 handleCommitTx sk st conf tx cc =
     toServer $
     do logDebug $
-           formatSingle' "There is an attempt to commit transaction ({})" tx
-       logDebug $ formatSingle' "Here are confirmations: {}" cc
+           sformat ("There is an attempt to commit transaction (" % build % ")") tx
+       logDebug $ sformat ("Here are confirmations: " % build) cc
        res <- try $ update' st $ MA.CommitTx conf sk tx cc
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do
-        logWarning $ formatSingle' "CommitTx failed: {}" e
+        logWarning $ sformat ("CommitTx failed: " % build) e
         return Nothing
     onSuccess res = do
-        logInfo $ formatSingle' "Successfully committed transaction {}" tx
+        logInfo $ sformat ("Successfully committed transaction " % build) tx
         return $ Just res

@@ -14,12 +14,11 @@ import           Data.Acid                 (createArchive, createCheckpoint)
 import           Data.Acid.Advanced        (query', update')
 import           Data.Text                 (Text)
 import qualified Data.Text                 as T
-import           Formatting                (int, sformat, (%))
-import           Serokell.Util.Text        (formatSingle',
-                                            listBuilderJSONIndent)
+import           Formatting                (build, int, sformat, (%))
 import           System.FilePath           ((</>))
 import qualified Turtle.Prelude            as TURT
 
+import           Serokell.Util.Text        (listBuilderJSONIndent)
 
 import qualified RSCoin.Core               as C
 import           RSCoin.Timed              (MonadRpc (getNodeContext), ServerT,
@@ -68,15 +67,15 @@ handleNewHBlock ch st bankPublicKey storagePath newBlockId (newBlock,emission) s
             logDebug $ sformat ("Now expected block is #" % int) p
             return p
         upd = do
-            logDebug $ formatSingle' "HBlock hash: {}" $ C.hash newBlock
-            logDebug $ formatSingle' "HBlock emission: {}" emission
+            logDebug $ sformat ("HBlock hash: " % build) (C.hash newBlock)
+            logDebug $ sformat ("HBlock emission: " % build) emission
             logDebug $
-                formatSingle' "Transaction hashes: {}" $
+                sformat ("Transaction hashes: " % build) $
                 listBuilderJSONIndent 2 $
                 map (C.hash :: C.Transaction -> C.Hash) $
                 C.hbTransactions newBlock
             logDebug $
-                formatSingle' "Transactions: {}" $
+                sformat ("Transactions: " % build) $
                 listBuilderJSONIndent 2 $ C.hbTransactions newBlock
             update' st (AddHBlock newBlockId newBlock emission)
             writeChannel

@@ -64,8 +64,7 @@ import           Data.Tuple.Select         (sel1, sel2, sel3)
 import           Formatting                (build, int, sformat, shown, (%))
 import           Safe                      (atMay)
 
-import           Serokell.Util             (format', formatSingle',
-                                            listBuilderJSON,
+import           Serokell.Util             (listBuilderJSON,
                                             listBuilderJSONIndent, pairBuilder)
 
 import qualified RSCoin.Core               as C
@@ -111,22 +110,22 @@ updateBlockchain :: WorkMode m => A.RSCoinUserState -> Bool -> m Bool
 updateBlockchain st verbose = do
     walletHeight <- query' st A.GetLastBlockId
     verboseSay $
-        formatSingle'
-            "Current known blockchain's height (last HBLock's id) is {}."
+        sformat
+            ("Current known blockchain's height (last HBLock's id) is " % build % ".")
             walletHeight
     lastBlockHeight <- pred <$> C.getBlockchainHeight
     verboseSay $
-        formatSingle'
-            "Request showed that bank owns height {}."
+        sformat
+            ("Request showed that bank owns height " % build % ".")
             lastBlockHeight
     when (walletHeight > lastBlockHeight) $
         throwM $
         StorageError $
         W.InternalError $
-        format'
-            ("Last block height in wallet ({}) is greater than last " <>
-             "block's height in bank ({}). Critical error.")
-            (walletHeight, lastBlockHeight)
+        sformat
+            ("Last block height in wallet (" % int % ") is greater than last " %
+             "block's height in bank (" % int % "). Critical error.")
+            walletHeight lastBlockHeight
     when (lastBlockHeight /= walletHeight) $ do
         let delta = max 100 $ (lastBlockHeight - walletHeight) `div` 10
             periods =
@@ -296,9 +295,10 @@ submitTransactionFromAll st maybeCache addressTo amount =
        when (amount > totalAmount) $
            throwM $
            InputProcessingError $
-           format'
-               "Tried to form transaction with amount ({}) greater than available ({})."
-               (amount, totalAmount)
+           sformat
+               ("Tried to form transaction with amount (" % build %
+                ") greater than available (" % build % ").")
+               amount totalAmount
        let discoverAmount _ r@(left,_)
              | not $ C.isPositiveCoin left = r
            discoverAmount e@(i,c) (left,results) =
@@ -372,15 +372,14 @@ constructAndSignTransaction
 constructAndSignTransaction st TransactionData{..} = do
     () <$ updateBlockchain st False
     C.logInfo C.userLoggerName $
-        format'
-            "Form a transaction from {}, to {}, amount {}"
-            ( listBuilderJSONIndent 2 $
-              map
+        sformat
+            ("Form a transaction from " % build % ", to " % build % ", amount " % build)
+            (listBuilderJSONIndent 2 $ map
                   (\(a,b) ->
                         pairBuilder (a, listBuilderJSON b))
-                  tdInputs
-            , tdOutputAddress
-            , listBuilderJSONIndent 2 $ tdOutputCoins)
+                  tdInputs)
+            tdOutputAddress
+            (listBuilderJSONIndent 2 $ tdOutputCoins)
     -- If there are multiple
     let tdInputsMerged :: [TransactionInput]
         tdInputsMerged = map (foldr1 (\(a,b) (_,d) -> (a, b++d))) $
@@ -388,8 +387,9 @@ constructAndSignTransaction st TransactionData{..} = do
                          sortOn fst tdInputs
     unless (all C.isPositiveCoin $ concatMap snd tdInputsMerged) $
         commitError $
-        formatSingle'
-            "All input values should be positive, but encountered {}, that's not." $
+        sformat
+            ("All input values should be positive, but encountered " % build %
+             ", that's not.") $
         head $ filter (not . C.isPositiveCoin) $ concatMap snd tdInputsMerged
     nodeCtx  <- getNodeContext
     accounts <- query' st $ A.GetOwnedAddresses nodeCtx
@@ -421,8 +421,8 @@ constructAndSignTransaction st TransactionData{..} = do
         (if length overSpentAccounts > 1
              then "At least the"
              else "The") <>
-        formatSingle'
-            " following account doesn't have enough coins: {}"
+        sformat
+            (" following account doesn't have enough coins: " % build)
             (sel1 $ head overSpentAccounts)
     txPieces <-
         mapM
@@ -446,11 +446,11 @@ constructAndSignTransaction st TransactionData{..} = do
                 addrPairList
     when (not (null tdOutputCoins) && not (C.validateSum outTr)) $
         commitError $
-        formatSingle' "Your transaction doesn't pass validity check: {}" outTr
+        sformat ("Your transaction doesn't pass validity check: " % build) outTr
     when (null tdOutputCoins && not (C.validateSum outTr)) $
         commitError $
-        formatSingle'
-            "Our code is broken and our auto-generated transaction is invalid: {}"
+        sformat
+            ("Our code is broken and our auto-generated transaction is invalid: " % build)
             outTr
     sigBundle <- M.fromList <$> mapM toSignatureBundle (M.assocs signatures)
     return (outTr, sigBundle)
@@ -527,9 +527,9 @@ sendTransactionRetry tries st maybeCache tx signatures
         => s -> m ()
     logMsgAndRetry msg = do
         C.logWarning C.userLoggerName $
-            format'
-                "Failed to send transaction ({}), retries left: {}"
-                (msg, tries - 1)
+            sformat
+                ("Failed to send transaction (" % build % "), retries left: " % int)
+                msg (tries - 1)
         wait $ for 1 sec
         () <$ updateBlockchain st False
         sendTransactionRetry (tries - 1) st maybeCache tx signatures
@@ -554,9 +554,10 @@ sendTransactionDo st maybeCache tx signatures = do
     when (walletHeight /= lastAppliedBlock) $
         throwM $
         WalletSyncError $
-        format'
-            "Wallet isn't updated (lastBlockHeight {} when blockchain's last block is {})."
-            (walletHeight, lastAppliedBlock)
+        sformat
+            ("Wallet isn't updated (lastBlockHeight " % int %
+             " when blockchain's last block is " % int %").")
+            walletHeight lastAppliedBlock
     let nonDefaultAddresses =
             M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
             map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head $ sgns))) $
@@ -588,7 +589,8 @@ isRetriableException e
 -- for testing purposes until we will generate IOU.
 createCertificateChain :: C.PublicKey -> [(C.Signature, C.PublicKey)]
 createCertificateChain userPublicKey =
-    [ (C.sign C.attainSecretKey C.attainPublicKey, C.attainPublicKey)  -- @TODO: should introduce `seedPK`
+    [  -- @TODO: should introduce `seedPK`
+      (C.sign C.attainSecretKey C.attainPublicKey, C.attainPublicKey)
     , (C.sign C.attainSecretKey userPublicKey,     userPublicKey)
     ]
 

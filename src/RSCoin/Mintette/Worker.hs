@@ -7,22 +7,19 @@ module RSCoin.Mintette.Worker
        , runWorker
        ) where
 
-import           Control.Monad             (unless, void, when)
+import           Control.Monad             (unless, void)
 import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (liftIO)
 import           Data.Acid                 (createArchive, createCheckpoint,
-                                            query, update)
+                                            update)
 import qualified Data.Text                 as T
+import           Formatting                (build, sformat, (%))
 import           System.FilePath           ((</>))
 import qualified Turtle.Prelude            as TURT
 
-import           Serokell.Util.Exceptions  ()
-import           Serokell.Util.Text        (formatSingle')
-
 import           RSCoin.Core               (SecretKey, epochDelta, logError,
                                             mintetteLoggerName)
-
-import           RSCoin.Mintette.Acidic    (FinishEpoch (..), GetPeriodId (..))
+import           RSCoin.Mintette.Acidic    (FinishEpoch (..))
 import           RSCoin.Mintette.AcidState (State)
 import           RSCoin.Mintette.Error     (isMEInactive)
 
@@ -37,16 +34,15 @@ runWorker sk st storagePath =
     handler e = do
         unless (isMEInactive e) $
             logError mintetteLoggerName $
-            formatSingle'
-                "Error was caught by worker, restarting in 2 seconds: {}"
-                e
+            sformat
+                ("Error was caught by worker, restarting in 2 seconds: " % build) e
         return $ sec 2
 
 onEpochFinished :: SecretKey -> State -> Maybe FilePath -> IO ()
 onEpochFinished sk st storagePath = do
     update st $ FinishEpoch sk
     createCheckpoint st
-    pid <- query st GetPeriodId
+    --pid <- query st GetPeriodId -- can be used to cleanup archive once in N periods
     whenJust storagePath $ \stpath -> liftIO $ do
         createArchive st
         void $ TURT.shellStrict

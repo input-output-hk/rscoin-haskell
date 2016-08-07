@@ -17,14 +17,11 @@ import           Control.Exception         (throwIO, try)
 import           Control.Monad.Catch       (catch)
 import           Control.Monad.IO.Class    (MonadIO, liftIO)
 import           Data.Acid.Advanced        (query', update')
-import           Data.Monoid               ((<>))
 import           Data.Text                 (Text)
-import           Formatting                (int, sformat, (%))
+import           Formatting                (build, int, sformat, (%))
 
-import           Serokell.Util.Text        (format', formatSingle',
-                                            listBuilderJSONIndent, pairBuilder,
+import           Serokell.Util.Text        (listBuilderJSONIndent, pairBuilder,
                                             show')
-
 
 import qualified RSCoin.Core               as C
 import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
@@ -90,20 +87,23 @@ handlePeriodFinished sk st pId =
     toServer $
     do (curUtxo,curPset) <- query' st GetUtxoPset
        logDebug $
-           format'
-               "Before period end utxo is: {}\nCurrent pset is: {}"
-               (curUtxo, curPset)
-       logInfo $ formatSingle' "Period {} has just finished!" pId
+           sformat
+               ("Before period end utxo is: " % build %
+               "\nCurrent pset is: " % build)
+               curUtxo curPset
+       logInfo $ sformat ("Period " % int % " has just finished!") pId
        res@(_,blks,lgs) <- update' st $ FinishPeriod sk pId
        logInfo $
-           format'
-               "Here is PeriodResult:\n Blocks: {}\n Logs: {}\n"
-               (listBuilderJSONIndent 2 blks, lgs)
+           sformat
+               ("Here is PeriodResult:\n Blocks: " % build %
+                "\n Logs: " % build % "\n")
+               (listBuilderJSONIndent 2 blks) lgs
        (curUtxo', curPset') <- query' st GetUtxoPset
        logDebug $
-           format'
-               "After period end utxo is: {}\nCurrent pset is: {}"
-               (curUtxo', curPset')
+           sformat
+               ("After period end utxo is: " % build %
+                "\nCurrent pset is: " % build)
+               curUtxo' curPset'
        return res
 
 handleNewPeriod :: WorkMode m
@@ -114,16 +114,17 @@ handleNewPeriod st npd =
     toServer $
     do prevMid <- query' st PreviousMintetteId
        logInfo $
-           format'
-               ("New period has just started, I am mintette #{} (prevId).\n" <>
-                "Here is new period data:\n {}")
-               (prevMid, npd)
+           sformat
+               ("New period has just started, I am mintette #" % build %
+                " (prevId).\nHere is new period data:\n " % build)
+               prevMid npd
        update' st $ StartPeriod npd
        (curUtxo,curPset) <- query' st GetUtxoPset
        logDebug $
-           format'
-               "After start of new period, my utxo: {}\nCurrent pset is: {}"
-               (curUtxo, curPset)
+           sformat
+               ("After start of new period, my utxo: " % build %
+               "\nCurrent pset is: " % build)
+               curUtxo curPset
 
 logFunction :: MonadIO m => MintetteError -> Text -> m ()
 logFunction MEInactive = logInfo
@@ -140,21 +141,23 @@ handleCheckTx
 handleCheckTx sk st tx addrId sg =
     toServer $
     do logDebug $
-           format' "Checking addrid ({}) from transaction: {}" (addrId, tx)
+           sformat ("Checking addrid (" % build % ") from transaction: " % build)
+               addrId tx
        (curUtxo,curPset) <- query' st GetUtxoPset
        logDebug $
-           format'
-               "My current utxo is: {}\nCurrent pset is: {}"
-               (curUtxo, curPset)
+           sformat
+               ("My current utxo is: " % build % "\nCurrent pset is: " % build)
+               curUtxo curPset
        res <- try $ update' st $ CheckNotDoubleSpent sk tx addrId sg
        either onError onSuccess res
   where
     onError e =
-        Left e <$ (logFunction e $ formatSingle' "CheckTx failed: {}" e)
+        Left e <$ logFunction e (sformat ("CheckTx failed: " % build) e)
     onSuccess res = do
         logInfo $
-            format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
-        logInfo $ formatSingle' "Confirmation: {}" res
+            sformat ("Confirmed addrid (" % build % ") from transaction: " % build)
+                addrId tx
+        logInfo $ sformat ("Confirmation: " % build) res
         return $ Right res
 
 handleCommitTx
@@ -167,15 +170,15 @@ handleCommitTx
 handleCommitTx sk st tx cc =
     toServer $
     do logDebug $
-           formatSingle' "There is an attempt to commit transaction ({})." tx
-       logDebug $ formatSingle' "Here are confirmations: {}" cc
+           sformat ("There is an attempt to commit transaction (" % build % ").") tx
+       logDebug $ sformat ("Here are confirmations: " % build) cc
        res <- try $ update' st $ CommitTx sk tx cc
        either onError onSuccess res
   where
     onError e =
-        Left e <$ (logFunction e $ formatSingle' "CommitTx failed: {}" e)
+        Left e <$ logFunction e (sformat ("CommitTx failed: " % build) e)
     onSuccess res = do
-        logInfo $ formatSingle' "Successfully committed transaction {}" tx
+        logInfo $ sformat ("Successfully committed transaction " % build) tx
         return $ Right res
 
 handleGetMintettePeriod :: WorkMode m => State -> ServerT m (Maybe C.PeriodId)
@@ -200,7 +203,7 @@ handleGetUtxo st =
     toServer $
     do logDebug "Getting utxo"
        (curUtxo, _) <- query' st GetUtxoPset
-       logDebug $ formatSingle' "Corrent utxo is: {}" curUtxo
+       logDebug $ sformat ("Corrent utxo is: " % build) curUtxo
        return curUtxo
 
 handleGetBlocks :: WorkMode m
@@ -209,15 +212,16 @@ handleGetBlocks st pId =
     toServer $
     do res <- query' st $ GetBlocks pId
        logDebug $
-            format' "Getting blocks for periodId {}: {}" (pId, listBuilderJSONIndent 2 <$> res)
+            sformat ("Getting blocks for periodId " % int % ": " % build)
+                pId (listBuilderJSONIndent 2 <$> res)
        return res
 
--- TODO: code duplication, simiar as handleGetBlocks => refactor!
 handleGetLogs :: WorkMode m
               => State -> C.PeriodId -> ServerT m (Maybe C.ActionLog)
 handleGetLogs st pId =
     toServer $
     do res <- query' st $ GetLogs pId
        logDebug $
-            format' "Getting logs for periodId {}: {}" (pId, listBuilderJSONIndent 2 . map pairBuilder <$> res)
+            sformat ("Getting logs for periodId " % int % ": " % build)
+                pId (listBuilderJSONIndent 2 . map pairBuilder <$> res)
        return res

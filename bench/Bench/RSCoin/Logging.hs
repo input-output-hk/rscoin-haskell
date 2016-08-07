@@ -1,4 +1,4 @@
--- | Logigng within bench.
+-- | Logging within bench.
 
 module Bench.RSCoin.Logging
        ( benchLoggerName

@@ -103,6 +103,7 @@ library
                      , RSCoin.User.Cache
   build-depends:       acid-state
                      , aeson
+                     , ansi-terminal
                      , base >=4.8 && <4.9
                      , base64-bytestring >= 1.0.0.1
                      , binary >= 0.7.5.0

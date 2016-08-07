@@ -6,10 +6,8 @@ import           Control.Exception       (SomeException)
 import           Control.Monad           (forM_, forever, void, when)
 import           Control.Monad.Catch     (catch, throwM)
 import           Control.Monad.IO.Class  (liftIO)
-import           Data.Monoid             ((<>))
+import           Formatting              (int, sformat, (%))
 import qualified Graphics.UI.Gtk         as G
-
-import           Serokell.Util.Text      (format', formatSingle')
 
 import           GUI.RSCoin.AddressesTab (updateAddressTab)
 import           GUI.RSCoin.GUIAcid      (GUIState)
@@ -35,10 +33,10 @@ updateBlockchainWithProgress st M.MainWindow{..} =
           throwM $
           U.StorageError $
           U.InternalError $
-          format'
-              ("Last block height in wallet ({}) is greater than last " <>
-               "block's height in bank ({}). Critical error.")
-              (walletHeight, lastBlockHeight)
+          sformat
+              ("Last block height in wallet (" % int % ") is greater than " %
+               "last block's height in bank (" % int % "). Critical error.")
+              walletHeight lastBlockHeight
       when (lastBlockHeight /= walletHeight) $ do
           let diff = toInteger $ lastBlockHeight - walletHeight
               step = 1.0 / fromInteger diff
@@ -46,13 +44,14 @@ updateBlockchainWithProgress st M.MainWindow{..} =
               idleTimeShort = round $ 40 / toRational diff
           postGUI $ do
             G.progressBarSetFraction progressBarUpdate 0
-            G.labelSetText labelSync $ formatSingle' "Syncing 0/{}" diff
+            G.labelSetText labelSync $ sformat ("Syncing 0/" % int) diff
           forM_
               [walletHeight + 1 .. lastBlockHeight]
               (\h -> do
                   postGUI $
                       G.labelSetText labelSync $
-                      format' "Syncing {}/{}" (h - walletHeight, diff)
+                      sformat ("Syncing " % int % "/" % int)
+                          (h - walletHeight) diff
                   increasePG (step/2)
                   liftIO $ threadDelay $ idleTime * 1000
                   U.updateToBlockHeight st h
@@ -60,7 +59,8 @@ updateBlockchainWithProgress st M.MainWindow{..} =
                   liftIO $ threadDelay $ idleTimeShort * 1000)
       postGUI $ do
           G.progressBarSetFraction progressBarUpdate 1
-          G.labelSetText labelSync $ formatSingle' "Synced at height {}" lastBlockHeight
+          G.labelSetText labelSync $
+              sformat ("Synced at height " % int) lastBlockHeight
       return $ lastBlockHeight /= walletHeight
     postGUI = liftIO . G.postGUIAsync
     increasePG t = postGUI $ do

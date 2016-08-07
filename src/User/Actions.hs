@@ -29,7 +29,7 @@ import           Data.Text.Encoding      (encodeUtf8)
 import qualified Data.Text.IO            as TIO
 import           Formatting              (build, int, sformat, stext, (%))
 
-import           Serokell.Util.Text      (format', formatSingle', show')
+import           Serokell.Util.Text      (show')
 
 import qualified Graphics.UI.Gtk         as G
 import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
@@ -91,24 +91,24 @@ processCommand st O.ListAddresses _ =
     spaces = "                                                   "
     formatAddressEntry :: (Integer, (C.PublicKey, C.TxStrategy, [C.Coin])) -> IO ()
     formatAddressEntry (i, (key, strategy, coins)) = do
-       TIO.putStr $ format' "{}.  {} : " (i, key)
+       TIO.putStr $ sformat (int%".  "%build%" : ") i key
        when (null coins) $ putStrLn "empty"
        unless (null coins) $ TIO.putStrLn $ show' $ head coins
        unless (length coins < 2) $
            forM_ (tail coins)
-                 (TIO.putStrLn . formatSingle' (spaces <> "{}"))
+                 (TIO.putStrLn . sformat (spaces % build))
        case strategy of
            C.DefaultStrategy -> return ()
            C.MOfNStrategy m allowed -> do
-               TIO.putStrLn $ format'
-                    "    This is a multisig address ({}/{}) controlled by keys: "
-                    (m, length allowed)
+               TIO.putStrLn $ sformat
+                    ("    This is a multisig address ("%int%"/"%int%") controlled by keys: ")
+                    m (length allowed)
                forM_ allowed $ \allowedAddr -> do
                    addresses <- query' st $ U.GetOwnedAddresses C.defaultNodeContext
-                   TIO.putStrLn $ formatSingle'
+                   TIO.putStrLn $ sformat
                            (if allowedAddr `elem` addresses
-                            then "    * {} owned by you"
-                            else "    * {}")
+                            then "    * "%build%" owned by you"
+                            else "    * "%build)
                            allowedAddr
 processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
     eWrap $

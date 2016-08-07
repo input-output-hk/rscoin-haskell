@@ -14,8 +14,12 @@ import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import           Data.Text.Buildable            (Buildable (build))
 import qualified Data.Text.Lazy.Builder         as B
+import           Formatting                     (sformat, (%))
+import qualified Formatting                     as F (build)
 import           Graphics.UI.Gtk                (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk                as G
+
+import           Serokell.Util.Text             (show')
 
 import qualified RSCoin.Core                    as C
 import           RSCoin.Timed                   (runRealModeUntrusted)
@@ -23,8 +27,6 @@ import           RSCoin.User                    (RSCoinUserState,
                                                  TxHStatus (..),
                                                  TxHistoryRecord (..))
 import qualified RSCoin.User                    as U
-
-import           Serokell.Util.Text             (format', formatSingle')
 
 import           GUI.RSCoin.ExplicitTransaction (ExplicitTransaction (..),
                                                  fromTransaction,
@@ -163,8 +165,9 @@ initWalletTab confPath st gst mw@M.MainWindow{..} = do
         scrolled <- G.scrolledWindowNew Nothing Nothing
         label <- G.labelNew (Nothing :: Maybe String)
         G.scrolledWindowAddWithViewport scrolled label
-        G.set label [ G.labelText := formatSingle'
-                      "Information about transaction: \n{}" (wTxHR node)
+        G.set label [ G.labelText := sformat
+                          ("Information about transaction: \n" % F.build)
+                          (wTxHR node)
                     , G.labelSelectable := True
                     , G.labelWrap := True ]
         G.set upbox [ G.widgetMarginLeft := 5
@@ -200,19 +203,23 @@ toNodeMapper confPath st gst txhr@U.TxHistoryRecord{..} = do
     if isIncome
     then do
         (from :: T.Text) <- case firstFromAddress of
-                    Nothing -> return "Emission/Fees"
-                    Just addr -> do
-                        name <- replaceWithName gst addr
-                        return $ format' (maybe "{}{}" (const "{} ({})") name)
-                                         (name, firstOutAddress)
+             Nothing -> return "Emission/Fees"
+             Just addr -> do
+                 name <- replaceWithName gst addr
+                 return $ sformat
+                     (maybe (F.build % F.build)
+                            (const $ F.build % " (" % F.build % ")") name)
+                     name firstOutAddress
         return $ WalletModelNode False txhStatus txhHeight from amountDiff txhr
     else do
         (out :: T.Text) <- do
             name <- if firstOutAddress `elem` addrs
                     then return (Just "To you")
                     else replaceWithName gst firstOutAddress
-            return $ format' (maybe "{}{}" (const "{} ({})") name)
-                             (name, firstOutAddress)
+            return $ sformat
+                (maybe (F.build % F.build)
+                       (const $ F.build % " (" % F.build % ")") name)
+                name firstOutAddress
         return $ WalletModelNode True txhStatus txhHeight out amountDiff txhr
 
 updateWalletTab :: Maybe FilePath
@@ -244,7 +251,7 @@ updateWalletTab confPath st gst M.MainWindow{..} = do
     G.labelSetText labelCurrentBalance $ show $ C.getCoin userAmount
     G.labelSetText labelTransactionsNumber $ show $ length unconfirmed
     G.labelSetText labelUnconfirmedBalance . show =<< unconfirmedSum
-    G.labelSetText labelCurrentAccount $ formatSingle' "{}" $ head addrs
+    G.labelSetText labelCurrentAccount $ show' $ head addrs
     nodes <- mapM (toNodeMapper confPath st gst) transactionsHist
     G.listStoreClear walletModel
     mapM_ (G.listStoreAppend walletModel) $ reverse nodes

@@ -25,7 +25,7 @@ import           Data.Map             (Map, empty, insert, lookup)
 import           Data.SafeCopy        (base, deriveSafeCopy)
 import qualified Data.Text            as T
 
-import           Serokell.Util.Text   (formatSingle')
+import           Serokell.Util.Text   (show')
 
 import qualified RSCoin.Core          as C
 
@@ -66,7 +66,7 @@ getContacts' = contactsList <$> ask
 replaceWithName' :: C.Address -> Query GUIDB (Maybe T.Text)
 replaceWithName' addr = do
     list <- contactsList <$> ask
-    let e = find (\x -> contactAddress x == formatSingle' "{}" addr) list
+    let e = find (\x -> contactAddress x == show' addr) list
     return $ contactName <$> e
 
 addTransaction' :: C.TransactionId -> Maybe C.Transaction -> Update GUIDB ()

@@ -23,9 +23,9 @@ import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
 import           Data.List                     (genericLength, nub)
 import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust, mapMaybe)
-import           Data.Monoid                   ((<>))
 import           Data.Time.Units               (Second)
 import           Data.Tuple.Select             (sel1, sel2, sel3)
+import           Formatting                    (build, int, sformat, (%))
 
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
@@ -34,10 +34,11 @@ import           RSCoin.Core.Logging           (logInfo, logWarning,
                                                 userLoggerName)
 import           RSCoin.Core.Primitives        (AddrId, Address,
                                                 Transaction (..))
-import           RSCoin.Core.Strategy          (TxStrategy (..), isStrategyCompleted)
+import           RSCoin.Core.Strategy          (TxStrategy (..),
+                                                isStrategyCompleted)
 import           RSCoin.Core.Types             (CheckConfirmations,
-                                                CommitAcknowledgment (..), Mintette,
-                                                MintetteId, PeriodId)
+                                                CommitAcknowledgment (..),
+                                                Mintette, MintetteId, PeriodId)
 import           RSCoin.Mintette.Error         (MintetteError)
 import           RSCoin.Timed                  (WorkMode)
 import           RSCoin.Timed.MonadTimed       (sec, timeout)
@@ -46,8 +47,7 @@ import           RSCoin.User.Cache             (UserCache, getOwnersByAddrid,
                                                 invalidateUserCache)
 import           RSCoin.User.Error             (UserLogicError (..))
 
-import           Serokell.Util.Text            (format', formatSingle',
-                                                listBuilderJSON, pairBuilder)
+import           Serokell.Util.Text            (listBuilderJSON, pairBuilder)
 
 -- | SignatureBundle is a datatype that represents signatures needed
 -- to prove that address owners are OK with transaction spending money
@@ -156,17 +156,19 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
         when (null owns) $
             throwM $
             MajorityRejected $
-            formatSingle' "Addrid {} doesn't have owners" addrid
+            sformat ("Addrid " % build % " doesn't have owners") addrid
         -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
         subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid height) owns
         when (length subBundle <= length owns `div` 2) $
             do invalidateCache
                throwM $
                    MajorityRejected $
-                   format'
-                       ("Couldn't get CheckNotDoubleSpent " <>
-                        "from majority of mintettes: only {}/{} confirmed {} is not double-spent.")
-                       (length subBundle, length owns, addrid)
+                   sformat
+                       ("Couldn't get CheckNotDoubleSpent " %
+                        "from majority of mintettes: only " %
+                        int % "/" % int % " confirmed " % build %
+                        " is not double-spent.")
+                       (length subBundle) (length owns) addrid
         return subBundle
     processMintette
         :: WorkMode m
@@ -194,20 +196,18 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
         let succeededCommits :: [CommitAcknowledgment]
             succeededCommits = filter
                 (\(CommitAcknowledgment pk sign lch) -> verify pk sign (tx, lch))
-                $ mapMaybe rightToMaybe
-                $ commitActions
+                $ mapMaybe rightToMaybe commitActions
         let failures = filter isLeft commitActions
         unless (null failures) $
             logWarning userLoggerName $
             commitTxWarningMessage owns commitActions
         when (length succeededCommits <= length owns `div` 2) $
-            do throwM $
-                   MajorityFailedToCommit
-                       (genericLength succeededCommits)
-                       (genericLength owns)
+            throwM $ MajorityFailedToCommit
+                 (genericLength succeededCommits)
+                 (genericLength owns)
     commitTxWarningMessage owns =
-        formatSingle'
-            "some mintettes returned error in response to `commitTx`: {}" .
+        sformat
+            ("Some mintettes returned error in response to `commitTx`: "% build) .
         listBuilderJSON . map pairBuilder . mintettesAndErrors owns
     mintettesAndErrors
         :: [(Mintette, MintetteId)]

@@ -59,8 +59,7 @@ import           Data.Ord                   (comparing)
 import qualified Data.Set                   as S
 import qualified Data.Text                  as T
 import           Data.Tuple                 (swap)
-
-import           Serokell.Util.Text         (format', formatSingle')
+import           Formatting                 (build, int, sformat, (%))
 
 import qualified RSCoin.Core                as C
 import           RSCoin.Core.Crypto         (PublicKey, SecretKey)
@@ -220,13 +219,14 @@ getOwnedAddrIds nodeCtx addr = do
     unless (addr `elem` addrOurs) $
         throwM $
         BadRequest $
-        formatSingle' "Tried to getTransactions for addr we don't own: {}" addr
+        sformat ("Tried to getTransactions for addr we don't own: " % build) addr
     addrids <- fmap (map snd) <$> L.views userTxAddrids (M.lookup addr)
     maybe
         (throwM $
          InternalError $
-         formatSingle'
-             "TrAddrIds map (utxo) in wallet doesn't contain {} as address (but should)."
+         sformat
+             ("TrAddrIds map (utxo) in wallet doesn't contain " % build %
+              " as address (but should).")
              addr)
         return
         addrids
@@ -239,13 +239,14 @@ getTransactions nodeCtx addr = checkInitR $ do
     unless (addr `elem` addrOurs) $
         throwM $
         BadRequest $
-        formatSingle' "Tried to getTransactions for addr we don't own: {}" addr
+        sformat ("Tried to getTransactions for addr we don't own: " % build) addr
     txs <- fmap (nub . map fst) <$> L.views userTxAddrids (M.lookup addr)
     maybe
         (throwM $
          InternalError $
-         formatSingle'
-             "TrAddrIds map (utxo) in wallet doesn't contain {} as address (but should)."
+         sformat
+             ("TrAddrIds map (utxo) in wallet doesn't contain " % build %
+              " as address (but should).")
              addr)
          return
         txs
@@ -417,15 +418,17 @@ withBlockchainUpdate newHeight C.HBlock{..} =
     do currentHeight <- L.uses lastBlockId fromJust
        unless (currentHeight < newHeight) $
            reportBadRequest $
-           format'
-               "New blockchain height {} is less or equal to the old one: {}"
-               (newHeight, currentHeight)
+           sformat
+               ("New blockchain height " % int %
+                " is less or equal to the old one: " % int)
+               newHeight currentHeight
        unless (currentHeight + 1 == newHeight) $
            reportBadRequest $
-           format'
-               ("New blockchain height {} should be exactly {} + 1. " <>
+           sformat
+               ("New blockchain height " % int %
+                " should be exactly " % int % " + 1. " %
                 "Only incremental updates are available.")
-               (newHeight, currentHeight)
+               newHeight currentHeight
 
        restoreTransactions
 
@@ -476,19 +479,20 @@ addAddress addressPair@(address,sk) txs periodId = do
     unless (uncurry validateKeyPair addressPair) $
         throwM $
         BadRequest $
-        format'
-            ("Tried to add invalid address into storage ({},{}). " <>
+        sformat
+            ("Tried to add invalid address into storage ("%build%","%build%"). " %
              "SecretKey doesn't match with PublicKey.")
-            addressPair
+            address sk
     let mappedTxs :: [Transaction]
         mappedTxs = filter (null . C.getAddrIdByAddress address) txs
     unless (null mappedTxs) $
         throwM $
         BadRequest $
-        format'
-            ("Error while adding address ({},{}) to storage: {} transactions dosn't " <>
-             "contain it (address) as output. First bad transaction: {}")
-            (address, sk, length mappedTxs, head mappedTxs)
+        sformat
+            ("Error while adding address ("%build%","%build%") to storage: "%
+             int%" transactions dosn't " %
+             "contain it (address) as output. First bad transaction: "%build)
+            address sk (length mappedTxs) (head mappedTxs)
     historyTxs <>=
         S.fromList (map (\tx -> TxHistoryRecord tx periodId TxHConfirmed) txs)
     ownedAddresses %= M.insert address (Just sk)

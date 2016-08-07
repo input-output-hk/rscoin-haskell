@@ -66,7 +66,7 @@ We also have testing and benchmarking.
 # Full tests, run 3 times
 stack test rscoin --test-arguments '--match "Test.RSCoin.Full" -a 3'
 # All other tests
-stack test rscoin --test-arguments '--match "Test.RSCoin.Full" -a 3'
+stack test rscoin --test-arguments '--skip "Test.RSCoin.Full"'
 # And that's how to run bench:
 stack bench rscoin:rscoin-bench-local --benchmark-arguments "--users 2 --mintettes 1"
 ```

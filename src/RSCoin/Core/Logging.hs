@@ -25,7 +25,6 @@ module RSCoin.Core.Logging
        ) where
 
 import           Control.Monad.IO.Class    (MonadIO, liftIO)
-import           Data.Maybe                (fromJust)
 import qualified Data.Text                 as T
 import           Data.Typeable             (Typeable)
 import           GHC.Generics              (Generic)
@@ -73,14 +72,18 @@ initLoggerByName (convertSeverity -> s) name = do
       | pr > DEBUG = simpleLogFormatter (colorizer pr "[$loggername:$prio]" ++ "$msg") h r n
       | otherwise = simpleLogFormatter (colorizer pr "[$loggername:$prio]" ++ "$msg") h r n
 
-table :: [(Priority, String)]
-table = [ (ERROR, concatMap setSGRCode [[SetColor Background Vivid Red], [SetColor Foreground Vivid White]])
-        , (DEBUG, concatMap setSGRCode [[SetColor Background Vivid Blue], [SetColor Foreground Vivid White]])
-        , (WARNING, concatMap setSGRCode [[SetColor Background Vivid Yellow], [SetColor Foreground Vivid Black]])
-        , (INFO, concatMap setSGRCode [[SetColor Background Vivid Green], [SetColor Foreground Vivid Black]])]
+table :: Priority -> (String,String)
+table pr = case pr of
+    ERROR   -> (setSGRCode [SetColor Foreground Vivid Red], reset)
+    DEBUG   -> (setSGRCode [SetColor Foreground Vivid Green], reset)
+    WARNING -> (setSGRCode [SetColor Foreground Vivid Yellow], reset)
+    INFO    -> (setSGRCode [SetColor Foreground Vivid Blue], reset)
+    _ -> ("","")
+  where reset = setSGRCode [Reset]
 
 colorizer :: Priority -> String -> String
-colorizer pr s = (fromJust $ lookup pr table) ++ s ++ setSGRCode [Reset]
+colorizer pr s = before ++ s ++ after
+  where (before, after) = table pr
 
 type LoggerName = String
 

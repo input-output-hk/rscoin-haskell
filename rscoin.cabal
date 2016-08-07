@@ -453,7 +453,8 @@ test-suite rscoin-test
 benchmark rscoin-bench-local
   type:                exitcode-stdio-1.0
   main-is:             Local/Main.hs
-  other-modules:       Bench.RSCoin.FilePathUtils
+  other-modules:       Bench.RSCoin.CfgCreator
+                     , Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Local.InfraThreads
                      , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserCommons
@@ -462,6 +463,8 @@ benchmark rscoin-bench-local
                      , base >=4.8 && <4.9
                      , bytestring
                      , clock
+                     , configurator >= 0.3.0.0
+                     , configurator-export >= 0.1.0.1
                      , exceptions
                      , filepath
                      , formatting

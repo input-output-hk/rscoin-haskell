@@ -97,5 +97,5 @@ notaryMSAttemptsLimit = 5
 defaultConfigurationPath :: IO FilePath
 defaultConfigurationPath = (</> defaultConfigurationFileName) <$> configDirectory
 
-defaultConfigurationFileName :: (IsString s) => s
+defaultConfigurationFileName :: IsString s => s
 defaultConfigurationFileName = "deploy-rscoin.cfg"

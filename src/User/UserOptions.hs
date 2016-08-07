@@ -324,7 +324,7 @@ userOptionsParser dskp configDir defaultConfigPath =
          value "gui-db" <>
          showDefault) <*>
     option auto
-        (long "log-severity" <> value Error <> showDefault <>
+        (long "log-severity" <> value Info <> showDefault <>
          help "Logging severity") <*>
     strOption
         (long "config-path" <> help "Path to configuration file" <>

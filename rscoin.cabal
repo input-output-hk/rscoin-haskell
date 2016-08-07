@@ -152,9 +152,9 @@ library
                      , turtle
                      , unordered-containers
                      , vector
-                     , wai
-                     , wai-extra
-                     , wai-websockets
+                     , wai >= 3.2.1.1
+                     , wai-extra >= 3.0.16.1
+                     , wai-websockets >= 3.0.0.9
                      , warp
                      , websockets
                      , yaml

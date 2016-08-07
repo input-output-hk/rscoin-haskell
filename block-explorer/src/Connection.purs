@@ -41,24 +41,24 @@ init :: forall eff. S.Channel Action -> String -> Eff (ws :: W.WEBSOCKET, err ::
 init chan url = do
     connection@(W.Connection ws) <- W.newWebSocket (W.URL url) []
     ws.onopen $= \event -> do
-        traceAnyM event
         log "onopen: Connection opened"
+        traceAnyM event
         S.send chan ConnectionOpened
     ws.onmessage $= \event -> do
+        log "onmessage: Received"
         traceAnyM event
         let received = W.runMessage $ W.runMessageEvent event
-        log "onmessage: Received"
         S.send chan <<< ReceivedData $ jsonParser received >>= decodeJson
     pure connection
 
 introMessage :: forall eff. W.Connection -> IntroductoryMsg -> Aff (ws :: W.WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) Unit
 introMessage (W.Connection ws) value = liftEff do
-    traceAnyM value
     log "onsend: Send introductory message"
+    traceAnyM value
     ws.send <<< W.Message <<< printJson $ encodeJson value
 
 send :: forall eff. W.Connection -> AddressInfoMsg -> Aff (ws :: W.WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) Unit
 send (W.Connection ws) value = liftEff do
-    traceAnyM value
     log "onsend: Send message"
+    traceAnyM value
     ws.send <<< W.Message <<< printJson $ encodeJson value

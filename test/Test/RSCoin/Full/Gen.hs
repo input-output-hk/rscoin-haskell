@@ -13,7 +13,7 @@ module Test.RSCoin.Full.Gen
 
 import           Data.Bifunctor                  (first)
 import           Data.Either.Combinators         (mapRight)
-import qualified Data.Map                        as M
+import qualified Data.IntMap.Strict              as M
 import           Data.Time.Units                 (fromMicroseconds)
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
                                                   choose, listOf, shuffle,
@@ -50,7 +50,7 @@ instance Arbitrary PartsToSend where
         PartsToSend . M.fromList <$>
             mapM
                 (\color ->
-                      (color, ) <$> arbitrary)
+                      (C.getC color, ) <$> arbitrary)
                 colors
 
 genWaitAction :: a -> Gen (WaitAction a)
@@ -69,7 +69,7 @@ instance Arbitrary Coloring where
         let s = sum parts
             multiplier = targetSum / s
         return .
-            Coloring . M.fromListWith (+) . zip colors . map (* multiplier) $
+            Coloring . M.fromListWith (+) . zip (map C.getC colors) . map (* multiplier) $
             parts
 
 genUserIndex :: UserNumber -> Gen UserIndex

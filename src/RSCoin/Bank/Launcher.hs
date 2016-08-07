@@ -53,15 +53,22 @@ launchBankReal
     :: (TimeUnit t)
     => t -> FilePath -> Maybe FilePath -> SecretKey -> IO ()
 launchBankReal periodDelta storagePath confPath bankSk =
-    bankWrapperReal bankSk storagePath confPath $ launchBank periodDelta bankSk
+    bankWrapperReal bankSk storagePath confPath $
+    launchBank periodDelta bankSk storagePath
 
 -- | Launch Bank in any WorkMode. This function works indefinitely.
 launchBank
     :: (TimeUnit t, WorkMode m)
-    => t -> SecretKey -> State -> m ()
-launchBank periodDelta bankSk st = do
+    => t -> SecretKey -> FilePath -> State -> m ()
+launchBank periodDelta bankSk storagePath st = do
     mainIsBusy <- liftIO $ newIORef False
-    let startWorker = runWorkerWithPeriod periodDelta mainIsBusy bankSk st
+    let startWorker =
+            runWorkerWithPeriod
+                periodDelta
+                mainIsBusy
+                bankSk
+                st
+                (Just storagePath)
         restartWorker tId = killThread tId >> fork startWorker
     workerThread <- fork startWorker
     fork_ $ runExplorerWorker periodDelta mainIsBusy bankSk st

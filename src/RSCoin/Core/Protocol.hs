@@ -68,7 +68,7 @@ data BankMethod
     | GetExplorers
     | GetAddresses
     | GetBlockchainHeight
-    | GetHBlock
+    | GetHBlocks
     | GetHBlockEmission
     | GetTransaction
     | FinishPeriod
@@ -105,8 +105,7 @@ data NotaryMethod
 
 -- | Requests for dumping state.
 data DumpMethod
-    = GetHBlocks
-    | GetLogs
+    = GetLogs
     | GetMintetteUtxo
     | GetMintetteBlocks
     | GetMintetteLogs

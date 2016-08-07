@@ -259,7 +259,7 @@ notifyAboutAddressUpdate addr = do
             fromMaybe S.empty $ connectionsState ^. csAddrToConnId . at addr
         idToConn i = connectionsState ^. csIdToConn . at i
         foldrStep connId l = maybe l (: l) $ idToConn connId
-        connections = S.foldr foldrStep [] connIds
+        connections = S.foldr' foldrStep [] connIds
         sendToAll msg = mapM_ (flip send msg) connections
     mapM_ sendToAll [msgBalance, msgTxNumber]
 

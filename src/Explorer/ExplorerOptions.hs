@@ -29,10 +29,20 @@ data Options = Options
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
 optionsParser defaultSKPath configDir defaultConfigPath =
     Options <$>
-    option auto (mconcat [long "port-rpc", value defaultPort, showDefault]) <*>
     option
         auto
-        (mconcat [long "port-web", value (defaultPort + 1), showDefault]) <*>
+        (mconcat
+             [ long "port-rpc"
+             , value defaultPort
+             , help "Port to communicate with bank on"
+             , showDefault]) <*>
+    option
+        auto
+        (mconcat
+             [ long "port-web"
+             , value (defaultPort + 1)
+             , help "Port to communicate with web requests on"
+             , showDefault]) <*>
     strOption
         (mconcat
              [ long "path"
@@ -41,7 +51,11 @@ optionsParser defaultSKPath configDir defaultConfigPath =
              , help "Path to database"]) <*>
     strOption
         (mconcat
-             [long "sk", value defaultSKPath, metavar "FILEPATH", showDefault]) <*>
+             [ long "sk"
+             , value defaultSKPath
+             , metavar "FILEPATH"
+             , help "Path to the secret key"
+             , showDefault]) <*>
     option
         auto
         (mconcat

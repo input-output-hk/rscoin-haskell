@@ -10,6 +10,7 @@ module RSCoin.Core.Communication
        ( CommunicationError (..)
        , getBlockchainHeight
        , getBlockByHeight
+       , getBlocksByHeight
        , getTransactionById
        , getGenesisBlock
        , finishPeriod
@@ -28,7 +29,6 @@ module RSCoin.Core.Communication
        , queryNotaryMyMSAllocations
        , announceNewBlock
        , P.unCps
-       , getBlocks
        , getMintettes
        , getAddresses
        , getLogs
@@ -44,7 +44,6 @@ import           Control.Exception          (Exception (..))
 import           Control.Monad.Catch        (catch, throwM)
 import           Control.Monad.Trans        (MonadIO, liftIO)
 import qualified Data.Map                   as M
-import           Data.Maybe                 (fromJust)
 import           Data.MessagePack           (MessagePack)
 import           Data.Monoid                ((<>))
 import           Data.Text                  (Text, pack)
@@ -147,27 +146,42 @@ getBlockchainHeight :: WorkMode m => m PeriodId
 getBlockchainHeight =
     withResult
         (logDebug "Getting blockchain height")
-        (logDebug . formatSingle' "Blockchain height is {}")
+        (logDebug . sformat ("Blockchain height is " % int))
         $ callBank $ P.call (P.RSCBank P.GetBlockchainHeight)
 
 -- TODO: should this method return Maybe HBlock ?
 -- | Given the height/perioud id, retreives block if it's present
 getBlockByHeight :: WorkMode m => PeriodId -> m HBlock
 getBlockByHeight pId =
-    (fromJust <$>) . withResult
+    withResult
         infoMessage
-        (maybe onError onSuccess)
-        $ callBank $ P.call (P.RSCBank P.GetHBlock) pId
+        onSuccess
+        (head <$> callBank (P.call (P.RSCBank P.GetHBlocks) [pId]))
   where
     infoMessage =
-        logDebug $ formatSingle' "Getting block with height {}" pId
-    onError = do
-        let e = formatSingle' "Getting block with height {} failed." pId
-        logWarning e
-        throwM $ MethodError e
-    onSuccess res =
+        logDebug $ sformat ("Getting block with height " % int) pId
+    onSuccess (res :: HBlock) =
         logDebug $
-            format' "Successfully got block with height {}: {}" (pId, res)
+            sformat ("Successfully got block with height " % int % ": " % F.build)
+                pId res
+
+getBlocksByHeight :: WorkMode m => PeriodId -> PeriodId -> m [HBlock]
+getBlocksByHeight from to =
+    withResult
+        infoMessage
+        successMessage
+        $ callBank $ P.call (P.RSCBank P.GetHBlocks) [from..to]
+  where
+    infoMessage =
+        logDebug $
+            sformat ("Getting higher-level blocks between " % int % " and " % int)
+                from to
+    successMessage res =
+        logDebug $
+            sformat
+                ("Got higher-level blocks between " % int % " " %
+                 int % ": " % F.build)
+                from to (listBuilderJSONIndent 2 res)
 
 getTransactionById :: WorkMode m => TransactionId -> m (Maybe Transaction)
 getTransactionById tId =
@@ -369,21 +383,6 @@ announceNewBlock explorer pId blk signature =
 
 -- Dumping Bank state
 
-getBlocks :: WorkMode m => PeriodId -> PeriodId -> m [HBlock]
-getBlocks from to =
-    withResult
-        infoMessage
-        successMessage
-        $ callBank $ P.call (P.RSCDump P.GetHBlocks) from to
-  where
-    infoMessage =
-        logDebug $
-            format' "Getting higher-level blocks between {} and {}"
-            (from, to)
-    successMessage res =
-        logDebug $
-            format' "Got higher-level blocks between {} {}: {}"
-            (from, to, listBuilderJSONIndent 2 res)
 
 getAddresses :: WorkMode m => m AddressToTxStrategyMap
 getAddresses =

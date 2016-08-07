@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Server implementation for Bank
 
@@ -10,27 +11,30 @@ module RSCoin.Bank.Server
 import           Control.Concurrent             (MVar, newMVar)
 import           Control.Concurrent.MVar.Lifted (modifyMVar_)
 import           Control.Lens                   ((^.))
+import           Control.Monad                  (when)
 import           Control.Monad.Catch            (catch, throwM)
 import           Control.Monad.Trans            (lift, liftIO)
 import           Data.Acid.Advanced             (query', update')
+import           Data.List                      (nub, (\\))
 import qualified Data.Map.Strict                as M
+import           Data.Maybe                     (catMaybes)
 import           Formatting                     (int, sformat, (%))
 import qualified Formatting                     as F (build)
 
 import           Serokell.Util.Text             (format', formatSingle',
-                                                 mapBuilder, show')
+                                                 listBuilderJSON, mapBuilder,
+                                                 show')
 
 import           RSCoin.Bank.AcidState          (AddExplorer (..),
                                                  AddMintette (..),
                                                  GetAddresses (..),
                                                  GetEmission (..),
                                                  GetExplorersAndPeriods (..),
-                                                 GetHBlock (..),
-                                                 GetHBlocks (..), GetLogs (..),
+                                                 GetHBlock (..), GetLogs (..),
                                                  GetMintettes (..),
                                                  GetPeriodId (..),
                                                  GetTransaction (..), State)
-import           RSCoin.Bank.Error              (BankError)
+import           RSCoin.Bank.Error              (BankError (BEInconsistentResponse))
 import           RSCoin.Core                    (ActionLog,
                                                  AddressToTxStrategyMap,
                                                  Explorer, Explorers, HBlock,
@@ -54,13 +58,12 @@ serve st workerThread restartWorkerAction = do
     idr3 <- T.serverTypeRestriction1
     idr4 <- T.serverTypeRestriction1
     idr5 <- T.serverTypeRestriction1
-    idr6 <- T.serverTypeRestriction2
-    idr7 <- T.serverTypeRestriction3
+    idr6 <- T.serverTypeRestriction3
+    idr7 <- T.serverTypeRestriction0
     idr8 <- T.serverTypeRestriction0
-    idr9 <- T.serverTypeRestriction0
+    idr9 <- T.serverTypeRestriction3
     idr10 <- T.serverTypeRestriction3
-    idr11 <- T.serverTypeRestriction3
-    idr12 <- T.serverTypeRestriction1
+    idr11 <- T.serverTypeRestriction1
 
     nodeCtx <- T.getNodeContext
     let bankPublicKey = nodeCtx ^. NC.bankPublicKey
@@ -70,20 +73,19 @@ serve st workerThread restartWorkerAction = do
         bankPort
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
         , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight st
-        , C.method (C.RSCBank C.GetHBlock) $ idr3 $ serveGetHBlock st
+        , C.method (C.RSCBank C.GetHBlocks) $ idr3 $ serveGetHBlocks st
         , C.method (C.RSCBank C.GetTransaction) $ idr4 $ serveGetTransaction st
         , C.method (C.RSCBank C.FinishPeriod) $
           idr5 $ serveFinishPeriod st threadIdMVar restartWorkerAction bankPublicKey
-        , C.method (C.RSCDump C.GetHBlocks) $ idr6 $ serveGetHBlocks st
-        , C.method (C.RSCDump C.GetHBlocks) $ idr7 $ serveGetLogs st
-        , C.method (C.RSCBank C.GetAddresses) $ idr8 $ serveGetAddresses st
-        , C.method (C.RSCBank C.GetExplorers) $ idr9 $ serveGetExplorers st
+        , C.method (C.RSCDump C.GetLogs) $ idr6 $ serveGetLogs st
+        , C.method (C.RSCBank C.GetAddresses) $ idr7 $ serveGetAddresses st
+        , C.method (C.RSCBank C.GetExplorers) $ idr8 $ serveGetExplorers st
         , C.method (C.RSCBank C.AddMintetteAdhoc) $
-          idr10 $ serveAddMintetteAdhoc st bankPublicKey
+          idr9 $ serveAddMintetteAdhoc st bankPublicKey
         , C.method (C.RSCBank C.AddExplorerAdhoc) $
-          idr11 $ serveAddExplorerAdhoc st bankPublicKey
+          idr10 $ serveAddExplorerAdhoc st bankPublicKey
         , C.method (C.RSCBank C.GetHBlockEmission) $
-          idr12 $ serveGetHBlockEmission st]
+          idr11 $ serveGetHBlockEmission st]
 
 toServer :: T.WorkMode m => m a -> T.ServerT m a
 toServer action = lift $ action `catch` handler
@@ -126,14 +128,24 @@ serveGetHBlockEmission st pId =
            format' "Getting higher-level block with periodId {} and emission {}: {}" (pId, emission, mBlock)
        return $ (,emission) <$> mBlock
 
-serveGetHBlock :: T.WorkMode m
-               => State -> PeriodId -> T.ServerT m (Maybe HBlock)
-serveGetHBlock st pId =
+serveGetHBlocks :: T.WorkMode m
+                => State -> [PeriodId] -> T.ServerT m [HBlock]
+serveGetHBlocks st (nub -> periodIds) =
     toServer $
-    do mBlock <- query' st (GetHBlock pId)
-       logDebug bankLoggerName $
-           format' "Getting higher-level block with periodId {}: {}" (pId, mBlock)
-       return mBlock
+    do logDebug bankLoggerName $
+           sformat ("Getting higher-level blocks in range: " % F.build) $
+           listBuilderJSON periodIds
+       blocks <-
+           catMaybes <$>
+           mapM (\pid -> fmap (, pid) <$> query' st (GetHBlock pid)) periodIds
+       let gotIndices = map snd blocks
+       when (gotIndices /= periodIds) $
+           throwM $
+           BEInconsistentResponse $
+           sformat
+               ("Couldn't get blocks for the following periods: " % F.build) $
+           listBuilderJSON (periodIds \\ gotIndices)
+       return $ map fst blocks
 
 serveGetTransaction :: T.WorkMode m
                     => State -> TransactionId -> T.ServerT m (Maybe Transaction)
@@ -209,15 +221,6 @@ serveAddExplorerAdhoc st bankPublicKey explorer pId proof =
 
 -- Dumping Bank state
 
-serveGetHBlocks :: T.WorkMode m
-                => State -> PeriodId -> PeriodId -> T.ServerT m [HBlock]
-serveGetHBlocks st from to =
-    toServer $
-    do blocks <- query' st $ GetHBlocks from to
-       logDebug bankLoggerName $
-           format' "Getting higher-level blocks between {} and {}"
-           (from, to)
-       return blocks
 
 serveGetLogs :: T.WorkMode m
              => State -> MintetteId -> Int -> Int -> T.ServerT m (Maybe ActionLog)

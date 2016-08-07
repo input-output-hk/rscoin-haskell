@@ -12,7 +12,7 @@ import Prelude                     (show, class Eq)
 import App.Routes                  (Route(NotFound))
 import App.Connection              (Connection, Action) as C
 import App.RSCoin                  as RSCoin
-import App.RSCoin                  (Coin, Color, Address,
+import App.RSCoin                  (Coin, Address,
                                     TransactionSummarySerializable(TransactionSummarySerializable),
                                     addressToString)
 
@@ -51,7 +51,7 @@ type State =
     , queryInfo        :: Maybe SearchQuery
     , isAuthenticated  :: Boolean
     , searchQuery      :: String
-    , balance          :: Array (Tuple Color Coin)
+    , balance          :: Array (Tuple Int Coin)
     , transactions     :: Array TransactionSummarySerializable
     , periodId         :: Int
     , error            :: Maybe String

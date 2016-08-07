@@ -30,7 +30,7 @@ import           Data.Acid.Advanced       (query')
 import           Data.Bifunctor           (second)
 import           Data.Function            (on)
 import           Data.List                (genericLength, nubBy)
-import qualified Data.Map                 as M
+import qualified Data.IntMap.Strict       as M
 import           Data.Text.Buildable      (Buildable (build))
 import           Data.Text.Lazy.Builder   (Builder)
 import           Formatting               (bprint, builder, int, shown, (%))
@@ -99,16 +99,16 @@ applyPartToSend (PartToSend p) coin =
 
 -- | How much values of each color to send.
 newtype PartsToSend = PartsToSend
-    { getPartsToSend :: M.Map C.Color PartToSend
+    { getPartsToSend :: M.IntMap PartToSend
     } deriving (Show)
 
 instance Buildable PartsToSend where
     build = mapBuilder . M.assocs . getPartsToSend
 
 applyPartsToSend :: PartsToSend -> C.CoinsMap -> C.CoinsMap
-applyPartsToSend (getPartsToSend -> parts) = M.foldrWithKey step M.empty
+applyPartsToSend (getPartsToSend -> parts) = M.foldlWithKey' step M.empty
   where
-    step color coin accum =
+    step accum color coin =
         case M.lookup color parts of
             Nothing -> accum
             Just p -> M.insert color (applyPartToSend p coin) accum
@@ -125,7 +125,7 @@ type Inputs = [U.TransactionInput]
 -- iff `t * input grey coins` should be colored to color `c`. Sum of
 -- values must belong to `(0, 1]`.
 newtype Coloring = Coloring
-    { getColoring :: M.Map C.Color Double
+    { getColoring :: M.IntMap Double
     } deriving (Show)
 
 calculateOutputCoins :: [C.Coin] -> Coloring -> [C.Coin]
@@ -137,7 +137,7 @@ calculateOutputCoins (C.coinsToMap -> inputs) (Coloring coloring) =
     addedCoins = M.mapWithKey multiply coloring
     multiply color part =
         C.Coin
-        { C.getColor = color
+        { C.getColor = C.Color color
         , C.getCoin = C.CoinAmount (toRational part) * greyCoins
         }
     usedCoins =

@@ -10,8 +10,8 @@ module Test.RSCoin.Core.TransactionSpec
 
 import           Data.Bifunctor             (first, second)
 import           Data.List                  (genericLength, sort)
-import qualified Data.Map.Strict            as M (Map, elems, findWithDefault,
-                                                  foldrWithKey, lookup,
+import qualified Data.IntMap.Strict         as M (IntMap, elems, findWithDefault,
+                                                  foldlWithKey', lookup,
                                                   mapWithKey, null, (!))
 import           Data.Maybe                 (isJust)
 import           Data.Tuple.Select          (sel3)
@@ -160,16 +160,16 @@ validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePubl
 -- * if the previous is true, check that chooseAddresses returns Just ...;
 -- * otherwise, check that it returns Nothing.
 
-chooseAddressesJustWhenPossible :: NonEmptyList C.AddrId -> M.Map C.Color C.Coin  -> Bool
+chooseAddressesJustWhenPossible :: NonEmptyList C.AddrId -> M.IntMap C.Coin  -> Bool
 chooseAddressesJustWhenPossible (getNonEmpty -> adrlist) cmap =
     let adrCoinMap = C.coinsToMap $ map sel3 adrlist
-        step color coin accum =
+        step accum color coin =
             let adrcn = C.getCoin $ M.findWithDefault 0 color adrCoinMap
                 coin' = C.getCoin coin
             in (adrcn - coin') >= 0 && accum
-        helper col cn = C.Coin col (C.getCoin cn)
+        helper col cn = C.Coin (C.Color col) (C.getCoin cn)
     in M.null cmap ||
-       (M.foldrWithKey step True cmap) ==
+       (M.foldlWithKey' step True cmap) ==
        (isJust $ C.chooseAddresses adrlist (M.mapWithKey helper cmap))
 
 -- | This property does the following:
@@ -202,5 +202,5 @@ chooseSmallerAddressesFirst txId (getNonEmpty -> coins0) =
            Nothing -> False
            Just resMap ->
                addrIdsEqual
-                   (fst $ M.findWithDefault ([], undefined) col resMap)
+                   (fst $ M.findWithDefault ([], undefined) (C.getC col) resMap)
                    addrIds

@@ -12,21 +12,24 @@ module RSCoin.Bank.Worker
 
 
 import           Control.Lens             ((^.))
-import           Control.Monad            (forM_, when)
+import           Control.Monad            (forM_, void, when)
 import           Control.Monad.Catch      (SomeException, bracket_, catch)
 import           Control.Monad.Extra      (unlessM)
 import           Control.Monad.Trans      (MonadIO (liftIO))
 
-import           Data.Acid                (createCheckpoint)
+import           Data.Acid                (createArchive, createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
                                            newIORef, readIORef)
 import           Data.List                (sortOn)
-import           Data.Maybe               (fromMaybe)
+import           Data.Maybe               (fromJust, fromMaybe, isJust)
 import           Data.Monoid              ((<>))
 import           Data.Text                (Text)
+import qualified Data.Text                as T
 import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
+import           System.FilePath          ((</>))
+import qualified Turtle.Prelude           as TURT
 
 import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
@@ -46,8 +49,8 @@ import           RSCoin.Core              (defaultPeriodDelta,
 import qualified RSCoin.Core              as C
 import           RSCoin.Core.NodeConfig   (bankSecretKey)
 import           RSCoin.Timed             (MonadRpc (getNodeContext), Second,
-                                           WorkMode, for, ms,
-                                           repeatForever, sec, tu, wait)
+                                           WorkMode, for, ms, repeatForever,
+                                           sec, tu, wait)
 
 logDebug, logInfo, logWarning, logError
     :: MonadIO m
@@ -61,7 +64,7 @@ logError = C.logError C.bankLoggerName
 -- finishes. Default period length is used.
 runWorker
     :: WorkMode m
-    => IORef Bool -> C.SecretKey -> State -> m ()
+    => IORef Bool -> C.SecretKey -> State -> Maybe FilePath -> m ()
 runWorker = runWorkerWithPeriod defaultPeriodDelta
 
 -- | Start worker with provided period. Generalization of 'runWorker'.
@@ -70,8 +73,8 @@ runWorker = runWorkerWithPeriod defaultPeriodDelta
 -- Its value is True is empty iff this worker is doing something now.
 runWorkerWithPeriod
     :: (TimeUnit t, WorkMode m)
-    => t -> IORef Bool -> C.SecretKey -> State -> m ()
-runWorkerWithPeriod periodDelta mainIsBusy sk st = do
+    => t -> IORef Bool -> C.SecretKey -> State -> Maybe FilePath -> m ()
+runWorkerWithPeriod periodDelta mainIsBusy sk st storagePath =
     repeatForever (tu periodDelta) handler worker
   where
     worker = do
@@ -79,7 +82,7 @@ runWorkerWithPeriod periodDelta mainIsBusy sk st = do
                 bracket_
                     (liftIO $ atomicWriteIORef mainIsBusy True)
                     (liftIO $ atomicWriteIORef mainIsBusy False)
-        t <- br $ measureTime_ $ onPeriodFinished sk st
+        t <- br $ measureTime_ $ onPeriodFinished sk st storagePath
         logInfo $ sformat ("Finishing period took " % build) t
     handler e = do
         logError $
@@ -88,8 +91,8 @@ runWorkerWithPeriod periodDelta mainIsBusy sk st = do
                 e
         return $ sec 20
 
-onPeriodFinished :: WorkMode m => C.SecretKey -> State -> m ()
-onPeriodFinished sk st = do
+onPeriodFinished :: WorkMode m => C.SecretKey -> State -> Maybe FilePath -> m ()
+onPeriodFinished sk st storagePath = do
     mintettes <- query' st GetMintettes
     pId <- query' st GetPeriodId
     logInfo $ formatSingle' "Period {} has just finished!" pId
@@ -99,7 +102,13 @@ onPeriodFinished sk st = do
     periodResults <- getPeriodResults mintettes pId
     nodeCtx       <- getNodeContext
     newPeriodData <- update' st $ StartNewPeriod nodeCtx sk periodResults
+    pid <- query' st GetPeriodId
     liftIO $ createCheckpoint st
+    when (isJust storagePath && pid `mod` 5 == 0) $ liftIO $ do
+         createArchive st
+         void $ TURT.shellStrict
+             (T.pack $ "rm -rf " ++ (fromJust storagePath </> "Archive"))
+             (return "")
     newMintettes <- query' st GetMintettes
     if null newMintettes
         then logWarning "New mintettes list is empty!"

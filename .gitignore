@@ -13,6 +13,7 @@ gui-db/
 tmp/
 rscoin-deploy*/
 explorer-db/
+flycheck_*
 
 # heap dumps
 *.hp

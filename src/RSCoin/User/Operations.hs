@@ -48,10 +48,11 @@ import           Control.Monad.State       (StateT (..), execStateT, get,
                                             modify)
 import           Control.Monad.Trans.Class (lift)
 import           Data.Acid.Advanced        (query', update')
-import qualified Data.IntMap.Strict        as I
 import           Data.Function             (on)
-import           Data.List                 (delete, elemIndex, genericIndex,
-                                            genericLength, groupBy, nub, sortOn)
+import qualified Data.IntMap.Strict        as I
+import           Data.List                 (delete, elemIndex, foldl1',
+                                            genericIndex, genericLength,
+                                            groupBy, nub, sortOn)
 import qualified Data.Map                  as M
 import           Data.Maybe                (fromJust, fromMaybe, isJust,
                                             isNothing)
@@ -90,9 +91,16 @@ commitError e = do
 -- previous height state already.
 updateToBlockHeight :: WorkMode m => A.RSCoinUserState -> C.PeriodId -> m ()
 updateToBlockHeight st newHeight = do
-    hblock <- C.getBlockByHeight newHeight
+    walletHeight <- query' st A.GetLastBlockId
+    when (walletHeight >= newHeight) $
+        commitError $
+        sformat ("updateToBlockchainHeight update to " % int %
+                 " was requested while current height is greater (" %
+                  int % ")") newHeight walletHeight
+    hblocks <- C.getBlocksByHeight (walletHeight+1) newHeight
     -- TODO validate this block with integrity check that we don't have
-    update' st $ A.WithBlockchainUpdate newHeight hblock
+    forM_ ([walletHeight+1..newHeight] `zip` hblocks) $ \(pid,hblock) ->
+        update' st $ A.WithBlockchainUpdate pid hblock
 
 -- | Updates blockchain to the last height (that was requested in this
 -- function call). Returns bool indicating that blockchain was or
@@ -119,13 +127,17 @@ updateBlockchain st verbose = do
             ("Last block height in wallet ({}) is greater than last " <>
              "block's height in bank ({}). Critical error.")
             (walletHeight, lastBlockHeight)
-    when (lastBlockHeight /= walletHeight) $
-        forM_
-            [walletHeight + 1 .. lastBlockHeight]
-            (\h ->
-                  do verboseSay $ formatSingle' "Updating to height {} ..." h
-                     updateToBlockHeight st h
-                     verboseSay $ formatSingle' "updated to height {}" h)
+    when (lastBlockHeight /= walletHeight) $ do
+        let delta = max 100 $ (lastBlockHeight - walletHeight) `div` 10
+            periods =
+                takeWhile (< lastBlockHeight)
+                    (iterate (+delta) (walletHeight + 1)) ++
+                [lastBlockHeight]
+        forM_ periods
+            (\h -> do
+                verboseSay $ sformat ("Updating to height " % int % " ...") h
+                updateToBlockHeight st h
+                verboseSay $ sformat ("Updated to height " % int) h)
     return $ lastBlockHeight /= walletHeight
   where
     verboseSay t = when verbose $ liftIO $ TIO.putStrLn t
@@ -419,7 +431,7 @@ constructAndSignTransaction st TransactionData{..} = do
     when (any isNothing txPieces) $
         commitError "Couldn't form transaction. Not enough funds."
     let (addrPairList,inputAddrids,outputs) =
-            foldl1 pair3merge $ map fromJust txPieces
+            foldl1' pair3merge $ map fromJust txPieces
         outTr =
             C.Transaction
             { txInputs = inputAddrids

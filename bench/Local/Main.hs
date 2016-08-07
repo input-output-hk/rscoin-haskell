@@ -25,7 +25,8 @@ import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   initLogging, keyGen)
 import           RSCoin.Timed                    (runRealModeUntrusted)
 
-import           Bench.RSCoin.FilePathUtils      (tempBenchDirectory)
+import           Bench.RSCoin.CfgCreator         (createDeployConfiguration)
+import           Bench.RSCoin.FilePathUtils      (benchConfPath, tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
                                                   mintetteThread, notaryThread)
 import           Bench.RSCoin.Logging            (initBenchLogger, logInfo)
@@ -63,7 +64,7 @@ runMintettes benchDir secretKeys
         void $ forkIO $ mintetteThread mintetteId benchDir secretKey
         logInfo $ sformat ("Starting mintette number:" % int) mintetteId
         threadDelay (1 :: Second)
-        addMintette mintetteId publicKey
+        addMintette (benchConfPath benchDir) mintetteId publicKey
 
 establishNotary :: FilePath -> IO ()
 establishNotary benchDir = do
@@ -126,6 +127,8 @@ main = do
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initBenchLogger bSeverity
+
+        createDeployConfiguration benchDir
 
         establishNotary    benchDir
         establishBank      benchDir periodDelta

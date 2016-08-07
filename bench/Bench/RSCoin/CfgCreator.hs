@@ -8,8 +8,8 @@ import           Data.Configurator.Export (renderHashMap)
 import           Data.Configurator.Types  (Name, Value (Number, String))
 import           Data.HashMap.Strict      (HashMap)
 import qualified Data.HashMap.Strict      as HM hiding (HashMap)
-
 import           Formatting               (build, sformat, string, (%))
+import           System.FilePath          ((</>))
 
 import           RSCoin.Core.Constants    (defaultConfigurationFileName,
                                            defaultPort, localhost)

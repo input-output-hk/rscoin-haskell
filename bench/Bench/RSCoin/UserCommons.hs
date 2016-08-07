@@ -31,7 +31,7 @@ import qualified RSCoin.User                as U
 import           RSCoin.User.Operations     (TransactionData (..),
                                              submitTransactionRetry)
 
-import           Bench.RSCoin.FilePathUtils (dbFormatPath, walletPathPrefix)
+import           Bench.RSCoin.FilePathUtils (benchConfPath, dbFormatPath, walletPathPrefix)
 import           Bench.RSCoin.Logging       (logDebug, logInfo)
 
 userThread
@@ -54,7 +54,7 @@ userThreadWithPath
     userId
     (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
   =
-    runRealModeUntrusted Nothing $ bracket
+    runRealModeUntrusted (Just $ benchConfPath benchDir) $ bracket
         (liftIO $ U.openState walletPath)
         (\userState -> liftIO $ do
             createCheckpoint userState

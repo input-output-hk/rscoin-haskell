@@ -47,8 +47,7 @@ onEpochFinished sk st storagePath = do
     update st $ FinishEpoch sk
     createCheckpoint st
     pid <- query st GetPeriodId
-    whenJust storagePath $ \stpath ->
-        when (pid `mod` 5 == 0) $ liftIO $ do
-             createArchive st
-             void $ TURT.shellStrict
-                 (T.pack $ "rm -rf " ++ (stpath </> "Archive")) (return "")
+    whenJust storagePath $ \stpath -> liftIO $ do
+        createArchive st
+        void $ TURT.shellStrict
+            (T.pack $ "rm -rf " ++ (stpath </> "Archive")) (return "")

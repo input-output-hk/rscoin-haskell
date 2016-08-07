@@ -20,7 +20,7 @@ import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (MintetteId, PeriodId, Severity (Error),
+import           RSCoin.Core            (MintetteId, PeriodId, Severity (Info),
                                          configDirectory, defaultAccountsNumber,
                                          defaultConfigurationPath,
                                          defaultSecretKeyPath)

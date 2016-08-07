@@ -109,7 +109,7 @@ subtractCoinsMap :: CoinsMap -> CoinsMap -> CoinsMap
 subtractCoinsMap = coinsMapOperation (-)
 
 coinsMapOperation :: (Coin -> Coin -> Coin) -> CoinsMap -> CoinsMap -> CoinsMap
-coinsMapOperation op operand1 = M.foldlWithKey' step operand1
+coinsMapOperation op operand1 = M.foldrWithKey step operand1
   where
     step color coins accum =
         if color `M.member` accum

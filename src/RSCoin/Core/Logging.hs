@@ -28,7 +28,10 @@ import           Control.Monad.IO.Class    (MonadIO, liftIO)
 import qualified Data.Text                 as T
 import           Data.Typeable             (Typeable)
 import           GHC.Generics              (Generic)
-import           System.Console.ANSI
+import           System.Console.ANSI       (Color (Blue, Green, Red, Yellow),
+                                            ColorIntensity (Vivid),
+                                            ConsoleLayer (Foreground),
+                                            SGR (Reset, SetColor), setSGRCode)
 import           System.IO                 (stderr, stdout)
 import           System.Log.Formatter      (simpleLogFormatter)
 import           System.Log.Handler        (setFormatter)
@@ -67,23 +70,26 @@ initLoggerByName (convertSeverity -> s) name = do
         (flip setFormatter) stderrFormatter <$> streamHandler stderr ERROR
     updateGlobalLogger name $ setHandlers [stdoutHandler, stderrHandler]
   where
-    stderrFormatter = simpleLogFormatter ("[$time] " ++ colorizer ERROR "[$loggername:$prio]: " ++ "$msg")
-    stdoutFormatter h r@(pr,_) n
-      | pr > DEBUG = simpleLogFormatter (colorizer pr "[$loggername:$prio]" ++ "$msg") h r n
-      | otherwise = simpleLogFormatter (colorizer pr "[$loggername:$prio]" ++ "$msg") h r n
+    stderrFormatter = simpleLogFormatter
+        ("[$time] " ++ colorizer ERROR "[$loggername:$prio]: " ++ "$msg")
+    stdoutFormatter h r@(pr, _) n =
+        simpleLogFormatter (colorizer pr "[$loggername:$prio] " ++ "$msg") h r n
 
-table :: Priority -> (String,String)
-table pr = case pr of
-    ERROR   -> (setSGRCode [SetColor Foreground Vivid Red], reset)
-    DEBUG   -> (setSGRCode [SetColor Foreground Vivid Green], reset)
-    WARNING -> (setSGRCode [SetColor Foreground Vivid Yellow], reset)
-    INFO    -> (setSGRCode [SetColor Foreground Vivid Blue], reset)
-    _ -> ("","")
-  where reset = setSGRCode [Reset]
+table :: Priority -> (String, String)
+table priority = case priority of
+    ERROR   -> (setColor Red   , reset)
+    DEBUG   -> (setColor Green , reset)
+    WARNING -> (setColor Yellow, reset)
+    INFO    -> (setColor Blue  , reset)
+    _       -> ("", "")
+  where
+    setColor color = setSGRCode [SetColor Foreground Vivid color]
+    reset = setSGRCode [Reset]
 
 colorizer :: Priority -> String -> String
 colorizer pr s = before ++ s ++ after
-  where (before, after) = table pr
+  where
+    (before, after) = table pr
 
 type LoggerName = String
 

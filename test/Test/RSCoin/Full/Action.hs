@@ -106,9 +106,9 @@ instance Buildable PartsToSend where
     build = mapBuilder . M.assocs . getPartsToSend
 
 applyPartsToSend :: PartsToSend -> C.CoinsMap -> C.CoinsMap
-applyPartsToSend (getPartsToSend -> parts) = M.foldlWithKey' step M.empty
+applyPartsToSend (getPartsToSend -> parts) = M.foldrWithKey step M.empty
   where
-    step accum color coin =
+    step color coin accum =
         case M.lookup color parts of
             Nothing -> accum
             Just p -> M.insert color (applyPartToSend p coin) accum

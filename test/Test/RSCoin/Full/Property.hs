@@ -22,7 +22,7 @@ module Test.RSCoin.Full.Property
 
 import           Control.Monad.Catch             (onException)
 import           Control.Monad.Reader            (ask, runReaderT)
-import           Control.Monad.Trans             (lift)
+import           Control.Monad.Trans             (MonadIO, lift, liftIO)
 import           Formatting                      (build, sformat, (%))
 import           Test.QuickCheck                 (Gen, Property,
                                                   Testable (property),
@@ -32,7 +32,8 @@ import           Test.QuickCheck.Monadic         (PropertyM, assert, monadic,
 
 import           Serokell.Util                   (listBuilderJSONIndent)
 
-import           RSCoin.Core                     (logDebug, testingLoggerName)
+import           RSCoin.Core                     (logDebug, testingLoggerName,
+                                                  WithNamedLogger (..))
 import           RSCoin.Timed                    (MsgPackRpc, PureRpc, WorkMode,
                                                   runRealModeUntrusted)
 
@@ -53,7 +54,10 @@ type FullPropertyRealMode = FullProperty MsgPackRpc
 --launchPure gen = runEmulationMode (Just gen)
 
 launchReal :: MsgPackRpc a -> IO a
-launchReal = runRealModeUntrusted Nothing
+launchReal = runRealModeUntrusted testingLoggerName Nothing
+
+instance MonadIO m => WithNamedLogger (PropertyM m) where
+    getLoggerFromContext = liftIO $ getLoggerFromContext
 
 toPropertyM
     :: WorkMode m
@@ -63,7 +67,7 @@ toPropertyM fp mNum uNum = do
     context <- lift $ mkTestContext mNum uNum DefaultScenario
     let runTestEnv a = runReaderT a context
         runTestEnvSafe a = runTestEnv a `onException` runTestEnv finishTest
-    logDebug testingLoggerName $
+    logDebug $
         sformat ("Actions are: " % build) $ listBuilderJSONIndent 3 acts
     lift $ runTestEnvSafe (mapM_ doAction acts)
     runReaderT fp context <* lift (runTestEnv finishTest)

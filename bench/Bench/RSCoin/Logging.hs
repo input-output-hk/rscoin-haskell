@@ -10,28 +10,29 @@ module Bench.RSCoin.Logging
        ) where
 
 import           Control.Monad.Trans (MonadIO)
-import qualified Data.Text           as T
+import qualified Data.Text                as T
 
-import qualified RSCoin.Core.Logging as L
+import qualified RSCoin.Core.Logging      as L
+import qualified RSCoin.Core.NamedLogging as L
 
 benchLoggerName :: L.LoggerName
 benchLoggerName = "bench"
 
 initBenchLogger :: L.Severity -> IO ()
-initBenchLogger = flip L.initLoggerByName benchLoggerName
+initBenchLogger = flip L.initLoggerByName "naked"
 
-logDebug :: MonadIO m
+logDebug :: (MonadIO m, L.WithNamedLogger m)
          => T.Text -> m ()
-logDebug = L.logDebug benchLoggerName
+logDebug = L.logDebug
 
-logInfo :: MonadIO m
+logInfo :: (MonadIO m, L.WithNamedLogger m)
          => T.Text -> m ()
-logInfo = L.logInfo benchLoggerName
+logInfo = L.logInfo
 
-logWarning :: MonadIO m
+logWarning :: (MonadIO m, L.WithNamedLogger m)
          => T.Text -> m ()
-logWarning = L.logWarning benchLoggerName
+logWarning = L.logWarning
 
-logError :: MonadIO m
+logError :: (MonadIO m, L.WithNamedLogger m)
          => T.Text -> m ()
-logError = L.logError benchLoggerName
+logError = L.logError

@@ -8,7 +8,8 @@ import           Data.Monoid         ((<>))
 
 import qualified MintetteOptions     as Opts
 import           RSCoin.Core         (initLogging, keyGen, readSecretKey,
-                                      writePublicKey, writeSecretKey)
+                                      writePublicKey, writeSecretKey,
+                                      mintetteLoggerName)
 import qualified RSCoin.Mintette     as M
 import           RSCoin.Timed        (fork_, runRealModeUntrusted)
 
@@ -34,7 +35,7 @@ main = do
             if cloMemMode
                 then M.openMemState
                 else M.openState cloPath
-    runRealModeUntrusted (Just cloConfigPath) $
+    runRealModeUntrusted mintetteLoggerName (Just cloConfigPath) $
         bracket (liftIO open) (liftIO . M.closeState) $
         \st ->
              do fork_ $ M.runWorker sk st (Just cloPath)

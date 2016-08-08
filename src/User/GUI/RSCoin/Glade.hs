@@ -46,14 +46,14 @@ data GladeMainWindow = GladeMainWindow
 
 makeBuilder :: FilePath -> IO G.Builder
 makeBuilder path =
-  do C.logDebug C.userLoggerName "Initializing glade builder"
+  do C.logDebug "Initializing glade builder"
      builder <- G.builderNew
      G.builderAddFromFile builder path
      return builder
 
 importGlade :: IO (GladeMainWindow, AddContactWindow)
 importGlade = do
-    C.logDebug C.userLoggerName "Loading Glade layout"
+    C.logDebug "Loading Glade layout"
     uiPath <- getDataFileName "resources/RSCoinMain.glade"
     builder <- makeBuilder uiPath
     let getWidget :: G.GObjectClass c => (G.GObject -> c) -> String -> IO c
@@ -67,7 +67,7 @@ importGlade = do
         getBox         = getWidget G.castToBox
         getProgressBar = getWidget G.castToProgressBar
         getView        = getWidget G.castToTreeView
-    C.logDebug C.userLoggerName "Getting widgets out of GTK"
+    C.logDebug "Getting widgets out of GTK"
     gmw <- GladeMainWindow
         <$> getWindow      "mainWindow"
         <*> getNotebook    "mainNotebook"

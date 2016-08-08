@@ -29,12 +29,6 @@ import           RSCoin.Timed                     (ServerT, WorkMode,
 import qualified Test.RSCoin.Full.Mintette.Acidic as MA
 import           Test.RSCoin.Full.Mintette.Config (MintetteConfig)
 
-logError, logWarning, logInfo, logDebug :: MonadIO m => Text -> m ()
-logError = C.logError C.mintetteLoggerName
-logWarning = C.logWarning C.mintetteLoggerName
-logInfo = C.logInfo C.mintetteLoggerName
-logDebug = C.logDebug C.mintetteLoggerName
-
 -- | Serve as mintette according to mintette config provided
 serve
     :: WorkMode m
@@ -68,7 +62,7 @@ toServer :: WorkMode m => IO a -> ServerT m a
 toServer action = liftIO $ action `catch` handler
   where
     handler (e :: MintetteError) = do
-        logError $ show' e
+        C.logError $ show' e
         throwIO e
 
 handleCheckTx
@@ -82,10 +76,10 @@ handleCheckTx
     -> ServerT m (Maybe C.CheckConfirmation)
 handleCheckTx sk st conf tx addrId sg =
     toServer $
-    do logDebug $
+    do C.logDebug $
            format' "Checking addrid ({}) from transaction: {}" (addrId, tx)
        (curUtxo,curPset) <- query' st GetUtxoPset
-       logDebug $
+       C.logDebug $
            format'
                "My current utxo is: {}\nCurrent pset is: {}"
                (curUtxo, curPset)
@@ -93,12 +87,12 @@ handleCheckTx sk st conf tx addrId sg =
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do
-        logWarning $ formatSingle' "CheckTx failed: {}" e
+        C.logWarning $ formatSingle' "CheckTx failed: {}" e
         return Nothing
     onSuccess res = do
-        logInfo $
+        C.logInfo $
             format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
-        logInfo $ formatSingle' "Confirmation: {}" res
+        C.logInfo $ formatSingle' "Confirmation: {}" res
         return $ Just res
 
 handleCommitTx
@@ -111,15 +105,15 @@ handleCommitTx
     -> ServerT m (Maybe C.CommitAcknowledgment)
 handleCommitTx sk st conf tx cc =
     toServer $
-    do logDebug $
+    do C.logDebug $
            formatSingle' "There is an attempt to commit transaction ({})" tx
-       logDebug $ formatSingle' "Here are confirmations: {}" cc
+       C.logDebug $ formatSingle' "Here are confirmations: {}" cc
        res <- try $ update' st $ MA.CommitTx conf sk tx cc
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do
-        logWarning $ formatSingle' "CommitTx failed: {}" e
+        C.logWarning $ formatSingle' "CommitTx failed: {}" e
         return Nothing
     onSuccess res = do
-        logInfo $ formatSingle' "Successfully committed transaction {}" tx
+        C.logInfo $ formatSingle' "Successfully committed transaction {}" tx
         return $ Just res

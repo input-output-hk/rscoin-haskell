@@ -78,7 +78,7 @@ startWorker confPath st gst mw@M.MainWindow{..} =
     forever $
     do threadDelay $ 1 * 1000000
        updated <-
-           runRealModeUntrusted confPath $ updateBlockchainWithProgress st mw
+           runRealModeUntrusted C.userLoggerName confPath $ updateBlockchainWithProgress st mw
        when updated $
            do G.postGUIAsync $ updateWalletTab confPath st gst mw
               G.postGUIAsync $ updateAddressTab confPath st mw

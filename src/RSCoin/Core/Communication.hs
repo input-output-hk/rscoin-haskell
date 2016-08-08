@@ -64,6 +64,7 @@ import           RSCoin.Core.Crypto         (PublicKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
+import           RSCoin.Core.NamedLogging   (WithNamedLogger (..))
 import           RSCoin.Core.Primitives     (AddrId, Address, EmissionId,
                                              Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
@@ -82,12 +83,6 @@ import           RSCoin.Mintette.Error      (MintetteError (MEInactive))
 import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
                                              WorkMode)
 
-logError, logWarning, logInfo, logDebug :: MonadIO m => Text -> m ()
-logError = L.logError L.communicationLoggerName
-logWarning = L.logWarning L.communicationLoggerName
-logInfo = L.logInfo L.communicationLoggerName
-logDebug = L.logDebug L.communicationLoggerName
-
 -- | Errors which may happen during remote call.
 data CommunicationError
     = ProtocolError Text  -- ^ Message was encoded incorrectly.
@@ -104,21 +99,21 @@ instance Buildable CommunicationError where
     build (TimeoutError t) = "timeout error: " <> build t
     build (MethodError t) = "method error: " <> build t
 
-rpcErrorHandler :: MonadIO m => MP.RpcError -> m a
+rpcErrorHandler :: (MonadIO m, WithNamedLogger m) => MP.RpcError -> m a
 rpcErrorHandler = liftIO . log' . fromError
   where
     log' (e :: CommunicationError) = do
-        logError $ show' e
+        L.logError $ show' e
         throwM e
     fromError (MP.ProtocolError s) = ProtocolError $ pack s
     fromError (MP.ResultTypeError s) = ProtocolError $ pack s
     fromError (MP.ServerError obj) = MethodError $ pack $ show obj
 
-monadTimedHandler :: (MonadTimed m, MonadIO m) => MonadTimedError -> m a
+monadTimedHandler :: (MonadTimed m, MonadIO m, WithNamedLogger m) => MonadTimedError -> m a
 monadTimedHandler = log' . fromError
   where
     log' (e :: CommunicationError) = do
-        logError $ show' e
+        L.logError $ show' e
         throwM e
     fromError (MTTimeoutError s) = TimeoutError s
 
@@ -145,8 +140,8 @@ withResult before after action = do
 getBlockchainHeight :: WorkMode m => m PeriodId
 getBlockchainHeight =
     withResult
-        (logDebug "Getting blockchain height")
-        (logDebug . sformat ("Blockchain height is " % int))
+        (L.logDebug "Getting blockchain height")
+        (L.logDebug . sformat ("Blockchain height is " % int))
         $ callBank $ P.call (P.RSCBank P.GetBlockchainHeight)
 
 -- TODO: should this method return Maybe HBlock ?
@@ -159,9 +154,9 @@ getBlockByHeight pId =
         (head <$> callBank (P.call (P.RSCBank P.GetHBlocks) [pId]))
   where
     infoMessage =
-        logDebug $ sformat ("Getting block with height " % int) pId
+        L.logDebug $ sformat ("Getting block with height " % int) pId
     onSuccess (res :: HBlock) =
-        logDebug $
+        L.logDebug $
             sformat ("Successfully got block with height " % int % ": " % F.build)
                 pId res
 
@@ -173,11 +168,11 @@ getBlocksByHeight from to =
         $ callBank $ P.call (P.RSCBank P.GetHBlocks) [from..to]
   where
     infoMessage =
-        logDebug $
+        L.logDebug $
             sformat ("Getting higher-level blocks between " % int % " and " % int)
                 from to
     successMessage res =
-        logDebug $
+        L.logDebug $
             sformat
                 ("Got higher-level blocks between " % int % " " %
                  int % ": " % F.build)
@@ -186,44 +181,44 @@ getBlocksByHeight from to =
 getTransactionById :: WorkMode m => TransactionId -> m (Maybe Transaction)
 getTransactionById tId =
     withResult
-        (logInfo $ formatSingle' "Getting transaction by id {}" tId)
-        (\t -> logInfo $ format' "Successfully got transaction by id {}: {}" (tId, t))
+        (L.logInfo $ formatSingle' "Getting transaction by id {}" tId)
+        (\t -> L.logInfo $ format' "Successfully got transaction by id {}: {}" (tId, t))
         $ callBank $ P.call (P.RSCBank P.GetTransaction) tId
 
 getGenesisBlock :: WorkMode m => m HBlock
 getGenesisBlock = do
-    liftIO $ logDebug "Getting genesis block"
+    liftIO $ L.logDebug "Getting genesis block"
     block <- getBlockByHeight 0
-    liftIO $ logDebug "Successfully got genesis block"
+    liftIO $ L.logDebug "Successfully got genesis block"
     return block
 
 finishPeriod :: WorkMode m => Signature -> m ()
 finishPeriod currentPeriodSignature =
     withResult
-        (logInfo "Finishing period")
-        (const $ logDebug "Successfully finished period") $
+        (L.logInfo "Finishing period")
+        (const $ L.logDebug "Successfully finished period") $
     callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
 
 addMintetteAdhoc :: WorkMode m => Mintette -> PublicKey -> Signature -> m ()
 addMintetteAdhoc mintette pk proof =
     withResult
-        (logInfo $ sformat ("Sending req to add mintette " % F.build % ", pk " % F.build)
+        (L.logInfo $ sformat ("Sending req to add mintette " % F.build % ", pk " % F.build)
                            mintette pk)
-        (const $ logDebug "Request sent successfully") $
+        (const $ L.logDebug "Request sent successfully") $
         callBank $ P.call (P.RSCBank P.AddMintetteAdhoc) mintette pk proof
 
 addExplorerAdhoc :: WorkMode m => Explorer -> PeriodId -> Signature -> m ()
 addExplorerAdhoc explorer pId proof =
     withResult
-        (logInfo $ sformat ("Sending req to add explorer " % F.build % ", pid " % int)
+        (L.logInfo $ sformat ("Sending req to add explorer " % F.build % ", pid " % int)
                            explorer pId)
-        (const $ logDebug "Request sent successfully") $
+        (const $ L.logDebug "Request sent successfully") $
         callBank $ P.call (P.RSCBank P.AddExplorerAdhoc) explorer pId proof
 
 
-logFunction :: MonadIO m => MintetteError -> Text -> m ()
-logFunction MEInactive = logInfo
-logFunction _ = logWarning
+logFunction :: (MonadIO m, WithNamedLogger m) => MintetteError -> Text -> m ()
+logFunction MEInactive = L.logInfo
+logFunction _ = L.logWarning
 
 checkNotDoubleSpent
     :: WorkMode m
@@ -237,12 +232,12 @@ checkNotDoubleSpent m tx a s =
     callMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
   where
     infoMessage =
-        logDebug $ format' "Checking addrid ({}) from transaction: {}" (a, tx)
+        L.logDebug $ format' "Checking addrid ({}) from transaction: {}" (a, tx)
     onError e =
         logFunction e $ formatSingle' "Checking double spending failed: {}" e
     onSuccess res = do
-        logDebug $ format' "Confirmed addrid ({}) from transaction: {}" (a, tx)
-        logDebug $ formatSingle' "Confirmation: {}" res
+        L.logDebug $ format' "Confirmed addrid ({}) from transaction: {}" (a, tx)
+        L.logDebug $ formatSingle' "Confirmation: {}" res
 
 commitTx
     :: WorkMode m
@@ -255,24 +250,24 @@ commitTx m tx cc =
     callMintette m $ P.call (P.RSCMintette P.CommitTx) tx cc
   where
     infoMessage =
-        logInfo $
+        L.logInfo $
         formatSingle' "Commit transaction {}" tx
     onError e =
         logFunction e $ formatSingle' "Commit tx failed: {}" e
     onSuccess _ =
-        logInfo $ formatSingle' "Successfully committed transaction {}" tx
+        L.logInfo $ formatSingle' "Successfully committed transaction {}" tx
 
 getMintettePeriod :: WorkMode m => Mintette -> m (Maybe PeriodId)
 getMintettePeriod m =
     withResult infoMessage (maybe onError onSuccess) $
     callMintette m $ P.call (P.RSCMintette P.GetMintettePeriod)
   where
-    infoMessage = logInfo $
+    infoMessage = L.logInfo $
         sformat ("Getting minette period from mintette " % F.build) m
-    onError = logError $ sformat
+    onError = L.logError $ sformat
         ("getMintettePeriod failed for mintette " % F.build) m
     onSuccess p =
-        logInfo $ sformat ("Successfully got the period: " % F.build) p
+        L.logInfo $ sformat ("Successfully got the period: " % F.build) p
 
 sendPeriodFinished :: WorkMode m => Mintette -> PeriodId -> m PeriodResult
 sendPeriodFinished mintette pId =
@@ -280,17 +275,17 @@ sendPeriodFinished mintette pId =
     callMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
   where
     infoMessage =
-        logInfo $
+        L.logInfo $
         format' "Send period {} finished to mintette {}" (pId, mintette)
     successMessage (_,blks,lgs) =
-        logInfo $
+        L.logInfo $
         format'
             "Received period result from mintette {}: \n Blocks: {}\n Logs: {}\n"
             (mintette, listBuilderJSONIndent 2 blks, lgs)
 
 announceNewPeriodsToNotary :: WorkMode m => PeriodId -> [HBlock] -> m ()
 announceNewPeriodsToNotary pId' hblocks = do
-    logInfo $
+    L.logInfo $
         sformat
             ("Announce new periods to Notary, hblocks " % F.build %
              ", latest periodId " %
@@ -301,7 +296,7 @@ announceNewPeriodsToNotary pId' hblocks = do
 
 getNotaryPeriod :: WorkMode m => m PeriodId
 getNotaryPeriod = do
-    logInfo "Getting period of Notary"
+    L.logInfo "Getting period of Notary"
     callNotary $ P.call $ P.RSCNotary P.GetNotaryPeriod
 
 allocateMultisignatureAddress
@@ -313,7 +308,7 @@ allocateMultisignatureAddress
     -> [(Signature, PublicKey)]
     -> m ()
 allocateMultisignatureAddress msAddr partyAddr allocStrat signature chain = do
-    logInfo $ sformat
+    L.logInfo $ sformat
         ( "Allocate new ms address: " % F.build % "\n,"
         % "from party address: "      % F.build % "\n"
         % "allocation strategy: "     % F.build % "\n,"
@@ -329,12 +324,12 @@ allocateMultisignatureAddress msAddr partyAddr allocStrat signature chain = do
 
 queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, TxStrategy)]
 queryNotaryCompleteMSAddresses = do
-    logInfo "Querying Notary complete MS addresses"
+    L.logInfo "Querying Notary complete MS addresses"
     callNotary $ P.call $ P.RSCNotary P.QueryCompleteMS
 
 removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> Signature -> m ()
 removeNotaryCompleteMSAddresses addresses signedAddrs = do
-    logInfo "Removing Notary complete MS addresses"
+    L.logInfo "Removing Notary complete MS addresses"
     callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses signedAddrs
 
 queryNotaryMyMSAllocations
@@ -347,15 +342,15 @@ queryNotaryMyMSAllocations allocAddr =
         successMessage
         $ callNotary $ P.call (P.RSCNotary P.QueryMyAllocMS) allocAddr
   where
-    infoMessage = logInfo "Calling Notary for my MS addresses..."
+    infoMessage = L.logInfo "Calling Notary for my MS addresses..."
     successMessage res =
-        logDebug
+        L.logDebug
         $ sformat ("Retrieving from Notary: " % F.build)
         $ mapBuilder res
 
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do
-    logInfo $ sformat ("Announce new period to mintette " % F.build % ", new period data " % F.build)
+    L.logInfo $ sformat ("Announce new period to mintette " % F.build % ", new period data " % F.build)
         mintette
         npd
     callMintette mintette $ P.call (P.RSCMintette P.AnnounceNewPeriod) npd
@@ -369,13 +364,13 @@ announceNewBlock explorer pId blk signature =
     P.call (P.RSCExplorer P.EMNewBlock) pId blk signature
   where
     infoMessage =
-        logInfo $
+        L.logInfo $
         sformat
             ("Announcing new (" % int % "-th) block to " % F.build)
             pId
             explorer
     successMessage respPeriod =
-        logDebug $
+        L.logDebug $
         sformat
             ("Received periodId " % int % " from explorer " % F.build)
             respPeriod
@@ -387,15 +382,15 @@ announceNewBlock explorer pId blk signature =
 getAddresses :: WorkMode m => m AddressToTxStrategyMap
 getAddresses =
     withResult
-        (logDebug "Getting list of addresses")
-        (logDebug . formatSingle' "Successfully got list of addresses {}" . mapBuilder . M.toList)
+        (L.logDebug "Getting list of addresses")
+        (L.logDebug . formatSingle' "Successfully got list of addresses {}" . mapBuilder . M.toList)
         $ callBank $ P.call (P.RSCBank P.GetAddresses)
 
 getMintettes :: WorkMode m => m Mintettes
 getMintettes =
     withResult
-        (logDebug "Getting list of mintettes")
-        (logDebug . formatSingle' "Successfully got list of mintettes {}")
+        (L.logDebug "Getting list of mintettes")
+        (L.logDebug . formatSingle' "Successfully got list of mintettes {}")
         $ callBank $ P.call (P.RSCBank P.GetMintettes)
 
 getLogs :: WorkMode m => MintetteId -> Int -> Int -> m (Maybe ActionLog)
@@ -404,17 +399,17 @@ getLogs m from to =
     callBank $ P.call (P.RSCDump P.GetLogs) m from to
   where
     infoMessage =
-        logDebug $
+        L.logDebug $
         format'
             "Getting action logs of mintette {} with range of entries {} to {}"
             (m, from, to)
     onError =
-        logWarning $
+        L.logWarning $
         format'
             "Action logs of mintette {} (range {} - {}) failed."
             (m, from, to)
     onSuccess aLog =
-        logDebug $
+        L.logDebug $
         format'
             "Action logs of mintette {} (range {} - {}): {}"
             (m, from, to, aLog)
@@ -428,12 +423,12 @@ getMintetteUtxo mId = do
   where
     onNothing = liftIO $ do
         let e = formatSingle' "Mintette with this index {} doesn't exist" mId
-        logWarning e
+        L.logWarning e
         throwM $ MethodError e
     onJust mintette =
         withResult
-            (logDebug "Getting utxo")
-            (logDebug . formatSingle' "Corrent utxo is: {}")
+            (L.logDebug "Getting utxo")
+            (L.logDebug . formatSingle' "Corrent utxo is: {}")
             (callMintette mintette $ P.call (P.RSCDump P.GetMintetteUtxo))
 
 getMintetteBlocks :: WorkMode m => MintetteId -> PeriodId -> m (Maybe [LBlock])
@@ -443,7 +438,7 @@ getMintetteBlocks mId pId = do
   where
     onNothing = liftIO $ do
         let e = formatSingle' "Mintette with this index {} doesn't exist" mId
-        logWarning e
+        L.logWarning e
         throwM $ MethodError e
     onJust mintette =
         withResult
@@ -452,14 +447,14 @@ getMintetteBlocks mId pId = do
             $ callMintette mintette $ P.call (P.RSCDump P.GetMintetteBlocks) pId
       where
         infoMessage =
-            logDebug $
+            L.logDebug $
                 format' "Getting blocks of mintette {} with period id {}" (mId, pId)
         onError =
-            logWarning $
+            L.logWarning $
                 format' "Getting blocks of mintette {} with period id {} failed"
                 (mId, pId)
         onSuccess res =
-            logDebug $
+            L.logDebug $
                 format'
                     "Successfully got blocks for period id {}: {}"
                     (pId, listBuilderJSONIndent 2 res)
@@ -472,22 +467,22 @@ getMintetteLogs mId pId = do
   where
     onNothing = do
         let e = formatSingle' "Mintette with this index {} doesn't exist" mId
-        logWarning e
+        L.logWarning e
         throwM $ MethodError e
     onJust mintette =
         withResult infoMessage (maybe onError onSuccess) $
         callMintette mintette $ P.call (P.RSCDump P.GetMintetteLogs) pId
       where
         infoMessage =
-            logDebug $
+            L.logDebug $
             format' "Getting logs of mintette {} with period id {}" (mId, pId)
         onError =
-            logWarning $
+            L.logWarning $
             format'
                 "Getting logs of mintette {} with period id {} faild"
                 (mId, pId)
         onSuccess res =
-            logDebug $
+            L.logDebug $
             format'
                 "Successfully got logs for period id {}: {}"
                 (pId, listBuilderJSONIndent 2 $ map pairBuilder res)
@@ -506,10 +501,10 @@ publishTxToNotary tx addr sg =
     callNotary $ P.call (P.RSCNotary P.PublishTransaction) tx addr sg
   where
     infoMessage =
-        logDebug $
+        L.logDebug $
         sformat ("Sending tx, signature to Notary: " % shown) (tx, sg)
     successMessage res =
-        logDebug $ sformat ("Received signatures from Notary: " % shown) res
+        L.logDebug $ sformat ("Received signatures from Notary: " % shown) res
 
 -- | Read-only method of Notary. Returns current state of signatures
 -- for the given address (that implicitly defines addrids ~
@@ -520,10 +515,10 @@ getTxSignatures tx addr =
     callNotary $ P.call (P.RSCNotary P.GetSignatures) tx addr
   where
     infoMessage =
-        logDebug $
+        L.logDebug $
         sformat ("Getting signatures for tx " % shown % ", addr " % shown) tx addr
     successMessage res =
-        logDebug $ sformat ("Received signatures from Notary: " % shown) res
+        L.logDebug $ sformat ("Received signatures from Notary: " % shown) res
 
 
 -- | This method is somewhat mystic because it's not used anywhere and
@@ -538,9 +533,9 @@ pollTxsFromNotary addrs =
     callNotary $ P.call (P.RSCNotary P.PollTransactions) addrs
   where
     infoMessage =
-        logDebug $
+        L.logDebug $
         sformat
             ("Polling transactions to sign for addresses: " % shown)
             addrs
     successMessage res =
-        logDebug $ sformat ("Received transactions to sign: " % shown) res
+        L.logDebug $ sformat ("Received transactions to sign: " % shown) res

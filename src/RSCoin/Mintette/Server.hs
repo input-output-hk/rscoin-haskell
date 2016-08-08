@@ -41,12 +41,6 @@ import           RSCoin.Timed              (ServerT, WorkMode,
                                             serverTypeRestriction2,
                                             serverTypeRestriction3)
 
-logError, logWarning, logInfo, logDebug :: MonadIO m => Text -> m ()
-logError = C.logError C.mintetteLoggerName
-logWarning = C.logWarning C.mintetteLoggerName
-logInfo = C.logInfo C.mintetteLoggerName
-logDebug = C.logDebug C.mintetteLoggerName
-
 serve :: WorkMode m => Int -> State -> C.SecretKey -> m ()
 serve port st sk = do
     idr1 <- serverTypeRestriction1
@@ -80,7 +74,7 @@ toServer :: WorkMode m => IO a -> ServerT m a
 toServer action = liftIO $ action `catch` handler
   where
     handler (e :: MintetteError) = do
-        logError $ show' e
+        C.logError $ show' e
         throwIO e
 
 handlePeriodFinished
@@ -89,18 +83,18 @@ handlePeriodFinished
 handlePeriodFinished sk st pId =
     toServer $
     do (curUtxo,curPset) <- query' st GetUtxoPset
-       logDebug $
+       C.logDebug $
            format'
                "Before period end utxo is: {}\nCurrent pset is: {}"
                (curUtxo, curPset)
-       logInfo $ formatSingle' "Period {} has just finished!" pId
+       C.logInfo $ formatSingle' "Period {} has just finished!" pId
        res@(_,blks,lgs) <- update' st $ FinishPeriod sk pId
-       logInfo $
+       C.logInfo $
            format'
                "Here is PeriodResult:\n Blocks: {}\n Logs: {}\n"
                (listBuilderJSONIndent 2 blks, lgs)
        (curUtxo', curPset') <- query' st GetUtxoPset
-       logDebug $
+       C.logDebug $
            format'
                "After period end utxo is: {}\nCurrent pset is: {}"
                (curUtxo', curPset')
@@ -113,21 +107,21 @@ handleNewPeriod :: WorkMode m
 handleNewPeriod st npd =
     toServer $
     do prevMid <- query' st PreviousMintetteId
-       logInfo $
+       C.logInfo $
            format'
                ("New period has just started, I am mintette #{} (prevId).\n" <>
                 "Here is new period data:\n {}")
                (prevMid, npd)
        update' st $ StartPeriod npd
        (curUtxo,curPset) <- query' st GetUtxoPset
-       logDebug $
+       C.logDebug $
            format'
                "After start of new period, my utxo: {}\nCurrent pset is: {}"
                (curUtxo, curPset)
 
-logFunction :: MonadIO m => MintetteError -> Text -> m ()
-logFunction MEInactive = logInfo
-logFunction _ = logWarning
+logFunction :: (MonadIO m, C.WithNamedLogger m) => MintetteError -> Text -> m ()
+logFunction MEInactive = C.logInfo
+logFunction _ = C.logWarning
 
 handleCheckTx
     :: WorkMode m
@@ -139,10 +133,10 @@ handleCheckTx
     -> ServerT m (Either MintetteError C.CheckConfirmation)
 handleCheckTx sk st tx addrId sg =
     toServer $
-    do logDebug $
+    do C.logDebug $
            format' "Checking addrid ({}) from transaction: {}" (addrId, tx)
        (curUtxo,curPset) <- query' st GetUtxoPset
-       logDebug $
+       C.logDebug $
            format'
                "My current utxo is: {}\nCurrent pset is: {}"
                (curUtxo, curPset)
@@ -152,9 +146,9 @@ handleCheckTx sk st tx addrId sg =
     onError e =
         Left e <$ (logFunction e $ formatSingle' "CheckTx failed: {}" e)
     onSuccess res = do
-        logInfo $
+        C.logInfo $
             format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
-        logInfo $ formatSingle' "Confirmation: {}" res
+        C.logInfo $ formatSingle' "Confirmation: {}" res
         return $ Right res
 
 handleCommitTx
@@ -166,22 +160,22 @@ handleCommitTx
     -> ServerT m (Either MintetteError C.CommitAcknowledgment)
 handleCommitTx sk st tx cc =
     toServer $
-    do logDebug $
+    do C.logDebug $
            formatSingle' "There is an attempt to commit transaction ({})." tx
-       logDebug $ formatSingle' "Here are confirmations: {}" cc
+       C.logDebug $ formatSingle' "Here are confirmations: {}" cc
        res <- try $ update' st $ CommitTx sk tx cc
        either onError onSuccess res
   where
     onError e =
         Left e <$ (logFunction e $ formatSingle' "CommitTx failed: {}" e)
     onSuccess res = do
-        logInfo $ formatSingle' "Successfully committed transaction {}" tx
+        C.logInfo $ formatSingle' "Successfully committed transaction {}" tx
         return $ Right res
 
 handleGetMintettePeriod :: WorkMode m => State -> ServerT m (Maybe C.PeriodId)
 handleGetMintettePeriod st =
     toServer $
-    do logDebug "Querying periodId"
+    do C.logDebug "Querying periodId"
        res <- try $ query' st GetPeriodId
        either onError onSuccess res
   where
@@ -189,7 +183,7 @@ handleGetMintettePeriod st =
         logFunction e "Failed to query periodId"
         return Nothing
     onSuccess pid = do
-        logInfo $ sformat ("Successfully returning periodId " % int) pid
+        C.logInfo $ sformat ("Successfully returning periodId " % int) pid
         return $ Just pid
 
 
@@ -198,9 +192,9 @@ handleGetMintettePeriod st =
 handleGetUtxo :: WorkMode m => State -> ServerT m C.Utxo
 handleGetUtxo st =
     toServer $
-    do logDebug "Getting utxo"
+    do C.logDebug "Getting utxo"
        (curUtxo, _) <- query' st GetUtxoPset
-       logDebug $ formatSingle' "Corrent utxo is: {}" curUtxo
+       C.logDebug $ formatSingle' "Corrent utxo is: {}" curUtxo
        return curUtxo
 
 handleGetBlocks :: WorkMode m
@@ -208,7 +202,7 @@ handleGetBlocks :: WorkMode m
 handleGetBlocks st pId =
     toServer $
     do res <- query' st $ GetBlocks pId
-       logDebug $
+       C.logDebug $
             format' "Getting blocks for periodId {}: {}" (pId, listBuilderJSONIndent 2 <$> res)
        return res
 
@@ -218,6 +212,6 @@ handleGetLogs :: WorkMode m
 handleGetLogs st pId =
     toServer $
     do res <- query' st $ GetLogs pId
-       logDebug $
+       C.logDebug $
             format' "Getting logs for periodId {}: {}" (pId, listBuilderJSONIndent 2 . map pairBuilder <$> res)
        return res

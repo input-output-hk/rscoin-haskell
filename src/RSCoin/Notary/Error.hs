@@ -2,8 +2,6 @@
 
 module RSCoin.Notary.Error
        ( NotaryError (..)
-       , logDebug
-       , logError
        ) where
 
 import           Control.Exception       (Exception (..))
@@ -77,9 +75,3 @@ instance MessagePack NotaryError where
             6 -> NEStrategyNotSupported <$> fromObject payload
             7 -> NEUnrelatedSignature   <$> fromObject payload
             _ -> Nothing
-
-logError, logDebug :: MonadIO m => Text -> m ()
-logError = C.logError C.notaryLoggerName
---logWarning = C.logWarning C.notaryLoggerName
---logInfo = C.logInfo C.notaryLoggerName
-logDebug = C.logDebug C.notaryLoggerName

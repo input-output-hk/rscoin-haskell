@@ -36,7 +36,7 @@ runWorker sk st storagePath =
   where
     handler e = do
         unless (isMEInactive e) $
-            logError mintetteLoggerName $
+            logError $
             formatSingle'
                 "Error was caught by worker, restarting in 2 seconds: {}"
                 e

@@ -14,6 +14,7 @@ module RSCoin.Core.Logging
        , notaryLoggerName
        , explorerLoggerName
        , timedLoggerName
+       , undefinedLoggerName
        , userLoggerName
        , communicationLoggerName
        , testingLoggerName
@@ -40,6 +41,8 @@ import           System.Log.Logger         (Priority (DEBUG, ERROR, INFO, WARNIN
                                             logM, removeHandler, rootLoggerName,
                                             setHandlers, setLevel,
                                             updateGlobalLogger)
+import           RSCoin.Core.NamedLogging  (WithNamedLogger (..))
+import           RSCoin.Core.Primitives    (LoggerName)
 
 -- | This type is intended to be used as command line option
 -- which specifies which messages to print.
@@ -91,8 +94,6 @@ colorizer pr s = before ++ s ++ after
   where
     (before, after) = table pr
 
-type LoggerName = String
-
 bankLoggerName,
     communicationLoggerName,
     explorerLoggerName,
@@ -100,6 +101,7 @@ bankLoggerName,
     notaryLoggerName,
     testingLoggerName,
     timedLoggerName,
+    undefinedLoggerName,
     userLoggerName :: LoggerName
 bankLoggerName          = "bank"
 communicationLoggerName = "communication"
@@ -108,6 +110,7 @@ mintetteLoggerName      = "mintette"
 notaryLoggerName        = "notary"
 testingLoggerName       = "testing"
 timedLoggerName         = "timed"
+undefinedLoggerName     = "naked"
 userLoggerName          = "user"
 
 predefinedLoggers :: [LoggerName]
@@ -118,27 +121,29 @@ predefinedLoggers =
     , mintetteLoggerName
     , notaryLoggerName
     , timedLoggerName
+    , undefinedLoggerName
     , userLoggerName
     ]
 
-logDebug :: MonadIO m
-         => LoggerName -> T.Text -> m ()
+logDebug :: (WithNamedLogger m, MonadIO m)
+         => T.Text -> m ()
 logDebug = logMessage Debug
 
-logInfo :: MonadIO m
-        => LoggerName -> T.Text -> m ()
+logInfo :: (WithNamedLogger m, MonadIO m)
+        => T.Text -> m ()
 logInfo = logMessage Info
 
-logWarning :: MonadIO m
-        => LoggerName -> T.Text -> m ()
+logWarning :: (WithNamedLogger m, MonadIO m)
+        => T.Text -> m ()
 logWarning = logMessage Warning
 
-logError :: MonadIO m
-        => LoggerName -> T.Text -> m ()
+logError :: (WithNamedLogger m, MonadIO m)
+         => T.Text -> m ()
 logError = logMessage Error
 
 logMessage
-    :: MonadIO m
-    => Severity -> LoggerName -> T.Text -> m ()
-logMessage severity loggerName =
-    liftIO . logM loggerName (convertSeverity severity) . T.unpack
+    :: (WithNamedLogger m, MonadIO m)
+    => Severity -> T.Text -> m ()
+logMessage severity t = do
+    loggerName <- getLoggerFromContext
+    liftIO . logM loggerName (convertSeverity severity) $ T.unpack t

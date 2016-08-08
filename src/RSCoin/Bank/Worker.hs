@@ -53,12 +53,12 @@ import           RSCoin.Timed             (MonadRpc (getNodeContext), Second,
                                            sec, tu, wait)
 
 logDebug, logInfo, logWarning, logError
-    :: MonadIO m
+    :: (MonadIO m, C.WithNamedLogger m)
     => Text -> m ()
-logDebug = C.logDebug C.bankLoggerName
-logInfo = C.logInfo C.bankLoggerName
-logWarning = C.logWarning C.bankLoggerName
-logError = C.logError C.bankLoggerName
+logDebug = C.logDebug
+logInfo = C.logInfo
+logWarning = C.logWarning
+logError = C.logError
 
 -- | Start worker which runs appropriate action when a period
 -- finishes. Default period length is used.

@@ -76,21 +76,21 @@ data Storage = Storage
     , _utxoDeleted   :: !Utxo                    -- ^ Entries, deleted from utxo
     , _utxoAdded     :: !Utxo                    -- ^ Entries, added to utxo
     , _pset          :: !Pset                    -- ^ Set of checked transactions
-    , _txset         :: !(S.Set C.Transaction)     -- ^ List of transaction sealing into ledger
+    , _txset         :: !(S.Set C.Transaction)   -- ^ List of transaction sealing into ledger
     , _lBlocks       :: ![[LBlock]]              -- ^ Blocks are stored per period
     , _actionLogs    :: ![ActionLog]             -- ^ Logs are stored per period
     , _logSize       :: !Int                     -- ^ Total size of actionLogs
     , _mintettes     :: !Mintettes               -- ^ Mintettes for current period
-    , _mintetteId    :: !(Maybe MintetteId)        -- ^ Id for current period
-    , _invMintetteId :: !(Maybe MintetteId)        -- ^ Invariant for mintetteId
+    , _mintetteId    :: !(Maybe MintetteId)      -- ^ Id for current period
+    , _invMintetteId :: !(Maybe MintetteId)      -- ^ Invariant for mintetteId
     , _dpk           :: !C.Dpk                   -- ^ DPK for current period
     , _logHeads      :: !ActionLogHeads          -- ^ All known heads of logs
-    , _lastBankHash  :: !(Maybe Hash)              -- ^ Hash of the last HBlock
+    , _lastBankHash  :: !(Maybe Hash)            -- ^ Hash of the last HBlock
     , _addresses     :: !AddressToTxStrategyMap  -- ^ Complete list of system's addresses
-                                                -- accompanied with their strategies.
-                                                -- Should be up-to-date with
-                                                -- Bank::Storage::_addresses (updates are
-                                                -- propagated via HBlocks)
+                                                 -- accompanied with their strategies.
+                                                 -- Should be up-to-date with
+                                                 -- Bank::Storage::_addresses (updates are
+                                                 -- propagated via HBlocks)
     }
 
 $(makeLenses ''Storage)
@@ -373,7 +373,7 @@ finishEpochList sk txList = do
 pushLogEntry :: C.ActionLogEntry -> Update ()
 pushLogEntry entry = do
     prev <- use logHead
-    topLog <- head <$> use actionLogs
+    topLog <- uses actionLogs head
     let newTopLog = C.actionLogNext prev entry : topLog
     actionLogs %= (\l -> newTopLog : tail l)
     logSize += 1

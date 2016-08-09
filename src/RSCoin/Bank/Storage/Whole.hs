@@ -261,7 +261,7 @@ startNewPeriodDo
     -> [Maybe PeriodResult]
     -> ExceptUpdate [MintetteId]
 startNewPeriodDo nodeCtx sk 0 _ =
-    startNewPeriodFinally sk [] (const $ mkGenesisHBlock nodeCtx) Nothing
+    startNewPeriodFinally sk [] (const $ const $ mkGenesisHBlock nodeCtx) Nothing
 startNewPeriodDo nodeCtx sk pId results = do
     lastHBlock <- head <$> use blocks
     curDpk <- use getDpk
@@ -278,7 +278,8 @@ startNewPeriodDo nodeCtx sk pId results = do
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
         emissionTransaction = allocateCoins nodeCtx keys filteredResults pId
         checkEmission [(tid,_,_)] = return tid
-        checkEmission _ = throwM $ BEInternal "Emission transaction should have one transaction hash"
+        checkEmission _ = throwM $
+            BEInternal "Emission transaction should have one transaction hash"
         blockTransactions =
             emissionTransaction : mergeTransactions mintettes filteredResults
     emissionTransactionId <- checkEmission $ C.txInputs emissionTransaction
@@ -296,14 +297,14 @@ startNewPeriodDo nodeCtx sk pId results = do
 startNewPeriodFinally
     :: SecretKey
     -> [(MintetteId, PeriodResult)]
-    -> (C.AddressToTxStrategyMap -> SecretKey -> Dpk -> HBlock)
+    -> (C.AddressToTxStrategyMap -> C.ColdKeysMap -> SecretKey -> Dpk -> HBlock)
     -> C.EmissionId
     -> ExceptUpdate [MintetteId]
 startNewPeriodFinally sk goodMintettes newBlockCtor emissionTid = do
     periodId += 1
     updateIds <- updateMintettes sk goodMintettes
     newAddrs <- updateAddresses
-    newBlock <- newBlockCtor newAddrs sk <$> use getDpk
+    newBlock <- newBlockCtor newAddrs MP.empty sk <$> use getDpk
     updateUtxo $ hbTransactions newBlock
     -- TODO: this can be written more elegantly !
     when (isJust emissionTid) $
@@ -378,7 +379,7 @@ allocateCoins nodeCtx mintetteKeys goodResults pId =
         Strategies.allocateCoins
             Strategies.AllocateCoinsDefault
             pId
-            (map sel3 . map snd $ goodResults)
+            (map (sel3 . snd) goodResults)
     inputValue = sum (bankReward : goodMintetteRewards)
     idxInGoodToGlobal idxInGood = fst $ goodResults !! idxInGood
     mintetteOutputs =

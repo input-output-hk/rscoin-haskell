@@ -8,14 +8,12 @@ module RSCoin.Notary.Error
 
 import           Control.Exception       (Exception (..))
 import           Control.Monad.IO.Class  (MonadIO)
-
 import           Data.Data               (Data)
 import           Data.MessagePack        (MessagePack (fromObject, toObject),
                                           Object)
 import           Data.Text               (Text)
 import           Data.Text.Buildable     (Buildable (build))
 import           Data.Typeable           (Typeable)
-
 import           Formatting              (bprint, int, stext, (%))
 
 import qualified RSCoin.Core             as C
@@ -34,6 +32,7 @@ data NotaryError
     | NEInvalidSignature           -- ^ Invalid signature provided
     | NEStrategyNotSupported Text  -- ^ Address's strategy is not supported, with name provided
     | NEUnrelatedSignature Text    -- ^ Signature provided doesn't correspond to any of address' parties
+    | NEInvalidColdSignature Text  -- ^ Master-slave cold key signature verification failed
     deriving (Eq, Show, Typeable, Data)
 
 instance Exception NotaryError where
@@ -49,6 +48,8 @@ instance Buildable NotaryError where
     build NEInvalidSignature         = "NEInvalidSignature"
     build (NEStrategyNotSupported s) = bprint ("NEStrategyNotSupported, strategy " % stext) s
     build (NEUnrelatedSignature msg) = bprint ("NEUnrelatedSignature: " % stext) msg
+    build (NEInvalidColdSignature msg) = bprint ("NEINvalidColdSignature, wrong signature " %
+                                                 "for master/slave: " % stext) msg
 
 toObj
     :: MessagePack a
@@ -56,14 +57,15 @@ toObj
 toObj = toObject
 
 instance MessagePack NotaryError where
-    toObject NEAddrNotRelativeToTx      = toObj (0, ())
-    toObject (NEAddrIdNotInUtxo pId)    = toObj (1, pId)
-    toObject NEBlocked                  = toObj (2, ())
-    toObject (NEInvalidArguments msg)   = toObj (3, msg)
-    toObject (NEInvalidChain msg)       = toObj (4, msg)
-    toObject NEInvalidSignature         = toObj (5, ())
-    toObject (NEStrategyNotSupported s) = toObj (6, s)
-    toObject (NEUnrelatedSignature msg) = toObj (7, msg)
+    toObject NEAddrNotRelativeToTx        = toObj (0, ())
+    toObject (NEAddrIdNotInUtxo pId)      = toObj (1, pId)
+    toObject NEBlocked                    = toObj (2, ())
+    toObject (NEInvalidArguments msg)     = toObj (3, msg)
+    toObject (NEInvalidChain msg)         = toObj (4, msg)
+    toObject NEInvalidSignature           = toObj (5, ())
+    toObject (NEStrategyNotSupported s)   = toObj (6, s)
+    toObject (NEUnrelatedSignature msg)   = toObj (7, msg)
+    toObject (NEInvalidColdSignature msg) = toObj (8, msg)
 
     fromObject obj = do
         (i, payload) <- fromObject obj
@@ -76,6 +78,7 @@ instance MessagePack NotaryError where
             5 -> pure NEInvalidSignature
             6 -> NEStrategyNotSupported <$> fromObject payload
             7 -> NEUnrelatedSignature   <$> fromObject payload
+            8 -> NEInvalidColdSignature <$> fromObject payload
             _ -> Nothing
 
 logError, logDebug :: MonadIO m => Text -> m ()

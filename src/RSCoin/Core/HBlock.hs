@@ -9,6 +9,7 @@ module RSCoin.Core.HBlock
 
 import           Control.Lens           ((^.))
 import qualified Data.Map               as M
+import qualified Data.Set               as S
 
 import           RSCoin.Core.Constants  (genesisValue)
 import           RSCoin.Core.Crypto     (Hash, PublicKey, SecretKey, hash, sign,
@@ -16,7 +17,7 @@ import           RSCoin.Core.Crypto     (Hash, PublicKey, SecretKey, hash, sign,
 import           RSCoin.Core.NodeConfig (NodeContext, genesisAddress)
 import           RSCoin.Core.Primitives (Transaction (..))
 import           RSCoin.Core.Strategy   (AddressToTxStrategyMap)
-import           RSCoin.Core.Types      (Dpk, HBlock (..), ColdKeysMap)
+import           RSCoin.Core.Types      (Dpk, HBlock (..), ColdKeysSet)
 
 initialHash :: Hash
 initialHash = hash ()
@@ -34,7 +35,7 @@ mkHBlock
     :: [Transaction]
     -> HBlock
     -> AddressToTxStrategyMap
-    -> ColdKeysMap
+    -> ColdKeysSet
     -> SecretKey
     -> Dpk
     -> HBlock
@@ -43,12 +44,12 @@ mkHBlock txset prevBlock newAddrs coldKeys sk dpk =
 
 -- | Construct genesis higher-level block using Bank's secret key and DPK.
 mkGenesisHBlock :: NodeContext -> SecretKey -> Dpk -> HBlock
-mkGenesisHBlock ctx sk dpk = mkHBlockDo [initialTx ctx] M.empty M.empty sk dpk initialHash
+mkGenesisHBlock ctx sk dpk = mkHBlockDo [initialTx ctx] M.empty S.empty sk dpk initialHash
 
 mkHBlockDo
     :: [Transaction]
     -> AddressToTxStrategyMap
-    -> ColdKeysMap
+    -> ColdKeysSet
     -> SecretKey
     -> Dpk
     -> Hash

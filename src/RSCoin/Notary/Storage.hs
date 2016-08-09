@@ -18,6 +18,8 @@ module RSCoin.Notary.Storage
         , queryCompleteMSAdresses
         , queryMyMSRequests
         , removeCompleteMSAddresses
+        , addColdKeys
+        , getColdKeys
         ) where
 
 import           Control.Exception      (throw)
@@ -36,8 +38,9 @@ import qualified Data.Set               as S hiding (Set)
 
 import           Formatting             (build, sformat, (%))
 
-import           RSCoin.Core            (AddrId, Address (..), HBlock (..), PeriodId, PublicKey,
-                                         Signature, Transaction (..), Utxo, computeOutputAddrids,
+import           RSCoin.Core            (AddrId, Address (..), HBlock (..), PeriodId,
+                                         PublicKey, Signature, Transaction (..), Utxo,
+                                         computeOutputAddrids, ColdKeysSet,
                                          notaryMSAttemptsLimit, validateSignature, verify,
                                          verifyChain)
 import           RSCoin.Core.Strategy   (AddressToTxStrategyMap, AllocationAddress,
@@ -70,6 +73,9 @@ data Storage = Storage
       -- | Non-default addresses, registered in system (published to bank).
     , _addresses      :: !AddressToTxStrategyMap
 
+      -- | Cold keys that are to be submitted to bank.
+    , _coldKeys       :: !ColdKeysSet
+
       -- | Mapping between addrid and address.
     , _utxo           :: !Utxo
 
@@ -88,6 +94,7 @@ emptyNotaryStorage =
     , _allocationStrategyPool = M.empty
     , _periodStats            = M.empty
     , _addresses              = M.empty
+    , _coldKeys               = S.empty
     , _utxo                   = M.empty
     , _periodId               = -1
     }
@@ -124,7 +131,7 @@ addSignedTransaction tx addr sg@(sigAddr, sig) = do
     checkAddrRelativeToTx
     checkSigRelativeToAddr
     txMap <- fromMaybe M.empty . M.lookup addr <$> use txPool
-    when (not $ tx `M.member` txMap) $
+    unless (tx `M.member` txMap) $
       txPoolAddrIds %= updateTxPoolAddrIds
     txPool %= M.insert addr (M.alter (Just. uncurry M.insert sg . fromMaybe M.empty) tx txMap)
   where
@@ -134,11 +141,11 @@ addSignedTransaction tx addr sg@(sigAddr, sig) = do
     -- User should repeat transaction after some timeout
     checkAddrIdsKnown = do
       u <- use utxo
-      when (not $ all (`M.member` u) (txInputs tx)) $
+      unless (all (`M.member` u) (txInputs tx)) $
          use periodId >>= throwM . NEAddrIdNotInUtxo
     checkAddrRelativeToTx = do
       s <- fromMaybe S.empty . M.lookup addr <$> use unspentAddrIds
-      when (not $ any (`S.member` s) (txInputs tx)) $
+      unless (any (`S.member` s) (txInputs tx)) $
          throwM NEAddrNotRelativeToTx
     checkSigRelativeToAddr = do
         strategy <- getStrategy addr
@@ -146,9 +153,9 @@ addSignedTransaction tx addr sg@(sigAddr, sig) = do
           DefaultStrategy
             -> throwM $ NEStrategyNotSupported "DefaultStrategy"
           MOfNStrategy _ addrs
-            -> when (not $ any (sigAddr ==) addrs) $
+            -> unless (sigAddr `elem` addrs) $
                  throwM $ NEUnrelatedSignature "in multi transaction"
-        when (not $ validateSignature sig sigAddr tx) $
+        unless (validateSignature sig sigAddr tx) $
           throwM NEInvalidSignature
 
 -- | Allocate new multisignature address by chosen strategy and
@@ -264,6 +271,21 @@ getSignatures tx addr = maybe [] M.assocs . (M.lookup tx <=< M.lookup addr) <$> 
 -- | Get last known periodId of Notary (interface for bank).
 getPeriodId :: Query Storage PeriodId
 getPeriodId = view periodId
+
+-- | Add new keys to the storage
+addColdKeys :: ColdKeysSet -> Update Storage ()
+addColdKeys newKeys = do
+    forM_ (S.toList newKeys) checkColdKeySignature
+    coldKeys %= S.union newKeys
+  where
+    checkColdKeySignature (master,slave,sig) = do
+        unless (verify (getAddress master) sig slave) $
+            throwM $ NEInvalidColdSignature $
+            sformat ("master: " % build % ", slave: " % build) master slave
+
+-- | Get cold keys submitted for this period
+getColdKeys :: Query Storage ColdKeysSet
+getColdKeys = view coldKeys
 
 -- | Announce HBlocks, not yet known to Notary.
 announceNewPeriods :: PeriodId -- ^ periodId of latest hblock

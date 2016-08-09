@@ -44,6 +44,7 @@ import           Data.Bifunctor                (first)
 import           Data.Foldable                 (foldl')
 import qualified Data.HashMap.Lazy             as M
 import qualified Data.HashSet                  as S
+import qualified Data.Set                      as SS
 import           Data.List                     (unfoldr)
 import qualified Data.Map                      as MP
 import           Data.Maybe                    (fromJust, isJust, mapMaybe)
@@ -297,14 +298,14 @@ startNewPeriodDo nodeCtx sk pId results = do
 startNewPeriodFinally
     :: SecretKey
     -> [(MintetteId, PeriodResult)]
-    -> (C.AddressToTxStrategyMap -> C.ColdKeysMap -> SecretKey -> Dpk -> HBlock)
+    -> (C.AddressToTxStrategyMap -> C.ColdKeysSet -> SecretKey -> Dpk -> HBlock)
     -> C.EmissionId
     -> ExceptUpdate [MintetteId]
 startNewPeriodFinally sk goodMintettes newBlockCtor emissionTid = do
     periodId += 1
     updateIds <- updateMintettes sk goodMintettes
     newAddrs <- updateAddresses
-    newBlock <- newBlockCtor newAddrs MP.empty sk <$> use getDpk
+    newBlock <- newBlockCtor newAddrs SS.empty sk <$> use getDpk
     updateUtxo $ hbTransactions newBlock
     -- TODO: this can be written more elegantly !
     when (isJust emissionTid) $

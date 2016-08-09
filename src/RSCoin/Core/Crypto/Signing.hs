@@ -59,7 +59,7 @@ import qualified RSCoin.Core.Crypto.Hashing as H
 
 newtype Signature = Signature
     { getSignature :: E.Signature
-    } deriving (Eq)
+    } deriving (Eq,Ord)
 
 sigToBs :: Signature -> BS.ByteString
 sigToBs = E.unSignature . getSignature

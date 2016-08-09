@@ -30,8 +30,7 @@ import           Data.Tuple.Select             (sel1, sel2, sel3)
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
-import           RSCoin.Core.Logging           (logInfo, logWarning,
-                                                userLoggerName)
+import           RSCoin.Core.Logging           (logInfo, logWarning)
 import           RSCoin.Core.Primitives        (AddrId, Address,
                                                 Transaction (..))
 import           RSCoin.Core.Strategy          (TxStrategy (..), isStrategyCompleted)

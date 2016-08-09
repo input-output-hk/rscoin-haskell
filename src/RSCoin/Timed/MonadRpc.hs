@@ -5,7 +5,6 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ViewPatterns               #-}
-{-# LANGUAGE UndecidableInstances       #-}
 
 -- | This module contains MonadRpc providing RPC communication,
 -- and it's implementation using MessagePack.

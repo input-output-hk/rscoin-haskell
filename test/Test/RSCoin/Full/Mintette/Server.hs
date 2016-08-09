@@ -8,7 +8,7 @@ module Test.RSCoin.Full.Mintette.Server
 
 import           Control.Exception                (throwIO, try)
 import           Control.Monad.Catch              (catch)
-import           Control.Monad.IO.Class           (MonadIO, liftIO)
+import           Control.Monad.IO.Class           (liftIO)
 import           Data.Acid.Advanced               (query', update')
 import           Data.Text                        (Text)
 

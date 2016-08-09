@@ -7,7 +7,7 @@ module RSCoin.Mintette.Worker
        , runWorker
        ) where
 
-import           Control.Monad             (unless, void, when)
+import           Control.Monad             (unless, void)
 import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (liftIO)
 import           Data.Acid                 (createArchive, createCheckpoint,
@@ -19,8 +19,7 @@ import qualified Turtle.Prelude            as TURT
 import           Serokell.Util.Exceptions  ()
 import           Serokell.Util.Text        (formatSingle')
 
-import           RSCoin.Core               (SecretKey, epochDelta, logError,
-                                            mintetteLoggerName)
+import           RSCoin.Core               (SecretKey, epochDelta, logError)
 
 import           RSCoin.Mintette.Acidic    (FinishEpoch (..), GetPeriodId (..))
 import           RSCoin.Mintette.AcidState (State)

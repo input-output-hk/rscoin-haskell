@@ -12,7 +12,6 @@ import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid                 (createArchive, createCheckpoint)
 import           Data.Acid.Advanced        (query', update')
-import           Data.Text                 (Text)
 import qualified Data.Text                 as T
 import           Formatting                (int, sformat, (%))
 import           Serokell.Util.Text        (formatSingle',

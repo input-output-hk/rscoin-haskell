@@ -15,10 +15,9 @@ module RSCoin.Mintette.Server
 
 import           Control.Exception         (throwIO, try)
 import           Control.Monad.Catch       (catch)
-import           Control.Monad.IO.Class    (MonadIO, liftIO)
+import           Control.Monad.IO.Class    (liftIO)
 import           Data.Acid.Advanced        (query', update')
 import           Data.Monoid               ((<>))
-import           Data.Text                 (Text)
 import           Formatting                (int, sformat, (%))
 
 import           Serokell.Util.Text        (format', formatSingle',
@@ -119,10 +118,6 @@ handleNewPeriod st npd =
                "After start of new period, my utxo: {}\nCurrent pset is: {}"
                (curUtxo, curPset)
 
-logFunction :: (MonadIO m, C.WithNamedLogger m) => MintetteError -> Text -> m ()
-logFunction MEInactive = C.logInfo
-logFunction _ = C.logWarning
-
 handleCheckTx
     :: WorkMode m
     => C.SecretKey
@@ -144,7 +139,7 @@ handleCheckTx sk st tx addrId sg =
        either onError onSuccess res
   where
     onError e =
-        Left e <$ (logFunction e $ formatSingle' "CheckTx failed: {}" e)
+        Left e <$ (C.logFunction e $ formatSingle' "CheckTx failed: {}" e)
     onSuccess res = do
         C.logInfo $
             format' "Confirmed addrid ({}) from transaction: {}" (addrId, tx)
@@ -167,7 +162,7 @@ handleCommitTx sk st tx cc =
        either onError onSuccess res
   where
     onError e =
-        Left e <$ (logFunction e $ formatSingle' "CommitTx failed: {}" e)
+        Left e <$ (C.logFunction e $ formatSingle' "CommitTx failed: {}" e)
     onSuccess res = do
         C.logInfo $ formatSingle' "Successfully committed transaction {}" tx
         return $ Right res
@@ -180,7 +175,7 @@ handleGetMintettePeriod st =
        either onError onSuccess res
   where
     onError e = do
-        logFunction e "Failed to query periodId"
+        C.logFunction e "Failed to query periodId"
         return Nothing
     onSuccess pid = do
         C.logInfo $ sformat ("Successfully returning periodId " % int) pid

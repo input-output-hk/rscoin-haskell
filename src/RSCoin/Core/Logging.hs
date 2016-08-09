@@ -10,6 +10,7 @@ module RSCoin.Core.Logging
        , initLoggerByName
        , LoggerName
        , bankLoggerName
+       , benchLoggerName
        , mintetteLoggerName
        , notaryLoggerName
        , explorerLoggerName
@@ -22,6 +23,7 @@ module RSCoin.Core.Logging
        , logInfo
        , logWarning
        , logError
+       , logFunction
        , logMessage
        ) where
 
@@ -43,6 +45,7 @@ import           System.Log.Logger         (Priority (DEBUG, ERROR, INFO, WARNIN
                                             updateGlobalLogger)
 import           RSCoin.Core.NamedLogging  (WithNamedLogger (..))
 import           RSCoin.Core.Primitives    (LoggerName)
+import           RSCoin.Mintette.Error     (MintetteError (..))
 
 -- | This type is intended to be used as command line option
 -- which specifies which messages to print.
@@ -100,6 +103,7 @@ bankLoggerName,
     mintetteLoggerName,
     notaryLoggerName,
     testingLoggerName,
+    benchLoggerName,
     timedLoggerName,
     undefinedLoggerName,
     userLoggerName :: LoggerName
@@ -109,6 +113,7 @@ explorerLoggerName      = "explorer"
 mintetteLoggerName      = "mintette"
 notaryLoggerName        = "notary"
 testingLoggerName       = "testing"
+benchLoggerName         = "bench"
 timedLoggerName         = "timed"
 undefinedLoggerName     = "naked"
 userLoggerName          = "user"
@@ -140,6 +145,10 @@ logWarning = logMessage Warning
 logError :: (WithNamedLogger m, MonadIO m)
          => T.Text -> m ()
 logError = logMessage Error
+
+logFunction :: (MonadIO m, WithNamedLogger m) => MintetteError -> T.Text -> m ()
+logFunction MEInactive = logInfo
+logFunction _ = logWarning
 
 logMessage
     :: (WithNamedLogger m, MonadIO m)

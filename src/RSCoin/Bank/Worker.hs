@@ -24,7 +24,6 @@ import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
 import           Data.List                (sortOn)
 import           Data.Maybe               (fromJust, fromMaybe, isJust)
 import           Data.Monoid              ((<>))
-import           Data.Text                (Text)
 import qualified Data.Text                as T
 import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
@@ -52,14 +51,6 @@ import           RSCoin.Timed             (MonadRpc (getNodeContext), Second,
                                            WorkMode, for, ms, repeatForever,
                                            sec, tu, wait)
 
-logDebug, logInfo, logWarning, logError
-    :: (MonadIO m, C.WithNamedLogger m)
-    => Text -> m ()
-logDebug = C.logDebug
-logInfo = C.logInfo
-logWarning = C.logWarning
-logError = C.logError
-
 -- | Start worker which runs appropriate action when a period
 -- finishes. Default period length is used.
 runWorker
@@ -83,9 +74,9 @@ runWorkerWithPeriod periodDelta mainIsBusy sk st storagePath =
                     (liftIO $ atomicWriteIORef mainIsBusy True)
                     (liftIO $ atomicWriteIORef mainIsBusy False)
         t <- br $ measureTime_ $ onPeriodFinished sk st storagePath
-        logInfo $ sformat ("Finishing period took " % build) t
+        C.logInfo $ sformat ("Finishing period took " % build) t
     handler e = do
-        logError $
+        C.logError $
             formatSingle'
                 "Error was caught by worker, restarting in 20 seconds: {}"
                 e
@@ -95,7 +86,7 @@ onPeriodFinished :: WorkMode m => C.SecretKey -> State -> Maybe FilePath -> m ()
 onPeriodFinished sk st storagePath = do
     mintettes <- query' st GetMintettes
     pId <- query' st GetPeriodId
-    logInfo $ formatSingle' "Period {} has just finished!" pId
+    C.logInfo $ formatSingle' "Period {} has just finished!" pId
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     initializeMultisignatureAddresses  -- init here to see them in next period
@@ -111,19 +102,19 @@ onPeriodFinished sk st storagePath = do
              (return "")
     newMintettes <- query' st GetMintettes
     if null newMintettes
-        then logWarning "New mintettes list is empty!"
+        then C.logWarning "New mintettes list is empty!"
         else do
             mapM_
                 (\(m,mId) ->
                       C.announceNewPeriod m (newPeriodData !! mId) `catch`
                       handlerAnnouncePeriodM)
                 (zip newMintettes [0 ..])
-            logInfo $
+            C.logInfo $
                 formatSingle'
                     ("Announced new period with this NewPeriodData " <>
                      "(payload is Nothing -- omitted (only in Debug)):\n{}")
                     (formatNewPeriodData False $ head newPeriodData)
-            logDebug $
+            C.logDebug $
                 formatSingle'
                     "Announced new period, sent these newPeriodData's:\n{}"
                     newPeriodData
@@ -133,21 +124,21 @@ onPeriodFinished sk st storagePath = do
   where
     -- TODO: catch appropriate exception according to protocol implementation
     handlerAnnouncePeriodM (e :: SomeException) =
-        logWarning $
+        C.logWarning $
         formatSingle' "Error occurred in communicating with mintette: {}" e
     -- TODO: catch appropriate exception according to protocol implementation
     handlerAnnouncePeriodsN (e :: SomeException) =
-        logWarning $
+        C.logWarning $
         formatSingle' "Error occurred in communicating with Notary: {}" e
     initializeMultisignatureAddresses = do
         newMSAddresses <- C.queryNotaryCompleteMSAddresses
         forM_ newMSAddresses $ \(msAddr, strategy) -> do
-            logInfo $ sformat ("Creating MS address " % build % " with strategy " % build)
+            C.logInfo $ sformat ("Creating MS address " % build % " with strategy " % build)
                 msAddr
                 strategy
             update' st $ AddAddress msAddr strategy
 
-        logInfo "Removing new addresses from pool"
+        C.logInfo "Removing new addresses from pool"
         nodeCtx <- getNodeContext
         let mCurBankSecKey = nodeCtx ^. bankSecretKey
         let curBankSecKey  = fromMaybe
@@ -175,7 +166,7 @@ getPeriodResults mts pId = do
         handler res
     handler res (e :: SomeException) =
         liftIO $
-        do logWarning $
+        do C.logWarning $
                formatSingle'
                    "Error occurred in communicating with mintette {}"
                    e
@@ -205,7 +196,7 @@ runExplorerWorker periodDelta mainIsBusy sk st =
         action `catch` handler
         foreverSafe action
     handler (e :: SomeException) = do
-        logError $ sformat ("Error occurred inside ExplorerWorker: " % build) e
+        C.logError $ sformat ("Error occurred inside ExplorerWorker: " % build) e
         wait $ for 10 sec
     shortWait = wait $ for 10 ms
     -- It would be much more elegant to use MVar here, but it's not
@@ -228,7 +219,7 @@ communicateWithExplorer sk st blocksNumber (explorer,expectedPeriod)
       sendBlockToExplorer sk st explorer expectedPeriod
   | otherwise =
       False <$
-      (logWarning $
+      (C.logWarning $
        sformat
            (build % " expects block with strange PeriodId (" % int % ")")
            explorer
@@ -251,6 +242,6 @@ sendBlockToExplorer sk st explorer pId = do
     -- TODO: catch appropriate exception according to protocol implementation
     handler (e :: SomeException) =
         False <$
-        (logWarning .
+        (C.logWarning .
          sformat ("Error occurred in communicating with explorer: " % build) $
          e)

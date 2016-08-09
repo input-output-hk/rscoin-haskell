@@ -5,7 +5,6 @@ module RSCoin.Notary.Error
        ) where
 
 import           Control.Exception       (Exception (..))
-import           Control.Monad.IO.Class  (MonadIO)
 
 import           Data.Data               (Data)
 import           Data.MessagePack        (MessagePack (fromObject, toObject),
@@ -16,7 +15,6 @@ import           Data.Typeable           (Typeable)
 
 import           Formatting              (bprint, int, stext, (%))
 
-import qualified RSCoin.Core             as C
 import           RSCoin.Core.Error       (rscExceptionFromException,
                                           rscExceptionToException)
 import           RSCoin.Core.MessagePack ()

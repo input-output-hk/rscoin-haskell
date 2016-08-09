@@ -11,7 +11,7 @@ module RSCoin.Notary.Web.Servant
 import           Control.Monad.Catch        (catch)
 import           Control.Monad.Except       (throwError)
 import           Control.Monad.Reader       (ReaderT, ask, runReaderT)
-import           Control.Monad.Trans        (MonadIO, liftIO)
+import           Control.Monad.Trans        (liftIO)
 
 import           Data.Tuple.Curry           (Curry, uncurryN)
 

@@ -21,14 +21,16 @@ import           Serokell.Util.Concurrent        (threadDelay)
 
 import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   Severity (..),
+                                                  benchLoggerName,
                                                   defaultPeriodDelta,
-                                                  initLogging, keyGen)
+                                                  initLoggerByName,
+                                                  initLogging, keyGen, logInfo,
+                                                  mintetteLoggerName)
 import           RSCoin.Timed                    (runRealModeUntrusted)
 
 import           Bench.RSCoin.FilePathUtils      (tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
                                                   mintetteThread, notaryThread)
-import           Bench.RSCoin.Logging            (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserCommons        (benchUserTransactions,
                                                   finishBankPeriod,
                                                   initializeBank,
@@ -84,7 +86,7 @@ establishMintettes benchDir mintettesNumber = do
     keyPairs <- generateMintetteKeys mintettesNumber
     logInfo $ sformat ("Running" % int % " mintettes…") mintettesNumber
     runMintettes benchDir keyPairs
-    runRealModeUntrusted Nothing finishBankPeriod
+    runRealModeUntrusted mintetteLoggerName Nothing finishBankPeriod
     logInfo $ sformat (int % " mintettes are launched") mintettesNumber
     threadDelay (2 :: Second)
 
@@ -125,7 +127,7 @@ main = do
                           fromIntegral <$> unHelpful period
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
-        initBenchLogger bSeverity
+        flip initLoggerByName benchLoggerName bSeverity
 
         establishNotary    benchDir
         establishBank      benchDir periodDelta

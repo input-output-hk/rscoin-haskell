@@ -79,7 +79,7 @@ import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              Mintette, MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Utxo)
-import           RSCoin.Mintette.Error      (MintetteError (MEInactive))
+import           RSCoin.Mintette.Error      (MintetteError)
 import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
                                              WorkMode)
 
@@ -215,11 +215,6 @@ addExplorerAdhoc explorer pId proof =
         (const $ L.logDebug "Request sent successfully") $
         callBank $ P.call (P.RSCBank P.AddExplorerAdhoc) explorer pId proof
 
-
-logFunction :: (MonadIO m, WithNamedLogger m) => MintetteError -> Text -> m ()
-logFunction MEInactive = L.logInfo
-logFunction _ = L.logWarning
-
 checkNotDoubleSpent
     :: WorkMode m
     => Mintette
@@ -234,7 +229,7 @@ checkNotDoubleSpent m tx a s =
     infoMessage =
         L.logDebug $ format' "Checking addrid ({}) from transaction: {}" (a, tx)
     onError e =
-        logFunction e $ formatSingle' "Checking double spending failed: {}" e
+        L.logFunction e $ formatSingle' "Checking double spending failed: {}" e
     onSuccess res = do
         L.logDebug $ format' "Confirmed addrid ({}) from transaction: {}" (a, tx)
         L.logDebug $ formatSingle' "Confirmation: {}" res
@@ -253,7 +248,7 @@ commitTx m tx cc =
         L.logInfo $
         formatSingle' "Commit transaction {}" tx
     onError e =
-        logFunction e $ formatSingle' "Commit tx failed: {}" e
+        L.logFunction e $ formatSingle' "Commit tx failed: {}" e
     onSuccess _ =
         L.logInfo $ formatSingle' "Successfully committed transaction {}" tx
 

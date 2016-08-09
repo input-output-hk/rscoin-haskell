@@ -20,6 +20,7 @@ module Test.RSCoin.Full.Context
        , port
        ) where
 
+import           Control.Monad.Trans     (MonadIO, liftIO)
 import           Control.Concurrent.MVar (MVar)
 import           Control.Lens            (Getter, makeLenses, to, _1, _2)
 import           Control.Monad.Reader    (ReaderT)
@@ -90,8 +91,8 @@ $(makeLenses ''TestContext)
 
 type TestEnv m = ReaderT TestContext m
 
-instance WithNamedLogger (TestEnv m) where
-    getLoggerFromContext = undefined
+instance MonadIO m => WithNamedLogger (TestEnv m) where
+    getLoggerFromContext = liftIO $ getLoggerFromContext
 
 -- * Shortcuts
 

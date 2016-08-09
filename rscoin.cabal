@@ -456,7 +456,6 @@ benchmark rscoin-bench-local
   main-is:             Local/Main.hs
   other-modules:       Bench.RSCoin.FilePathUtils
                      , Bench.RSCoin.Local.InfraThreads
-                     , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserCommons
   build-depends:       acid-state
                      , async
@@ -490,7 +489,6 @@ benchmark rscoin-bench-single-user
   type:                exitcode-stdio-1.0
   main-is:             Remote/SingleUser.hs
   other-modules:       Bench.RSCoin.FilePathUtils
-                     , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserCommons
                      , Bench.RSCoin.UserSingle
   build-depends:       acid-state
@@ -530,7 +528,6 @@ benchmark rscoin-bench-only-users
   type:                exitcode-stdio-1.0
   main-is:             Remote/OnlyUsers.hs
   other-modules:       Bench.RSCoin.FilePathUtils
-                     , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserCommons
   build-depends:       acid-state
                      , async
@@ -567,7 +564,6 @@ benchmark rscoin-bench-remote
   type:                exitcode-stdio-1.0
   main-is:             Remote/Wrapper.hs
   other-modules:       Bench.RSCoin.FilePathUtils
-                     , Bench.RSCoin.Logging
                      , Bench.RSCoin.UserSingle
                      , Bench.RSCoin.Remote.StageRestriction
                      , Bench.RSCoin.Remote.Config

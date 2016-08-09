@@ -8,23 +8,26 @@ module RSCoin.Core.Logging
        ( Severity (..)
        , initLogging
        , initLoggerByName
-       , LoggerName
+
+         -- * Predefined logger names
        , bankLoggerName
        , benchLoggerName
+       , communicationLoggerName
+       , explorerLoggerName
        , mintetteLoggerName
        , nakedLoggerName
        , notaryLoggerName
-       , explorerLoggerName
+       , testingLoggerName
        , timedLoggerName
        , userLoggerName
-       , communicationLoggerName
-       , testingLoggerName
+
+         -- * Logging functions
        , logDebug
-       , logInfo
-       , logWarning
        , logError
        , logFunction
+       , logInfo
        , logMessage
+       , logWarning
        ) where
 
 import           Control.Monad.IO.Class    (MonadIO, liftIO)
@@ -44,7 +47,7 @@ import           System.Log.Logger         (Priority (DEBUG, ERROR, INFO, WARNIN
                                             setHandlers, setLevel,
                                             updateGlobalLogger)
 import           RSCoin.Core.NamedLogging  (WithNamedLogger (..))
-import           RSCoin.Core.Primitives    (LoggerName)
+import           RSCoin.Core.Primitives    (LoggerName (..))
 import           RSCoin.Mintette.Error     (MintetteError (..))
 
 -- | This type is intended to be used as command line option
@@ -69,12 +72,12 @@ initLogging sev = do
     mapM_ (initLoggerByName sev) predefinedLoggers
 
 initLoggerByName :: Severity -> LoggerName -> IO ()
-initLoggerByName (convertSeverity -> s) name = do
+initLoggerByName (convertSeverity -> s) LoggerName{..} = do
     stdoutHandler <-
         (flip setFormatter) stdoutFormatter <$> streamHandler stdout s
     stderrHandler <-
         (flip setFormatter) stderrFormatter <$> streamHandler stderr ERROR
-    updateGlobalLogger name $ setHandlers [stdoutHandler, stderrHandler]
+    updateGlobalLogger loggerName $ setHandlers [stdoutHandler, stderrHandler]
   where
     stderrFormatter = simpleLogFormatter
         ("[$time] " ++ colorizer ERROR "[$loggername:$prio]: " ++ "$msg")
@@ -107,16 +110,16 @@ bankLoggerName,
     testingLoggerName,
     timedLoggerName,
     userLoggerName :: LoggerName
-bankLoggerName          = "bank"
-benchLoggerName         = "bench"
-communicationLoggerName = "communication"
-explorerLoggerName      = "explorer"
-mintetteLoggerName      = "mintette"
-nakedLoggerName         = "naked"
-notaryLoggerName        = "notary"
-testingLoggerName       = "testing"
-timedLoggerName         = "timed"
-userLoggerName          = "user"
+bankLoggerName          = LoggerName "bank"
+benchLoggerName         = LoggerName "bench"
+communicationLoggerName = LoggerName "communication"
+explorerLoggerName      = LoggerName "explorer"
+mintetteLoggerName      = LoggerName "mintette"
+nakedLoggerName         = LoggerName "naked"
+notaryLoggerName        = LoggerName "notary"
+testingLoggerName       = LoggerName "testing"
+timedLoggerName         = LoggerName "timed"
+userLoggerName          = LoggerName "user"
 
 predefinedLoggers :: [LoggerName]
 predefinedLoggers =
@@ -154,5 +157,5 @@ logMessage
     :: (WithNamedLogger m, MonadIO m)
     => Severity -> T.Text -> m ()
 logMessage severity t = do
-    loggerName <- getLoggerFromContext
+    LoggerName{..} <- getLoggerFromContext
     liftIO . logM loggerName (convertSeverity severity) $ T.unpack t

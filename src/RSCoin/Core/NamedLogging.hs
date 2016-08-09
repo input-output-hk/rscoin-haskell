@@ -20,7 +20,7 @@ class WithNamedLogger m where
     getLoggerFromContext :: m LoggerName
 
 instance WithNamedLogger IO where
-    getLoggerFromContext = return $ _loggerName defaultNodeContext
+    getLoggerFromContext = return $ _ctxLoggerName defaultNodeContext
 
 instance MonadIO m => WithNamedLogger (ServerT m) where
     getLoggerFromContext = liftIO $ getLoggerFromContext

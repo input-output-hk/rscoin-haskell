@@ -124,7 +124,7 @@ recv conn callback =
     liftIO (WS.receiveData conn)
 
 wsLoggerName :: C.LoggerName
-wsLoggerName = "explorer WS"
+wsLoggerName = C.LoggerName "explorer WS"
 
 introduceAddress :: Bool -> WS.Connection -> C.Address -> ServerMonad ()
 introduceAddress sendResponseOnError conn addr = do

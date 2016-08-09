@@ -52,12 +52,12 @@ runRealModeDefaultContext = runRealModeWithContext defaultNodeContext
 runRealModeBank :: Maybe FilePath -> SecretKey -> MsgPackRpc a -> IO a
 runRealModeBank confPath bankSecretKey bankAction = do
     bankNodeContext <- readDeployNodeContext (Just bankSecretKey) confPath
-    runRealModeWithContext bankNodeContext { _loggerName = bankLoggerName } bankAction
+    runRealModeWithContext bankNodeContext { _ctxLoggerName = bankLoggerName } bankAction
 
 runRealModeUntrusted :: LoggerName -> Maybe FilePath -> MsgPackRpc a -> IO a
 runRealModeUntrusted logName confPath nodeAction = do
     untrustedNodeContext <- readDeployNodeContext Nothing confPath
-    runRealModeWithContext untrustedNodeContext { _loggerName = logName } nodeAction
+    runRealModeWithContext untrustedNodeContext { _ctxLoggerName = logName } nodeAction
 
 runEmulationMode :: MonadIO m => Maybe StdGen -> Delays -> PureRpc IO a -> m a
 runEmulationMode genMaybe delays m =

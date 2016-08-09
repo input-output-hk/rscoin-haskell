@@ -106,7 +106,7 @@ instance MonadRpc MsgPackRpc where
     getNodeContext = ask
 
 instance WithNamedLogger MsgPackRpc where
-    getLoggerFromContext = _loggerName <$> getNodeContext
+    getLoggerFromContext = _ctxLoggerName <$> getNodeContext
 
 instance MonadRpc m => MonadRpc (ReaderT r m) where
     execClient addr cli = lift $ execClient addr cli

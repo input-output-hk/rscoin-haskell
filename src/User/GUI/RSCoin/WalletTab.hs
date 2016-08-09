@@ -234,7 +234,7 @@ updateWalletTab confPath st gst M.MainWindow{..} = do
         runRealModeUntrusted C.userLoggerName confPath $ U.getTransactionsHistory st
     userAmount <-
         runRealModeUntrusted
-            "user"
+            C.userLoggerName
             confPath
             (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)
     let unconfirmed =

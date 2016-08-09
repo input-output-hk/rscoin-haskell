@@ -12,8 +12,8 @@ module RSCoin.Core.NodeConfig
         , bankAddr
         , bankPublicKey
         , bankSecretKey
+        , ctxLoggerName
         , notaryAddr
-        , loggerName
 
           -- * Other lenses
         , bankHost
@@ -53,7 +53,7 @@ import           RSCoin.Core.Crypto.Signing (PublicKey, SecretKey,
                                              constructPublicKey,
                                              derivePublicKey,
                                              deterministicKeyGen)
-import           RSCoin.Core.Primitives     (Address (..), LoggerName)
+import           RSCoin.Core.Primitives     (Address (..), LoggerName (LoggerName))
 
 
 type Port = Int
@@ -65,7 +65,7 @@ data NodeContext = NodeContext
     , _notaryAddr    :: NetworkAddress
     , _bankPublicKey :: PublicKey
     , _bankSecretKey :: Maybe SecretKey  -- @TODO: not type-safe solution, but ok for now
-    , _loggerName    :: LoggerName
+    , _ctxLoggerName :: LoggerName
     } deriving (Show)
 
 $(makeLenses ''NodeContext)
@@ -80,7 +80,7 @@ defaultNodeContext = NodeContext{..}
     (_bankPublicKey, _bankSecretKey) = fromMaybe
         (error "[FATAL] Failed to construct (pk, sk) pair for default context")
         $ second Just <$> deterministicKeyGen "default-node-context-keygen-seed"
-    _loggerName    = "naked"
+    _ctxLoggerName    = LoggerName "naked"  -- @TODO: use constant from 'Logging'
 
 bankHost :: Lens' NodeContext Host
 bankHost = bankAddr._1

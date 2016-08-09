@@ -43,8 +43,7 @@ import           Formatting               (sformat, shown, (%))
 import qualified Data.PQueue.Min          as PQ
 import qualified Data.Set                 as S
 
-import           RSCoin.Core.Logging      (logDebug, logWarning)
-import           RSCoin.Core.NamedLogging (WithNamedLogger (..))
+import           RSCoin.Core.Logging      (WithNamedLogger (..), logDebug, logWarning)
 import           RSCoin.Timed.MonadTimed  (Microsecond, Millisecond, MonadTimed,
                                            MonadTimedError (MTTimeoutError),
                                            ThreadId (PureThreadId), for, fork,
@@ -113,7 +112,7 @@ newtype Core m a = Core
                MonadCatch, MonadMask)
 
 instance MonadIO m => WithNamedLogger (Core m) where
-    getLoggerFromContext = liftIO $ getLoggerFromContext
+    getLoggerName = liftIO $ getLoggerName
 
 instance MonadTrans Core where
     lift = Core . lift

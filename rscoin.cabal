@@ -32,7 +32,6 @@ library
                      , RSCoin.Core.Error
                      , RSCoin.Core.HBlock
                      , RSCoin.Core.LBlock
-                     , RSCoin.Core.NamedLogging
                      , RSCoin.Core.Logging
                      , RSCoin.Core.NodeConfig
                      , RSCoin.Core.Owners

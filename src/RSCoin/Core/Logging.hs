@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE ViewPatterns       #-}
 
 -- | Logging functionality.
@@ -10,6 +11,7 @@ module RSCoin.Core.Logging
        , initLoggerByName
 
          -- * Predefined logger names
+       , LoggerName (..)
        , bankLoggerName
        , benchLoggerName
        , communicationLoggerName
@@ -22,6 +24,7 @@ module RSCoin.Core.Logging
        , userLoggerName
 
          -- * Logging functions
+       , WithNamedLogger (..)
        , logDebug
        , logError
        , logFunction
@@ -30,25 +33,29 @@ module RSCoin.Core.Logging
        , logWarning
        ) where
 
-import           Control.Monad.IO.Class    (MonadIO, liftIO)
-import qualified Data.Text                 as T
-import           Data.Typeable             (Typeable)
-import           GHC.Generics              (Generic)
-import           System.Console.ANSI       (Color (Blue, Green, Red, Yellow),
-                                            ColorIntensity (Vivid),
-                                            ConsoleLayer (Foreground),
-                                            SGR (Reset, SetColor), setSGRCode)
-import           System.IO                 (stderr, stdout)
-import           System.Log.Formatter      (simpleLogFormatter)
-import           System.Log.Handler        (setFormatter)
-import           System.Log.Handler.Simple (streamHandler)
-import           System.Log.Logger         (Priority (DEBUG, ERROR, INFO, WARNING),
-                                            logM, removeHandler, rootLoggerName,
-                                            setHandlers, setLevel,
-                                            updateGlobalLogger)
-import           RSCoin.Core.NamedLogging  (WithNamedLogger (..))
-import           RSCoin.Core.Primitives    (LoggerName (..))
-import           RSCoin.Mintette.Error     (MintetteError (..))
+import           Control.Monad.Trans        (MonadIO, liftIO)
+import           Control.Monad.Trans.Except (ExceptT)
+
+import           Data.SafeCopy              (base, deriveSafeCopy)
+import qualified Data.Text                  as T
+import           Data.Typeable              (Typeable)
+import           GHC.Generics               (Generic)
+import           Network.MessagePack.Server (ServerT)
+
+import           System.Console.ANSI        (Color (Blue, Green, Red, Yellow),
+                                             ColorIntensity (Vivid),
+                                             ConsoleLayer (Foreground),
+                                             SGR (Reset, SetColor), setSGRCode)
+import           System.IO                  (stderr, stdout)
+import           System.Log.Formatter       (simpleLogFormatter)
+import           System.Log.Handler         (setFormatter)
+import           System.Log.Handler.Simple  (streamHandler)
+import           System.Log.Logger          (Priority (DEBUG, ERROR, INFO, WARNING),
+                                             logM, removeHandler,
+                                             rootLoggerName, setHandlers,
+                                             setLevel, updateGlobalLogger)
+
+import           RSCoin.Mintette.Error      (MintetteError (..))  -- wut? Should be removed
 
 -- | This type is intended to be used as command line option
 -- which specifies which messages to print.
@@ -58,6 +65,12 @@ data Severity
     | Warning
     | Error
     deriving (Generic, Typeable, Show, Read, Eq)
+
+newtype LoggerName = LoggerName
+    { loggerName :: String
+    } deriving (Show)
+
+$(deriveSafeCopy 0 'base ''LoggerName)  -- @TODO: this instance should be deleted later
 
 convertSeverity :: Severity -> Priority
 convertSeverity Debug = DEBUG
@@ -133,6 +146,20 @@ predefinedLoggers =
     , userLoggerName
     ]
 
+-- | This type class exists to remove boilerplate logging
+-- by adding the logger's name to the environment in each module.
+class WithNamedLogger m where
+    getLoggerName :: m LoggerName
+
+instance WithNamedLogger IO where
+    getLoggerName = pure nakedLoggerName
+
+instance MonadIO m => WithNamedLogger (ServerT m) where
+    getLoggerName = liftIO $ getLoggerName
+
+instance (MonadIO m) => WithNamedLogger (ExceptT e m) where
+    getLoggerName = liftIO $ getLoggerName
+
 logDebug :: (WithNamedLogger m, MonadIO m)
          => T.Text -> m ()
 logDebug = logMessage Debug
@@ -157,5 +184,5 @@ logMessage
     :: (WithNamedLogger m, MonadIO m)
     => Severity -> T.Text -> m ()
 logMessage severity t = do
-    LoggerName{..} <- getLoggerFromContext
+    LoggerName{..} <- getLoggerName
     liftIO . logM loggerName (convertSeverity severity) $ T.unpack t

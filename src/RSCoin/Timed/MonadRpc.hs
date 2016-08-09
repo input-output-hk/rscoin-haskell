@@ -41,19 +41,18 @@ import           Control.Monad.Trans.Control (MonadBaseControl, StM,
 
 import           Data.IORef                  (newIORef, readIORef, writeIORef)
 import           Data.Maybe                  (fromMaybe)
+import           Data.MessagePack.Object     (MessagePack, Object (..),
+                                              toObject)
 import           Data.Time.Units             (TimeUnit, convertUnit)
 
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
 
+import           RSCoin.Core.Logging    (WithNamedLogger (..))
 import           RSCoin.Core.NodeConfig      (NetworkAddress, NodeContext (..),
                                               Port)
 import           RSCoin.Timed.MonadTimed     (MonadTimed (timeout))
 import           RSCoin.Timed.TimedIO        (TimedIO)
-
-import           Data.MessagePack.Object     (MessagePack, Object (..),
-                                              toObject)
-import           RSCoin.Core.NamedLogging    (WithNamedLogger (..))
 
 -- | Defines protocol of RPC layer
 class MonadThrow r => MonadRpc r where
@@ -106,7 +105,7 @@ instance MonadRpc MsgPackRpc where
     getNodeContext = ask
 
 instance WithNamedLogger MsgPackRpc where
-    getLoggerFromContext = _ctxLoggerName <$> getNodeContext
+    getLoggerName = _ctxLoggerName <$> getNodeContext
 
 instance MonadRpc m => MonadRpc (ReaderT r m) where
     execClient addr cli = lift $ execClient addr cli

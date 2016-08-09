@@ -92,7 +92,7 @@ $(makeLenses ''TestContext)
 type TestEnv m = ReaderT TestContext m
 
 instance MonadIO m => WithNamedLogger (TestEnv m) where
-    getLoggerFromContext = liftIO $ getLoggerFromContext
+    getLoggerName = liftIO $ getLoggerName
 
 -- * Shortcuts
 

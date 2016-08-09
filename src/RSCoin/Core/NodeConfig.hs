@@ -53,7 +53,8 @@ import           RSCoin.Core.Crypto.Signing (PublicKey, SecretKey,
                                              constructPublicKey,
                                              derivePublicKey,
                                              deterministicKeyGen)
-import           RSCoin.Core.Primitives     (Address (..), LoggerName (LoggerName))
+import           RSCoin.Core.Logging        (LoggerName, nakedLoggerName)
+import           RSCoin.Core.Primitives     (Address (..))
 
 
 type Port = Int
@@ -80,7 +81,7 @@ defaultNodeContext = NodeContext{..}
     (_bankPublicKey, _bankSecretKey) = fromMaybe
         (error "[FATAL] Failed to construct (pk, sk) pair for default context")
         $ second Just <$> deterministicKeyGen "default-node-context-keygen-seed"
-    _ctxLoggerName    = LoggerName "naked"  -- @TODO: use constant from 'Logging'
+    _ctxLoggerName    = nakedLoggerName
 
 bankHost :: Lens' NodeContext Host
 bankHost = bankAddr._1

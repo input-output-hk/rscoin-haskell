@@ -10,7 +10,6 @@ module RSCoin.Core.Primitives
        , Coin (..)
        , Address (..)
        , AddrId
-       , LoggerName (..)
        , Transaction (..)
        , TransactionId
        , EmissionId
@@ -154,13 +153,8 @@ type TransactionId = Hash
 -- | Emission is identified by transaction hash. Period 0 doesn't contain emission transaction so EmissionId for period 0 is Nothing
 type EmissionId = Maybe TransactionId
 
-newtype LoggerName = LoggerName
-    { loggerName :: String
-    } deriving (Show)
-
 $(deriveSafeCopy 0 'base ''Address)
 $(deriveSafeCopy 0 'base ''Color)
 $(deriveSafeCopy 0 'base ''CoinAmount)
 $(deriveSafeCopy 0 'base ''Coin)
-$(deriveSafeCopy 0 'base ''LoggerName)  -- @TODO: this instance should be deleted later
 $(deriveSafeCopy 0 'base ''Transaction)

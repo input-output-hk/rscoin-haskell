@@ -57,7 +57,7 @@ launchReal :: MsgPackRpc a -> IO a
 launchReal = runRealModeUntrusted testingLoggerName Nothing
 
 instance MonadIO m => WithNamedLogger (PropertyM m) where
-    getLoggerFromContext = liftIO $ getLoggerFromContext
+    getLoggerName = liftIO $ getLoggerName
 
 toPropertyM
     :: WorkMode m

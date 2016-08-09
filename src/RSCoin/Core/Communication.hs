@@ -60,7 +60,7 @@ import           RSCoin.Core.Crypto         (PublicKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import qualified RSCoin.Core.Logging        as L
-import           RSCoin.Core.NamedLogging   (WithNamedLogger (..))
+import           RSCoin.Core.Logging        (WithNamedLogger (..))
 import           RSCoin.Core.Primitives     (AddrId, Address, EmissionId,
                                              Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P

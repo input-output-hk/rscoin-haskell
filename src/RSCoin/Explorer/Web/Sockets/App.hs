@@ -109,7 +109,7 @@ $(makeLenses ''ServerState)
 type ServerMonad = ReaderT ServerState IO
 
 instance C.WithNamedLogger ServerMonad where
-    getLoggerFromContext = liftIO $ C.getLoggerFromContext
+    getLoggerName = liftIO $ C.getLoggerName
 
 send
     :: MonadIO m

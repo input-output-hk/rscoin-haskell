@@ -30,11 +30,9 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import           System.Random               (StdGen, getStdGen)
 
 import           RSCoin.Core.Crypto.Signing  (SecretKey)
-import           RSCoin.Core.Logging         (bankLoggerName)
-import           RSCoin.Core.NamedLogging    (WithNamedLogger)
+import           RSCoin.Core.Logging         (LoggerName, WithNamedLogger, bankLoggerName)
 import           RSCoin.Core.NodeConfig      (NodeContext (..), defaultNodeContext,
                                               readDeployNodeContext)
-import           RSCoin.Core.Primitives      (LoggerName)
 
 class (MonadTimed m, MonadRpc m, MonadIO m, WithNamedLogger m,
        MonadMask m, MonadBaseControl IO m) => WorkMode m where

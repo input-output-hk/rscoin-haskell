@@ -190,7 +190,7 @@ toNodeMapper :: Maybe FilePath
              -> U.TxHistoryRecord
              -> IO WalletModelNode
 toNodeMapper confPath st gst txhr@U.TxHistoryRecord{..} = do
-    eTx <- runRealModeUntrusted confPath $ fromTransaction gst txhTransaction
+    eTx <- runRealModeUntrusted C.userLoggerName confPath $ fromTransaction gst txhTransaction
     addrs <- U.getAllAddresses st C.defaultNodeContext
     let amountDiff = C.getAmount $ getTransactionAmount addrs eTx
         isIncome = amountDiff > 0
@@ -231,9 +231,10 @@ updateWalletTab confPath st gst M.MainWindow{..} = do
     let WalletTab{..} = tabWallet
     addrs <- U.getAllAddresses st C.defaultNodeContext
     transactionsHist <-
-        runRealModeUntrusted confPath $ U.getTransactionsHistory st
+        runRealModeUntrusted C.userLoggerName confPath $ U.getTransactionsHistory st
     userAmount <-
         runRealModeUntrusted
+            "user"
             confPath
             (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)
     let unconfirmed =
@@ -244,7 +245,7 @@ updateWalletTab confPath st gst M.MainWindow{..} = do
         unconfirmedSum = do
             txs <-
                 mapM
-                    (runRealModeUntrusted confPath .
+                    (runRealModeUntrusted C.userLoggerName confPath .
                      fromTransaction gst . U.txhTransaction)
                     unconfirmed
             return $ sum $ map (getTransactionAmount addrs) txs

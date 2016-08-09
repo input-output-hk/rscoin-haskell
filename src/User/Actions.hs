@@ -71,7 +71,7 @@ processCommand
 processCommand st O.ListAddresses _ =
     eWrap $
     do res <- updateBlockchain st False
-       unless res $ C.logInfo C.userLoggerName "Successfully updated blockchain."
+       unless res $ C.logInfo "Successfully updated blockchain."
        nodeContext <- getNodeContext
        addresses <- query' st $ U.GetOwnedAddresses nodeContext
        (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin])]) <-
@@ -133,7 +133,7 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
 processCommand st O.UpdateBlockchain _ =
     eWrap $
     do res <- updateBlockchain st True
-       C.logInfo C.userLoggerName $
+       C.logInfo $
            if res
                then "Blockchain is updated already."
                else "Successfully updated blockchain."

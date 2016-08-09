@@ -46,12 +46,14 @@ import           Data.Time.Units             (TimeUnit, convertUnit)
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
 
-import           RSCoin.Core.NodeConfig      (NetworkAddress, NodeContext, Port)
+import           RSCoin.Core.NodeConfig      (NetworkAddress, NodeContext (..),
+                                              Port)
 import           RSCoin.Timed.MonadTimed     (MonadTimed (timeout))
 import           RSCoin.Timed.TimedIO        (TimedIO)
 
 import           Data.MessagePack.Object     (MessagePack, Object (..),
                                               toObject)
+import           RSCoin.Core.NamedLogging    (WithNamedLogger (..))
 
 -- | Defines protocol of RPC layer
 class MonadThrow r => MonadRpc r where
@@ -71,7 +73,6 @@ class MonadThrow r => MonadRpc r where
 -- class (MonadRpc r, MonadTimed r) => RpcDelayedMonad r where
 --    execClientWithDelay  :: RelativeToNow -> NetworkAddress -> Client a -> r ()
 --    serveWithDelay :: RelativeToNow -> Port -> [S.Method r] -> r ()
-
 
 -- Implementation for MessagePack
 
@@ -103,6 +104,9 @@ instance MonadRpc MsgPackRpc where
         convertMethod Method{..} = S.method methodName methodBody
 
     getNodeContext = ask
+
+instance WithNamedLogger MsgPackRpc where
+    getLoggerFromContext = _loggerName <$> getNodeContext
 
 instance MonadRpc m => MonadRpc (ReaderT r m) where
     execClient addr cli = lift $ execClient addr cli

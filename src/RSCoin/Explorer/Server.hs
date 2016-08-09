@@ -12,7 +12,6 @@ import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Acid                 (createArchive, createCheckpoint)
 import           Data.Acid.Advanced        (query', update')
-import           Data.Text                 (Text)
 import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
 import           System.FilePath           ((</>))
@@ -29,12 +28,6 @@ import           RSCoin.Explorer.AcidState (AddHBlock (..),
 import           RSCoin.Explorer.Channel   (Channel, ChannelItem (..),
                                             writeChannel)
 import           RSCoin.Explorer.Error     (ExplorerError (EEInvalidBankSignature))
-
-logInfo, logDebug
-    :: MonadIO m
-    => Text -> m ()
-logInfo = C.logInfo C.explorerLoggerName
-logDebug = C.logDebug C.explorerLoggerName
 
 serve
     :: WorkMode m
@@ -59,22 +52,22 @@ handleNewHBlock
     -> C.Signature
     -> ServerT m C.PeriodId
 handleNewHBlock ch st bankPublicKey storagePath newBlockId (newBlock,emission) sig = do
-    logInfo $ sformat ("Received new block #" % int) newBlockId
+    C.logInfo $ sformat ("Received new block #" % int) newBlockId
     unless (C.verify bankPublicKey sig (newBlockId, newBlock)) $
         liftIO $ throwIO EEInvalidBankSignature
     expectedPid <- maybe 0 succ <$> query' st GetLastPeriodId
     let ret p = do
-            logDebug $ sformat ("Now expected block is #" % int) p
+            C.logDebug $ sformat ("Now expected block is #" % int) p
             return p
         upd = do
-            logDebug $ sformat ("HBlock hash: " % build) (C.hash newBlock)
-            logDebug $ sformat ("HBlock emission: " % build) emission
-            logDebug $
+            C.logDebug $ sformat ("HBlock hash: " % build) (C.hash newBlock)
+            C.logDebug $ sformat ("HBlock emission: " % build) emission
+            C.logDebug $
                 sformat ("Transaction hashes: " % build) $
                 listBuilderJSONIndent 2 $
                 map (C.hash :: C.Transaction -> C.Hash) $
                 C.hbTransactions newBlock
-            logDebug $
+            C.logDebug $
                 sformat ("Transactions: " % build) $
                 listBuilderJSONIndent 2 $ C.hbTransactions newBlock
             update' st (AddHBlock newBlockId newBlock emission)

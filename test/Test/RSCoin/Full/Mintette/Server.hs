@@ -8,7 +8,7 @@ module Test.RSCoin.Full.Mintette.Server
 
 import           Control.Exception                (throwIO, try)
 import           Control.Monad.Catch              (catch)
-import           Control.Monad.IO.Class           (MonadIO, liftIO)
+import           Control.Monad.IO.Class           (liftIO)
 import           Data.Acid.Advanced               (query', update')
 import           Data.Text                        (Text)
 import           Formatting                       (build, sformat, (%))
@@ -28,12 +28,6 @@ import           RSCoin.Timed                     (ServerT, WorkMode,
 
 import qualified Test.RSCoin.Full.Mintette.Acidic as MA
 import           Test.RSCoin.Full.Mintette.Config (MintetteConfig)
-
-logError, logWarning, logInfo, logDebug :: MonadIO m => Text -> m ()
-logError = C.logError C.mintetteLoggerName
-logWarning = C.logWarning C.mintetteLoggerName
-logInfo = C.logInfo C.mintetteLoggerName
-logDebug = C.logDebug C.mintetteLoggerName
 
 -- | Serve as mintette according to mintette config provided
 serve
@@ -68,7 +62,7 @@ toServer :: WorkMode m => IO a -> ServerT m a
 toServer action = liftIO $ action `catch` handler
   where
     handler (e :: MintetteError) = do
-        logError $ show' e
+        C.logError $ show' e
         throwIO e
 
 handleCheckTx
@@ -82,10 +76,10 @@ handleCheckTx
     -> ServerT m (Maybe C.CheckConfirmation)
 handleCheckTx sk st conf tx addrId sg =
     toServer $
-    do logDebug $
+    do C.logDebug $
            sformat ("Checking addrid (" % build % ") from transaction: " % build) addrId tx
        (curUtxo,curPset) <- query' st GetUtxoPset
-       logDebug $
+       C.logDebug $
            sformat
                ("My current utxo is: " % build % "\nCurrent pset is: " % build)
                curUtxo curPset
@@ -93,13 +87,13 @@ handleCheckTx sk st conf tx addrId sg =
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do
-        logWarning $ sformat ("CheckTx failed: " % build) e
+        C.logWarning $ sformat ("CheckTx failed: " % build) e
         return Nothing
     onSuccess res = do
-        logInfo $
+        C.logInfo $
             sformat ("Confirmed addrid (" % build %
                      ") from transaction: " % build) addrId tx
-        logInfo $ sformat ("Confirmation: " % build) res
+        C.logInfo $ sformat ("Confirmation: " % build) res
         return $ Just res
 
 handleCommitTx
@@ -112,15 +106,15 @@ handleCommitTx
     -> ServerT m (Maybe C.CommitAcknowledgment)
 handleCommitTx sk st conf tx cc =
     toServer $
-    do logDebug $
+    do C.logDebug $
            sformat ("There is an attempt to commit transaction (" % build % ")") tx
-       logDebug $ sformat ("Here are confirmations: " % build) cc
+       C.logDebug $ sformat ("Here are confirmations: " % build) cc
        res <- try $ update' st $ MA.CommitTx conf sk tx cc
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do
-        logWarning $ sformat ("CommitTx failed: " % build) e
+        C.logWarning $ sformat ("CommitTx failed: " % build) e
         return Nothing
     onSuccess res = do
-        logInfo $ sformat ("Successfully committed transaction " % build) tx
+        C.logInfo $ sformat ("Successfully committed transaction " % build) tx
         return $ Just res

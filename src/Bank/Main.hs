@@ -6,8 +6,8 @@ import           Data.Time.Units (Second)
 import qualified BankOptions     as Opts
 import qualified RSCoin.Bank     as B
 import           RSCoin.Core     (Explorer (..), Mintette (Mintette),
-                                  bankLoggerName, constructPublicKey,
-                                  initLogging, logWarning, readPublicKey,
+                                  constructPublicKey, initLogging,
+                                  logWarning, readPublicKey,
                                   readSecretKey)
 
 main :: IO ()
@@ -40,6 +40,5 @@ main = do
     readPk pk = maybe (readPublicKeyFallback pk) return (constructPublicKey pk)
     readPublicKeyFallback pk = do
         logWarning
-            bankLoggerName
             "Failed to parse public key, trying to interpret as a filepath to key"
         readPublicKey $ T.unpack pk

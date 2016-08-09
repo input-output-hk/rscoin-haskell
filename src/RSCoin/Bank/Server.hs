@@ -39,9 +39,8 @@ import           RSCoin.Core                    (ActionLog,
                                                  Mintette, MintetteId,
                                                  Mintettes, PeriodId, PublicKey,
                                                  Signature, Transaction,
-                                                 TransactionId, bankLoggerName,
-                                                 logDebug, logError, logInfo,
-                                                 verify)
+                                                 TransactionId, logDebug,
+                                                 logError, logInfo, verify)
 import qualified RSCoin.Core.NodeConfig         as NC
 import qualified RSCoin.Core.Protocol           as C
 import qualified RSCoin.Timed                   as T
@@ -89,7 +88,7 @@ toServer :: T.WorkMode m => m a -> T.ServerT m a
 toServer action = lift $ action `catch` handler
   where
     handler (e :: BankError) = do
-        logError bankLoggerName $ show' e
+        logError $ show' e
         throwM e
 
 -- toServer' :: T.WorkMode m => IO a -> T.ServerT m a
@@ -169,7 +168,7 @@ serveFinishPeriod
     -> Signature
     -> T.ServerT m ()
 serveFinishPeriod st threadIdMVar restartAction bankPublicKey periodIdSignature = toServer $ do
-    logInfo bankLoggerName "Forced finish of period was requested"
+    logInfo "Forced finish of period was requested"
 
     modifyMVar_ threadIdMVar $ \workerThreadId -> do
         currentPeriodId <- query' st GetPeriodId

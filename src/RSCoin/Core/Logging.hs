@@ -10,10 +10,12 @@ module RSCoin.Core.Logging
        , initLoggerByName
        , LoggerName
        , bankLoggerName
+       , benchLoggerName
        , mintetteLoggerName
        , notaryLoggerName
        , explorerLoggerName
        , timedLoggerName
+       , undefinedLoggerName
        , userLoggerName
        , communicationLoggerName
        , testingLoggerName
@@ -21,6 +23,7 @@ module RSCoin.Core.Logging
        , logInfo
        , logWarning
        , logError
+       , logFunction
        , logMessage
        ) where
 
@@ -40,6 +43,9 @@ import           System.Log.Logger         (Priority (DEBUG, ERROR, INFO, WARNIN
                                             logM, removeHandler, rootLoggerName,
                                             setHandlers, setLevel,
                                             updateGlobalLogger)
+import           RSCoin.Core.NamedLogging  (WithNamedLogger (..))
+import           RSCoin.Core.Primitives    (LoggerName)
+import           RSCoin.Mintette.Error     (MintetteError (..))
 
 -- | This type is intended to be used as command line option
 -- which specifies which messages to print.
@@ -91,15 +97,15 @@ colorizer pr s = before ++ s ++ after
   where
     (before, after) = table pr
 
-type LoggerName = String
-
 bankLoggerName,
     communicationLoggerName,
     explorerLoggerName,
     mintetteLoggerName,
     notaryLoggerName,
     testingLoggerName,
+    benchLoggerName,
     timedLoggerName,
+    undefinedLoggerName,
     userLoggerName :: LoggerName
 bankLoggerName          = "bank"
 communicationLoggerName = "communication"
@@ -107,7 +113,9 @@ explorerLoggerName      = "explorer"
 mintetteLoggerName      = "mintette"
 notaryLoggerName        = "notary"
 testingLoggerName       = "testing"
+benchLoggerName         = "bench"
 timedLoggerName         = "timed"
+undefinedLoggerName     = "naked"
 userLoggerName          = "user"
 
 predefinedLoggers :: [LoggerName]
@@ -118,27 +126,33 @@ predefinedLoggers =
     , mintetteLoggerName
     , notaryLoggerName
     , timedLoggerName
+    , undefinedLoggerName
     , userLoggerName
     ]
 
-logDebug :: MonadIO m
-         => LoggerName -> T.Text -> m ()
+logDebug :: (WithNamedLogger m, MonadIO m)
+         => T.Text -> m ()
 logDebug = logMessage Debug
 
-logInfo :: MonadIO m
-        => LoggerName -> T.Text -> m ()
+logInfo :: (WithNamedLogger m, MonadIO m)
+        => T.Text -> m ()
 logInfo = logMessage Info
 
-logWarning :: MonadIO m
-        => LoggerName -> T.Text -> m ()
+logWarning :: (WithNamedLogger m, MonadIO m)
+        => T.Text -> m ()
 logWarning = logMessage Warning
 
-logError :: MonadIO m
-        => LoggerName -> T.Text -> m ()
+logError :: (WithNamedLogger m, MonadIO m)
+         => T.Text -> m ()
 logError = logMessage Error
 
+logFunction :: (MonadIO m, WithNamedLogger m) => MintetteError -> T.Text -> m ()
+logFunction MEInactive = logInfo
+logFunction _ = logWarning
+
 logMessage
-    :: MonadIO m
-    => Severity -> LoggerName -> T.Text -> m ()
-logMessage severity loggerName =
-    liftIO . logM loggerName (convertSeverity severity) . T.unpack
+    :: (WithNamedLogger m, MonadIO m)
+    => Severity -> T.Text -> m ()
+logMessage severity t = do
+    loggerName <- getLoggerFromContext
+    liftIO . logM loggerName (convertSeverity severity) $ T.unpack t

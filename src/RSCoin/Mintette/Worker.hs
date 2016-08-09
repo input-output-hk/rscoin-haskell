@@ -17,8 +17,7 @@ import           Formatting                (build, sformat, (%))
 import           System.FilePath           ((</>))
 import qualified Turtle.Prelude            as TURT
 
-import           RSCoin.Core               (SecretKey, epochDelta, logError,
-                                            mintetteLoggerName)
+import           RSCoin.Core               (SecretKey, epochDelta, logError)
 import           RSCoin.Mintette.Acidic    (FinishEpoch (..))
 import           RSCoin.Mintette.AcidState (State)
 import           RSCoin.Mintette.Error     (isMEInactive)
@@ -33,7 +32,7 @@ runWorker sk st storagePath =
   where
     handler e = do
         unless (isMEInactive e) $
-            logError mintetteLoggerName $
+            logError $
             sformat
                 ("Error was caught by worker, restarting in 2 seconds: " % build) e
         return $ sec 2

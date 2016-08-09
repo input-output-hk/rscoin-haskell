@@ -17,7 +17,6 @@ import           Control.Exception         (throwIO, try)
 import           Control.Monad.Catch       (catch)
 import           Control.Monad.IO.Class    (liftIO)
 import           Data.Acid.Advanced        (query', update')
-import           Data.Text                 (Text)
 import           Formatting                (build, int, sformat, (%))
 
 import           Serokell.Util.Text        (listBuilderJSONIndent, pairBuilder,
@@ -107,7 +106,6 @@ handleNewPeriod :: WorkMode m
 handleNewPeriod st npd =
     toServer $
     do prevMid <- query' st PreviousMintetteId
-<<<<<<< HEAD
        C.logInfo $
            sformat
                ("New period has just started, I am mintette #" % build %
@@ -143,7 +141,7 @@ handleCheckTx sk st tx addrId sg =
        either onError onSuccess res
   where
     onError e =
-        Left e <$ logFunction e (sformat ("CheckTx failed: " % build) e)
+        Left e <$ C.logFunction e (sformat ("CheckTx failed: " % build) e)
     onSuccess res = do
         C.logInfo $
             sformat ("Confirmed addrid (" % build % ") from transaction: " % build)
@@ -167,7 +165,7 @@ handleCommitTx sk st tx cc =
        either onError onSuccess res
   where
     onError e =
-        Left e <$ logFunction e (sformat ("CommitTx failed: " % build) e)
+        Left e <$ C.logFunction e (sformat ("CommitTx failed: " % build) e)
     onSuccess res = do
         C.logInfo $ sformat ("Successfully committed transaction " % build) tx
         return $ Right res

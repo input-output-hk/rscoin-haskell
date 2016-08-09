@@ -22,7 +22,6 @@ import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
                                            newIORef, readIORef)
 import           Data.List                (sortOn)
 import           Data.Maybe               (fromJust, fromMaybe, isJust)
-import           Data.Text                (Text)
 import qualified Data.Text                as T
 import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))

@@ -371,7 +371,7 @@ constructAndSignTransaction
     => A.RSCoinUserState -> TransactionData -> m (C.Transaction, SignatureBundle)
 constructAndSignTransaction st TransactionData{..} = do
     () <$ updateBlockchain st False
-    C.logInfo C.userLoggerName $
+    C.logInfo $
         sformat
             ("Form a transaction from " % build % ", to " % build % ", amount " % build)
             (listBuilderJSONIndent 2 $ map
@@ -526,7 +526,7 @@ sendTransactionRetry tries st maybeCache tx signatures
         :: Buildable s
         => s -> m ()
     logMsgAndRetry msg = do
-        C.logWarning C.userLoggerName $
+        C.logWarning $
             sformat
                 ("Failed to send transaction (" % build % "), retries left: " % int)
                 msg (tries - 1)

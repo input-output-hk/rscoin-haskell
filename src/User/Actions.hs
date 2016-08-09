@@ -127,7 +127,7 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
        unless (isJust outputAddr) $
            U.commitError $ "Provided key can't be exported: " <> outputAddrStr
        tx <- submitTransactionRetry 2 st cache td
-       C.logInfo C.userLoggerName $
+       C.logInfo $
            sformat ("Successfully submitted transaction with hash: " % build) $
                C.hash tx
 processCommand st O.UpdateBlockchain _ =

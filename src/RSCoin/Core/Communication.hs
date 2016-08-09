@@ -208,7 +208,7 @@ addMintetteAdhoc mintette pk proof =
 addExplorerAdhoc :: WorkMode m => Explorer -> PeriodId -> Signature -> m ()
 addExplorerAdhoc explorer pId proof =
     withResult
-        (L-logInfo $ sformat ("Sending req to add explorer " % build % ", pid " % int)
+        (L.logInfo $ sformat ("Sending req to add explorer " % build % ", pid " % int)
                            explorer pId)
         (const $ L.logDebug "Request sent successfully") $
         callBank $ P.call (P.RSCBank P.AddExplorerAdhoc) explorer pId proof
@@ -225,7 +225,7 @@ checkNotDoubleSpent m tx a s =
     callMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
   where
     infoMessage =
-        L-logDebug $ sformat ("Checking addrid (" % build % ") from transaction: " % build) a tx
+        L.logDebug $ sformat ("Checking addrid (" % build % ") from transaction: " % build) a tx
     onError e =
         L.logFunction e $ sformat ("Checking double spending failed: " % build) e
     onSuccess res = do

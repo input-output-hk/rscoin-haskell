@@ -11,11 +11,10 @@ import qualified Data.HashMap.Strict      as HM hiding (HashMap)
 import           Formatting               (build, sformat, string, (%))
 import           System.FilePath          ((</>))
 
+import           RSCoin.Core.Logging      (logDebug)
 import           RSCoin.Core.Constants    (defaultConfigurationFileName,
                                            defaultPort, localhost)
 import           RSCoin.Core.NodeConfig   (testBankPublicKey)
-
-import           Bench.RSCoin.Logging     (logDebug)
 
 cfgHashMap :: HashMap Name Value
 cfgHashMap = HM.fromList

@@ -98,7 +98,7 @@ serveGetAddresses :: T.WorkMode m => State -> T.ServerT m AddressToTxStrategyMap
 serveGetAddresses st =
     toServer $
     do mts <- query' st GetAddresses
-       logDebug bankLoggerName $
+       logDebug $
           sformat ("Getting list of addresses: " % build) $ mapBuilder $ M.toList mts
        return mts
 
@@ -106,14 +106,14 @@ serveGetMintettes :: T.WorkMode m => State -> T.ServerT m Mintettes
 serveGetMintettes st =
     toServer $
     do mts <- query' st GetMintettes
-       logDebug bankLoggerName $ sformat ("Getting list of mintettes: " % build) mts
+       logDebug $ sformat ("Getting list of mintettes: " % build) mts
        return mts
 
 serveGetHeight :: T.WorkMode m => State -> T.ServerT m PeriodId
 serveGetHeight st =
     toServer $
     do pId <- query' st GetPeriodId
-       logDebug bankLoggerName $ sformat ("Getting blockchain height: " % build) pId
+       logDebug $ sformat ("Getting blockchain height: " % build) pId
        return pId
 
 serveGetHBlockEmission :: T.WorkMode m
@@ -122,7 +122,7 @@ serveGetHBlockEmission st pId =
     toServer $
     do mBlock <- query' st (GetHBlock pId)
        emission <- query' st (GetEmission pId)
-       logDebug bankLoggerName $
+       logDebug $
            sformat ("Getting higher-level block with periodId " % build %
                     " and emission " % build % ": " % build)
                    pId emission mBlock
@@ -132,7 +132,7 @@ serveGetHBlocks :: T.WorkMode m
                 => State -> [PeriodId] -> T.ServerT m [HBlock]
 serveGetHBlocks st (nub -> periodIds) =
     toServer $
-    do logDebug bankLoggerName $
+    do logDebug $
            sformat ("Getting higher-level blocks in range: " % build) $
            listBuilderJSON periodIds
        blocks <-
@@ -152,7 +152,7 @@ serveGetTransaction :: T.WorkMode m
 serveGetTransaction st tId =
     toServer $
     do t <- query' st (GetTransaction tId)
-       logDebug bankLoggerName $
+       logDebug $
            sformat ("Getting transaction with id " % build % ": " % build) tId t
        return t
 
@@ -175,7 +175,7 @@ serveFinishPeriod st threadIdMVar restartAction bankPublicKey periodIdSignature 
         if verify bankPublicKey periodIdSignature currentPeriodId then
             restartAction workerThreadId
         else do
-            logError bankLoggerName $
+            logError $
                 sformat ("Incorrect signature for periodId=" % int) currentPeriodId
             return workerThreadId
 
@@ -189,12 +189,12 @@ serveAddMintetteAdhoc
     -> T.ServerT m ()
 serveAddMintetteAdhoc st bankPublicKey mintette pk proof =
     toServer $
-    do logInfo bankLoggerName $
+    do logInfo $
            sformat ("Adding mintette: " % build % " with pk " % build)
                    mintette pk
        if verify bankPublicKey proof (mintette,pk)
        then update' st (AddMintette mintette pk)
-       else logError bankLoggerName $
+       else logError $
                 sformat ("Tried to add mintette " % build %
                          " with pk " % build % " with *failed* signature")
                         mintette pk
@@ -209,12 +209,12 @@ serveAddExplorerAdhoc
     -> T.ServerT m ()
 serveAddExplorerAdhoc st bankPublicKey explorer pId proof =
     toServer $
-    do logInfo bankLoggerName $
+    do logInfo $
            sformat ("Adding explorer " % build % " with pid " % int)
                    explorer pId
        if verify bankPublicKey proof (explorer, pId)
        then update' st (AddExplorer explorer pId)
-       else logError bankLoggerName $
+       else logError $
                 sformat ("Tried to add explorer " % build %
                          " with pid" % int % " with *failed* signature")
                         explorer pId
@@ -228,7 +228,7 @@ serveGetLogs :: T.WorkMode m
 serveGetLogs st m from to =
     toServer $
     do mLogs <- query' st (GetLogs m from to)
-       logDebug bankLoggerName $
+       logDebug $
            sformat ("Getting action logs of mintette " % build %
                     " with range of entries " % int % " to " % int % ": " % build)
                    m from to mLogs

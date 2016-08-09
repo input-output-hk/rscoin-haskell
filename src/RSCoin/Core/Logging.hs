@@ -12,10 +12,10 @@ module RSCoin.Core.Logging
        , bankLoggerName
        , benchLoggerName
        , mintetteLoggerName
+       , nakedLoggerName
        , notaryLoggerName
        , explorerLoggerName
        , timedLoggerName
-       , undefinedLoggerName
        , userLoggerName
        , communicationLoggerName
        , testingLoggerName
@@ -98,24 +98,24 @@ colorizer pr s = before ++ s ++ after
     (before, after) = table pr
 
 bankLoggerName,
+    benchLoggerName,
     communicationLoggerName,
     explorerLoggerName,
     mintetteLoggerName,
+    nakedLoggerName,
     notaryLoggerName,
     testingLoggerName,
-    benchLoggerName,
     timedLoggerName,
-    undefinedLoggerName,
     userLoggerName :: LoggerName
 bankLoggerName          = "bank"
+benchLoggerName         = "bench"
 communicationLoggerName = "communication"
 explorerLoggerName      = "explorer"
 mintetteLoggerName      = "mintette"
+nakedLoggerName         = "naked"
 notaryLoggerName        = "notary"
 testingLoggerName       = "testing"
-benchLoggerName         = "bench"
 timedLoggerName         = "timed"
-undefinedLoggerName     = "naked"
 userLoggerName          = "user"
 
 predefinedLoggers :: [LoggerName]
@@ -124,9 +124,9 @@ predefinedLoggers =
     , communicationLoggerName
     , explorerLoggerName
     , mintetteLoggerName
+    , nakedLoggerName
     , notaryLoggerName
     , timedLoggerName
-    , undefinedLoggerName
     , userLoggerName
     ]
 

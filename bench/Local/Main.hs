@@ -21,7 +21,7 @@ import           Serokell.Util.Concurrent        (threadDelay)
 
 import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   Severity (..),
-                                                  benchLoggerName,
+                                                  nakedLoggerName,
                                                   defaultPeriodDelta,
                                                   initLoggerByName,
                                                   initLogging, keyGen, logInfo,
@@ -42,7 +42,6 @@ data BenchOptions = BenchOptions
     , transactions  :: Maybe Word     <?> "number of transactions per user"
     , mintettes     :: Int            <?> "number of mintettes"
     , severity      :: Maybe Severity <?> "severity for global logger"
-    , benchSeverity :: Maybe Severity <?> "severity for bench logger"
     , period        :: Maybe Word     <?> "period delta (seconds)"
     } deriving (Generic, Show)
 
@@ -123,12 +122,11 @@ main = do
         userNumber      = unHelpful users
         txNum           = fromMaybe 1000  $ unHelpful transactions
         globalSeverity  = fromMaybe Error $ unHelpful severity
-        bSeverity       = fromMaybe Info  $ unHelpful benchSeverity
         periodDelta     = fromMaybe defaultPeriodDelta $
                           fromIntegral <$> unHelpful period
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
-        flip initLoggerByName benchLoggerName bSeverity
+        initLoggerByName Info nakedLoggerName
 
         createDeployConfiguration benchDir
 

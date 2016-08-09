@@ -158,7 +158,7 @@ setupBankUser confPath CommonParams{..} BankData{..} = do
         walletPathArg = sformat (" --wallet-path " % string % " ") dbDir
     Cherepakha.mkdir workingDirModern
     bankSk <- C.readSecretKey bdSecret
-    runRealModeBank C.userLoggerName (Just confPath) bankSk $
+    runRealModeBank (Just confPath) bankSk $
         bracket
             (liftIO $ U.openState dbDir)
             (\st ->

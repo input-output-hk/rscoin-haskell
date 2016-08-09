@@ -13,7 +13,6 @@ module RSCoin.Timed
         , runRealModeBank
         , runRealModeDefaultContext
         , runRealModeUntrusted
-        , runRealModeWithContext
         ) where
 
 import           RSCoin.Timed.Misc           as Exports
@@ -29,7 +28,9 @@ import           Control.Monad.Reader        (runReaderT)
 import           Control.Monad.Trans         (MonadIO, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           System.Random               (StdGen, getStdGen)
+
 import           RSCoin.Core.Crypto.Signing  (SecretKey)
+import           RSCoin.Core.Logging         (bankLoggerName)
 import           RSCoin.Core.NamedLogging    (WithNamedLogger)
 import           RSCoin.Core.NodeConfig      (NodeContext (..), defaultNodeContext,
                                               readDeployNodeContext)
@@ -41,22 +42,22 @@ class (MonadTimed m, MonadRpc m, MonadIO m, WithNamedLogger m,
 instance (MonadTimed m, MonadRpc m, MonadIO m, WithNamedLogger m,
           MonadMask m, MonadBaseControl IO m) => WorkMode m
 
-runRealModeWithContext :: LoggerName -> NodeContext -> MsgPackRpc a -> IO a
-runRealModeWithContext l nodeContext =
-    runTimedIO . flip runReaderT (nodeContext {_loggerName = l}) . runMsgPackRpc
+runRealModeWithContext :: NodeContext -> MsgPackRpc a -> IO a
+runRealModeWithContext nodeContext =
+    runTimedIO . flip runReaderT nodeContext . runMsgPackRpc
 
-runRealModeDefaultContext :: LoggerName -> MsgPackRpc a -> IO a
-runRealModeDefaultContext l = runRealModeWithContext l defaultNodeContext
+runRealModeDefaultContext :: MsgPackRpc a -> IO a
+runRealModeDefaultContext = runRealModeWithContext defaultNodeContext
 
-runRealModeBank :: LoggerName -> Maybe FilePath -> SecretKey -> MsgPackRpc a -> IO a
-runRealModeBank l confPath bankSecretKey bankAction = do
+runRealModeBank :: Maybe FilePath -> SecretKey -> MsgPackRpc a -> IO a
+runRealModeBank confPath bankSecretKey bankAction = do
     bankNodeContext <- readDeployNodeContext (Just bankSecretKey) confPath
-    runRealModeWithContext l bankNodeContext bankAction
+    runRealModeWithContext bankNodeContext { _loggerName = bankLoggerName } bankAction
 
 runRealModeUntrusted :: LoggerName -> Maybe FilePath -> MsgPackRpc a -> IO a
-runRealModeUntrusted l confPath nodeAction = do
+runRealModeUntrusted logName confPath nodeAction = do
     untrustedNodeContext <- readDeployNodeContext Nothing confPath
-    runRealModeWithContext l untrustedNodeContext nodeAction
+    runRealModeWithContext untrustedNodeContext { _loggerName = logName } nodeAction
 
 runEmulationMode :: MonadIO m => Maybe StdGen -> Delays -> PureRpc IO a -> m a
 runEmulationMode genMaybe delays m =

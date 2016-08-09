@@ -24,8 +24,7 @@ import           Data.Time.Units           (TimeUnit)
 import           Formatting                (int, sformat, (%))
 
 import           RSCoin.Core               (Explorer, Mintette, PeriodId,
-                                            PublicKey, SecretKey, sign,
-                                            bankLoggerName)
+                                            PublicKey, SecretKey, sign)
 import           RSCoin.Core.Communication (addExplorerAdhoc, addMintetteAdhoc,
                                             getBlockchainHeight,
                                             getMintettePeriod)
@@ -46,7 +45,7 @@ bankWrapperReal :: SecretKey
                 -> (State -> MsgPackRpc a)
                 -> IO a
 bankWrapperReal bankSk storagePath confPath =
-    runRealModeBank bankLoggerName confPath bankSk .
+    runRealModeBank confPath bankSk .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
 -- | Launch Bank in real mode. This function works indefinitely.
@@ -80,7 +79,7 @@ launchBank periodDelta bankSk storagePath st = do
 addMintetteIO :: Maybe FilePath -> SecretKey -> Mintette -> PublicKey -> IO ()
 addMintetteIO confPath bankSk m k = do
     let proof = sign bankSk (m, k)
-    runRealModeBank bankLoggerName confPath bankSk $ do
+    runRealModeBank confPath bankSk $ do
         bankPid <- getBlockchainHeight
         mintettePid <- getMintettePeriod m
         when (isNothing mintettePid) $
@@ -111,7 +110,7 @@ addMintetteInPlace confPath bankSk storagePath m k =
 addExplorerIO :: Maybe FilePath -> SecretKey -> Explorer -> PeriodId -> IO ()
 addExplorerIO confPath bankSk e pId = do
     let proof = sign bankSk (e, pId)
-    runRealModeBank bankLoggerName confPath bankSk $ addExplorerAdhoc e pId proof
+    runRealModeBank confPath bankSk $ addExplorerAdhoc e pId proof
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerInPlace :: Maybe FilePath

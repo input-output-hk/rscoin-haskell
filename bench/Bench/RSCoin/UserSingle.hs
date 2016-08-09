@@ -1,4 +1,3 @@
-
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Bench.RSCoin.UserSingle
@@ -25,13 +24,12 @@ import           System.Directory         (doesFileExist, removeFile)
 
 import           Serokell.Util.Bench      (getWallTime)
 
-import           RSCoin.Core              (Address (..), keyGen,
-                                           testBankSecretKey)
+import           RSCoin.Core              (Address (..), keyGen, logDebug,
+                                           logInfo, testBankSecretKey)
 import           RSCoin.Timed             (MsgPackRpc, Second, for, fork,
                                            killThread, sec, wait)
 import qualified RSCoin.User              as U
 
-import           Bench.RSCoin.Logging     (logDebug, logInfo)
 import           Bench.RSCoin.UserCommons (executeTransaction)
 
 data InfoStatus = InProcess | Final

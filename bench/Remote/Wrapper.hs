@@ -31,7 +31,6 @@ import           Serokell.Util.Text         (listBuilderCSV, listBuilderJSON)
 
 import qualified RSCoin.Core                as C
 
-import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.Remote.Config (BankData (..), MintetteData (..),
                                              ProfilingType (..),
                                              RemoteConfig (..), UserData (..),
@@ -524,24 +523,24 @@ remoteBench srp@SingleRunParams{..} = do
                 (bpProfiling bp :
                  (map udProfiling (userDatas srpUsers) ++
                   map mdProfiling mintettes))
-    logInfo $
+    C.logInfo $
         sformat ("Setting up and launching mintettes " % build % "…") $
         listBuilderJSON mintettes
     mintetteKeys <- mapConcurrently (genMintetteKey globalBranch) mintettes
     mintetteThreads <- mapConcurrently (runMintette bankHost) mintettes
-    logInfo "Launched mintettes, waiting…"
+    C.logInfo "Launched mintettes, waiting…"
     T.sleep 2
-    logInfo "Launching bank…"
+    C.logInfo "Launching bank…"
     bankThread <-
         setupAndRunBank bp bankHost (map mdHost mintettes) mintetteKeys
-    logInfo "Launched bank, waiting…"
+    C.logInfo "Launched bank, waiting…"
     T.sleep 3
-    logInfo "Running users…"
+    C.logInfo "Running users…"
     let runUsers :: Maybe UsersData -> IO ()
         runUsers Nothing = do
-            logInfo
+            C.logInfo
                 "Running users was disabled in config. I have finished, RSCoin is ready to be used."
-            logInfo
+            C.logInfo
                 "Have fun now. I am going to sleep, you can wish me good night."
             T.sleep 100500
         runUsers (Just UDSingle{..}) =
@@ -570,22 +569,22 @@ remoteBench srp@SingleRunParams{..} = do
                    mapConcurrently (runUser logInterval bankHost txNum) datas `onException`
                    stopUsers
         finishMintettesAndBank = do
-            logInfo "Ran users"
+            C.logInfo "Ran users"
             stopBank bankHost
-            logInfo "Stopped bank"
+            C.logInfo "Stopped bank"
             mapM_ stopMintette $ map mdHost mintettes
-            logInfo "Stopped mintettes"
+            C.logInfo "Stopped mintettes"
             killThread bankThread
-            logInfo "Killed bank thread"
+            C.logInfo "Killed bank thread"
             mapM_ killThread mintetteThreads
-            logInfo "Killed mintette threads"
+            C.logInfo "Killed mintette threads"
     runUsers srpUsers `finally` finishMintettesAndBank
 
 main :: IO ()
 main = do
     RemoteBenchOptions{..} <- OG.getRecord "rscoin-bench-remote"
     C.initLogging C.Error
-    initBenchLogger $ fromMaybe C.Info $ rboBenchSeverity
+    flip C.initLoggerByName C.benchLoggerName $ fromMaybe C.Info $ rboBenchSeverity
     let configPath = fromMaybe "remote.yaml" $ rboConfigFile
     RemoteConfig{..} <- readRemoteConfig configPath
     configStr <- TIO.readFile configPath

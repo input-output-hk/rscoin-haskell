@@ -8,7 +8,8 @@ import           Data.Acid               (query)
 import qualified Data.IntMap.Strict      as M
 
 import           RSCoin.Core             (Coin (..), CoinAmount, PublicKey,
-                                          defaultNodeContext, getAddress)
+                                          defaultNodeContext, getAddress,
+                                          userLoggerName)
 import           RSCoin.Timed            (runRealModeUntrusted)
 import           RSCoin.User             (GetOwnedDefaultAddresses (..),
                                           RSCoinUserState,
@@ -25,6 +26,6 @@ data VerboseAddress = VA
 getAddresses :: Maybe FilePath -> RSCoinUserState -> IO [VerboseAddress]
 getAddresses confPath st = do
     as <- query st $ GetOwnedDefaultAddresses defaultNodeContext
-    forM as $ \a -> runRealModeUntrusted confPath $ do
+    forM as $ \a -> runRealModeUntrusted userLoggerName confPath $ do
         b <- M.findWithDefault 0 0 <$> getAmountNoUpdate st a
         return $ VA (getAddress a) (getCoin b)

@@ -81,7 +81,7 @@ onSendButtonPressed confPath st gst mw@M.MainWindow{..} =
         reportSimpleError mainWindow "Amount should be positive."
         G.entrySetText (spinButtonSendAmount tabTransactions) ""
     constructDialog (Just address) (Right amount) = do
-        userAmount <- runRealModeUntrusted confPath
+        userAmount <- runRealModeUntrusted C.userLoggerName confPath
             (M.findWithDefault 0 0 <$> U.getUserTotalAmount False st)
         if amount > C.getCoin userAmount
         then do
@@ -90,7 +90,7 @@ onSendButtonPressed confPath st gst mw@M.MainWindow{..} =
                  show (C.getCoin userAmount) ++ " coins."
             G.entrySetText (spinButtonSendAmount tabTransactions) $ show userAmount
         else do
-            tr <- runRealModeUntrusted confPath $
+            tr <- runRealModeUntrusted C.userLoggerName confPath $
                 U.submitTransactionFromAll st Nothing address $ C.Coin 0 amount
             liftIO $ addTransaction gst (C.hash tr) (Just tr)
             dialog <- G.messageDialogNew

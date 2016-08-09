@@ -37,7 +37,7 @@ import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           QueryMyMSRequests (..),
                                           RSCoinNotaryState,
                                           RemoveCompleteMSAddresses (..))
-import           RSCoin.Notary.Error     (NotaryError, logDebug, logError)
+import           RSCoin.Notary.Error     (NotaryError)
 import           RSCoin.Timed            (MonadRpc (getNodeContext),
                                           WorkMode, serverTypeRestriction0,
                                           serverTypeRestriction1,
@@ -49,7 +49,7 @@ toServer :: MonadIO m => IO a -> m a
 toServer action = liftIO $ action `catch` handler
   where
     handler (e :: NotaryError) = do
-        logError $ sformat build e
+        C.logError $ sformat build e
         throwIO e
 
 -- | Run Notary server which will process incoming sing requests.
@@ -115,7 +115,7 @@ handlePublishTx st tx addr sg = toServer $ do
     update' st $ AddSignedTransaction tx addr sg
     liftIO $ createCheckpoint st
     res <- update' st $ AcquireSignatures tx addr
-    logDebug $ sformat ("Getting signatures for tx " % build % ", addr " % build % ": " % build)
+    C.logDebug $ sformat ("Getting signatures for tx " % build % ", addr " % build % ": " % build)
         tx
         addr
         res
@@ -129,14 +129,14 @@ handleAnnounceNewPeriods
     -> m ()
 handleAnnounceNewPeriods st pId hblocks = toServer $ do
     update' st $ AnnounceNewPeriods pId hblocks
-    logDebug $ sformat ("New period announcement, hblocks " % build % " from periodId " % int)
+    C.logDebug $ sformat ("New period announcement, hblocks " % build % " from periodId " % int)
         hblocks
         pId
 
 handleGetPeriodId :: MonadIO m => RSCoinNotaryState -> m C.PeriodId
 handleGetPeriodId st = toServer $ do
     res <- query' st GetPeriodId
-    logDebug $ sformat ("Getting periodId: " % int) res
+    C.logDebug $ sformat ("Getting periodId: " % int) res
     return res
 
 handleGetSignatures
@@ -147,7 +147,7 @@ handleGetSignatures
     -> m [(C.Address, C.Signature)]
 handleGetSignatures st tx addr = toServer $ do
     res <- query' st $ GetSignatures tx addr
-    logDebug $ sformat ("Getting signatures for tx " % build % ", addr " % build % ": " % build)
+    C.logDebug $ sformat ("Getting signatures for tx " % build % ", addr " % build % ": " % build)
         tx
         addr
         res
@@ -159,7 +159,7 @@ handleQueryCompleteMS
     -> m [(C.Address, C.TxStrategy)]
 handleQueryCompleteMS st = toServer $ do
     res <- query' st QueryCompleteMSAdresses
-    logDebug $ sformat ("Getting complete MS: " % shown) res
+    C.logDebug $ sformat ("Getting complete MS: " % shown) res
     return res
 
 handleRemoveCompleteMS
@@ -170,7 +170,7 @@ handleRemoveCompleteMS
     -> C.Signature
     -> m ()
 handleRemoveCompleteMS st bankPublicKey addresses signedAddrs = toServer $ do
-    logDebug $ sformat ("Removing complete MS of " % shown) addresses
+    C.logDebug $ sformat ("Removing complete MS of " % shown) addresses
     update' st $ RemoveCompleteMSAddresses bankPublicKey addresses signedAddrs
 
 handleAllocateMultisig
@@ -183,13 +183,13 @@ handleAllocateMultisig
     -> [(C.Signature, C.PublicKey)]
     -> m ()
 handleAllocateMultisig st msAddr partyAddr allocStrat signature chain = toServer $ do
-    logDebug "Begining allocation MS address..."
-    logDebug $ sformat ("SigPair: " % build % ", Chain: " % build) signature chain
+    C.logDebug "Begining allocation MS address..."
+    C.logDebug $ sformat ("SigPair: " % build % ", Chain: " % build) signature chain
     update' st $ AllocateMSAddress msAddr partyAddr allocStrat signature chain
 
     -- @TODO: get query only in Debug mode
     currentMSAddresses <- query' st QueryAllMSAdresses
-    logDebug $ sformat ("All addresses: " % shown) currentMSAddresses
+    C.logDebug $ sformat ("All addresses: " % shown) currentMSAddresses
 
 handleQueryMyAllocationMS
     :: MonadIO m
@@ -197,5 +197,5 @@ handleQueryMyAllocationMS
     -> C.AllocationAddress
     -> m [(C.MSAddress, C.AllocationInfo)]
 handleQueryMyAllocationMS st allocAddr = toServer $ do
-    logDebug "Querying my MS allocations..."
+    C.logDebug "Querying my MS allocations..."
     query' st $ QueryMyMSRequests allocAddr

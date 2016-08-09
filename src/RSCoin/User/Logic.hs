@@ -30,8 +30,7 @@ import           Data.Tuple.Select             (sel1, sel2, sel3)
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
-import           RSCoin.Core.Logging           (logInfo, logWarning,
-                                                userLoggerName)
+import           RSCoin.Core.Logging           (logInfo, logWarning)
 import           RSCoin.Core.Primitives        (AddrId, Address,
                                                 Transaction (..))
 import           RSCoin.Core.Strategy          (TxStrategy (..), isStrategyCompleted)
@@ -88,7 +87,7 @@ getExtraSignatures tx requests time = do
     then return (if itsCoolAlready then Just (toBundle ready) else Nothing)
     else do
         timeoutRes <- timeout (sec time) $ do
-            logInfo userLoggerName "Waiting for others to sign"
+            logInfo "Waiting for others to sign"
             pingUntilDead waiting []
         return $ Just $ toBundle $ ready ++ timeoutRes
   where
@@ -198,7 +197,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
                 $ commitActions
         let failures = filter isLeft commitActions
         unless (null failures) $
-            logWarning userLoggerName $
+            logWarning $
             commitTxWarningMessage owns commitActions
         when (length succeededCommits <= length owns `div` 2) $
             do throwM $

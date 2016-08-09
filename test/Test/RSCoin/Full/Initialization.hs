@@ -24,10 +24,10 @@ import           Test.QuickCheck            (NonEmptyList (..))
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
-                                             SecretKey, defaultPeriodDelta,
-                                             derivePublicKey, keyGen, logDebug,
-                                             logInfo, testBankSecretKey,
-                                             testingLoggerName)
+                                             SecretKey, WithNamedLogger,
+                                             defaultPeriodDelta,derivePublicKey,
+                                             keyGen, logDebug,logInfo,
+                                             testBankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import           RSCoin.Timed               (Second, WorkMode, for, ms,
@@ -65,7 +65,7 @@ mkTestContext mNum uNum scen = do
     uinfos <-
         replicateM (fromIntegral uNum) $ UserInfo <$> liftIO U.openMemState
     isActiveVar <- liftIO newEmptyMVar
-    logInfo testingLoggerName "Initializing system…"
+    logInfo "Initializing system…"
     runMintettes isActiveVar minfos scen
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     mapM_ (addMintetteToBank binfo) minfos
@@ -79,7 +79,7 @@ mkTestContext mNum uNum scen = do
     let ctx = TestContext binfo minfos ninfo buinfo uinfos scen isActiveVar
     sendInitialCoins ctx
     wait $ for periodDelta sec
-    logInfo testingLoggerName "Successfully initialized system"
+    logInfo "Successfully initialized system"
     return ctx
   where
     mkMintette idx =
@@ -134,15 +134,15 @@ runNotary
 runNotary v n = workWhileMVarEmpty v $ N.serveNotary (n ^. state)
 
 addMintetteToBank
-    :: MonadIO m
+    :: (MonadIO m, WithNamedLogger m)
     => BankInfo -> MintetteInfo -> m ()
 addMintetteToBank b mintette = do
     let addedMint = Mintette "127.0.0.1" (mintette ^. port)
         mintPKey  = mintette ^. publicKey
         bankSt = b ^. state
-    logDebug testingLoggerName $ sformat ("Adding mintette " % build) addedMint
+    logDebug $ sformat ("Adding mintette " % build) addedMint
     update' bankSt $ B.AddMintette addedMint mintPKey
-    logDebug testingLoggerName $ sformat ("Added mintette " % build) addedMint
+    logDebug $ sformat ("Added mintette " % build) addedMint
 
 initBUser
     :: WorkMode m

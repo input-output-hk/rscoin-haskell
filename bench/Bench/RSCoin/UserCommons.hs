@@ -23,7 +23,8 @@ import           System.FilePath            ((</>))
 import           RSCoin.Core                (Address (..), Coin (..),
                                              CoinAmount (..), Color,
                                              finishPeriod, getBlockchainHeight,
-                                             keyGen, sign)
+                                             keyGen, logDebug, logInfo, sign,
+                                             userLoggerName)
 import           RSCoin.Core.NodeConfig     (NodeContext, testBankSecretKey)
 import           RSCoin.Timed               (MsgPackRpc, for, getNodeContext,
                                              runRealModeUntrusted, sec, wait)
@@ -32,7 +33,6 @@ import           RSCoin.User.Operations     (TransactionData (..),
                                              submitTransactionRetry)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath, walletPathPrefix)
-import           Bench.RSCoin.Logging       (logDebug, logInfo)
 
 userThread
     :: FilePath
@@ -54,7 +54,7 @@ userThreadWithPath
     userId
     (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
   =
-    runRealModeUntrusted Nothing $ bracket
+    runRealModeUntrusted userLoggerName Nothing $ bracket
         (liftIO $ U.openState walletPath)
         (\userState -> liftIO $ do
             createCheckpoint userState

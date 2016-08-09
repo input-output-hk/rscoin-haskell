@@ -44,15 +44,14 @@ import qualified Data.PQueue.Min             as PQ
 import qualified Data.Set                    as S
 import           Serokell.Util.Text          (formatSingle')
 
-import           RSCoin.Core.Logging         (logDebug, logWarning,
-                                              timedLoggerName)
+import           RSCoin.Core.Logging         (logDebug, logWarning)
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed,
                                               MonadTimedError (MTTimeoutError),
                                               ThreadId (PureThreadId), for,
                                               fork, killThread, localTime,
                                               myThreadId, timeout, wait, ms,
                                               Millisecond, localTime)
-
+import           RSCoin.Core.NamedLogging    (WithNamedLogger (..))
 type Timestamp = Microsecond
 
 -- | Private context for each pure thread
@@ -114,6 +113,9 @@ newtype Core m a = Core
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow,
                MonadCatch, MonadMask)
 
+instance MonadIO m => WithNamedLogger (Core m) where
+    getLoggerFromContext = liftIO $ getLoggerFromContext
+
 instance MonadTrans Core where
     lift = Core . lift
 
@@ -127,7 +129,6 @@ instance MonadState s m => MonadState s (Core m) where
 newtype TimedT m a = TimedT
     { unwrapTimedT :: ReaderT (ThreadCtx (Core m)) (ContT () (Core m)) a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow)
-
 
 -- | When stacking with other monads, take note of order of nesting.
 --   For example, StateT above TimedT will clone it's state on fork, thus
@@ -275,10 +276,10 @@ evalTimedT timed = do
 isThreadKilled :: SomeException -> Bool
 isThreadKilled = maybe False (== ThreadKilled) . fromException
 
-threadKilledNotifier :: MonadIO m => SomeException -> m ()
+threadKilledNotifier :: (MonadIO m, WithNamedLogger m) => SomeException -> m ()
 threadKilledNotifier e
-  | isThreadKilled e = logDebug timedLoggerName msg
-  | otherwise = logWarning timedLoggerName msg
+  | isThreadKilled e = logDebug msg
+  | otherwise = logWarning msg
   where
     msg = formatSingle' "Thread killed by exception: {}" $ show e
 

@@ -17,23 +17,23 @@ main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     C.initLogging logSeverity
-    runRealModeUntrusted (Just configPath) $
+    runRealModeUntrusted C.userLoggerName (Just configPath) $
         bracket
             (liftIO $ U.openState walletPath)
             (\st -> liftIO $ do
                 ACID.createCheckpoint st
                 U.closeState st) $
             \st ->
-                 do C.logDebug C.userLoggerName $
+                 do C.logDebug $
                         mconcat ["Called with options: ", (T.pack . show) opts]
                     handleUnitialized
                         (processCommand st userCommand opts)
                         (initializeStorage st opts)
   where
-    handleUnitialized :: (MonadIO m, MonadCatch m) => m () -> m () -> m ()
+    handleUnitialized :: (MonadIO m, MonadCatch m, C.WithNamedLogger m) => m () -> m () -> m ()
     handleUnitialized action initialization =
         action `catch` handler initialization action
       where
         handler i a W.NotInitialized =
-            C.logInfo C.userLoggerName "Initalizing storage..." >> i >> a
+            C.logInfo "Initalizing storage..." >> i >> a
         handler _ _ e = throwM e

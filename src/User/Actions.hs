@@ -10,11 +10,8 @@ module Actions
        , initializeStorage
        ) where
 
-import           Control.Exception       (SomeException)
 import           Control.Monad           (forM_, unless, void, when)
-import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
-import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
 import           Data.Bifunctor          (bimap)
 import qualified Data.ByteString.Base64  as B64
@@ -36,8 +33,7 @@ import           RSCoin.Core.Strategy    (AllocationAddress (..),
                                           AllocationInfo (..),
                                           AllocationStrategy (..),
                                           PartyAddress (..))
-import           RSCoin.Timed            (WorkMode, for, getNodeContext, ms,
-                                          wait)
+import           RSCoin.Timed            (WorkMode, getNodeContext)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..),

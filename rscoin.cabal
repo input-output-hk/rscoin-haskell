@@ -220,18 +220,6 @@ executable rscoin-user
   other-modules:       Paths_rscoin
                      , UserOptions
                      , Actions
-                     , GUI.RSCoin.Addresses
-                     , GUI.RSCoin.AddressesTab
-                     , GUI.RSCoin.ContactsTab
-                     , GUI.RSCoin.ErrorMessage
-                     , GUI.RSCoin.ExplicitTransaction
-                     , GUI.RSCoin.Glade
-                     , GUI.RSCoin.GUI
-                     , GUI.RSCoin.GUIAcid
-                     , GUI.RSCoin.MainWindow
-                     , GUI.RSCoin.TransactionsTab
-                     , GUI.RSCoin.WalletTab
-                     , GUI.RSCoin.Worker
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
                      , bytestring
@@ -240,7 +228,6 @@ executable rscoin-user
                      , filepath
                      , formatting
                      , exceptions >= 0.8.2.1
-                     , gtk3 >= 0.14.2
                      , lens >= 4.13
                      , mtl >= 2.2.1
                      , optparse-generic

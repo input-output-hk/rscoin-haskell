@@ -30,10 +30,8 @@ import           RSCoin.User            (UserCache)
 -- | Command that describes single action from command-line interface
 -- POV
 data UserCommand
-    -- | Start graphical user interface
-    = StartGUI
     -- | List all addresses in wallet, starting with 1
-    | ListAddresses
+    = ListAddresses
     -- | Query bank to update wallet state according to blockchain
     -- status
     | UpdateBlockchain
@@ -86,7 +84,6 @@ data UserOptions = UserOptions
     , bankModePath :: FilePath    -- ^ Path to bank's secret key
     , addressesNum :: Int         -- ^ Number of addresses to create initially
     , walletPath   :: FilePath    -- ^ Path to the wallet
-    , guidbPath    :: FilePath    -- ^ Path to the gui database.
     , logSeverity  :: Severity    -- ^ Logging severity
     , configPath   :: FilePath    -- ^ Configuration file path
     } deriving (Show)
@@ -95,9 +92,6 @@ userCommandParser :: Parser UserCommand
 userCommandParser =
     subparser
         (command
-             "start-gui"
-             (info (pure StartGUI) (progDesc "Start graphical user interface.")) <>
-         command
              "list"
              (info
                   (pure ListAddresses)
@@ -318,10 +312,6 @@ userOptionsParser dskp configDir defaultConfigPath =
     strOption
         (long "wallet-path" <> help "Path to wallet database." <>
          value (configDir </> "wallet-db") <>
-         showDefault) <*>
-    strOption
-        (long "guidb-path" <> help "Path to gui database" <>
-         value "gui-db" <>
          showDefault) <*>
     option auto
         (long "log-severity" <> value Info <> showDefault <>

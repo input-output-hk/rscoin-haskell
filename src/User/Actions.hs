@@ -31,11 +31,6 @@ import           Formatting              (build, int, sformat, stext, (%))
 
 import           Serokell.Util.Text      (show')
 
-import qualified Graphics.UI.Gtk         as G
-import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
-import           GUI.RSCoin.GUI          (startGUI)
-import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
-
 import qualified RSCoin.Core             as C
 import           RSCoin.Core.Strategy    (AllocationAddress (..),
                                           AllocationInfo (..),
@@ -228,25 +223,6 @@ processCommand st (O.ImportAddress skPath pkPath heightFrom heightTo) _ = do
     liftIO $ TIO.putStrLn "Starting blockchain query process"
     importAddress st (sk,pk) heightFrom heightTo
     liftIO $ TIO.putStrLn "Finished, your address successfully added"
-processCommand st O.StartGUI opts@O.UserOptions{..} = do
-    initialized <- U.isInitialized st
-    unless initialized $ liftIO G.initGUI >> initLoop
-    liftIO $ bracket
-        (ACID.openLocalStateFrom guidbPath emptyGUIAcid)
-        (\cs -> do ACID.createCheckpoint cs
-                   ACID.closeAcidState cs)
-        (\cs -> startGUI (Just configPath) st cs)
-  where
-    initLoop =
-        initializeStorage st opts `catch`
-        (\(e :: SomeException) ->
-              do liftIO $
-                     reportSimpleErrorNoWindow $
-                     "Couldn't initialize rscoin. Check connection, close this " ++
-                     "dialog and we'll try again. Error: "
-                     ++ show e
-                 wait $ for 500 ms
-                 initLoop)
 
 dumpCommand
     :: WorkMode m

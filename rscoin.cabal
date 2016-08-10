@@ -14,8 +14,6 @@ maintainer:          volhovm.cs@gmail.com
 build-type:          Custom
 extra-source-files:  README.md
 cabal-version:       >=1.10
-data-files:            resources/RSCoinMain.glade
-                     , resources/icons/*.png
 
 library
   exposed-modules:     RSCoin.Bank

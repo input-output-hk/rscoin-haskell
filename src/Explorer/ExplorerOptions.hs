@@ -7,7 +7,7 @@ module ExplorerOptions
 
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, metavar,
-                                         option, progDesc, showDefault, value,
+                                         option, progDesc, showDefault, value, switch,
                                          (<>))
 import           System.FilePath        ((</>))
 
@@ -22,6 +22,7 @@ data Options = Options
     , cloPortWeb       :: Int
     , cloPath          :: FilePath
     , cloSecretKeyPath :: FilePath
+    , cloAutoCreateKey :: Bool
     , cloLogSeverity   :: Severity
     , cloConfigPath    :: FilePath
     }
@@ -56,6 +57,11 @@ optionsParser defaultSKPath configDir defaultConfigPath =
              , metavar "FILEPATH"
              , help "Path to the secret key"
              , showDefault]) <*>
+    switch
+        (long "auto-create-sk" <>
+         help
+             ("If the \"sk\" is pointing to non-existing " <>
+              "file, generate a keypair")) <*>
     option
         auto
         (mconcat

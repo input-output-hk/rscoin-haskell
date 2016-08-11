@@ -10,7 +10,8 @@ import qualified Data.Text              as T
 import           Options.Applicative    (Parser, auto, command, execParser,
                                          fullDesc, help, helper, info, long,
                                          metavar, option, progDesc, short,
-                                         showDefault, subparser, value, (<>))
+                                         showDefault, subparser, switch, value,
+                                         (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
@@ -26,12 +27,13 @@ data Command
     | AddExplorer String Int T.Text Int
 
 data Options = Options
-    { cloCommand     :: Command
-    , cloPath        :: FilePath
-    , cloPeriodDelta :: Integer
-    , cloLogSeverity :: Severity
-    , cloSkPath      :: FilePath
-    , cloConfigPath  :: FilePath
+    { cloCommand       :: Command
+    , cloPath          :: FilePath
+    , cloPeriodDelta   :: Integer
+    , cloLogSeverity   :: Severity
+    , cloSkPath        :: FilePath
+    , cloAutoCreateKey :: Bool
+    , cloConfigPath    :: FilePath
     }
 
 commandParser :: Parser Command
@@ -90,6 +92,11 @@ optionsParser defaultSKPath configDir defaultConfigPath =
          value defaultSKPath <>
          showDefault <>
          metavar "PATH TO KEY") <*>
+    switch
+        (long "auto-create-sk" <>
+         help
+             ("If the \"sk\" is pointing to non-existing " <>
+              "file, generate a keypair")) <*>
     strOption
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigPath <>

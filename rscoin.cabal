@@ -184,6 +184,7 @@ executable rscoin-bank
   main-is:             Main.hs
   other-modules:       BankOptions
   build-depends:       base >= 4.8 && < 4.9
+                     , exceptions
                      , filepath
                      , mtl
                      , optparse-applicative

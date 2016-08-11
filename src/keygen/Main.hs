@@ -15,14 +15,17 @@ main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
     case cloCommand of
-        Opts.Generate -> do
-            topSecretKey <- readSecretKey
-            let genNum = fromInteger cloPubKeyNum
-            keys <- replicateM genNum generator
+        Opts.GenerateSingle -> do
+            sk <- readSecretKey cloSKPath
+            pairPKSig <- generator sk
+            let generatedKey = encode pairPKSig
+            writePublicKey cloKeysPath generatedKey
+        Opts.GenerateBatch genNum -> do
+            sk <- readSecretKey cloSKPath
+            keys <- replicateM genNum (generator sk)
             let generatedKeys = encode keys
             writeFile cloKeysPath generatedKeys
-  where generator = generatePKs cloKeysPath cloSkPath topSecretKey
-        generatePKs keyspath skpath topSK = do
+  where generator topSK = do
             (_, pk) <- keyGen
             let sig = sign topSK pk
             return (pk, sig)

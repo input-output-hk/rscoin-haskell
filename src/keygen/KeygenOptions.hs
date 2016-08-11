@@ -13,14 +13,14 @@ import           Serokell.Util.OptParse   (strOption)
 
 import RSCoin.Core                        (Severity (Error))
 
-data Command = Generate
+data Command = GenerateSingle | GenerateBatch Integer
 
 data Options = Options
     { cloCommand     :: Command
     , cloPubKeyNum   :: Integer
     , cloKeysPath    :: FilePath
     , cloLogSeverity :: Severity
-    , cloSkPath      :: FilePath
+    , cloSKPath      :: FilePath
     }
 
 defaultPubKeyNum = 100
@@ -28,21 +28,28 @@ defaultPubKeyNum = 100
 commandParser =
     subparser
         (command
-             "generate"
+             "generate-single"
               (info
-                   generateOpts
+                   generateSOpts
+                   (progDesc "Generate array of public keys, secret kets and signatures")) <>
+        command
+             "generate-batch"
+              (info
+                   generateBOpts
                    (progDesc "Generate array of public keys, secret kets and signatures")))
   where
-    generateOpts = pure Generate
+    generateSOpts = pure GenerateSingle
+    generateBOpts =
+        GenerateBatch <*> option auto (long "keynum") <*>
+        option
+            auto
+            (long "key-number" <> help "Number ofkeys generated" <>
+             value (toInteger defaultPubKeyNum) <>
+             showDefault)
 
 optionsParser :: FilePath -> FilePath -> Parser Options
 optionsParser defaultSKPath defaultStrgPath =
     Options <$> commandParser <*>
-    option
-        auto
-        (long "pubkey-number" <> help "Number of public keys generated" <>
-         value (toInteger defaultPubKeyNum) <>
-         showDefault) <*>
     strOption
         (long "keys-path" <> value defaultStrgPath <> showDefault <>
         help "Path to generated keys") <*>

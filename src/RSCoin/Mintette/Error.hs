@@ -6,6 +6,7 @@ module RSCoin.Mintette.Error
        ) where
 
 import           Control.Exception       (Exception (..), SomeException)
+import           Data.Data               (Data)
 import           Data.MessagePack        (MessagePack (fromObject, toObject),
                                           Object)
 import           Data.Monoid             ((<>))
@@ -13,7 +14,6 @@ import           Data.Text               (Text)
 import           Data.Text.Buildable     (Buildable (build))
 import qualified Data.Text.Format        as F
 import           Data.Typeable           (Typeable)
-import           Data.Data               (Data)
 
 import           RSCoin.Core.Error       (rscExceptionFromException,
                                           rscExceptionToException)
@@ -61,15 +61,15 @@ toObj
 toObj = toObject
 
 instance MessagePack MintetteError where
-    toObject (MEInternal t) = toObj (0, t)
-    toObject MEInactive = toObj (1, ())
-    toObject (MEPeriodMismatch p1 p2) = toObj (2, (p1, p2))
-    toObject MEInvalidTxSums = toObj (3, ())
+    toObject (MEInternal t)            = toObj (0, t)
+    toObject MEInactive                = toObj (1, ())
+    toObject (MEPeriodMismatch p1 p2)  = toObj (2, (p1, p2))
+    toObject MEInvalidTxSums           = toObj (3, ())
     toObject (MEInconsistentRequest t) = toObj (4, t)
-    toObject (MENotUnspent a) = toObj (5, a)
-    toObject MEInvalidSignature = toObj (6, ())
-    toObject MENotConfirmed = toObj (7, ())
-    toObject MEAlreadyActive = toObj (8, ())
+    toObject (MENotUnspent a)          = toObj (5, a)
+    toObject MEInvalidSignature        = toObj (6, ())
+    toObject MENotConfirmed            = toObj (7, ())
+    toObject MEAlreadyActive           = toObj (8, ())
     fromObject obj = do
         (i,payload) <- fromObject obj
         case (i :: Int) of

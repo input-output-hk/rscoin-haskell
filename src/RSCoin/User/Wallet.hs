@@ -268,7 +268,7 @@ resolveAddressLocally addrid =
     \addridMap ->
          find
              (\k -> case M.lookup k addridMap of
-                        Nothing -> False
+                        Nothing   -> False
                         Just list -> addrid `elem` (map snd list)) $
          M.keys addridMap
 

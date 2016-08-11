@@ -7,9 +7,9 @@ import           Control.Monad.Trans (liftIO)
 import           Data.Monoid         ((<>))
 
 import qualified MintetteOptions     as Opts
-import           RSCoin.Core         (initLogging, keyGen, readSecretKey,
-                                      writePublicKey, writeSecretKey,
-                                      mintetteLoggerName)
+import           RSCoin.Core         (initLogging, keyGen, mintetteLoggerName,
+                                      readSecretKey, writePublicKey,
+                                      writeSecretKey)
 import qualified RSCoin.Mintette     as M
 import           RSCoin.Timed        (fork_, runRealModeUntrusted)
 

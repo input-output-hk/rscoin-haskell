@@ -22,5 +22,5 @@ instance Exception BankError where
     fromException = rscExceptionFromException
 
 instance Buildable BankError where
-    build (BEInternal m) = "internal error: " <> build m
+    build (BEInternal m)               = "internal error: " <> build m
     build (BEInconsistentResponse msg) = build msg

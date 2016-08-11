@@ -22,13 +22,13 @@ module RSCoin.Core.Coin
        , subtractCoinsMap
        ) where
 
-import           Control.Exception         (assert)
-import           Control.Lens              (at, (%~), (&), _Just)
-import           Data.Foldable             (foldr')
-import qualified Data.IntMap.Strict        as M
-import           Data.List                 (groupBy, sortBy)
-import           Data.Maybe                (fromJust)
-import           Data.Ord                  (comparing)
+import           Control.Exception      (assert)
+import           Control.Lens           (at, (%~), (&), _Just)
+import           Data.Foldable          (foldr')
+import qualified Data.IntMap.Strict     as M
+import           Data.List              (groupBy, sortBy)
+import           Data.Maybe             (fromJust)
+import           Data.Ord               (comparing)
 
 import           RSCoin.Core.Primitives (Coin (..), Color (..))
 
@@ -51,7 +51,7 @@ sameColor :: Coin -> Coin -> Bool
 sameColor a b = EQ == onColor a b
 
 sumCoin :: [Coin] -> Coin
-sumCoin [] = error "sumCoin called with empty coin list"
+sumCoin []       = error "sumCoin called with empty coin list"
 sumCoin xs@(c:_) = foldr' (+) c {getCoin = 0} xs
 
 -- | Given a list of arbitrary coins, it sums the coins with the same

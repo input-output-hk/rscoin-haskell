@@ -16,8 +16,8 @@ import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
 import           RSCoin.Core                          (SecretKey, Severity (..),
-                                                       initLoggerByName,
-                                                       explorerLoggerName)
+                                                       explorerLoggerName,
+                                                       initLoggerByName)
 import           RSCoin.Timed                         (MsgPackRpc, WorkMode,
                                                        fork_,
                                                        runRealModeUntrusted)
@@ -57,8 +57,8 @@ launchExplorer port sk ch st = serve port ch st sk
 
 loggingMiddleware :: Severity -> Middleware
 loggingMiddleware Debug = logStdoutDev
-loggingMiddleware Info = logStdout
-loggingMiddleware _ = id
+loggingMiddleware Info  = logStdout
+loggingMiddleware _     = id
 
 launchWeb
     :: MonadIO m

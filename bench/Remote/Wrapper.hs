@@ -132,9 +132,9 @@ profilingBuildArgs (Just _) =
     " --executable-profiling --library-profiling "
 
 profilingRunArgs :: Maybe ProfilingType -> T.Text
-profilingRunArgs Nothing = ""
-profilingRunArgs (Just PTStandard) = " +RTS -p -RTS "
-profilingRunArgs (Just PTDetailed) = " +RTS -P -RTS "
+profilingRunArgs Nothing               = ""
+profilingRunArgs (Just PTStandard)     = " +RTS -p -RTS "
+profilingRunArgs (Just PTDetailed)     = " +RTS -P -RTS "
 profilingRunArgs (Just PTMostDetailed) = " +RTS -pa -RTS "
 
 bankSetupCommand :: BankParams -> [T.Text] -> [C.PublicKey] -> T.Text
@@ -514,8 +514,8 @@ remoteBench srp@SingleRunParams{..} = do
             }
         !bankHost = error "Bank host is not defined!"
         mintettes = srpMintettes
-        userDatas Nothing = []
-        userDatas (Just (UDSingle{..})) = [udsData]
+        userDatas Nothing                 = []
+        userDatas (Just (UDSingle{..}))   = [udsData]
         userDatas (Just (UDMultiple{..})) = udmUsers
         noStats =
             any
@@ -613,9 +613,9 @@ main = do
     usersNums (Just (UDSingle{..})) = udsNumber
     usersNums (Just (UDMultiple{..})) =
         fromMaybe [genericLength udmUsers] udmNumber
-    txNums Nothing = [0]
-    txNums (Just (UDSingle{..})) = udsTransactionsNum
+    txNums Nothing                 = [0]
+    txNums (Just (UDSingle{..}))   = udsTransactionsNum
     txNums (Just (UDMultiple{..})) = udmTransactionsNum
-    userDatas Nothing = []
-    userDatas (Just UDSingle {..}) = [udsData]
+    userDatas Nothing                = []
+    userDatas (Just UDSingle {..})   = [udsData]
     userDatas (Just UDMultiple {..}) = udmUsers

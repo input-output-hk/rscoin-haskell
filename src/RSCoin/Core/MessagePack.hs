@@ -56,11 +56,11 @@ instance (Integral a, MessagePack a) => MessagePack (Ratio a) where
     fromObject = fmap (uncurry (%)) . fromObject
 
 instance (MessagePack a, MessagePack b) => MessagePack (Either a b) where
-    toObject (Left a) = ObjectExt 0 $ BSL.toStrict $ pack a
+    toObject (Left a)  = ObjectExt 0 $ BSL.toStrict $ pack a
     toObject (Right b) = ObjectExt 1 $ BSL.toStrict $ pack b
     fromObject (ObjectExt 0 a) = Left <$> unpack (BSL.fromStrict a)
     fromObject (ObjectExt 1 b) = Right <$> unpack (BSL.fromStrict b)
-    fromObject _ = Nothing
+    fromObject _               = Nothing
 
 instance MessagePack C.Coin where
     toObject (C.Coin c t) = toObject (C.getC c, C.getAmount t)
@@ -161,8 +161,8 @@ toObj
 toObj = toObject
 
 instance MessagePack C.ActionLogEntry where
-    toObject (C.QueryEntry tx) = toObj (0, tx)
-    toObject (C.CommitEntry tx cc) = toObj (1, (tx, cc))
+    toObject (C.QueryEntry tx)         = toObj (0, tx)
+    toObject (C.CommitEntry tx cc)     = toObj (1, (tx, cc))
     toObject (C.CloseEpochEntry heads) = toObj (2, heads)
     fromObject obj = do
         (i,payload) <- fromObject obj

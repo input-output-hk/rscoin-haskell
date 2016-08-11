@@ -59,8 +59,8 @@ import           Serokell.Util.Text         (listBuilderJSONIndent, mapBuilder,
 import           RSCoin.Core.Crypto         (PublicKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
-import qualified RSCoin.Core.Logging        as L
 import           RSCoin.Core.Logging        (WithNamedLogger (..))
+import qualified RSCoin.Core.Logging        as L
 import           RSCoin.Core.Primitives     (AddrId, Address, EmissionId,
                                              Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
@@ -92,8 +92,8 @@ instance Exception CommunicationError where
 
 instance B.Buildable CommunicationError where
     build (ProtocolError t) = "internal error: " <> B.build t
-    build (TimeoutError t) = "timeout error: " <> B.build t
-    build (MethodError t) = "method error: " <> B.build t
+    build (TimeoutError t)  = "timeout error: " <> B.build t
+    build (MethodError t)   = "method error: " <> B.build t
 
 rpcErrorHandler :: (MonadIO m, WithNamedLogger m) => MP.RpcError -> m a
 rpcErrorHandler = liftIO . log' . fromError
@@ -101,9 +101,9 @@ rpcErrorHandler = liftIO . log' . fromError
     log' (e :: CommunicationError) = do
         L.logError $ show' e
         throwM e
-    fromError (MP.ProtocolError s) = ProtocolError $ pack s
+    fromError (MP.ProtocolError s)   = ProtocolError $ pack s
     fromError (MP.ResultTypeError s) = ProtocolError $ pack s
-    fromError (MP.ServerError obj) = MethodError $ pack $ show obj
+    fromError (MP.ServerError obj)   = MethodError $ pack $ show obj
 
 monadTimedHandler :: (MonadTimed m, MonadIO m, WithNamedLogger m) => MonadTimedError -> m a
 monadTimedHandler = log' . fromError

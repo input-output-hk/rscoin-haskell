@@ -38,8 +38,8 @@ import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           RSCoinNotaryState,
                                           RemoveCompleteMSAddresses (..))
 import           RSCoin.Notary.Error     (NotaryError)
-import           RSCoin.Timed            (MonadRpc (getNodeContext),
-                                          WorkMode, serverTypeRestriction0,
+import           RSCoin.Timed            (MonadRpc (getNodeContext), WorkMode,
+                                          serverTypeRestriction0,
                                           serverTypeRestriction1,
                                           serverTypeRestriction2,
                                           serverTypeRestriction3,

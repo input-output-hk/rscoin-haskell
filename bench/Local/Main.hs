@@ -21,15 +21,16 @@ import           Serokell.Util.Concurrent        (threadDelay)
 
 import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   Severity (..),
-                                                  nakedLoggerName,
                                                   defaultPeriodDelta,
-                                                  initLoggerByName,
-                                                  initLogging, keyGen, logInfo,
-                                                  mintetteLoggerName)
+                                                  initLoggerByName, initLogging,
+                                                  keyGen, logInfo,
+                                                  mintetteLoggerName,
+                                                  nakedLoggerName)
 import           RSCoin.Timed                    (runRealModeUntrusted)
 
 import           Bench.RSCoin.CfgCreator         (createDeployConfiguration)
-import           Bench.RSCoin.FilePathUtils      (benchConfPath, tempBenchDirectory)
+import           Bench.RSCoin.FilePathUtils      (benchConfPath,
+                                                  tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
                                                   mintetteThread, notaryThread)
 import           Bench.RSCoin.UserCommons        (benchUserTransactions,
@@ -38,11 +39,11 @@ import           Bench.RSCoin.UserCommons        (benchUserTransactions,
                                                   initializeUser, userThread)
 
 data BenchOptions = BenchOptions
-    { users         :: Int            <?> "number of users"
-    , transactions  :: Maybe Word     <?> "number of transactions per user"
-    , mintettes     :: Int            <?> "number of mintettes"
-    , severity      :: Maybe Severity <?> "severity for global logger"
-    , period        :: Maybe Word     <?> "period delta (seconds)"
+    { users        :: Int            <?> "number of users"
+    , transactions :: Maybe Word     <?> "number of transactions per user"
+    , mintettes    :: Int            <?> "number of mintettes"
+    , severity     :: Maybe Severity <?> "severity for global logger"
+    , period       :: Maybe Word     <?> "period delta (seconds)"
     } deriving (Generic, Show)
 
 instance ParseField  Word

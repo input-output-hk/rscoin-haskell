@@ -7,8 +7,8 @@ module ExplorerOptions
 
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, metavar,
-                                         option, progDesc, showDefault, value, switch,
-                                         (<>))
+                                         option, progDesc, showDefault, switch,
+                                         value, (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)

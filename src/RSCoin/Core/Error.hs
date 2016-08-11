@@ -6,8 +6,8 @@ module RSCoin.Core.Error
        , rscExceptionFromException
        ) where
 
-import           Control.Exception   (Exception (..), SomeException)
-import           Data.Typeable       (Typeable, cast)
+import           Control.Exception (Exception (..), SomeException)
+import           Data.Typeable     (Typeable, cast)
 
 data RSCoinError =
     forall e. Exception e => RSCoinError e

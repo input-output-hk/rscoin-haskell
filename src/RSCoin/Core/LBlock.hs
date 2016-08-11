@@ -38,5 +38,5 @@ checkLBlock pk prevHBlockHash actionLog LBlock{..} =
         ]
   where
     isCloseEpoch (CloseEpochEntry _) = True
-    isCloseEpoch _ = False
+    isCloseEpoch _                   = False
     prevActionHead = snd $ actionLog !! 1

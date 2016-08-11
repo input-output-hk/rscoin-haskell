@@ -14,8 +14,8 @@ import           Test.QuickCheck             (Property, Testable (property),
                                               ioProperty)
 import           Test.QuickCheck.Monadic     (PropertyM, assert, monadic, run)
 
-import           RSCoin.Core.NodeConfig      (Host, NetworkAddress, Port)
 import           RSCoin.Core                 (testingLoggerName)
+import           RSCoin.Core.NodeConfig      (Host, NetworkAddress, Port)
 import           RSCoin.Timed                (WorkMode, for, fork, fork_,
                                               killThread, ms,
                                               runRealModeUntrusted, wait)

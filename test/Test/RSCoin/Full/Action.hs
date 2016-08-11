@@ -112,7 +112,7 @@ applyPartsToSend (getPartsToSend -> parts) = M.foldrWithKey step M.empty
     step color coin accum =
         case M.lookup color parts of
             Nothing -> accum
-            Just p -> M.insert color (applyPartToSend p coin) accum
+            Just p  -> M.insert color (applyPartToSend p coin) accum
 
 -- | FromAddresses is a non empty list describing which addresses to
 -- use as inputs of transaction. It has pairs where first item is an

@@ -46,7 +46,7 @@ mkHBlockDo hbTransactions hbAddresses sk hbDpk prevHash = HBlock {..}
 -- | Check that higher-level block is valid using Bank's public key
 -- and previous block (unless it's genesis block).
 checkHBlock :: PublicKey -> Maybe HBlock -> HBlock -> Bool
-checkHBlock pk Nothing blk = checkHBlockDo pk initialHash blk
+checkHBlock pk Nothing blk  = checkHBlockDo pk initialHash blk
 checkHBlock pk (Just b) blk = checkHBlockDo pk (hbHash b) blk
 
 checkHBlockDo :: PublicKey -> Hash -> HBlock -> Bool

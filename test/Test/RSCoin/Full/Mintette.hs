@@ -27,7 +27,7 @@ initialization conf v m = do
         runner =
             case conf of
                 Nothing -> M.serve
-                Just s -> FM.serve s
+                Just s  -> FM.serve s
     workWhileMVarEmpty v $ runner <$> view port <*> view state <*> view secretKey $ m
     -- FIXME: close state
     workWhileMVarEmpty v $

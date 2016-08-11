@@ -18,9 +18,8 @@ import           Serokell.Util.Bench        (ElapsedTime (elapsedWallTime),
 import           Serokell.Util.Text         (listBuilderCSV, show')
 
 import           RSCoin.Core                (Address, Severity (..),
-                                             benchLoggerName,
-                                             initLogging, initLoggerByName,
-                                             logInfo)
+                                             benchLoggerName, initLoggerByName,
+                                             initLogging, logInfo)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
 import           Bench.RSCoin.UserCommons   (benchUserTransactions,
@@ -81,7 +80,7 @@ data Statistics = Statistics
     } deriving (Show)
 
 mintettesNumStr :: Maybe Word -> Text
-mintettesNumStr Nothing = "<unknown>"
+mintettesNumStr Nothing  = "<unknown>"
 mintettesNumStr (Just n) = show' n
 
 dumpStatistics :: Statistics -> FilePath -> IO ()

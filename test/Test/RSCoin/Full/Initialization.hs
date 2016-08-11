@@ -25,9 +25,9 @@ import           Test.QuickCheck            (NonEmptyList (..))
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
-                                             defaultPeriodDelta,derivePublicKey,
-                                             keyGen, logDebug,logInfo,
-                                             testBankSecretKey)
+                                             defaultPeriodDelta,
+                                             derivePublicKey, keyGen, logDebug,
+                                             logInfo, testBankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import           RSCoin.Timed               (Second, WorkMode, for, ms,

@@ -6,7 +6,7 @@ module Test.RSCoin.Core.CoinSpec
        ( spec
        ) where
 
-import qualified Data.IntMap.Strict            as M (mapWithKey, member, size, (!))
+import qualified Data.IntMap.Strict         as M (mapWithKey, member, size, (!))
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (NonEmptyList (..))

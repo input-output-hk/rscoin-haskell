@@ -19,16 +19,15 @@ import           Data.Default                (def)
 import           System.Random               (StdGen)
 import           Test.Hspec                  (Spec, before, describe)
 import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (NonNegative (..),
-                                              Property)
+import           Test.QuickCheck             (NonNegative (..), Property)
 import           Test.QuickCheck.Monadic     (assert, monadicIO)
-import           Test.QuickCheck.Property    (Result (reason),
-                                              failed, ioProperty, succeeded)
+import           Test.QuickCheck.Property    (Result (reason), failed,
+                                              ioProperty, succeeded)
 
 import           RSCoin.Core                 (Severity (Error), initLogging)
 import           RSCoin.Timed                (Delays (..), Microsecond, PureRpc,
-                                              after, for, fork_, invoke,
-                                              runEmulationMode_, sec, wait, mcs)
+                                              after, for, fork_, invoke, mcs,
+                                              runEmulationMode_, sec, wait)
 
 import           RSCoin.User.Error           (UserError (InputProcessingError))
 import           Test.RSCoin.Timed.Arbitrary ()

@@ -7,9 +7,9 @@ module Test.RSCoin.Core.CryptoSpec
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 
-import           RSCoin.Core.Crypto    (PublicKey, SecretKey,
-                                        checkKeyPair, derivePublicKey, sign,
-                                        verify, verifyChain)
+import           RSCoin.Core.Crypto    (PublicKey, SecretKey, checkKeyPair,
+                                        derivePublicKey, sign, verify,
+                                        verifyChain)
 
 spec :: Spec
 spec =

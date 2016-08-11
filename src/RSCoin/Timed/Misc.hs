@@ -2,14 +2,14 @@ module RSCoin.Timed.Misc
        ( repeatForever
        ) where
 
-import Control.Exception.Base      (SomeException)
-import Control.Monad.Catch         (MonadCatch, catch)
-import Control.Monad.Trans         (MonadIO, liftIO)
-import Control.Monad.STM           (atomically)
-import Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
+import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
+import           Control.Exception.Base      (SomeException)
+import           Control.Monad.Catch         (MonadCatch, catch)
+import           Control.Monad.STM           (atomically)
+import           Control.Monad.Trans         (MonadIO, liftIO)
 
-import RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed, for,
-                                    fork_, mcs, ms, startTimer, wait)
+import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed, for,
+                                              fork_, mcs, ms, startTimer, wait)
 
 -- | Repeats an action periodically.
 --   If it fails, handler is invoked, determing delay for retrying.

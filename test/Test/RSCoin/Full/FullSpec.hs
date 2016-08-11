@@ -22,7 +22,8 @@ import           RSCoin.Core                (Severity (..), bankLoggerName,
                                              initLoggerByName, initLogging,
                                              mintetteLoggerName,
                                              testingLoggerName, userLoggerName)
-import           RSCoin.Timed               (MonadRpc (getNodeContext), WorkMode)
+import           RSCoin.Timed               (MonadRpc (getNodeContext),
+                                             WorkMode)
 import qualified RSCoin.User                as U
 
 import           Test.RSCoin.Core.Arbitrary ()

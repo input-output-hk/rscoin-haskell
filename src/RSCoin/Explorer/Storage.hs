@@ -31,9 +31,9 @@ import           Control.Monad.Extra               (whenJustM)
 import           Control.Monad.Reader              (MonadReader)
 import           Control.Monad.State               (MonadState)
 import qualified Data.IntMap.Strict                as I
-import qualified Data.Map.Strict                   as M
 import           Data.List                         (foldl', genericDrop,
                                                     genericLength, genericTake)
+import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (fromMaybe, isJust)
 import           Data.SafeCopy                     (base, deriveSafeCopy)
 import           Data.Tuple.Select                 (sel3)
@@ -159,7 +159,7 @@ addHBlock pId C.HBlock{..} emission = do
     lastPeriodId .= Just pId
   where
     addEmission (Just e) = emissionHashes %= (e:)
-    addEmission _ = pure ()
+    addEmission _        = pure ()
 
 applyTransaction :: C.Transaction -> ExceptUpdate ()
 applyTransaction tx@C.Transaction{..} = do

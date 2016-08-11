@@ -14,7 +14,7 @@ module RSCoin.Core.Transaction
 
 import           Control.Arrow          ((&&&))
 import           Control.Exception      (assert)
-import           Data.Foldable          (foldr', foldl')
+import           Data.Foldable          (foldl', foldr')
 import           Data.Function          (on)
 import qualified Data.IntMap.Strict     as M
 import           Data.List              (delete, groupBy, nub, sortBy)

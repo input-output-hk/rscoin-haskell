@@ -33,9 +33,9 @@ import           Data.MessagePack        (Object)
 import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
 import           RSCoin.Core.Constants   (localhost)
-import           RSCoin.Core.NodeConfig  (Host, NetworkAddress, defaultNodeContext)
-import           RSCoin.Timed.MonadRpc   (Client (..), Method (..),
-                                          MonadRpc (execClient, getNodeContext, serve),
+import           RSCoin.Core.NodeConfig  (Host, NetworkAddress,
+                                          defaultNodeContext)
+import           RSCoin.Timed.MonadRpc   (Client (..), Method (..), MonadRpc (execClient, getNodeContext, serve),
                                           RpcError (..), methodBody, methodName)
 import           RSCoin.Timed.MonadTimed (Microsecond, MonadTimed, for,
                                           localTime, mcs, minute, wait)

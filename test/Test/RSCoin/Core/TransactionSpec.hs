@@ -9,10 +9,10 @@ module Test.RSCoin.Core.TransactionSpec
        ) where
 
 import           Data.Bifunctor             (first, second)
+import qualified Data.IntMap.Strict         as M (IntMap, elems,
+                                                  findWithDefault, foldrWithKey,
+                                                  lookup, mapWithKey, null, (!))
 import           Data.List                  (genericLength, sort)
-import qualified Data.IntMap.Strict         as M (IntMap, elems, findWithDefault,
-                                                  foldrWithKey, lookup,
-                                                  mapWithKey, null, (!))
 import           Data.Maybe                 (isJust)
 import           Data.Tuple.Select          (sel3)
 import           Test.Hspec                 (Spec, describe)

@@ -352,11 +352,11 @@ checkResult expectedPid lastHBlock (r,key,storedLog) = do
     r
   where
     formLogsToCheck = unfoldr step
-    step [] = Nothing
+    step []        = Nothing
     step actionLog = Just (actionLog, dropEpoch actionLog)
     dropEpoch = dropWhile (not . isCloseEpoch) . drop 1
     isCloseEpoch (CloseEpochEntry _,_) = True
-    isCloseEpoch _ = False
+    isCloseEpoch _                     = False
 
 -- | Perform coins allocation based on default allocation strategy
 -- (hardcoded). Given the mintette's public keys it splits reward

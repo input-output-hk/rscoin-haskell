@@ -1,6 +1,7 @@
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -- | Re-export RSCoin.Timed.*
 
@@ -30,8 +31,10 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import           System.Random               (StdGen, getStdGen)
 
 import           RSCoin.Core.Crypto.Signing  (SecretKey)
-import           RSCoin.Core.Logging         (LoggerName, WithNamedLogger, bankLoggerName)
-import           RSCoin.Core.NodeConfig      (NodeContext (..), defaultNodeContext,
+import           RSCoin.Core.Logging         (LoggerName, WithNamedLogger,
+                                              bankLoggerName)
+import           RSCoin.Core.NodeConfig      (NodeContext (..),
+                                              defaultNodeContext,
                                               readDeployNodeContext)
 
 class (MonadTimed m, MonadRpc m, MonadIO m, WithNamedLogger m,

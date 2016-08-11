@@ -55,7 +55,7 @@ import           System.Log.Logger          (Priority (DEBUG, ERROR, INFO, WARNI
                                              rootLoggerName, setHandlers,
                                              setLevel, updateGlobalLogger)
 
-import           RSCoin.Mintette.Error      (MintetteError (..))  -- wut? Should be removed
+import           RSCoin.Mintette.Error      (MintetteError (..))
 
 -- | This type is intended to be used as command line option
 -- which specifies which messages to print.
@@ -73,10 +73,10 @@ newtype LoggerName = LoggerName
 $(deriveSafeCopy 0 'base ''LoggerName)  -- @TODO: this instance should be deleted later
 
 convertSeverity :: Severity -> Priority
-convertSeverity Debug = DEBUG
-convertSeverity Info = INFO
+convertSeverity Debug   = DEBUG
+convertSeverity Info    = INFO
 convertSeverity Warning = WARNING
-convertSeverity Error = ERROR
+convertSeverity Error   = ERROR
 
 initLogging :: Severity -> IO ()
 initLogging sev = do
@@ -178,7 +178,7 @@ logError = logMessage Error
 
 logFunction :: (MonadIO m, WithNamedLogger m) => MintetteError -> T.Text -> m ()
 logFunction MEInactive = logInfo
-logFunction _ = logWarning
+logFunction _          = logWarning
 
 logMessage
     :: (WithNamedLogger m, MonadIO m)

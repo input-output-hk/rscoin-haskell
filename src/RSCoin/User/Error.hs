@@ -38,7 +38,7 @@ isWalletSyncError :: SomeException -> Bool
 isWalletSyncError e =
     case fromException e of
         Just (WalletSyncError _) -> True
-        _ -> False
+        _                        -> False
 
 instance Exception UserError where
     toException = rscExceptionToException

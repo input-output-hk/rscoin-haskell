@@ -32,8 +32,8 @@ import           Test.QuickCheck.Monadic         (PropertyM, assert, monadic,
 
 import           Serokell.Util                   (listBuilderJSONIndent)
 
-import           RSCoin.Core                     (logDebug, testingLoggerName,
-                                                  WithNamedLogger (..))
+import           RSCoin.Core                     (WithNamedLogger (..),
+                                                  logDebug, testingLoggerName)
 import           RSCoin.Timed                    (MsgPackRpc, PureRpc, WorkMode,
                                                   runRealModeUntrusted)
 

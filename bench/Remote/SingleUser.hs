@@ -16,7 +16,7 @@ import           System.IO.Temp             (withSystemTempDirectory)
 import           Serokell.Util.Bench        (ElapsedTime, measureTime_)
 
 import           RSCoin.Core                (Severity (..), benchLoggerName,
-                                             initLogging, initLoggerByName,
+                                             initLoggerByName, initLogging,
                                              logInfo)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)

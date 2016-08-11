@@ -10,7 +10,7 @@ import           Data.Char     (isLower, isPunctuation, isUpper, toLower)
 import           Data.List     (findIndex)
 
 headToLower :: String -> String
-headToLower [] = undefined
+headToLower []     = undefined
 headToLower (x:xs) = toLower x : xs
 
 stripFieldPrefix :: String -> String

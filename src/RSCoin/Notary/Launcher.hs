@@ -31,8 +31,8 @@ launchNotaryReal logSeverity dbPath confPath webPort = do
 
 loggingMiddleware :: Severity -> Middleware
 loggingMiddleware Debug = logStdoutDev
-loggingMiddleware Info = logStdout
-loggingMiddleware _ = id
+loggingMiddleware Info  = logStdout
+loggingMiddleware _     = id
 
 launchWeb
     :: MonadIO m

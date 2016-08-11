@@ -4,8 +4,7 @@ module Test.RSCoin.Core.AesonSpec
        ( spec
        ) where
 
-import           Data.Aeson                 (ToJSON, FromJSON,
-                                             encode, decode)
+import           Data.Aeson                 (FromJSON, ToJSON, decode, encode)
 import           Data.Maybe                 (fromJust)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)

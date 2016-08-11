@@ -12,7 +12,7 @@ module RSCoin.Timed.TimedIO
 
 import qualified Control.Concurrent          as C
 import           Control.Monad.Base          (MonadBase)
-import           Control.Monad.Catch         (MonadCatch, MonadThrow, MonadMask,
+import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow,
                                               throwM)
 import           Control.Monad.Reader        (ReaderT (..), ask, runReaderT)
 import           Control.Monad.Trans         (MonadIO, lift, liftIO)
@@ -23,7 +23,7 @@ import qualified System.Timeout              as T
 
 import           RSCoin.Timed.MonadTimed     (Microsecond, MonadTimed (..),
                                               MonadTimedError (MTTimeoutError),
-                                              ThreadId(IOThreadId))
+                                              ThreadId (IOThreadId))
 
 newtype TimedIO a = TimedIO
     { getTimedIO :: ReaderT Microsecond IO a

@@ -32,7 +32,8 @@ import qualified RSCoin.User                as U
 import           RSCoin.User.Operations     (TransactionData (..),
                                              submitTransactionRetry)
 
-import           Bench.RSCoin.FilePathUtils (benchConfPath, dbFormatPath, walletPathPrefix)
+import           Bench.RSCoin.FilePathUtils (benchConfPath, dbFormatPath,
+                                             walletPathPrefix)
 
 userThread
     :: FilePath

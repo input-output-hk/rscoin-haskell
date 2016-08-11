@@ -162,7 +162,7 @@ changeInfo conn addr tId =
     where
     tryTransaction :: ExplorerError -> ServerMonad ()
     tryTransaction (EENotFound _) = introduceTransaction conn tId
-    tryTransaction e = throwM e
+    tryTransaction e              = throwM e
 
 handler :: WS.PendingConnection -> ServerMonad ()
 handler pendingConn = do
@@ -172,9 +172,9 @@ handler pendingConn = do
     liftIO $ WS.forkPingThread conn 30
     forever $ recv conn $ onReceive conn
   where
-    onReceive conn (IMAddressInfo addr') = introduceAddress True conn addr'
+    onReceive conn (IMAddressInfo addr')   = introduceAddress True conn addr'
     onReceive conn (IMTransactionInfo tId) = introduceTransaction conn tId
-    onReceive conn (IMInfo addr' tId) = changeInfo conn addr' tId
+    onReceive conn (IMInfo addr' tId)      = changeInfo conn addr' tId
 
 addressInfoHandler :: C.Address -> WS.Connection -> ServerMonad ()
 addressInfoHandler addr conn = forever $ recv conn onReceive

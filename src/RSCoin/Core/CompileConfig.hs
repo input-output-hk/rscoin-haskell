@@ -18,9 +18,9 @@ import           Data.Yaml              (decode)
 import           Serokell.Aeson.Options (defaultOptions)
 
 data RSCoinConfig = RSCoinConfig
-    { rscShardDivider  :: !Int
-    , rscShardDelta    :: !Int
-    , rscRpcTimeout    :: !Word
+    { rscShardDivider :: !Int
+    , rscShardDelta   :: !Int
+    , rscRpcTimeout   :: !Word
     } deriving (Show)
 
 $(A.deriveJSON defaultOptions ''RSCoinConfig)

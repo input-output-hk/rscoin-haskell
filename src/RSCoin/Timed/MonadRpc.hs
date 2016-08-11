@@ -48,7 +48,7 @@ import           Data.Time.Units             (TimeUnit, convertUnit)
 import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
 
-import           RSCoin.Core.Logging    (WithNamedLogger (..))
+import           RSCoin.Core.Logging         (WithNamedLogger (..))
 import           RSCoin.Core.NodeConfig      (NetworkAddress, NodeContext (..),
                                               Port)
 import           RSCoin.Timed.MonadTimed     (MonadTimed (timeout))

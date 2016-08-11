@@ -1,9 +1,11 @@
 -- | Command line options for keygen
 
 module KeygenOptions
-       ( ) where
+       ( Command (..)
+       , Options (..)
+       , getOptions
+       ) where
 
-import qualified Data.Text                as T
 import           Options.Applicative      (Parser, auto, command, execParser,
                                            fullDesc, info, help, helper,
                                            long, option, progDesc, showDefault,
@@ -11,20 +13,25 @@ import           Options.Applicative      (Parser, auto, command, execParser,
 
 import           Serokell.Util.OptParse   (strOption)
 
-import RSCoin.Core                        (Severity (Error))
+import RSCoin.Core                        (Severity (Error),
+                                           defaultSecretKeyPath)
 
-data Command = GenerateSingle | GenerateBatch Integer
+data Command = GenerateSingle | GenerateBatch Int
 
 data Options = Options
     { cloCommand     :: Command
-    , cloPubKeyNum   :: Integer
     , cloKeysPath    :: FilePath
     , cloLogSeverity :: Severity
     , cloSKPath      :: FilePath
     }
 
+defaultPubKeyNum :: Int
 defaultPubKeyNum = 100
 
+defaultStoragePath :: IO FilePath
+defaultStoragePath = undefined -- Placeholder
+
+commandParser :: Parser Command
 commandParser =
     subparser
         (command
@@ -33,18 +40,16 @@ commandParser =
                    generateSOpts
                    (progDesc "Generate array of public keys, secret kets and signatures")) <>
         command
-             "generate-batch"
-              (info
-                   generateBOpts
-                   (progDesc "Generate array of public keys, secret kets and signatures")))
+            "generate-batch"
+            (info generateBOpts (progDesc "Generate array of keys and signatures")))
   where
     generateSOpts = pure GenerateSingle
     generateBOpts =
-        GenerateBatch <*> option auto (long "keynum") <*>
+        GenerateBatch <$>
         option
             auto
             (long "key-number" <> help "Number ofkeys generated" <>
-             value (toInteger defaultPubKeyNum) <>
+             value defaultPubKeyNum <>
              showDefault)
 
 optionsParser :: FilePath -> FilePath -> Parser Options

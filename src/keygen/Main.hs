@@ -1,7 +1,7 @@
 import           Control.Monad                      (replicateM)
 
 import           Data.Aeson                         (encode)
-import qualified Data.ByteString.Lazy       as B    (intercalate, writeFile)
+import qualified Data.ByteString.Lazy       as B    (writeFile)
 import qualified Data.ByteString.Lazy.Char8 as B    (unlines)
 import           KeygenOptions              as Opts
 
@@ -21,11 +21,12 @@ main = do
             (sk,pk) <- keyGen
             writePublicKey fpPublic pk
             writeSecretKey fpSecret sk
-        Opts.Batch genNum skPath genPath -> do
+        Opts.Batch genNum genPath skPath -> do
             masterSK <- readSecretKey skPath
             keys <- replicateM genNum (generator masterSK)
             let generatedKeys = B.unlines $ map encode keys
             B.writeFile genPath generatedKeys
+
   where
     generator masterSK = do
         (sk, pk) <- keyGen

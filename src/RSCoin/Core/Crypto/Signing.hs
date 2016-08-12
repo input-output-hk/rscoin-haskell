@@ -109,6 +109,7 @@ instance ToJSON Signature where
 instance FromJSON Signature where
     parseJSON = fmap (bsToSig . B64.getJsonByteString) . parseJSON
 
+
 newtype SecretKey = SecretKey
     { getSecretKey :: E.SecretKey
     } deriving (Eq, Ord)
@@ -134,6 +135,14 @@ instance Arbitrary SecretKey where
         fromMaybe (error "createKeypairFromSeed_ failed") .
         E.createKeypairFromSeed_ . BS.pack <$>
         vector 32
+
+instance ToJSON SecretKey where
+    toJSON = toJSON . B64.encode . E.unSecretKey . getSecretKey
+
+instance FromJSON SecretKey where
+    parseJSON =
+        fmap (SecretKey . E.SecretKey . B64.getJsonByteString) . parseJSON
+
 
 newtype PublicKey = PublicKey
     { getPublicKey :: E.PublicKey

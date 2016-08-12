@@ -15,55 +15,55 @@ import           Serokell.Util.OptParse   (strOption)
 
 import RSCoin.Core                        (Severity (Error))
 
-data KeyGenCommand = Single FilePath FilePath | Batch Int FilePath FilePath
+data KeyGenCommand = Single FilePath | Batch Int FilePath FilePath
 
 data Options = Options
     { cloCommand     :: KeyGenCommand
-    , cloLogSeverity :: Severity
     }
 
 commandParser :: Parser KeyGenCommand
 commandParser =
     subparser
         (command
-             "generate-single"
+             "single"
               (info
                    generateSOpts
-                   (progDesc "Generate array of public keys, secret keys and signatures")) <>
+                   (progDesc singleDesc)) <>
         command
-            "generate-batch"
-            (info generateBOpts (progDesc "Generate array of keys and signatures")))
+            "batch"
+            (info generateBOpts (progDesc batchDesc)))
   where
     generateSOpts =
         Single <$>
-        generatedKeys <*>
-        masterSecretKey
+        generatedKeys
     generateBOpts =
         Batch <$>
         option
             auto
-            (long "key-number" <> help "Number ofkeys generated") <*>
+            (short 'n' <> long "key-number" <> help numKeyHelpStr <>
+             metavar "NUMBER OF KEYS") <*>
         generatedKeys <*>
         masterSecretKey
+
     generatedKeys =
         strOption
-            (short 'g' <> long "keys-path" <> help gkHelpStr <>
+            (short 'k' <> long "keys-path" <> help genKeyHelpStr <>
              metavar "PATH TO KEYS")
+
     masterSecretKey =
         strOption
-            (short 'k' <> long "secret-key-path" <> help skHelpStr <>
+            (short 's' <> long "secret-key-path" <> help secKeyHelpStr <>
              metavar "PATH TO SECRET KEY")
-    gkHelpStr = "Path to generated keys and signatures"
-    skHelpStr = "Path to master secret key"
+
+    numKeyHelpStr = "Number of keys generated"
+    genKeyHelpStr = "Path to generated keys and signatures"
+    secKeyHelpStr = "Path to master secret key"
+    singleDesc    = "Generate a single pair of public and secret keys"
+    batchDesc     = "Generate array of public keys, secret keys and signatures"
 
 optionsParser :: Parser Options
 optionsParser =
-    Options <$> commandParser <*>
-    option
-        auto
-        (short 'l' <> long "log-severity" <> help "Logging severity" <>
-         value Error <> showDefault <>
-         metavar "LOG-SEVERITY")
+    Options <$> commandParser
 
 getOptions :: IO Options
 getOptions = do

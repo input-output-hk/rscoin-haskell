@@ -26,7 +26,6 @@ main = do
             keys <- replicateM genNum (generator masterSK)
             let generatedKeys = B.unlines $ map encode keys
             B.writeFile genPath generatedKeys
-
   where
     generator masterSK = do
         (sk, pk) <- keyGen

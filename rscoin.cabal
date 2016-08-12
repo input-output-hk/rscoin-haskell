@@ -202,6 +202,7 @@ executable rscoin-bank
 
 executable rscoin-keygen
   main-is:             Main.hs
+  other-modules:       KeygenOptions
   build-depends:       aeson
                      , base >= 4.8 && < 4.9
                      , bytestring

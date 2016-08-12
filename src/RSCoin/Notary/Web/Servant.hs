@@ -8,27 +8,27 @@ module RSCoin.Notary.Web.Servant
         ( servantApp
         ) where
 
-import           Control.Monad.Catch     (catch)
-import           Control.Monad.Except    (throwError)
-import           Control.Monad.Reader    (ReaderT, ask, runReaderT)
-import           Control.Monad.Trans     (liftIO)
+import           Control.Monad.Catch        (catch)
+import           Control.Monad.Except       (throwError)
+import           Control.Monad.Reader       (ReaderT, ask, runReaderT)
+import           Control.Monad.Trans        (liftIO)
 
-import           Data.Tuple.Curry        (Curry, uncurryN)
+import           Data.Tuple.Curry           (Curry, uncurryN)
 
-import           Formatting              (build, sformat)
+import           Formatting                 (build, sformat)
 
-import           Network.Wai             (Application)
+import           Network.Wai                (Application)
 
-import qualified RSCoin.Core             as C
-import           RSCoin.Notary.AcidState as S
-import           RSCoin.Notary.Error     (NotaryError, logError)
-import qualified RSCoin.Notary.Server    as S
+import qualified RSCoin.Core                as C
+import           RSCoin.Notary.AcidState    as S
+import           RSCoin.Notary.Error         (NotaryError)
+import qualified RSCoin.Notary.Server       as S
 
-import           Servant                 ((:<|>) (..), (:>), (:~>) (Nat), Get,
-                                          Handler, Header, Headers, JSON, Post,
-                                          Proxy (Proxy), ReqBody, ServerT,
-                                          StdMethod (OPTIONS), Verb, addHeader,
-                                          enter, err500, serve)
+import           Servant                    ((:<|>) (..), (:>), (:~>) (Nat), Get,
+                                             Handler, Header, Headers, JSON, Post,
+                                             Proxy (Proxy), ReqBody, ServerT,
+                                             StdMethod (OPTIONS), Verb, addHeader,
+                                             enter, err500, serve)
 
 type AllocateMSInput =
     ( C.Address
@@ -80,7 +80,7 @@ convertHandler :: forall a . S.RSCoinNotaryState -> MyHandler a -> Handler a
 convertHandler st act = liftIO (runReaderT act st) `catch` handler
   where
     handler (e :: NotaryError) = do
-        logError $ sformat build e
+        C.logError $ sformat build e
         -- @TODO improve errors (they should actually mean smth)
         throwError err500
 

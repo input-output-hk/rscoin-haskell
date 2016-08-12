@@ -63,7 +63,7 @@ startMintette confPath CommonParams{..} (idx,_) = do
     Cherepakha.mkdir workingDirModern
     (sk,pk) <- C.keyGen
     let start =
-            runRealModeUntrusted (Just confPath) $
+            runRealModeUntrusted C.mintetteLoggerName (Just confPath) $
             bracket (liftIO $ M.openState dbDir) (liftIO . M.closeState) $
             \st ->
                  do fork_ $ M.runWorker sk st Nothing

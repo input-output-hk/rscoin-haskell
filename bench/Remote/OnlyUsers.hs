@@ -18,10 +18,11 @@ import           Serokell.Util.Bench        (ElapsedTime (elapsedWallTime),
 import           Serokell.Util.Text         (listBuilderCSV, show')
 
 import           RSCoin.Core                (Address, Severity (..),
-                                             initLogging)
+                                             benchLoggerName,
+                                             initLogging, initLoggerByName,
+                                             logInfo)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
-import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserCommons   (benchUserTransactions,
                                              initializeBank, initializeUser,
                                              userThread)
@@ -128,7 +129,7 @@ main = do
     withSystemTempDirectory tempBenchDirectory $
         \benchDir ->
              do initLogging globalSeverity
-                initBenchLogger bSeverity
+                flip initLoggerByName benchLoggerName bSeverity
                 let userIds = [1 .. userNumber]
                 userAddresses <- initializeUsers benchDir userIds
                 initializeSuperUser

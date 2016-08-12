@@ -21,15 +21,17 @@ import           Serokell.Util.Concurrent        (threadDelay)
 
 import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   Severity (..),
+                                                  nakedLoggerName,
                                                   defaultPeriodDelta,
-                                                  initLogging, keyGen)
+                                                  initLoggerByName,
+                                                  initLogging, keyGen, logInfo,
+                                                  mintetteLoggerName)
 import           RSCoin.Timed                    (runRealModeUntrusted)
 
 import           Bench.RSCoin.CfgCreator         (createDeployConfiguration)
 import           Bench.RSCoin.FilePathUtils      (benchConfPath, tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
                                                   mintetteThread, notaryThread)
-import           Bench.RSCoin.Logging            (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserCommons        (benchUserTransactions,
                                                   finishBankPeriod,
                                                   initializeBank,
@@ -40,7 +42,6 @@ data BenchOptions = BenchOptions
     , transactions  :: Maybe Word     <?> "number of transactions per user"
     , mintettes     :: Int            <?> "number of mintettes"
     , severity      :: Maybe Severity <?> "severity for global logger"
-    , benchSeverity :: Maybe Severity <?> "severity for bench logger"
     , period        :: Maybe Word     <?> "period delta (seconds)"
     } deriving (Generic, Show)
 
@@ -85,7 +86,7 @@ establishMintettes benchDir mintettesNumber = do
     keyPairs <- generateMintetteKeys mintettesNumber
     logInfo $ sformat ("Running" % int % " mintettes…") mintettesNumber
     runMintettes benchDir keyPairs
-    runRealModeUntrusted Nothing finishBankPeriod
+    runRealModeUntrusted mintetteLoggerName Nothing finishBankPeriod
     logInfo $ sformat (int % " mintettes are launched") mintettesNumber
     threadDelay (2 :: Second)
 
@@ -121,12 +122,11 @@ main = do
         userNumber      = unHelpful users
         txNum           = fromMaybe 1000  $ unHelpful transactions
         globalSeverity  = fromMaybe Error $ unHelpful severity
-        bSeverity       = fromMaybe Info  $ unHelpful benchSeverity
         periodDelta     = fromMaybe defaultPeriodDelta $
                           fromIntegral <$> unHelpful period
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
-        initBenchLogger bSeverity
+        initLoggerByName Info nakedLoggerName
 
         createDeployConfiguration benchDir
 

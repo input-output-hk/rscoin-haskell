@@ -1,24 +1,30 @@
-import           Options.Applicative (Parser, execParser, fullDesc, help,
-                                      helper, info, metavar, progDesc,
-                                      showDefault, strArgument, value, (<>))
+import           Control.Monad             (replicateM)
 
-import           RSCoin.Core         (defaultSecretKeyPath, keyGen,
-                                      writePublicKey, writeSecretKey)
+import           Data.Aeson                (encode)
+import qualified Data.ByteString.Lazy as B (append, intercalate, writeFile)
 
-parser :: FilePath -> Parser FilePath
-parser def =
-    strArgument
-        (metavar "PATH" <> help "Path to store private key" <>
-         value def <> showDefault)
+import           KeygenOptions             as Opts
+
+import           RSCoin.Core               (initLogging, keyGen,
+                                            readSecretKey, sign)
 
 main :: IO ()
 main = do
-    def <- defaultSecretKeyPath
-    fpName <-
-        execParser $
-        info (helper <*> parser def) (fullDesc <> progDesc "RSCoin's keygen")
-    let fpSecret = fpName <> ".sec"
-    let fpPublic = fpName <> ".pub"
-    (sk,pk) <- keyGen
-    writePublicKey fpPublic pk
-    writeSecretKey fpSecret sk
+    Opts.Options{..} <- Opts.getOptions
+    initLogging cloLogSeverity
+    case cloCommand of
+        Opts.Single skPath genPath -> do
+            masterSK <- readSecretKey skPath
+            tupleKeysSig <- generator masterSK
+            let generatedKey = encode tupleKeysSig `B.append` "\n"
+            B.writeFile genPath generatedKey
+        Opts.Batch genNum skPath genPath -> do
+            masterSK <- readSecretKey skPath
+            keys <- replicateM genNum (generator masterSK)
+            let generatedKeys = B.intercalate "\n" $ map encode keys
+            B.writeFile genPath generatedKeys
+  where
+    generator masterSK = do
+        (_, pk) <- keyGen
+        let sig = sign masterSK pk
+        return (pk, sig)

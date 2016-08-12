@@ -10,7 +10,8 @@ import           Network.Wai                          (Middleware)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
-import           RSCoin.Core                          (Severity (..))
+import           RSCoin.Core                          (Severity (..),
+                                                       notaryLoggerName)
 import           RSCoin.Notary.AcidState              (RSCoinNotaryState,
                                                        closeState, openMemState,
                                                        openState)
@@ -22,7 +23,7 @@ import           RSCoin.Timed                         (fork_,
 launchNotaryReal :: Severity -> Maybe FilePath -> Maybe FilePath -> Int -> IO ()
 launchNotaryReal logSeverity dbPath confPath webPort = do
     let openAction = maybe openMemState openState dbPath
-    runRealModeUntrusted confPath $
+    runRealModeUntrusted notaryLoggerName confPath $
         bracket (liftIO openAction) (liftIO . closeState) $
         \st -> do
             fork_ $ serveNotary st

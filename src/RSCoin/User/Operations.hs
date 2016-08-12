@@ -81,9 +81,9 @@ import qualified RSCoin.User.Wallet        as W
 walletInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
 walletInitialized st = query' st A.IsInitialized
 
-commitError :: (MonadIO m, MonadThrow m) => T.Text -> m a
+commitError :: (MonadIO m, MonadThrow m, C.WithNamedLogger m) => T.Text -> m a
 commitError e = do
-    C.logError C.userLoggerName e
+    C.logError e
     throwM . InputProcessingError $ e
 
 -- | Updates wallet to given blockchain height assuming that it's in
@@ -317,7 +317,7 @@ submitTransactionFromAll st maybeCache addressTo amount =
                , tdOutputAddress = addressTo
                , tdOutputCoins = [amount]
                }
-       C.logInfo C.userLoggerName $
+       C.logInfo $
            sformat ("Transaction chosen: " % shown) chosen
        submitTransactionRetry 3 st maybeCache td
 
@@ -371,7 +371,7 @@ constructAndSignTransaction
     => A.RSCoinUserState -> TransactionData -> m (C.Transaction, SignatureBundle)
 constructAndSignTransaction st TransactionData{..} = do
     () <$ updateBlockchain st False
-    C.logInfo C.userLoggerName $
+    C.logInfo $
         sformat
             ("Form a transaction from " % build % ", to " % build % ", amount " % build)
             (listBuilderJSONIndent 2 $ map
@@ -526,7 +526,7 @@ sendTransactionRetry tries st maybeCache tx signatures
         :: Buildable s
         => s -> m ()
     logMsgAndRetry msg = do
-        C.logWarning C.userLoggerName $
+        C.logWarning $
             sformat
                 ("Failed to send transaction (" % build % "), retries left: " % int)
                 msg (tries - 1)
@@ -546,7 +546,7 @@ sendTransactionDo st maybeCache tx signatures = do
     walletHeight <- query' st A.GetLastBlockId
     periodId <- C.getBlockchainHeight
     let lastAppliedBlock = periodId - 1
-    C.logInfo C.userLoggerName $
+    C.logInfo $
         sformat
             ("Sending transaction: " % build % ", period id is " % int)
             tx
@@ -573,7 +573,7 @@ sendTransactionDo st maybeCache tx signatures = do
     let willWeSend = null nonDefaultAddresses || isJust extraSignatures
     when willWeSend $ validateTransaction maybeCache tx allSignatures periodId
     update' st $ A.AddTemporaryTransaction periodId tx
-    C.logInfo C.userLoggerName $
+    C.logInfo $
         if willWeSend
         then "Successfully sent a transaction!"
         else "Somebody has sent a transaction, won't do it. Maybe retry later."

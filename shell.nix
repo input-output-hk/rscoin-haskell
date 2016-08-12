@@ -1,10 +1,10 @@
-let 
+let
   lts = "lts-6_7";
-in 
+in
   with import <nixpkgs> { };
   haskell.lib.buildStackProject {
      ghc = haskell.packages.${lts}.ghc;
      name = "rscoin";
      buildInputs = [ zlib glib cairo gnome.pango gnome3.gtk git cabal-install
-                     openssh autoreconfHook stack nodejs haskellPackages.purescript ];
+		     openssh autoreconfHook stack nodejs haskellPackages.purescript ];
    }

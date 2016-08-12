@@ -31,7 +31,6 @@ import           Data.Bifunctor                    (second)
 import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (catMaybes, fromMaybe)
 import qualified Data.Set                          as S
-import           Data.Text                         (Text)
 import           Data.Time.Units                   (Second)
 import           Formatting                        (build, int, sformat, shown,
                                                     (%))
@@ -109,6 +108,9 @@ $(makeLenses ''ServerState)
 
 type ServerMonad = ReaderT ServerState IO
 
+instance C.WithNamedLogger ServerMonad where
+    getLoggerName = liftIO $ C.getLoggerName
+
 send
     :: MonadIO m
     => WS.Connection -> OutcomingMsg -> m ()
@@ -122,21 +124,14 @@ recv conn callback =
     liftIO (WS.receiveData conn)
 
 wsLoggerName :: C.LoggerName
-wsLoggerName = "explorer WS"
-
-logError, logInfo, logDebug
-    :: MonadIO m
-    => Text -> m ()
-logError = C.logError wsLoggerName
-logInfo = C.logInfo wsLoggerName
-logDebug = C.logDebug wsLoggerName
+wsLoggerName = C.LoggerName "explorer WS"
 
 introduceAddress :: Bool -> WS.Connection -> C.Address -> ServerMonad ()
 introduceAddress sendResponseOnError conn addr = do
     checkAddressExistence
     connections <- view ssConnections
     connId <- modifyConnectionsState connections $ addConnection addr conn
-    logInfo $
+    C.logInfo $
         sformat
             ("Session about " % build % " is established, connection id is " %
              int)
@@ -154,7 +149,7 @@ introduceAddress sendResponseOnError conn addr = do
 
 introduceTransaction :: WS.Connection -> C.TransactionId -> ServerMonad ()
 introduceTransaction conn tId = do
-    logDebug $ sformat ("Transaction " % build % " is requested") tId
+    C.logDebug $ sformat ("Transaction " % build % " is requested") tId
     send conn .
         maybe
             (OMError $ NotFound "Transaction not found")
@@ -171,9 +166,9 @@ changeInfo conn addr tId =
 
 handler :: WS.PendingConnection -> ServerMonad ()
 handler pendingConn = do
-    logDebug "There is a new pending connection"
+    C.logDebug "There is a new pending connection"
     conn <- liftIO $ WS.acceptRequest pendingConn
-    logDebug "Accepted new connection"
+    C.logDebug "Accepted new connection"
     liftIO $ WS.forkPingThread conn 30
     forever $ recv conn $ onReceive conn
   where
@@ -185,11 +180,11 @@ addressInfoHandler :: C.Address -> WS.Connection -> ServerMonad ()
 addressInfoHandler addr conn = forever $ recv conn onReceive
   where
     onReceive AIGetBalance = do
-        logDebug $ sformat ("Balance of " % build % " is requested") addr
+        C.logDebug $ sformat ("Balance of " % build % " is requested") addr
         send conn . uncurry mkOMBalance =<<
             flip query' (DB.GetAddressBalance addr) =<< view ssDataBase
     onReceive AIGetTxNumber = do
-        logDebug $
+        C.logDebug $
             sformat
                 ("Number of transactions pointing to " % build %
                  " is requested")
@@ -197,7 +192,7 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
         send conn . uncurry OMTxNumber =<<
             flip query' (DB.GetAddressTxNumber addr) =<< view ssDataBase
     onReceive (AIGetTransactions indices@(lo,hi)) = do
-        logDebug $
+        C.logDebug $
             sformat
                 ("Transactions [" % int % ", " % int % "] pointing to " % build %
                  " are requested")
@@ -215,7 +210,7 @@ sender :: Channel -> ServerMonad ()
 sender channel =
     foreverSafe $
     do ChannelItem{ciTransactions = txs} <- readChannel channel
-       logDebug "There is a new ChannelItem in Channel"
+       C.logDebug "There is a new ChannelItem in Channel"
        st <- view ssDataBase
        let inputs = concatMap C.txInputs txs
            outputs = concatMap C.txOutputs txs
@@ -229,7 +224,7 @@ sender channel =
        affectedAddresses <-
            mappend outputAddresses . S.fromList . catMaybes <$>
            mapM inputToAddr inputs
-       logDebug $
+       C.logDebug $
            sformat
                ("Affected addresses are: " % build)
                (listBuilderJSON affectedAddresses)
@@ -239,10 +234,10 @@ sender channel =
     foreverSafe action = do
         let catchConnectionError :: WS.ConnectionException -> ServerMonad ()
             catchConnectionError e =
-                logError $ sformat ("Connection error happened: " % shown) e
+                C.logError $ sformat ("Connection error happened: " % shown) e
             catchWhateverError :: SomeException -> ServerMonad ()
             catchWhateverError e = do
-                logError $ sformat ("Strange error happened: " % shown) e
+                C.logError $ sformat ("Strange error happened: " % shown) e
                 threadDelay (2 :: Second)
         action `catches`
             [Handler catchConnectionError, Handler catchWhateverError]

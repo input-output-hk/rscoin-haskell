@@ -15,10 +15,11 @@ import           System.IO.Temp             (withSystemTempDirectory)
 
 import           Serokell.Util.Bench        (ElapsedTime, measureTime_)
 
-import           RSCoin.Core                (Severity (..), initLogging)
+import           RSCoin.Core                (Severity (..), benchLoggerName,
+                                             initLogging, initLoggerByName,
+                                             logInfo)
 
 import           Bench.RSCoin.FilePathUtils (tempBenchDirectory)
-import           Bench.RSCoin.Logging       (initBenchLogger, logInfo)
 import           Bench.RSCoin.UserCommons   (userThreadWithPath)
 import           Bench.RSCoin.UserSingle    (printDynamicTPS,
                                              runSingleSuperUser, runSingleUser)
@@ -70,7 +71,7 @@ main = do
 
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
-        initBenchLogger bSeverity
+        flip initLoggerByName benchLoggerName bSeverity
 
         elapsedTime <- run interval txNum benchDir walletPath dumpFile
                        `finally` when shouldPrintTPS (printDynamicTPS dumpFile)

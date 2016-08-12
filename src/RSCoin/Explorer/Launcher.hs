@@ -16,7 +16,8 @@ import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
 import           RSCoin.Core                          (SecretKey, Severity (..),
-                                                       initLoggerByName)
+                                                       initLoggerByName,
+                                                       explorerLoggerName)
 import           RSCoin.Timed                         (MsgPackRpc, WorkMode,
                                                        fork_,
                                                        runRealModeUntrusted)
@@ -32,7 +33,7 @@ explorerWrapperReal :: FilePath
                     -> (State -> MsgPackRpc a)
                     -> IO a
 explorerWrapperReal storagePath confPath =
-    runRealModeUntrusted confPath .
+    runRealModeUntrusted explorerLoggerName confPath .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
 launchExplorerReal :: Int
@@ -64,5 +65,5 @@ launchWeb
     => Int -> Severity -> Channel -> State -> m ()
 launchWeb port sev ch st = do
     app <- Web.mkApplication ch st
-    liftIO $ initLoggerByName sev Web.wsLoggerName
+    liftIO $ initLoggerByName sev Web.wsLoggerName  -- @TODO: this logger name never used
     liftIO . run port . loggingMiddleware sev $ app

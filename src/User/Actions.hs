@@ -10,11 +10,8 @@ module Actions
        , initializeStorage
        ) where
 
-import           Control.Exception       (SomeException)
 import           Control.Monad           (forM_, unless, void, when)
-import           Control.Monad.Catch     (bracket, catch)
 import           Control.Monad.Trans     (liftIO)
-import qualified Data.Acid               as ACID
 import           Data.Acid.Advanced      (query')
 import           Data.Bifunctor          (bimap)
 import qualified Data.ByteString.Base64  as B64
@@ -31,18 +28,12 @@ import           Formatting              (build, int, sformat, stext, (%))
 
 import           Serokell.Util.Text      (show')
 
-import qualified Graphics.UI.Gtk         as G
-import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
-import           GUI.RSCoin.GUI          (startGUI)
-import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
-
 import qualified RSCoin.Core             as C
 import           RSCoin.Core.Strategy    (AllocationAddress (..),
                                           AllocationInfo (..),
                                           AllocationStrategy (..),
                                           PartyAddress (..))
-import           RSCoin.Timed            (WorkMode, for, getNodeContext, ms,
-                                          wait)
+import           RSCoin.Timed            (WorkMode, getNodeContext)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..),
@@ -71,7 +62,7 @@ processCommand
 processCommand st O.ListAddresses _ =
     eWrap $
     do res <- updateBlockchain st False
-       unless res $ C.logInfo C.userLoggerName "Successfully updated blockchain."
+       unless res $ C.logInfo "Successfully updated blockchain."
        nodeContext <- getNodeContext
        addresses <- query' st $ U.GetOwnedAddresses nodeContext
        (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin])]) <-
@@ -127,13 +118,13 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
        unless (isJust outputAddr) $
            U.commitError $ "Provided key can't be exported: " <> outputAddrStr
        tx <- submitTransactionRetry 2 st cache td
-       C.logInfo C.userLoggerName $
+       C.logInfo $
            sformat ("Successfully submitted transaction with hash: " % build) $
                C.hash tx
 processCommand st O.UpdateBlockchain _ =
     eWrap $
     do res <- updateBlockchain st True
-       C.logInfo C.userLoggerName $
+       C.logInfo $
            if res
                then "Blockchain is updated already."
                else "Successfully updated blockchain."
@@ -228,25 +219,6 @@ processCommand st (O.ImportAddress skPath pkPath heightFrom heightTo) _ = do
     liftIO $ TIO.putStrLn "Starting blockchain query process"
     importAddress st (sk,pk) heightFrom heightTo
     liftIO $ TIO.putStrLn "Finished, your address successfully added"
-processCommand st O.StartGUI opts@O.UserOptions{..} = do
-    initialized <- U.isInitialized st
-    unless initialized $ liftIO G.initGUI >> initLoop
-    liftIO $ bracket
-        (ACID.openLocalStateFrom guidbPath emptyGUIAcid)
-        (\cs -> do ACID.createCheckpoint cs
-                   ACID.closeAcidState cs)
-        (\cs -> startGUI (Just configPath) st cs)
-  where
-    initLoop =
-        initializeStorage st opts `catch`
-        (\(e :: SomeException) ->
-              do liftIO $
-                     reportSimpleErrorNoWindow $
-                     "Couldn't initialize rscoin. Check connection, close this " ++
-                     "dialog and we'll try again. Error: "
-                     ++ show e
-                 wait $ for 500 ms
-                 initLoop)
 
 dumpCommand
     :: WorkMode m

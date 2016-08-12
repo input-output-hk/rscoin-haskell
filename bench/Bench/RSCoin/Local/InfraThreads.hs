@@ -15,6 +15,8 @@ import           System.FilePath            ((</>))
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (Mintette), PublicKey,
                                              SecretKey, defaultPort, localhost,
+                                             mintetteLoggerName,
+                                             notaryLoggerName,
                                              testBankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
@@ -38,7 +40,7 @@ bankThread periodDelta benchDir =
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir secretKey =
-    runRealModeUntrusted (Just $ benchConfPath benchDir) $
+    runRealModeUntrusted mintetteLoggerName (Just $ benchConfPath benchDir) $
     bracket
         (liftIO $
          M.openState $ benchDir </> dbFormatPath "mintette-db" mintetteId)
@@ -49,7 +51,7 @@ mintetteThread mintetteId benchDir secretKey =
 
 notaryThread :: FilePath -> IO ()
 notaryThread benchDir =
-    runRealModeUntrusted (Just $ benchConfPath benchDir) $
+    runRealModeUntrusted notaryLoggerName (Just $ benchConfPath benchDir) $
     bracket
         (liftIO $ N.openState $ benchDir </> "notary-db")
         (liftIO . N.closeState)

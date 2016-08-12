@@ -1,12 +1,12 @@
 import           Control.Monad             (replicateM)
 
 import           Data.Aeson                (encode)
-import qualified Data.ByteString.Lazy as B (append, intercalate, writeFile)
+import qualified Data.ByteString.Lazy as B (intercalate, writeFile)
 
 import           KeygenOptions             as Opts
 
-import           RSCoin.Core               (initLogging, keyGen,
-                                            readSecretKey, sign)
+import           RSCoin.Core               (derivePublicKey,initLogging,
+                                            keyGen, readSecretKey, sign)
 
 main :: IO ()
 main = do
@@ -14,17 +14,17 @@ main = do
     initLogging cloLogSeverity
     case cloCommand of
         Opts.Single skPath genPath -> do
-            masterSK <- readSecretKey skPath
-            tupleKeysSig <- generator masterSK
-            let generatedKey = encode tupleKeysSig `B.append` "\n"
-            B.writeFile genPath generatedKey
+            helper skPath genPath 1
         Opts.Batch genNum skPath genPath -> do
-            masterSK <- readSecretKey skPath
-            keys <- replicateM genNum (generator masterSK)
-            let generatedKeys = B.intercalate "\n" $ map encode keys
-            B.writeFile genPath generatedKeys
+            helper skPath genPath genNum
   where
     generator masterSK = do
-        (_, pk) <- keyGen
-        let sig = sign masterSK pk
-        return (pk, sig)
+        (sk, pk) <- keyGen
+        let sig      = sign masterSK pk
+            masterPK = derivePublicKey masterSK
+        return (masterPK, (pk, sk), sig)
+    helper keyPath gPath num = do
+        masterSK <- readSecretKey keyPath
+        keys <- replicateM num (generator masterSK)
+        let generatedKeys = B.intercalate "\n" $ map encode keys
+        B.writeFile gPath generatedKeys

@@ -1,77 +1,73 @@
 -- | Command line options for keygen
 
 module KeygenOptions
-       ( Command (..)
+       ( KeyGenCommand (..)
        , Options (..)
        , getOptions
        ) where
 
 import           Options.Applicative      (Parser, auto, command, execParser,
-                                           fullDesc, info, help, helper,
-                                           long, option, progDesc, showDefault,
-                                           subparser, value, (<>))
+                                           fullDesc, info, help, helper, long,
+                                           metavar, option, progDesc, short,
+                                           showDefault, subparser, value, (<>))
 
 import           Serokell.Util.OptParse   (strOption)
 
-import RSCoin.Core                        (Severity (Error),
-                                           defaultSecretKeyPath)
+import RSCoin.Core                        (Severity (Error))
 
-data Command = GenerateSingle | GenerateBatch Int
+data KeyGenCommand = Single FilePath FilePath | Batch Int FilePath FilePath
 
 data Options = Options
-    { cloCommand     :: Command
-    , cloKeysPath    :: FilePath
+    { cloCommand     :: KeyGenCommand
     , cloLogSeverity :: Severity
-    , cloSKPath      :: FilePath
     }
 
-defaultPubKeyNum :: Int
-defaultPubKeyNum = 100
-
-defaultStoragePath :: IO FilePath
-defaultStoragePath = undefined -- Placeholder
-
-commandParser :: Parser Command
+commandParser :: Parser KeyGenCommand
 commandParser =
     subparser
         (command
              "generate-single"
               (info
                    generateSOpts
-                   (progDesc "Generate array of public keys, secret kets and signatures")) <>
+                   (progDesc "Generate array of public keys, secret keys and signatures")) <>
         command
             "generate-batch"
             (info generateBOpts (progDesc "Generate array of keys and signatures")))
   where
-    generateSOpts = pure GenerateSingle
+    generateSOpts =
+        Single <$>
+        generatedKeys <*>
+        masterSecretKey
     generateBOpts =
-        GenerateBatch <$>
+        Batch <$>
         option
             auto
-            (long "key-number" <> help "Number ofkeys generated" <>
-             value defaultPubKeyNum <>
-             showDefault)
+            (long "key-number" <> help "Number ofkeys generated") <*>
+        generatedKeys <*>
+        masterSecretKey
+    generatedKeys =
+        strOption
+            (short 'g' <> long "keys-path" <> help gkHelpStr <>
+             metavar "PATH TO KEYS")
+    masterSecretKey =
+        strOption
+            (short 'k' <> long "secret-key-path" <> help skHelpStr <>
+             metavar "PATH TO SECRET KEY")
+    gkHelpStr = "Path to generated keys and signatures"
+    skHelpStr = "Path to master secret key"
 
-optionsParser :: FilePath -> FilePath -> Parser Options
-optionsParser defaultSKPath defaultStrgPath =
+optionsParser :: Parser Options
+optionsParser =
     Options <$> commandParser <*>
-    strOption
-        (long "keys-path" <> value defaultStrgPath <> showDefault <>
-        help "Path to generated keys") <*>
     option
         auto
-        (long "log-severity" <> value Error <> showDefault <>
-         help "Logging severity") <*>
-    strOption
-        (long "sk-path" <> help "Path to secret key" <>
-         value defaultSKPath <>
-         showDefault)
+        (short 'l' <> long "log-severity" <> help "Logging severity" <>
+         value Error <> showDefault <>
+         metavar "LOG-SEVERITY")
 
 getOptions :: IO Options
 getOptions = do
-    defaultSKPath <- defaultSecretKeyPath
-    defaultStrgPath <- defaultStoragePath
     execParser $
         info
-            (helper <*> optionsParser defaultSKPath defaultStrgPath)
+            (helper <*> optionsParser)
             (fullDesc <> progDesc "RSCoin's keygen")

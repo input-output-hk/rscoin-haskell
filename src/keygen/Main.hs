@@ -15,9 +15,9 @@ main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
     case cloCommand of
-        Opts.Single fpName -> do
-            let fpSecret = fpName <> ".sec"
-                fpPublic = fpName <> ".pub"
+        Opts.Single keyName -> do
+            let fpSecret = keyName <> ".sec"
+                fpPublic = keyName
             (sk,pk) <- keyGen
             writePublicKey fpPublic pk
             writeSecretKey fpSecret sk

@@ -68,7 +68,7 @@ commandParser =
 
     publicKey =
         strOption
-            (short 's' <> long "public-key-path" <> help secKeyHelpStr <>
+            (short 'p' <> long "public-key-path" <> help secKeyHelpStr <>
              metavar "PATH TO PUBLIC KEY")
 
     numKeyHelpStr = "Number of keys generated"

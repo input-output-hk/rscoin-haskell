@@ -9,13 +9,13 @@ module KeygenOptions
 import           Options.Applicative      (Parser, auto, command, execParser,
                                            fullDesc, info, help, helper, long,
                                            metavar, option, progDesc, short,
-                                           showDefault, subparser, value, (<>))
+                                           subparser, (<>))
 
 import           Serokell.Util.OptParse   (strOption)
 
-import RSCoin.Core                        (Severity (Error))
-
-data KeyGenCommand = Single FilePath | Batch Int FilePath FilePath
+data KeyGenCommand = Single FilePath
+                   | Batch Int FilePath FilePath
+                   | Derive FilePath FilePath
 
 data Options = Options
     { cloCommand     :: KeyGenCommand
@@ -27,39 +27,56 @@ commandParser =
         (command
              "single"
               (info
-                   generateSOpts
+                   singleOpts
                    (progDesc singleDesc)) <>
         command
             "batch"
-            (info generateBOpts (progDesc batchDesc)))
+            (info
+                 batchOpts
+                 (progDesc batchDesc)) <>
+        command
+            "derive"
+            (info
+                 deriveOpts
+                 (progDesc deriveDesc)))
   where
-    generateSOpts =
+    singleOpts =
         Single <$>
         generatedKeys
-    generateBOpts =
+    batchOpts =
         Batch <$>
         option
             auto
             (short 'n' <> long "key-number" <> help numKeyHelpStr <>
              metavar "NUMBER OF KEYS") <*>
         generatedKeys <*>
-        masterSecretKey
+        secretKey
+    deriveOpts =
+        Derive <$>
+        secretKey <*>
+        publicKey
 
     generatedKeys =
         strOption
             (short 'k' <> long "keys-path" <> help genKeyHelpStr <>
              metavar "PATH TO KEYS")
 
-    masterSecretKey =
+    secretKey =
         strOption
             (short 's' <> long "secret-key-path" <> help secKeyHelpStr <>
              metavar "PATH TO SECRET KEY")
+
+    publicKey =
+        strOption
+            (short 's' <> long "public-key-path" <> help secKeyHelpStr <>
+             metavar "PATH TO PUBLIC KEY")
 
     numKeyHelpStr = "Number of keys generated"
     genKeyHelpStr = "Path to generated keys and signatures"
     secKeyHelpStr = "Path to master secret key"
     singleDesc    = "Generate a single pair of public and secret keys"
     batchDesc     = "Generate array of public keys, secret keys and signatures"
+    deriveDesc    = "Derive public key from the given secret key"
 
 optionsParser :: Parser Options
 optionsParser =

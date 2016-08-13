@@ -1,15 +1,14 @@
 import           Control.Monad                      (replicateM)
 
-import           Data.Aeson                         (encode)
-import qualified Data.ByteString.Lazy       as B    (writeFile)
-import qualified Data.ByteString.Lazy.Char8 as B    (unlines)
 import           KeygenOptions              as Opts
 
 import           Options.Applicative                ((<>))
 
 import           RSCoin.Core                        (derivePublicKey, keyGen,
-                                                     readSecretKey, sign,
-                                                     writePublicKey, writeSecretKey)
+                                                     readSecretKey, sign,)
+
+import           System.IO                          (IOMode (WriteMode),
+                                                     hClose, openFile)
 
 main :: IO ()
 main = do
@@ -19,13 +18,19 @@ main = do
             let fpSecret = keyName <> ".sec"
                 fpPublic = keyName
             (sk,pk) <- keyGen
-            writePublicKey fpPublic pk
-            writeSecretKey fpSecret sk
+            pub <- openFile fpPublic WriteMode
+            sec <- openFile fpSecret WriteMode
+            writeFile fpSecret $ show sk
+            writeFile fpPublic $ show pk
+            hClose pub
+            hClose sec
         Opts.Batch genNum genPath skPath -> do
             masterSK <- readSecretKey skPath
             keys <- replicateM genNum (generator masterSK)
-            let generatedKeys = B.unlines $ map encode keys
-            B.writeFile genPath generatedKeys
+            let generatedKeys = unlines $ map show keys
+            keysFile <- openFile genPath WriteMode
+            writeFile genPath generatedKeys
+            hClose keysFile
   where
     generator masterSK = do
         (sk, pk) <- keyGen

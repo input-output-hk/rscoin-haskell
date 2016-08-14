@@ -32,7 +32,6 @@ module RSCoin.User.Operations
        , TransactionData (..)
        , submitTransaction
        , submitTransactionRetry
-       , createCertificateChain
        , retrieveAllocationsList
        ) where
 
@@ -590,16 +589,6 @@ isRetriableException e
     | Just (_ :: UserLogicError) <- fromException e = True
     | isWalletSyncError e = True
     | otherwise = False
-
--- | This method create certificate chain for user address with
--- help of attain. WARNING! This method is just temporal solution
--- for testing purposes until we will generate IOU.
-createCertificateChain :: C.PublicKey -> [(C.Signature, C.PublicKey)]
-createCertificateChain userPublicKey =
-    [  -- @TODO: should introduce `seedPK`
-      (C.sign C.attainSecretKey C.attainPublicKey, C.attainPublicKey)
-    , (C.sign C.attainSecretKey userPublicKey,     userPublicKey)
-    ]
 
 -- | Get list of all allocation address in which user participates.
 retrieveAllocationsList

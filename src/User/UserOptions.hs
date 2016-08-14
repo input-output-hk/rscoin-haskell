@@ -44,18 +44,30 @@ data UserCommand
                       Text
                       [(Int64, Int)]
                       (Maybe UserCache)
-    -- | First argument represents number m of required signatures from addr;
-    -- second -- list of user parties' in addresses;
-    -- third -- list of trust parties' in addresses;
-    -- fourth is Nothing if we need to generate multisignature address.
-    | AddMultisigAddress Int
-                         [Text]
-                         [Text]
-                         (Maybe Text)
+
+    -- | Initialize multisignature address allocation.
+    -- 1. Number m of required signatures from addr;
+    -- 2. List of user parties in addresses;
+    -- 3. List of trust parties in addresses;
+    -- 4. Master public key;
+    -- 5. Signature of slave key with master key.
+    | CreateMultisigAddress Int
+                            [Text]
+                            [Text]
+                            Text
+                            Text
     -- | List all addresses in which current user acts like party
     | ListAllocations
-    -- | For a request #N in local list send confirmation to a Notary
+
+    -- | For a request #N in local list send confirmation to a Notary.
+    -- 1. #N in user list;
+    -- 2. @Just (pathToHot, partyAddr)@ : if we want to sign as a 'TrustParty';
+    -- 3. Master public key;
+    -- 4. Signature of slave key with master key.
     | ConfirmAllocation Int
+                        (Maybe String)
+                        Text
+                        Text
     -- | Add a local address to storage (filepaths to sk and pk, then
     -- blockchain heights to query -- minimum and maximum)
     | ImportAddress (Maybe FilePath) FilePath Int (Maybe Int)
@@ -114,7 +126,7 @@ userCommandParser =
              "send"
              (info formTransactionOpts (progDesc "Form and send transaction.")) <>
          command
-             "add-multisig"
+             "create-multisig"
              (info
                   addMultisigOpts
                   (progDesc "Create multisignature address allocation")) <>
@@ -257,21 +269,36 @@ userCommandParser =
         <*>
         pure Nothing
     addMultisigOpts =
-        AddMultisigAddress <$>
-        option auto (short 'm' <> help "Number m from m/n") <*>
+        CreateMultisigAddress <$>
+        option auto (short 'm' <> metavar "INT" <> help "Number m from m/n") <*>
         many
             (strOption $
-             long "uaddr" <>
+             long "uaddr" <> metavar "PUBLIC KEY" <>
              help "User party Addresses that would own this MS address") <*>
         many
             (strOption $
-             long "taddr" <>
+             long "taddr" <> metavar "PUBLIC KEY" <>
              help "Trust party Addresses that would own this MS address") <*>
-        optional
-            (strOption $ long "ms-addr" <> help "New multisignature address")
+        strOption
+            (long "master-pk" <> metavar "PUBLIC KEY" <>
+             help "Public key of master for party") <*>
+        strOption
+            (long "slave-sig" <> metavar "SIGNATURE" <>
+             help "Signature of slave with master public key")
     confirmOpts =
         ConfirmAllocation <$>
-        option auto (short 'n' <> help "Index starting from 1 in `list-alloc`")
+        option auto
+            (short 'n' <> metavar "INT" <>
+             help "Index starting from 1 in `list-alloc`") <*>
+        optional
+            (strOption $ long "hot-trust" <> metavar "(HOT SK PATH, PARTY PUBLIC KEY)" <>
+             help "Pair of hot sk path and party pk if we want to confirm as Trust)") <*>
+        strOption
+            (long "master-pk" <> metavar "PUBLIC KEY" <>
+             help "Public key of master for party") <*>
+        strOption
+            (long "slave-sig" <> metavar "SIGNATURE" <>
+             help "Signature of slave with master public key")
     importAddressOpts =
         ImportAddress <$>
         (optional $

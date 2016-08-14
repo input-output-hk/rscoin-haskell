@@ -13,6 +13,7 @@ module RSCoin.Core.Crypto.Signing
        , verifyChain
        , keyGen
        , deterministicKeyGen
+       , constructSignature
        , constructPublicKey
        , writePublicKey
        , readPublicKey
@@ -236,6 +237,13 @@ keyGen = bimap SecretKey PublicKey . swap <$> E.createKeypair
 deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
 deterministicKeyGen seed =
     bimap PublicKey SecretKey <$> E.createKeypairFromSeed_ seed
+
+-- | Constructs signature from UTF-8 base64 text.
+constructSignature :: Text -> Maybe Signature
+constructSignature =
+    either (const Nothing) (Just . Signature . E.Signature) . B64.decode . trim
+  where
+    trim = T.dropAround isSpace
 
 -- | Constructs public key from UTF-8 base64 text.
 constructPublicKey :: Text -> Maybe PublicKey

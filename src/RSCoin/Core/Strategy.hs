@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass  #-}
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Strategy-related data types and functions/helpers.
@@ -32,18 +34,25 @@ import           Control.Lens               (makeLenses, traversed, (^..))
 
 import           Data.Binary                (Binary (get, put), getWord8,
                                              putWord8)
+import           Data.Hashable              (Hashable)
+import           Data.HashMap.Strict        (HashMap)
+import qualified Data.HashMap.Strict        as HM
+import           Data.HashSet               (HashSet)
+import qualified Data.HashSet               as HS hiding (HashSet)
 import           Data.Map                   (Map)
-import           Data.SafeCopy              (base, deriveSafeCopy)
-import           Data.Set                   (Set)
-import qualified Data.Set                   as S hiding (Set)
+import           Data.SafeCopy              (SafeCopy (getCopy, putCopy), base,
+                                             contain, deriveSafeCopy, safeGet,
+                                             safePut)
+import qualified Data.Set                   as S
 import           Data.Text.Buildable        (Buildable (build))
+import           GHC.Generics               (Generic)
 
 import           Formatting                 (bprint, int, (%))
 import qualified Formatting                 as F (build)
 
 import           Serokell.Util.Text         (listBuilderJSON)
 
-import           RSCoin.Core.Crypto.Signing (Signature)
+import           RSCoin.Core.Crypto.Signing (PublicKey, Signature)
 import           RSCoin.Core.Primitives     (Address, Transaction)
 import           RSCoin.Core.Transaction    (validateSignature)
 
@@ -60,7 +69,7 @@ data TxStrategy
     -- | Strategy for getting @m@ signatures
     -- out of @length list@, where every signature
     -- should be made by address in list @list@
-    | MOfNStrategy Int (Set Address)
+    | MOfNStrategy Int (S.Set Address)
     deriving (Read, Show, Eq)
 
 $(deriveSafeCopy 0 'base ''TxStrategy)
@@ -91,43 +100,43 @@ type AddressToTxStrategyMap = Map Address TxStrategy
 data AllocationAddress
     = TrustAlloc { _address :: Address }  -- ^ PublicKey we trust
     | UserAlloc  { _address :: Address }  -- ^ PublicKey of other User
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Generic, Hashable, Show)
 
 $(deriveSafeCopy 0 'base ''AllocationAddress)
 $(makeLenses ''AllocationAddress)
 
 instance Binary AllocationAddress where
-    put (TrustAlloc addr) = put (0 :: Int, addr)
-    put (UserAlloc  addr) = put (1 :: Int, addr)
+    put (TrustAlloc addr) = putWord8 0 >> put addr
+    put (UserAlloc  addr) = putWord8 1 >> put addr
 
     get = do
-        (i, addr) <- get
-        let ctor = case (i :: Int) of
+        ctorTag <- getWord8
+        let ctor = case ctorTag of
                        0 -> TrustAlloc
                        1 -> UserAlloc
                        _ -> error "unknown binary AllocationAddress"
-        pure $ ctor addr
+        ctor <$> get
 
 instance Buildable AllocationAddress where
     build (TrustAlloc addr) = bprint ("TrustA : " % F.build) addr
-    build (UserAlloc  addr) = bprint ("UserA  : " % F.build) addr
+    build (UserAlloc  addr) = bprint ("UserA : "  % F.build) addr
 
 -- | This datatype represents party who sends request to Notary.
 data PartyAddress
     = TrustParty
-        { generatedAddress :: Address  -- ^ New generated locally address.
-        , publicAddress    :: Address  -- ^ Identified address of 'TrustAlloc'
+        { partyAddress :: Address    -- ^ Party address of multisig address
+        , hotTrustKey  :: PublicKey  -- ^ Hot key which signs ms allocation requests
         }
     | UserParty
-        { generatedAddress :: Address  -- ^ Same as for 'TrustParty'
+        { partyAddress :: Address  -- ^ Same as for 'TrustParty'
         }
     deriving (Eq, Show)
 
 $(deriveSafeCopy 0 'base ''PartyAddress)
 
 instance Binary PartyAddress where
-    put (TrustParty genAddr pubAddr) = putWord8 0 >> put genAddr >> put pubAddr
-    put (UserParty  genAddr)         = putWord8 1 >> put genAddr
+    put (TrustParty partyAddr hot) = putWord8 0 >> put partyAddr >> put hot
+    put (UserParty  partyAddr)     = putWord8 1 >> put partyAddr
 
     get = do
         i <- getWord8
@@ -136,18 +145,24 @@ instance Binary PartyAddress where
             1 -> UserParty  <$> get
             _ -> error "unknown binary AllocationAddress"
 
--- @TODO: not so pretty output but ok for now
 instance Buildable PartyAddress where
-    build (TrustParty genAddr pubAddr) =
-        bprint ("TrustP : " % F.build % ", " % F.build) genAddr pubAddr
-    build (UserParty  genAddr) = bprint ("UserP  : " % F.build) genAddr
+    build (TrustParty partyAddr hot) =
+        bprint ("TrustP : party = " % F.build % ", master = " % F.build) partyAddr hot
+    build (UserParty partyAddr) =
+        bprint ("UserP  : " % F.build) partyAddr
 
 -- | Strategy of multisignature address allocation.
 -- @TODO: avoid duplication of sets in '_allParties' and '_txStrategy.txParties'
 data AllocationStrategy = AllocationStrategy
-    { _sigNumber  :: Int                    -- ^ Number of required signatures in transaction
-    , _allParties :: Set AllocationAddress  -- ^ 'Set' of all parties for this address
+    { _sigNumber  :: Int                        -- ^ Number of required signatures in transaction
+    , _allParties :: HashSet AllocationAddress  -- ^ 'Set' of all parties for this address
     } deriving (Eq, Show)
+
+instance (Eq a, Hashable a, SafeCopy a) => SafeCopy (HashSet a) where
+    putCopy = contain . safePut . HS.toList
+    getCopy = contain $ do
+        hsList <- safeGet
+        pure $ HS.fromList hsList
 
 $(deriveSafeCopy 0 'base ''AllocationStrategy)
 $(makeLenses ''AllocationStrategy)
@@ -155,9 +170,9 @@ $(makeLenses ''AllocationStrategy)
 instance Binary AllocationStrategy where
     put AllocationStrategy{..} = do
         put _sigNumber
-        put (S.toList _allParties)
+        put (HS.toList _allParties)
 
-    get = AllocationStrategy <$> get <*> (S.fromList <$> get)
+    get = AllocationStrategy <$> get <*> (HS.fromList <$> get)
 
 instance Buildable AllocationStrategy where
     build AllocationStrategy{..} = bprint template
@@ -172,8 +187,14 @@ instance Buildable AllocationStrategy where
 -- | Stores meta information for MS allocation by 'AlocationStrategy'.
 data AllocationInfo = AllocationInfo
     { _allocationStrategy   :: AllocationStrategy
-    , _currentConfirmations :: Map AllocationAddress Address
+    , _currentConfirmations :: HashMap AllocationAddress Address
     } deriving (Eq, Show)
+
+instance (Eq a, Hashable a, SafeCopy a, SafeCopy b) => SafeCopy (HashMap a b) where
+    putCopy = contain . safePut . HM.toList
+    getCopy = contain $ do
+        hmList <- safeGet
+        pure $ HM.fromList hmList
 
 $(deriveSafeCopy 0 'base ''AllocationInfo)
 $(makeLenses ''AllocationInfo)
@@ -193,12 +214,12 @@ allocateTxFromAlloc :: AllocationStrategy -> TxStrategy
 allocateTxFromAlloc AllocationStrategy{..} =
     MOfNStrategy
         _sigNumber $
-        S.fromList $ (S.toList _allParties)^..traversed.address
+        S.fromList $ (HS.toList _allParties)^..traversed.address
 
 -- | Converts 'PartyAddress' to original 'AllocationAddress'.
 partyToAllocation :: PartyAddress -> AllocationAddress
-partyToAllocation TrustParty{..} = TrustAlloc publicAddress
-partyToAllocation UserParty{..}  = UserAlloc generatedAddress
+partyToAllocation TrustParty{..} = TrustAlloc partyAddress
+partyToAllocation UserParty{..}  = UserAlloc partyAddress
 
 -- | Checks if the inner state of strategy allows us to send
 -- transaction and it will be accepted

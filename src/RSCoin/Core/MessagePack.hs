@@ -5,14 +5,16 @@ module RSCoin.Core.MessagePack  () where
 import           Data.Bifunctor             (bimap)
 import           Data.Binary                (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy       as BSL
+import           Data.Hashable              (Hashable)
+import qualified Data.HashSet               as HS
 import           Data.Int                   (Int64)
 import           Data.MessagePack           (MessagePack (fromObject, toObject), Object (ObjectBin, ObjectExt, ObjectInt),
                                              pack, unpack)
 import           Data.Ratio                 (Ratio, denominator, numerator, (%))
+import qualified Data.Set                   as S
 import           Data.Tuple.Curry           (uncurryN)
 import           Data.Tuple.Select          (sel3)
 
-import qualified Data.Set                   as S
 import           RSCoin.Core.Crypto         ()
 import qualified RSCoin.Core.Primitives     as C
 import qualified RSCoin.Core.Protocol.Types as C
@@ -156,6 +158,11 @@ instance MessagePack C.AllocationInfo where
 instance (Ord e, MessagePack e) => MessagePack (S.Set e) where
     toObject = toObject . S.toList
     fromObject = fmap S.fromList . fromObject
+
+instance (Eq e, Hashable e, MessagePack e) => MessagePack (HS.HashSet e) where
+    toObject = toObject . HS.toList
+    fromObject = fmap HS.fromList . fromObject
+
 toObj
     :: MessagePack a
     => (Int, a) -> Object

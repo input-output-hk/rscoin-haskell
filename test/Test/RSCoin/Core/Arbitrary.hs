@@ -9,6 +9,11 @@ module Test.RSCoin.Core.Arbitrary
        ) where
 
 import           Data.DeriveTH
+import           Data.Hashable         (Hashable)
+import           Data.HashMap.Strict   (HashMap)
+import qualified Data.HashMap.Strict   as HM hiding (HashMap)
+import           Data.HashSet          (HashSet)
+import qualified Data.HashSet          as HS hiding (HashSet)
 import           Data.List             ()
 import qualified Data.Map              as M
 import           Data.Text             (Text, pack)
@@ -18,6 +23,12 @@ import           Test.QuickCheck       (Arbitrary (arbitrary), Gen,
 import qualified RSCoin.Core           as C
 import           RSCoin.Mintette.Error (MintetteError (..))
 import           RSCoin.Notary.Error   (NotaryError (..))
+
+instance (Eq k, Hashable k, Arbitrary k, Arbitrary v) => Arbitrary (HashMap k v) where
+    arbitrary = HM.fromList <$> arbitrary
+
+instance (Eq e, Hashable e, Arbitrary e) => Arbitrary (HashSet e) where
+    arbitrary = HS.fromList <$> arbitrary
 
 instance Arbitrary C.CoinAmount where
     arbitrary = C.CoinAmount . abs <$> arbitrary

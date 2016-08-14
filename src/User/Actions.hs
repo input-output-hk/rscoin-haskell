@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
@@ -11,28 +12,27 @@ module Actions
        , initializeStorage
        ) where
 
-import           Control.Monad          (forM_, unless, void, when)
-import           Control.Monad.Trans    (liftIO)
-import           Data.Acid.Advanced     (query')
-import           Data.Bifunctor         (bimap, second)
-import qualified Data.ByteString.Base64 as B64
-import           Data.Function          (on)
-import           Data.List              (find, genericIndex, groupBy)
-import qualified Data.Map               as M
-import           Data.Maybe             (fromJust, fromMaybe, isJust, mapMaybe)
-import           Data.Monoid            ((<>))
-import qualified Data.Set               as S
-import qualified Data.Text              as T
-import           Data.Text.Encoding     (encodeUtf8)
-import qualified Data.Text.IO           as TIO
-import           Formatting             (build, int, sformat, shown, stext, (%))
+import           Control.Monad           (forM_, unless, void, when)
+import           Control.Monad.Trans     (liftIO)
+import           Data.Acid.Advanced      (query')
+import           Data.Bifunctor          (bimap, second)
+import qualified Data.ByteString.Base64  as B64
+import           Data.Function           (on)
+import qualified Data.HashSet            as HS
+import           Data.List               (genericIndex, groupBy)
+import qualified Data.Map                as M
+import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
+import           Data.Monoid             ((<>))
+import qualified Data.Set                as S hiding (Set)
+import qualified Data.Text               as T
+import           Data.Text.Encoding      (encodeUtf8)
+import qualified Data.Text.IO            as TIO
+import           Formatting              (build, int, sformat, shown, stext, (%))
 
 import           Serokell.Util.Text     (show')
 
 import qualified RSCoin.Core            as C
-import           RSCoin.Core.Strategy   (AllocationAddress (..),
-                                         AllocationInfo (..),
-                                         AllocationStrategy (..),
+import           RSCoin.Core.Strategy   (AllocationInfo (..),
                                          PartyAddress (..))
 import           RSCoin.Timed           (WorkMode, getNodeContext)
 import qualified RSCoin.User            as U
@@ -134,7 +134,7 @@ processCommand st O.UpdateBlockchain _ =
                else "Successfully updated blockchain."
 processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
 processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
-    sk <- maybe (pure C.attainSecretKey) C.readSecretKey mPath
+    sk <- maybe (pure $ error "Attain secret key is not defined!") C.readSecretKey mPath
     (seedPk, _) <- case B64.decode $ encodeUtf8 seedB64 of
               Left _ -> fail "Wrong seed supplied (base64 decoding failed)"
               Right s ->
@@ -146,7 +146,16 @@ processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
     liftIO $ TIO.putStrLn $
        sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build)
            pk sig (C.verifyChain pk [(sig, seedPk)])
-processCommand st (O.AddMultisigAddress m textUAddrs textTAddrs mMSAddress) _ = do
+processCommand
+    st
+    (O.CreateMultisigAddress m
+                             textUAddrs
+                             textTAddrs
+                             masterPkText
+                             masterSlaveSigText
+    )
+    _
+  = do
     when (null textUAddrs && null textTAddrs) $
         U.commitError "Can't create multisig with empty addrs list"
 
@@ -156,19 +165,27 @@ processCommand st (O.AddMultisigAddress m textUAddrs textTAddrs mMSAddress) _ = 
     when (m > length partiesAddrs) $
         U.commitError "Parameter m should be less than length of list"
 
-    msPublicKey <- maybe (snd <$> liftIO C.keyGen) return (mMSAddress >>= C.constructPublicKey)
+    msPublicKey <- snd <$> liftIO C.keyGen
     (userAddress, userSk) <- head <$> query' st U.GetUserAddresses
     let msAddr    = C.Address msPublicKey
     let partyAddr = C.UserParty userAddress
-    let msStrat   = C.AllocationStrategy m $ S.fromList partiesAddrs
-    let userSignature = C.sign userSk (msAddr, msStrat)
-    let certChain     = U.createCertificateChain $ C.getAddress userAddress
+    let msStrat   = C.AllocationStrategy m $ HS.fromList partiesAddrs
+    let userSignature   = C.sign userSk (msAddr, msStrat)
+    -- @TODO: replace with Either and liftA2
+    let !masterPk       = fromMaybe
+                             (error "Master pk is not parseable!")
+                             (C.constructPublicKey masterPkText)
+    let !masterSlaveSig = fromMaybe
+                             (error "Master slave signature is not parseable!")
+                             (C.constructSignature masterSlaveSigText)
+
     C.allocateMultisignatureAddress
         msAddr
         partyAddr
         msStrat
         userSignature
-        certChain
+        (masterPk, masterSlaveSig)
+
     liftIO $ TIO.putStrLn $
        sformat ("Your new address will be added in the next block: " % build) msPublicKey
   where
@@ -180,28 +197,47 @@ processCommand st (O.AddMultisigAddress m textUAddrs textTAddrs mMSAddress) _ = 
             U.commitError $
                 sformat ("Some addresses were not parsed, parsed only those: " % stext) parsed
         return partiesAddrs
-processCommand st (O.ConfirmAllocation i) _ = eWrap $ do
+processCommand
+    st
+    (O.ConfirmAllocation i
+                         mHot
+                         masterPkText
+                         masterSlaveSigText
+    )
+    _
+  = eWrap $ do
     when (i <= 0) $ U.commitError $
         sformat ("Index i should be greater than 0 but given: " % int) i
 
     (msAddr, C.AllocationInfo{..}) <- query' st $ U.GetAllocationByIndex (i - 1)
-    (userAddress, userSk) <- head <$> query' st U.GetUserAddresses
+    (slaveSk, partyAddr)           <- case mHot of
+        Just (read -> (hotSkPath, partyPkStr)) -> do
+            hotSk <- liftIO $ C.readSecretKey hotSkPath
+            let party     = C.Address $ fromMaybe
+                              (error "Not valid hot partyPk!")
+                              (C.constructPublicKey $ T.pack partyPkStr)
+            let partyAddr = C.TrustParty { partyAddress = party
+                                         , hotTrustKey  = C.derivePublicKey hotSk }
+            return (hotSk, partyAddr)
+        Nothing -> do
+            (userAddress, userSk) <- head <$> query' st U.GetUserAddresses
+            return (userSk, C.UserParty userAddress)
 
-    let Just party = find ((== userAddress) . _address) $ _allParties _allocationStrategy
-    partyAddr <- case party of
-        C.TrustAlloc {} -> do
-            (_, newPk) <- liftIO C.keyGen
-            return C.TrustParty { generatedAddress = C.Address newPk
-                                , publicAddress    = userAddress }
-        C.UserAlloc  {} -> return $ C.UserParty userAddress
+    let partySignature  = C.sign slaveSk (msAddr, _allocationStrategy)
+    let !masterPk       = fromMaybe
+                             (error "Master pk is not parseable!")
+                             (C.constructPublicKey masterPkText)
+    let !masterSlaveSig = fromMaybe
+                             (error "Master slave signature is not parseable!")
+                             (C.constructSignature masterSlaveSigText)
 
-    let partySignature = C.sign userSk (msAddr, _allocationStrategy)
     C.allocateMultisignatureAddress
         msAddr
         partyAddr
         _allocationStrategy
         partySignature
-        []
+        (masterPk, masterSlaveSig)
+
     liftIO $ TIO.putStrLn "Address allocation successfully confirmed!"
 processCommand st O.ListAllocations _ = eWrap $ do
     -- update local cache

@@ -9,8 +9,7 @@ module KeygenOptions
 import           Options.Applicative      (Parser, auto, command, execParser,
                                            fullDesc, info, help, helper, long,
                                            metavar, option, optional, progDesc,
-                                           short, showDefault, subparser, value,
-                                           (<>))
+                                           short, subparser, (<>))
 
 import           Serokell.Util.OptParse   (strOption)
 

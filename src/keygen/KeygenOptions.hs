@@ -16,10 +16,11 @@ import           Serokell.Util.OptParse   (strOption)
 
 data KeyGenCommand = Single FilePath
                    | Batch Int FilePath FilePath
-                   | Derive FilePath (Maybe FilePath)
+                   | Derive FilePath
 
 data Options = Options
     { cloCommand       :: KeyGenCommand
+    , cloPublicKeyPath :: Maybe FilePath
     }
 
 commandParser :: Parser KeyGenCommand
@@ -54,8 +55,7 @@ commandParser =
         secretKey
     deriveOpts =
         Derive <$>
-        secretKey <*>
-        publicKey
+        secretKey
 
     generatedKeys =
         strOption
@@ -67,23 +67,23 @@ commandParser =
             (short 's' <> long "secret-key-path" <> help secKeyHelpStr <>
              metavar "PATH TO SECRET KEY")
 
-    publicKey=
-        optional
-            (strOption
-                (short 'p' <> long "public-key-path" <> help pubKeyHelpStr <>
-                 metavar "PATH TO PUBLIC KEY"))
-
     numKeyHelpStr = "Number of keys generated"
     genKeyHelpStr = "Path to generated keys and signatures"
     secKeyHelpStr = "Path to master secret key"
-    pubKeyHelpStr = "Path to the Public key"
     singleDesc    = "Generate a single pair of public and secret keys"
     batchDesc     = "Generate array of public keys, secret keys and signatures"
     deriveDesc    = "Derive public key from the given secret key"
 
 optionsParser :: Parser Options
 optionsParser =
-    Options <$> commandParser
+    Options <$> commandParser <*> publicKeyPath
+  where
+    publicKeyPath =
+        optional
+        (strOption
+            (short 'p' <> long "public-key-path" <> help pubKeyHelpStr <>
+             metavar "PATH TO PUBLIC KEY"))
+    pubKeyHelpStr = "Path to the Public key"
 
 
 getOptions :: IO Options

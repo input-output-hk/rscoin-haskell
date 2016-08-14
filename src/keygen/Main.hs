@@ -24,10 +24,13 @@ main = do
             keys <- replicateM genNum (generator masterSK)
             let generatedKeys = unlines $ map show keys
             writeFile genPath generatedKeys
-        Opts.Derive skPath pkPath -> do
+        Opts.Derive skPath -> do
             secretKey <- readSecretKey skPath
             let publicKey = derivePublicKey secretKey
-            writePublicKey pkPath publicKey
+            flip writePublicKey publicKey $
+                case cloPublicKeyPath of
+                    ""     -> skPath <> ".pub"
+                    pkPath -> pkPath
   where
     generator masterSK = do
         (sk, pk) <- keyGen

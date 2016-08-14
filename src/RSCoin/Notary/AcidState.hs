@@ -18,8 +18,6 @@ module RSCoin.Notary.AcidState
        , QueryCompleteMSAdresses (..)
        , QueryMyMSRequests (..)
        , RemoveCompleteMSAddresses (..)
-       , AddColdKeys (..)
-       , GetColdKeys (..)
 
          -- * Bracket functions
        , openState
@@ -60,6 +58,4 @@ $(makeAcidic ''Storage
              , 'S.queryCompleteMSAdresses
              , 'S.queryMyMSRequests
              , 'S.removeCompleteMSAddresses
-             , 'S.addColdKeys
-             , 'S.getColdKeys
              ])

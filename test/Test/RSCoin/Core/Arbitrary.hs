@@ -11,7 +11,6 @@ module Test.RSCoin.Core.Arbitrary
 import           Data.DeriveTH
 import           Data.List             ()
 import qualified Data.Map              as M
-import qualified Data.Set as S
 import           Data.Text             (Text, pack)
 import           Test.QuickCheck       (Arbitrary (arbitrary), Gen,
                                         NonNegative (..), choose, oneof)
@@ -54,7 +53,7 @@ instance Arbitrary C.LBlock where
 instance Arbitrary C.HBlock where
     arbitrary =
         C.HBlock <$> arbitrary <*> arbitrary <*> arbitrary <*>
-           arbitrary <*> pure M.empty <*> pure S.empty
+           arbitrary <*> pure M.empty <*> pure M.empty
 
 instance Arbitrary C.CheckConfirmation where
     arbitrary =

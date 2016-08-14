@@ -8,18 +8,18 @@ module KeygenOptions
 
 import           Options.Applicative      (Parser, auto, command, execParser,
                                            fullDesc, info, help, helper, long,
-                                           metavar, option, progDesc, short,
-                                           showDefault, subparser, value, (<>))
+                                           metavar, option, optional, progDesc,
+                                           short, showDefault, subparser, value,
+                                           (<>))
 
 import           Serokell.Util.OptParse   (strOption)
 
 data KeyGenCommand = Single FilePath
                    | Batch Int FilePath FilePath
-                   | Derive FilePath
+                   | Derive FilePath (Maybe FilePath)
 
 data Options = Options
     { cloCommand       :: KeyGenCommand
-    , cloPublicKeyPath :: FilePath
     }
 
 commandParser :: Parser KeyGenCommand
@@ -54,7 +54,8 @@ commandParser =
         secretKey
     deriveOpts =
         Derive <$>
-        secretKey
+        secretKey <*>
+        publicKey
 
     generatedKeys =
         strOption
@@ -66,24 +67,28 @@ commandParser =
             (short 's' <> long "secret-key-path" <> help secKeyHelpStr <>
              metavar "PATH TO SECRET KEY")
 
+    publicKey=
+        optional
+            (strOption
+                (short 'p' <> long "public-key-path" <> help pubKeyHelpStr <>
+                 metavar "PATH TO PUBLIC KEY"))
+
     numKeyHelpStr = "Number of keys generated"
     genKeyHelpStr = "Path to generated keys and signatures"
     secKeyHelpStr = "Path to master secret key"
+    pubKeyHelpStr = "Path to the Public key"
     singleDesc    = "Generate a single pair of public and secret keys"
     batchDesc     = "Generate array of public keys, secret keys and signatures"
     deriveDesc    = "Derive public key from the given secret key"
 
-optionsParser :: FilePath -> Parser Options
-optionsParser defaultPKPath =
-    Options <$> commandParser <*>
-    strOption
-        (short 'p' <> long "public-key-path" <> help "Path to the Public key" <>
-         value defaultPKPath <> showDefault <>
-         metavar "PATH TO PUBLIC KEY")
+optionsParser :: Parser Options
+optionsParser =
+    Options <$> commandParser
+
 
 getOptions :: IO Options
 getOptions = do
     execParser $
         info
-            (helper <*> optionsParser "")
+            (helper <*> optionsParser)
             (fullDesc <> progDesc "RSCoin's keygen")

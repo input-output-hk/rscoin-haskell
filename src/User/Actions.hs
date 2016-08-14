@@ -1,6 +1,7 @@
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Module that provides description of what user node can do and
 -- functions that runs chosen action.
@@ -13,7 +14,7 @@ module Actions
 import           Control.Monad          (forM_, unless, void, when)
 import           Control.Monad.Trans    (liftIO)
 import           Data.Acid.Advanced     (query')
-import           Data.Bifunctor         (bimap)
+import           Data.Bifunctor         (bimap, second)
 import qualified Data.ByteString.Base64 as B64
 import           Data.Function          (on)
 import           Data.List              (find, genericIndex, groupBy)
@@ -24,7 +25,7 @@ import qualified Data.Set               as S
 import qualified Data.Text              as T
 import           Data.Text.Encoding     (encodeUtf8)
 import qualified Data.Text.IO           as TIO
-import           Formatting             (build, int, sformat, stext, (%))
+import           Formatting             (build, int, sformat, shown, stext, (%))
 
 import           Serokell.Util.Text     (show')
 
@@ -215,10 +216,46 @@ processCommand st O.ListAllocations _ = eWrap $ do
 processCommand st (O.ImportAddress skPathMaybe pkPath heightFrom heightTo) _ = do
     pk <- liftIO $ TIO.putStrLn "Reading pk..." >> C.readPublicKey pkPath
     sk <- liftIO $ flip (maybe (return Nothing)) skPathMaybe $ \skPath ->
-        (TIO.putStrLn "Reading sk..." >> Just <$> C.readSecretKey skPath)
+        TIO.putStrLn "Reading sk..." >> Just <$> C.readSecretKey skPath
     liftIO $ TIO.putStrLn "Starting blockchain query process"
     importAddress st (sk,pk) heightFrom heightTo
     liftIO $ TIO.putStrLn "Finished, your address successfully added"
+processCommand st (O.ExportAddress addrId filepath) _ = do
+    nodeContext <- getNodeContext
+    allAddresses <- query' st $ U.GetOwnedDefaultAddresses nodeContext
+    let addrN = length allAddresses
+    when (addrId `notElem` [1 .. addrN]) $
+        U.commitError $
+        sformat
+            ("You have " % int % " addresses, but address #" % int %
+             " was requested that's out of range [1.." %
+             int)
+            addrN
+            addrId
+            addrN
+    let addr = allAddresses !! (addrId -1)
+    strategy <- fromJust <$> query' st (U.GetAddressStrategy addr)
+    case strategy of
+        C.DefaultStrategy -> do
+            C.logInfo
+                "The strategy of your address is default, dumping it to the file"
+            (addr'@(C.getAddress->pk),sk) <-
+                second fromJust <$> query' st (U.FindUserAddress nodeContext addr)
+            unless (addr' == addr) $
+                C.logError $
+                "Internal error, address found is not the same " <>
+                "as requested one for default strategy"
+            liftIO $ C.writeSecretKey filepath sk
+            liftIO $ C.writePublicKey (filepath <> ".pub") pk
+            C.logInfo $ sformat
+                ("Dumped secret key into " % shown % ", public into " %
+                 shown % ".pub") filepath filepath
+        C.MOfNStrategy m parties ->
+            U.commitError $
+                sformat ("This address is " % int % "/" % int %
+                         " strategy address, export correspondent key instead. " %
+                         "Correspondent m/n key are autoexported " %
+                         "when you import their party.") m (S.size parties)
 
 dumpCommand
     :: WorkMode m

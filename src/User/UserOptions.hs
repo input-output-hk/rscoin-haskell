@@ -59,6 +59,7 @@ data UserCommand
     -- | Add a local address to storage (filepaths to sk and pk, then
     -- blockchain heights to query -- minimum and maximum)
     | ImportAddress (Maybe FilePath) FilePath Int (Maybe Int)
+    | ExportAddress Int FilePath
     | Dump DumpCommand
     -- @TODO move to rscoin-keygen
     | SignSeed Text (Maybe FilePath)
@@ -129,6 +130,11 @@ userCommandParser =
                   importAddressOpts
                   (progDesc
                        "Import address to storage given a (secretKey,publicKey) pair")) <>
+         command
+             "export-address"
+             (info
+                  exportAddressOpts
+                  (progDesc "Export address' keypair  to the file.")) <>
          command
              "dump-blocks"
              (info
@@ -283,6 +289,15 @@ userCommandParser =
          long "queryTo" <>
          help "Height to query blockchain to, default maxheight" <>
          metavar "INT")
+    exportAddressOpts =
+        ExportAddress <$>
+        option
+            auto
+            (long "index" <> help "Id of address in `list` command output." <>
+             metavar "INT") <*>
+        strOption
+            (long "path" <> help "Path to export address' keys to." <>
+             metavar "PATH")
     signSeedOpts =
         SignSeed <$> (strOption $ long "seed" <> help "Seed to sign") <*>
         optional

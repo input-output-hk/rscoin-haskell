@@ -174,9 +174,7 @@ findUserAddress nodeCtx addr = checkInitR $ do
         Just Nothing   -> do
             strategy <- fromJust <$> L.views addrStrategies (M.lookup addr)
             case strategy of
-                C.DefaultStrategy -> throwM $ InternalError $
-                    "We have a notion of default strategy but " <>
-                    "I can't find a correspondent secret key."
+                C.DefaultStrategy -> return (addr, Nothing)
                 C.MOfNStrategy _ addrs -> do
                     defaultOwnerAddress <-
                         fromJust .

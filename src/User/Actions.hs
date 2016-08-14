@@ -66,13 +66,15 @@ processCommand st O.ListAddresses _ =
        unless res $ C.logInfo "Successfully updated blockchain."
        nodeContext <- getNodeContext
        addresses <- query' st $ U.GetOwnedAddresses nodeContext
-       (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin])]) <-
+       (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin], Bool)]) <-
            mapM (\addr -> do
                       coins <- C.coinsToList <$> getAmountNoUpdate st addr
+                      hasSecret <- isJust . snd <$> query' st (U.FindUserAddress nodeContext addr)
                       strategy <- query' st $ U.GetAddressStrategy addr
                       return ( C.getAddress addr
                              , fromMaybe C.DefaultStrategy strategy
-                             , coins))
+                             , coins
+                             , hasSecret))
                 addresses
        liftIO $
            do TIO.putStrLn "Here's the list of your accounts:"
@@ -81,14 +83,15 @@ processCommand st O.ListAddresses _ =
               mapM_ formatAddressEntry ([(1 :: Integer) ..] `zip` wallets)
   where
     spaces = "                                                   "
-    formatAddressEntry :: (Integer, (C.PublicKey, C.TxStrategy, [C.Coin])) -> IO ()
-    formatAddressEntry (i, (key, strategy, coins)) = do
+    formatAddressEntry :: (Integer, (C.PublicKey, C.TxStrategy, [C.Coin], Bool)) -> IO ()
+    formatAddressEntry (i, (key, strategy, coins, hasSecret)) = do
        TIO.putStr $ sformat (int%".  "%build%" : ") i key
        when (null coins) $ putStrLn "empty"
        unless (null coins) $ TIO.putStrLn $ show' $ head coins
        unless (length coins < 2) $
            forM_ (tail coins)
                  (TIO.putStrLn . sformat (spaces % build))
+       unless hasSecret $ TIO.putStrLn "    (!! This address doesn't have secret key"
        case strategy of
            C.DefaultStrategy -> return ()
            C.MOfNStrategy m allowed -> do

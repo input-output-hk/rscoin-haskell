@@ -10,37 +10,37 @@ module Actions
        , initializeStorage
        ) where
 
-import           Control.Monad           (forM_, unless, void, when)
-import           Control.Monad.Trans     (liftIO)
-import           Data.Acid.Advanced      (query')
-import           Data.Bifunctor          (bimap)
-import qualified Data.ByteString.Base64  as B64
-import           Data.Function           (on)
-import           Data.List               (find, genericIndex, groupBy)
-import qualified Data.Map                as M
-import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
-import           Data.Monoid             ((<>))
-import qualified Data.Set                as S
-import qualified Data.Text               as T
-import           Data.Text.Encoding      (encodeUtf8)
-import qualified Data.Text.IO            as TIO
-import           Formatting              (build, int, sformat, stext, (%))
+import           Control.Monad          (forM_, unless, void, when)
+import           Control.Monad.Trans    (liftIO)
+import           Data.Acid.Advanced     (query')
+import           Data.Bifunctor         (bimap)
+import qualified Data.ByteString.Base64 as B64
+import           Data.Function          (on)
+import           Data.List              (find, genericIndex, groupBy)
+import qualified Data.Map               as M
+import           Data.Maybe             (fromJust, fromMaybe, isJust, mapMaybe)
+import           Data.Monoid            ((<>))
+import qualified Data.Set               as S
+import qualified Data.Text              as T
+import           Data.Text.Encoding     (encodeUtf8)
+import qualified Data.Text.IO           as TIO
+import           Formatting             (build, int, sformat, stext, (%))
 
-import           Serokell.Util.Text      (show')
+import           Serokell.Util.Text     (show')
 
-import qualified RSCoin.Core             as C
-import           RSCoin.Core.Strategy    (AllocationAddress (..),
-                                          AllocationInfo (..),
-                                          AllocationStrategy (..),
-                                          PartyAddress (..))
-import           RSCoin.Timed            (WorkMode, getNodeContext)
-import qualified RSCoin.User             as U
-import           RSCoin.User.Error       (eWrap)
-import           RSCoin.User.Operations  (TransactionData (..),
-                                          getAmountNoUpdate, importAddress,
-                                          submitTransactionRetry,
-                                          updateBlockchain)
-import qualified UserOptions             as O
+import qualified RSCoin.Core            as C
+import           RSCoin.Core.Strategy   (AllocationAddress (..),
+                                         AllocationInfo (..),
+                                         AllocationStrategy (..),
+                                         PartyAddress (..))
+import           RSCoin.Timed           (WorkMode, getNodeContext)
+import qualified RSCoin.User            as U
+import           RSCoin.User.Error      (eWrap)
+import           RSCoin.User.Operations (TransactionData (..),
+                                         getAmountNoUpdate, importAddress,
+                                         submitTransactionRetry,
+                                         updateBlockchain)
+import qualified UserOptions            as O
 
 
 initializeStorage
@@ -52,7 +52,7 @@ initializeStorage
 initializeStorage st O.UserOptions{..} =
     U.initState st addressesNum $ bankKeyPath isBankMode bankModePath
   where
-    bankKeyPath True p = Just p
+    bankKeyPath True p  = Just p
     bankKeyPath False _ = Nothing
 
 -- | Processes command line user command
@@ -212,10 +212,10 @@ processCommand st O.ListAllocations _ = eWrap $ do
         let padding = foldr1 (%) (replicate numLength " ")
         let form = int % ". " % build % "\n  " % build % padding
         liftIO $ TIO.putStrLn $ sformat form i addr allocStrat
-processCommand st (O.ImportAddress skPath pkPath heightFrom heightTo) _ = do
-    (sk,pk) <- liftIO $ do
-        TIO.putStrLn "Reading sk/pk from files..."
-        (,) <$> C.readSecretKey skPath <*> C.readPublicKey pkPath
+processCommand st (O.ImportAddress skPathMaybe pkPath heightFrom heightTo) _ = do
+    pk <- liftIO $ TIO.putStrLn "Reading pk..." >> C.readPublicKey pkPath
+    sk <- liftIO $ flip (maybe (return Nothing)) skPathMaybe $ \skPath ->
+        (TIO.putStrLn "Reading sk..." >> Just <$> C.readSecretKey skPath)
     liftIO $ TIO.putStrLn "Starting blockchain query process"
     importAddress st (sk,pk) heightFrom heightTo
     liftIO $ TIO.putStrLn "Finished, your address successfully added"

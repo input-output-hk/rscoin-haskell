@@ -208,25 +208,26 @@ isInitialized st = query' st A.IsInitialized
 addAddress
     :: MonadIO m
     => A.RSCoinUserState
-    -> C.SecretKey
+    -> Maybe C.SecretKey
     -> C.PublicKey
     -> [C.Transaction]
     -> C.PeriodId
     -> m ()
-addAddress st sk pk ts = update' st . A.AddAddress (C.Address pk, sk) ts
+addAddress st skMaybe pk ts = update' st . A.AddAddress (C.Address pk, skMaybe) ts
 
 -- | Same as addAddress, but queries blockchain automatically and
 -- queries transactions that affect this address
 importAddress
     :: WorkMode m
     => A.RSCoinUserState
-    -> (C.SecretKey, C.PublicKey)
+    -> (Maybe C.SecretKey, C.PublicKey)
     -> Int
     -> Maybe Int
     -> m ()
-importAddress st (sk,pk) fromH toH0 = do
-    unless (C.checkKeyPair (sk,pk)) $
-        commitError "The provided pair doesn't match thus can't be used"
+importAddress st (skMaybe,pk) fromH toH0 = do
+    whenJust skMaybe $ \sk ->
+        unless (C.checkKeyPair (sk,pk)) $
+            commitError "The provided pair doesn't match thus can't be used"
     allAddrs <- getAllPublicAddresses st
     when (C.Address pk `elem` allAddrs) $
         commitError $ sformat
@@ -251,7 +252,7 @@ importAddress st (sk,pk) fromH toH0 = do
     addrMap <- execStateT (gatherTransactionsDo [fromH..toH]) $
                    M.singleton newAddress []
     let txs = nub $ map fst $ concat $ M.elems addrMap
-    update' st $ A.AddAddress (newAddress,sk) txs walletHeight
+    update' st $ A.AddAddress (newAddress,skMaybe) txs walletHeight
   where
     newAddress = C.Address pk
     gatherTransactionsDo

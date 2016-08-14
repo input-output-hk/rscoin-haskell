@@ -58,7 +58,7 @@ data UserCommand
     | ConfirmAllocation Int
     -- | Add a local address to storage (filepaths to sk and pk, then
     -- blockchain heights to query -- minimum and maximum)
-    | ImportAddress FilePath FilePath Int (Maybe Int)
+    | ImportAddress (Maybe FilePath) FilePath Int (Maybe Int)
     | Dump DumpCommand
     -- @TODO move to rscoin-keygen
     | SignSeed Text (Maybe FilePath)
@@ -99,11 +99,11 @@ userCommandParser =
                        ("List all available addresses from wallet " <>
                         "and information about them."))) <>
          command
-              "list-alloc"
-              (info
+             "list-alloc"
+             (info
                   (pure ListAllocations)
-                  (progDesc "List all multisignature address allocations you need to confirm")
-              ) <>
+                  (progDesc
+                       "List all multisignature address allocations you need to confirm")) <>
          command
              "update"
              (info
@@ -114,19 +114,21 @@ userCommandParser =
              (info formTransactionOpts (progDesc "Form and send transaction.")) <>
          command
              "add-multisig"
-             (info addMultisigOpts (progDesc "Create multisignature address allocation")) <>
+             (info
+                  addMultisigOpts
+                  (progDesc "Create multisignature address allocation")) <>
          command
-              "confirm"
-              (info
+             "confirm"
+             (info
                   confirmOpts
-                  (progDesc "Confirm MS address allocation from `rscoin-user list-alloc`")
-              ) <>
+                  (progDesc
+                       "Confirm MS address allocation from `rscoin-user list-alloc`")) <>
          command
-              "import-address"
-              (info
+             "import-address"
+             (info
                   importAddressOpts
-                  (progDesc "Import address to storage given a (secretKey,publicKey) pair")
-              ) <>
+                  (progDesc
+                       "Import address to storage given a (secretKey,publicKey) pair")) <>
          command
              "dump-blocks"
              (info
@@ -221,8 +223,8 @@ userCommandParser =
                        auto
                        (metavar "INDEX" <> help "Index of address to dump"))
                   (progDesc "Dump address with given index.")) <>
-        command
-            "sign-seed"
+         command
+             "sign-seed"
              (info signSeedOpts (progDesc "Sign seed with key.")))
   where
     formTransactionOpts =
@@ -249,44 +251,43 @@ userCommandParser =
         <*>
         pure Nothing
     addMultisigOpts =
-        AddMultisigAddress
-        <$>
-        option auto
-            (short 'm' <> help "Number m from m/n")
-        <*>
-        many (strOption $
-            long "uaddr" <> help "User party Addresses that would own this MS address")
-        <*>
-        many (strOption $
-            long "taddr" <> help "Trust party Addresses that would own this MS address")
-        <*>
-        optional (strOption $
-            long "ms-addr" <> help "New multisignature address")
+        AddMultisigAddress <$>
+        option auto (short 'm' <> help "Number m from m/n") <*>
+        many
+            (strOption $
+             long "uaddr" <>
+             help "User party Addresses that would own this MS address") <*>
+        many
+            (strOption $
+             long "taddr" <>
+             help "Trust party Addresses that would own this MS address") <*>
+        optional
+            (strOption $ long "ms-addr" <> help "New multisignature address")
     confirmOpts =
-        ConfirmAllocation
-        <$>
-        option auto
-            (short 'n' <> help "Index starting from 1 in `list-alloc`")
+        ConfirmAllocation <$>
+        option auto (short 'n' <> help "Index starting from 1 in `list-alloc`")
     importAddressOpts =
-        ImportAddress
-        <$>
-        (strOption $ long "skPath" <> help "Path to file with binary-encoded secret key")
-        <*>
-        (strOption $ long "pkPath" <> help "Path to file with base64-encoded public key")
-        <*>
-        (option auto $ long "queryFrom" <> help "Height to query blockchain from" <> value 0)
-        <*>
-        (option (Just <$> auto) (long "queryTo" <>
-                                 help "Height to query blockchain to, default maxheight" <>
-                                 value Nothing))
-    signSeedOpts =
-        SignSeed
-        <$>
+        ImportAddress <$>
+        (optional $
+         strOption $
+         long "skPath" <> help "Path to file with binary-encoded secret key" <>
+         metavar "PATH TO KEY") <*>
         (strOption $
-            long "seed" <> help "Seed to sign")
-        <*>
-        optional (strOption $
-            short 'k' <> long "secret-key" <> help "Path to secret key" <>
+         long "pkPath" <> help "Path to file with base64-encoded public key" <>
+         metavar "PATH TO KEY") <*>
+        (option auto $
+         long "queryFrom" <> help "Height to query blockchain from" <> value 0 <>
+         metavar "INT") <*>
+        (optional $
+         option auto $
+         long "queryTo" <>
+         help "Height to query blockchain to, default maxheight" <>
+         metavar "INT")
+    signSeedOpts =
+        SignSeed <$> (strOption $ long "seed" <> help "Seed to sign") <*>
+        optional
+            (strOption $
+             short 'k' <> long "secret-key" <> help "Path to secret key" <>
              metavar "PATH TO KEY")
 
 userOptionsParser :: FilePath -> FilePath -> FilePath -> Parser UserOptions

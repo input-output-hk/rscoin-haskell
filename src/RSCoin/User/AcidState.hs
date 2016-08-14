@@ -36,24 +36,25 @@ module RSCoin.User.AcidState
        , InitWallet (..)
        ) where
 
-import           Control.Exception   (throw, throwIO)
-import           Control.Lens        ((^.))
-import           Control.Monad       (replicateM, unless)
-import           Control.Monad.Catch (MonadThrow, throwM)
-import           Control.Monad.Trans (liftIO)
-import           Data.Acid           (makeAcidic)
-import qualified Data.Acid           as A
-import           Data.Acid.Memory    as AM
-import           Data.Map            (Map)
-import           Data.SafeCopy       (base, deriveSafeCopy)
+import           Control.Exception    (throw, throwIO)
+import           Control.Lens         ((^.))
+import           Control.Monad        (replicateM, unless)
+import           Control.Monad.Catch  (MonadThrow, throwM)
+import           Control.Monad.Trans  (liftIO)
+import           Data.Acid            (makeAcidic)
+import qualified Data.Acid            as A
+import           Data.Acid.Memory     as AM
+import           Data.Map             (Map)
+import           Data.SafeCopy        (base, deriveSafeCopy)
 
-import qualified RSCoin.Core         as C
-import           RSCoin.Core.Crypto  (keyGen)
-import           RSCoin.Core.Strategy(AllocationInfo, MSAddress)
-import           RSCoin.Timed        (MonadRpc (getNodeContext), WorkMode)
-import           RSCoin.User.Logic   (getBlockchainHeight)
-import           RSCoin.User.Wallet  (TxHStatus, TxHistoryRecord, WalletStorage)
-import qualified RSCoin.User.Wallet  as W
+import qualified RSCoin.Core          as C
+import           RSCoin.Core.Crypto   (keyGen)
+import           RSCoin.Core.Strategy (AllocationInfo, MSAddress)
+import           RSCoin.Timed         (MonadRpc (getNodeContext), WorkMode)
+import           RSCoin.User.Logic    (getBlockchainHeight)
+import           RSCoin.User.Wallet   (TxHStatus, TxHistoryRecord,
+                                       WalletStorage)
+import qualified RSCoin.User.Wallet   as W
 
 $(deriveSafeCopy 0 'base ''TxHStatus)
 $(deriveSafeCopy 0 'base ''TxHistoryRecord)
@@ -111,7 +112,7 @@ getAllocationByIndex = W.getAllocationByIndex
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
-addAddress :: (C.Address,C.SecretKey) -> [C.Transaction] -> C.PeriodId -> A.Update WalletStorage ()
+addAddress :: (C.Address,Maybe C.SecretKey) -> [C.Transaction] -> C.PeriodId -> A.Update WalletStorage ()
 updateAllocationStrategies :: Map MSAddress AllocationInfo -> A.Update WalletStorage ()
 initWallet :: [(C.SecretKey,C.PublicKey)] -> Maybe Int -> A.Update WalletStorage ()
 

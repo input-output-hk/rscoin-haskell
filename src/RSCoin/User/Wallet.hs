@@ -46,6 +46,7 @@ import           Control.Lens               ((%=), (.=), (<>=), (^.))
 import qualified Control.Lens               as L
 import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
+import           Control.Monad.Extra        (whenJust)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import           Data.Bifunctor             (first, second)
@@ -268,7 +269,7 @@ resolveAddressLocally addrid =
     \addridMap ->
          find
              (\k -> case M.lookup k addridMap of
-                        Nothing -> False
+                        Nothing   -> False
                         Just list -> addrid `elem` (map snd list)) $
          M.keys addridMap
 
@@ -474,9 +475,13 @@ withBlockchainUpdate newHeight C.HBlock{..} =
 -- | Puts given address and it's related transactions (that contain it
 -- as output S_{out}) into wallet. Blockchain won't be queried.
 -- Strategy assigned is default.
-addAddress :: (C.Address,SecretKey) -> [Transaction] -> PeriodId -> ExceptUpdate ()
-addAddress addressPair@(address,sk) txs periodId = do
-    unless (uncurry validateKeyPair addressPair) $
+addAddress :: (C.Address, Maybe SecretKey)
+           -> [Transaction]
+           -> PeriodId
+           -> ExceptUpdate ()
+addAddress (address,skMaybe) txs periodId = do
+    whenJust skMaybe $ \sk ->
+        unless (validateKeyPair address sk) $
         throwM $
         BadRequest $
         sformat
@@ -489,13 +494,13 @@ addAddress addressPair@(address,sk) txs periodId = do
         throwM $
         BadRequest $
         sformat
-            ("Error while adding address ("%build%","%build%") to storage: "%
+            ("Error while adding address "%build%" to storage: "%
              int%" transactions dosn't " %
              "contain it (address) as output. First bad transaction: "%build)
-            address sk (length mappedTxs) (head mappedTxs)
+            address (length mappedTxs) (head mappedTxs)
     historyTxs <>=
         S.fromList (map (\tx -> TxHistoryRecord tx periodId TxHConfirmed) txs)
-    ownedAddresses %= M.insert address (Just sk)
+    ownedAddresses %= M.insert address skMaybe
     userTxAddrids <>=
         M.singleton
             address
@@ -517,4 +522,4 @@ initWallet addrs startHeight = do
     let newHeight = startHeight <|> Just (-1)
     lastBlockId .= newHeight
     forM_ (map (first Address . swap) addrs) $ \p ->
-        addAddress p [] $ fromJust newHeight
+        addAddress (second Just p) [] $ fromJust newHeight

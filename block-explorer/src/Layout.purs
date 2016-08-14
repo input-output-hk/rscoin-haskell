@@ -1,49 +1,49 @@
 module App.Layout where
 
-import Prelude                     (($), map, (<<<), const, pure, bind,
-                                    (==), flip, (<>), (/=), otherwise)
+import Prelude                        (($), map, (<<<), pure, bind,
+                                       (==), flip, (<>), (/=), otherwise)
 
-import App.Routes                  (Route (..), addressUrl, homeUrl, txUrl, match) as R
-import App.Connection              (Action (..), WEBSOCKET,
-                                    introMessage, send) as C
-import App.Types                   (Address (..), IntroductoryMsg (..),
-                                    AddressInfoMsg (..),
-                                    TransactionSummarySerializable (..),
-                                    OutcomingMsg (..),
-                                    Action (..), State, SearchQuery (..),
-                                    PublicKey (..), ServerError (..), Hash (..))
-import App.View.Address            (view) as Address
-import App.View.NotFound           (view) as NotFound
-import App.View.Transaction        (view) as Transaction
+import App.Routes                     (Route (..), addressUrl, txUrl, match) as R
+import App.Connection                 (Action (..), WEBSOCKET,
+                                       introMessage, send) as C
+import App.Types                      (Address (..), IntroductoryMsg (..),
+                                       AddressInfoMsg (..),
+                                       TransactionSummarySerializable (..),
+                                       OutcomingMsg (..),
+                                       Action (..), State, SearchQuery (..),
+                                       PublicKey (..), ServerError (..), Hash (..))
+import App.View.Address               (view) as Address
+import App.View.NotFound              (view) as NotFound
+import App.View.Transaction           (view) as Transaction
+import App.View.Header                (view) as Header
+import App.View.Alert                 (view) as Alert
 
-import Data.Maybe                  (Maybe(Nothing, Just), maybe, fromJust,
-                                    isNothing, isJust)
+import Serokell.Pux.Themes.Bootstrap3 (bootstrapCss)
 
-import Data.Tuple                  (Tuple (..), snd)
-import Data.Either                 (fromRight)
-import Data.Generic                (gShow)
-import Data.Array                  (filter, head)
-import Debug.Trace                 (traceAny)
+import Data.Maybe                     (Maybe(Nothing, Just), maybe, fromJust,
+                                       isNothing, isJust)
 
-import Pux                         (EffModel, noEffects, onlyEffects)
-import Pux.Html                    (Html, div, text, strong, span, button,
-                                    input, a, li, ul, nav, link)
+import Data.Tuple                     (Tuple (..), snd)
+import Data.Either                    (fromRight)
+import Data.Generic                   (gShow)
+import Data.Array                     (filter, head)
+import Debug.Trace                    (traceAny)
 
-import Pux.Router                  (navigateTo, link) as R
-import Pux.Html.Attributes         (className, aria, data_, type_, role,
-                                    placeholder, value, href, rel)
+import Pux                            (EffModel, noEffects, onlyEffects)
+import Pux.Html                       (Html, div)
 
-import Pux.Html.Events             (onChange, onClick, onKeyDown)
+import Pux.Router                     (navigateTo) as R
+import Pux.Html.Attributes            (className)
 
-import Control.Apply               ((*>))
-import Control.Alternative         ((<|>))
-import Control.Applicative         (when, unless)
+import Control.Apply                  ((*>))
+import Control.Alternative            ((<|>))
+import Control.Applicative            (when, unless)
 
-import DOM                         (DOM)
-import Control.Monad.Eff.Console   (CONSOLE)
-import Control.Monad.Eff.Class     (liftEff)
+import DOM                            (DOM)
+import Control.Monad.Eff.Console      (CONSOLE)
+import Control.Monad.Eff.Class        (liftEff)
 
-import Partial.Unsafe              (unsafePartial)
+import Partial.Unsafe                 (unsafePartial)
 
 txNum :: Int
 txNum = 15
@@ -147,106 +147,10 @@ update Nop state = noEffects state
 -- https://github.com/slamdata/purescript-halogen-bootstrap/blob/master/src/Halogen/Themes/Bootstrap3.purs
 view :: State -> Html Action
 view state =
-    div
+    bootstrapCss
         []
-        [ link
-            [ rel "stylesheet"
-            , type_ "text/css"
-            , href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
-            ]
-            []
-            -- TODO: uncoment these scripts if you will be using more advanced
-            -- things from bootstrap that require js
---        , script
---            [ src "https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js" ]
---            []
---        , script
---            [ src "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" ]
---            []
-        , nav
-            [ className "navbar navbar-default" ]
-            [ div
-                [ className "container-fluid" ]
-                [ div
-                    [ className "navbar-header" ]
-                    [ R.link R.homeUrl
-                        [ className "navbar-brand"
-                        ]
-                        [ text "RS | COIN" ]
-                    ]
-                , ul
-                    [ className "nav navbar-nav navbar-right" ]
-                    [ li
-                        [ className "dropdown" ]
-                        [ a
-                            [ className "dropwdown-toggle"
-                            , data_ "target" "#"
-                            , data_ "toggle" "dropdown"
-                            , aria "haspopup" "true"
-                            , aria "expanded" "false"
-                            ]
-                            [ text "English"
-                            , span
-                                [ className "caret" ]
-                                []
-                            ]
-                        , ul
-                            [ className "dropdown-menu" ]
-                            [ li
-                                []
-                                [ a
-                                    [ data_ "target" "#" ]
-                                    [ text "English" ]
-                                ]
-                            ]
-                        ]
-                    ]
-                , div
-                    [ className "col-xs-6 navbar-form navbar-right" ]
-                    [ div
-                        [ className "input-group" ]
-                        [ input
-                            [ type_ "text"
-                            , value state.searchQuery
-                            , onChange $ SearchQueryChange <<< _.value <<< _.target
-                            , onKeyDown $ \e -> if e.keyCode == 13 then SearchButton else Nop
-                            , className "form-control"
-                            , placeholder "Address / Transaction"
-                            ] []
-                        , span
-                            [ className "input-group-btn" ]
-                            [ button
-                                [ onClick $ const SearchButton
-                                , className "btn btn-danger"
-                                ] [ text "Search" ]
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-        , case state.error of
-            Just e ->
-                div
-                    [ className "alert alert-danger alert-dismissible"
-                    , role "alert"
-                    ]
-                    [ button
-                        [ type_ "button"
-                        , className "close"
-                        , data_ "dismiss" "alert"
-                        , aria "label" "Close"
-                        , onClick $ const DismissError
-                        ]
-                        [ span
-                            [ aria "hidden" "true" ]
-                            [ text "×" ]
-                        ]
-                    , strong
-                        []
-                        [ text "Error! " ]
-                    , text e
-                    ]
-            Nothing -> div [] []
+        [ Header.view state
+        , Alert.view state
         , div
             [ className "container-fluid" ]
             [ case state.route of

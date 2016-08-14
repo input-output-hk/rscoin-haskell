@@ -7,10 +7,12 @@
 module RSCoin.Bank.Launcher
        ( launchBankReal
        , launchBank
-       , addMintetteIO
        , addMintetteInPlace
-       , addExplorerIO
        , addExplorerInPlace
+       , addMintetteReq
+       , addExplorerReq
+       , removeMintetteReq
+       , removeExplorerReq
        ) where
 
 import           Control.Monad             (when)
@@ -25,9 +27,10 @@ import           Formatting                (int, sformat, (%))
 
 import           RSCoin.Core               (Explorer, Mintette, PeriodId,
                                             PublicKey, SecretKey, sign)
-import           RSCoin.Core.Communication (addExplorerAdhoc, addMintetteAdhoc,
-                                            getBlockchainHeight,
-                                            getMintettePeriod)
+import           RSCoin.Core.Communication (getBlockchainHeight,
+                                            getMintettePeriod,
+                                            sendBankLocalControlRequest)
+import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 import           RSCoin.Timed              (MsgPackRpc, WorkMode, fork, fork_,
                                             killThread, runRealModeBank)
 
@@ -74,10 +77,32 @@ launchBank periodDelta bankSk storagePath st = do
     fork_ $ runExplorerWorker periodDelta mainIsBusy bankSk st
     serve st workerThread restartWorker
 
+-- | Adds mintette directly into bank's state
+addMintetteInPlace :: Maybe FilePath
+                   -> SecretKey
+                   -> FilePath
+                   -> Mintette
+                   -> PublicKey
+                   -> IO ()
+addMintetteInPlace confPath bankSk storagePath m k =
+    bankWrapperReal bankSk storagePath confPath $
+    flip update' (AddMintette m k)
+
+-- | Add explorer to Bank inside IO Monad.
+addExplorerInPlace :: Maybe FilePath
+                   -> SecretKey
+                   -> FilePath
+                   -> Explorer
+                   -> PeriodId
+                   -> IO ()
+addExplorerInPlace confPath bankSk storagePath e pId =
+    bankWrapperReal bankSk storagePath confPath $
+    flip update' (AddExplorer e pId)
+
 -- | Add mintette to Bank (send a request signed with bank's sk)
 -- Also pings minttete to check that it's compatible
-addMintetteIO :: Maybe FilePath -> SecretKey -> Mintette -> PublicKey -> IO ()
-addMintetteIO confPath bankSk m k = do
+addMintetteReq :: Maybe FilePath -> SecretKey -> Mintette -> PublicKey -> IO ()
+addMintetteReq confPath bankSk m k = do
     let proof = sign bankSk (m, k)
     runRealModeBank confPath bankSk $ do
         bankPid <- getBlockchainHeight
@@ -93,32 +118,27 @@ addMintetteIO confPath bankSk m k = do
                      ". Check out, maybe mintette's state" %
                      " is old & incosistent.")
             mPid bankPid
-        addMintetteAdhoc m k proof
-
--- | Adds mintette directly into bank's state
-addMintetteInPlace :: Maybe FilePath
-                   -> SecretKey
-                   -> FilePath
-                   -> Mintette
-                   -> PublicKey
-                   -> IO ()
-addMintetteInPlace confPath bankSk storagePath m k =
-    bankWrapperReal bankSk storagePath confPath $
-    flip update' (AddMintette m k)
+        sendBankLocalControlRequest $ P.AddMintette m k proof
 
 -- | Add explorer to Bank inside IO Monad.
-addExplorerIO :: Maybe FilePath -> SecretKey -> Explorer -> PeriodId -> IO ()
-addExplorerIO confPath bankSk e pId = do
+addExplorerReq :: Maybe FilePath -> SecretKey -> Explorer -> PeriodId -> IO ()
+addExplorerReq confPath bankSk e pId = do
     let proof = sign bankSk (e, pId)
-    runRealModeBank confPath bankSk $ addExplorerAdhoc e pId proof
+    runRealModeBank confPath bankSk $
+        sendBankLocalControlRequest $ P.AddExplorer e pId proof
 
--- | Add explorer to Bank inside IO Monad.
-addExplorerInPlace :: Maybe FilePath
-                   -> SecretKey
-                   -> FilePath
-                   -> Explorer
-                   -> PeriodId
-                   -> IO ()
-addExplorerInPlace confPath bankSk storagePath e pId =
-    bankWrapperReal bankSk storagePath confPath $
-    flip update' (AddExplorer e pId)
+-- | Sends a request to remove mintette
+removeMintetteReq :: Maybe FilePath -> SecretKey -> String -> Int -> IO ()
+removeMintetteReq confPath bankSk mintetteHost mintettePort = do
+    let proof = sign bankSk (mintetteHost, mintettePort)
+    runRealModeBank confPath bankSk $
+        sendBankLocalControlRequest $
+        P.RemoveMintette mintetteHost mintettePort proof
+
+-- | Sends a request to remove explorer
+removeExplorerReq :: Maybe FilePath -> SecretKey -> String -> Int -> IO ()
+removeExplorerReq confPath bankSk mintetteHost mintettePort = do
+    let proof = sign bankSk (mintetteHost, mintettePort)
+    runRealModeBank confPath bankSk $
+        sendBankLocalControlRequest $
+        P.RemoveExplorer mintetteHost mintettePort proof

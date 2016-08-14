@@ -2,21 +2,22 @@
 
 module RSCoin.Core.MessagePack  () where
 
-import           Data.Bifunctor         (bimap)
-import           Data.Binary            (decodeOrFail, encode)
-import qualified Data.ByteString.Lazy   as BSL
-import           Data.Int               (Int64)
-import           Data.MessagePack       (MessagePack (fromObject, toObject), Object (ObjectBin, ObjectExt, ObjectInt),
-                                         pack, unpack)
-import           Data.Ratio             (Ratio, denominator, numerator, (%))
-import           Data.Tuple.Curry       (uncurryN)
-import           Data.Tuple.Select      (sel3)
+import           Data.Bifunctor             (bimap)
+import           Data.Binary                (decodeOrFail, encode)
+import qualified Data.ByteString.Lazy       as BSL
+import           Data.Int                   (Int64)
+import           Data.MessagePack           (MessagePack (fromObject, toObject), Object (ObjectBin, ObjectExt, ObjectInt),
+                                             pack, unpack)
+import           Data.Ratio                 (Ratio, denominator, numerator, (%))
+import           Data.Tuple.Curry           (uncurryN)
+import           Data.Tuple.Select          (sel3)
 
-import qualified Data.Set               as S
-import           RSCoin.Core.Crypto     ()
-import qualified RSCoin.Core.Primitives as C
-import qualified RSCoin.Core.Strategy   as C
-import qualified RSCoin.Core.Types      as C
+import qualified Data.Set                   as S
+import           RSCoin.Core.Crypto         ()
+import qualified RSCoin.Core.Primitives     as C
+import qualified RSCoin.Core.Protocol.Types as C
+import qualified RSCoin.Core.Strategy       as C
+import qualified RSCoin.Core.Types          as C
 
 toInt :: Integral a => a -> Int
 toInt = fromIntegral
@@ -56,11 +57,11 @@ instance (Integral a, MessagePack a) => MessagePack (Ratio a) where
     fromObject = fmap (uncurry (%)) . fromObject
 
 instance (MessagePack a, MessagePack b) => MessagePack (Either a b) where
-    toObject (Left a) = ObjectExt 0 $ BSL.toStrict $ pack a
+    toObject (Left a)  = ObjectExt 0 $ BSL.toStrict $ pack a
     toObject (Right b) = ObjectExt 1 $ BSL.toStrict $ pack b
     fromObject (ObjectExt 0 a) = Left <$> unpack (BSL.fromStrict a)
     fromObject (ObjectExt 1 b) = Right <$> unpack (BSL.fromStrict b)
-    fromObject _ = Nothing
+    fromObject _               = Nothing
 
 instance MessagePack C.Coin where
     toObject (C.Coin c t) = toObject (C.getC c, C.getAmount t)
@@ -161,8 +162,8 @@ toObj
 toObj = toObject
 
 instance MessagePack C.ActionLogEntry where
-    toObject (C.QueryEntry tx) = toObj (0, tx)
-    toObject (C.CommitEntry tx cc) = toObj (1, (tx, cc))
+    toObject (C.QueryEntry tx)         = toObj (0, tx)
+    toObject (C.CommitEntry tx cc)     = toObj (1, (tx, cc))
     toObject (C.CloseEpochEntry heads) = toObj (2, heads)
     fromObject obj = do
         (i,payload) <- fromObject obj
@@ -170,4 +171,18 @@ instance MessagePack C.ActionLogEntry where
             0 -> C.QueryEntry <$> fromObject payload
             1 -> uncurry2 C.CommitEntry <$> fromObject payload
             2 -> C.CloseEpochEntry <$> fromObject payload
+            _ -> Nothing
+
+instance MessagePack C.BankLocalControlRequest where
+    toObject (C.AddMintette m pk sig)         = toObj (0, (m,pk,sig))
+    toObject (C.AddExplorer e pid sig)        = toObj (1, (e,pid,sig))
+    toObject (C.RemoveMintette host port sig) = toObj (2, (host,port,sig))
+    toObject (C.RemoveExplorer host port sig) = toObj (3, (host,port,sig))
+    fromObject obj = do
+        (i,payload) <- fromObject obj
+        case (i :: Int) of
+            0 -> uncurry3 C.AddMintette <$> fromObject payload
+            1 -> uncurry3 C.AddExplorer <$> fromObject payload
+            2 -> uncurry3 C.RemoveMintette <$> fromObject payload
+            3 -> uncurry3 C.RemoveExplorer <$> fromObject payload
             _ -> Nothing

@@ -14,8 +14,7 @@ module RSCoin.Core.Communication
        , getTransactionById
        , getGenesisBlock
        , finishPeriod
-       , addMintetteAdhoc
-       , addExplorerAdhoc
+       , sendBankLocalControlRequest
        , checkNotDoubleSpent
        , commitTx
        , getMintettePeriod
@@ -59,8 +58,8 @@ import           Serokell.Util.Text         (listBuilderJSONIndent, mapBuilder,
 import           RSCoin.Core.Crypto         (PublicKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
-import qualified RSCoin.Core.Logging        as L
 import           RSCoin.Core.Logging        (WithNamedLogger (..))
+import qualified RSCoin.Core.Logging        as L
 import           RSCoin.Core.Primitives     (AddrId, Address, EmissionId,
                                              Transaction, TransactionId)
 import qualified RSCoin.Core.Protocol       as P
@@ -92,8 +91,8 @@ instance Exception CommunicationError where
 
 instance B.Buildable CommunicationError where
     build (ProtocolError t) = "internal error: " <> B.build t
-    build (TimeoutError t) = "timeout error: " <> B.build t
-    build (MethodError t) = "method error: " <> B.build t
+    build (TimeoutError t)  = "timeout error: " <> B.build t
+    build (MethodError t)   = "method error: " <> B.build t
 
 rpcErrorHandler :: (MonadIO m, WithNamedLogger m) => MP.RpcError -> m a
 rpcErrorHandler = liftIO . log' . fromError
@@ -101,9 +100,9 @@ rpcErrorHandler = liftIO . log' . fromError
     log' (e :: CommunicationError) = do
         L.logError $ show' e
         throwM e
-    fromError (MP.ProtocolError s) = ProtocolError $ pack s
+    fromError (MP.ProtocolError s)   = ProtocolError $ pack s
     fromError (MP.ResultTypeError s) = ProtocolError $ pack s
-    fromError (MP.ServerError obj) = MethodError $ pack $ show obj
+    fromError (MP.ServerError obj)   = MethodError $ pack $ show obj
 
 monadTimedHandler :: (MonadTimed m, MonadIO m, WithNamedLogger m) => MonadTimedError -> m a
 monadTimedHandler = log' . fromError
@@ -197,21 +196,28 @@ finishPeriod currentPeriodSignature =
         (const $ L.logDebug "Successfully finished period") $
     callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
 
-addMintetteAdhoc :: WorkMode m => Mintette -> PublicKey -> Signature -> m ()
-addMintetteAdhoc mintette pk proof =
+sendBankLocalControlRequest :: WorkMode m => P.BankLocalControlRequest -> m ()
+sendBankLocalControlRequest request =
     withResult
-        (L.logInfo $ sformat ("Sending req to add mintette " % build % ", pk " % build)
-                           mintette pk)
-        (const $ L.logDebug "Request sent successfully") $
-        callBank $ P.call (P.RSCBank P.AddMintetteAdhoc) mintette pk proof
+        (L.logInfo $ sformat ("Sending control request to bank: " % build) request)
+        (const $ L.logDebug "Sent control request successfully") $
+         callBank $ P.call (P.RSCBank P.LocalControlRequest) request
 
-addExplorerAdhoc :: WorkMode m => Explorer -> PeriodId -> Signature -> m ()
-addExplorerAdhoc explorer pId proof =
-    withResult
-        (L.logInfo $ sformat ("Sending req to add explorer " % build % ", pid " % int)
-                           explorer pId)
-        (const $ L.logDebug "Request sent successfully") $
-        callBank $ P.call (P.RSCBank P.AddExplorerAdhoc) explorer pId proof
+--addMintetteAdhoc :: WorkMode m => Mintette -> PublicKey -> Signature -> m ()
+--addMintetteAdhoc mintette pk proof =
+--    withResult
+--        (L.logInfo $ sformat ("Sending req to add mintette " % build % ", pk " % build)
+--                           mintette pk)
+--        (const $ L.logDebug "Request sent successfully") $
+--        callBank $ P.call (P.RSCBank P.AddMintetteAdhoc) mintette pk proof
+--
+--addExplorerAdhoc :: WorkMode m => Explorer -> PeriodId -> Signature -> m ()
+--addExplorerAdhoc explorer pId proof =
+--    withResult
+--        (L.logInfo $ sformat ("Sending req to add explorer " % build % ", pid " % int)
+--                           explorer pId)
+--        (const $ L.logDebug "Request sent successfully") $
+--        callBank $ P.call (P.RSCBank P.AddExplorerAdhoc) explorer pId proof
 
 checkNotDoubleSpent
     :: WorkMode m

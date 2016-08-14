@@ -26,7 +26,7 @@ import           Bench.RSCoin.FilePathUtils (benchConfPath, dbFormatPath)
 
 addMintette :: FilePath -> Int -> PublicKey -> IO ()
 addMintette confPath mintetteId =
-    B.addMintetteIO (Just confPath) testBankSecretKey mintette
+    B.addMintetteReq (Just confPath) testBankSecretKey mintette
   where
     mintette = Mintette localhost (defaultPort + mintetteId)
 

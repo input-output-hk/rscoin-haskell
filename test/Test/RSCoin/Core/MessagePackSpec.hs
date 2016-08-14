@@ -129,6 +129,8 @@ spec =
                 \(a :: MintetteError) -> a === mid a
             prop "NotaryError" $
                 \(a :: NotaryError) -> a === mid a
+            prop "BankLocalControlRequest" $
+                \(a :: C.BankLocalControlRequest) -> a === mid a
 
 mid :: MessagePack a => a -> a
 mid = fromJust . unpack . pack

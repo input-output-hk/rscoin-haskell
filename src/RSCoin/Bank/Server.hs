@@ -31,18 +31,21 @@ import           RSCoin.Bank.AcidState          (AddExplorer (..),
                                                  GetHBlock (..), GetLogs (..),
                                                  GetMintettes (..),
                                                  GetPeriodId (..),
-                                                 GetTransaction (..), State)
+                                                 GetTransaction (..),
+                                                 RemoveExplorer (..),
+                                                 RemoveMintette (..), State)
 import           RSCoin.Bank.Error              (BankError (BEInconsistentResponse))
 import           RSCoin.Core                    (ActionLog,
                                                  AddressToTxStrategyMap,
-                                                 Explorer, Explorers, HBlock,
-                                                 Mintette, MintetteId,
+                                                 Explorers, HBlock, MintetteId,
                                                  Mintettes, PeriodId, PublicKey,
                                                  Signature, Transaction,
                                                  TransactionId, logDebug,
                                                  logError, logInfo, verify)
 import qualified RSCoin.Core.NodeConfig         as NC
 import qualified RSCoin.Core.Protocol           as C
+import qualified RSCoin.Core.Protocol.Types     as PT (BankLocalControlRequest (..),
+                                                       checkLocalControlRequest)
 import qualified RSCoin.Timed                   as T
 
 serve
@@ -58,9 +61,8 @@ serve st workerThread restartWorkerAction = do
     idr6 <- T.serverTypeRestriction3
     idr7 <- T.serverTypeRestriction0
     idr8 <- T.serverTypeRestriction0
-    idr9 <- T.serverTypeRestriction3
-    idr10 <- T.serverTypeRestriction3
-    idr11 <- T.serverTypeRestriction1
+    idr9 <- T.serverTypeRestriction1
+    idr10 <- T.serverTypeRestriction1
 
     nodeCtx <- T.getNodeContext
     let bankPublicKey = nodeCtx ^. NC.bankPublicKey
@@ -77,12 +79,10 @@ serve st workerThread restartWorkerAction = do
         , C.method (C.RSCDump C.GetLogs) $ idr6 $ serveGetLogs st
         , C.method (C.RSCBank C.GetAddresses) $ idr7 $ serveGetAddresses st
         , C.method (C.RSCBank C.GetExplorers) $ idr8 $ serveGetExplorers st
-        , C.method (C.RSCBank C.AddMintetteAdhoc) $
-          idr9 $ serveAddMintetteAdhoc st bankPublicKey
-        , C.method (C.RSCBank C.AddExplorerAdhoc) $
-          idr10 $ serveAddExplorerAdhoc st bankPublicKey
+        , C.method (C.RSCBank C.LocalControlRequest) $
+          idr9 $ serveLocalControlRequest st bankPublicKey
         , C.method (C.RSCBank C.GetHBlockEmission) $
-          idr11 $ serveGetHBlockEmission st]
+          idr10 $ serveGetHBlockEmission st]
 
 toServer :: T.WorkMode m => m a -> T.ServerT m a
 toServer action = lift $ action `catch` handler
@@ -179,45 +179,56 @@ serveFinishPeriod st threadIdMVar restartAction bankPublicKey periodIdSignature 
                 sformat ("Incorrect signature for periodId=" % int) currentPeriodId
             return workerThreadId
 
-serveAddMintetteAdhoc
+serveLocalControlRequest
     :: T.WorkMode m
     => State
     -> PublicKey
-    -> Mintette
-    -> PublicKey
-    -> Signature
+    -> PT.BankLocalControlRequest
     -> T.ServerT m ()
-serveAddMintetteAdhoc st bankPublicKey mintette pk proof =
-    toServer $
-    do logInfo $
-           sformat ("Adding mintette: " % build % " with pk " % build)
-                   mintette pk
-       if verify bankPublicKey proof (mintette,pk)
-       then update' st (AddMintette mintette pk)
-       else logError $
-                sformat ("Tried to add mintette " % build %
-                         " with pk " % build % " with *failed* signature")
-                        mintette pk
+serveLocalControlRequest st bankPublicKey controlRequest
+  | PT.checkLocalControlRequest bankPublicKey controlRequest =
+      toServer $
+      throwM $
+      BEInconsistentResponse $
+      sformat
+          ("Tried to execute control request " % build %
+           " with *invalid* signature")
+          controlRequest
+  | otherwise = do
+      logInfo $ sformat ("Executing control request: " % build) controlRequest
+      case controlRequest of
+          PT.AddMintette m pk _         -> update' st (AddMintette m pk)
+          PT.AddExplorer e pid _        -> update' st (AddExplorer e pid)
+          PT.RemoveMintette host port _ -> update' st (RemoveMintette host port)
+          PT.RemoveExplorer host port _ -> update' st (RemoveExplorer host port)
+      logInfo $
+          sformat
+              ("Control request " % build % " executed successfully")
+              controlRequest
 
-serveAddExplorerAdhoc
-    :: T.WorkMode m
-    => State
-    -> PublicKey
-    -> Explorer
-    -> PeriodId
-    -> Signature
-    -> T.ServerT m ()
-serveAddExplorerAdhoc st bankPublicKey explorer pId proof =
-    toServer $
-    do logInfo $
-           sformat ("Adding explorer " % build % " with pid " % int)
-                   explorer pId
-       if verify bankPublicKey proof (explorer, pId)
-       then update' st (AddExplorer explorer pId)
-       else logError $
-                sformat ("Tried to add explorer " % build %
-                         " with pid" % int % " with *failed* signature")
-                        explorer pId
+--serveAddMintetteAdhoc st bankPublicKey mintette pk proof =
+--    toServer $
+--    do logInfo $
+--           sformat ("Adding mintette: " % build % " with pk " % build)
+--                   mintette pk
+--       if verify bankPublicKey proof (mintette,pk)
+--       then update' st (AddMintette mintette pk)
+--       else logError $
+--                sformat ("Tried to add mintette " % build %
+--                         " with pk " % build % " with *failed* signature")
+--                        mintette pk
+--
+--erveAddExplorerAdhoc st bankPublicKey explorer pId proof =
+--    toServer $
+--    do logInfo $
+--           sformat ("Adding explorer " % build % " with pid " % int)
+--                   explorer pId
+--       if verify bankPublicKey proof (explorer, pId)
+--       then update' st (AddExplorer explorer pId)
+--       else logError $
+--                sformat ("Tried to add explorer " % build %
+--                         " with pid" % int % " with *failed* signature")
+--                        explorer pId
 
 
 -- Dumping Bank state

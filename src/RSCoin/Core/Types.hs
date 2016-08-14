@@ -179,8 +179,8 @@ putByte :: Word8 -> Put
 putByte = put
 
 instance Binary ActionLogEntry where
-    put (QueryEntry tr) = putByte 0 >> put tr
-    put (CommitEntry tr cc) = putByte 1 >> put (tr, cc)
+    put (QueryEntry tr)         = putByte 0 >> put tr
+    put (CommitEntry tr cc)     = putByte 1 >> put (tr, cc)
     put (CloseEpochEntry heads) = putByte 2 >> put heads
     get = do
         t <- get :: Get Word8

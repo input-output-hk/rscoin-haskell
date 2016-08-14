@@ -86,6 +86,8 @@ library
                      , RSCoin.Core.Crypto.Hashing
                      , RSCoin.Core.Crypto.Signing
                      , RSCoin.Core.MessagePack
+                     , RSCoin.Core.Protocol.Types
+                     , RSCoin.Core.Protocol.Methods
                      , RSCoin.Core.Protocol
                      , RSCoin.Explorer.AcidState
                      , RSCoin.Explorer.Channel

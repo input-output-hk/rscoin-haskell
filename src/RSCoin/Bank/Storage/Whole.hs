@@ -28,6 +28,8 @@ module RSCoin.Bank.Storage.Whole
        , addAddress
        , addMintette
        , addExplorer
+       , removeMintette
+       , removeExplorer
        , setExplorerPeriod
        , suspendExplorer
        , restoreExplorers
@@ -39,6 +41,7 @@ import           Control.Lens                  (Getter, makeLenses, to, use,
                                                 (^.))
 import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (MonadThrow (throwM))
+import           Control.Monad.Extra           (whenJust)
 import           Control.Monad.State           (MonadState, execState, runState)
 import           Data.Bifunctor                (first)
 import           Data.Foldable                 (foldl')
@@ -206,6 +209,20 @@ addExplorer :: C.Explorer -> C.PeriodId -> Update ()
 addExplorer e expectedPid =
     explorersStorage %= execState (ES.addExplorer e expectedPid)
 
+-- | Given host and port, remove mintette from the list of mintettes added
+removeMintette :: String -> Int -> ExceptUpdate ()
+removeMintette h p = do
+    (exc,s') <- uses mintettesStorage $ runState $ MS.removeMintette $ C.Mintette h p
+    whenJust exc throwM
+    mintettesStorage .= s'
+
+-- | Given host and port, remove explorer from the list
+removeExplorer :: String -> Int -> ExceptUpdate ()
+removeExplorer h p = do
+    (exc,s') <- uses explorersStorage $ runState $ ES.removeExplorer h p
+    whenJust exc throwM
+    explorersStorage .= s'
+
 -- | Update expected period id of given explorer. Adds explorer if it
 -- doesn't exist.
 setExplorerPeriod :: C.Explorer -> C.PeriodId -> Update ()
@@ -278,7 +295,8 @@ startNewPeriodDo nodeCtx sk pId results = do
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
         emissionTransaction = allocateCoins nodeCtx keys filteredResults pId
         checkEmission [(tid,_,_)] = return tid
-        checkEmission _ = throwM $ BEInternal "Emission transaction should have one transaction hash"
+        checkEmission _ = throwM $ BEInternal
+            "Emission transaction should have one transaction hash"
         blockTransactions =
             emissionTransaction : mergeTransactions mintettes filteredResults
     emissionTransactionId <- checkEmission $ C.txInputs emissionTransaction
@@ -352,11 +370,11 @@ checkResult expectedPid lastHBlock (r,key,storedLog) = do
     r
   where
     formLogsToCheck = unfoldr step
-    step [] = Nothing
+    step []        = Nothing
     step actionLog = Just (actionLog, dropEpoch actionLog)
     dropEpoch = dropWhile (not . isCloseEpoch) . drop 1
     isCloseEpoch (CloseEpochEntry _,_) = True
-    isCloseEpoch _ = False
+    isCloseEpoch _                     = False
 
 -- | Perform coins allocation based on default allocation strategy
 -- (hardcoded). Given the mintette's public keys it splits reward

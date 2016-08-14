@@ -52,8 +52,8 @@ instance Arbitrary C.LBlock where
 
 instance Arbitrary C.HBlock where
     arbitrary =
-        C.HBlock <$> arbitrary <*> arbitrary <*> arbitrary <*>
-           arbitrary <*> pure M.empty <*> pure M.empty
+        C.HBlock <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*>
+        pure M.empty
 
 instance Arbitrary C.CheckConfirmation where
     arbitrary =

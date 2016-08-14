@@ -36,9 +36,6 @@ uncurry4 = uncurryN
 uncurry5 :: (a -> b -> c -> d -> e -> f) -> (a, b, c, d, e) -> f
 uncurry5 = uncurryN
 
-uncurry6 :: (a -> b -> c -> d -> e -> f -> g) -> (a, b, c, d, e, f) -> g
-uncurry6 = uncurryN
-
 -- msgpack library we use is awful :(
 -- RЕАЛLY IT"S S0 AWFUЛ
 instance MessagePack Int64 where
@@ -111,8 +108,8 @@ instance MessagePack C.CommitAcknowledgment where
 
 instance MessagePack C.HBlock where
     toObject C.HBlock {..} =
-        toObject (hbHash, hbTransactions, hbSignature, hbDpk, hbAddresses, hbColdKeys)
-    fromObject = fmap (uncurry6 C.HBlock) . fromObject
+        toObject (hbHash, hbTransactions, hbSignature, hbDpk, hbAddresses)
+    fromObject = fmap (uncurry5 C.HBlock) . fromObject
 
 instance MessagePack C.TxStrategy where
     toObject C.DefaultStrategy        = toObj (0, ())

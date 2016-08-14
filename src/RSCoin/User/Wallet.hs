@@ -160,28 +160,31 @@ isInitialized = do
 -- address and it's sk itself. In case of MOfNStrategy it's another
 -- keypair of share you own (we assume there can be only one per
 -- wallet).
-findUserAddress :: NodeContext -> Address -> ExceptQuery (Maybe (Address, SecretKey))
+findUserAddress :: NodeContext
+                -> Address
+                -> ExceptQuery (Address, Maybe SecretKey)
 findUserAddress nodeCtx addr = checkInitR $ do
     secretKey <- L.views ownedAddresses (M.lookup addr)
     case secretKey of
         -- we don't own this address
-        Nothing        -> return Nothing
+        Nothing        -> return (addr, Nothing)
         -- we own secret key
-        Just (Just sk) -> return $ Just (addr,sk)
+        Just (Just sk) -> return (addr, Just sk)
         -- we don't own the secret key of this address
         Just Nothing   -> do
             strategy <- fromJust <$> L.views addrStrategies (M.lookup addr)
             case strategy of
                 C.DefaultStrategy -> throwM $ InternalError $
-                    "We have a notion of default strategy dut " <>
+                    "We have a notion of default strategy but " <>
                     "I can't find a correspondent secret key."
                 C.MOfNStrategy _ addrs -> do
                     defaultOwnerAddress <-
                         fromJust .
                         find (`elem` addrs) <$>
                         getOwnedDefaultAddresses nodeCtx
-                    fmap (defaultOwnerAddress,) . fromJust <$>
-                        L.views ownedAddresses (M.lookup defaultOwnerAddress)
+                    L.views ownedAddresses $
+                        (defaultOwnerAddress,) .
+                        fromJust . M.lookup defaultOwnerAddress
 
 -- | Get all available user addresses that have private keys
 getUserAddresses :: ExceptQuery [(Address,SecretKey)]

@@ -83,7 +83,7 @@ closeState :: RSCoinUserState -> IO ()
 closeState = A.closeAcidState
 
 isInitialized :: A.Query WalletStorage Bool
-findUserAddress :: C.NodeContext -> C.Address -> A.Query WalletStorage (Maybe (C.Address, C.SecretKey))
+findUserAddress :: C.NodeContext -> C.Address -> A.Query WalletStorage (C.Address, Maybe C.SecretKey)
 getUserAddresses :: A.Query WalletStorage [(C.Address,C.SecretKey)]
 getOwnedAddresses :: C.NodeContext -> A.Query WalletStorage [C.Address]
 getOwnedDefaultAddresses :: C.NodeContext -> A.Query WalletStorage [C.Address]

@@ -442,8 +442,14 @@ constructAndSignTransaction st TransactionData{..} = do
             M.fromList <$>
             mapM
                 (\(addrid',address') -> do
-                      (pK, sK) <- fromJust <$> query' st (A.FindUserAddress nodeCtx address')
-                      return (addrid', (pK, C.sign sK outTr)))
+                      (pK, sKMaybe) <-
+                          query' st (A.FindUserAddress nodeCtx address')
+                      when (isNothing sKMaybe) $ commitError $
+                          sformat ("The correspondent account " % build %
+                                   " doesn't have a secret key attached in" %
+                                   " the wallet. Its related public component " %
+                                   build) address' pK
+                      return (addrid', (pK, C.sign (fromJust sKMaybe) outTr)))
                 addrPairList
     when (not (null tdOutputCoins) && not (C.validateSum outTr)) $
         commitError $

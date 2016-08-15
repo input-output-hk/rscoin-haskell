@@ -7,25 +7,23 @@ module RSCoin.Core.HBlock
        , checkHBlock
        ) where
 
-import           Control.Lens           ((^.))
 import qualified Data.Map               as M
 
 import           RSCoin.Core.Constants  (genesisValue)
 import           RSCoin.Core.Crypto     (Hash, PublicKey, SecretKey, hash, sign,
                                          verify)
-import           RSCoin.Core.NodeConfig (NodeContext, genesisAddress)
-import           RSCoin.Core.Primitives (Transaction (..))
+import           RSCoin.Core.Primitives (Address, Transaction (..))
 import           RSCoin.Core.Strategy   (AddressToTxStrategyMap)
 import           RSCoin.Core.Types      (Dpk, HBlock (..))
 
 initialHash :: Hash
 initialHash = hash ()
 
-initialTx :: NodeContext -> Transaction
-initialTx nodeContext =
+initialTx :: Address -> Transaction
+initialTx genAdr =
     Transaction
     { txInputs = []
-    , txOutputs = [(nodeContext^.genesisAddress, genesisValue)]
+    , txOutputs = [(genAdr, genesisValue)]
     }
 
 -- | Construct higher-level block from txset, Bank's secret key, DPK
@@ -34,8 +32,8 @@ mkHBlock :: [Transaction] -> HBlock -> AddressToTxStrategyMap -> SecretKey -> Dp
 mkHBlock txset prevBlock newAddrs sk dpk = mkHBlockDo txset newAddrs sk dpk (hbHash prevBlock)
 
 -- | Construct genesis higher-level block using Bank's secret key and DPK.
-mkGenesisHBlock :: NodeContext -> SecretKey -> Dpk -> HBlock
-mkGenesisHBlock ctx sk dpk = mkHBlockDo [initialTx ctx] M.empty sk dpk initialHash
+mkGenesisHBlock :: Address -> SecretKey -> Dpk -> HBlock
+mkGenesisHBlock genAdr sk dpk = mkHBlockDo [initialTx genAdr] M.empty sk dpk initialHash
 
 mkHBlockDo :: [Transaction] -> AddressToTxStrategyMap -> SecretKey -> Dpk -> Hash -> HBlock
 mkHBlockDo hbTransactions hbAddresses sk hbDpk prevHash = HBlock {..}

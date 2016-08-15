@@ -83,12 +83,12 @@ closeState :: RSCoinUserState -> IO ()
 closeState = A.closeAcidState
 
 isInitialized :: A.Query WalletStorage Bool
-findUserAddress :: C.NodeContext -> C.Address -> A.Query WalletStorage (Maybe (C.Address, C.SecretKey))
+findUserAddress :: C.Address -> C.Address -> A.Query WalletStorage (Maybe (C.Address, C.SecretKey))
 getUserAddresses :: A.Query WalletStorage [(C.Address,C.SecretKey)]
-getOwnedAddresses :: C.NodeContext -> A.Query WalletStorage [C.Address]
-getOwnedDefaultAddresses :: C.NodeContext -> A.Query WalletStorage [C.Address]
-getOwnedAddrIds :: C.NodeContext -> C.Address -> A.Query WalletStorage [C.AddrId]
-getTransactions :: C.NodeContext -> C.Address -> A.Query WalletStorage [C.Transaction]
+getOwnedAddresses :: C.Address -> A.Query WalletStorage [C.Address]
+getOwnedDefaultAddresses :: C.Address -> A.Query WalletStorage [C.Address]
+getOwnedAddrIds :: C.Address -> C.Address -> A.Query WalletStorage [C.AddrId]
+getTransactions :: C.Address -> C.Address -> A.Query WalletStorage [C.Transaction]
 getLastBlockId :: A.Query WalletStorage Int
 getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
 getAddressStrategy :: C.Address -> A.Query WalletStorage (Maybe C.TxStrategy)
@@ -164,11 +164,10 @@ initState st n Nothing = do
 -- is not contained in file.
 initStateBank :: WorkMode m => RSCoinUserState -> Int -> C.SecretKey -> m ()
 initStateBank st n sk = do
-    nodeCtx <- getNodeContext
-    let ctxGenAddress = nodeCtx ^. C.genesisAddress
+    genAdr <- (^.C.genesisAddress) <$> getNodeContext
     liftIO $ do
-       let bankAddress = (sk, C.getAddress ctxGenAddress)
-       unless (W.validateKeyPair ctxGenAddress sk) $
+       let bankAddress = (sk, C.getAddress genAdr)
+       unless (W.validateKeyPair genAdr sk) $
            throwIO $
            W.BadRequest "Imported bank's secret key doesn't belong to bank."
        addresses <- replicateM n keyGen

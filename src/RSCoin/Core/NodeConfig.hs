@@ -40,7 +40,6 @@ import           Data.ByteString            (ByteString)
 import qualified Data.Configurator          as Config
 import qualified Data.Configurator.Types    as Config
 import           Data.Maybe                 (fromJust, fromMaybe, isNothing)
-import           Data.SafeCopy              (base, deriveSafeCopy)
 import           Data.String                (IsString)
 import qualified Data.Text                  as T
 import           Data.Typeable              (Typeable)
@@ -70,7 +69,6 @@ data NodeContext = NodeContext
     } deriving (Show)
 
 $(makeLenses ''NodeContext)
-$(deriveSafeCopy 0 'base ''NodeContext)
 
 -- | Default node context for local deployment
 defaultNodeContext :: NodeContext

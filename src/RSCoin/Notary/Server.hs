@@ -68,10 +68,9 @@ serveNotary notaryState = do
     idr8 <- serverTypeRestriction5
     idr9 <- serverTypeRestriction1
 
-    nodeCtx <- getNodeContext
-    let bankPublicKey = nodeCtx ^. C.bankPublicKey
-    let notaryPort    = nodeCtx ^. C.notaryPort
-
+    (bankPublicKey, notaryPort) <- (,) <$> (^.C.bankPublicKey)
+                                       <*> (^.C.notaryPort)
+                                       <$> getNodeContext
     P.serve
         notaryPort
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1

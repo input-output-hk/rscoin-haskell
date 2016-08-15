@@ -35,8 +35,7 @@ module RSCoin.Bank.Storage.Whole
        ) where
 
 import           Control.Lens                  (Getter, makeLenses, to, use,
-                                                uses, (%%=), (%=), (+=), (.=),
-                                                (^.))
+                                                uses, (%%=), (%=), (+=), (.=))
 import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (MonadThrow (throwM))
 import           Control.Monad.State           (MonadState, execState, runState)
@@ -61,14 +60,13 @@ import           RSCoin.Core                   (ActionLog,
                                                 Mintettes, NewPeriodData (..),
                                                 PeriodId, PeriodResult,
                                                 PublicKey, SecretKey,
-                                                Transaction (..), bankPublicKey,
+                                                Transaction (..),
                                                 checkActionLog, checkLBlock,
                                                 computeOutputAddrids,
                                                 emissionHash, hash,
                                                 lbTransactions, mkGenesisHBlock,
                                                 mkHBlock, owners)
 import qualified RSCoin.Core                   as C
-import           RSCoin.Core.NodeConfig        (NodeContext)
 
 import           RSCoin.Bank.Error             (BankError (..))
 import qualified RSCoin.Bank.Storage.Explorers as ES
@@ -226,18 +224,19 @@ restoreExplorers = explorersStorage %= execState ES.restoreExplorers
 -- different set of mintettes. Return value is a list of size (length
 -- mintettes) of NewPeriodDatas that should be sent to mintettes.
 startNewPeriod
-    :: NodeContext
+    :: PublicKey
+    -> Address
     -> SecretKey
     -> [Maybe PeriodResult]
     -> ExceptUpdate [NewPeriodData]
-startNewPeriod nodeCtx sk results = do
+startNewPeriod bankPk genAdr sk results = do
     mintettes <- use getMintettes
     unless (length mintettes == length results) $
         throwM $
         BEInconsistentResponse
             "Length of results is different from the length of mintettes"
     pId <- use periodId
-    changedMintetteIx <- startNewPeriodDo nodeCtx sk pId results
+    changedMintetteIx <- startNewPeriodDo bankPk genAdr sk pId results
     currentMintettes <- use getMintettes
     payload' <- formPayload currentMintettes changedMintetteIx
     periodId' <- use periodId
@@ -255,14 +254,15 @@ startNewPeriod nodeCtx sk results = do
 -- PeriodResults, sorting them relatevely to logs and dpk. Also
 -- merging LBlocks and adding generative transaction.
 startNewPeriodDo
-    :: NodeContext
+    :: PublicKey
+    -> Address
     -> SecretKey
     -> PeriodId
     -> [Maybe PeriodResult]
     -> ExceptUpdate [MintetteId]
-startNewPeriodDo nodeCtx sk 0 _ =
-    startNewPeriodFinally sk [] (const $ mkGenesisHBlock nodeCtx) Nothing
-startNewPeriodDo nodeCtx sk pId results = do
+startNewPeriodDo _ genAdr sk 0 _ =
+    startNewPeriodFinally sk [] (const $ mkGenesisHBlock genAdr) Nothing
+startNewPeriodDo bankPk _ sk pId results = do
     lastHBlock <- head <$> use blocks
     curDpk <- use getDpk
     logs <- use $ mintettesStorage . MS.getActionLogs
@@ -276,7 +276,7 @@ startNewPeriodDo nodeCtx sk pId results = do
             map (checkResult pId lastHBlock) $ zip3 results keys logs
         filteredResults =
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
-        emissionTransaction = allocateCoins nodeCtx keys filteredResults pId
+        emissionTransaction = allocateCoins bankPk keys filteredResults pId
         checkEmission [(tid,_,_)] = return tid
         checkEmission _ = throwM $ BEInternal "Emission transaction should have one transaction hash"
         blockTransactions =
@@ -362,18 +362,18 @@ checkResult expectedPid lastHBlock (r,key,storedLog) = do
 -- (hardcoded). Given the mintette's public keys it splits reward
 -- among bank and mintettes.
 allocateCoins
-    :: NodeContext
+    :: PublicKey
     -> [PublicKey]
     -> [(MintetteId, PeriodResult)]
     -> PeriodId
     -> Transaction
-allocateCoins nodeCtx mintetteKeys goodResults pId =
+allocateCoins bankPk mintetteKeys goodResults pId =
     Transaction
     { txInputs = [(emissionHash pId, 0, inputValue)]
     , txOutputs = (bankAddress, bankReward) : mintetteOutputs
     }
   where
-    bankAddress = Address $ nodeCtx^.bankPublicKey
+    bankAddress = Address bankPk
     (bankReward,goodMintetteRewards) =
         Strategies.allocateCoins
             Strategies.AllocateCoinsDefault

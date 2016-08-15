@@ -10,8 +10,9 @@ module Actions
        , initializeStorage
        ) where
 
+import           Control.Lens           ((^.))
 import           Control.Monad          (forM_, unless, void, when)
-import           Control.Monad.Trans    (liftIO)
+import           Control.Monad.Trans    (MonadIO, liftIO)
 import           Data.Acid.Advanced     (query')
 import           Data.Bifunctor         (bimap)
 import qualified Data.ByteString.Base64 as B64
@@ -57,14 +58,14 @@ initializeStorage st O.UserOptions{..} =
 
 -- | Processes command line user command
 processCommand
-    :: WorkMode m
+    :: (MonadIO m, WorkMode m)
     => U.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
 processCommand st O.ListAddresses _ =
     eWrap $
     do res <- updateBlockchain st False
        unless res $ C.logInfo "Successfully updated blockchain."
-       nodeContext <- getNodeContext
-       addresses <- query' st $ U.GetOwnedAddresses nodeContext
+       genAdr <- (^.C.genesisAddress) <$> getNodeContext
+       addresses <- query' st $ U.GetOwnedAddresses genAdr
        (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin])]) <-
            mapM (\addr -> do
                       coins <- C.coinsToList <$> getAmountNoUpdate st addr
@@ -73,30 +74,35 @@ processCommand st O.ListAddresses _ =
                              , fromMaybe C.DefaultStrategy strategy
                              , coins))
                 addresses
-       liftIO $
-           do TIO.putStrLn "Here's the list of your accounts:"
-              TIO.putStrLn
-                  "# | Public ID                                    | Amount"
-              mapM_ formatAddressEntry ([(1 :: Integer) ..] `zip` wallets)
+       liftIO $ do
+           TIO.putStrLn "Here's the list of your accounts:"
+           TIO.putStrLn
+               "# | Public ID                                    | Amount"
+       mapM_ formatAddressEntry ([(1 :: Integer) ..] `zip` wallets)
   where
     spaces = "                                                   "
-    formatAddressEntry :: (Integer, (C.PublicKey, C.TxStrategy, [C.Coin])) -> IO ()
+    formatAddressEntry :: WorkMode m
+                       => (Integer, (C.PublicKey, C.TxStrategy, [C.Coin]))
+                       -> m ()
     formatAddressEntry (i, (key, strategy, coins)) = do
-       TIO.putStr $ sformat (int%".  "%build%" : ") i key
-       when (null coins) $ putStrLn "empty"
-       unless (null coins) $ TIO.putStrLn $ show' $ head coins
-       unless (length coins < 2) $
-           forM_ (tail coins)
-                 (TIO.putStrLn . sformat (spaces % build))
+       liftIO $ do
+           TIO.putStr $ sformat (int%".  "%build%" : ") i key
+           when (null coins) $ putStrLn "empty"
+           unless (null coins) $ TIO.putStrLn $ show' $ head coins
+           unless (length coins < 2) $
+               forM_ (tail coins)
+                     (TIO.putStrLn . sformat (spaces % build))
        case strategy of
            C.DefaultStrategy -> return ()
            C.MOfNStrategy m allowed -> do
-               TIO.putStrLn $ sformat
-                    ("    This is a multisig address ("%int%"/"%int%") controlled by keys: ")
-                    m (length allowed)
-               forM_ allowed $ \allowedAddr -> do
-                   addresses <- query' st $ U.GetOwnedAddresses C.defaultNodeContext
+               genAdr <- (^.C.genesisAddress) <$> getNodeContext
+               liftIO $ do
                    TIO.putStrLn $ sformat
+                        ("    This is a multisig address ("%int%"/"%int%") controlled by keys: ")
+                        m (length allowed)
+                   forM_ allowed $ \allowedAddr -> do
+                       addresses <- query' st $ U.GetOwnedAddresses genAdr
+                       TIO.putStrLn $ sformat
                            (if allowedAddr `elem` addresses
                             then "    * "%build%" owned by you"
                             else "    * "%build)
@@ -235,4 +241,5 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
     liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<<
-    query' st (U.GetOwnedAddresses C.defaultNodeContext)
+    (\ctx -> query' st (U.GetOwnedAddresses (ctx^.C.genesisAddress))) =<<
+    getNodeContext

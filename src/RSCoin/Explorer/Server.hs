@@ -34,8 +34,7 @@ serve
     => Int -> Channel -> State -> C.SecretKey -> Maybe FilePath -> m ()
 serve port ch st _ storagePath = do
     idr1 <- serverTypeRestriction3
-    nodeCtx <- getNodeContext
-    let bankPublicKey = nodeCtx ^. C.bankPublicKey
+    bankPublicKey <- (^.C.bankPublicKey) <$> getNodeContext
     C.serve
         port
         [ C.method (C.RSCExplorer C.EMNewBlock) $

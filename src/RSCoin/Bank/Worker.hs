@@ -87,9 +87,12 @@ onPeriodFinished sk st storagePath = do
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     initializeMultisignatureAddresses  -- init here to see them in next period
-    periodResults <- getPeriodResults mintettes pId
-    nodeCtx       <- getNodeContext
-    newPeriodData <- update' st $ StartNewPeriod nodeCtx sk periodResults
+    periodResults    <- getPeriodResults mintettes pId
+    (bankPk, genAdr) <- (,) <$>
+                        (^.C.bankPublicKey) <*>
+                        (^.C.genesisAddress) <$>
+                        getNodeContext
+    newPeriodData    <- update' st $ StartNewPeriod bankPk genAdr sk periodResults
     pid <- query' st GetPeriodId
     liftIO $ createCheckpoint st
     when (isJust storagePath && pid `mod` 5 == 0) $ liftIO $ do
@@ -134,8 +137,7 @@ onPeriodFinished sk st storagePath = do
                 strategy
             update' st $ AddAddress msAddr strategy
         C.logInfo "Removing new addresses from pool"
-        nodeCtx <- getNodeContext
-        let mCurBankSecKey = nodeCtx ^. bankSecretKey
+        mCurBankSecKey <- (^.bankSecretKey) <$> getNodeContext
         let curBankSecKey  = fromMaybe
                                 (error "Bank secret key is set to Nothing in config!")
                                 mCurBankSecKey

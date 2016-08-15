@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections    #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 -- | Convenience functions to launch bank or do high-level operations
 -- with it.
@@ -17,16 +18,20 @@ module RSCoin.Bank.Launcher
 
 import           Control.Monad             (when)
 import           Control.Monad.Catch       (bracket, throwM)
+import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (liftIO)
 import           Data.Acid.Advanced        (update')
 import           Data.IORef                (newIORef)
 import           Data.Maybe                (fromJust, isNothing)
 import           Data.Time.Units           (TimeUnit)
-
+import           Debug.Trace
 import           Formatting                (int, sformat, (%))
 
+import           Serokell.Util.Text        (show')
+
 import           RSCoin.Core               (Explorer, Mintette, PeriodId,
-                                            PublicKey, SecretKey, sign)
+                                            PublicKey, SecretKey, logError,
+                                            sign)
 import           RSCoin.Core.Communication (getBlockchainHeight,
                                             getMintettePeriod,
                                             sendBankLocalControlRequest)
@@ -99,6 +104,13 @@ addExplorerInPlace confPath bankSk storagePath e pId =
     bankWrapperReal bankSk storagePath confPath $
     flip update' (AddExplorer e pId)
 
+wrapResult res = whenJust res $ \e -> logError (show' e) >> throwM e
+
+wrapRequest :: Maybe FilePath -> SecretKey -> P.BankLocalControlRequest -> IO ()
+wrapRequest confPath bankSk request = do
+    res <- runRealModeBank confPath bankSk $ sendBankLocalControlRequest request
+    wrapResult res
+
 -- | Add mintette to Bank (send a request signed with bank's sk)
 -- Also pings minttete to check that it's compatible
 addMintetteReq :: Maybe FilePath -> SecretKey -> Mintette -> PublicKey -> IO ()
@@ -106,7 +118,9 @@ addMintetteReq confPath bankSk m k = do
     let proof = sign bankSk (m, k)
     runRealModeBank confPath bankSk $ do
         bankPid <- getBlockchainHeight
+        traceM "BEFORE MINTETTE PING "
         mintettePid <- getMintettePeriod m
+        traceM "AFTER MINTETTE PING "
         when (isNothing mintettePid) $
             throwM $ BEInconsistentResponse
             "Mintette didn't respond on ping request."
@@ -118,27 +132,22 @@ addMintetteReq confPath bankSk m k = do
                      ". Check out, maybe mintette's state" %
                      " is old & incosistent.")
             mPid bankPid
-        sendBankLocalControlRequest $ P.AddMintette m k proof
+        wrapResult =<< sendBankLocalControlRequest (P.AddMintette m k proof)
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerReq :: Maybe FilePath -> SecretKey -> Explorer -> PeriodId -> IO ()
 addExplorerReq confPath bankSk e pId = do
     let proof = sign bankSk (e, pId)
-    runRealModeBank confPath bankSk $
-        sendBankLocalControlRequest $ P.AddExplorer e pId proof
+    wrapRequest confPath bankSk $ P.AddExplorer e pId proof
 
 -- | Sends a request to remove mintette
 removeMintetteReq :: Maybe FilePath -> SecretKey -> String -> Int -> IO ()
 removeMintetteReq confPath bankSk mintetteHost mintettePort = do
     let proof = sign bankSk (mintetteHost, mintettePort)
-    runRealModeBank confPath bankSk $
-        sendBankLocalControlRequest $
-        P.RemoveMintette mintetteHost mintettePort proof
+    wrapRequest confPath bankSk $ P.RemoveMintette mintetteHost mintettePort proof
 
 -- | Sends a request to remove explorer
 removeExplorerReq :: Maybe FilePath -> SecretKey -> String -> Int -> IO ()
 removeExplorerReq confPath bankSk mintetteHost mintettePort = do
     let proof = sign bankSk (mintetteHost, mintettePort)
-    runRealModeBank confPath bankSk $
-        sendBankLocalControlRequest $
-        P.RemoveExplorer mintetteHost mintettePort proof
+    wrapRequest confPath bankSk $ P.RemoveExplorer mintetteHost mintettePort proof

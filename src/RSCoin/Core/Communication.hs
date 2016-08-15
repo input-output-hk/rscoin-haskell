@@ -55,6 +55,7 @@ import           Safe                       (atMay)
 import           Serokell.Util.Text         (listBuilderJSONIndent, mapBuilder,
                                              pairBuilder, show')
 
+import           RSCoin.Bank.Error          (BankError)
 import           RSCoin.Core.Crypto         (PublicKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
@@ -196,28 +197,12 @@ finishPeriod currentPeriodSignature =
         (const $ L.logDebug "Successfully finished period") $
     callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
 
-sendBankLocalControlRequest :: WorkMode m => P.BankLocalControlRequest -> m ()
+sendBankLocalControlRequest :: WorkMode m => P.BankLocalControlRequest -> m (Maybe BankError)
 sendBankLocalControlRequest request =
     withResult
         (L.logInfo $ sformat ("Sending control request to bank: " % build) request)
         (const $ L.logDebug "Sent control request successfully") $
          callBank $ P.call (P.RSCBank P.LocalControlRequest) request
-
---addMintetteAdhoc :: WorkMode m => Mintette -> PublicKey -> Signature -> m ()
---addMintetteAdhoc mintette pk proof =
---    withResult
---        (L.logInfo $ sformat ("Sending req to add mintette " % build % ", pk " % build)
---                           mintette pk)
---        (const $ L.logDebug "Request sent successfully") $
---        callBank $ P.call (P.RSCBank P.AddMintetteAdhoc) mintette pk proof
---
---addExplorerAdhoc :: WorkMode m => Explorer -> PeriodId -> Signature -> m ()
---addExplorerAdhoc explorer pId proof =
---    withResult
---        (L.logInfo $ sformat ("Sending req to add explorer " % build % ", pid " % int)
---                           explorer pId)
---        (const $ L.logDebug "Request sent successfully") $
---        callBank $ P.call (P.RSCBank P.AddExplorerAdhoc) explorer pId proof
 
 checkNotDoubleSpent
     :: WorkMode m

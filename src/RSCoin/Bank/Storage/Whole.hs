@@ -200,8 +200,11 @@ addAddress addr strategy = do
     unless (addr `MP.member` curAddresses) $ pendingAddresses %= MP.insert addr strategy
 
 -- | Add given mintette to storage and associate given key with it.
-addMintette :: C.Mintette -> C.PublicKey -> Update ()
-addMintette m k = mintettesStorage %= execState (MS.addMintette m k)
+addMintette :: C.Mintette -> C.PublicKey -> ExceptUpdate ()
+addMintette m k = do
+    (exc,s') <- uses mintettesStorage $ runState (MS.addMintette m k)
+    whenJust exc throwM
+    mintettesStorage .= s'
 
 -- | Add given explorer to storage and associate given PeriodId with
 -- it. If explorer exists, it is updated.

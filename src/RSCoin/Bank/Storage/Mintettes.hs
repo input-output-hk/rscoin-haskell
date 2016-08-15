@@ -23,7 +23,6 @@ module RSCoin.Bank.Storage.Mintettes
 
 import           Control.Lens        (Getter, ix, makeLenses, use, uses, (%=),
                                       (&), (.=), (.~))
-import           Control.Monad       (unless)
 import           Control.Monad.State (State)
 import           Data.List           (delete, find, nub, (\\))
 import qualified Data.Map            as M
@@ -95,12 +94,17 @@ getActionLogs = msActionLogs
 type Update a = State MintettesStorage a
 
 -- | Add mintette to the storage
-addMintette :: C.Mintette -> C.PublicKey -> Update ()
+addMintette :: C.Mintette -> C.PublicKey -> Update (Maybe BankError)
 addMintette m k = do
-    dpk <- use getDpk
-    unless (k `elem` map fst dpk) $ do
+    isAdded <- (||) <$> uses msDpk (\dpk -> k `elem` map fst dpk)
+                    <*> uses msPendingMintettes ((m `elem`) . map fst)
+    if not isAdded
+    then do
         msMintettesToRemove %= delete m
         msPendingMintettes %= ((m, k) :)
+        return Nothing
+    else return $ Just $ BEInconsistentResponse $
+        sformat ("Mintette " % build % " is already added, won't add.") m
 
 -- | Unstages a mintette from being in a next period. Is canceled by
 -- `addMintette` and vice versa

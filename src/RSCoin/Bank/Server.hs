@@ -184,17 +184,16 @@ serveLocalControlRequest
     => State
     -> PublicKey
     -> PT.BankLocalControlRequest
-    -> T.ServerT m ()
+    -> T.ServerT m (Maybe BankError)
 serveLocalControlRequest st bankPublicKey controlRequest
   | not (PT.checkLocalControlRequest bankPublicKey controlRequest) =
-      toServer $
-      throwM $
+      wrapResponse $ throwM $
       BEInconsistentResponse $
       sformat
           ("Tried to execute control request " % build %
            " with *invalid* signature")
           controlRequest
-  | otherwise = do
+  | otherwise = wrapResponse $ do
       logInfo $ sformat ("Executing control request: " % build) controlRequest
       case controlRequest of
           PT.AddMintette m pk _         -> update' st (AddMintette m pk)
@@ -205,6 +204,9 @@ serveLocalControlRequest st bankPublicKey controlRequest
           sformat
               ("Control request " % build % " executed successfully")
               controlRequest
+  where
+    wrapResponse action = lift $ (action >> return Nothing) `catch` handler
+    handler (e :: BankError) = logError (show' e) >> return (Just e)
 
 -- Dumping Bank state
 

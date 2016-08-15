@@ -36,7 +36,6 @@ module RSCoin.Core.Logging
 import           Control.Monad.Trans        (MonadIO, liftIO)
 import           Control.Monad.Trans.Except (ExceptT)
 
-import           Data.SafeCopy              (base, deriveSafeCopy)
 import qualified Data.Text                  as T
 import           Data.Typeable              (Typeable)
 import           GHC.Generics               (Generic)
@@ -69,8 +68,6 @@ data Severity
 newtype LoggerName = LoggerName
     { loggerName :: String
     } deriving (Show)
-
-$(deriveSafeCopy 0 'base ''LoggerName)  -- @TODO: this instance should be deleted later
 
 convertSeverity :: Severity -> Priority
 convertSeverity Debug   = DEBUG

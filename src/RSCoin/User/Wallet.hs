@@ -55,7 +55,6 @@ import           Data.List                  (delete, find, groupBy, intersect,
                                              nub, sortOn, (\\))
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust, isJust)
-import           Data.Monoid                ((<>))
 import           Data.Ord                   (comparing)
 import qualified Data.Set                   as S
 import qualified Data.Text                  as T

@@ -5,7 +5,6 @@ module RSCoin.Notary.Error
        ) where
 
 import           Control.Exception       (Exception (..))
-import           Control.Monad.IO.Class  (MonadIO)
 
 import           Data.Data               (Data)
 import           Data.MessagePack        (MessagePack (fromObject, toObject),
@@ -27,7 +26,7 @@ data NotaryError
                                    --   PeriodId supplied -- actual periodId known to Notary
     | NEBlocked                    -- ^ User has reached limit number of attempts for multisig allocation
     | NEInvalidArguments Text      -- ^ Generic exception for invalid arguments
-    | NEInvalidChain Text          -- ^ Invalid chain of certificates provided
+    | NEInvalidChain Text          -- ^ Invalid chain of certificates provided  @TODO: Deprecated
     | NEInvalidSignature           -- ^ Invalid signature provided
     | NEStrategyNotSupported Text  -- ^ Address's strategy is not supported, with name provided
     | NEUnrelatedSignature Text    -- ^ Signature provided doesn't correspond to any of address' parties

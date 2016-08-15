@@ -90,7 +90,7 @@ optionsParser defaultSKPath configDir defaultConfigPath =
         auto
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity" <>
-         metavar "STR") <*>
+         metavar "SEVERITY") <*>
     strOption
         (short 'k' <> long "secret-key" <> help "Path to bank secret key" <>
          value defaultSKPath <>

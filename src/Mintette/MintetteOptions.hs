@@ -49,7 +49,7 @@ optionsParser defaultSKPath configDir defaultConfigPath =
         auto
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity" <>
-         metavar "STR") <*>
+         metavar "SEVERITY") <*>
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
     strOption
         (long "config-path" <> help "Path to configuration file" <>

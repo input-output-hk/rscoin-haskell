@@ -331,7 +331,7 @@ userOptionsParser dskp configDir defaultConfigPath =
     option auto
         (long "log-severity" <> value Info <> showDefault <>
          help "Logging severity" <>
-         metavar "STR") <*>
+         metavar "SEVERITY") <*>
     strOption
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigPath <>

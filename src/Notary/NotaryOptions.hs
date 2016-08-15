@@ -35,7 +35,7 @@ optionsParser configDir defaultConfigPath =
         auto
         (long "log-severity" <> value Error <> showDefault <>
          help "Logging severity" <>
-         metavar "STR") <*>
+         metavar "SEVERITY") <*>
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
     option
         auto

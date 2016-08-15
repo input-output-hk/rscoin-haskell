@@ -10,7 +10,7 @@ module RSCoin.Bank.Worker
        , runExplorerWorker
        ) where
 
-
+import           Control.Applicative      (liftA2)
 import           Control.Lens             ((^.))
 import           Control.Monad            (forM_, void, when)
 import           Control.Monad.Catch      (SomeException, bracket_, catch)
@@ -88,10 +88,8 @@ onPeriodFinished sk st storagePath = do
     -- get [] here in this case (and it's fine).
     initializeMultisignatureAddresses  -- init here to see them in next period
     periodResults    <- getPeriodResults mintettes pId
-    (bankPk, genAdr) <- (,) <$>
-                        (^.C.bankPublicKey) <*>
-                        (^.C.genesisAddress) <$>
-                        getNodeContext
+    (bankPk, genAdr) <- liftA2 (,) (^. C.bankPublicKey) (^. C.genesisAddress)
+                        <$> getNodeContext
     newPeriodData    <- update' st $ StartNewPeriod bankPk genAdr sk periodResults
     pid <- query' st GetPeriodId
     liftIO $ createCheckpoint st

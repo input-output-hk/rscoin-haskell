@@ -10,6 +10,7 @@ module Bench.RSCoin.UserCommons
         , userThreadWithPath
         ) where
 
+import           Control.Lens               ((^.))
 import           Control.Monad              (forM_, when)
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
@@ -22,10 +23,11 @@ import           System.FilePath            ((</>))
 
 import           RSCoin.Core                (Address (..), Coin (..),
                                              CoinAmount (..), Color,
-                                             finishPeriod, getBlockchainHeight,
-                                             keyGen, logDebug, logInfo, sign,
+                                             finishPeriod, genesisAddress,
+                                             getBlockchainHeight, keyGen,
+                                             logDebug, logInfo, sign,
                                              userLoggerName)
-import           RSCoin.Core.NodeConfig     (NodeContext, testBankSecretKey)
+import           RSCoin.Core.NodeConfig     (testBankSecretKey)
 import           RSCoin.Timed               (MsgPackRpc, for, getNodeContext,
                                              runRealModeUntrusted, sec, wait)
 import qualified RSCoin.User                as U
@@ -62,8 +64,8 @@ userThreadWithPath
             U.closeState userState)
         (userAction userId)
 
-queryMyAddress :: U.RSCoinUserState -> NodeContext -> MsgPackRpc Address
-queryMyAddress userState nodeCtx = head <$> query' userState (U.GetOwnedDefaultAddresses nodeCtx)
+queryMyAddress :: U.RSCoinUserState -> Address -> MsgPackRpc Address
+queryMyAddress userState = fmap head . query' userState . U.GetOwnedDefaultAddresses
 
 -- | Create user with 1 address and return it.
 initializeUser :: Word -> U.RSCoinUserState -> MsgPackRpc Address
@@ -71,8 +73,8 @@ initializeUser userId userState = do
     let userAddressesNumber = 1
     logDebug $ sformat ("Initializing user " % int % "…") userId
     U.initState userState userAddressesNumber Nothing
-    nodeCtx <- getNodeContext
-    queryMyAddress userState nodeCtx <*
+    genAddr <- (^. genesisAddress) <$> getNodeContext
+    queryMyAddress userState genAddr <*
         logDebug (sformat ("Initialized user " % int % "…") userId)
 
 executeTransaction :: U.RSCoinUserState

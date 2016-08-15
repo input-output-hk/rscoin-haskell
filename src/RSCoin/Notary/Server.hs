@@ -14,6 +14,7 @@ module RSCoin.Notary.Server
         , handleAllocateMultisig
         ) where
 
+import           Control.Applicative     (liftA2)
 import           Control.Exception       (throwIO)
 import           Control.Lens            ((^.))
 import           Control.Monad.Catch     (catch)
@@ -68,9 +69,8 @@ serveNotary notaryState = do
     idr8 <- serverTypeRestriction5
     idr9 <- serverTypeRestriction1
 
-    (bankPublicKey, notaryPort) <- (,) <$> (^.C.bankPublicKey)
-                                       <*> (^.C.notaryPort)
-                                       <$> getNodeContext
+    (bankPublicKey, notaryPort) <- liftA2 (,) (^. C.bankPublicKey) (^. C.notaryPort)
+                                   <$> getNodeContext
     P.serve
         notaryPort
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1

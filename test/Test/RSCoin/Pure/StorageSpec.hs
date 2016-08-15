@@ -120,8 +120,11 @@ instance CanUpdate StartNewPeriod where
                         (throwM $ TestError "No mintettes secret key")
                         (liftMintetteUpdate mId . flip M.finishPeriod pId)
                         mSk
+--        (bankPk, genesisAddr) <- liftA2 (,) (^. C.bankPublicKey) (^. C.genesisAddress)
+--                                 <$> getNodeContext
+        (bankPk, genesisAddr) <- error "I need pk and genessis address :("
         newPeriodData <-
-            liftBankUpdate . B.startNewPeriod C.defaultNodeContext bankSk $ map Just periodResults
+            liftBankUpdate . B.startNewPeriod bankPk genesisAddr bankSk $ map Just periodResults
         newMintettes <- use $ bankState . B.bankStorage . B.getMintettes
         mapM_
             (\(m,mId) ->
@@ -195,7 +198,12 @@ instance Arbitrary RSCoinState where
             RSCoinState bank M.empty [genesisOutput] 0
       where
         genesisOutput =
-            (bankSecretKey, (C.hash $ C.initialTx C.defaultNodeContext, 0, C.genesisValue))
+            ( bankSecretKey
+            , ( C.hash $ C.initialTx $ error "Can't get genesis :("
+              , 0
+              , C.genesisValue
+              )
+            )
         bankSecretKey = undefined
 
 -- TODO: there must be a better way to write this (in more lens style)

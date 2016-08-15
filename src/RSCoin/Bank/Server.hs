@@ -8,12 +8,14 @@ module RSCoin.Bank.Server
        ( serve
        ) where
 
+import           Control.Applicative            (liftA2)
 import           Control.Concurrent             (MVar, newMVar)
 import           Control.Concurrent.MVar.Lifted (modifyMVar_)
 import           Control.Lens                   ((^.))
 import           Control.Monad                  (when)
 import           Control.Monad.Catch            (catch, throwM)
 import           Control.Monad.Trans            (lift, liftIO)
+
 import           Data.Acid.Advanced             (query', update')
 import           Data.List                      (nub, (\\))
 import qualified Data.Map.Strict                as M
@@ -62,9 +64,8 @@ serve st workerThread restartWorkerAction = do
     idr10 <- T.serverTypeRestriction3
     idr11 <- T.serverTypeRestriction1
 
-    (bankPublicKey, bankPort) <- (,) <$> (^.NC.bankPublicKey)
-                                     <*> (^.NC.bankPort)
-                                     <$> T.getNodeContext
+    (bankPublicKey, bankPort) <- liftA2 (,) (^.NC.bankPublicKey) (^.NC.bankPort)
+                                 <$> T.getNodeContext
 
     C.serve
         bankPort

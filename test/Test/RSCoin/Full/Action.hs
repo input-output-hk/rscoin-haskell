@@ -23,7 +23,7 @@ module Test.RSCoin.Full.Action
        , getUserState
        ) where
 
-import           Control.Lens             (view, views)
+import           Control.Lens             (view, views, (^.))
 import           Control.Monad            (unless, void, when)
 import           Control.Monad.Catch      (throwM)
 import           Data.Acid.Advanced       (query')
@@ -42,7 +42,7 @@ import           Serokell.Util            (indexModulo, indexModuloMay,
                                            pairBuilder)
 
 import qualified RSCoin.Core              as C
-import           RSCoin.Timed             (Millisecond, WorkMode, after, invoke,
+import           RSCoin.Timed             (Millisecond, WorkMode, after, getNodeContext, invoke,
                                            ms)
 import qualified RSCoin.User              as U
 
@@ -212,7 +212,9 @@ toAddress =
     either return $
     \(userIndex,addressIndex) ->
          do userState <- getUserState userIndex
-            publicAddresses <- query' userState $ U.GetOwnedDefaultAddresses C.defaultNodeContext
+            publicAddresses <-
+                query' userState . U.GetOwnedDefaultAddresses . (^. C.genesisAddress)
+                =<< getNodeContext
             return $ publicAddresses `indexModulo` addressIndex
 
 toInputs
@@ -220,7 +222,8 @@ toInputs
     => UserIndex -> FromAddresses -> TestEnv m Inputs
 toInputs userIndex (getNonEmpty -> fromIndexes) = do
     userState <- getUserState userIndex
-    allAddresses <- query' userState $ U.GetOwnedDefaultAddresses C.defaultNodeContext
+    allAddresses <- query' userState . U.GetOwnedDefaultAddresses . (^. C.genesisAddress)
+                    =<< getNodeContext
     addressesAmount <- mapM (U.getAmount userState) allAddresses
     when (null addressesAmount) $
         throwM $ TestError "No public addresses in this user"

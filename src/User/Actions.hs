@@ -194,8 +194,7 @@ processCommand
         msStrat
         userSignature
         (masterPk, masterSlaveSig)
-
-    liftIO $ TIO.putStrLn $
+    C.logInfo $
        sformat ("Your new address will be added in the next block: " % build) msPublicKey
   where
     parseTextAddresses :: WorkMode m => [T.Text] -> m [C.Address]
@@ -246,8 +245,7 @@ processCommand
         _allocationStrategy
         partySignature
         (masterPk, masterSlaveSig)
-
-    liftIO $ TIO.putStrLn "Address allocation successfully confirmed!"
+    C.logInfo "Address allocation successfully confirmed!"
 processCommand st O.ListAllocations _ = eWrap $ do
     -- update local cache
     U.retrieveAllocationsList st
@@ -262,12 +260,12 @@ processCommand st O.ListAllocations _ = eWrap $ do
         let form = int % ". " % build % "\n  " % build % padding
         liftIO $ TIO.putStrLn $ sformat form i addr allocStrat
 processCommand st (O.ImportAddress skPathMaybe pkPath heightFrom heightTo) _ = do
-    pk <- liftIO $ TIO.putStrLn "Reading pk..." >> C.readPublicKey pkPath
+    pk <- liftIO $ C.logInfo "Reading pk..." >> C.readPublicKey pkPath
     sk <- liftIO $ flip (maybe (return Nothing)) skPathMaybe $ \skPath ->
-        TIO.putStrLn "Reading sk..." >> Just <$> C.readSecretKey skPath
-    liftIO $ TIO.putStrLn "Starting blockchain query process"
+        C.logInfo "Reading sk..." >> Just <$> C.readSecretKey skPath
+    C.logInfo "Starting blockchain query process"
     importAddress st (sk,pk) heightFrom heightTo
-    liftIO $ TIO.putStrLn "Finished, your address successfully added"
+    C.logInfo "Finished, your address successfully added"
 processCommand st (O.ExportAddress addrId filepath) _ = do
     genAddr <- (^.C.genesisAddress) <$> getNodeContext
     allAddresses <- query' st $ U.GetOwnedDefaultAddresses genAddr
@@ -319,6 +317,6 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
     void $ C.getMintetteBlocks mId pId
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
-    liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<<
+    C.logInfo . show' . (`genericIndex` (idx - 1)) =<<
     (\ctx -> query' st (U.GetOwnedAddresses (ctx^.C.genesisAddress))) =<<
     getNodeContext

@@ -36,20 +36,23 @@ optionsParser defaultSKPath configDir defaultConfigPath =
              [ long "port-rpc"
              , value defaultPort
              , help "Port to communicate with bank on"
-             , showDefault]) <*>
+             , showDefault
+             , metavar "PORT"]) <*>
     option
         auto
         (mconcat
              [ long "port-web"
              , value (defaultPort + 1)
              , help "Port to communicate with web requests on"
-             , showDefault]) <*>
+             , showDefault
+             , metavar "PORT"]) <*>
     strOption
         (mconcat
              [ long "path"
              , value (configDir </> "explorer-db")
              , showDefault
-             , help "Path to database"]) <*>
+             , help "Path to database"
+             , metavar "FILEPATH"]) <*>
     strOption
         (mconcat
              [ long "sk"

@@ -70,28 +70,32 @@ commandParser =
             auto
             (long "id" <> help "Id of period which this explorer expects" <>
              value 0 <>
-             showDefault)
+             showDefault <>
+             metavar "INT")
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
 optionsParser defaultSKPath configDir defaultConfigPath =
     Options <$> commandParser <*>
     strOption
         (long "path" <> value (configDir </> "bank-db") <> showDefault <>
-         help "Path to database") <*>
+         help "Path to database" <>
+         metavar "FILEPATH") <*>
     option
         auto
         (long "period-delta" <> value (toInteger defaultPeriodDelta) <>
          showDefault <>
-         help "Period length in seconds") <*>
+         help "Period length in seconds" <>
+         metavar "INT") <*>
     option
         auto
         (long "log-severity" <> value Error <> showDefault <>
-         help "Logging severity") <*>
+         help "Logging severity" <>
+         metavar "STR") <*>
     strOption
         (short 'k' <> long "secret-key" <> help "Path to bank secret key" <>
          value defaultSKPath <>
          showDefault <>
-         metavar "PATH TO KEY") <*>
+         metavar "FILEPATH") <*>
     switch
         (long "auto-create-sk" <>
          help
@@ -100,7 +104,8 @@ optionsParser defaultSKPath configDir defaultConfigPath =
     strOption
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigPath <>
-         showDefault)
+         showDefault <>
+         metavar "FILEPATH")
 
 getOptions :: IO Options
 getOptions = do

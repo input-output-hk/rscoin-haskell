@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections    #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 -- | Convenience functions to launch bank or do high-level operations
 -- with it.
@@ -7,27 +8,34 @@
 module RSCoin.Bank.Launcher
        ( launchBankReal
        , launchBank
-       , addMintetteIO
        , addMintetteInPlace
-       , addExplorerIO
        , addExplorerInPlace
+       , addMintetteReq
+       , addExplorerReq
+       , removeMintetteReq
+       , removeExplorerReq
        ) where
 
 import           Control.Monad             (when)
 import           Control.Monad.Catch       (bracket, throwM)
+import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (liftIO)
 import           Data.Acid.Advanced        (update')
 import           Data.IORef                (newIORef)
 import           Data.Maybe                (fromJust, isNothing)
 import           Data.Time.Units           (TimeUnit)
-
+import           Debug.Trace
 import           Formatting                (int, sformat, (%))
 
+import           Serokell.Util.Text        (show')
+
 import           RSCoin.Core               (Explorer, Mintette, PeriodId,
-                                            PublicKey, SecretKey, sign)
-import           RSCoin.Core.Communication (addExplorerAdhoc, addMintetteAdhoc,
-                                            getBlockchainHeight,
-                                            getMintettePeriod)
+                                            PublicKey, SecretKey, logError,
+                                            sign)
+import           RSCoin.Core.Communication (getBlockchainHeight,
+                                            getMintettePeriod,
+                                            sendBankLocalControlRequest)
+import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 import           RSCoin.Timed              (MsgPackRpc, WorkMode, fork, fork_,
                                             killThread, runRealModeBank)
 
@@ -74,27 +82,6 @@ launchBank periodDelta bankSk storagePath st = do
     fork_ $ runExplorerWorker periodDelta mainIsBusy bankSk st
     serve st workerThread restartWorker
 
--- | Add mintette to Bank (send a request signed with bank's sk)
--- Also pings minttete to check that it's compatible
-addMintetteIO :: Maybe FilePath -> SecretKey -> Mintette -> PublicKey -> IO ()
-addMintetteIO confPath bankSk m k = do
-    let proof = sign bankSk (m, k)
-    runRealModeBank confPath bankSk $ do
-        bankPid <- getBlockchainHeight
-        mintettePid <- getMintettePeriod m
-        when (isNothing mintettePid) $
-            throwM $ BEInconsistentResponse
-            "Mintette didn't respond on ping request."
-        let mPid = fromJust mintettePid
-        when (mPid /= (-1) && mPid > bankPid) $
-            throwM $ BEInconsistentResponse $
-            sformat ("Mintette had period id " % int %
-                     " while bank's is " % int %
-                     ". Check out, maybe mintette's state" %
-                     " is old & incosistent.")
-            mPid bankPid
-        addMintetteAdhoc m k proof
-
 -- | Adds mintette directly into bank's state
 addMintetteInPlace :: Maybe FilePath
                    -> SecretKey
@@ -107,12 +94,6 @@ addMintetteInPlace confPath bankSk storagePath m k =
     flip update' (AddMintette m k)
 
 -- | Add explorer to Bank inside IO Monad.
-addExplorerIO :: Maybe FilePath -> SecretKey -> Explorer -> PeriodId -> IO ()
-addExplorerIO confPath bankSk e pId = do
-    let proof = sign bankSk (e, pId)
-    runRealModeBank confPath bankSk $ addExplorerAdhoc e pId proof
-
--- | Add explorer to Bank inside IO Monad.
 addExplorerInPlace :: Maybe FilePath
                    -> SecretKey
                    -> FilePath
@@ -122,3 +103,51 @@ addExplorerInPlace :: Maybe FilePath
 addExplorerInPlace confPath bankSk storagePath e pId =
     bankWrapperReal bankSk storagePath confPath $
     flip update' (AddExplorer e pId)
+
+wrapResult res = whenJust res $ \e -> logError (show' e) >> throwM e
+
+wrapRequest :: Maybe FilePath -> SecretKey -> P.BankLocalControlRequest -> IO ()
+wrapRequest confPath bankSk request = do
+    res <- runRealModeBank confPath bankSk $ sendBankLocalControlRequest request
+    wrapResult res
+
+-- | Add mintette to Bank (send a request signed with bank's sk)
+-- Also pings minttete to check that it's compatible
+addMintetteReq :: Maybe FilePath -> SecretKey -> Mintette -> PublicKey -> IO ()
+addMintetteReq confPath bankSk m k = do
+    let proof = sign bankSk (m, k)
+    runRealModeBank confPath bankSk $ do
+        bankPid <- getBlockchainHeight
+        traceM "BEFORE MINTETTE PING "
+        mintettePid <- getMintettePeriod m
+        traceM "AFTER MINTETTE PING "
+        when (isNothing mintettePid) $
+            throwM $ BEInconsistentResponse
+            "Mintette didn't respond on ping request."
+        let mPid = fromJust mintettePid
+        when (mPid /= (-1) && mPid > bankPid) $
+            throwM $ BEInconsistentResponse $
+            sformat ("Mintette had period id " % int %
+                     " while bank's is " % int %
+                     ". Check out, maybe mintette's state" %
+                     " is old & incosistent.")
+            mPid bankPid
+        wrapResult =<< sendBankLocalControlRequest (P.AddMintette m k proof)
+
+-- | Add explorer to Bank inside IO Monad.
+addExplorerReq :: Maybe FilePath -> SecretKey -> Explorer -> PeriodId -> IO ()
+addExplorerReq confPath bankSk e pId = do
+    let proof = sign bankSk (e, pId)
+    wrapRequest confPath bankSk $ P.AddExplorer e pId proof
+
+-- | Sends a request to remove mintette
+removeMintetteReq :: Maybe FilePath -> SecretKey -> String -> Int -> IO ()
+removeMintetteReq confPath bankSk mintetteHost mintettePort = do
+    let proof = sign bankSk (mintetteHost, mintettePort)
+    wrapRequest confPath bankSk $ P.RemoveMintette mintetteHost mintettePort proof
+
+-- | Sends a request to remove explorer
+removeExplorerReq :: Maybe FilePath -> SecretKey -> String -> Int -> IO ()
+removeExplorerReq confPath bankSk mintetteHost mintettePort = do
+    let proof = sign bankSk (mintetteHost, mintettePort)
+    wrapRequest confPath bankSk $ P.RemoveExplorer mintetteHost mintettePort proof

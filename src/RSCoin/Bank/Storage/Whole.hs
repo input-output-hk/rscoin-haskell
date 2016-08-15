@@ -28,6 +28,8 @@ module RSCoin.Bank.Storage.Whole
        , addAddress
        , addMintette
        , addExplorer
+       , removeMintette
+       , removeExplorer
        , setExplorerPeriod
        , suspendExplorer
        , restoreExplorers
@@ -38,6 +40,7 @@ import           Control.Lens                  (Getter, makeLenses, to, use,
                                                 uses, (%%=), (%=), (+=), (.=))
 import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (MonadThrow (throwM))
+import           Control.Monad.Extra           (whenJust)
 import           Control.Monad.State           (MonadState, execState, runState)
 import           Data.Bifunctor                (first)
 import           Data.Foldable                 (foldl')
@@ -195,14 +198,31 @@ addAddress addr strategy = do
     unless (addr `MP.member` curAddresses) $ pendingAddresses %= MP.insert addr strategy
 
 -- | Add given mintette to storage and associate given key with it.
-addMintette :: C.Mintette -> C.PublicKey -> Update ()
-addMintette m k = mintettesStorage %= execState (MS.addMintette m k)
+addMintette :: C.Mintette -> C.PublicKey -> ExceptUpdate ()
+addMintette m k = do
+    (exc,s') <- uses mintettesStorage $ runState (MS.addMintette m k)
+    whenJust exc throwM
+    mintettesStorage .= s'
 
 -- | Add given explorer to storage and associate given PeriodId with
 -- it. If explorer exists, it is updated.
 addExplorer :: C.Explorer -> C.PeriodId -> Update ()
 addExplorer e expectedPid =
     explorersStorage %= execState (ES.addExplorer e expectedPid)
+
+-- | Given host and port, remove mintette from the list of mintettes added
+removeMintette :: String -> Int -> ExceptUpdate ()
+removeMintette h p = do
+    (exc,s') <- uses mintettesStorage $ runState $ MS.removeMintette $ C.Mintette h p
+    whenJust exc throwM
+    mintettesStorage .= s'
+
+-- | Given host and port, remove explorer from the list
+removeExplorer :: String -> Int -> ExceptUpdate ()
+removeExplorer h p = do
+    (exc,s') <- uses explorersStorage $ runState $ ES.removeExplorer h p
+    whenJust exc throwM
+    explorersStorage .= s'
 
 -- | Update expected period id of given explorer. Adds explorer if it
 -- doesn't exist.
@@ -278,7 +298,8 @@ startNewPeriodDo bankPk _ sk pId results = do
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
         emissionTransaction = allocateCoins bankPk keys filteredResults pId
         checkEmission [(tid,_,_)] = return tid
-        checkEmission _ = throwM $ BEInternal "Emission transaction should have one transaction hash"
+        checkEmission _ = throwM $ BEInternal
+            "Emission transaction should have one transaction hash"
         blockTransactions =
             emissionTransaction : mergeTransactions mintettes filteredResults
     emissionTransactionId <- checkEmission $ C.txInputs emissionTransaction

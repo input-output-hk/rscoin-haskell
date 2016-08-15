@@ -83,7 +83,7 @@ closeState :: RSCoinUserState -> IO ()
 closeState = A.closeAcidState
 
 isInitialized :: A.Query WalletStorage Bool
-findUserAddress :: C.Address -> C.Address -> A.Query WalletStorage (Maybe (C.Address, C.SecretKey))
+findUserAddress :: C.Address -> C.Address -> A.Query WalletStorage (C.Address, Maybe C.SecretKey)
 getUserAddresses :: A.Query WalletStorage [(C.Address,C.SecretKey)]
 getOwnedAddresses :: C.Address -> A.Query WalletStorage [C.Address]
 getOwnedDefaultAddresses :: C.Address -> A.Query WalletStorage [C.Address]
@@ -112,7 +112,7 @@ getAllocationByIndex = W.getAllocationByIndex
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
-addAddress :: (C.Address,C.SecretKey) -> [C.Transaction] -> C.PeriodId -> A.Update WalletStorage ()
+addAddress :: (C.Address,Maybe C.SecretKey) -> [C.Transaction] -> C.PeriodId -> A.Update WalletStorage ()
 updateAllocationStrategies :: Map MSAddress AllocationInfo -> A.Update WalletStorage ()
 initWallet :: [(C.SecretKey,C.PublicKey)] -> Maybe Int -> A.Update WalletStorage ()
 

@@ -14,8 +14,7 @@ module RSCoin.Core.Communication
        , getTransactionById
        , getGenesisBlock
        , finishPeriod
-       , addMintetteAdhoc
-       , addExplorerAdhoc
+       , sendBankLocalControlRequest
        , checkNotDoubleSpent
        , commitTx
        , getMintettePeriod
@@ -56,6 +55,7 @@ import           Safe                       (atMay)
 import           Serokell.Util.Text         (listBuilderJSONIndent, mapBuilder,
                                              pairBuilder, show')
 
+import           RSCoin.Bank.Error          (BankError)
 import           RSCoin.Core.Crypto         (PublicKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
@@ -197,21 +197,12 @@ finishPeriod currentPeriodSignature =
         (const $ L.logDebug "Successfully finished period") $
     callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
 
-addMintetteAdhoc :: WorkMode m => Mintette -> PublicKey -> Signature -> m ()
-addMintetteAdhoc mintette pk proof =
+sendBankLocalControlRequest :: WorkMode m => P.BankLocalControlRequest -> m (Maybe BankError)
+sendBankLocalControlRequest request =
     withResult
-        (L.logInfo $ sformat ("Sending req to add mintette " % build % ", pk " % build)
-                           mintette pk)
-        (const $ L.logDebug "Request sent successfully") $
-        callBank $ P.call (P.RSCBank P.AddMintetteAdhoc) mintette pk proof
-
-addExplorerAdhoc :: WorkMode m => Explorer -> PeriodId -> Signature -> m ()
-addExplorerAdhoc explorer pId proof =
-    withResult
-        (L.logInfo $ sformat ("Sending req to add explorer " % build % ", pid " % int)
-                           explorer pId)
-        (const $ L.logDebug "Request sent successfully") $
-        callBank $ P.call (P.RSCBank P.AddExplorerAdhoc) explorer pId proof
+        (L.logInfo $ sformat ("Sending control request to bank: " % build) request)
+        (const $ L.logDebug "Sent control request successfully") $
+         callBank $ P.call (P.RSCBank P.LocalControlRequest) request
 
 checkNotDoubleSpent
     :: WorkMode m
@@ -299,9 +290,9 @@ allocateMultisignatureAddress
     -> PartyAddress
     -> AllocationStrategy
     -> Signature
-    -> [(Signature, PublicKey)]
+    -> (PublicKey, Signature)
     -> m ()
-allocateMultisignatureAddress msAddr partyAddr allocStrat signature chain = do
+allocateMultisignatureAddress msAddr partyAddr allocStrat signature masterCheck = do
     L.logInfo $ sformat
         ( "Allocate new ms address: " % build % "\n,"
         % "from party address: "      % build % "\n"
@@ -313,9 +304,9 @@ allocateMultisignatureAddress msAddr partyAddr allocStrat signature chain = do
         partyAddr
         allocStrat
         signature
-        (mapBuilder chain)
+        (pairBuilder masterCheck)
     callNotary $ P.call (P.RSCNotary P.AllocateMultisig)
-        msAddr partyAddr allocStrat signature chain
+        msAddr partyAddr allocStrat signature masterCheck
 
 queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, TxStrategy)]
 queryNotaryCompleteMSAddresses = do

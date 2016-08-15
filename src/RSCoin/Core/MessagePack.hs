@@ -2,21 +2,24 @@
 
 module RSCoin.Core.MessagePack  () where
 
-import           Data.Bifunctor         (bimap)
-import           Data.Binary            (decodeOrFail, encode)
-import qualified Data.ByteString.Lazy   as BSL
-import           Data.Int               (Int64)
-import           Data.MessagePack       (MessagePack (fromObject, toObject), Object (ObjectBin, ObjectExt, ObjectInt),
-                                         pack, unpack)
-import           Data.Ratio             (Ratio, denominator, numerator, (%))
-import           Data.Tuple.Curry       (uncurryN)
-import           Data.Tuple.Select      (sel3)
+import           Data.Bifunctor             (bimap)
+import           Data.Binary                (decodeOrFail, encode)
+import qualified Data.ByteString.Lazy       as BSL
+import           Data.Hashable              (Hashable)
+import qualified Data.HashSet               as HS
+import           Data.Int                   (Int64)
+import           Data.MessagePack           (MessagePack (fromObject, toObject), Object (ObjectBin, ObjectExt, ObjectInt),
+                                             pack, unpack)
+import           Data.Ratio                 (Ratio, denominator, numerator, (%))
+import qualified Data.Set                   as S
+import           Data.Tuple.Curry           (uncurryN)
+import           Data.Tuple.Select          (sel3)
 
-import qualified Data.Set               as S
-import           RSCoin.Core.Crypto     ()
-import qualified RSCoin.Core.Primitives as C
-import qualified RSCoin.Core.Strategy   as C
-import qualified RSCoin.Core.Types      as C
+import           RSCoin.Core.Crypto         ()
+import qualified RSCoin.Core.Primitives     as C
+import qualified RSCoin.Core.Protocol.Types as C
+import qualified RSCoin.Core.Strategy       as C
+import qualified RSCoin.Core.Types          as C
 
 toInt :: Integral a => a -> Int
 toInt = fromIntegral
@@ -155,6 +158,11 @@ instance MessagePack C.AllocationInfo where
 instance (Ord e, MessagePack e) => MessagePack (S.Set e) where
     toObject = toObject . S.toList
     fromObject = fmap S.fromList . fromObject
+
+instance (Eq e, Hashable e, MessagePack e) => MessagePack (HS.HashSet e) where
+    toObject = toObject . HS.toList
+    fromObject = fmap HS.fromList . fromObject
+
 toObj
     :: MessagePack a
     => (Int, a) -> Object
@@ -170,4 +178,18 @@ instance MessagePack C.ActionLogEntry where
             0 -> C.QueryEntry <$> fromObject payload
             1 -> uncurry2 C.CommitEntry <$> fromObject payload
             2 -> C.CloseEpochEntry <$> fromObject payload
+            _ -> Nothing
+
+instance MessagePack C.BankLocalControlRequest where
+    toObject (C.AddMintette m pk sig)         = toObj (0, (m,pk,sig))
+    toObject (C.AddExplorer e pid sig)        = toObj (1, (e,pid,sig))
+    toObject (C.RemoveMintette host port sig) = toObj (2, (host,port,sig))
+    toObject (C.RemoveExplorer host port sig) = toObj (3, (host,port,sig))
+    fromObject obj = do
+        (i,payload) <- fromObject obj
+        case (i :: Int) of
+            0 -> uncurry3 C.AddMintette <$> fromObject payload
+            1 -> uncurry3 C.AddExplorer <$> fromObject payload
+            2 -> uncurry3 C.RemoveMintette <$> fromObject payload
+            3 -> uncurry3 C.RemoveExplorer <$> fromObject payload
             _ -> Nothing

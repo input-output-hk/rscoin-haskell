@@ -25,6 +25,8 @@ import           Data.Acid.Advanced      (query', update')
 
 import           Formatting              (build, int, sformat, shown, (%))
 
+import           Serokell.Util.Text      (pairBuilder)
+
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
 import           RSCoin.Notary.AcidState (AcquireSignatures (..),
@@ -179,12 +181,13 @@ handleAllocateMultisig
     -> C.PartyAddress
     -> C.AllocationStrategy
     -> C.Signature
-    -> [(C.Signature, C.PublicKey)]
+    -> (C.PublicKey, C.Signature)
     -> m ()
-handleAllocateMultisig st msAddr partyAddr allocStrat signature chain = toServer $ do
+handleAllocateMultisig st msAddr partyAddr allocStrat signature masterCheck = toServer $ do
     C.logDebug "Begining allocation MS address..."
-    C.logDebug $ sformat ("SigPair: " % build % ", Chain: " % build) signature chain
-    update' st $ AllocateMSAddress msAddr partyAddr allocStrat signature chain
+    C.logDebug $
+        sformat ("SigPair: " % build % ", Chain: " % build) signature (pairBuilder masterCheck)
+    update' st $ AllocateMSAddress msAddr partyAddr allocStrat signature masterCheck
 
     -- @TODO: get query only in Debug mode
     currentMSAddresses <- query' st QueryAllMSAdresses

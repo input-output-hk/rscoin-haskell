@@ -32,7 +32,6 @@ module RSCoin.User.Operations
        , TransactionData (..)
        , submitTransaction
        , submitTransactionRetry
-       , createCertificateChain
        , retrieveAllocationsList
        ) where
 
@@ -152,8 +151,8 @@ getAmount st address = do
 -- stands for "if update blockchain inside"
 getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m C.CoinsMap
 getUserTotalAmount upd st = do
-    genAdr <- (^.C.genesisAddress) <$> getNodeContext
-    addrs <- query' st $ A.GetOwnedDefaultAddresses genAdr
+    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    addrs <- query' st $ A.GetOwnedDefaultAddresses genAddr
     when upd $ void $ updateBlockchain st False
     C.mergeCoinsMaps <$> mapM (getAmountNoUpdate st) addrs
 
@@ -162,16 +161,16 @@ getAmountNoUpdate
     :: WorkMode m
     => A.RSCoinUserState -> C.Address -> m C.CoinsMap
 getAmountNoUpdate st address = do
-    genAdr <- (^.C.genesisAddress) <$> getNodeContext
-    C.coinsToMap . map sel3 <$> query' st (A.GetOwnedAddrIds genAdr address)
+    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    C.coinsToMap . map sel3 <$> query' st (A.GetOwnedAddrIds genAddr address)
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
 -- n is the number of accounts stored in wallet)
 getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m C.CoinsMap
 getAmountByIndex st idx = do
     void $ updateBlockchain st False
-    genAdr <- (^.C.genesisAddress) <$> getNodeContext
-    addr <- flip atMay idx <$> query' st (A.GetOwnedDefaultAddresses genAdr)
+    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    addr <- flip atMay idx <$> query' st (A.GetOwnedDefaultAddresses genAddr)
     maybe
         (throwM $
          InputProcessingError "invalid index was given to getAmountByIndex")
@@ -181,14 +180,14 @@ getAmountByIndex st idx = do
 -- | Returns list of public addresses available
 getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
 getAllPublicAddresses st = do
-    genAdr <- (^.C.genesisAddress) <$> getNodeContext
-    query' st $ A.GetOwnedDefaultAddresses genAdr
+    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    query' st $ A.GetOwnedDefaultAddresses genAddr
 
 genesisAddressIndex :: WorkMode m => A.RSCoinUserState -> m (Maybe Word)
 genesisAddressIndex st = do
-    adrList <- getAllPublicAddresses st
-    genAdr <- (^.C.genesisAddress) <$> getNodeContext
-    return $ fromIntegral <$> elemIndex genAdr adrList
+    addrList <- getAllPublicAddresses st
+    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    return $ fromIntegral <$> elemIndex genAddr addrList
 
 -- | Returns transaction history that wallet holds
 getTransactionsHistory
@@ -207,25 +206,26 @@ isInitialized st = query' st A.IsInitialized
 addAddress
     :: MonadIO m
     => A.RSCoinUserState
-    -> C.SecretKey
+    -> Maybe C.SecretKey
     -> C.PublicKey
     -> [C.Transaction]
     -> C.PeriodId
     -> m ()
-addAddress st sk pk ts = update' st . A.AddAddress (C.Address pk, sk) ts
+addAddress st skMaybe pk ts = update' st . A.AddAddress (C.Address pk, skMaybe) ts
 
 -- | Same as addAddress, but queries blockchain automatically and
 -- queries transactions that affect this address
 importAddress
     :: WorkMode m
     => A.RSCoinUserState
-    -> (C.SecretKey, C.PublicKey)
+    -> (Maybe C.SecretKey, C.PublicKey)
     -> Int
     -> Maybe Int
     -> m ()
-importAddress st (sk,pk) fromH toH0 = do
-    unless (C.checkKeyPair (sk,pk)) $
-        commitError "The provided pair doesn't match thus can't be used"
+importAddress st (skMaybe,pk) fromH toH0 = do
+    whenJust skMaybe $ \sk ->
+        unless (C.checkKeyPair (sk,pk)) $
+            commitError "The provided pair doesn't match thus can't be used"
     allAddrs <- getAllPublicAddresses st
     when (C.Address pk `elem` allAddrs) $
         commitError $ sformat
@@ -250,7 +250,7 @@ importAddress st (sk,pk) fromH toH0 = do
     addrMap <- execStateT (gatherTransactionsDo [fromH..toH]) $
                    M.singleton newAddress []
     let txs = nub $ map fst $ concat $ M.elems addrMap
-    update' st $ A.AddAddress (newAddress,sk) txs walletHeight
+    update' st $ A.AddAddress (newAddress,skMaybe) txs walletHeight
   where
     newAddress = C.Address pk
     gatherTransactionsDo
@@ -281,8 +281,8 @@ submitTransactionFromAll
     -> m C.Transaction
 submitTransactionFromAll st maybeCache addressTo amount =
     assert (C.getColor amount == 0) $
-    do genAdr <- (^.C.genesisAddress) <$> getNodeContext
-       addrs <- query' st $ A.GetOwnedDefaultAddresses genAdr
+    do genAddr <- (^.C.genesisAddress) <$> getNodeContext
+       addrs <- query' st $ A.GetOwnedDefaultAddresses genAddr
        (indicesWithCoins :: [(Word, C.Coin)]) <-
            filter (not . C.isNegativeCoin . snd) <$>
            mapM
@@ -390,8 +390,8 @@ constructAndSignTransaction st TransactionData{..} = do
             ("All input values should be positive, but encountered " % build %
              ", that's not.") $
         head $ filter (not . C.isPositiveCoin) $ concatMap snd tdInputsMerged
-    genAdr   <- (^.C.genesisAddress) <$> getNodeContext
-    accounts <- query' st $ A.GetOwnedAddresses genAdr
+    genAddr  <- (^.C.genesisAddress) <$> getNodeContext
+    accounts <- query' st $ A.GetOwnedAddresses genAddr
     let notInRange i = i >= genericLength accounts
     when (any notInRange $ map fst tdInputsMerged) $
         commitError $
@@ -440,8 +440,14 @@ constructAndSignTransaction st TransactionData{..} = do
             M.fromList <$>
             mapM
                 (\(addrid',address') -> do
-                      (pK, sK) <- fromJust <$> query' st (A.FindUserAddress genAdr address')
-                      return (addrid', (pK, C.sign sK outTr)))
+                      (pK, sKMaybe) <-
+                          query' st (A.FindUserAddress genAddr address')
+                      when (isNothing sKMaybe) $ commitError $
+                          sformat ("The correspondent account " % build %
+                                   " doesn't have a secret key attached in" %
+                                   " the wallet. Its related public component " %
+                                   build) address' pK
+                      return (addrid', (pK, C.sign (fromJust sKMaybe) outTr)))
                 addrPairList
     when (not (null tdOutputCoins) && not (C.validateSum outTr)) $
         commitError $
@@ -476,8 +482,8 @@ submitTransactionMapper
     -> C.CoinsMap
     -> m (Maybe ([(C.AddrId, C.Address)], [C.AddrId], [(C.Address, C.Coin)]))
 submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
-    genAdr <- (^.C.genesisAddress) <$> getNodeContext
-    (addrids :: [C.AddrId]) <- query' st (A.GetOwnedAddrIds genAdr address)
+    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    (addrids :: [C.AddrId]) <- query' st (A.GetOwnedAddrIds genAddr address)
     let
         -- Pairs of chosen addrids and change for each color
         chosenMap0
@@ -583,16 +589,6 @@ isRetriableException e
     | isWalletSyncError e = True
     | otherwise = False
 
--- | This method create certificate chain for user address with
--- help of attain. WARNING! This method is just temporal solution
--- for testing purposes until we will generate IOU.
-createCertificateChain :: C.PublicKey -> [(C.Signature, C.PublicKey)]
-createCertificateChain userPublicKey =
-    [  -- @TODO: should introduce `seedPK`
-      (C.sign C.attainSecretKey C.attainPublicKey, C.attainPublicKey)
-    , (C.sign C.attainSecretKey userPublicKey,     userPublicKey)
-    ]
-
 -- | Get list of all allocation address in which user participates.
 retrieveAllocationsList
     :: forall m .
@@ -601,8 +597,8 @@ retrieveAllocationsList
     -> m ()  -- [(C.MSAddress, C.AllocationInfo)]
 retrieveAllocationsList st = do
     -- @TODO: only first address as party is supported now
-    genAdr          <- (^.C.genesisAddress) <$> getNodeContext
-    fstUserAddress  <- head <$> query' st (A.GetOwnedAddresses genAdr)
+    genAddr         <- (^.C.genesisAddress) <$> getNodeContext
+    fstUserAddress  <- head <$> query' st (A.GetOwnedAddresses genAddr)
     userAllocInfos  <- C.queryNotaryMyMSAllocations $ C.UserAlloc  fstUserAddress
     trustAllocInfos <- C.queryNotaryMyMSAllocations $ C.TrustAlloc fstUserAddress
     let allInfos = userAllocInfos ++ trustAllocInfos

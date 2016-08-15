@@ -20,9 +20,11 @@ module RSCoin.Bank.AcidState
        , GetHBlocks (..)
        , GetTransaction (..)
        , GetLogs (..)
-       , AddMintette (..)
        , AddAddress (..)
+       , AddMintette (..)
        , AddExplorer (..)
+       , RemoveMintette (..)
+       , RemoveExplorer (..)
        , SetExplorerPeriod (..)
        , SuspendExplorer (..)
        , RestoreExplorers (..)
@@ -106,6 +108,13 @@ addMintette = BS.addMintette
 addExplorer :: Explorer -> PeriodId -> Update BS.Storage ()
 addExplorer = BS.addExplorer
 
+removeMintette :: String -> Int -> Update BS.Storage ()
+removeMintette = BS.removeMintette
+
+removeExplorer :: String -> Int -> Update BS.Storage ()
+removeExplorer = BS.removeExplorer
+
+
 setExplorerPeriod :: Explorer -> PeriodId -> Update BS.Storage ()
 setExplorerPeriod = BS.setExplorerPeriod
 
@@ -135,9 +144,11 @@ $(makeAcidic ''BS.Storage
              , 'getHBlocks
              , 'getTransaction
              , 'getLogs
-             , 'addMintette
              , 'addAddress
+             , 'addMintette
              , 'addExplorer
+             , 'removeMintette
+             , 'removeExplorer
              , 'setExplorerPeriod
              , 'suspendExplorer
              , 'restoreExplorers

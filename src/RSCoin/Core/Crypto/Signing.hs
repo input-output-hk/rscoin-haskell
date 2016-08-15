@@ -13,6 +13,7 @@ module RSCoin.Core.Crypto.Signing
        , verifyChain
        , keyGen
        , deterministicKeyGen
+       , constructSignature
        , constructPublicKey
        , writePublicKey
        , readPublicKey
@@ -24,38 +25,41 @@ module RSCoin.Core.Crypto.Signing
        , printPublicKey
        ) where
 
-import qualified Crypto.Sign.Ed25519        as E
-import           Data.Aeson                 (FromJSON (parseJSON),
-                                             ToJSON (toJSON))
-import           Data.Bifunctor             (bimap)
-import           Data.Binary                (Binary (get, put), decodeOrFail,
-                                             encode)
-import qualified Data.ByteString            as BS
-import           Data.Char                  (isSpace)
-import           Data.Hashable              (Hashable (hashWithSalt))
-import           Data.Maybe                 (fromMaybe)
-import           Data.MessagePack           (MessagePack (fromObject, toObject))
-import           Data.SafeCopy              (Contained,
-                                             SafeCopy (getCopy, putCopy),
-                                             contain, safeGet, safePut)
-import           Data.Serialize             (Get, Put)
-import           Data.Text                  (Text)
-import qualified Data.Text                  as T
-import           Data.Text.Buildable        (Buildable (build))
-import qualified Data.Text.IO               as TIO
-import qualified Data.Text.Lazy             as TL
-import           Data.Text.Lazy.Builder     (toLazyText)
-import           Data.Tuple                 (swap)
-import           System.Directory           (createDirectoryIfMissing)
-import           System.FilePath            (takeDirectory)
-import           Test.QuickCheck            (Arbitrary (arbitrary), vector)
+import qualified Crypto.Sign.Ed25519          as E
+import           Data.Aeson                   (FromJSON (parseJSON),
+                                               ToJSON (toJSON))
+import           Data.Bifunctor               (bimap)
+import           Data.Binary                  (Binary (get, put), decodeOrFail,
+                                               encode)
+import qualified Data.ByteString              as BS
+import           Data.Char                    (isSpace)
+import           Data.Hashable                (Hashable (hashWithSalt))
+import           Data.Maybe                   (fromMaybe)
+import           Data.MessagePack             (MessagePack (fromObject, toObject))
+import           Data.SafeCopy                (Contained,
+                                               SafeCopy (getCopy, putCopy),
+                                               contain, safeGet, safePut)
+import           Data.Serialize               (Get, Put)
+import           Data.Text                    (Text)
+import qualified Data.Text                    as T
+import           Data.Text.Buildable          (Buildable (build))
+import qualified Data.Text.IO                 as TIO
+import qualified Data.Text.Lazy               as TL
+import           Data.Text.Lazy.Builder       (toLazyText)
+import           Data.Tuple                   (swap)
+import           System.Directory             (createDirectoryIfMissing)
+import           System.FilePath              (takeDirectory)
+import           Test.QuickCheck              (Arbitrary (arbitrary), vector)
+import           Text.ParserCombinators.ReadP (between, char, munch1,
+                                               skipSpaces, string)
+import           Text.Read                    (lift, readPrec)
 
-import qualified Serokell.Util.Base64       as B64
-import           Serokell.Util.Exceptions   (throwText)
-import           Serokell.Util.Text         (listBuilderJSON, pairBuilder,
-                                             show')
+import qualified Serokell.Util.Base64         as B64
+import           Serokell.Util.Exceptions     (throwText)
+import           Serokell.Util.Text           (listBuilderJSON, pairBuilder,
+                                               show')
 
-import qualified RSCoin.Core.Crypto.Hashing as H
+import qualified RSCoin.Core.Crypto.Hashing   as H
 
 newtype Signature = Signature
     { getSignature :: E.Signature
@@ -92,8 +96,20 @@ instance Buildable [(Signature, PublicKey)] where
 instance Buildable Signature where
     build = build . B64.encode . E.unSignature . getSignature
 
+-- @TODO: avoid code duplication for Show and Read instances
 instance Show Signature where
     show sig = "Signature { getSignature = " ++ T.unpack (show' sig) ++ " }"
+
+instance Read Signature where
+    readPrec = lift $
+        either
+            (error . T.unpack)
+            (Signature . E.Signature)
+        . B64.decode
+        . T.pack
+        <$>
+        (string "Signature " *> between (char '{') (char '}')
+          (string " getSignature = " *> munch1 (not . isSpace) <* skipSpaces))
 
 instance MessagePack Signature where
     toObject = toObject . sigToBs
@@ -109,6 +125,7 @@ instance ToJSON Signature where
 instance FromJSON Signature where
     parseJSON = fmap (bsToSig . B64.getJsonByteString) . parseJSON
 
+
 newtype SecretKey = SecretKey
     { getSecretKey :: E.SecretKey
     } deriving (Eq, Ord)
@@ -118,6 +135,17 @@ instance Buildable SecretKey where
 
 instance Show SecretKey where
     show sk = "SecretKey { getSecretKey = " ++ T.unpack (show' sk) ++ " }"
+
+instance Read SecretKey where
+    readPrec = lift $
+        either
+            (error . T.unpack)
+            (SecretKey . E.SecretKey)
+        . B64.decode
+        . T.pack
+        <$>
+        (string "SecretKey " *> between (char '{') (char '}')
+          (string " getSecretKey = " *> munch1 (not . isSpace) <* skipSpaces))
 
 instance Binary SecretKey where
     get = SecretKey . E.SecretKey <$> get
@@ -150,6 +178,17 @@ instance Buildable PublicKey where
 
 instance Show PublicKey where
     show pk = "PublicKey { getPublicKey = " ++ T.unpack (show' pk) ++ " }"
+
+instance Read PublicKey where
+    readPrec = lift $
+        either
+            (error . T.unpack)
+            (PublicKey . E.PublicKey)
+        . B64.decode
+        . T.pack
+        <$>
+        (string "PublicKey " *> between (char '{') (char '}')
+          (string " getPublicKey = " *> munch1 (not . isSpace) <* skipSpaces))
 
 instance Hashable PublicKey where
     hashWithSalt s = hashWithSalt s . E.unPublicKey . getPublicKey
@@ -198,6 +237,13 @@ keyGen = bimap SecretKey PublicKey . swap <$> E.createKeypair
 deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
 deterministicKeyGen seed =
     bimap PublicKey SecretKey <$> E.createKeypairFromSeed_ seed
+
+-- | Constructs signature from UTF-8 base64 text.
+constructSignature :: Text -> Maybe Signature
+constructSignature =
+    either (const Nothing) (Just . Signature . E.Signature) . B64.decode . trim
+  where
+    trim = T.dropAround isSpace
 
 -- | Constructs public key from UTF-8 base64 text.
 constructPublicKey :: Text -> Maybe PublicKey

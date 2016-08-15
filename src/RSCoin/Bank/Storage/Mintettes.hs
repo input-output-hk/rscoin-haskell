@@ -1,6 +1,7 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE Rank2Types       #-}
-{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Storage which contains data about mintettes.
 
@@ -15,18 +16,20 @@ module RSCoin.Bank.Storage.Mintettes
 
        , Update
        , addMintette
+       , removeMintette
        , updateMintettes
 
        ) where
 
-import           Control.Lens        (Getter, ix, makeLenses, use, (%=), (&),
-                                      (.=), (.~))
-import           Control.Monad       (unless)
+import           Control.Lens        (Getter, ix, makeLenses, use, uses, (%=),
+                                      (&), (.=), (.~))
 import           Control.Monad.State (State)
-import           Data.List           ((\\))
+import           Data.List           (delete, find, nub, (\\))
 import qualified Data.Map            as M
 import           Data.SafeCopy       (base, deriveSafeCopy)
+import           Formatting          (build, sformat, (%))
 
+import           RSCoin.Bank.Error   (BankError (BEInconsistentResponse))
 import qualified RSCoin.Core         as C
 
 -- | DeadMintetteState represents state of mintette which was removed
@@ -42,21 +45,25 @@ type DeadMintettesMap = M.Map C.PublicKey DeadMintetteState
 data MintettesStorage = MintettesStorage
     {
       -- | List of active mintettes.
-      _msMintettes        :: !C.Mintettes
+      _msMintettes         :: !C.Mintettes
     ,
       -- | List of mintettes which were added in current period and
       -- will become active for the next period.
-      _msPendingMintettes :: ![(C.Mintette, C.PublicKey)]
+      _msPendingMintettes  :: ![(C.Mintette, C.PublicKey)]
+    ,
+      -- | Mintettes that should be excluded in the next period
+      _msMintettesToRemove :: !C.Mintettes
     ,
       -- | DPK set for the ongoing period. Doesn't mean anything if
       -- there is no active period.
-      _msDpk              :: !C.Dpk
+      _msDpk               :: !C.Dpk
     ,
       -- | State of all known dead mintettes.
-      _msDeadMintettes    :: !DeadMintettesMap
+      _msDeadMintettes     :: !DeadMintettesMap
+    ,
       -- | Mintettes' action logs. actionLogs[i] stores action log for
       -- i-th mintette.  Head of action log is the most recent entry.
-    , _msActionLogs       :: ![C.ActionLog]
+      _msActionLogs        :: ![C.ActionLog]
     }
 
 $(makeLenses ''MintettesStorage)
@@ -67,6 +74,7 @@ mkMintettesStorage =
     MintettesStorage
     { _msMintettes = []
     , _msPendingMintettes = []
+    , _msMintettesToRemove = []
     , _msDpk = []
     , _msDeadMintettes = M.empty
     , _msActionLogs = []
@@ -86,12 +94,33 @@ getActionLogs = msActionLogs
 type Update a = State MintettesStorage a
 
 -- | Add mintette to the storage
-addMintette :: C.Mintette -> C.PublicKey -> Update ()
+addMintette :: C.Mintette -> C.PublicKey -> Update (Maybe BankError)
 addMintette m k = do
-    dpk <- use getDpk
-    unless (k `elem` map fst dpk) $ msPendingMintettes %= ((m, k) :)
+    isAdded <- (||) <$> uses msDpk (\dpk -> k `elem` map fst dpk)
+                    <*> uses msPendingMintettes ((m `elem`) . map fst)
+    if not isAdded
+    then do
+        msMintettesToRemove %= delete m
+        msPendingMintettes %= ((m, k) :)
+        return Nothing
+    else return $ Just $ BEInconsistentResponse $
+        sformat ("Mintette " % build % " is already added, won't add.") m
 
--- type MintetteInfo = (Mintette, (PublicKey, Signature), ActionLog)
+-- | Unstages a mintette from being in a next period. Is canceled by
+-- `addMintette` and vice versa
+removeMintette :: C.Mintette -> Update (Maybe BankError)
+removeMintette m = do
+    isAdded <- (||) <$> uses msMintettes (m `elem`)
+                    <*> uses msPendingMintettes ((m `elem`) . map fst)
+    if isAdded
+    then do
+        e <- uses msPendingMintettes $ find ((== m) . fst)
+        maybe (msMintettesToRemove %= nub . (m:))
+              (\m' -> msPendingMintettes %= delete m')
+              e
+        return Nothing
+    else return $ Just $ BEInconsistentResponse $
+        sformat ("Mintette " % build % " is not in the storage, can't remove") m
 
 -- | Update mintettes state, returning mintette id's that should
 -- change their utxo. Performs things as saving actionlogs, checking
@@ -101,8 +130,14 @@ updateMintettes :: C.SecretKey
                 -> Update [C.MintetteId]
 updateMintettes sk goodMintettes = do
     pendingPairs <- use msPendingMintettes
+    toRemove <- use msMintettesToRemove
+    toRemoveIds <- uses msMintettes $
+        map fst . filter (\(_,m) -> m `elem` toRemove) . ([0..] `zip`)
     let pendingMts = map fst pendingPairs
         pendingDpk = map doSign pendingPairs
+        goodMintettesWORemoved = filter ((`notElem` toRemoveIds) . fst) goodMintettes
+        goodIndices = map fst goodMintettesWORemoved
+        appendNewLogs = mapM_ appendNewLogDo goodMintettesWORemoved
     pendingLogs <- formPendingLogs pendingPairs
     existingMts <- use getMintettes
     existingDpk <- use getDpk
@@ -119,6 +154,7 @@ updateMintettes sk goodMintettes = do
     msMintettes .= newMintettes
     msDpk .= newDpk
     msActionLogs .= newActionLogs
+    msMintettesToRemove .= []
     -- @TODO introduce a better solution if needed once
     if length existingMts /= length newMintettes
        -- Discard all mitettes' utxo lists in case of list lengths' mismatch
@@ -126,13 +162,11 @@ updateMintettes sk goodMintettes = do
        then return [0 .. length newMintettes - 1]
        else return updatedIndices
   where
-    goodIndices = map fst goodMintettes
     doSign (_,mpk) = (mpk, C.sign sk mpk)
     formPendingLogs pendingPairs = do
         dm <- use msDeadMintettes
         return $
             map (maybe [] dmsActionLog . flip M.lookup dm . snd) pendingPairs
-    appendNewLogs = mapM_ appendNewLogDo goodMintettes
     appendNewLogDo (idx,(_,_,newLog)) = msActionLogs . ix idx %= (newLog ++)
 
 -- | Given the list of bad indices, new list to append and data list,

@@ -32,12 +32,12 @@ main = do
             return sk
         Left err -> throwM err
         Right sk -> return sk
-
+    let confPath = Just cloConfigPath
     case cloCommand of
         Opts.AddMintette host port pk -> do
             let m = Mintette host port
             k <- readPk pk
-            B.addMintetteIO (Just cloConfigPath) bankSecretKey m k
+            B.addMintetteReq confPath bankSecretKey m k
         Opts.AddExplorer name port pk pId -> do
             k <- readPk pk
             let e =
@@ -46,7 +46,11 @@ main = do
                     , explorerPort = port
                     , explorerKey = k
                     }
-            B.addExplorerIO (Just cloConfigPath) bankSecretKey e pId
+            B.addExplorerReq confPath bankSecretKey e pId
+        Opts.RemoveMintette host port ->
+            B.removeMintetteReq confPath bankSecretKey host port
+        Opts.RemoveExplorer host port ->
+            B.removeExplorerReq confPath bankSecretKey host port
         Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
             B.launchBankReal

@@ -25,6 +25,8 @@ data Command
     = Serve
     | AddMintette String Int T.Text
     | AddExplorer String Int T.Text Int
+    | RemoveMintette String Int
+    | RemoveExplorer String Int
 
 data Options = Options
     { cloCommand       :: Command
@@ -49,29 +51,45 @@ commandParser =
              (info addMintetteOpts (progDesc "Add given mintette to database")) <>
          command
              "add-explorer"
-             (info addExplorerOpts (progDesc "Add given explorer to database")))
+             (info addExplorerOpts (progDesc "Add given explorer to database")) <>
+         command
+             "remove-mintette"
+             (info
+                  removeMintetteOpts
+                  (progDesc $
+                   "Remove given mintette on the next " <>
+                   "period or from pending queue")) <>
+         command
+             "remove-explorer"
+             (info
+                  removeExplorerOpts
+                  (progDesc "Remove given explorer from bank's database")))
   where
+    mHost = strOption (long "host" <> help "Mintette's host" <> metavar "HOST")
+    mPort =
+        option auto (long "port" <> help "Mintette's port" <> metavar "INT")
+    eHost = strOption (long "host" <> help "Explorer's host" <> metavar "HOST")
+    ePort =
+        option auto (long "port" <> help "Explorer's port" <> metavar "INT")
     serveOpts = pure Serve
     addMintetteOpts =
-        AddMintette <$>
-        strOption (long "host") <*>
-        option auto (long "port") <*>
+        AddMintette <$> mHost <*> mPort <*>
         strOption
-            (long "key" <>
-             help "Mintette's public key (directly, not from file)" <>
-             metavar "PUBLIC KEY")
+            (long "key" <> help "Mintette's public key" <>
+             metavar "PUBLIC KEY STRING")
     addExplorerOpts =
-        AddExplorer <$> strOption (long "host") <*> option auto (long "port") <*>
+        AddExplorer <$> eHost <*> ePort <*>
         strOption
-            (long "key" <>
-             help "Explorer's public key (directly, not from file)" <>
-             metavar "PUBLIC KEY") <*>
+            (long "key" <> help "Explorer's public key" <>
+             metavar "PUBLIC KEY STRING") <*>
         option
             auto
             (long "id" <> help "Id of period which this explorer expects" <>
              value 0 <>
              showDefault <>
              metavar "INT")
+    removeMintetteOpts = RemoveMintette <$> mHost <*> mPort
+    removeExplorerOpts = RemoveExplorer <$> eHost <*> ePort
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
 optionsParser defaultSKPath configDir defaultConfigPath =

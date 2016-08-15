@@ -46,6 +46,7 @@ import           Control.Lens               ((%=), (.=), (<>=))
 import qualified Control.Lens               as L
 import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (MonadThrow, throwM)
+import           Control.Monad.Extra        (whenJust)
 import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.State.Class  (MonadState)
 import           Data.Bifunctor             (first, second)
@@ -54,7 +55,6 @@ import           Data.List                  (delete, find, groupBy, intersect,
                                              nub, sortOn, (\\))
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust, isJust)
-import           Data.Monoid                ((<>))
 import           Data.Ord                   (comparing)
 import qualified Data.Set                   as S
 import qualified Data.Text                  as T
@@ -158,28 +158,27 @@ isInitialized = do
 -- address and it's sk itself. In case of MOfNStrategy it's another
 -- keypair of share you own (we assume there can be only one per
 -- wallet).
-findUserAddress :: Address -> Address -> ExceptQuery (Maybe (Address, SecretKey))
-findUserAddress adr addr = checkInitR $ do
+findUserAddress :: Address -> Address -> ExceptQuery (Address, Maybe SecretKey)
+findUserAddress genesisAddr addr = checkInitR $ do
     secretKey <- L.views ownedAddresses (M.lookup addr)
     case secretKey of
         -- we don't own this address
-        Nothing        -> return Nothing
+        Nothing        -> return (addr, Nothing)
         -- we own secret key
-        Just (Just sk) -> return $ Just (addr,sk)
+        Just (Just sk) -> return (addr, Just sk)
         -- we don't own the secret key of this address
         Just Nothing   -> do
             strategy <- fromJust <$> L.views addrStrategies (M.lookup addr)
             case strategy of
-                C.DefaultStrategy -> throwM $ InternalError $
-                    "We have a notion of default strategy dut " <>
-                    "I can't find a correspondent secret key."
+                C.DefaultStrategy -> return (addr, Nothing)
                 C.MOfNStrategy _ addrs -> do
                     defaultOwnerAddress <-
                         fromJust .
                         find (`elem` addrs) <$>
-                        getOwnedDefaultAddresses adr
-                    fmap (defaultOwnerAddress,) . fromJust <$>
-                        L.views ownedAddresses (M.lookup defaultOwnerAddress)
+                        getOwnedDefaultAddresses genesisAddr
+                    L.views ownedAddresses $
+                        (defaultOwnerAddress,) .
+                        fromJust . M.lookup defaultOwnerAddress
 
 -- | Get all available user addresses that have private keys
 getUserAddresses :: ExceptQuery [(Address,SecretKey)]
@@ -190,20 +189,20 @@ getUserAddresses =
 
 -- | Puts bank's address on the first place if found
 rescheduleBankFirst :: Address -> [Address] -> [Address]
-rescheduleBankFirst genesisAdr addrs =
-    case find (== genesisAdr) addrs of
+rescheduleBankFirst genesisAddr addrs =
+    case find (== genesisAddr) addrs of
         Nothing -> addrs
-        Just _  -> genesisAdr : delete genesisAdr addrs
+        Just _  -> genesisAddr : delete genesisAddr addrs
 
 -- | Get all available user addresses
 getOwnedAddresses :: Address -> ExceptQuery [Address]
-getOwnedAddresses adr =
-    checkInitR $ rescheduleBankFirst adr <$> L.views ownedAddresses M.keys
+getOwnedAddresses genesisAddr =
+    checkInitR $ rescheduleBankFirst genesisAddr <$> L.views ownedAddresses M.keys
 
 -- | Get all user addresses with DefaultStrategy
 getOwnedDefaultAddresses :: Address -> ExceptQuery [Address]
-getOwnedDefaultAddresses adr = checkInitR $ do
-    addrs <- getOwnedAddresses adr
+getOwnedDefaultAddresses genesisAddr = checkInitR $ do
+    addrs <- getOwnedAddresses genesisAddr
     strategies <- L.view addrStrategies
     return $
         filter (\addr -> M.lookup addr strategies == Just C.DefaultStrategy)
@@ -211,8 +210,8 @@ getOwnedDefaultAddresses adr = checkInitR $ do
 
 -- | Gets user-related UTXO (addrids he owns)
 getOwnedAddrIds :: Address -> Address -> ExceptQuery [AddrId]
-getOwnedAddrIds adr addr = do
-    addrOurs <- getOwnedAddresses adr
+getOwnedAddrIds genesisAddr addr = do
+    addrOurs <- getOwnedAddresses genesisAddr
     unless (addr `elem` addrOurs) $
         throwM $
         BadRequest $
@@ -231,8 +230,8 @@ getOwnedAddrIds adr addr = do
 -- | Gets transaction that are somehow affect specified
 -- address. Address should be owned by wallet in MonadReader.
 getTransactions :: Address -> Address -> ExceptQuery [Transaction]
-getTransactions adr addr = checkInitR $ do
-    addrOurs <- getOwnedAddresses adr
+getTransactions genesisAddr addr = checkInitR $ do
+    addrOurs <- getOwnedAddresses genesisAddr
     unless (addr `elem` addrOurs) $
         throwM $
         BadRequest $
@@ -471,9 +470,13 @@ withBlockchainUpdate newHeight C.HBlock{..} =
 -- | Puts given address and it's related transactions (that contain it
 -- as output S_{out}) into wallet. Blockchain won't be queried.
 -- Strategy assigned is default.
-addAddress :: (C.Address,SecretKey) -> [Transaction] -> PeriodId -> ExceptUpdate ()
-addAddress addressPair@(address,sk) txs periodId = do
-    unless (uncurry validateKeyPair addressPair) $
+addAddress :: (C.Address, Maybe SecretKey)
+           -> [Transaction]
+           -> PeriodId
+           -> ExceptUpdate ()
+addAddress (address,skMaybe) txs periodId = do
+    whenJust skMaybe $ \sk ->
+        unless (validateKeyPair address sk) $
         throwM $
         BadRequest $
         sformat
@@ -486,13 +489,13 @@ addAddress addressPair@(address,sk) txs periodId = do
         throwM $
         BadRequest $
         sformat
-            ("Error while adding address ("%build%","%build%") to storage: "%
+            ("Error while adding address "%build%" to storage: "%
              int%" transactions dosn't " %
              "contain it (address) as output. First bad transaction: "%build)
-            address sk (length mappedTxs) (head mappedTxs)
+            address (length mappedTxs) (head mappedTxs)
     historyTxs <>=
         S.fromList (map (\tx -> TxHistoryRecord tx periodId TxHConfirmed) txs)
-    ownedAddresses %= M.insert address (Just sk)
+    ownedAddresses %= M.insert address skMaybe
     userTxAddrids <>=
         M.singleton
             address
@@ -514,4 +517,4 @@ initWallet addrs startHeight = do
     let newHeight = startHeight <|> Just (-1)
     lastBlockId .= newHeight
     forM_ (map (first Address . swap) addrs) $ \p ->
-        addAddress p [] $ fromJust newHeight
+        addAddress (second Just p) [] $ fromJust newHeight

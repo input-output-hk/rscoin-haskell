@@ -30,7 +30,7 @@ main = do
                     }
             B.addExplorerReq confPath bankSecretKey e pId
         Opts.RemoveMintette host port ->
-            B.removeExplorerReq confPath bankSecretKey host port
+            B.removeMintetteReq confPath bankSecretKey host port
         Opts.RemoveExplorer host port ->
             B.removeExplorerReq confPath bankSecretKey host port
         Opts.Serve -> do

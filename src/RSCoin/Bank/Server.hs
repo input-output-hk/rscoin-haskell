@@ -186,7 +186,7 @@ serveLocalControlRequest
     -> PT.BankLocalControlRequest
     -> T.ServerT m ()
 serveLocalControlRequest st bankPublicKey controlRequest
-  | PT.checkLocalControlRequest bankPublicKey controlRequest =
+  | not (PT.checkLocalControlRequest bankPublicKey controlRequest) =
       toServer $
       throwM $
       BEInconsistentResponse $
@@ -205,31 +205,6 @@ serveLocalControlRequest st bankPublicKey controlRequest
           sformat
               ("Control request " % build % " executed successfully")
               controlRequest
-
---serveAddMintetteAdhoc st bankPublicKey mintette pk proof =
---    toServer $
---    do logInfo $
---           sformat ("Adding mintette: " % build % " with pk " % build)
---                   mintette pk
---       if verify bankPublicKey proof (mintette,pk)
---       then update' st (AddMintette mintette pk)
---       else logError $
---                sformat ("Tried to add mintette " % build %
---                         " with pk " % build % " with *failed* signature")
---                        mintette pk
---
---erveAddExplorerAdhoc st bankPublicKey explorer pId proof =
---    toServer $
---    do logInfo $
---           sformat ("Adding explorer " % build % " with pid " % int)
---                   explorer pId
---       if verify bankPublicKey proof (explorer, pId)
---       then update' st (AddExplorer explorer pId)
---       else logError $
---                sformat ("Tried to add explorer " % build %
---                         " with pid" % int % " with *failed* signature")
---                        explorer pId
-
 
 -- Dumping Bank state
 

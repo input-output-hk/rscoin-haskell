@@ -171,7 +171,7 @@ processCommand st (O.AddMultisigAddress m textUAddrs textTAddrs mMSAddress) _ = 
         msStrat
         userSignature
         certChain
-    liftIO $ TIO.putStrLn $
+    C.logInfo $
        sformat ("Your new address will be added in the next block: " % build) msPublicKey
   where
     parseTextAddresses :: WorkMode m => [T.Text] -> m [C.Address]
@@ -204,7 +204,7 @@ processCommand st (O.ConfirmAllocation i) _ = eWrap $ do
         _allocationStrategy
         partySignature
         []
-    liftIO $ TIO.putStrLn "Address allocation successfully confirmed!"
+    C.logInfo "Address allocation successfully confirmed!"
 processCommand st O.ListAllocations _ = eWrap $ do
     -- update local cache
     U.retrieveAllocationsList st
@@ -220,11 +220,11 @@ processCommand st O.ListAllocations _ = eWrap $ do
         liftIO $ TIO.putStrLn $ sformat form i addr allocStrat
 processCommand st (O.ImportAddress skPath pkPath heightFrom heightTo) _ = do
     (sk,pk) <- liftIO $ do
-        TIO.putStrLn "Reading sk/pk from files..."
+        C.logInfo "Reading sk/pk from files..."
         (,) <$> C.readSecretKey skPath <*> C.readPublicKey pkPath
-    liftIO $ TIO.putStrLn "Starting blockchain query process"
+    C.logInfo "Starting blockchain query process"
     importAddress st (sk,pk) heightFrom heightTo
-    liftIO $ TIO.putStrLn "Finished, your address successfully added"
+    C.logInfo "Finished, your address successfully added"
 
 dumpCommand
     :: WorkMode m
@@ -240,6 +240,6 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
     void $ C.getMintetteBlocks mId pId
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
-    liftIO . TIO.putStrLn . show' . (`genericIndex` (idx - 1)) =<<
+    C.logInfo . show' . (`genericIndex` (idx - 1)) =<<
     (\ctx -> query' st (U.GetOwnedAddresses (ctx^.C.genesisAddress))) =<<
     getNodeContext

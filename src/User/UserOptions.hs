@@ -235,7 +235,8 @@ userCommandParser =
                       ("Tuples (a,b,c) where " <>
                        "'a' is id of address as numbered in list-wallets output, " <>
                        "'b' is integer -- amount of coins to send, " <>
-                       "'c' is the color (0 for uncolored), any uncolored ~ colored."))) <*>
+                       "'c' is the color (0 for uncolored), any uncolored ~ colored.") <>
+                  metavar "(INT,INT,INT)")) <*>
         strOption (long "toaddr" <> help "Address to send coins to.") <*>
         many
             (option
@@ -244,7 +245,8 @@ userCommandParser =
                   help
                       ("Pairs (a,b) where " <>
                        "'a' is amount of coins to send, " <>
-                       "'b' is the color of that coin")))
+                       "'b' is the color of that coin") <>
+                  metavar "(INT,INT)"))
         -- FIXME: should we do caching here or not?
         <*>
         pure Nothing
@@ -252,38 +254,48 @@ userCommandParser =
         AddMultisigAddress
         <$>
         option auto
-            (short 'm' <> help "Number m from m/n")
+            (short 'm' <> help "Number m from m/n" <>
+             metavar "INT")
         <*>
         many (strOption $
-            long "uaddr" <> help "User party Addresses that would own this MS address")
+            long "uaddr" <> help "User party Addresses that would own this MS address" <>
+            metavar "ADDRESS")
         <*>
         many (strOption $
-            long "taddr" <> help "Trust party Addresses that would own this MS address")
+            long "taddr" <> help "Trust party Addresses that would own this MS address" <>
+            metavar "ADDRESS")
         <*>
         optional (strOption $
-            long "ms-addr" <> help "New multisignature address")
+            long "ms-addr" <> help "New multisignature address" <>
+            metavar "ADDRESS")
     confirmOpts =
         ConfirmAllocation
         <$>
         option auto
-            (short 'n' <> help "Index starting from 1 in `list-alloc`")
+            (short 'n' <> help "Index starting from 1 in `list-alloc`" <>
+             metavar "INT")
     importAddressOpts =
         ImportAddress
         <$>
-        (strOption $ long "skPath" <> help "Path to file with binary-encoded secret key")
+        (strOption $ long "skPath" <> help "Path to file with binary-encoded secret key" <>
+         metavar "FILEPATH")
         <*>
-        (strOption $ long "pkPath" <> help "Path to file with base64-encoded public key")
+        (strOption $ long "pkPath" <> help "Path to file with base64-encoded public key" <>
+         metavar "FILEPATH")
         <*>
-        (option auto $ long "queryFrom" <> help "Height to query blockchain from" <> value 0)
+        (option auto $ long "queryFrom" <> help "Height to query blockchain from" <> value 0 <>
+         metavar "INT")
         <*>
         (option (Just <$> auto) (long "queryTo" <>
                                  help "Height to query blockchain to, default maxheight" <>
-                                 value Nothing))
+                                 value Nothing <>
+                                 metavar "INT"))
     signSeedOpts =
         SignSeed
         <$>
         (strOption $
-            long "seed" <> help "Seed to sign")
+            long "seed" <> help "Seed to sign" <>
+            metavar "SEED")
         <*>
         optional (strOption $
             short 'k' <> long "secret-key" <> help "Path to secret key" <>
@@ -300,7 +312,8 @@ userOptionsParser dskp configDir defaultConfigPath =
               "Will load bank's secret key.")) <*>
     strOption
         (long "bank-sk-path" <> help "Path to bank's secret key." <> value dskp <>
-         showDefault) <*>
+         showDefault <>
+         metavar "FILEPATH") <*>
     option
         auto
         (long "addresses-num" <>
@@ -308,18 +321,22 @@ userOptionsParser dskp configDir defaultConfigPath =
              ("The number of addresses to create " <>
               "initially with the wallet") <>
          value defaultAccountsNumber <>
-         showDefault) <*>
+         showDefault <>
+         metavar "INT") <*>
     strOption
         (long "wallet-path" <> help "Path to wallet database." <>
          value (configDir </> "wallet-db") <>
-         showDefault) <*>
+         showDefault <>
+         metavar "FILEPATH") <*>
     option auto
         (long "log-severity" <> value Info <> showDefault <>
-         help "Logging severity") <*>
+         help "Logging severity" <>
+         metavar "SEVERITY") <*>
     strOption
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigPath <>
-         showDefault)
+         showDefault <>
+         metavar "FILEPATH")
 
 
 -- | IO call that retrieves command line options

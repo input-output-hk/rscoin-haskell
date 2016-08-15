@@ -33,11 +33,13 @@ optionsParser defaultSKPath configDir defaultConfigPath =
     option auto (short 'p' <> long "port" <> value defaultPort <> showDefault) <*>
     strOption
         (long "path" <> value (configDir </> "mintette-db") <> showDefault <>
-         help "Path to database") <*>
+         help "Path to database" <>
+         metavar "FILEPATH") <*>
     strOption
         (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <>
          help "Path to the secret key" <>
-         showDefault) <*>
+         showDefault <>
+         metavar "FILEPATH") <*>
     switch
         (long "auto-create-sk" <>
          help
@@ -46,12 +48,14 @@ optionsParser defaultSKPath configDir defaultConfigPath =
     option
         auto
         (long "log-severity" <> value Error <> showDefault <>
-         help "Logging severity") <*>
+         help "Logging severity" <>
+         metavar "SEVERITY") <*>
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
     strOption
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigPath <>
-         showDefault)
+         showDefault <>
+         metavar "FILEPATH")
 
 getOptions :: IO Options
 getOptions = do

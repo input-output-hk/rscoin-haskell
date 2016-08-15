@@ -6,9 +6,9 @@ module NotaryOptions
         ) where
 
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
-                                         help, helper, info, long, option,
-                                         progDesc, short, showDefault, switch,
-                                         value, (<>))
+                                         help, helper, info, long, metavar,
+                                         option, progDesc, short, showDefault,
+                                         switch, value, (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
@@ -29,19 +29,23 @@ optionsParser configDir defaultConfigPath =
     Options <$>
     strOption
         (long "path" <> value (configDir </> "notary-db") <> showDefault <>
-         help "Path to Notary database") <*>
+         help "Path to Notary database" <>
+         metavar "FILEPATH") <*>
     option
         auto
         (long "log-severity" <> value Error <> showDefault <>
-         help "Logging severity") <*>
+         help "Logging severity" <>
+         metavar "SEVERITY") <*>
     switch (short 'm' <> long "memory-mode" <> help "Run in memory mode") <*>
     option
         auto
-        (long "web-port" <> value 8090 <> showDefault <> help "Web port") <*>
+        (long "web-port" <> value 8090 <> showDefault <> help "Web port" <>
+         metavar "PORT") <*>
     strOption
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigPath <>
-         showDefault)
+         showDefault <>
+         metavar "FILEPATH")
 
 getOptions :: IO Options
 getOptions = do

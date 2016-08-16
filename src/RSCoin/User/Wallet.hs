@@ -19,6 +19,7 @@ module RSCoin.User.Wallet
          -- * Queries
        , getSecretKey
        , findUserAddress
+       , getDependentAddresses
        , getUserAddresses
        , getOwnedAddresses
        , getOwnedDefaultAddresses
@@ -37,37 +38,37 @@ module RSCoin.User.Wallet
        , addTemporaryTransaction
        , withBlockchainUpdate
        , addAddress
+       , deleteAddress
        , updateAllocationStrategies
        , initWallet
        ) where
 
 import           Control.Applicative
-import           Control.Exception          (Exception)
-import           Control.Lens               ((%=), (.=), (<>=))
-import qualified Control.Lens               as L
-import           Control.Monad              (forM_, unless, when)
-import           Control.Monad.Catch        (MonadThrow, throwM)
-import           Control.Monad.Extra        (whenJust)
-import           Control.Monad.Reader.Class (MonadReader)
-import           Control.Monad.State.Class  (MonadState)
-import           Data.Bifunctor             (first, second)
-import           Data.Function              (on)
-import           Data.List                  (delete, find, groupBy, intersect,
-                                             nub, sortOn, (\\))
-import qualified Data.Map                   as M
-import           Data.Maybe                 (fromJust, isJust)
-import           Data.Ord                   (comparing)
-import qualified Data.Set                   as S
-import qualified Data.Text                  as T
-import           Data.Tuple                 (swap)
-import           Formatting                 (build, int, sformat, (%))
+import           Control.Exception      (Exception)
+import           Control.Lens           ((%=), (.=), (<>=))
+import qualified Control.Lens           as L
+import           Control.Monad          (forM_, unless, when)
+import           Control.Monad.Catch    (MonadThrow, throwM)
+import           Control.Monad.Extra    (whenJust)
+import           Control.Monad.Reader   (MonadReader, ReaderT, runReaderT)
+import           Control.Monad.State    (MonadState, get)
+import           Data.Bifunctor         (first, second)
+import           Data.Function          (on)
+import           Data.List              (delete, find, groupBy, intersect, nub,
+                                         sortOn, (\\))
+import qualified Data.Map               as M
+import           Data.Maybe             (catMaybes, fromJust, isJust, mapMaybe)
+import           Data.Ord               (comparing)
+import qualified Data.Set               as S
+import qualified Data.Text              as T
+import           Data.Tuple             (swap)
+import           Formatting             (build, int, sformat, (%))
 
-import qualified RSCoin.Core                as C
-import           RSCoin.Core.Crypto         (PublicKey, SecretKey)
-import           RSCoin.Core.Primitives     (AddrId, Address (..),
-                                             Transaction (..))
-import           RSCoin.Core.Strategy       (AllocationInfo, MSAddress)
-import           RSCoin.Core.Types          (PeriodId)
+import qualified RSCoin.Core            as C
+import           RSCoin.Core.Crypto     (PublicKey, SecretKey)
+import           RSCoin.Core.Primitives (AddrId, Address (..), Transaction (..))
+import           RSCoin.Core.Strategy   (AllocationInfo, MSAddress)
+import           RSCoin.Core.Types      (PeriodId)
 
 
 validateKeyPair :: Address -> SecretKey -> Bool
@@ -81,11 +82,15 @@ data TxHStatus = TxHConfirmed | TxHUnconfirmed | TxHRejected
 
 -- | Record of a certain transaction in history
 data TxHistoryRecord = TxHistoryRecord
-    { txhTransaction :: Transaction
-    , txhHeight      :: Int  -- we don't have transaction /time/ as date,
-                             -- so let's indicate it with height
-    , txhStatus      :: TxHStatus
-    } deriving (Show, Eq)
+    { txhTransaction   :: Transaction
+    , -- ^ We don't have transaction /time/ as date, so let's indicate
+      -- it with height
+      txhHeight        :: Int
+    , txhStatus        :: TxHStatus
+    , -- ^ This map should contain an entry for every tx input that we
+      -- own
+      txhAddrsInvolved :: S.Set Address
+    } deriving (Show,Eq)
 
 instance Ord TxHistoryRecord where
     compare = comparing $ \TxHistoryRecord{..} ->
@@ -189,6 +194,17 @@ findUserAddress addr = checkInitR $ do
                         (defaultOwnerAddress,) .
                         fromJust . M.lookup defaultOwnerAddress
 
+-- | For the given address return a list of addresses that depend on
+-- it, e.g. mofn msig addresses that has input address as a
+-- party. This function is used when deleting A -- then all depending
+-- keys addresses should be deleted as well. The address itself is
+-- excluded from the returned list.
+getDependentAddresses :: Address -> ExceptQuery [Address]
+getDependentAddresses addr = checkInitR $ do
+    allAddrs <- L.views ownedAddresses M.keys
+    mappedAddrs <- mapM (\a -> (a,) . fst <$> findUserAddress a) allAddrs
+    return [a | (a,b) <- mappedAddrs, b == addr && a /= addr]
+
 -- | Get all available user addresses that have private keys
 getUserAddresses :: ExceptQuery [(Address,SecretKey)]
 getUserAddresses =
@@ -266,6 +282,8 @@ getTxsHistory = L.views historyTxs S.toList
 getAddressStrategy :: Address -> ExceptQuery (Maybe C.TxStrategy)
 getAddressStrategy addr = checkInitR $ L.views addrStrategies $ M.lookup addr
 
+-- | Returns an address we own that owns that addrid, if that address
+-- is present and addrid isn't out of our current utxo.
 resolveAddressLocally :: AddrId -> ExceptQuery (Maybe Address)
 resolveAddressLocally addrid =
     checkInitR $
@@ -295,6 +313,9 @@ getAllocationByIndex i = checkInitR $ do
 
 type ExceptUpdate a = forall m. (MonadState WalletStorage m, MonadThrow m) => m a
 
+runReaderInside :: (MonadState r m) => ReaderT r m a -> m a
+runReaderInside reader = runReaderT reader =<< get
+
 checkInitS :: (MonadState WalletStorage m, MonadThrow m) => m a -> m a
 checkInitS action = do
     a <- L.uses ownedAddresses (not . null)
@@ -302,6 +323,37 @@ checkInitS action = do
     if a && b
         then action
         else throwM NotInitialized
+
+-- | This function insert history record into the storage with the
+-- following difference: if it's not added, it's just added; if there
+-- is a same history record in the storage, differring only in the
+-- `txhAddrsInvolved` argument, it's updated by merging fields of the
+-- given history record and the one already in the storage.  That's
+-- used to update txrecord if we import and address and it is related
+-- to this transaction so should be included in this field.
+populateHistoryRecords :: TxHistoryRecord -> ExceptUpdate ()
+populateHistoryRecords hr = do
+    almostSame <-
+        L.uses historyTxs $
+        find
+            (\hr' ->
+                  txhTransaction hr == txhTransaction hr' &&
+                  txhHeight hr == txhHeight hr' &&
+                  txhStatus hr == txhStatus hr') .
+        S.toList
+    case almostSame of
+        Nothing -> historyTxs %= S.insert hr
+        Just hr' -> do
+            let newHistoryTx =
+                    TxHistoryRecord
+                    { txhTransaction = txhTransaction hr
+                    , txhHeight = txhHeight hr
+                    , txhStatus = txhStatus hr
+                    , txhAddrsInvolved =
+                          txhAddrsInvolved hr `S.union` txhAddrsInvolved hr'
+                    }
+            historyTxs %= S.delete hr'
+            historyTxs %= S.insert newHistoryTx
 
 -- | Cleanup periodDeleted and periodAdded to the state before new
 -- period.
@@ -342,7 +394,14 @@ addTemporaryTransaction periodId tx@Transaction{..} = do
                let p = (tx, addrid)
                userTxAddrids %= M.insertWith (++) address [p]
                periodAdded <>= [(address, p)]
-    historyTxs %= S.insert (TxHistoryRecord tx periodId TxHUnconfirmed)
+    resolveSetIn <- S.fromList . catMaybes <$>
+        mapM (\addrid -> runReaderInside $ resolveAddressLocally addrid)
+        txInputs
+    let outputsWeOwn = S.fromList $ intersect ownedAddrs $ map fst txOutputs
+        txHistoryRecord = TxHistoryRecord tx periodId TxHUnconfirmed $
+                           resolveSetIn `S.union` outputsWeOwn
+    historyTxs %= S.insert txHistoryRecord
+
 
 -- | Called from withBlockchainUpdate. Takes all transactions with
 -- unconfirmed status, modifies them either to confirmed or rejected
@@ -454,10 +513,13 @@ withBlockchainUpdate newHeight C.HBlock{..} =
        putHistoryRecords newHeight hbTransactions
 
        ownedAddrs <- L.uses ownedAddresses M.keys
-       forM_ hbTransactions $ \tx ->
-            handleToAdd ownedAddrs tx $ \address addrid -> do
+       forM_ hbTransactions $ \tx -> do
+            handleToAdd ownedAddrs tx $ \address addrid ->
+                -- those are transactions that are expanding utxo
                 userTxAddrids %= M.insertWith (++) address [(tx, addrid)]
-                historyTxs %= S.insert (TxHistoryRecord tx newHeight TxHConfirmed)
+            populateHistoryRecords $
+                TxHistoryRecord tx newHeight TxHConfirmed $
+                S.fromList $ intersect ownedAddrs $ map fst $ txOutputs tx
        forM_ hbTransactions $ \tx -> do
            currentTxs <- L.uses userTxAddrids M.assocs
            toRemove <- getToRemove currentTxs tx
@@ -465,8 +527,9 @@ withBlockchainUpdate newHeight C.HBlock{..} =
                \(useraddr,pair') ->
                     userTxAddrids %= M.adjust (delete pair') useraddr
            unless (null toRemove) $
-               historyTxs %= S.insert (TxHistoryRecord tx newHeight TxHConfirmed)
-
+               populateHistoryRecords $
+                    TxHistoryRecord tx newHeight TxHConfirmed $
+                    S.fromList $ map fst toRemove
 
        lastBlockId .= Just newHeight
   where
@@ -481,9 +544,9 @@ withBlockchainUpdate newHeight C.HBlock{..} =
 -- Strategy assigned is default.
 addAddress :: (C.Address, Maybe SecretKey)
            -> [Transaction]
-           -> PeriodId
+           -> S.Set TxHistoryRecord
            -> ExceptUpdate ()
-addAddress (address,skMaybe) txs periodId = do
+addAddress (address,skMaybe) txs txHistoryRecords = do
     whenJust skMaybe $ \sk ->
         unless (validateKeyPair address sk) $
         throwM $
@@ -502,8 +565,7 @@ addAddress (address,skMaybe) txs periodId = do
              int%" transactions dosn't " %
              "contain it (address) as output. First bad transaction: "%build)
             address (length mappedTxs) (head mappedTxs)
-    historyTxs <>=
-        S.fromList (map (\tx -> TxHistoryRecord tx periodId TxHConfirmed) txs)
+    historyTxs <>= txHistoryRecords
     ownedAddresses %= M.insert address skMaybe
     userTxAddrids %=
         M.insertWith (\a b -> nub $ a ++ b)
@@ -513,6 +575,33 @@ addAddress (address,skMaybe) txs periodId = do
                         C.getAddrIdByAddress address t)
                  txs)
     addrStrategies %= M.insert address C.DefaultStrategy
+
+deleteAddress :: C.Address -> ExceptUpdate ()
+deleteAddress address =
+    checkInitS $
+    do weOwnIt <- L.uses ownedAddresses $ (address `elem`) . M.keys
+       unless weOwnIt $ throwM $ BadRequest $
+           sformat
+               ("Tried to delete address " % build % " which we don't own")
+               address
+       dependentAddresses <- runReaderInside $ getDependentAddresses address
+       forM_ (address : dependentAddresses) wipeAddress
+  where
+    historyTxFilter addr TxHistoryRecord{..} =
+        case S.delete addr txhAddrsInvolved of
+            s | S.null s -> Nothing
+            newSet ->
+                Just $ TxHistoryRecord
+                { txhAddrsInvolved = newSet
+                , .. }
+    wipeAddress addr = do
+        ownedAddresses %= M.delete addr
+        userTxAddrids %= M.delete addr
+        periodDeleted %= filter ((== addr) . fst)
+        periodAdded %= filter ((== addr) . fst)
+        addrStrategies %= M.delete addr
+        msAddrAllocations %= M.delete addr
+        historyTxs %= S.fromList . mapMaybe (historyTxFilter addr) . S.toList
 
 -- | Update '_msAddrsAllocations' by 'M.Map' from Notary.
 updateAllocationStrategies :: M.Map MSAddress AllocationInfo -> ExceptUpdate ()
@@ -526,4 +615,4 @@ initWallet addrs startHeight = do
     let newHeight = startHeight <|> Just (-1)
     lastBlockId .= newHeight
     forM_ (map (first Address . swap) addrs) $ \p ->
-        addAddress (second Just p) [] $ fromJust newHeight
+        addAddress (second Just p) [] S.empty

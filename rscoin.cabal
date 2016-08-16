@@ -15,6 +15,10 @@ build-type:          Custom
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
+Flag BEFrontend
+  Description: Compile Block Explorer frontend bundle
+  Default:     False
+
 library
   exposed-modules:     RSCoin.Bank
                      , RSCoin.Bank.Error

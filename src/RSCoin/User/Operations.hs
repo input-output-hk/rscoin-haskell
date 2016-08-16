@@ -226,6 +226,12 @@ importAddress st (skMaybe,pk) fromH toH0 = do
     whenJust skMaybe $ \sk ->
         unless (C.checkKeyPair (sk,pk)) $
             commitError "The provided pair doesn't match thus can't be used"
+    ourSk <- query' st $ A.GetSecretKey $ C.Address pk
+    case ourSk of
+        Nothing -> return () -- it's ok
+        Just Nothing -> C.logInfo $ "The address doesn't have secret key, " <>
+                                    "adding this one with re-query"
+        Just (Just _) -> commitError "The address is already imported"
     allAddrs <- getAllPublicAddresses st
     when (C.Address pk `elem` allAddrs) $
         commitError $ sformat
@@ -441,7 +447,7 @@ constructAndSignTransaction st TransactionData{..} = do
             mapM
                 (\(addrid',address') -> do
                       (pK, sKMaybe) <-
-                          query' st (A.FindUserAddress genAddr address')
+                          query' st (A.FindUserAddress address')
                       when (isNothing sKMaybe) $ commitError $
                           sformat ("The correspondent account " % build %
                                    " doesn't have a secret key attached in" %

@@ -17,6 +17,7 @@ module RSCoin.User.Wallet
        , isInitialized
 
          -- * Queries
+       , getSecretKey
        , findUserAddress
        , getUserAddresses
        , getOwnedAddresses
@@ -152,15 +153,20 @@ isInitialized = do
     b <- L.views lastBlockId isJust
     return $ a && b
 
+-- | Returns Nothing if address isn't in storage, Just Nothing if it's
+-- added without the secret key and Just (Just sk) if sk is provided
+getSecretKey :: Address -> ExceptQuery (Maybe (Maybe SecretKey))
+getSecretKey addr = checkInitR $ L.views ownedAddresses (M.lookup addr)
+
 -- | Searches UserAddress correspondent to Address. Returns (sk,pk)
 -- keypair *associated* with this address, the one that proves the
 -- ownership.  In case of DefaultStrategy it's just a keypair of
 -- address and it's sk itself. In case of MOfNStrategy it's another
 -- keypair of share you own (we assume there can be only one per
 -- wallet).
-findUserAddress :: Address -> Address -> ExceptQuery (Address, Maybe SecretKey)
-findUserAddress genesisAddr addr = checkInitR $ do
-    secretKey <- L.views ownedAddresses (M.lookup addr)
+findUserAddress :: Address -> ExceptQuery (Address, Maybe SecretKey)
+findUserAddress addr = checkInitR $ do
+    secretKey <- getSecretKey addr
     case secretKey of
         -- we don't own this address
         Nothing        -> return (addr, Nothing)
@@ -172,10 +178,13 @@ findUserAddress genesisAddr addr = checkInitR $ do
             case strategy of
                 C.DefaultStrategy -> return (addr, Nothing)
                 C.MOfNStrategy _ addrs -> do
+                    -- genesisAddr should be used as a last argument but
+                    -- we don't care about the order of addresses in the
+                    -- result
                     defaultOwnerAddress <-
                         fromJust .
                         find (`elem` addrs) <$>
-                        getOwnedDefaultAddresses genesisAddr
+                        getOwnedDefaultAddresses addr
                     L.views ownedAddresses $
                         (defaultOwnerAddress,) .
                         fromJust . M.lookup defaultOwnerAddress
@@ -496,8 +505,8 @@ addAddress (address,skMaybe) txs periodId = do
     historyTxs <>=
         S.fromList (map (\tx -> TxHistoryRecord tx periodId TxHConfirmed) txs)
     ownedAddresses %= M.insert address skMaybe
-    userTxAddrids <>=
-        M.singleton
+    userTxAddrids %=
+        M.insertWith (\a b -> nub $ a ++ b)
             address
             (concatMap
                  (\t -> map (t, ) $

@@ -72,7 +72,7 @@ processCommand st O.ListAddresses _ =
        (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin], Bool)]) <-
            mapM (\addr -> do
                       coins <- C.coinsToList <$> getAmountNoUpdate st addr
-                      hasSecret <- isJust . snd <$> query' st (U.FindUserAddress genAddr addr)
+                      hasSecret <- isJust . snd <$> query' st (U.FindUserAddress addr)
                       strategy <- query' st $ U.GetAddressStrategy addr
                       return ( C.getAddress addr
                              , fromMaybe C.DefaultStrategy strategy
@@ -286,7 +286,7 @@ processCommand st (O.ExportAddress addrId filepath) _ = do
             C.logInfo
                 "The strategy of your address is default, dumping it to the file"
             (addr'@(C.getAddress->pk),sk) <-
-                second fromJust <$> query' st (U.FindUserAddress genAddr addr)
+                second fromJust <$> query' st (U.FindUserAddress addr)
             unless (addr' == addr) $
                 C.logError $
                 "Internal error, address found is not the same " <>

@@ -15,6 +15,7 @@ module RSCoin.User.AcidState
 
        -- * Queries
        , IsInitialized (..)
+       , GetSecretKey (..)
        , FindUserAddress (..)
        , GetUserAddresses (..)
        , GetOwnedAddresses (..)
@@ -83,7 +84,8 @@ closeState :: RSCoinUserState -> IO ()
 closeState = A.closeAcidState
 
 isInitialized :: A.Query WalletStorage Bool
-findUserAddress :: C.Address -> C.Address -> A.Query WalletStorage (C.Address, Maybe C.SecretKey)
+getSecretKey :: C.Address -> A.Query WalletStorage (Maybe (Maybe C.SecretKey))
+findUserAddress :: C.Address -> A.Query WalletStorage (C.Address, Maybe C.SecretKey)
 getUserAddresses :: A.Query WalletStorage [(C.Address,C.SecretKey)]
 getOwnedAddresses :: C.Address -> A.Query WalletStorage [C.Address]
 getOwnedDefaultAddresses :: C.Address -> A.Query WalletStorage [C.Address]
@@ -96,6 +98,7 @@ resolveAddressLocally :: C.AddrId -> A.Query WalletStorage (Maybe C.Address)
 getAllocationStrategies :: A.Query WalletStorage (Map MSAddress AllocationInfo)
 getAllocationByIndex :: Int -> A.Query WalletStorage (MSAddress, AllocationInfo)
 
+getSecretKey = W.getSecretKey
 isInitialized = W.isInitialized
 findUserAddress = W.findUserAddress
 getUserAddresses = W.getUserAddresses
@@ -125,6 +128,7 @@ initWallet = W.initWallet
 $(makeAcidic
       ''WalletStorage
       [ 'isInitialized
+      , 'getSecretKey
       , 'findUserAddress
       , 'getUserAddresses
       , 'getOwnedAddresses

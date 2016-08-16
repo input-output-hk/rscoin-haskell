@@ -14,6 +14,7 @@ module RSCoin.User.Operations
        , A.initStateBank
        , walletInitialized
        , commitError
+       , checkAddressId
        , getUserTotalAmount
        , getAmount
        , getAmountNoUpdate
@@ -25,8 +26,9 @@ module RSCoin.User.Operations
        , isInitialized
        , updateToBlockHeight
        , updateBlockchain
-       , addAddress
+       , addUserAddress
        , importAddress
+       , deleteUserAddress
        , submitTransactionFromAll
        , TransactionInput
        , TransactionData (..)
@@ -47,6 +49,7 @@ import           Control.Monad.State       (StateT (..), execStateT, get,
                                             modify)
 import           Control.Monad.Trans.Class (lift)
 import           Data.Acid.Advanced        (query', update')
+import           Data.Bifunctor            (first)
 import           Data.Function             (on)
 import qualified Data.IntMap.Strict        as I
 import           Data.List                 (delete, elemIndex, foldl1',
@@ -56,6 +59,7 @@ import qualified Data.Map                  as M
 import           Data.Maybe                (fromJust, fromMaybe, isJust,
                                             isNothing)
 import           Data.Monoid               ((<>))
+import qualified Data.Set                  as S
 import qualified Data.Text                 as T
 import           Data.Text.Buildable       (Buildable)
 import qualified Data.Text.IO              as TIO
@@ -84,6 +88,18 @@ commitError :: (MonadIO m, MonadThrow m, C.WithNamedLogger m) => T.Text -> m a
 commitError e = do
     C.logError e
     throwM . InputProcessingError $ e
+
+-- | Checks address id (should be in [0..length allAddrs)) to be so
+checkAddressId :: (WorkMode m, Integral n) => A.RSCoinUserState -> n -> m ()
+checkAddressId st ix = do
+    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    accounts <- query' st $ A.GetOwnedAddresses genAddr
+    let notInRange i = i >= genericLength accounts || i < 0
+    when (notInRange ix) $
+        commitError $
+        sformat
+            ("Found an address id (" % int % ") that's not in [0 .. " % int %
+             ")") ix (length accounts)
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.
@@ -203,15 +219,16 @@ isInitialized st = query' st A.IsInitialized
 
 -- | Puts given address and it's related transactions (that contain it
 -- as output S_{out}) into wallet. Blockchain won't be queried.
-addAddress
+addUserAddress
     :: MonadIO m
     => A.RSCoinUserState
     -> Maybe C.SecretKey
     -> C.PublicKey
     -> [C.Transaction]
-    -> C.PeriodId
+    -> S.Set W.TxHistoryRecord
     -> m ()
-addAddress st skMaybe pk ts = update' st . A.AddAddress (C.Address pk, skMaybe) ts
+addUserAddress st skMaybe pk txs hRecords =
+    update' st $ A.AddAddress (C.Address pk, skMaybe) txs hRecords
 
 -- | Same as addAddress, but queries blockchain automatically and
 -- queries transactions that affect this address
@@ -253,27 +270,37 @@ importAddress st (skMaybe,pk) fromH toH0 = do
                 " where " % int %
                 " is current wallet's top known blockchain height."
         in commitError $ sformat formatPattern fromH toH walletHeight walletHeight
-    addrMap <- execStateT (gatherTransactionsDo [fromH..toH]) $
-                   M.singleton newAddress []
-    let txs = nub $ map fst $ concat $ M.elems addrMap
-    update' st $ A.AddAddress (newAddress,skMaybe) txs walletHeight
+    (txs,txHistoryRecords) <-
+        execStateT (gatherTransactionsDo [fromH..toH]) ([],S.empty)
+    update' st $ A.AddAddress (newAddress,skMaybe)
+        (nub $ map fst txs) txHistoryRecords
   where
     newAddress = C.Address pk
     gatherTransactionsDo
         :: (WorkMode m) =>
-           [Int] -> StateT (M.Map C.Address [(C.Transaction, C.AddrId)]) m ()
+           [Int] -> StateT ([(C.Transaction,C.AddrId)], S.Set W.TxHistoryRecord) m ()
     gatherTransactionsDo [] = return ()
     gatherTransactionsDo (periodId:otherPeriodIds) = do
         C.HBlock{..} <- lift $ C.getBlockByHeight periodId
         forM_ hbTransactions $ \tx ->
-            W.handleToAdd [newAddress] tx $ \address addrid ->
-                modify (M.insertWith (++) address [(tx, addrid)])
+            W.handleToAdd [newAddress] tx $ \_ addrid -> do
+                let histRecord =
+                        W.TxHistoryRecord tx periodId W.TxHConfirmed
+                        $ S.singleton newAddress
+                modify (((tx,addrid) :) *** S.insert histRecord)
         forM_ hbTransactions $ \tx -> do
-            currentTxs <- M.assocs <$> get
-            toRemove <- W.getToRemove currentTxs tx
-            forM_ toRemove $
-                \(useraddr,pair') -> modify (M.adjust (delete pair') useraddr)
+            currentTxs <- fst <$> get
+            toRemove <- W.getToRemove [(newAddress, currentTxs)] tx
+            forM_ toRemove $ \(_,pair') -> modify (first $ delete pair')
         gatherTransactionsDo otherPeriodIds
+
+-- | Deletes an address. Accepts an index in [0..length addresses)
+deleteUserAddress :: (WorkMode m) => A.RSCoinUserState -> Int -> m ()
+deleteUserAddress st ix = do
+    checkAddressId st ix
+    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    addresses <- query' st $ A.GetOwnedAddresses genAddr
+    update' st $ A.DeleteAddress $ addresses !! ix
 
 -- | Forms transaction given just amount of money to use. Tries to
 -- spend coins from accounts that have the least amount of money.
@@ -396,16 +423,9 @@ constructAndSignTransaction st TransactionData{..} = do
             ("All input values should be positive, but encountered " % build %
              ", that's not.") $
         head $ filter (not . C.isPositiveCoin) $ concatMap snd tdInputsMerged
-    genAddr  <- (^.C.genesisAddress) <$> getNodeContext
+    forM_ (map fst tdInputsMerged) $ checkAddressId st
+    genAddr <- (^.C.genesisAddress) <$> getNodeContext
     accounts <- query' st $ A.GetOwnedAddresses genAddr
-    let notInRange i = i >= genericLength accounts
-    when (any notInRange $ map fst tdInputsMerged) $
-        commitError $
-        sformat
-            ("Found an address id (" % int % ") that's not in [0 .. " % int %
-             ")")
-            (head $ filter notInRange $ map fst tdInputsMerged)
-            (length accounts)
     let accInputs :: [(C.Address, I.IntMap C.Coin)]
         accInputs =
             map ((accounts `genericIndex`) *** C.coinsToMap) tdInputsMerged

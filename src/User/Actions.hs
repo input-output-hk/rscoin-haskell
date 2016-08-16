@@ -41,8 +41,8 @@ import           RSCoin.Timed           (WorkMode, getNodeContext)
 import qualified RSCoin.User            as U
 import           RSCoin.User.Error      (eWrap)
 import           RSCoin.User.Operations (TransactionData (..),
-                                         getAmountNoUpdate, importAddress,
-                                         submitTransactionRetry,
+                                         deleteUserAddress, getAmountNoUpdate,
+                                         importAddress, submitTransactionRetry,
                                          updateBlockchain)
 import qualified UserOptions            as O
 
@@ -141,20 +141,6 @@ processCommand st O.UpdateBlockchain _ =
            if res
                then "Blockchain is updated already."
                else "Successfully updated blockchain."
-processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
-processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
-    sk <- maybe (pure $ error "Attain secret key is not defined!") C.readSecretKey mPath
-    (seedPk, _) <- case B64.decode $ encodeUtf8 seedB64 of
-              Left _ -> fail "Wrong seed supplied (base64 decoding failed)"
-              Right s ->
-                  maybe (fail "Failed to derive keypair from seed") pure $
-                      C.deterministicKeyGen s
-    liftIO $ TIO.putStrLn $
-       sformat ("Seed Pk: " % build) seedPk
-    let (pk, sig) = (C.derivePublicKey sk, C.sign sk seedPk)
-    liftIO $ TIO.putStrLn $
-       sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build)
-           pk sig (C.verifyChain pk [(sig, seedPk)])
 processCommand
     st
     (O.CreateMultisigAddress m
@@ -302,6 +288,24 @@ processCommand st (O.ExportAddress addrId filepath) _ = do
                          " strategy address, export correspondent key instead. " %
                          "Correspondent m/n key are autoexported " %
                          "when you import their party.") m (S.size parties)
+processCommand st (O.DeleteAddress ix) _ = eWrap $ do
+    C.logInfo $ sformat ("Deleting address #" % int) ix
+    deleteUserAddress st ix
+    C.logInfo "Address was successfully deleted"
+processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
+processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
+    sk <- maybe (pure $ error "Attain secret key is not defined!") C.readSecretKey mPath
+    (seedPk, _) <- case B64.decode $ encodeUtf8 seedB64 of
+              Left _ -> fail "Wrong seed supplied (base64 decoding failed)"
+              Right s ->
+                  maybe (fail "Failed to derive keypair from seed") pure $
+                      C.deterministicKeyGen s
+    liftIO $ TIO.putStrLn $
+       sformat ("Seed Pk: " % build) seedPk
+    let (pk, sig) = (C.derivePublicKey sk, C.sign sk seedPk)
+    liftIO $ TIO.putStrLn $
+       sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build)
+           pk sig (C.verifyChain pk [(sig, seedPk)])
 
 dumpCommand
     :: WorkMode m

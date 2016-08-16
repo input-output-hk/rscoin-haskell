@@ -72,6 +72,7 @@ data UserCommand
     -- blockchain heights to query -- minimum and maximum)
     | ImportAddress (Maybe FilePath) FilePath Int (Maybe Int)
     | ExportAddress Int FilePath
+    | DeleteAddress Int
     | Dump DumpCommand
     -- @TODO move to rscoin-keygen
     | SignSeed Text (Maybe FilePath)
@@ -147,6 +148,9 @@ userCommandParser =
              (info
                   exportAddressOpts
                   (progDesc "Export address' keypair  to the file.")) <>
+         command
+             "delete-address"
+             (info deleteAddressOpts (progDesc $ "Delete all information about address from " <> "the wallet (can't be returned back if not exported before).")) <>
          command
              "dump-blocks"
              (info
@@ -328,6 +332,12 @@ userCommandParser =
         strOption
             (long "path" <> help "Path to export address' keys to." <>
              metavar "FILEPATH")
+    deleteAddressOpts =
+        DeleteAddress <$>
+        option
+            auto
+            (long "index" <> help "Id of address in `list` command output." <>
+             metavar "INT")
     signSeedOpts =
         SignSeed <$> (strOption $ long "seed" <> help "Seed to sign") <*>
         optional

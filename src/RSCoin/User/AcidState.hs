@@ -32,6 +32,7 @@ module RSCoin.User.AcidState
        -- * Updates
        , WithBlockchainUpdate (..)
        , AddAddress (..)
+       , DeleteAddress (..)
        , AddTemporaryTransaction (..)
        , UpdateAllocationStrategies (..)
        , InitWallet (..)
@@ -47,6 +48,7 @@ import qualified Data.Acid            as A
 import           Data.Acid.Memory     as AM
 import           Data.Map             (Map)
 import           Data.SafeCopy        (base, deriveSafeCopy)
+import           Data.Set             (Set)
 
 import qualified RSCoin.Core          as C
 import           RSCoin.Core.Crypto   (keyGen)
@@ -115,13 +117,16 @@ getAllocationByIndex = W.getAllocationByIndex
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
-addAddress :: (C.Address,Maybe C.SecretKey) -> [C.Transaction] -> C.PeriodId -> A.Update WalletStorage ()
+addAddress :: (C.Address,Maybe C.SecretKey) -> [C.Transaction] ->
+              Set TxHistoryRecord -> A.Update WalletStorage ()
+deleteAddress :: C.Address -> A.Update WalletStorage ()
 updateAllocationStrategies :: Map MSAddress AllocationInfo -> A.Update WalletStorage ()
 initWallet :: [(C.SecretKey,C.PublicKey)] -> Maybe Int -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate
 addTemporaryTransaction = W.addTemporaryTransaction
 addAddress = W.addAddress
+deleteAddress = W.deleteAddress
 updateAllocationStrategies = W.updateAllocationStrategies
 initWallet = W.initWallet
 
@@ -144,6 +149,7 @@ $(makeAcidic
       , 'withBlockchainUpdate
       , 'addTemporaryTransaction
       , 'addAddress
+      , 'deleteAddress
       , 'updateAllocationStrategies
       , 'initWallet])
 

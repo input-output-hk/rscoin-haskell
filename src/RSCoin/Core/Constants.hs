@@ -45,7 +45,7 @@ defaultSecretKeyPath = (</> "key") <$> configDirectory
 -- | The default number of accounts (sk-pk pairs) generated with the
 -- wallet (user part)
 defaultAccountsNumber :: Int
-defaultAccountsNumber = 5
+defaultAccountsNumber = 3
 
 localhost :: IsString s => s
 localhost = "127.0.0.1"

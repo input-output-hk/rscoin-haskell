@@ -26,12 +26,10 @@ import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   keyGen, logInfo,
                                                   mintetteLoggerName,
                                                   nakedLoggerName)
-import           RSCoin.Timed                    (ContextArgument (CADefaultLocation),
+import           RSCoin.Timed                    (ContextArgument (CADefault),
                                                   runRealModeUntrusted)
 
-import           Bench.RSCoin.CfgCreator         (createDeployConfiguration)
-import           Bench.RSCoin.FilePathUtils      (benchConfPath,
-                                                  tempBenchDirectory)
+import           Bench.RSCoin.FilePathUtils      (tempBenchDirectory)
 import           Bench.RSCoin.Local.InfraThreads (addMintette, bankThread,
                                                   mintetteThread, notaryThread)
 import           Bench.RSCoin.UserCommons        (benchUserTransactions,
@@ -67,7 +65,7 @@ runMintettes benchDir secretKeys
         void $ forkIO $ mintetteThread mintetteId benchDir secretKey
         logInfo $ sformat ("Starting mintette number:" % int) mintetteId
         threadDelay (1 :: Second)
-        addMintette (benchConfPath benchDir) mintetteId publicKey
+        addMintette mintetteId publicKey
 
 establishNotary :: FilePath -> IO ()
 establishNotary benchDir = do
@@ -88,7 +86,7 @@ establishMintettes benchDir mintettesNumber = do
     keyPairs <- generateMintetteKeys mintettesNumber
     logInfo $ sformat ("Running" % int % " mintettes…") mintettesNumber
     runMintettes benchDir keyPairs
-    runRealModeUntrusted mintetteLoggerName CADefaultLocation finishBankPeriod
+    runRealModeUntrusted mintetteLoggerName CADefault finishBankPeriod
     logInfo $ sformat (int % " mintettes are launched") mintettesNumber
     threadDelay (2 :: Second)
 
@@ -129,8 +127,6 @@ main = do
     withSystemTempDirectory tempBenchDirectory $ \benchDir -> do
         initLogging globalSeverity
         initLoggerByName Info nakedLoggerName
-
-        createDeployConfiguration benchDir
 
         establishNotary    benchDir
         establishBank      benchDir periodDelta

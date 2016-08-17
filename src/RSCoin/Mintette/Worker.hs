@@ -3,8 +3,8 @@
 -- | Worker that checks for the end of epoch.
 
 module RSCoin.Mintette.Worker
-       ( isMEInactive
-       , runWorker
+       ( runWorker
+       , runWorkerWithDelta
        ) where
 
 import           Control.Monad             (unless, void)
@@ -13,20 +13,30 @@ import           Control.Monad.Trans       (liftIO)
 import           Data.Acid                 (createArchive, createCheckpoint,
                                             update)
 import qualified Data.Text                 as T
+import           Data.Time.Units           (TimeUnit)
 import           Formatting                (build, sformat, (%))
 import           System.FilePath           ((</>))
 import qualified Turtle.Prelude            as TURT
 
-import           RSCoin.Core               (SecretKey, epochDelta, logError)
+import           RSCoin.Core               (SecretKey, defaultEpochDelta,
+                                            logError)
 import           RSCoin.Mintette.Acidic    (FinishEpoch (..))
 import           RSCoin.Mintette.AcidState (State)
 import           RSCoin.Mintette.Error     (isMEInactive)
 
 import           RSCoin.Timed              (WorkMode, repeatForever, sec, tu)
 
--- | Start worker which updates state when epoch finishes.
+-- | Start worker which updates state when epoch finishes. Default
+-- epoch length is used.
 runWorker :: WorkMode m => SecretKey -> State -> Maybe FilePath -> m ()
-runWorker sk st storagePath =
+runWorker = runWorkerWithDelta defaultEpochDelta
+
+-- | Start worker which updates state when epoch finishes. Epoch
+-- length is passed as argument.
+runWorkerWithDelta
+    :: (TimeUnit t, WorkMode m)
+    => t -> SecretKey -> State -> Maybe FilePath -> m ()
+runWorkerWithDelta epochDelta sk st storagePath =
     repeatForever (tu epochDelta) handler $
     liftIO $ onEpochFinished sk st storagePath
   where

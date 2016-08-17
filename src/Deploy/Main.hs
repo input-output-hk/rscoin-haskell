@@ -25,7 +25,7 @@ import qualified RSCoin.Explorer         as E
 import qualified RSCoin.Mintette         as M
 import qualified RSCoin.Notary           as N
 import           RSCoin.Timed            (ContextArgument (CADefault), Second,
-                                          fork_, runRealModeUntrusted)
+                                          runRealModeUntrusted)
 import qualified RSCoin.User             as U
 
 import           Config                  (DeployConfig (..), readDeployConfig)
@@ -46,8 +46,9 @@ getConfigPath =
              , Opts.progDesc "Wrapper tool to deploy rscoin locally"])
 
 data CommonParams = CommonParams
-    { cpBaseDir :: FilePath
-    , cpPeriod  :: Word
+    { cpBaseDir :: !FilePath
+    , cpPeriod  :: !Second
+    , cpEpoch   :: !Second
     } deriving (Show)
 
 contextArgument :: ContextArgument
@@ -68,11 +69,7 @@ startMintette CommonParams{..} idx = do
     Cherepakha.mkdir workingDirDeprecated
     (sk,pk) <- C.keyGen
     let start =
-            runRealModeUntrusted C.mintetteLoggerName contextArgument $
-            bracket (liftIO $ M.openState dbDir) (liftIO . M.closeState) $
-            \st -> do
-                fork_ $ M.runWorker sk st Nothing
-                M.serve port st sk
+            M.launchMintetteReal cpEpoch port sk (Just dbDir) contextArgument
     (, pk) <$> forkIO start
 
 startExplorer
@@ -125,7 +122,6 @@ startBank CommonParams{..} mintettes explorers = do
     let workingDir = cpBaseDir </> "bank-workspace"
         workingDirDeprecated = toDeprecatedFilePath workingDir
         dbDir = workingDir </> "bank-db"
-        periodDelta :: Second = fromIntegral cpPeriod
     Cherepakha.mkdir workingDirDeprecated
     forM_
         explorers
@@ -145,7 +141,7 @@ startBank CommonParams{..} mintettes explorers = do
                   dbDir
                   (C.Mintette C.localhost port)
                   key)
-    forkIO $ B.launchBankReal periodDelta dbDir contextArgument bankSecretKey
+    forkIO $ B.launchBankReal cpPeriod dbDir contextArgument bankSecretKey
 
 -- TODO: we can setup other users similar way
 setupBankUser :: CommonParams -> IO ()
@@ -204,7 +200,8 @@ main = do
             let cp =
                     CommonParams
                     { cpBaseDir = tmpDir
-                    , cpPeriod = dcPeriod
+                    , cpPeriod = fromIntegral dcPeriod
+                    , cpEpoch = fromIntegral dcEpoch
                     }
                 mintetteIndices = [0 .. dcMintettes]
                 explorerIndices = [0 .. dcExplorers]

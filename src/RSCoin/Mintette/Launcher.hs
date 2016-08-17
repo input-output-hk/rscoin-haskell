@@ -8,6 +8,7 @@ module RSCoin.Mintette.Launcher
 
 import           Control.Monad.Catch       (bracket)
 import           Control.Monad.Trans       (MonadIO (liftIO))
+import           Data.Time.Units           (TimeUnit)
 
 import           RSCoin.Core               (SecretKey, mintetteLoggerName)
 import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
@@ -16,7 +17,7 @@ import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
 import           RSCoin.Mintette.Acidic    (closeState, openMemState, openState)
 import           RSCoin.Mintette.AcidState (State)
 import           RSCoin.Mintette.Server    (serve)
-import           RSCoin.Mintette.Worker    (runWorker)
+import           RSCoin.Mintette.Worker    (runWorkerWithDelta)
 
 mintetteWrapperReal :: Maybe FilePath
                     -> ContextArgument
@@ -28,9 +29,11 @@ mintetteWrapperReal dbPath ca action = do
         bracket (liftIO openAction) (liftIO . closeState) $
         action
 
-launchMintetteReal :: Int -> SecretKey -> Maybe FilePath -> ContextArgument -> IO ()
-launchMintetteReal port sk dbPath ctxArg =
+launchMintetteReal
+    :: TimeUnit t
+    => t -> Int -> SecretKey -> Maybe FilePath -> ContextArgument -> IO ()
+launchMintetteReal epochDelta port sk dbPath ctxArg =
     mintetteWrapperReal dbPath ctxArg $
     \st -> do
-        fork_ $ runWorker sk st dbPath
+        fork_ $ runWorkerWithDelta epochDelta sk st dbPath
         serve port st sk

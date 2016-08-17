@@ -288,14 +288,15 @@ executable rscoin-mintette
   main-is:             Main.hs
   other-modules:       MintetteOptions
   build-depends:       base >= 4.8 && < 4.9
-                     , filepath
                      , bytestring
                      , exceptions
+                     , filepath
                      , lens >= 4.13
                      , mtl >= 2.2.1
                      , optparse-applicative
                      , rscoin
                      , serokell-core
+                     , time-units >= 1.0.0
   hs-source-dirs:      src/Mintette
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-TN -Wall -O2
@@ -364,8 +365,9 @@ executable rscoin-deploy
                      , rscoin
                      , serokell-core
                      , string-conversions
-                     , text
                      , temporary
+                     , text
+                     , time-units >= 1.0.0
                      , turtle
                      , yaml
   hs-source-dirs:      src/Deploy

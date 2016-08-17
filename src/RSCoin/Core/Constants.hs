@@ -3,15 +3,15 @@
 -- | This module contains all constants in rscoin.
 
 module RSCoin.Core.Constants
-        ( defaultAccountsNumber
+        ( configDirectory
+        , defaultAccountsNumber
         , defaultConfigurationPath
         , defaultConfigurationFileName
-        , configDirectory
+        , defaultEpochDelta
+        , defaultPort
         , defaultSecretKeyPath
         , defaultPeriodDelta
-        , defaultPort
         , emissionHash
-        , epochDelta
         , genesisValue
         , localhost
         , notaryMSAttemptsLimit
@@ -57,8 +57,8 @@ defaultPort = 3000
 defaultPeriodDelta :: Second
 defaultPeriodDelta = 100
 
-epochDelta :: Second
-epochDelta = 5
+defaultEpochDelta :: Second
+defaultEpochDelta = 5
 
 emissionHash :: Binary t => t -> Hash
 emissionHash a =

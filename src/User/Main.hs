@@ -6,7 +6,7 @@ import qualified Data.Acid           as ACID
 import qualified Data.Text           as T
 
 import qualified RSCoin.Core         as C
-import           RSCoin.Timed        (ContextArgument (CACustomLocation),
+import           RSCoin.Timed        (ContextArgument (CACustomLocation, CADefault),
                                       runRealModeUntrusted)
 import qualified RSCoin.User         as U
 import qualified RSCoin.User.Wallet  as W
@@ -18,20 +18,27 @@ main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     C.initLogging logSeverity
-    runRealModeUntrusted C.userLoggerName (CACustomLocation configPath) $
+    let ctxArg =
+            if localDeploy
+                then CADefault
+                else CACustomLocation configPath
+    runRealModeUntrusted C.userLoggerName ctxArg $
         bracket
             (liftIO $ U.openState walletPath)
-            (\st -> liftIO $ do
-                ACID.createCheckpoint st
-                U.closeState st) $
-            \st ->
-                 do C.logDebug $
-                        mconcat ["Called with options: ", (T.pack . show) opts]
-                    handleUnitialized
-                        (processCommand st userCommand opts)
-                        (initializeStorage st opts)
+            (\st ->
+                  liftIO $
+                  do ACID.createCheckpoint st
+                     U.closeState st) $
+        \st -> do
+            C.logDebug $
+                mconcat ["Called with options: ", (T.pack . show) opts]
+            handleUnitialized
+                (processCommand st userCommand opts)
+                (initializeStorage st opts)
   where
-    handleUnitialized :: (MonadIO m, MonadCatch m, C.WithNamedLogger m) => m () -> m () -> m ()
+    handleUnitialized
+        :: (MonadIO m, MonadCatch m, C.WithNamedLogger m)
+        => m () -> m () -> m ()
     handleUnitialized action initialization =
         action `catch` handler initialization action
       where

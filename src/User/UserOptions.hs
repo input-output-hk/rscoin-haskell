@@ -108,6 +108,7 @@ data UserOptions = UserOptions
     , walletPath   :: FilePath    -- ^ Path to the wallet
     , logSeverity  :: Severity    -- ^ Logging severity
     , configPath   :: FilePath    -- ^ Configuration file path
+    , localDeploy  :: Bool    -- ^ Use defaultNodeContext
     } deriving (Show)
 
 userCommandParser :: Parser UserCommand
@@ -406,8 +407,11 @@ userOptionsParser dskp configDir defaultConfigPath =
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigPath <>
          showDefault <>
-         metavar "FILEPATH")
-
+         metavar "FILEPATH") <*>
+    switch (mconcat [long "local",
+                     help ("Use default NodeContext. "
+                           <> "Intended to be used for local deployment")
+                    ])
 
 -- | IO call that retrieves command line options
 getUserOptions :: IO UserOptions

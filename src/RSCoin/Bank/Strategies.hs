@@ -43,7 +43,6 @@ allocateCoinsDefault _ actionLogs = (bankReward, mintetteRewards)
     mintetteRewards = replicate mintetteCnt 0
     bankReward = C.periodReward
 
-
 allocateCoinsToMintettes :: AllocateCoinsF
 allocateCoinsToMintettes _ actionLogs = (bankReward, mintetteRewards)
   where

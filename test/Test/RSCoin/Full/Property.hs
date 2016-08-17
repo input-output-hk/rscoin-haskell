@@ -34,7 +34,7 @@ import           Serokell.Util                   (listBuilderJSONIndent)
 
 import           RSCoin.Core                     (WithNamedLogger (..),
                                                   logDebug, testingLoggerName)
-import           RSCoin.Timed                    (ContextArgument (CADefaultLocation),
+import           RSCoin.Timed                    (ContextArgument (CADefault),
                                                   MsgPackRpc, PureRpc, WorkMode,
                                                   runRealModeUntrusted)
 
@@ -55,7 +55,7 @@ type FullPropertyRealMode = FullProperty MsgPackRpc
 --launchPure gen = runEmulationMode (Just gen)
 
 launchReal :: MsgPackRpc a -> IO a
-launchReal = runRealModeUntrusted testingLoggerName CADefaultLocation
+launchReal = runRealModeUntrusted testingLoggerName CADefault
 
 instance MonadIO m => WithNamedLogger (PropertyM m) where
     getLoggerName = liftIO $ getLoggerName

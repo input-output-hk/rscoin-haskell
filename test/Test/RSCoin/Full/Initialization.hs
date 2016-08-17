@@ -26,8 +26,9 @@ import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
                                              defaultPeriodDelta,
-                                             derivePublicKey, keyGen, logDebug,
-                                             logInfo, testBankSecretKey)
+                                             derivePublicKey, keyGen, localhost,
+                                             logDebug, logInfo,
+                                             testBankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import           RSCoin.Timed               (Second, WorkMode, for, ms,
@@ -137,9 +138,9 @@ addMintetteToBank
     :: (MonadIO m, WithNamedLogger m)
     => BankInfo -> MintetteInfo -> m ()
 addMintetteToBank b mintette = do
-    let addedMint = Mintette "127.0.0.1" (mintette ^. port)
+    let addedMint = Mintette localhost (mintette ^. port)
         mintPKey  = mintette ^. publicKey
-        bankSt = b ^. state
+        bankSt    = b ^. state
     logDebug $ sformat ("Adding mintette " % build) addedMint
     update' bankSt $ B.AddMintette addedMint mintPKey
     logDebug $ sformat ("Added mintette " % build) addedMint

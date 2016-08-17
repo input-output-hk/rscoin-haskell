@@ -5,7 +5,8 @@
 -- | Worker that handles end of period.
 
 module RSCoin.Bank.Worker
-       ( runWorker
+       ( onPeriodFinished
+       , runWorker
        , runWorkerWithPeriod
        , runExplorerWorker
        ) where
@@ -56,13 +57,13 @@ runWorker
 runWorker = runWorkerWithPeriod defaultPeriodDelta
 
 -- | Start worker with provided period. Generalization of 'runWorker'.
--- IORef is used as synchornization primitive between this worker
+-- IORef is used as synchronization primitive between this worker
 -- and another worker (which communicates with explorers).
 -- Its value is True is empty iff this worker is doing something now.
 runWorkerWithPeriod
     :: (TimeUnit t, WorkMode m)
     => t -> IORef Bool -> C.SecretKey -> State -> Maybe FilePath -> m ()
-runWorkerWithPeriod periodDelta mainIsBusy sk st storagePath =
+runWorkerWithPeriod periodDelta mainIsBusy bankSK st storagePath =
     repeatForever (tu periodDelta) handler worker
   where
     worker = do
@@ -70,7 +71,9 @@ runWorkerWithPeriod periodDelta mainIsBusy sk st storagePath =
                 bracket_
                     (liftIO $ atomicWriteIORef mainIsBusy True)
                     (liftIO $ atomicWriteIORef mainIsBusy False)
-        t <- br $ measureTime_ $ onPeriodFinished sk st storagePath
+        periodId <- query' st GetPeriodId
+        let sig = sign bankSK periodId
+        t <- br $ measureTime_ $ C.finishPeriod sig
         C.logInfo $ sformat ("Finishing period took " % build) t
     handler e = do
         C.logError $

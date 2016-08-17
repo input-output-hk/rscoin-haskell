@@ -19,7 +19,7 @@ import           Control.Monad.Trans            (lift, liftIO)
 import           Data.Acid.Advanced             (query', update')
 import           Data.List                      (nub, (\\))
 import qualified Data.Map.Strict                as M
-import           Data.Maybe                     (catMaybes)
+import           Data.Maybe                     (catMaybes, fromJust)
 import           Formatting                     (build, int, sformat, (%))
 
 import           Serokell.Util.Text             (listBuilderJSON, mapBuilder,
@@ -37,6 +37,7 @@ import           RSCoin.Bank.AcidState          (AddExplorer (..),
                                                  RemoveExplorer (..),
                                                  RemoveMintette (..), State)
 import           RSCoin.Bank.Error              (BankError (BEInconsistentResponse))
+import           RSCoin.Bank.Worker             (onPeriodFinished)
 import           RSCoin.Core                    (ActionLog,
                                                  AddressToTxStrategyMap,
                                                  Explorers, HBlock, MintetteId,
@@ -75,8 +76,6 @@ serve st workerThread restartWorkerAction = do
         , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight st
         , C.method (C.RSCBank C.GetHBlocks) $ idr3 $ serveGetHBlocks st
         , C.method (C.RSCBank C.GetTransaction) $ idr4 $ serveGetTransaction st
-        , C.method (C.RSCBank C.FinishPeriod) $
-          idr5 $ serveFinishPeriod st threadIdMVar restartWorkerAction bankPublicKey
         , C.method (C.RSCDump C.GetLogs) $ idr6 $ serveGetLogs st
         , C.method (C.RSCBank C.GetAddresses) $ idr7 $ serveGetAddresses st
         , C.method (C.RSCBank C.GetExplorers) $ idr8 $ serveGetExplorers st
@@ -163,22 +162,19 @@ serveGetTransaction st tId =
 serveFinishPeriod
     :: T.WorkMode m
     => State
-    -> MVar T.ThreadId
-    -> (T.ThreadId -> m T.ThreadId)
     -> PublicKey
     -> Signature
     -> T.ServerT m ()
-serveFinishPeriod st threadIdMVar restartAction bankPublicKey periodIdSignature = toServer $ do
-    logInfo "Forced finish of period was requested"
-
-    modifyMVar_ threadIdMVar $ \workerThreadId -> do
+serveFinishPeriod st bankPublicKey periodIdSignature = toServer $ do
+    logInfo "Finish of period was requested"
+    do
         currentPeriodId <- query' st GetPeriodId
-        if verify bankPublicKey periodIdSignature currentPeriodId then
-            restartAction workerThreadId
+        if verify bankPublicKey periodIdSignature currentPeriodId then do
+            bankSK <- (fromJust . (^. NC.bankSecretKey)) <$> T.getNodeContext
+            onPeriodFinished bankSK st Nothing
         else do
             logError $
                 sformat ("Incorrect signature for periodId=" % int) currentPeriodId
-            return workerThreadId
 
 serveLocalControlRequest
     :: T.WorkMode m

@@ -92,7 +92,7 @@ commitError e = do
 -- | Checks address id (should be in [0..length allAddrs)) to be so
 checkAddressId :: (WorkMode m, Integral n) => A.RSCoinUserState -> n -> m ()
 checkAddressId st ix = do
-    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr <- (^. C.genesisAddress) <$> getNodeContext
     accounts <- query' st $ A.GetOwnedAddresses genAddr
     let notInRange i = i >= genericLength accounts || i < 0
     when (notInRange ix) $
@@ -167,7 +167,7 @@ getAmount st address = do
 -- stands for "if update blockchain inside"
 getUserTotalAmount :: WorkMode m => Bool -> A.RSCoinUserState -> m C.CoinsMap
 getUserTotalAmount upd st = do
-    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr <- (^. C.genesisAddress) <$> getNodeContext
     addrs <- query' st $ A.GetOwnedDefaultAddresses genAddr
     when upd $ void $ updateBlockchain st False
     C.mergeCoinsMaps <$> mapM (getAmountNoUpdate st) addrs
@@ -177,7 +177,7 @@ getAmountNoUpdate
     :: WorkMode m
     => A.RSCoinUserState -> C.Address -> m C.CoinsMap
 getAmountNoUpdate st address = do
-    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr <- (^. C.genesisAddress) <$> getNodeContext
     C.coinsToMap . map sel3 <$> query' st (A.GetOwnedAddrIds genAddr address)
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
@@ -185,7 +185,7 @@ getAmountNoUpdate st address = do
 getAmountByIndex :: WorkMode m => A.RSCoinUserState -> Int -> m C.CoinsMap
 getAmountByIndex st idx = do
     void $ updateBlockchain st False
-    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr <- (^. C.genesisAddress) <$> getNodeContext
     addr <- flip atMay idx <$> query' st (A.GetOwnedDefaultAddresses genAddr)
     maybe
         (throwM $
@@ -196,13 +196,13 @@ getAmountByIndex st idx = do
 -- | Returns list of public addresses available
 getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
 getAllPublicAddresses st = do
-    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr <- (^. C.genesisAddress) <$> getNodeContext
     query' st $ A.GetOwnedDefaultAddresses genAddr
 
 genesisAddressIndex :: WorkMode m => A.RSCoinUserState -> m (Maybe Word)
 genesisAddressIndex st = do
     addrList <- getAllPublicAddresses st
-    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr <- (^. C.genesisAddress) <$> getNodeContext
     return $ fromIntegral <$> elemIndex genAddr addrList
 
 -- | Returns transaction history that wallet holds
@@ -298,7 +298,7 @@ importAddress st (skMaybe,pk) fromH toH0 = do
 deleteUserAddress :: (WorkMode m) => A.RSCoinUserState -> Int -> m ()
 deleteUserAddress st ix = do
     checkAddressId st ix
-    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr <- (^. C.genesisAddress) <$> getNodeContext
     addresses <- query' st $ A.GetOwnedAddresses genAddr
     update' st $ A.DeleteAddress $ addresses !! ix
 
@@ -314,7 +314,7 @@ submitTransactionFromAll
     -> m C.Transaction
 submitTransactionFromAll st maybeCache addressTo amount =
     assert (C.getColor amount == 0) $
-    do genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    do genAddr <- (^. C.genesisAddress) <$> getNodeContext
        addrs <- query' st $ A.GetOwnedDefaultAddresses genAddr
        (indicesWithCoins :: [(Word, C.Coin)]) <-
            filter (not . C.isNegativeCoin . snd) <$>
@@ -424,7 +424,7 @@ constructAndSignTransaction st TransactionData{..} = do
              ", that's not.") $
         head $ filter (not . C.isPositiveCoin) $ concatMap snd tdInputsMerged
     forM_ (map fst tdInputsMerged) $ checkAddressId st
-    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr <- (^. C.genesisAddress) <$> getNodeContext
     accounts <- query' st $ A.GetOwnedAddresses genAddr
     let accInputs :: [(C.Address, I.IntMap C.Coin)]
         accInputs =
@@ -508,7 +508,7 @@ submitTransactionMapper
     -> C.CoinsMap
     -> m (Maybe ([(C.AddrId, C.Address)], [C.AddrId], [(C.Address, C.Coin)]))
 submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
-    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr <- (^. C.genesisAddress) <$> getNodeContext
     (addrids :: [C.AddrId]) <- query' st (A.GetOwnedAddrIds genAddr address)
     let
         -- Pairs of chosen addrids and change for each color
@@ -623,7 +623,7 @@ retrieveAllocationsList
     -> m ()  -- [(C.MSAddress, C.AllocationInfo)]
 retrieveAllocationsList st = do
     -- @TODO: only first address as party is supported now
-    genAddr         <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr         <- (^. C.genesisAddress) <$> getNodeContext
     fstUserAddress  <- head <$> query' st (A.GetOwnedAddresses genAddr)
     userAllocInfos  <- C.queryNotaryMyMSAllocations $ C.UserAlloc  fstUserAddress
     trustAllocInfos <- C.queryNotaryMyMSAllocations $ C.TrustAlloc fstUserAddress

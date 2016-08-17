@@ -23,4 +23,4 @@ import           RSCoin.User.Wallet     as Exports hiding (addAddress,
 import qualified RSCoin.Core            as C
 
 getAllAddresses :: MonadIO m => RSCoinUserState -> C.NodeContext -> m [C.Address]
-getAllAddresses s nodeCtx = query' s $ GetOwnedDefaultAddresses (nodeCtx^.C.genesisAddress)
+getAllAddresses s nodeCtx = query' s $ GetOwnedDefaultAddresses (nodeCtx ^. C.genesisAddress)

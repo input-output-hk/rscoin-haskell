@@ -51,6 +51,9 @@ run the script which you can find in this repository under
 To build from source, clone this repository, navigate to the directory
 into which the project was cloned and run ``stack build`` there.
 
+To build with web frontend support run ``stack build --flag rscoin:befrontend``.
+To build with gui support run ``stack build --flag rscoin:gtkgui``.
+
 Running
 ---
 

@@ -129,9 +129,9 @@ data ConfigurationReadException
 
 instance Exception ConfigurationReadException
 
--- | Read config from 'defaultConfigurationPath' and converts into 'NodeContext'.
--- Tries to read also bank public key if it is not provided. If provied, then rewrites
--- configuration file.
+-- | Reads config from 'defaultConfigurationPath' and converts into 'NodeContext'.
+-- Tries to read also bank public key if it is not provided. If provied then throws
+-- exception in case of mismatch.
 readDeployNodeContext :: Maybe SecretKey -> Maybe FilePath -> IO NodeContext
 readDeployNodeContext (Just newBankSecretKey) confPath = do
     (deployConfig, obtainedContext) <- readRequiredDeployContext confPath

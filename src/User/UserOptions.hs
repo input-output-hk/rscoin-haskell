@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Command line options interface for user
 
 module UserOptions
@@ -76,6 +77,10 @@ data UserCommand
     | Dump DumpCommand
     -- @TODO move to rscoin-keygen
     | SignSeed Text (Maybe FilePath)
+#if GtkGui
+    -- | Start graphical user interface
+    | StartGUI
+#endif
     deriving (Show)
 
 data DumpCommand
@@ -97,6 +102,9 @@ data UserOptions = UserOptions
     , isBankMode   :: Bool        -- ^ If creating wallet in bank-mode,
     , bankModePath :: FilePath    -- ^ Path to bank's secret key
     , addressesNum :: Int         -- ^ Number of addresses to create initially
+#if GtkGui
+    , guidbPath    :: FilePath    -- ^ Path to the gui database.
+#endif
     , walletPath   :: FilePath    -- ^ Path to the wallet
     , logSeverity  :: Severity    -- ^ Logging severity
     , configPath   :: FilePath    -- ^ Configuration file path
@@ -112,6 +120,11 @@ userCommandParser =
                   (progDesc
                        ("List all available addresses from wallet " <>
                         "and information about them."))) <>
+#if GtkGui
+         command
+             "start-gui"
+             (info (pure StartGUI) (progDesc "Start graphical user interface.")) <>
+#endif
          command
              "list-alloc"
              (info
@@ -150,7 +163,11 @@ userCommandParser =
                   (progDesc "Export address' keypair  to the file.")) <>
          command
              "delete-address"
-             (info deleteAddressOpts (progDesc $ "Delete all information about address from " <> "the wallet (can't be returned back if not exported before).")) <>
+             (info
+                  deleteAddressOpts
+                  (progDesc $
+                   "Delete all information about address from " <>
+                   "the wallet (can't be returned back if not exported before).")) <>
          command
              "dump-blocks"
              (info
@@ -275,7 +292,6 @@ userCommandParser =
         <*>
         pure Nothing
     addMultisigOpts =
-
         CreateMultisigAddress <$>
         option auto (short 'm' <> metavar "INT" <> help "Number m from m/n") <*>
         many
@@ -294,12 +310,15 @@ userCommandParser =
              help "Signature of slave with master public key")
     confirmOpts =
         ConfirmAllocation <$>
-        option auto
+        option
+            auto
             (short 'n' <> metavar "INT" <>
              help "Index starting from 1 in `list-alloc`") <*>
         optional
-            (strOption $ long "hot-trust" <> metavar "(SKPATH, ADDRESS)" <>
-             help "Pair of hot sk path and party pk if we want to confirm as Trust)") <*>
+            (strOption $
+             long "hot-trust" <> metavar "(SKPATH, ADDRESS)" <>
+             help
+                 "Pair of hot sk path and party pk if we want to confirm as Trust)") <*>
         strOption
             (long "master-pk" <> metavar "ADDRESS" <>
              help "Public key of master for party") <*>
@@ -372,6 +391,13 @@ userOptionsParser dskp configDir defaultConfigPath =
          value (configDir </> "wallet-db") <>
          showDefault <>
          metavar "FILEPATH") <*>
+#if GtkGui
+    strOption
+        (long "guidb-path" <> help "Path to gui database" <>
+         value "gui-db" <>
+         showDefault <>
+         metavar "FILEPATH") <*>
+#endif
     option auto
         (long "log-severity" <> value Info <> showDefault <>
          help "Logging severity" <>

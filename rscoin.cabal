@@ -14,9 +14,15 @@ maintainer:          volhovm.cs@gmail.com
 build-type:          Custom
 extra-source-files:  README.md
 cabal-version:       >=1.10
+data-files:            resources/RSCoinMain.glade
+                     , resources/icons/*.png
 
 Flag BEFrontend
   Description: Compile Block Explorer frontend bundle
+  Default:     False
+
+Flag GtkGui
+  Description: Add gui support to rscoin-user
   Default:     False
 
 library
@@ -229,6 +235,21 @@ executable rscoin-user
   other-modules:       Paths_rscoin
                      , UserOptions
                      , Actions
+  if flag(GtkGui)
+    other-modules:     GUI.RSCoin.Addresses
+                     , GUI.RSCoin.AddressesTab
+                     , GUI.RSCoin.ContactsTab
+                     , GUI.RSCoin.ErrorMessage
+                     , GUI.RSCoin.ExplicitTransaction
+                     , GUI.RSCoin.Glade
+                     , GUI.RSCoin.GUI
+                     , GUI.RSCoin.GUIAcid
+                     , GUI.RSCoin.MainWindow
+                     , GUI.RSCoin.TransactionsTab
+                     , GUI.RSCoin.WalletTab
+                     , GUI.RSCoin.Worker
+    build-depends:     gtk3 >= 0.14.2    
+    cpp-options:       -DGtkGui
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9
                      , bytestring

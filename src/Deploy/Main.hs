@@ -127,13 +127,12 @@ startBank CommonParams{..} mintettes explorers = do
         dbDir = workingDir </> "bank-db"
         periodDelta :: Second = fromIntegral cpPeriod
     Cherepakha.mkdir workingDirDeprecated
-    bankSk <- C.readSecretKey undefined
     forM_
         explorers
         (\(port,key) ->
               B.addExplorerInPlace
                   contextArgument
-                  bankSk
+                  bankSecretKey
                   dbDir
                   (C.Explorer C.localhost port key)
                   0)
@@ -142,11 +141,11 @@ startBank CommonParams{..} mintettes explorers = do
         (\(port,key) ->
               B.addMintetteInPlace
                   contextArgument
-                  bankSk
+                  bankSecretKey
                   dbDir
                   (C.Mintette C.localhost port)
                   key)
-    forkIO $ B.launchBankReal periodDelta dbDir contextArgument bankSk
+    forkIO $ B.launchBankReal periodDelta dbDir contextArgument bankSecretKey
 
 -- TODO: we can setup other users similar way
 setupBankUser :: CommonParams -> IO ()
@@ -207,12 +206,15 @@ main = do
                     { cpBaseDir = tmpDir
                     , cpPeriod = dcPeriod
                     }
-                mintettePorts = map mintettePort [0 .. dcMintettes]
-                explorerPorts = map explorerPort [0 .. dcExplorers]
+                mintetteIndices = [0 .. dcMintettes]
+                explorerIndices = [0 .. dcExplorers]
+                mintettePorts = map mintettePort mintetteIndices
+                explorerPorts = map explorerPort explorerIndices
             (mintetteThreads,mintetteKeys) <-
-                unzip <$> mapM (startMintette cp) [0 ..]
+                unzip <$> mapM (startMintette cp) mintetteIndices
             (explorerThreads,explorerKeys) <-
-                unzip <$> mapM (startExplorer dcExplorerSeverity cp) [0 ..]
+                unzip <$>
+                mapM (startExplorer dcExplorerSeverity cp) explorerIndices
             let mintettes = zip mintettePorts mintetteKeys
                 explorers = zip explorerPorts explorerKeys
             notaryThread <- startNotary dcNotarySeverity cp

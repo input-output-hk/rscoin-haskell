@@ -483,8 +483,6 @@ benchmark rscoin-bench-local
                      , base >=4.8 && <4.9
                      , bytestring
                      , clock
-                     , configurator >= 0.3.0.0
-                     , configurator-export >= 0.1.0.1
                      , exceptions
                      , filepath
                      , formatting

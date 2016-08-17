@@ -135,7 +135,7 @@ onPeriodFinished sk st storagePath = do
                 strategy
             update' st $ AddAddress msAddr strategy
         C.logInfo "Removing new addresses from pool"
-        mCurBankSecKey <- (^.bankSecretKey) <$> getNodeContext
+        mCurBankSecKey <- (^. bankSecretKey) <$> getNodeContext
         let curBankSecKey  = fromMaybe
                                 (error "Bank secret key is set to Nothing in config!")
                                 mCurBankSecKey

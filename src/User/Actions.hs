@@ -117,7 +117,7 @@ processListAddresses st =
     eWrap $
     do res <- updateBlockchain st False
        unless res $ C.logInfo "Successfully updated blockchain."
-       genAddr <- (^.C.genesisAddress) <$> getNodeContext
+       genAddr <- (^. C.genesisAddress) <$> getNodeContext
        addresses <- query' st $ U.GetOwnedAddresses genAddr
        (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin], Bool)]) <-
            mapM (\addr -> do
@@ -152,7 +152,7 @@ processListAddresses st =
         case strategy of
             C.DefaultStrategy -> return ()
             C.MOfNStrategy m allowed -> do
-                genAddr <- (^.C.genesisAddress) <$> getNodeContext
+                genAddr <- (^. C.genesisAddress) <$> getNodeContext
                 liftIO $ do
                     TIO.putStrLn $ sformat
                          ("    This is a multisig address ("%int%"/"%int%") controlled by keys: ")
@@ -353,7 +353,7 @@ processExportAddress
     -> FilePath
     -> m ()
 processExportAddress st addrId filepath = do
-    genAddr <- (^.C.genesisAddress) <$> getNodeContext
+    genAddr <- (^. C.genesisAddress) <$> getNodeContext
     allAddresses <- query' st $ U.GetOwnedDefaultAddresses genAddr
     let addrN = length allAddresses
     when (addrId `notElem` [1 .. addrN]) $

@@ -66,7 +66,7 @@ serve st workerThread restartWorkerAction = do
     idr9 <- T.serverTypeRestriction1
     idr10 <- T.serverTypeRestriction1
 
-    (bankPublicKey, bankPort) <- liftA2 (,) (^.NC.bankPublicKey) (^.NC.bankPort)
+    (bankPublicKey, bankPort) <- liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort)
                                  <$> T.getNodeContext
 
     C.serve

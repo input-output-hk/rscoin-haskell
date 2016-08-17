@@ -174,7 +174,7 @@ initState st n Nothing = do
 -- is not contained in file.
 initStateBank :: WorkMode m => RSCoinUserState -> Int -> C.SecretKey -> m ()
 initStateBank st n sk = do
-    genAdr <- (^.C.genesisAddress) <$> getNodeContext
+    genAdr <- (^. C.genesisAddress) <$> getNodeContext
     liftIO $ do
        let bankAddress = (sk, C.getAddress genAdr)
        unless (W.validateKeyPair genAdr sk) $

@@ -82,25 +82,25 @@ defaultNodeContext = NodeContext{..}
     _ctxLoggerName    = nakedLoggerName
 
 bankHost :: Lens' NodeContext Host
-bankHost = bankAddr._1
+bankHost = bankAddr . _1
 
 bankPort :: Getter NodeContext Port
-bankPort = bankAddr._2
+bankPort = bankAddr . _2
 
 notaryPort :: Getter NodeContext Port
-notaryPort = notaryAddr._2
+notaryPort = notaryAddr . _2
 
 -- | Special address used as output in genesis transaction
 genesisAddress :: Getter NodeContext Address
-genesisAddress = bankPublicKey.to Address
+genesisAddress = bankPublicKey . to Address
 
 -- | This Bank public key should be used only for tests and benchmarks.
 testBankPublicKey :: PublicKey
-testBankPublicKey = defaultNodeContext^.bankPublicKey
+testBankPublicKey = defaultNodeContext ^. bankPublicKey
 
 -- | This Bank secret key should be used only for tests and benchmarks.
 testBankSecretKey :: SecretKey
-testBankSecretKey = fromJust $ defaultNodeContext^.bankSecretKey
+testBankSecretKey = fromJust $ defaultNodeContext ^. bankSecretKey
 
 bankPublicKeyPropertyName :: IsString s => s
 bankPublicKeyPropertyName = "bank.publicKey"

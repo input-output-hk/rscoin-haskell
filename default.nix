@@ -1,13 +1,14 @@
 { mkDerivation, acid-state, async, base, base64-bytestring, binary
 , blake2, bytestring, cereal, clock, conduit-extra, containers
 , data-default, directory, ed25519, either, exceptions, file-embed
-, filepath, formatting, hashable, hslogger, hspec, lens
+, filepath, formatting, gtk3, hashable, hslogger, hspec, lens
 , monad-control, monad-loops, MonadRandom, msgpack, msgpack-rpc
 , mtl, optparse-applicative, optparse-generic, pqueue, QuickCheck
 , random, safe, safecopy, serokell-core, stdenv, stm, temporary
 , text, text-format, time, time-units, transformers
 , transformers-base, tuple, unordered-containers, vector
-, makeWrapper 
+#, makeWrapper, theme-vertex
+ , makeWrapper 
 }:
 mkDerivation {
   pname = "rscoin";
@@ -19,7 +20,7 @@ mkDerivation {
   libraryHaskellDepends = [
     acid-state base base64-bytestring binary blake2 bytestring cereal
     conduit-extra containers data-default directory ed25519 either
-    exceptions file-embed filepath hashable hslogger lens
+    exceptions file-embed filepath gtk3 hashable hslogger lens
     monad-control monad-loops MonadRandom msgpack msgpack-rpc mtl
     pqueue QuickCheck random safe safecopy serokell-core stm text
     text-format time time-units transformers transformers-base tuple
@@ -27,7 +28,7 @@ mkDerivation {
   ];
   executableHaskellDepends = [
     acid-state async base clock containers exceptions filepath
-    formatting lens mtl optparse-applicative optparse-generic
+    formatting gtk3 lens mtl optparse-applicative optparse-generic
     safecopy serokell-core stm temporary text text-format time-units
     transformers tuple
   ];
@@ -37,6 +38,14 @@ mkDerivation {
     safe safecopy serokell-core stm text time-units transformers tuple
     vector
   ];
+#  executableToolDepends = [ makeWrapper theme-vertex ];
+  executableToolDepends = [ makeWrapper ];
+#  executableSystemDepends = [ gtk3 theme-vertex ];
+  executableSystemDepends = [ gtk3 ];
   buildDepends = [ makeWrapper ];
+#  postInstall = ''
+#    wrapProgram $out/bin/rscoin-user \
+#      --set GTK_THEME "Vertex-Dark"
+#  '';
   license = stdenv.lib.licenses.gpl3;
 }

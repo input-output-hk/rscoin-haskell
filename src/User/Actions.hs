@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
@@ -13,38 +14,52 @@ module Actions
        ) where
 
 
-import           Control.Lens           ((^.))
-import           Control.Monad          (forM_, unless, void, when)
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Trans    (liftIO)
-import           Data.Acid.Advanced     (query')
-import           Data.Bifunctor         (bimap, second)
-import qualified Data.ByteString.Base64 as B64
-import           Data.Function          (on)
-import qualified Data.HashSet           as HS
-import           Data.List              (genericIndex, groupBy)
-import qualified Data.Map               as M
-import           Data.Maybe             (fromJust, fromMaybe, isJust, mapMaybe)
-import           Data.Monoid            ((<>))
-import qualified Data.Set               as S hiding (Set)
-import qualified Data.Text              as T
-import           Data.Text.Encoding     (encodeUtf8)
-import qualified Data.Text.IO           as TIO
-import           Formatting             (build, int, sformat, shown, stext, (%))
+import           Control.Lens            ((^.))
+import           Control.Monad           (forM_, unless, void, when)
+import           Control.Monad.IO.Class  (MonadIO)
+import           Control.Monad.Trans     (liftIO)
 
-import           Serokell.Util.Text     (show')
+import           Data.Acid.Advanced      (query')
+import           Data.Bifunctor          (bimap, second)
+import qualified Data.ByteString.Base64  as B64
+import           Data.Function           (on)
+import qualified Data.HashSet            as HS
+import           Data.List               (genericIndex, groupBy)
+import qualified Data.Map                as M
+import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
+import           Data.Monoid             ((<>))
+import qualified Data.Set                as S hiding (Set)
+import qualified Data.Text               as T
+import           Data.Text.Encoding      (encodeUtf8)
+import qualified Data.Text.IO            as TIO
+import           Formatting              (build, int, sformat, shown, stext,
+                                          (%))
 
-import qualified RSCoin.Core            as C
+import           Serokell.Util.Text      (show')
 
-import           RSCoin.Core.Strategy   (AllocationInfo (..), PartyAddress (..))
-import           RSCoin.Timed           (WorkMode, getNodeContext)
-import qualified RSCoin.User            as U
-import           RSCoin.User.Error      (eWrap)
-import           RSCoin.User.Operations (TransactionData (..),
-                                         deleteUserAddress, getAmountNoUpdate,
-                                         importAddress, submitTransactionRetry,
-                                         updateBlockchain)
-import qualified UserOptions            as O
+#if GtkGui
+import           Control.Exception       (SomeException)
+import           Control.Monad.Catch     (bracket, catch)
+import qualified Data.Acid               as ACID
+import qualified Graphics.UI.Gtk         as G
+import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
+import           GUI.RSCoin.GUI          (startGUI)
+import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
+import           RSCoin.Timed            (for, ms, wait)
+#endif
+
+import qualified RSCoin.Core             as C
+
+import           RSCoin.Core.Strategy    (AllocationInfo (..),
+                                          PartyAddress (..))
+import           RSCoin.Timed            (WorkMode, getNodeContext)
+import qualified RSCoin.User             as U
+import           RSCoin.User.Error       (eWrap)
+import           RSCoin.User.Operations  (TransactionData (..),
+                                          deleteUserAddress, getAmountNoUpdate,
+                                          importAddress, submitTransactionRetry,
+                                          updateBlockchain)
+import qualified UserOptions             as O
 
 
 initializeStorage
@@ -306,6 +321,27 @@ processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
     liftIO $ TIO.putStrLn $
        sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build)
            pk sig (C.verifyChain pk [(sig, seedPk)])
+#if GtkGui
+processCommand st O.StartGUI opts@O.UserOptions{..} = do
+    initialized <- U.isInitialized st
+    unless initialized $ liftIO G.initGUI >> initLoop
+    liftIO $ bracket
+        (ACID.openLocalStateFrom guidbPath emptyGUIAcid)
+        (\cs -> do ACID.createCheckpoint cs
+                   ACID.closeAcidState cs)
+        (\cs -> startGUI (Just configPath) st cs)
+  where
+    initLoop =
+        initializeStorage st opts `catch`
+        (\(e :: SomeException) ->
+              do liftIO $
+                     reportSimpleErrorNoWindow $
+                     "Couldn't initialize rscoin. Check connection, close this " ++
+                     "dialog and we'll try again. Error: "
+                     ++ show e
+                 wait $ for 500 ms
+                 initLoop)
+#endif
 
 dumpCommand
     :: WorkMode m
@@ -322,5 +358,6 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
     C.logInfo . show' . (`genericIndex` (idx - 1)) =<<
-    (\ctx -> query' st (U.GetOwnedAddresses (ctx^.C.genesisAddress))) =<<
+    (\ctx ->
+          query' st (U.GetOwnedAddresses (ctx ^. C.genesisAddress))) =<<
     getNodeContext

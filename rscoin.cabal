@@ -57,6 +57,7 @@ library
                      , RSCoin.Mintette.Acidic
                      , RSCoin.Mintette.AcidState
                      , RSCoin.Mintette.Error
+                     , RSCoin.Mintette.Launcher
                      , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
                      , RSCoin.Mintette.Worker
@@ -248,7 +249,7 @@ executable rscoin-user
                      , GUI.RSCoin.TransactionsTab
                      , GUI.RSCoin.WalletTab
                      , GUI.RSCoin.Worker
-    build-depends:     gtk3 >= 0.14.2    
+    build-depends:     gtk3 >= 0.14.2
     cpp-options:       -DGtkGui
   build-depends:       acid-state >= 0.14.0
                      , base >= 4.8 && < 4.9

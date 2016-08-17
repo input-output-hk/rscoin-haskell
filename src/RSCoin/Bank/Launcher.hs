@@ -6,7 +6,8 @@
 -- with it.
 
 module RSCoin.Bank.Launcher
-       ( launchBankReal
+       ( ContextArgument (..)
+       , launchBankReal
        , launchBank
        , addMintetteInPlace
        , addExplorerInPlace
@@ -36,8 +37,9 @@ import           RSCoin.Core.Communication (getBlockchainHeight,
                                             getMintettePeriod,
                                             sendBankLocalControlRequest)
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
-import           RSCoin.Timed              (MsgPackRpc, WorkMode, fork, fork_,
-                                            killThread, runRealModeBank)
+import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
+                                            WorkMode, fork, fork_, killThread,
+                                            runRealModeBank)
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
                                             AddMintette (AddMintette), State,
@@ -49,19 +51,19 @@ import           RSCoin.Bank.Worker        (runExplorerWorker,
 
 bankWrapperReal :: SecretKey
                 -> FilePath
-                -> Maybe FilePath
+                -> ContextArgument
                 -> (State -> MsgPackRpc a)
                 -> IO a
-bankWrapperReal bankSk storagePath confPath =
-    runRealModeBank confPath bankSk .
+bankWrapperReal bankSk storagePath ca =
+    runRealModeBank ca bankSk .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
 -- | Launch Bank in real mode. This function works indefinitely.
 launchBankReal
     :: (TimeUnit t)
-    => t -> FilePath -> Maybe FilePath -> SecretKey -> IO ()
-launchBankReal periodDelta storagePath confPath bankSk =
-    bankWrapperReal bankSk storagePath confPath $
+    => t -> FilePath -> ContextArgument -> SecretKey -> IO ()
+launchBankReal periodDelta storagePath ca bankSk =
+    bankWrapperReal bankSk storagePath ca $
     launchBank periodDelta bankSk storagePath
 
 -- | Launch Bank in any WorkMode. This function works indefinitely.
@@ -83,40 +85,38 @@ launchBank periodDelta bankSk storagePath st = do
     serve st workerThread restartWorker
 
 -- | Adds mintette directly into bank's state
-addMintetteInPlace :: Maybe FilePath
+addMintetteInPlace :: ContextArgument
                    -> SecretKey
                    -> FilePath
                    -> Mintette
                    -> PublicKey
                    -> IO ()
-addMintetteInPlace confPath bankSk storagePath m k =
-    bankWrapperReal bankSk storagePath confPath $
-    flip update' (AddMintette m k)
+addMintetteInPlace ca bankSk storagePath m k =
+    bankWrapperReal bankSk storagePath ca $ flip update' (AddMintette m k)
 
 -- | Add explorer to Bank inside IO Monad.
-addExplorerInPlace :: Maybe FilePath
+addExplorerInPlace :: ContextArgument
                    -> SecretKey
                    -> FilePath
                    -> Explorer
                    -> PeriodId
                    -> IO ()
-addExplorerInPlace confPath bankSk storagePath e pId =
-    bankWrapperReal bankSk storagePath confPath $
-    flip update' (AddExplorer e pId)
+addExplorerInPlace ca bankSk storagePath e pId =
+    bankWrapperReal bankSk storagePath ca $ flip update' (AddExplorer e pId)
 
 wrapResult res = whenJust res $ \e -> logError (show' e) >> throwM e
 
-wrapRequest :: Maybe FilePath -> SecretKey -> P.BankLocalControlRequest -> IO ()
-wrapRequest confPath bankSk request = do
-    res <- runRealModeBank confPath bankSk $ sendBankLocalControlRequest request
+wrapRequest :: ContextArgument -> SecretKey -> P.BankLocalControlRequest -> IO ()
+wrapRequest ca bankSk request = do
+    res <- runRealModeBank ca bankSk $ sendBankLocalControlRequest request
     wrapResult res
 
 -- | Add mintette to Bank (send a request signed with bank's sk)
 -- Also pings minttete to check that it's compatible
-addMintetteReq :: Maybe FilePath -> SecretKey -> Mintette -> PublicKey -> IO ()
-addMintetteReq confPath bankSk m k = do
+addMintetteReq :: ContextArgument -> SecretKey -> Mintette -> PublicKey -> IO ()
+addMintetteReq ca bankSk m k = do
     let proof = sign bankSk (m, k)
-    runRealModeBank confPath bankSk $ do
+    runRealModeBank ca bankSk $ do
         bankPid <- getBlockchainHeight
         traceM "BEFORE MINTETTE PING "
         mintettePid <- getMintettePeriod m
@@ -135,19 +135,19 @@ addMintetteReq confPath bankSk m k = do
         wrapResult =<< sendBankLocalControlRequest (P.AddMintette m k proof)
 
 -- | Add explorer to Bank inside IO Monad.
-addExplorerReq :: Maybe FilePath -> SecretKey -> Explorer -> PeriodId -> IO ()
-addExplorerReq confPath bankSk e pId = do
+addExplorerReq :: ContextArgument -> SecretKey -> Explorer -> PeriodId -> IO ()
+addExplorerReq ca bankSk e pId = do
     let proof = sign bankSk (e, pId)
-    wrapRequest confPath bankSk $ P.AddExplorer e pId proof
+    wrapRequest ca bankSk $ P.AddExplorer e pId proof
 
 -- | Sends a request to remove mintette
-removeMintetteReq :: Maybe FilePath -> SecretKey -> String -> Int -> IO ()
-removeMintetteReq confPath bankSk mintetteHost mintettePort = do
+removeMintetteReq :: ContextArgument -> SecretKey -> String -> Int -> IO ()
+removeMintetteReq ca bankSk mintetteHost mintettePort = do
     let proof = sign bankSk (mintetteHost, mintettePort)
-    wrapRequest confPath bankSk $ P.RemoveMintette mintetteHost mintettePort proof
+    wrapRequest ca bankSk $ P.RemoveMintette mintetteHost mintettePort proof
 
 -- | Sends a request to remove explorer
-removeExplorerReq :: Maybe FilePath -> SecretKey -> String -> Int -> IO ()
-removeExplorerReq confPath bankSk mintetteHost mintettePort = do
-    let proof = sign bankSk (mintetteHost, mintettePort)
-    wrapRequest confPath bankSk $ P.RemoveExplorer mintetteHost mintettePort proof
+removeExplorerReq :: ContextArgument  -> SecretKey -> String -> Int -> IO ()
+removeExplorerReq ca bankSk explorerHost explorerPort = do
+    let proof = sign bankSk (explorerHost, explorerPort)
+    wrapRequest ca bankSk $ P.RemoveExplorer explorerHost explorerPort proof

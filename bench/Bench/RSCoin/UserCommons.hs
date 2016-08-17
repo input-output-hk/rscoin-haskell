@@ -28,7 +28,8 @@ import           RSCoin.Core                (Address (..), Coin (..),
                                              logDebug, logInfo, sign,
                                              userLoggerName)
 import           RSCoin.Core.NodeConfig     (testBankSecretKey)
-import           RSCoin.Timed               (MsgPackRpc, for, getNodeContext,
+import           RSCoin.Timed               (ContextArgument (CACustomLocation),
+                                             MsgPackRpc, for, getNodeContext,
                                              runRealModeUntrusted, sec, wait)
 import qualified RSCoin.User                as U
 import           RSCoin.User.Operations     (TransactionData (..),
@@ -57,7 +58,8 @@ userThreadWithPath
     userId
     (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
   =
-    runRealModeUntrusted userLoggerName (Just $ benchConfPath benchDir) $ bracket
+    runRealModeUntrusted userLoggerName (CACustomLocation $ benchConfPath benchDir) $
+    bracket
         (liftIO $ U.openState walletPath)
         (\userState -> liftIO $ do
             createCheckpoint userState

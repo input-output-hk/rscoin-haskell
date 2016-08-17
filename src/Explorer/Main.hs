@@ -34,5 +34,5 @@ main = do
         cloPortWeb
         cloLogSeverity
         cloPath
-        (Just cloConfigPath)
+        (E.CACustomLocation cloConfigPath)
         sk

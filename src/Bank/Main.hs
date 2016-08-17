@@ -19,25 +19,27 @@ main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
     bankSecretKeyEither <- try $ readSecretKey cloSkPath
-    bankSecretKey <- case bankSecretKeyEither of
-        Left (_::SomeException) | cloAutoCreateKey -> do
-            putStrLn $ "Generating and putting secret keys into: " ++
-                       cloSkPath
-            let fpSecret = cloSkPath
-            let fpPublic = cloSkPath <> ".pub"
-            (sk,pk) <- keyGen
-            writePublicKey fpPublic pk
-            writeSecretKey fpSecret sk
-            putStrLn "Wrote a keypar on the disk"
-            return sk
-        Left err -> throwM err
-        Right sk -> return sk
-    let confPath = Just cloConfigPath
+    bankSecretKey <-
+        case bankSecretKeyEither of
+            Left (_ :: SomeException)
+              | cloAutoCreateKey -> do
+                  putStrLn $
+                      "Generating and putting secret keys into: " ++ cloSkPath
+                  let fpSecret = cloSkPath
+                  let fpPublic = cloSkPath <> ".pub"
+                  (sk,pk) <- keyGen
+                  writePublicKey fpPublic pk
+                  writeSecretKey fpSecret sk
+                  putStrLn "Wrote a keypar on the disk"
+                  return sk
+            Left err -> throwM err
+            Right sk -> return sk
+    let ca = B.CACustomLocation cloConfigPath
     case cloCommand of
         Opts.AddMintette host port pk -> do
             let m = Mintette host port
             k <- readPk pk
-            B.addMintetteReq confPath bankSecretKey m k
+            B.addMintetteReq ca bankSecretKey m k
         Opts.AddExplorer name port pk pId -> do
             k <- readPk pk
             let e =
@@ -46,18 +48,14 @@ main = do
                     , explorerPort = port
                     , explorerKey = k
                     }
-            B.addExplorerReq confPath bankSecretKey e pId
+            B.addExplorerReq ca bankSecretKey e pId
         Opts.RemoveMintette host port ->
-            B.removeMintetteReq confPath bankSecretKey host port
+            B.removeMintetteReq ca bankSecretKey host port
         Opts.RemoveExplorer host port ->
-            B.removeExplorerReq confPath bankSecretKey host port
+            B.removeExplorerReq ca bankSecretKey host port
         Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
-            B.launchBankReal
-                periodDelta
-                cloPath
-                (Just cloConfigPath)
-                bankSecretKey
+            B.launchBankReal periodDelta cloPath ca bankSecretKey
   where
     readPk pk = maybe (readPublicKeyFallback pk) return (constructPublicKey pk)
     readPublicKeyFallback pk = do

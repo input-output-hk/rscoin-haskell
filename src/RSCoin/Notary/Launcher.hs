@@ -1,7 +1,8 @@
 -- | Launch Notary stuff.
 
 module RSCoin.Notary.Launcher
-        ( launchNotaryReal
+        ( ContextArgument (..)
+        , launchNotaryReal
         ) where
 
 import           Control.Monad.Catch                  (bracket)
@@ -17,13 +18,14 @@ import           RSCoin.Notary.AcidState              (RSCoinNotaryState,
                                                        openState)
 import           RSCoin.Notary.Server                 (serveNotary)
 import           RSCoin.Notary.Web.Servant            (servantApp)
-import           RSCoin.Timed                         (fork_,
+import           RSCoin.Timed                         (ContextArgument (..),
+                                                       fork_,
                                                        runRealModeUntrusted)
 
-launchNotaryReal :: Severity -> Maybe FilePath -> Maybe FilePath -> Int -> IO ()
-launchNotaryReal logSeverity dbPath confPath webPort = do
+launchNotaryReal :: Severity -> Maybe FilePath -> ContextArgument -> Int -> IO ()
+launchNotaryReal logSeverity dbPath ca webPort = do
     let openAction = maybe openMemState openState dbPath
-    runRealModeUntrusted notaryLoggerName confPath $
+    runRealModeUntrusted notaryLoggerName ca $
         bracket (liftIO openAction) (liftIO . closeState) $
         \st -> do
             fork_ $ serveNotary st

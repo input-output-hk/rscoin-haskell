@@ -4,10 +4,6 @@
 
 module Config
        ( DeployConfig (..)
-       , BankData (..)
-       , NotaryData (..)
-       , MintetteData (..)
-       , ExplorerData (..)
        , readDeployConfig
        ) where
 
@@ -20,10 +16,8 @@ import           Serokell.Aeson.Options (defaultOptions, leaveTagOptions)
 
 data DeployConfig = DeployConfig
     { dcDirectory        :: !FilePath
-    , dcBank             :: !BankData
-    , dcNotary           :: !NotaryData
-    , dcMintettes        :: ![MintetteData]
-    , dcExplorers        :: ![ExplorerData]
+    , dcMintettes        :: !Word
+    , dcExplorers        :: !Word
     , dcPeriod           :: !Word
     , dcGlobalSeverity   :: !Severity
     , dcBankSeverity     :: !(Maybe Severity)
@@ -32,36 +26,8 @@ data DeployConfig = DeployConfig
     , dcExplorerSeverity :: !(Maybe Severity)
     } deriving (Show)
 
--- TODO: profiling options are ignored now!
-
-data ProfilingType =
-    NotImplemented
-    deriving (Show)
-
-data BankData = BankData
-    { bdSecret    :: !FilePath
-    , bdProfiling :: !(Maybe ProfilingType)
-    } deriving (Show)
-
-data NotaryData = NotaryData
-    { ndProfiling :: !(Maybe ProfilingType)
-    } deriving (Show)
-
-data MintetteData = MintetteData
-    { mdProfiling :: !(Maybe ProfilingType)
-    } deriving (Show)
-
-data ExplorerData = ExplorerData
-    { edProfiling :: !(Maybe ProfilingType)
-    } deriving (Show)
-
-$(A.deriveJSON leaveTagOptions ''ProfilingType)
 $(A.deriveJSON leaveTagOptions ''Severity)
 $(A.deriveJSON defaultOptions ''DeployConfig)
-$(A.deriveJSON defaultOptions ''BankData)
-$(A.deriveJSON defaultOptions ''MintetteData)
-$(A.deriveJSON defaultOptions ''ExplorerData)
-$(A.deriveJSON defaultOptions ''NotaryData)
 
 readDeployConfig :: FilePath -> IO DeployConfig
 readDeployConfig fp =

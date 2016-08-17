@@ -1,13 +1,6 @@
 directory: .
-bank:
-  secret: rscoin-key
-notary: {}
-mintettes:
-- {}
-- {}
-- {}
-explorers:
-- {}
+mintettes: 3
+explorers: 1
 period: 30
 globalSeverity: Warning
 notarySeverity: Info

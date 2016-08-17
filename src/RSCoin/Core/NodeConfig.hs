@@ -23,6 +23,7 @@ module RSCoin.Core.NodeConfig
 
           -- * Hardcoded constants for tests and benchmarks
         , defaultNodeContext
+        , defaultNodeContextWithLogger
         , testBankPublicKey
         , testBankSecretKey
 
@@ -70,16 +71,19 @@ data NodeContext = NodeContext
 
 $(makeLenses ''NodeContext)
 
--- | Default node context for local deployment
+-- | Default node context for local deployment.
 defaultNodeContext :: NodeContext
-defaultNodeContext = NodeContext{..}
+defaultNodeContext = defaultNodeContextWithLogger nakedLoggerName
+
+-- | Default node context for local deployment with given logger name.
+defaultNodeContextWithLogger :: LoggerName -> NodeContext
+defaultNodeContextWithLogger _ctxLoggerName = NodeContext {..}
   where
-    _bankAddr      = (localhost, defaultPort)
-    _notaryAddr    = (localhost, 4001)
+    _bankAddr                        = (localhost, defaultPort)
+    _notaryAddr                      = (localhost, 4001)
     (_bankPublicKey, _bankSecretKey) = fromMaybe
         (error "[FATAL] Failed to construct (pk, sk) pair for default context")
         $ second Just <$> deterministicKeyGen "default-node-context-keygen-seed"
-    _ctxLoggerName    = nakedLoggerName
 
 bankHost :: Getter NodeContext Host
 bankHost = bankAddr . _1

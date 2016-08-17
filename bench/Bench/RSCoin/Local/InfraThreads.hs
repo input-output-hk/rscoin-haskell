@@ -26,7 +26,7 @@ import           Bench.RSCoin.FilePathUtils (benchConfPath, dbFormatPath)
 
 addMintette :: FilePath -> Int -> PublicKey -> IO ()
 addMintette confPath mintetteId =
-    B.addMintetteReq (Just confPath) testBankSecretKey mintette
+    B.addMintetteReq (B.CACustomLocation confPath) testBankSecretKey mintette
   where
     mintette = Mintette localhost (defaultPort + mintetteId)
 
@@ -35,12 +35,14 @@ bankThread periodDelta benchDir =
     B.launchBankReal
         periodDelta
         (benchDir </> "bank-db")
-        (Just $ benchConfPath benchDir)
+        (B.CACustomLocation $ benchConfPath benchDir)
         testBankSecretKey
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir secretKey =
-    runRealModeUntrusted mintetteLoggerName (Just $ benchConfPath benchDir) $
+    runRealModeUntrusted
+        mintetteLoggerName
+        (B.CACustomLocation $ benchConfPath benchDir) $
     bracket
         (liftIO $
          M.openState $ benchDir </> dbFormatPath "mintette-db" mintetteId)
@@ -51,7 +53,9 @@ mintetteThread mintetteId benchDir secretKey =
 
 notaryThread :: FilePath -> IO ()
 notaryThread benchDir =
-    runRealModeUntrusted notaryLoggerName (Just $ benchConfPath benchDir) $
+    runRealModeUntrusted
+        notaryLoggerName
+        (B.CACustomLocation $ benchConfPath benchDir) $
     bracket
         (liftIO $ N.openState $ benchDir </> "notary-db")
         (liftIO . N.closeState)

@@ -6,7 +6,8 @@ import qualified Data.Acid           as ACID
 import qualified Data.Text           as T
 
 import qualified RSCoin.Core         as C
-import           RSCoin.Timed        (runRealModeUntrusted)
+import           RSCoin.Timed        (ContextArgument (CACustomLocation),
+                                      runRealModeUntrusted)
 import qualified RSCoin.User         as U
 import qualified RSCoin.User.Wallet  as W
 
@@ -17,7 +18,7 @@ main :: IO ()
 main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     C.initLogging logSeverity
-    runRealModeUntrusted C.userLoggerName (Just configPath) $
+    runRealModeUntrusted C.userLoggerName (CACustomLocation configPath) $
         bracket
             (liftIO $ U.openState walletPath)
             (\st -> liftIO $ do

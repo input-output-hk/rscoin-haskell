@@ -26,7 +26,8 @@ import           RSCoin.Core                     (Address, PublicKey, SecretKey,
                                                   keyGen, logInfo,
                                                   mintetteLoggerName,
                                                   nakedLoggerName)
-import           RSCoin.Timed                    (runRealModeUntrusted)
+import           RSCoin.Timed                    (ContextArgument (CADefaultLocation),
+                                                  runRealModeUntrusted)
 
 import           Bench.RSCoin.CfgCreator         (createDeployConfiguration)
 import           Bench.RSCoin.FilePathUtils      (benchConfPath,
@@ -87,7 +88,7 @@ establishMintettes benchDir mintettesNumber = do
     keyPairs <- generateMintetteKeys mintettesNumber
     logInfo $ sformat ("Running" % int % " mintettes…") mintettesNumber
     runMintettes benchDir keyPairs
-    runRealModeUntrusted mintetteLoggerName Nothing finishBankPeriod
+    runRealModeUntrusted mintetteLoggerName CADefaultLocation finishBankPeriod
     logInfo $ sformat (int % " mintettes are launched") mintettesNumber
     threadDelay (2 :: Second)
 

@@ -2,7 +2,8 @@
 -- with it.
 
 module RSCoin.Explorer.Launcher
-       ( explorerWrapperReal
+       ( ContextArgument (..)
+       , explorerWrapperReal
        , launchExplorerReal
        , launchExplorer
        , launchWeb
@@ -18,7 +19,8 @@ import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 import           RSCoin.Core                          (SecretKey, Severity (..),
                                                        explorerLoggerName,
                                                        initLoggerByName)
-import           RSCoin.Timed                         (MsgPackRpc, WorkMode,
+import           RSCoin.Timed                         (ContextArgument (..),
+                                                       MsgPackRpc, WorkMode,
                                                        fork_,
                                                        runRealModeUntrusted)
 
@@ -29,26 +31,26 @@ import           RSCoin.Explorer.Server               (serve)
 import qualified RSCoin.Explorer.Web                  as Web
 
 explorerWrapperReal :: FilePath
-                    -> Maybe FilePath
+                    -> ContextArgument
                     -> (State -> MsgPackRpc a)
                     -> IO a
-explorerWrapperReal storagePath confPath =
-    runRealModeUntrusted explorerLoggerName confPath .
+explorerWrapperReal storagePath ca =
+    runRealModeUntrusted explorerLoggerName ca .
     bracket (liftIO $ openState storagePath) (liftIO . closeState)
 
 launchExplorerReal :: Int
                    -> Int
                    -> Severity
                    -> FilePath
-                   -> Maybe FilePath
+                   -> ContextArgument
                    -> SecretKey
                    -> IO ()
-launchExplorerReal portRpc portWeb severity storagePath confPath sk = do
+launchExplorerReal portRpc portWeb severity storagePath ca sk = do
     channel <- newChannel
-    explorerWrapperReal storagePath confPath $
-        \st ->
-             do fork_ $ launchExplorer portRpc sk channel st (Just storagePath)
-                launchWeb portWeb severity channel st
+    explorerWrapperReal storagePath ca $
+        \st -> do
+            fork_ $ launchExplorer portRpc sk channel st (Just storagePath)
+            launchWeb portWeb severity channel st
 
 launchExplorer
     :: WorkMode m

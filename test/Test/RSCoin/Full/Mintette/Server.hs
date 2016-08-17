@@ -10,7 +10,6 @@ import           Control.Exception                (throwIO, try)
 import           Control.Monad.Catch              (catch)
 import           Control.Monad.IO.Class           (liftIO)
 import           Data.Acid.Advanced               (query', update')
-import           Data.Text                        (Text)
 import           Formatting                       (build, sformat, (%))
 
 import           Serokell.Util.Text               (show')

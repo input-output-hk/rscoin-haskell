@@ -9,10 +9,10 @@ module RSCoin.Timed
         ( module Exports
         , StdGen
         , WorkMode
+        , ContextArgument (..)
         , runEmulationMode
         , runEmulationMode_
         , runRealModeBank
-        , runRealModeDefaultContext
         , runRealModeUntrusted
         ) where
 
@@ -23,6 +23,7 @@ import           RSCoin.Timed.PureRpc        as Exports
 import           RSCoin.Timed.Timed          as Exports
 import           RSCoin.Timed.TimedIO        as Exports
 
+import           Control.Lens                ((.~))
 import           Control.Monad               (join)
 import           Control.Monad.Catch         (MonadMask)
 import           Control.Monad.Reader        (runReaderT)
@@ -33,7 +34,7 @@ import           System.Random               (StdGen, getStdGen)
 import           RSCoin.Core.Crypto.Signing  (SecretKey)
 import           RSCoin.Core.Logging         (LoggerName, WithNamedLogger,
                                               bankLoggerName)
-import           RSCoin.Core.NodeConfig      (NodeContext (..),
+import           RSCoin.Core.NodeConfig      (NodeContext, ctxLoggerName,
                                               defaultNodeContext,
                                               readDeployNodeContext)
 
@@ -43,22 +44,43 @@ class (MonadTimed m, MonadRpc m, MonadIO m, WithNamedLogger m,
 instance (MonadTimed m, MonadRpc m, MonadIO m, WithNamedLogger m,
           MonadMask m, MonadBaseControl IO m) => WorkMode m
 
+-- | ContextArgument is passed to functions which need NodeContext. It
+-- aggregates variety of ways to pass context.
+data ContextArgument
+    = CAExisting NodeContext     -- ^ Existing NodeContext -- will be used.
+    | CADefaultLocation          -- ^ Context will be read from default location.
+    | CACustomLocation FilePath  -- ^ Context will be read from given location.
+    | CADefault                  -- ^ Default context will be used.
+    deriving (Show)
+
+mkNodeContext :: LoggerName
+              -> Maybe SecretKey
+              -> ContextArgument
+              -> IO NodeContext
+mkNodeContext loggerName sk ca =
+    (ctxLoggerName .~ loggerName $) <$> mkNodeContextDo sk ca
+
+mkNodeContextDo :: Maybe SecretKey -> ContextArgument -> IO NodeContext
+mkNodeContextDo _ (CAExisting ctx) = pure ctx
+mkNodeContextDo bankSecretKey CADefaultLocation =
+    readDeployNodeContext bankSecretKey Nothing
+mkNodeContextDo bankSecretKey (CACustomLocation p) =
+    readDeployNodeContext bankSecretKey (Just p)
+mkNodeContextDo _ CADefault = pure defaultNodeContext
+
 runRealModeWithContext :: NodeContext -> MsgPackRpc a -> IO a
 runRealModeWithContext nodeContext =
     runTimedIO . flip runReaderT nodeContext . runMsgPackRpc
 
-runRealModeDefaultContext :: MsgPackRpc a -> IO a
-runRealModeDefaultContext = runRealModeWithContext defaultNodeContext
+runRealModeBank :: ContextArgument -> SecretKey -> MsgPackRpc a -> IO a
+runRealModeBank ca bankSecretKey bankAction = do
+    ctx <- mkNodeContext bankLoggerName (Just bankSecretKey) ca
+    runRealModeWithContext ctx bankAction
 
-runRealModeBank :: Maybe FilePath -> SecretKey -> MsgPackRpc a -> IO a
-runRealModeBank confPath bankSecretKey bankAction = do
-    bankNodeContext <- readDeployNodeContext (Just bankSecretKey) confPath
-    runRealModeWithContext bankNodeContext { _ctxLoggerName = bankLoggerName } bankAction
-
-runRealModeUntrusted :: LoggerName -> Maybe FilePath -> MsgPackRpc a -> IO a
-runRealModeUntrusted logName confPath nodeAction = do
-    untrustedNodeContext <- readDeployNodeContext Nothing confPath
-    runRealModeWithContext untrustedNodeContext { _ctxLoggerName = logName } nodeAction
+runRealModeUntrusted :: LoggerName -> ContextArgument -> MsgPackRpc a -> IO a
+runRealModeUntrusted logName ca nodeAction = do
+    untrustedNodeContext <- mkNodeContext logName Nothing ca
+    runRealModeWithContext untrustedNodeContext nodeAction
 
 runEmulationMode :: MonadIO m => Maybe StdGen -> Delays -> PureRpc IO a -> m a
 runEmulationMode genMaybe delays m =

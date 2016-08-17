@@ -14,12 +14,14 @@ import           System.FilePath        ((</>))
 import           Serokell.Util.OptParse (strOption)
 
 import           RSCoin.Core            (Severity (Error), configDirectory,
-                                         defaultConfigurationPath, defaultPort,
+                                         defaultConfigurationPath,
+                                         defaultEpochDelta, defaultPort,
                                          defaultSecretKeyPath)
 
 data Options = Options
     { cloPort          :: Int
     , cloPath          :: FilePath
+    , cloEpochDelta    :: Integer
     , cloSecretKeyPath :: FilePath
     , cloAutoCreateKey :: Bool
     , cloLogSeverity   :: Severity
@@ -35,6 +37,12 @@ optionsParser defaultSKPath configDir defaultConfigPath =
         (long "path" <> value (configDir </> "mintette-db") <> showDefault <>
          help "Path to database" <>
          metavar "FILEPATH") <*>
+    option
+        auto
+        (long "epoch-delta" <> value (toInteger defaultEpochDelta) <>
+         showDefault <>
+         help "Epoch length in seconds" <>
+         metavar "INT") <*>
     strOption
         (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <>
          help "Path to the secret key" <>

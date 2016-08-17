@@ -3,6 +3,7 @@
 import           Control.Exception   (SomeException)
 import           Control.Monad.Catch (throwM, try)
 import           Data.Monoid         ((<>))
+import           Data.Time.Units     (Second)
 
 import           RSCoin.Core         (initLogging, keyGen, readSecretKey,
                                       writePublicKey, writeSecretKey)
@@ -36,4 +37,5 @@ main = do
                 then Nothing
                 else Just cloPath
         ctxArg = M.CACustomLocation cloConfigPath
-    M.launchMintetteReal cloPort sk dbPath ctxArg
+        epochDelta = fromInteger cloEpochDelta :: Second
+    M.launchMintetteReal epochDelta cloPort sk dbPath ctxArg

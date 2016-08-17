@@ -31,8 +31,8 @@ module RSCoin.Core.NodeConfig
         ) where
 
 import           Control.Exception          (Exception, throwIO)
-import           Control.Lens               (Getter, Lens', makeLenses, to,
-                                             (^.), _1, _2)
+import           Control.Lens               (Getter, makeLenses, to, (^.), _1,
+                                             _2)
 import           Control.Monad              (when)
 
 import           Data.Bifunctor             (second)
@@ -81,7 +81,7 @@ defaultNodeContext = NodeContext{..}
         $ second Just <$> deterministicKeyGen "default-node-context-keygen-seed"
     _ctxLoggerName    = nakedLoggerName
 
-bankHost :: Lens' NodeContext Host
+bankHost :: Getter NodeContext Host
 bankHost = bankAddr . _1
 
 bankPort :: Getter NodeContext Port

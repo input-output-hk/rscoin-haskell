@@ -25,7 +25,6 @@ import           Data.Acid.Advanced        (update')
 import           Data.IORef                (newIORef)
 import           Data.Maybe                (fromJust, isNothing)
 import           Data.Time.Units           (TimeUnit)
-import           Debug.Trace
 import           Formatting                (int, sformat, (%))
 
 import           Serokell.Util.Text        (show')
@@ -118,9 +117,7 @@ addMintetteReq ca bankSk m k = do
     let proof = sign bankSk (m, k)
     runRealModeBank ca bankSk $ do
         bankPid <- getBlockchainHeight
-        traceM "BEFORE MINTETTE PING "
         mintettePid <- getMintettePeriod m
-        traceM "AFTER MINTETTE PING "
         when (isNothing mintettePid) $
             throwM $ BEInconsistentResponse
             "Mintette didn't respond on ping request."

@@ -24,6 +24,7 @@ import           Data.Bifunctor          (bimap, second)
 import qualified Data.ByteString.Base64  as B64
 import           Data.Function           (on)
 import qualified Data.HashSet            as HS
+import           Data.Int                (Int64)
 import           Data.List               (genericIndex, groupBy)
 import qualified Data.Map                as M
 import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
@@ -78,7 +79,47 @@ initializeStorage st O.UserOptions{..} =
 processCommand
     :: (MonadIO m, WorkMode m)
     => U.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
-processCommand st O.ListAddresses _ =
+processCommand st O.ListAddresses _ = processListAddresses st
+processCommand st (O.FormTransaction inp out outC cache) _ =
+    processFormTransaction st inp out outC cache
+processCommand st O.UpdateBlockchain _ =
+    eWrap $
+    do res <- updateBlockchain st True
+       C.logInfo $
+           if res
+               then "Blockchain is updated already."
+               else "Successfully updated blockchain."
+processCommand st (O.CreateMultisigAddress n usrAddr trustAddr masterPk sig) _ =
+    processMultisigAddress st n usrAddr trustAddr masterPk sig
+processCommand st (O.ConfirmAllocation i mHot masterPk sig) _ =
+    processConfirmAllocation st i mHot masterPk sig
+processCommand st O.ListAllocations _ =
+    processListAllocation st
+processCommand st (O.ImportAddress skPathMaybe pkPath heightFrom heightTo) _ = do
+    pk <- liftIO $ C.logInfo "Reading pk..." >> C.readPublicKey pkPath
+    sk <- liftIO $ flip (maybe (return Nothing)) skPathMaybe $ \skPath ->
+        C.logInfo "Reading sk..." >> Just <$> C.readSecretKey skPath
+    C.logInfo "Starting blockchain query process"
+    importAddress st (sk,pk) heightFrom heightTo
+    C.logInfo "Finished, your address successfully added"
+processCommand st (O.ExportAddress addrId filepath) _ =
+    processExportAddress st addrId filepath
+processCommand st (O.DeleteAddress ix) _ = eWrap $ do
+    C.logInfo $ sformat ("Deleting address #" % int) ix
+    deleteUserAddress st ix
+    C.logInfo "Address was successfully deleted"
+processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
+processCommand _ (O.SignSeed seedB64 mPath) _ =
+    processSignSeed seedB64 mPath
+#if GtkGui
+processCommand st O.StartGUI opts =
+    processStartGUI st opts
+#endif
+
+processListAddresses
+    :: (MonadIO m, WorkMode m)
+    => U.RSCoinUserState -> m ()
+processListAddresses st =
     eWrap $
     do res <- updateBlockchain st False
        unless res $ C.logInfo "Successfully updated blockchain."
@@ -129,7 +170,16 @@ processCommand st O.ListAddresses _ =
                              then "    * "%build%" owned by you"
                              else "    * "%build)
                             allowedAddr
-processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
+
+processFormTransaction
+    :: (MonadIO m, WorkMode m)
+    => U.RSCoinUserState
+    -> [(Word, Int64, Int)]
+    -> T.Text
+    -> [(Int64, Int)]
+    -> (Maybe U.UserCache)
+    -> m ()
+processFormTransaction st inputs outputAddrStr outputCoins cache =
     eWrap $
     do let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
            inputs' = map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
@@ -149,22 +199,23 @@ processCommand st (O.FormTransaction inputs outputAddrStr outputCoins cache) _ =
        C.logInfo $
            sformat ("Successfully submitted transaction with hash: " % build) $
                C.hash tx
-processCommand st O.UpdateBlockchain _ =
-    eWrap $
-    do res <- updateBlockchain st True
-       C.logInfo $
-           if res
-               then "Blockchain is updated already."
-               else "Successfully updated blockchain."
-processCommand
+
+processMultisigAddress
+    :: (MonadIO m, WorkMode m)
+    => U.RSCoinUserState
+    -> Int
+    -> [T.Text]
+    -> [T.Text]
+    -> T.Text
+    -> T.Text
+    -> m ()
+processMultisigAddress
     st
-    (O.CreateMultisigAddress m
-                             textUAddrs
-                             textTAddrs
-                             masterPkText
-                             masterSlaveSigText
-    )
-    _
+    m
+    textUAddrs
+    textTAddrs
+    masterPkText
+    masterSlaveSigText
   = do
     when (null textUAddrs && null textTAddrs) $
         U.commitError "Can't create multisig with empty addrs list"
@@ -206,14 +257,21 @@ processCommand
             U.commitError $
                 sformat ("Some addresses were not parsed, parsed only those: " % stext) parsed
         return partiesAddrs
-processCommand
+
+processConfirmAllocation
+    :: (MonadIO m, WorkMode m)
+    => U.RSCoinUserState
+    -> Int
+    -> Maybe String
+    -> T.Text
+    -> T.Text
+    -> m ()
+processConfirmAllocation
     st
-    (O.ConfirmAllocation i
-                         mHot
-                         masterPkText
-                         masterSlaveSigText
-    )
-    _
+    i
+    mHot
+    masterPkText
+    masterSlaveSigText
   = eWrap $ do
     when (i <= 0) $ U.commitError $
         sformat ("Index i should be greater than 0 but given: " % int) i
@@ -247,7 +305,12 @@ processCommand
         partySignature
         (masterPk, masterSlaveSig)
     C.logInfo "Address allocation successfully confirmed!"
-processCommand st O.ListAllocations _ = eWrap $ do
+
+processListAllocation
+    :: (MonadIO m, WorkMode m)
+    => U.RSCoinUserState
+    -> m ()
+processListAllocation st = eWrap $ do
     -- update local cache
     U.retrieveAllocationsList st
     msAddrsList <- query' st U.GetAllocationStrategies
@@ -260,14 +323,14 @@ processCommand st O.ListAllocations _ = eWrap $ do
         let padding = foldr1 (%) (replicate numLength " ")
         let form = int % ". " % build % "\n  " % build % padding
         liftIO $ TIO.putStrLn $ sformat form i addr allocStrat
-processCommand st (O.ImportAddress skPathMaybe pkPath heightFrom heightTo) _ = do
-    pk <- liftIO $ C.logInfo "Reading pk..." >> C.readPublicKey pkPath
-    sk <- liftIO $ flip (maybe (return Nothing)) skPathMaybe $ \skPath ->
-        C.logInfo "Reading sk..." >> Just <$> C.readSecretKey skPath
-    C.logInfo "Starting blockchain query process"
-    importAddress st (sk,pk) heightFrom heightTo
-    C.logInfo "Finished, your address successfully added"
-processCommand st (O.ExportAddress addrId filepath) _ = do
+
+processExportAddress
+    :: (MonadIO m, WorkMode m)
+    => U.RSCoinUserState
+    -> Int
+    -> FilePath
+    -> m ()
+processExportAddress st addrId filepath = do
     genAddr <- (^.C.genesisAddress) <$> getNodeContext
     allAddresses <- query' st $ U.GetOwnedDefaultAddresses genAddr
     let addrN = length allAddresses
@@ -303,12 +366,13 @@ processCommand st (O.ExportAddress addrId filepath) _ = do
                          " strategy address, export correspondent key instead. " %
                          "Correspondent m/n key are autoexported " %
                          "when you import their party.") m (S.size parties)
-processCommand st (O.DeleteAddress ix) _ = eWrap $ do
-    C.logInfo $ sformat ("Deleting address #" % int) ix
-    deleteUserAddress st ix
-    C.logInfo "Address was successfully deleted"
-processCommand st (O.Dump command) _ = eWrap $ dumpCommand st command
-processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
+
+processSignSeed
+    :: MonadIO m
+    => T.Text
+    -> Maybe FilePath
+    -> m ()
+processSignSeed seedB64 mPath = liftIO $ do
     sk <- maybe (pure $ error "Attain secret key is not defined!") C.readSecretKey mPath
     (seedPk, _) <- case B64.decode $ encodeUtf8 seedB64 of
               Left _ -> fail "Wrong seed supplied (base64 decoding failed)"
@@ -321,8 +385,14 @@ processCommand _ (O.SignSeed seedB64 mPath) _ = liftIO $ do
     liftIO $ TIO.putStrLn $
        sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build)
            pk sig (C.verifyChain pk [(sig, seedPk)])
+
 #if GtkGui
-processCommand st O.StartGUI opts@O.UserOptions{..} = do
+processStartGUI
+    :: (MonadIO m, WorkMode m)
+    -> U.RSCoinUserState
+    -> O.UserOptions
+    -> m ()
+processStartGUI st opts@O.UserOptions{..}= do
     initialized <- U.isInitialized st
     unless initialized $ liftIO G.initGUI >> initLoop
     liftIO $ bracket

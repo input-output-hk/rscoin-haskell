@@ -29,9 +29,11 @@ data AllocateCoinsStrategy =
                           -- them among bank and participating
                           -- mintettes evenly (bank may get slightly
                           -- more because of rounding)
+  | AllocateCoinsToBank
 
 allocateCoins :: AllocateCoinsStrategy -> AllocateCoinsF
 allocateCoins AllocateCoinsDefault = allocateCoinsDefault
+allocateCoins AllocateCoinsToBank = allocateCoinsToBank
 
 allocateCoinsDefault :: AllocateCoinsF
 allocateCoinsDefault _ actionLogs = (bankReward, mintetteRewards)
@@ -52,3 +54,10 @@ allocateCoinsDefault _ actionLogs = (bankReward, mintetteRewards)
                       then mintetteReward
                       else 0)
             [0 .. mintetteCnt - 1]
+
+allocateCoinsToBank :: AllocateCoinsF
+allocateCoinsToBank _ actionLogs = (bankReward, mintetteRewards)
+  where
+    mintetteCnt = length actionLogs
+    mintetteRewards = replicate mintetteCnt 0
+    bankReward = C.periodReward

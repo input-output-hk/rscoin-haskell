@@ -294,11 +294,11 @@ allocateMultisignatureAddress
     -> m ()
 allocateMultisignatureAddress msAddr partyAddr allocStrat signature mMasterCheck = do
     L.logInfo $ sformat
-        ( "Allocate new ms address: " % build % "\n,"
-        % "from party address: "      % build % "\n"
-        % "allocation strategy: "     % build % "\n,"
-        % "current party pair: "      % build % "\n,"
-        % "certificate chain: "       % build % "\n,"
+        ( "Allocate new ms address: " % build % "\n ,"
+        % "from party address: "      % build % "\n ,"
+        % "allocation strategy: "     % build % "\n ,"
+        % "current party pair: "      % build % "\n ,"
+        % "certificate chain: "       % build % "\n ,"
         )
         msAddr
         partyAddr

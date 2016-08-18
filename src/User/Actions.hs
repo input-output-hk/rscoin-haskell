@@ -323,23 +323,18 @@ processListAllocation
     => U.RSCoinUserState -> m ()
 processListAllocation st =
     eWrap $
-    do
-       -- update local cache
+    do -- update local cache
        U.retrieveAllocationsList
            st
-       msAddrsList <- query' st U.GetAllocationStrategies
-       liftIO $ TIO.putStrLn $ T.pack $ show msAddrsList
        msigAddrsList <-
            (`zip` [(1 :: Int) ..]) . M.assocs <$>
            query' st U.GetAllocationStrategies
        when (null msigAddrsList) $
            liftIO $ putStrLn "Allocation address list is empty"
        forM_ msigAddrsList $
-           \((addr,allocStrat),i) -> do
-               let numLength = length $ show i
-               let padding = foldr1 (%) (replicate numLength " ")
-               let form = int % ". " % build % "\n  " % build % padding
-               liftIO $ TIO.putStrLn $ sformat form i addr allocStrat
+           \((addr,allocStrat),i) ->
+               liftIO $ TIO.putStrLn $ sformat
+                   (int % ". " % build % "\n" % build) i addr allocStrat
 
 processImportAddress
     :: (MonadIO m, WorkMode m)

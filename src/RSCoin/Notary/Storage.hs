@@ -25,6 +25,7 @@ import           Control.Lens         (Lens', at, makeLenses, to, use, uses,
                                        view, (%=), (%~), (&), (.=), (?=), (^.))
 import           Control.Monad        (forM_, unless, when, (<=<))
 import           Control.Monad.Catch  (MonadThrow (throwM))
+import           Control.Monad.Extra  (whenM, (||^))
 
 import           Data.Acid            (Query, Update, liftQuery)
 import qualified Data.Foldable        as F
@@ -203,6 +204,9 @@ allocateMSAddress
           throwM $ NEInvalidArguments "required number of signatures is greater then party size"
       unless (partyToAllocation argPartyAddress `HS.member` _allParties) $
           throwM $ NEInvalidArguments "party address not in set of addresses"
+      whenM (uses addresses (M.member msAddr) ||^ uses allocationStrategyPool (M.member msAddr)) $
+        throwM $ NEInvalidArguments $ sformat
+            ("ms address " % build % " already registered; please, regenerate new") msAddr
 
       guardMaxAttemps partyAddr
 

@@ -53,6 +53,6 @@ notaryThread :: FilePath -> IO ()
 notaryThread benchDir =
     runRealModeUntrusted notaryLoggerName B.CADefault $
     bracket
-        (liftIO $ N.openState $ benchDir </> "notary-db")
+        (liftIO $ N.openState (benchDir </> "notary-db") [])
         (liftIO . N.closeState)
         N.serveNotary

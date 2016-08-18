@@ -26,7 +26,6 @@ data NotaryError
                                    --   PeriodId supplied -- actual periodId known to Notary
     | NEBlocked                    -- ^ User has reached limit number of attempts for multisig allocation
     | NEInvalidArguments Text      -- ^ Generic exception for invalid arguments
-    | NEInvalidChain Text          -- ^ Invalid chain of certificates provided  @TODO: Deprecated
     | NEInvalidSignature           -- ^ Invalid signature provided
     | NEStrategyNotSupported Text  -- ^ Address's strategy is not supported, with name provided
     | NEUnrelatedSignature Text    -- ^ Signature provided doesn't correspond to any of address' parties
@@ -41,7 +40,6 @@ instance Buildable NotaryError where
     build (NEAddrIdNotInUtxo pId)    = bprint ("NEAddrIdNotInUtxo, notary's periodId " % int) pId
     build NEBlocked                  = "NEBlocked"
     build (NEInvalidArguments msg)   = bprint ("NEInvalidArguments: " % stext) msg
-    build (NEInvalidChain msg)       = bprint ("NEInvalidChain: " % stext) msg
     build NEInvalidSignature         = "NEInvalidSignature"
     build (NEStrategyNotSupported s) = bprint ("NEStrategyNotSupported, strategy " % stext) s
     build (NEUnrelatedSignature msg) = bprint ("NEUnrelatedSignature: " % stext) msg
@@ -56,10 +54,9 @@ instance MessagePack NotaryError where
     toObject (NEAddrIdNotInUtxo pId)    = toObj (1, pId)
     toObject NEBlocked                  = toObj (2, ())
     toObject (NEInvalidArguments msg)   = toObj (3, msg)
-    toObject (NEInvalidChain msg)       = toObj (4, msg)
-    toObject NEInvalidSignature         = toObj (5, ())
-    toObject (NEStrategyNotSupported s) = toObj (6, s)
-    toObject (NEUnrelatedSignature msg) = toObj (7, msg)
+    toObject NEInvalidSignature         = toObj (4, ())
+    toObject (NEStrategyNotSupported s) = toObj (5, s)
+    toObject (NEUnrelatedSignature msg) = toObj (6, msg)
 
     fromObject obj = do
         (i, payload) <- fromObject obj
@@ -68,8 +65,7 @@ instance MessagePack NotaryError where
             1 -> NEAddrIdNotInUtxo      <$> fromObject payload
             2 -> pure NEBlocked
             3 -> NEInvalidArguments     <$> fromObject payload
-            4 -> NEInvalidChain         <$> fromObject payload
-            5 -> pure NEInvalidSignature
-            6 -> NEStrategyNotSupported <$> fromObject payload
-            7 -> NEUnrelatedSignature   <$> fromObject payload
+            4 -> pure NEInvalidSignature
+            5 -> NEStrategyNotSupported <$> fromObject payload
+            6 -> NEUnrelatedSignature   <$> fromObject payload
             _ -> Nothing

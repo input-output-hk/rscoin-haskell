@@ -5,7 +5,8 @@ module NotaryOptions
         , getOptions
         ) where
 
-import           Options.Applicative    (Parser, auto, execParser, fullDesc,
+import           Data.Text              (Text)
+import           Options.Applicative    (Parser, auto, execParser, fullDesc, many,
                                          help, helper, info, long, metavar,
                                          option, progDesc, short, showDefault,
                                          switch, value, (<>))
@@ -22,6 +23,7 @@ data Options = Options
     , cliMemMode     :: Bool
     , cliWebPort     :: Int
     , cliConfigPath  :: FilePath
+    , cliTrustedKeys :: [Text]
     } deriving Show
 
 optionsParser :: FilePath -> FilePath -> Parser Options
@@ -45,7 +47,10 @@ optionsParser configDir defaultConfigPath =
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigPath <>
          showDefault <>
-         metavar "FILEPATH")
+         metavar "FILEPATH") <*>
+    many (strOption $ long "trust-keys" <> metavar "[PUBLIC KEY]" <>
+          help "Public keys notary will trust as master keys. If not specifed \
+               \then notary will trust any key")
 
 getOptions :: IO Options
 getOptions = do

@@ -108,6 +108,7 @@ startNotary severity CommonParams{..} = do
                 (Just dbDir)
                 contextArgument
                 8090
+                []
     Cherepakha.mkdir workingDirDeprecated
     forkIO start
 

@@ -181,13 +181,13 @@ handleAllocateMultisig
     -> C.PartyAddress
     -> C.AllocationStrategy
     -> C.Signature
-    -> (C.PublicKey, C.Signature)
+    -> Maybe (C.PublicKey, C.Signature)
     -> m ()
-handleAllocateMultisig st msAddr partyAddr allocStrat signature masterCheck = toServer $ do
+handleAllocateMultisig st msAddr partyAddr allocStrat signature mMasterCheck = toServer $ do
     C.logDebug "Begining allocation MS address..."
     C.logDebug $
-        sformat ("SigPair: " % build % ", Chain: " % build) signature (pairBuilder masterCheck)
-    update' st $ AllocateMSAddress msAddr partyAddr allocStrat signature masterCheck
+        sformat ("SigPair: " % build % ", Chain: " % build) signature (pairBuilder <$> mMasterCheck)
+    update' st $ AllocateMSAddress msAddr partyAddr allocStrat signature mMasterCheck
 
     -- @TODO: get query only in Debug mode
     currentMSAddresses <- query' st QueryAllMSAdresses

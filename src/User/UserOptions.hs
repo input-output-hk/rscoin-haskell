@@ -55,8 +55,8 @@ data UserCommand
     | CreateMultisigAddress Int
                             [Text]
                             [Text]
-                            Text
-                            Text
+                            (Maybe Text)
+                            (Maybe Text)
     -- | List all addresses in which current user acts like party
     | ListAllocations
 
@@ -67,8 +67,8 @@ data UserCommand
     -- 4. Signature of slave key with master key.
     | ConfirmAllocation Int
                         (Maybe String)
-                        Text
-                        Text
+                        (Maybe Text)
+                        (Maybe Text)
     -- | Add a local address to storage (filepaths to sk and pk, then
     -- blockchain heights to query -- minimum and maximum)
     | ImportAddress (Maybe FilePath) FilePath Int
@@ -303,11 +303,13 @@ userCommandParser =
             (strOption $
              long "taddr" <> metavar "ADDRESS" <>
              help "Trust party Addresses that would own this MS address") <*>
-        strOption
-            (long "master-pk" <> metavar "ADDRESS" <>
+        optional
+            (strOption $
+             long "master-pk" <> metavar "ADDRESS" <>
              help "Public key of master for party") <*>
-        strOption
-            (long "slave-sig" <> metavar "SIGNATURE" <>
+        optional
+            (strOption $
+             long "slave-sig" <> metavar "SIGNATURE" <>
              help "Signature of slave with master public key")
     confirmOpts =
         ConfirmAllocation <$>
@@ -320,11 +322,13 @@ userCommandParser =
              long "hot-trust" <> metavar "(SKPATH, ADDRESS)" <>
              help
                  "Pair of hot sk path and party pk if we want to confirm as Trust)") <*>
-        strOption
-            (long "master-pk" <> metavar "ADDRESS" <>
+        optional
+            (strOption $
+             long "master-pk" <> metavar "ADDRESS" <>
              help "Public key of master for party") <*>
-        strOption
-            (long "slave-sig" <> metavar "SIGNATURE" <>
+        optional
+            (strOption $
+             long "slave-sig" <> metavar "SIGNATURE" <>
              help "Signature of slave with master public key")
     importAddressOpts =
         ImportAddress <$>

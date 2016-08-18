@@ -30,18 +30,21 @@ import           Data.Acid             (AcidState, closeAcidState, makeAcidic,
 import           Data.Acid.Memory      (openMemoryState)
 import           Data.SafeCopy         (base, deriveSafeCopy)
 
-import           RSCoin.Notary.Storage (Storage)
+import           RSCoin.Core           (PublicKey)
+import           RSCoin.Notary.Storage (Storage (..))
 import qualified RSCoin.Notary.Storage as S
 
 type RSCoinNotaryState = AcidState Storage
 
 $(deriveSafeCopy 0 'base ''Storage)
 
-openState :: FilePath -> IO RSCoinNotaryState
-openState fp = openLocalStateFrom fp S.emptyNotaryStorage
+openState :: FilePath -> [PublicKey] -> IO RSCoinNotaryState
+openState fp trustedKeys =
+    openLocalStateFrom fp S.emptyNotaryStorage { _masterKeys = trustedKeys }
 
-openMemState :: IO RSCoinNotaryState
-openMemState = openMemoryState S.emptyNotaryStorage
+openMemState :: [PublicKey] -> IO RSCoinNotaryState
+openMemState trustedKeys =
+    openMemoryState S.emptyNotaryStorage { _masterKeys = trustedKeys }
 
 closeState :: RSCoinNotaryState -> IO ()
 closeState = closeAcidState

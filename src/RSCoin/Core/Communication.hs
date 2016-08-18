@@ -290,9 +290,9 @@ allocateMultisignatureAddress
     -> PartyAddress
     -> AllocationStrategy
     -> Signature
-    -> (PublicKey, Signature)
+    -> Maybe (PublicKey, Signature)
     -> m ()
-allocateMultisignatureAddress msAddr partyAddr allocStrat signature masterCheck = do
+allocateMultisignatureAddress msAddr partyAddr allocStrat signature mMasterCheck = do
     L.logInfo $ sformat
         ( "Allocate new ms address: " % build % "\n,"
         % "from party address: "      % build % "\n"
@@ -304,9 +304,9 @@ allocateMultisignatureAddress msAddr partyAddr allocStrat signature masterCheck 
         partyAddr
         allocStrat
         signature
-        (pairBuilder masterCheck)
+        (pairBuilder <$> mMasterCheck)
     callNotary $ P.call (P.RSCNotary P.AllocateMultisig)
-        msAddr partyAddr allocStrat signature masterCheck
+        msAddr partyAddr allocStrat signature mMasterCheck
 
 queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, TxStrategy)]
 queryNotaryCompleteMSAddresses = do

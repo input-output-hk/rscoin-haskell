@@ -8,7 +8,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/serokell/serokell-core.git
-    commit: 734cdbac2871a2c32bccb3731cdbb3d8677206dd
+    commit: ac5b9b2dd86a6c34c4ac27c84084a108c83a7493
   extra-dep: true
 - location:
     git: https://github.com/serokell/msgpack-haskell.git

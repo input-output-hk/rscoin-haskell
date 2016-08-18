@@ -7,16 +7,14 @@ module RSCoin.Mintette.Worker
        , runWorkerWithDelta
        ) where
 
-import           Control.Monad             (unless, void)
+import           Control.Monad             (unless)
 import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (liftIO)
-import           Data.Acid                 (createArchive, createCheckpoint,
-                                            update)
-import qualified Data.Text                 as T
+import           Data.Acid                 (createCheckpoint, update)
 import           Data.Time.Units           (TimeUnit)
 import           Formatting                (build, sformat, (%))
-import           System.FilePath           ((</>))
-import qualified Turtle.Prelude            as TURT
+
+import           Serokell.Util.AcidState   (createAndDiscardArchive)
 
 import           RSCoin.Core               (SecretKey, defaultEpochDelta,
                                             logError)
@@ -52,7 +50,4 @@ onEpochFinished sk st storagePath = do
     update st $ FinishEpoch sk
     createCheckpoint st
     --pid <- query st GetPeriodId -- can be used to cleanup archive once in N periods
-    whenJust storagePath $ \stpath -> liftIO $ do
-        createArchive st
-        void $ TURT.shellStrict
-            (T.pack $ "rm -rf " ++ (stpath </> "Archive")) (return "")
+    whenJust storagePath $ createAndDiscardArchive st

@@ -50,7 +50,8 @@ import           GHC.Generics               (Generic)
 import           Formatting                 (bprint, int, (%))
 import qualified Formatting                 as F (build)
 
-import           Serokell.Util.Text         (listBuilderJSON)
+import           Serokell.Util.Text         (listBuilderJSON,
+                                             listBuilderJSONIndent)
 
 import           RSCoin.Core.Crypto.Signing (PublicKey, Signature)
 import           RSCoin.Core.Primitives     (Address, Transaction)
@@ -177,7 +178,7 @@ instance Binary AllocationStrategy where
 instance Buildable AllocationStrategy where
     build AllocationStrategy{..} = bprint template
         _sigNumber
-        (listBuilderJSON _allParties)
+        (listBuilderJSONIndent 4 _allParties)
       where
         template = "AllocationStrategy {\n"  %
                    "  sigNumber: "  % F.build % "\n" %
@@ -202,9 +203,9 @@ $(makeLenses ''AllocationInfo)
 instance Buildable AllocationInfo where
     build AllocationInfo{..} = bprint template
         _allocationStrategy
-        (listBuilderJSON _currentConfirmations)
+        (listBuilderJSONIndent 4 _currentConfirmations)
       where
-        template = "AllocationStrategy {\n"   %
+        template = "AllocationInfo {\n"   %
                    "  allocationStrategy: "   % F.build % "\n" %
                    "  currentConfirmations: " % F.build % "\n" %
                    "}\n"

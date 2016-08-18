@@ -37,49 +37,42 @@ module RSCoin.User.Operations
        , retrieveAllocationsList
        ) where
 
-import           Control.Arrow             ((***))
-import           Control.Exception         (SomeException, assert,
-                                            fromException)
-import           Control.Lens              ((^.))
-import           Control.Monad             (filterM, forM_, unless, void, when)
-import           Control.Monad.Catch       (MonadThrow, catch, throwM, try)
-import           Control.Monad.Extra       (whenJust)
-import           Control.Monad.IO.Class    (MonadIO, liftIO)
-import           Control.Monad.State       (StateT (..), execStateT, get,
-                                            modify)
-import           Control.Monad.Trans.Class (lift)
-import           Data.Acid.Advanced        (query', update')
-import           Data.Bifunctor            (first)
-import           Data.Function             (on)
-import qualified Data.IntMap.Strict        as I
-import           Data.List                 (delete, elemIndex, foldl1',
-                                            genericIndex, genericLength,
-                                            groupBy, nub, sortOn)
-import qualified Data.Map                  as M
-import           Data.Maybe                (fromJust, fromMaybe, isJust,
-                                            isNothing)
-import           Data.Monoid               ((<>))
-import qualified Data.Set                  as S
-import qualified Data.Text                 as T
-import           Data.Text.Buildable       (Buildable)
-import qualified Data.Text.IO              as TIO
-import           Data.Tuple.Select         (sel1, sel2, sel3)
-import           Formatting                (build, int, sformat, shown, (%))
-import           Safe                      (atMay)
+import           Control.Arrow          ((***))
+import           Control.Exception      (SomeException, assert, fromException)
+import           Control.Lens           ((^.))
+import           Control.Monad          (filterM, forM_, unless, void, when)
+import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
+import           Control.Monad.Extra    (whenJust)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Data.Acid.Advanced     (query', update')
+import           Data.Function          (on)
+import qualified Data.IntMap.Strict     as I
+import           Data.List              (elemIndex, foldl1', genericIndex,
+                                         genericLength, groupBy, nub, sortOn)
+import qualified Data.Map               as M
+import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing)
+import           Data.Monoid            ((<>))
+import qualified Data.Text              as T
+import           Data.Text.Buildable    (Buildable)
+import qualified Data.Text.IO           as TIO
+import           Data.Tuple.Select      (sel1, sel2, sel3)
+import           Debug.Trace
+import           Formatting             (build, int, sformat, shown, (%))
+import           Safe                   (atMay)
 
-import           Serokell.Util             (listBuilderJSON,
-                                            listBuilderJSONIndent, pairBuilder)
+import           Serokell.Util          (listBuilderJSON, listBuilderJSONIndent,
+                                         pairBuilder)
 
-import qualified RSCoin.Core               as C
-import           RSCoin.Timed              (MonadRpc (getNodeContext), WorkMode,
-                                            for, sec, wait)
-import qualified RSCoin.User.AcidState     as A
-import           RSCoin.User.Cache         (UserCache)
-import           RSCoin.User.Error         (UserError (..), UserLogicError,
-                                            isWalletSyncError)
-import           RSCoin.User.Logic         (SignatureBundle, getExtraSignatures,
-                                            joinBundles, validateTransaction)
-import qualified RSCoin.User.Wallet        as W
+import qualified RSCoin.Core            as C
+import           RSCoin.Timed           (MonadRpc (getNodeContext), WorkMode,
+                                         for, sec, wait)
+import qualified RSCoin.User.AcidState  as A
+import           RSCoin.User.Cache      (UserCache)
+import           RSCoin.User.Error      (UserError (..), UserLogicError,
+                                         isWalletSyncError)
+import           RSCoin.User.Logic      (SignatureBundle, getExtraSignatures,
+                                         joinBundles, validateTransaction)
+import qualified RSCoin.User.Wallet     as W
 
 walletInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
 walletInitialized st = query' st A.IsInitialized
@@ -222,13 +215,11 @@ isInitialized st = query' st A.IsInitialized
 addUserAddress
     :: MonadIO m
     => A.RSCoinUserState
-    -> Maybe C.SecretKey
     -> C.PublicKey
-    -> [C.Transaction]
-    -> S.Set W.TxHistoryRecord
+    -> Maybe C.SecretKey
     -> m ()
-addUserAddress st skMaybe pk txs hRecords =
-    update' st $ A.AddAddress (C.Address pk, skMaybe) txs hRecords
+addUserAddress st pk skMaybe =
+    update' st $ A.AddAddress (C.Address pk) skMaybe M.empty
 
 -- | Same as addAddress, but queries blockchain automatically and
 -- queries transactions that affect this address
@@ -237,60 +228,47 @@ importAddress
     => A.RSCoinUserState
     -> (Maybe C.SecretKey, C.PublicKey)
     -> Int
-    -> Maybe Int
     -> m ()
-importAddress st (skMaybe,pk) fromH toH0 = do
+importAddress st (skMaybe,pk) fromH = do
     whenJust skMaybe $ \sk ->
         unless (C.checkKeyPair (sk,pk)) $
             commitError "The provided pair doesn't match thus can't be used"
     ourSk <- query' st $ A.GetSecretKey $ C.Address pk
     case ourSk of
         Nothing -> return () -- it's ok
-        Just Nothing -> C.logInfo $ "The address doesn't have secret key, " <>
-                                    "adding this one with re-query"
+        Just Nothing | isJust skMaybe ->
+            C.logInfo $ "The address doesn't have secret key, " <>
+                        "adding this sk with re-query"
+        Just Nothing ->
+            commitError "This address doesn't have sk, won't update without provided"
         Just (Just _) -> commitError "The address is already imported"
     when (fromH < 0) $ commitError $
             sformat ("Height 'from' " % int % " must be positive!") fromH
-    whenJust toH0 $ \toH -> do
-        when (toH < 0) $ commitError $
-            sformat ("Height 'to' " % int % " must be positive!") toH
-        when (toH < fromH) $ commitError $ sformat
-            ("Height 'from' " % int % "is greater than height 'to' " % int)
-            fromH toH
     walletHeight <- query' st A.GetLastBlockId
-    let toH = fromMaybe walletHeight toH0
-    when (toH > walletHeight) $
-        let formatPattern = "Desired interval [" % int % "," % int %
-                "] must lie exactly within [0," % int % "]," %
+    when (fromH > walletHeight) $
+        let formatPattern =
+                "fromH must be exactly within [0," % int % "]," %
                 " where " % int %
                 " is current wallet's top known blockchain height."
-        in commitError $ sformat formatPattern fromH toH walletHeight walletHeight
+        in commitError $ sformat formatPattern walletHeight walletHeight
+    let period = [fromH..walletHeight]
+        delta = max (walletHeight - fromH - 1) $
+                max 100 $ (walletHeight - fromH) `div` 10
+        periodsLast = splitEvery delta period
+    traceM $ "Period is : " ++ show period
+    traceM $ "Delta is : " ++ show delta
+    traceM $ "periods is : " ++ show periodsLast
     C.logInfo $ sformat
-        ("Starting blockchain query process for blocks " % int % ".." % int) fromH toH
-    (txs,txHistoryRecords) <-
-        execStateT (gatherTransactionsDo [fromH..toH]) ([],S.empty)
+        ("Starting blockchain query process for blocks " % int % ".." % int) fromH walletHeight
+    hblocks <- (period `zip`) . concat <$>
+        mapM (\l -> C.getBlocksByHeight (head l) (last l)) periodsLast
     C.logInfo "Ended blockchain query process"
-    update' st $ A.AddAddress (newAddress,skMaybe)
-        (nub $ map fst txs) txHistoryRecords
+    update' st $ A.AddAddress newAddress skMaybe $ M.fromList hblocks
   where
     newAddress = C.Address pk
-    gatherTransactionsDo
-        :: (WorkMode m) =>
-           [Int] -> StateT ([(C.Transaction,C.AddrId)], S.Set W.TxHistoryRecord) m ()
-    gatherTransactionsDo [] = return ()
-    gatherTransactionsDo (periodId:otherPeriodIds) = do
-        C.HBlock{..} <- lift $ C.getBlockByHeight periodId
-        forM_ hbTransactions $ \tx ->
-            W.handleToAdd [newAddress] tx $ \_ addrid -> do
-                let histRecord =
-                        W.TxHistoryRecord tx periodId W.TxHConfirmed
-                        $ S.singleton newAddress
-                modify (((tx,addrid) :) *** S.insert histRecord)
-        forM_ hbTransactions $ \tx -> do
-            currentTxs <- fst <$> get
-            toRemove <- W.getToRemove [(newAddress, currentTxs)] tx
-            forM_ toRemove $ \(_,pair') -> modify (first $ delete pair')
-        gatherTransactionsDo otherPeriodIds
+    splitEvery _ [] = []
+    splitEvery n list = let (first,rest) = splitAt n list
+                        in first : (splitEvery n rest)
 
 -- | Deletes an address. Accepts an index in [0..length addresses)
 deleteUserAddress :: (WorkMode m) => A.RSCoinUserState -> Int -> m ()

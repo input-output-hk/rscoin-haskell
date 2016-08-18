@@ -13,7 +13,6 @@ module Actions
        , initializeStorage
        ) where
 
-
 import           Control.Lens            ((^.))
 import           Control.Monad           (forM_, unless, void, when)
 import           Control.Monad.IO.Class  (MonadIO)
@@ -22,6 +21,7 @@ import           Control.Monad.Trans     (liftIO)
 import           Data.Acid.Advanced      (query')
 import           Data.Bifunctor          (bimap, second)
 import qualified Data.ByteString.Base64  as B64
+import           Data.Char               (isSpace)
 import           Data.Function           (on)
 import qualified Data.HashSet            as HS
 import           Data.Int                (Int64)
@@ -33,8 +33,8 @@ import qualified Data.Set                as S hiding (Set)
 import qualified Data.Text               as T
 import           Data.Text.Encoding      (encodeUtf8)
 import qualified Data.Text.IO            as TIO
-import           Formatting              (build, int, sformat, shown, stext,
-                                          string, (%))
+import           Formatting              (build, int, sformat, stext, string,
+                                          (%))
 
 import           Serokell.Util.Text      (show')
 
@@ -56,9 +56,11 @@ import           RSCoin.Core.Strategy    (AllocationInfo (..),
 import           RSCoin.Timed            (WorkMode, getNodeContext)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
-import           RSCoin.User.Operations  (TransactionData (..),
-                                          deleteUserAddress, getAmountNoUpdate,
-                                          importAddress, submitTransactionRetry,
+import           RSCoin.User.Operations  (TransactionData (..), checkAddressId,
+                                          deleteUserAddress,
+                                          getAllPublicAddresses,
+                                          getAmountNoUpdate, importAddress,
+                                          submitTransactionRetry,
                                           updateBlockchain)
 import qualified UserOptions             as O
 
@@ -99,12 +101,12 @@ processCommandNoOpts st (O.ConfirmAllocation i mHot masterPk sig) =
     processConfirmAllocation st i mHot masterPk sig
 processCommandNoOpts st O.ListAllocations =
     processListAllocation st
-processCommandNoOpts st (O.ImportAddress skPathMaybe pkPath heightFrom heightTo) = do
-    processImportAddress st skPathMaybe pkPath heightFrom heightTo
+processCommandNoOpts st (O.ImportAddress skPathMaybe pkPath heightFrom) = do
+    processImportAddress st skPathMaybe pkPath heightFrom
 processCommandNoOpts st (O.ExportAddress addrId filepath) =
     processExportAddress st addrId filepath
-processCommandNoOpts st (O.DeleteAddress ix) =
-    processDeleteAddress st ix
+processCommandNoOpts st (O.DeleteAddress ix force) =
+    processDeleteAddress st ix force
 processCommandNoOpts st (O.Dump command) =
     eWrap $ dumpCommand st command
 processCommandNoOpts _ (O.SignSeed seedB64 mPath) =
@@ -339,13 +341,12 @@ processImportAddress
     -> Maybe FilePath
     -> FilePath
     -> Int
-    -> Maybe Int
     -> m ()
-processImportAddress st skPathMaybe pkPath heightFrom heightTo= do
+processImportAddress st skPathMaybe pkPath heightFrom = do
     pk <- liftIO $ C.logInfo "Reading pk..." >> C.readPublicKey pkPath
     sk <- liftIO $ flip (maybe (return Nothing)) skPathMaybe $ \skPath ->
         C.logInfo "Reading sk..." >> Just <$> C.readSecretKey skPath
-    importAddress st (sk,pk) heightFrom heightTo
+    importAddress st (sk,pk) heightFrom
     C.logInfo "Finished, your address successfully added"
 
 processExportAddress
@@ -401,12 +402,40 @@ processDeleteAddress
     :: (MonadIO m, WorkMode m)
     => U.RSCoinUserState
     -> Int
+    -> Bool
     -> m ()
-processDeleteAddress st ix =
+processDeleteAddress st ix0 force =
     eWrap $
-    do C.logInfo $ sformat ("Deleting address #" % int) ix
-       deleteUserAddress st $ ix - 1
+    do C.logInfo $ sformat ("Deleting address #" % int) ix0
+       checkAddressId st ix
+       ourAddr <- (!! ix) <$> getAllPublicAddresses st
+       dependent <- query' st $ U.GetDependentAddresses ourAddr
+       unless (null dependent) $ liftIO $ do
+           TIO.putStrLn $ "These addresses depend on the requested one so they " <>
+                          "will be removed as well:"
+           forM_ dependent $ TIO.putStrLn . sformat ("  " % build)
+       if force
+       then proceedDeletion
+       else askConfirmation ourAddr
+  where
+    print' = liftIO . TIO.putStrLn
+    ix = ix0 - 1
+    looksLikeYes s = let s' = T.toLower s in s' == "y" || s' == "yes"
+    looksLikeNo s = let s' = T.toLower s in s' == "n" || s' == "no"
+    proceedDeletion = do
+       C.logInfo "Deleting address..."
+       deleteUserAddress st ix
        C.logInfo "Address was successfully deleted"
+    askConfirmation ourAddr = do
+        print' $ sformat ("Are you sure you want to delete this address: " %
+                     build % " ?") ourAddr
+        print' "(y/n)"
+        str <- liftIO $ T.dropAround isSpace <$> TIO.getLine
+        if looksLikeYes str then proceedDeletion
+        else if looksLikeNo str then print' "Deletion canceled"
+        else do
+            print' "Couldn't parse your answer. Y/N?"
+            askConfirmation ourAddr
 
 processSignSeed
     :: MonadIO m

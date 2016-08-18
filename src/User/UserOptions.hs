@@ -71,9 +71,9 @@ data UserCommand
                         Text
     -- | Add a local address to storage (filepaths to sk and pk, then
     -- blockchain heights to query -- minimum and maximum)
-    | ImportAddress (Maybe FilePath) FilePath Int (Maybe Int)
+    | ImportAddress (Maybe FilePath) FilePath Int
     | ExportAddress Int FilePath
-    | DeleteAddress Int
+    | DeleteAddress Int Bool
     | Dump DumpCommand
     -- @TODO move to rscoin-keygen
     | SignSeed Text (Maybe FilePath)
@@ -330,18 +330,13 @@ userCommandParser =
         ImportAddress <$>
         (optional $
          strOption $
-         long "skPath" <> help "Path to file with binary-encoded secret key" <>
+         long "sk-path" <> help "Path to file with binary-encoded secret key" <>
          metavar "FILEPATH") <*>
         (strOption $
-         long "pkPath" <> help "Path to file with base64-encoded public key" <>
+         long "pk-path" <> help "Path to file with base64-encoded public key" <>
          metavar "FILEPATH") <*>
         (option auto $
-         long "queryFrom" <> help "Height to query blockchain from" <> value 0 <>
-         metavar "INT") <*>
-        (optional $
-         option auto $
-         long "queryTo" <>
-         help "Height to query blockchain to, default maxheight" <>
+         long "query-from" <> help "Height to query blockchain from" <> value 0 <>
          metavar "INT")
     exportAddressOpts =
         ExportAddress <$>
@@ -357,7 +352,10 @@ userCommandParser =
         option
             auto
             (long "index" <> help "Id of address in `list` command output." <>
-             metavar "INT")
+             metavar "INT") <*>
+        switch
+        (long "force" <> short 'f' <>
+         help "Don't ask confirmation for deletion")
     signSeedOpts =
         SignSeed <$> (strOption $ long "seed" <> help "Seed to sign") <*>
         optional

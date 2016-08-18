@@ -18,6 +18,7 @@ module RSCoin.User.AcidState
        , GetSecretKey (..)
        , FindUserAddress (..)
        , GetUserAddresses (..)
+       , GetDependentAddresses (..)
        , GetOwnedAddresses (..)
        , GetOwnedDefaultAddresses (..)
        , GetOwnedAddrIds (..)
@@ -48,7 +49,6 @@ import qualified Data.Acid            as A
 import           Data.Acid.Memory     as AM
 import           Data.Map             (Map)
 import           Data.SafeCopy        (base, deriveSafeCopy)
-import           Data.Set             (Set)
 
 import qualified RSCoin.Core          as C
 import           RSCoin.Core.Crypto   (keyGen)
@@ -88,6 +88,7 @@ closeState = A.closeAcidState
 isInitialized :: A.Query WalletStorage Bool
 getSecretKey :: C.Address -> A.Query WalletStorage (Maybe (Maybe C.SecretKey))
 findUserAddress :: C.Address -> A.Query WalletStorage (C.Address, Maybe C.SecretKey)
+getDependentAddresses :: C.Address -> A.Query WalletStorage [C.Address]
 getUserAddresses :: A.Query WalletStorage [(C.Address,C.SecretKey)]
 getOwnedAddresses :: C.Address -> A.Query WalletStorage [C.Address]
 getOwnedDefaultAddresses :: C.Address -> A.Query WalletStorage [C.Address]
@@ -103,6 +104,7 @@ getAllocationByIndex :: Int -> A.Query WalletStorage (MSAddress, AllocationInfo)
 getSecretKey = W.getSecretKey
 isInitialized = W.isInitialized
 findUserAddress = W.findUserAddress
+getDependentAddresses = W.getDependentAddresses
 getUserAddresses = W.getUserAddresses
 getOwnedAddresses = W.getOwnedAddresses
 getOwnedDefaultAddresses = W.getOwnedDefaultAddresses
@@ -117,8 +119,7 @@ getAllocationByIndex = W.getAllocationByIndex
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
 addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
-addAddress :: (C.Address,Maybe C.SecretKey) -> [C.Transaction] ->
-              Set TxHistoryRecord -> A.Update WalletStorage ()
+addAddress :: C.Address -> Maybe C.SecretKey -> Map C.PeriodId C.HBlock -> A.Update WalletStorage ()
 deleteAddress :: C.Address -> A.Update WalletStorage ()
 updateAllocationStrategies :: Map MSAddress AllocationInfo -> A.Update WalletStorage ()
 initWallet :: [(C.SecretKey,C.PublicKey)] -> Maybe Int -> A.Update WalletStorage ()
@@ -135,6 +136,7 @@ $(makeAcidic
       [ 'isInitialized
       , 'getSecretKey
       , 'findUserAddress
+      , 'getDependentAddresses
       , 'getUserAddresses
       , 'getOwnedAddresses
       , 'getOwnedDefaultAddresses

@@ -203,8 +203,8 @@ main = do
                     , cpPeriod = fromIntegral dcPeriod
                     , cpEpoch = fromIntegral dcEpoch
                     }
-                mintetteIndices = [0 .. dcMintettes]
-                explorerIndices = [0 .. dcExplorers]
+                mintetteIndices = [1 .. dcMintettes]
+                explorerIndices = [1 .. dcExplorers]
                 mintettePorts = map mintettePort mintetteIndices
                 explorerPorts = map explorerPort explorerIndices
             (mintetteThreads,mintetteKeys) <-

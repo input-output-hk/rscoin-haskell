@@ -4,19 +4,16 @@ module RSCoin.Explorer.Server
        ( serve
        ) where
 
-
 import           Control.Exception         (throwIO)
 import           Control.Lens              ((^.))
-import           Control.Monad             (unless, void, when)
+import           Control.Monad             (unless, when)
 import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (MonadIO (liftIO))
-import           Data.Acid                 (createArchive, createCheckpoint)
+import           Data.Acid                 (createCheckpoint)
 import           Data.Acid.Advanced        (query', update')
-import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
-import           System.FilePath           ((</>))
-import qualified Turtle.Prelude            as TURT
 
+import           Serokell.Util.AcidState   (createAndDiscardArchive)
 import           Serokell.Util.Text        (listBuilderJSONIndent)
 
 import qualified RSCoin.Core               as C
@@ -76,13 +73,10 @@ handleNewHBlock ch st bankPublicKey storagePath newBlockId (newBlock,emission) s
                 { ciTransactions = C.hbTransactions newBlock
                 }
             liftIO $ createCheckpoint st
-            whenJust storagePath $ \stpath ->
-                when (newBlockId `mod` 5 == 0) $ liftIO $ do
-                    createArchive st
-                    void $
-                        TURT.shellStrict
-                            (T.pack $ "rm -rf " ++ (stpath </> "Archive"))
-                            (return "")
+            whenJust storagePath $
+                \stpath ->
+                     when (newBlockId `mod` 5 == 0) $
+                     createAndDiscardArchive st stpath
             ret (newBlockId + 1)
     if expectedPid == newBlockId
         then upd

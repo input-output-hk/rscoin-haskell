@@ -13,8 +13,9 @@ module Actions
        , initializeStorage
        ) where
 
+import           Control.Applicative     (liftA2)
 import           Control.Lens            ((^.))
-import           Control.Monad           (forM_, unless, void, when)
+import           Control.Monad           (forM_, join, unless, void, when)
 import           Control.Monad.IO.Class  (MonadIO)
 import           Control.Monad.Trans     (liftIO)
 
@@ -203,38 +204,39 @@ processMultisigAddress
     -> Int
     -> [T.Text]
     -> [T.Text]
-    -> T.Text
-    -> T.Text
+    -> Maybe T.Text
+    -> Maybe T.Text
     -> m ()
-processMultisigAddress st m textUAddrs textTAddrs masterPkText masterSlaveSigText = do
+processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigText = do
     when (null textUAddrs && null textTAddrs) $
         U.commitError "Can't create multisig with empty addrs list"
-    userAddrs <- map C.UserAlloc <$> parseTextAddresses textUAddrs
+
+    userAddrs  <- map C.UserAlloc  <$> parseTextAddresses textUAddrs
     trustAddrs <- map C.TrustAlloc <$> parseTextAddresses textTAddrs
     let partiesAddrs = userAddrs ++ trustAddrs
     when (m > length partiesAddrs) $
         U.commitError "Parameter m should be less than length of list"
-    msPublicKey <- snd <$> liftIO C.keyGen
+
+    msPublicKey          <- snd  <$> liftIO C.keyGen
     (userAddress,userSk) <- head <$> query' st U.GetUserAddresses
-    let msAddr = C.Address msPublicKey
-    let partyAddr = C.UserParty userAddress
-    let msStrat = C.AllocationStrategy m $ HS.fromList partiesAddrs
-    let userSignature = C.sign userSk (msAddr, msStrat)
+    let msAddr            = C.Address msPublicKey
+    let partyAddr         = C.UserParty userAddress
+    let msStrat           = C.AllocationStrategy m $ HS.fromList partiesAddrs
+    let userSignature     = C.sign userSk (msAddr, msStrat)
+
     -- @TODO: replace with Either and liftA2
-    let !masterPk =
-            fromMaybe
-                (error "Master pk is not parseable!")
-                (C.constructPublicKey masterPkText)
-    let !masterSlaveSig =
-            fromMaybe
-                (error "Master slave signature is not parseable!")
-                (C.constructSignature masterSlaveSigText)
+    -- @TODO: we loose errors :(
+    let !mMasterPk       = join $ C.constructPublicKey <$> mMasterPkText
+    let !mMasterSlaveSig = join $ C.constructSignature <$> mMasterSlaveSigText
+    let !mMasterCheck    = liftA2 (,) mMasterPk mMasterSlaveSig
+
     C.allocateMultisignatureAddress
         msAddr
         partyAddr
         msStrat
         userSignature
-        (masterPk, masterSlaveSig)
+        mMasterCheck
+
     C.logInfo $
         sformat
             ("Your new address will be added in the next block: " % build)
@@ -268,10 +270,15 @@ processUpdateBlockchain st =
 
 processConfirmAllocation
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState -> Int -> Maybe String -> T.Text -> T.Text -> m ()
-processConfirmAllocation st i mHot masterPkText masterSlaveSigText =
+    => U.RSCoinUserState
+    -> Int
+    -> Maybe String
+    -> Maybe T.Text
+    -> Maybe T.Text
+    -> m ()
+processConfirmAllocation st i mHot mMasterPkText mMasterSlaveSigText =
     eWrap $
-    do when (i <= 0) $
+    do when (i <= 0) $  -- Crazy indentation ;(
            U.commitError $
            sformat ("Index i should be greater than 0 but given: " % int) i
        (msAddr,C.AllocationInfo{..}) <-
@@ -296,20 +303,19 @@ processConfirmAllocation st i mHot masterPkText masterSlaveSigText =
                        head <$> query' st U.GetUserAddresses
                    return (userSk, C.UserParty userAddress)
        let partySignature = C.sign slaveSk (msAddr, _allocationStrategy)
-       let !masterPk =
-               fromMaybe
-                   (error "Master pk is not parseable!")
-                   (C.constructPublicKey masterPkText)
-       let !masterSlaveSig =
-               fromMaybe
-                   (error "Master slave signature is not parseable!")
-                   (C.constructSignature masterSlaveSigText)
+
+       -- @TODO: we loose errors :(
+       let !mMasterPk       = join $ C.constructPublicKey <$> mMasterPkText
+       let !mMasterSlaveSig = join $ C.constructSignature <$> mMasterSlaveSigText
+       let !mMasterCheck    = liftA2 (,) mMasterPk mMasterSlaveSig
+
        C.allocateMultisignatureAddress
            msAddr
            partyAddr
            _allocationStrategy
            partySignature
-           (masterPk, masterSlaveSig)
+           mMasterCheck
+
        C.logInfo "Address allocation successfully confirmed!"
 
 processListAllocation

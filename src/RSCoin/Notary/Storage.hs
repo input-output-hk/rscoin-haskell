@@ -5,7 +5,7 @@
 -- | Storage for Notary's data.
 
 module RSCoin.Notary.Storage
-        ( Storage
+        ( Storage (_masterKeys)
         , acquireSignatures
         , addSignedTransaction
         , allocateMSAddress
@@ -77,6 +77,10 @@ data Storage = Storage
       -- | Mapping between addrid and address.
     , _utxo                   :: !Utxo
 
+      -- | Trusted master keys to check for signatures in MS address allocation &
+      -- transaction signing.
+    , _masterKeys             :: ![PublicKey]  -- @TODO: replace with HashSet
+
       -- | Last periodId, known to Notary.
     , _periodId               :: !PeriodId
     } deriving (Show)
@@ -93,6 +97,7 @@ emptyNotaryStorage =
     , _periodStats            = M.empty
     , _addresses              = M.empty
     , _utxo                   = M.empty
+    , _masterKeys             = []
     , _periodId               = -1
     }
 
@@ -158,20 +163,20 @@ addSignedTransaction tx addr sg@(sigAddr, sig) = do
 -- | Allocate new multisignature address by chosen strategy and
 -- given chain of certificates.
 allocateMSAddress
-    :: MSAddress              -- ^ New multisig address itself
-    -> PartyAddress           -- ^ Address of party who call this
-    -> AllocationStrategy     -- ^ Strategy for MS address allocation
-    -> Signature              -- ^ 'Signature' of @(msAddr, argStrategy)@
-    -> (PublicKey, Signature) -- ^ Party address authorization.
-                              -- 1. cold master public key
-                              -- 2. signature of party by master key
+    :: MSAddress                    -- ^ New multisig address itself
+    -> PartyAddress                 -- ^ Address of party who call this
+    -> AllocationStrategy           -- ^ Strategy for MS address allocation
+    -> Signature                    -- ^ 'Signature' of @(msAddr, argStrategy)@
+    -> Maybe (PublicKey, Signature) -- ^ Party address authorization.
+                                    -- 1. cold master public key
+                                    -- 2. signature of party by master key
     -> Update Storage ()
 allocateMSAddress
     msAddr
     argPartyAddress
     argStrategy@AllocationStrategy{..}
     requestSig
-    (masterPk, masterSlaveSig)
+    mMasterSlavePair
   = do
       -- too many checks :( I wish I know which one we shouldn't check
       -- but order of checks matters!!!
@@ -181,18 +186,24 @@ allocateMSAddress
               TrustParty{..} -> hotTrustKey
               UserParty{..}  -> partyPk
 
-      unless (verify masterPk masterSlaveSig slavePk) $
-          throwM $ NEUnrelatedSignature "partyAddr not signed with masterPk"
+      trustedKeys <- use masterKeys
+      unless (null trustedKeys) $ case mMasterSlavePair of
+          Nothing -> throwM $ NEInvalidArguments "You should provide master pk and slave signature"
+          Just (masterPk, masterSlaveSig) -> do
+              unless (verify masterPk masterSlaveSig slavePk) $
+                  throwM $ NEUnrelatedSignature "partyAddr not signed with masterPk"
+              when (masterPk `notElem` trustedKeys) $
+                  throwM $ NEInvalidArguments "provided master pk is not a trusted key"
       unless (verify slavePk requestSig signedData) $
           throwM $ NEUnrelatedSignature $ sformat
               ("(msAddr, strategy) not signed with proper sk for pk: " % build) slavePk
-     -- @TODO: check if master in rootPks (DOS otherwise)
       when (_sigNumber <= 0) $
           throwM $ NEInvalidArguments "required number of signatures should be positive"
       when (_sigNumber > HS.size _allParties) $
           throwM $ NEInvalidArguments "required number of signatures is greater then party size"
       unless (partyToAllocation argPartyAddress `HS.member` _allParties) $
           throwM $ NEInvalidArguments "party address not in set of addresses"
+
       guardMaxAttemps partyAddr
 
       mMSAddressInfo <- uses allocationStrategyPool $ M.lookup msAddr

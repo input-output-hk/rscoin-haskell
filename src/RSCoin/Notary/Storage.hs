@@ -25,7 +25,7 @@ import           Control.Lens         (Lens', at, makeLenses, to, use, uses,
                                        view, (%=), (%~), (&), (.=), (?=), (^.))
 import           Control.Monad        (forM_, unless, when, (<=<))
 import           Control.Monad.Catch  (MonadThrow (throwM))
-import           Control.Monad.Extra  (whenM, (||^))
+import           Control.Monad.Extra  (unlessM, whenM)
 
 import           Data.Acid            (Query, Update, liftQuery)
 import qualified Data.Foldable        as F
@@ -188,7 +188,7 @@ allocateMSAddress
               UserParty{..}  -> partyPk
 
       trustedKeys <- use masterKeys
-      unless (null trustedKeys) $ case mMasterSlavePair of
+      unlessM (uses masterKeys null) $ case mMasterSlavePair of
           Nothing -> throwM $ NEInvalidArguments "You should provide master pk and slave signature"
           Just (masterPk, masterSlaveSig) -> do
               unless (verify masterPk masterSlaveSig slavePk) $
@@ -204,7 +204,7 @@ allocateMSAddress
           throwM $ NEInvalidArguments "required number of signatures is greater then party size"
       unless (partyToAllocation argPartyAddress `HS.member` _allParties) $
           throwM $ NEInvalidArguments "party address not in set of addresses"
-      whenM (uses addresses (M.member msAddr) ||^ uses allocationStrategyPool (M.member msAddr)) $
+      whenM (uses addresses $ M.member msAddr) $
         throwM $ NEInvalidArguments $ sformat
             ("ms address " % build % " already registered; please, regenerate new") msAddr
 

@@ -13,22 +13,20 @@ module RSCoin.Bank.Worker
 
 import           Control.Applicative      (liftA2)
 import           Control.Lens             ((^.))
-import           Control.Monad            (forM_, void, when)
+import           Control.Monad            (forM_, when)
 import           Control.Monad.Catch      (SomeException, bracket_, catch)
 import           Control.Monad.Extra      (unlessM)
 import           Control.Monad.Trans      (MonadIO (liftIO))
-import           Data.Acid                (createArchive, createCheckpoint)
+import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
                                            newIORef, readIORef)
 import           Data.List                (sortOn)
 import           Data.Maybe               (fromJust, fromMaybe, isJust)
-import qualified Data.Text                as T
 import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
-import           System.FilePath          ((</>))
-import qualified Turtle.Prelude           as TURT
 
+import           Serokell.Util.AcidState  (createAndDiscardArchive)
 import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
 
@@ -90,17 +88,15 @@ onPeriodFinished sk st storagePath = do
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     initializeMultisignatureAddresses  -- init here to see them in next period
-    periodResults    <- getPeriodResults mintettes pId
-    (bankPk, genAdr) <- liftA2 (,) (^. C.bankPublicKey) (^. C.genesisAddress)
-                        <$> getNodeContext
-    newPeriodData    <- update' st $ StartNewPeriod bankPk genAdr sk periodResults
+    periodResults <- getPeriodResults mintettes pId
+    (bankPk,genAdr) <-
+        liftA2 (,) (^. C.bankPublicKey) (^. C.genesisAddress) <$>
+        getNodeContext
+    newPeriodData <- update' st $ StartNewPeriod bankPk genAdr sk periodResults
     pid <- query' st GetPeriodId
     liftIO $ createCheckpoint st
-    when (isJust storagePath && pid `mod` 5 == 0) $ liftIO $ do
-         createArchive st
-         void $ TURT.shellStrict
-             (T.pack $ "rm -rf " ++ (fromJust storagePath </> "Archive"))
-             (return "")
+    when (isJust storagePath && pid `mod` 5 == 0) $
+        createAndDiscardArchive st $ fromJust storagePath
     newMintettes <- query' st GetMintettes
     if null newMintettes
         then C.logWarning "New mintettes list is empty!"
@@ -113,11 +109,13 @@ onPeriodFinished sk st storagePath = do
             C.logInfo $
                 sformat
                     ("Announced new period with this NewPeriodData " %
-                     "(payload is Nothing -- omitted (only in Debug)):\n" % build)
+                     "(payload is Nothing -- omitted (only in Debug)):\n" %
+                     build)
                     (formatNewPeriodData False $ head newPeriodData)
             C.logDebug $
                 sformat
-                    ("Announced new period, sent these newPeriodData's:\n" % build)
+                    ("Announced new period, sent these newPeriodData's:\n" %
+                     build)
                     newPeriodData
     announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsN
     update' st RestoreExplorers
@@ -132,17 +130,22 @@ onPeriodFinished sk st storagePath = do
         sformat ("Error occurred in communicating with Notary: " % build) e
     initializeMultisignatureAddresses = do
         newMSAddresses <- C.queryNotaryCompleteMSAddresses
-        forM_ newMSAddresses $ \(msAddr, strategy) -> do
-            C.logInfo $ sformat ("Creating MS address " % build % " with strategy " % build)
-                msAddr
-                strategy
-            update' st $ AddAddress msAddr strategy
+        forM_ newMSAddresses $
+            \(msAddr,strategy) -> do
+                C.logInfo $
+                    sformat
+                        ("Creating MS address " % build % " with strategy " %
+                         build)
+                        msAddr
+                        strategy
+                update' st $ AddAddress msAddr strategy
         C.logInfo "Removing new addresses from pool"
         mCurBankSecKey <- (^. bankSecretKey) <$> getNodeContext
-        let curBankSecKey  = fromMaybe
-                                (error "Bank secret key is set to Nothing in config!")
-                                mCurBankSecKey
-        let msAddrs       = map fst newMSAddresses
+        let curBankSecKey =
+                fromMaybe
+                    (error "Bank secret key is set to Nothing in config!")
+                    mCurBankSecKey
+        let msAddrs = map fst newMSAddresses
         let signedMsAddrs = sign curBankSecKey msAddrs
         C.removeNotaryCompleteMSAddresses msAddrs signedMsAddrs
     announceNewPeriodsToNotary = do

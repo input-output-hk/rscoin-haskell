@@ -24,8 +24,8 @@ import qualified RSCoin.Core             as C
 import qualified RSCoin.Explorer         as E
 import qualified RSCoin.Mintette         as M
 import qualified RSCoin.Notary           as N
-import           RSCoin.Timed            (ContextArgument (CADefault), Second,
-                                          runRealModeUntrusted)
+import           RSCoin.Timed            (ContextArgument (CADefault),
+                                          Millisecond, runRealModeUntrusted)
 import qualified RSCoin.User             as U
 
 import           Config                  (DeployConfig (..), readDeployConfig)
@@ -47,8 +47,8 @@ getConfigPath =
 
 data CommonParams = CommonParams
     { cpBaseDir :: !FilePath
-    , cpPeriod  :: !Second
-    , cpEpoch   :: !Second
+    , cpPeriod  :: !Millisecond
+    , cpEpoch   :: !Millisecond
     } deriving (Show)
 
 contextArgument :: ContextArgument

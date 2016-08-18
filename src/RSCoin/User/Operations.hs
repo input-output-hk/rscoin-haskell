@@ -56,7 +56,6 @@ import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
 import           Data.Tuple.Select      (sel1, sel2, sel3)
-import           Debug.Trace
 import           Formatting             (build, int, sformat, shown, (%))
 import           Safe                   (atMay)
 
@@ -252,12 +251,11 @@ importAddress st (skMaybe,pk) fromH = do
                 " is current wallet's top known blockchain height."
         in commitError $ sformat formatPattern walletHeight walletHeight
     let period = [fromH..walletHeight]
-        delta = max (walletHeight - fromH - 1) $
-                max 100 $ (walletHeight - fromH) `div` 10
+        perLength = walletHeight - fromH - 1
+        delta = if perLength < 100
+                then perLength
+                else perLength `div` 10
         periodsLast = splitEvery delta period
-    traceM $ "Period is : " ++ show period
-    traceM $ "Delta is : " ++ show delta
-    traceM $ "periods is : " ++ show periodsLast
     C.logInfo $ sformat
         ("Starting blockchain query process for blocks " % int % ".." % int) fromH walletHeight
     hblocks <- (period `zip`) . concat <$>

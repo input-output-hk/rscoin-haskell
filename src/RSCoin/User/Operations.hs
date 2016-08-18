@@ -249,11 +249,6 @@ importAddress st (skMaybe,pk) fromH toH0 = do
         Just Nothing -> C.logInfo $ "The address doesn't have secret key, " <>
                                     "adding this one with re-query"
         Just (Just _) -> commitError "The address is already imported"
-    allAddrs <- getAllPublicAddresses st
-    when (C.Address pk `elem` allAddrs) $
-        commitError $ sformat
-            ("Address " % build % " is already imported into wallet")
-            newAddress
     when (fromH < 0) $ commitError $
             sformat ("Height 'from' " % int % " must be positive!") fromH
     whenJust toH0 $ \toH -> do
@@ -270,8 +265,11 @@ importAddress st (skMaybe,pk) fromH toH0 = do
                 " where " % int %
                 " is current wallet's top known blockchain height."
         in commitError $ sformat formatPattern fromH toH walletHeight walletHeight
+    C.logInfo $ sformat
+        ("Starting blockchain query process for blocks " % int % ".." % int) fromH toH
     (txs,txHistoryRecords) <-
         execStateT (gatherTransactionsDo [fromH..toH]) ([],S.empty)
+    C.logInfo "Ended blockchain query process"
     update' st $ A.AddAddress (newAddress,skMaybe)
         (nub $ map fst txs) txHistoryRecords
   where

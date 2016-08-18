@@ -34,7 +34,7 @@ import qualified Data.Text               as T
 import           Data.Text.Encoding      (encodeUtf8)
 import qualified Data.Text.IO            as TIO
 import           Formatting              (build, int, sformat, shown, stext,
-                                          (%))
+                                          string, (%))
 
 import           Serokell.Util.Text      (show')
 
@@ -148,7 +148,7 @@ processListAddresses st =
             unless (length coins < 2) $
                 forM_ (tail coins)
                       (TIO.putStrLn . sformat (spaces % build))
-            unless hasSecret $ TIO.putStrLn "    (!! This address doesn't have secret key"
+            unless hasSecret $ TIO.putStrLn "    (!) This address doesn't have secret key"
         case strategy of
             C.DefaultStrategy -> return ()
             C.MOfNStrategy m allowed -> do
@@ -345,7 +345,6 @@ processImportAddress st skPathMaybe pkPath heightFrom heightTo= do
     pk <- liftIO $ C.logInfo "Reading pk..." >> C.readPublicKey pkPath
     sk <- liftIO $ flip (maybe (return Nothing)) skPathMaybe $ \skPath ->
         C.logInfo "Reading sk..." >> Just <$> C.readSecretKey skPath
-    C.logInfo "Starting blockchain query process"
     importAddress st (sk,pk) heightFrom heightTo
     C.logInfo "Finished, your address successfully added"
 
@@ -384,9 +383,8 @@ processExportAddress st addrId filepath = do
             liftIO $ C.writePublicKey (filepath <> ".pub") pk
             C.logInfo $
                 sformat
-                    ("Dumped secret key into " % shown % ", public into " %
-                     shown %
-                     ".pub")
+                    ("Dumped secret key into '" % string %
+                     "', public into '" % string % ".pub'")
                     filepath
                     filepath
         C.MOfNStrategy m parties ->

@@ -29,13 +29,14 @@ data Command
     | RemoveExplorer String Int
 
 data Options = Options
-    { cloCommand       :: Command
-    , cloPath          :: FilePath
-    , cloPeriodDelta   :: Integer
-    , cloLogSeverity   :: Severity
-    , cloSkPath        :: FilePath
-    , cloAutoCreateKey :: Bool
-    , cloConfigPath    :: FilePath
+    { cloCommand        :: Command
+    , cloPath           :: FilePath
+    , cloPeriodDelta    :: Integer
+    , cloLogSeverity    :: Severity
+    , cloSkPath         :: FilePath
+    , cloAutoCreateKey  :: Bool
+    , cloConfigPath     :: FilePath
+    , cloDefaultContext :: Bool      -- ^ Use defaultNodeContext
     }
 
 commandParser :: Parser Command
@@ -123,7 +124,14 @@ optionsParser defaultSKPath configDir defaultConfigPath =
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigPath <>
          showDefault <>
-         metavar "FILEPATH")
+         metavar "FILEPATH") <*>
+    switch
+        (mconcat
+             [ short 'd'
+             , long "default-context"
+             , help
+                   ("Use default NodeContext. " <>
+                    "Intended to be used for local deployment")])
 
 getOptions :: IO Options
 getOptions = do

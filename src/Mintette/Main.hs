@@ -36,6 +36,9 @@ main = do
             if cloMemMode
                 then Nothing
                 else Just cloPath
-        ctxArg = M.CACustomLocation cloConfigPath
+        ctxArg =
+            if cloDefaultContext
+                then M.CADefault
+                else M.CACustomLocation cloConfigPath
         epochDelta = fromInteger cloEpochDelta :: Second
     M.launchMintetteReal epochDelta cloPort sk dbPath ctxArg

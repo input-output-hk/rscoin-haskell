@@ -98,17 +98,17 @@ data DumpCommand
 
 -- | Datatype describing user command line options
 data UserOptions = UserOptions
-    { userCommand  :: UserCommand -- ^ Command for the program to process
-    , isBankMode   :: Bool        -- ^ If creating wallet in bank-mode,
-    , bankModePath :: FilePath    -- ^ Path to bank's secret key
-    , addressesNum :: Int         -- ^ Number of addresses to create initially
+    { userCommand    :: UserCommand  -- ^ Command for the program to process
+    , isBankMode     :: Bool         -- ^ If creating wallet in bank-mode,
+    , bankModePath   :: FilePath     -- ^ Path to bank's secret key
+    , addressesNum   :: Int          -- ^ Number of addresses to create initially
 #if GtkGui
-    , guidbPath    :: FilePath    -- ^ Path to the gui database.
+    , guidbPath      :: FilePath     -- ^ Path to the gui database.
 #endif
-    , walletPath   :: FilePath    -- ^ Path to the wallet
-    , logSeverity  :: Severity    -- ^ Logging severity
-    , configPath   :: FilePath    -- ^ Configuration file path
-    , localDeploy  :: Bool    -- ^ Use defaultNodeContext
+    , walletPath     :: FilePath     -- ^ Path to the wallet
+    , logSeverity    :: Severity     -- ^ Logging severity
+    , configPath     :: FilePath     -- ^ Configuration file path
+    , defaultContext :: Bool         -- ^ Use defaultNodeContext
     } deriving (Show)
 
 userCommandParser :: Parser UserCommand
@@ -410,7 +410,8 @@ userOptionsParser dskp configDir defaultConfigPath =
          value defaultConfigPath <>
          showDefault <>
          metavar "FILEPATH") <*>
-    switch (mconcat [long "local",
+    switch (mconcat [short 'd',
+                     long "default-context",
                      help ("Use default NodeContext. "
                            <> "Intended to be used for local deployment")
                     ])

@@ -6,10 +6,10 @@ module NotaryOptions
         ) where
 
 import           Data.Text              (Text)
-import           Options.Applicative    (Parser, auto, execParser, fullDesc, many,
-                                         help, helper, info, long, metavar,
-                                         option, progDesc, short, showDefault,
-                                         switch, value, (<>))
+import           Options.Applicative    (Parser, auto, execParser, fullDesc,
+                                         help, helper, info, long, many,
+                                         metavar, option, progDesc, short,
+                                         showDefault, switch, value, (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
@@ -18,12 +18,13 @@ import           RSCoin.Core            (Severity (Error), configDirectory,
                                          defaultConfigurationPath)
 
 data Options = Options
-    { cliPath        :: FilePath
-    , cliLogSeverity :: Severity
-    , cliMemMode     :: Bool
-    , cliWebPort     :: Int
-    , cliConfigPath  :: FilePath
-    , cliTrustedKeys :: [Text]
+    { cliPath           :: FilePath
+    , cliLogSeverity    :: Severity
+    , cliMemMode        :: Bool
+    , cliWebPort        :: Int
+    , cliConfigPath     :: FilePath
+    , cliTrustedKeys    :: [Text]
+    , cloDefaultContext :: Bool
     } deriving Show
 
 optionsParser :: FilePath -> FilePath -> Parser Options
@@ -48,9 +49,19 @@ optionsParser configDir defaultConfigPath =
          value defaultConfigPath <>
          showDefault <>
          metavar "FILEPATH") <*>
-    many (strOption $ long "trust-keys" <> metavar "[PUBLIC KEY]" <>
-          help "Public keys notary will trust as master keys. If not specifed \
-               \then notary will trust any key")
+    many
+        (strOption $
+         long "trust-keys" <> metavar "[PUBLIC KEY]" <>
+         help
+             "Public keys notary will trust as master keys. If not specifed \
+               \then notary will trust any key") <*>
+    switch
+        (mconcat
+             [ short 'd'
+             , long "default-context"
+             , help
+                   ("Use default NodeContext. " <>
+                    "Intended to be used for local deployment")])
 
 getOptions :: IO Options
 getOptions = do

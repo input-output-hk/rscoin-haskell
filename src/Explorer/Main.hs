@@ -16,23 +16,24 @@ main = do
     Options{..} <- getOptions
     C.initLogging cloLogSeverity
     skEither <- try $ readSecretKey cloSecretKeyPath
-    sk <- case skEither of
-        Left (_::SomeException) | cloAutoCreateKey -> do
-            putStrLn $ "Generating and putting secret keys into: " ++
-                       cloSecretKeyPath
-            let fpSecret = cloSecretKeyPath
-            let fpPublic = cloSecretKeyPath <> ".pub"
-            (sk,pk) <- keyGen
-            writePublicKey fpPublic pk
-            writeSecretKey fpSecret sk
-            putStrLn "Wrote a keypar on the disk"
-            return sk
-        Left err -> throwM err
-        Right sk -> return sk
-    E.launchExplorerReal
-        cloPortRpc
-        cloPortWeb
-        cloLogSeverity
-        cloPath
-        (E.CACustomLocation cloConfigPath)
-        sk
+    sk <-
+        case skEither of
+            Left (_ :: SomeException)
+              | cloAutoCreateKey -> do
+                  putStrLn $
+                      "Generating and putting secret keys into: " ++
+                      cloSecretKeyPath
+                  let fpSecret = cloSecretKeyPath
+                  let fpPublic = cloSecretKeyPath <> ".pub"
+                  (sk,pk) <- keyGen
+                  writePublicKey fpPublic pk
+                  writeSecretKey fpSecret sk
+                  putStrLn "Wrote a keypar on the disk"
+                  return sk
+            Left err -> throwM err
+            Right sk -> return sk
+    let ctxArg =
+            if cloDefaultContext
+                then E.CADefault
+                else E.CACustomLocation cloConfigPath
+    E.launchExplorerReal cloPortRpc cloPortWeb cloLogSeverity cloPath ctxArg sk

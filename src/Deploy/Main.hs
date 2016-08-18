@@ -171,7 +171,9 @@ setupBankUser CommonParams{..} = do
     Cherepakha.echo
         "Use command below to do smth as bank user"
     Cherepakha.echo $
-        sformat ("stack $NIX_STACK exec -- rscoin-user --local " % stext) walletPathArg
+        sformat
+            ("stack $NIX_STACK exec -- rscoin-user --default-context " % stext)
+            walletPathArg
 
 mintettePort :: Integral a => a -> Int
 mintettePort = (C.defaultPort + 1 +) . fromIntegral

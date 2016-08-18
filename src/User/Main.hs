@@ -19,7 +19,7 @@ main = do
     opts@O.UserOptions{..} <- O.getUserOptions
     C.initLogging logSeverity
     let ctxArg =
-            if localDeploy
+            if defaultContext
                 then CADefault
                 else CACustomLocation configPath
     runRealModeUntrusted C.userLoggerName ctxArg $

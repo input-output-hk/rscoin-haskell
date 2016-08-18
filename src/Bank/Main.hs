@@ -34,7 +34,10 @@ main = do
                   return sk
             Left err -> throwM err
             Right sk -> return sk
-    let ca = B.CACustomLocation cloConfigPath
+    let ca =
+            if cloDefaultContext
+                then B.CADefault
+                else B.CACustomLocation cloConfigPath
     case cloCommand of
         Opts.AddMintette host port pk -> do
             let m = Mintette host port

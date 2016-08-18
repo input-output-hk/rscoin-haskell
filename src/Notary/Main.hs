@@ -12,16 +12,15 @@ main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cliLogSeverity
-    let dbPath = if cliMemMode
-                 then Nothing
-                 else Just cliPath
+    let dbPath =
+            if cliMemMode
+                then Nothing
+                else Just cliPath
     let trustedKeys = mapMaybe constructPublicKey cliTrustedKeys
+    let ctxArg =
+            if cloDefaultContext
+                then N.CADefault
+                else N.CACustomLocation cliConfigPath
     when (length trustedKeys < length cliTrustedKeys) $
         logWarning "Not all keys were parsed!"
-
-    N.launchNotaryReal
-        cliLogSeverity
-        dbPath
-        (N.CACustomLocation cliConfigPath)
-        cliWebPort
-        trustedKeys
+    N.launchNotaryReal cliLogSeverity dbPath ctxArg cliWebPort trustedKeys

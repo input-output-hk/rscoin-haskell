@@ -19,14 +19,15 @@ import           RSCoin.Core            (Severity (Error), configDirectory,
                                          defaultSecretKeyPath)
 
 data Options = Options
-    { cloPort          :: Int
-    , cloPath          :: FilePath
-    , cloEpochDelta    :: Integer
-    , cloSecretKeyPath :: FilePath
-    , cloAutoCreateKey :: Bool
-    , cloLogSeverity   :: Severity
-    , cloMemMode       :: Bool
-    , cloConfigPath    :: FilePath
+    { cloPort           :: Int
+    , cloPath           :: FilePath
+    , cloEpochDelta     :: Integer
+    , cloSecretKeyPath  :: FilePath
+    , cloAutoCreateKey  :: Bool
+    , cloLogSeverity    :: Severity
+    , cloMemMode        :: Bool
+    , cloConfigPath     :: FilePath
+    , cloDefaultContext :: Bool
     }
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
@@ -63,7 +64,14 @@ optionsParser defaultSKPath configDir defaultConfigPath =
         (long "config-path" <> help "Path to configuration file" <>
          value defaultConfigPath <>
          showDefault <>
-         metavar "FILEPATH")
+         metavar "FILEPATH") <*>
+    switch
+        (mconcat
+             [ short 'd'
+             , long "default-context"
+             , help
+                   ("Use default NodeContext. " <>
+                    "Intended to be used for local deployment")])
 
 getOptions :: IO Options
 getOptions = do

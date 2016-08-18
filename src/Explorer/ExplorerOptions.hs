@@ -7,8 +7,8 @@ module ExplorerOptions
 
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, metavar,
-                                         option, progDesc, showDefault, switch,
-                                         value, (<>))
+                                         option, progDesc, short, showDefault,
+                                         switch, value, (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
@@ -18,13 +18,14 @@ import           RSCoin.Core            (Severity (Error), configDirectory,
                                          defaultSecretKeyPath)
 
 data Options = Options
-    { cloPortRpc       :: Int
-    , cloPortWeb       :: Int
-    , cloPath          :: FilePath
-    , cloSecretKeyPath :: FilePath
-    , cloAutoCreateKey :: Bool
-    , cloLogSeverity   :: Severity
-    , cloConfigPath    :: FilePath
+    { cloPortRpc        :: Int
+    , cloPortWeb        :: Int
+    , cloPath           :: FilePath
+    , cloSecretKeyPath  :: FilePath
+    , cloAutoCreateKey  :: Bool
+    , cloLogSeverity    :: Severity
+    , cloConfigPath     :: FilePath
+    , cloDefaultContext :: Bool
     }
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
@@ -77,7 +78,14 @@ optionsParser defaultSKPath configDir defaultConfigPath =
              [ long "config-path"
              , help "Path to configuration file"
              , value defaultConfigPath
-             , showDefault])
+             , showDefault]) <*>
+    switch
+        (mconcat
+             [ short 'd'
+             , long "default-context"
+             , help
+                   ("Use default NodeContext. " <>
+                    "Intended to be used for local deployment")])
 
 
 getOptions :: IO Options

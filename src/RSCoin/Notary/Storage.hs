@@ -25,7 +25,7 @@ import           Control.Lens         (Lens', at, makeLenses, to, use, uses,
                                        view, (%=), (%~), (&), (.=), (?=), (^.))
 import           Control.Monad        (forM_, unless, when, (<=<))
 import           Control.Monad.Catch  (MonadThrow (throwM))
-import           Control.Monad.Extra  (unlessM, whenM)
+import           Control.Monad.Extra  (whenM)
 
 import           Data.Acid            (Query, Update, liftQuery)
 import qualified Data.Foldable        as F
@@ -188,7 +188,7 @@ allocateMSAddress
               UserParty{..}  -> partyPk
 
       trustedKeys <- use masterKeys
-      unlessM (uses masterKeys null) $ case mMasterSlavePair of
+      unless (null trustedKeys) $ case mMasterSlavePair of
           Nothing -> throwM $ NEInvalidArguments "You should provide master pk and slave signature"
           Just (masterPk, masterSlaveSig) -> do
               unless (verify masterPk masterSlaveSig slavePk) $

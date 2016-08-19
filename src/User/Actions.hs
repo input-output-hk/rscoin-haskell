@@ -281,8 +281,14 @@ processConfirmAllocation st i mHot mMasterPkText mMasterSlaveSigText =
     do when (i <= 0) $  -- Crazy indentation ;(
            U.commitError $
            sformat ("Index i should be greater than 0 but given: " % int) i
-       (msAddr,C.AllocationInfo{..}) <-
-           query' st $ U.GetAllocationByIndex (i - 1)
+       strategiesSize <- M.size <$> query' st U.GetAllocationStrategies
+       when (strategiesSize == 0) $
+           U.commitError "No allocation strategies are saved. Execute list-alloc again"
+       when (strategiesSize < i) $
+           U.commitError $ sformat
+           ("Only " % int % " strategies are available, index " %
+            int % " is out of range.") strategiesSize i
+       (msAddr,C.AllocationInfo{..}) <- query' st $ U.GetAllocationByIndex (i - 1)
        (slaveSk,partyAddr) <-
            case mHot of
                Just (read -> (hotSkPath,partyPkStr)) -> do

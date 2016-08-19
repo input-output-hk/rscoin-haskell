@@ -13,9 +13,8 @@ import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
 import           RSCoin.Core                          (PublicKey, Severity (..),
                                                        notaryLoggerName)
-import           RSCoin.Notary.AcidState              (RSCoinNotaryState,
-                                                       closeState, openMemState,
-                                                       openState)
+import           RSCoin.Notary.AcidState              (NotaryState, closeState,
+                                                       openMemState, openState)
 import           RSCoin.Notary.Server                 (serveNotary)
 import           RSCoin.Notary.Web.Servant            (servantApp)
 import           RSCoin.Timed                         (ContextArgument (..),
@@ -31,7 +30,7 @@ launchNotaryReal :: Severity
 launchNotaryReal logSeverity dbPath ca webPort trustedKeys = do
     let openAction = maybe openMemState openState dbPath
     runRealModeUntrusted notaryLoggerName ca $
-        bracket (liftIO $ openAction trustedKeys) (liftIO . closeState) $
+        bracket (openAction trustedKeys) closeState $
         \st -> do
             fork_ $ serveNotary st
             launchWeb webPort logSeverity st
@@ -43,6 +42,6 @@ loggingMiddleware _     = id
 
 launchWeb
     :: MonadIO m
-    => Int -> Severity -> RSCoinNotaryState -> m ()
+    => Int -> Severity -> NotaryState -> m ()
 launchWeb port sev st =
     liftIO . run port . loggingMiddleware sev . servantApp $ st

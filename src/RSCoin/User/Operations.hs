@@ -90,14 +90,13 @@ commitError e = do
 -- | Checks address id (should be in [0..length allAddrs)) to be so
 checkAddressId :: (WorkMode m, Integral n) => A.RSCoinUserState -> n -> m ()
 checkAddressId st ix = do
-    genAddr <- (^. C.genesisAddress) <$> getNodeContext
-    accounts <- query' st $ A.GetOwnedAddresses genAddr
+    accounts <- getAllPublicAddresses st
     let notInRange i = i >= genericLength accounts || i < 0
     when (notInRange ix) $
         commitError $
         sformat
-            ("Found an address id (" % int % ") that's not in [0 .. " % int %
-             ")") ix (length accounts)
+            ("An address with id " % int % " that's not in [0 .. " %
+             int % ") was requested.") ix (length accounts)
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.

@@ -30,7 +30,7 @@ mintetteWrapperReal dbPath ca action = do
         action
 
 launchMintetteReal
-    :: TimeUnit t
+    :: (Show t, Num t, Integral t, TimeUnit t)
     => t -> Int -> SecretKey -> Maybe FilePath -> ContextArgument -> IO ()
 launchMintetteReal epochDelta port sk dbPath ctxArg =
     mintetteWrapperReal dbPath ctxArg $

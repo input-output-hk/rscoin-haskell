@@ -1,44 +1,46 @@
 module App.View.Transaction where
 
-import Prelude                     (($), map, show)
+import Prelude                        (($), map, show)
 
-import App.RSCoin                  (Coin(Coin), Color(Color),
-                                    TransactionSummarySerializable(TransactionSummarySerializable),
-                                    addressToString)
-import App.Types                   (Action, State)
-import App.Routes                  (txUrl, addressUrl)
+import App.RSCoin                     (Coin(Coin), Color(Color),
+                                       TransactionSummarySerializable(TransactionSummarySerializable),
+                                       addressToString)
+import App.Types                      (Action, State)
+import App.Routes                     (txUrl, addressUrl)
 
-import Pux.Html (Html, div, tbody, text, th, tr, thead, table, small, h3, td)
-import Pux.Html.Attributes         (className)
-import Pux.Router                  (link)
+import Pux.Html (Html, div, tbody,    text, th, tr, thead, table, small, h3, td)
+import Pux.Router                     (link)
 
-import Data.Tuple.Nested           (uncurry2, uncurry4)
-import Data.Array                  (length)
-import Data.Maybe                  (Maybe (..))
+import Data.Tuple.Nested              (uncurry2, uncurry4)
+import Data.Array                     (length)
+import Data.Maybe                     (Maybe (..))
+
+import Serokell.Pux.Html              (classNames, className)
+import Serokell.Pux.Themes.Bootstrap3 as B
 
 view :: TransactionSummarySerializable -> State -> Html Action
 view (TransactionSummarySerializable tx) state =
     div []
         [
           div
-            [ className "page-header" ]
+            [ className B.pageHeader ]
             [ h3 [] [ text "Transaction "
                     , small [] [ text $ show tx.txId ]
                     ]
             ]
         , div
-            [ className "container" ]
+            [ className B.container ]
             [ div
-                [ className "row" ]
+                [ className B.row ]
                 [ div
-                    [ className "col-xs-6" ]
+                    [ className B.colXs6 ]
                     [ div
-                        [ className "panel panel-default" ]
+                        [ classNames [B.panel, B.panelDefault] ]
                         [ div
-                            [ className "panel-heading" ]
+                            [ className B.panelHeading ]
                             [ text "Inputs" ]
                         , table
-                            [ className "table table-striped table-hover" ]
+                            [ classNames [B.table, B.tableStriped, B.tableHover] ]
                             [ thead [] [ tr []
                                 [ th [] [ text "Address from" ]
                                 , th [] [ text "Coin color" ]
@@ -49,14 +51,14 @@ view (TransactionSummarySerializable tx) state =
                         ]
                     ]
                 , div
-                    [ className "col-xs-6" ]
+                    [ className B.colXs6 ]
                     [ div
-                        [ className "panel panel-default" ]
+                        [ classNames [B.panel, B.panelDefault] ]
                         [ div
-                            [ className "panel-heading" ]
+                            [ className B.panelHeading ]
                             [ text "Outputs" ]
                         , table
-                            [ className "table table-striped table-hover" ]
+                            [ classNames [B.table, B.tableStriped, B.tableHover] ]
                             [ thead [] [ tr []
                                 [ th [] [ text "Address to" ]
                                 , th [] [ text "Coin color" ]
@@ -68,12 +70,12 @@ view (TransactionSummarySerializable tx) state =
                     ]
                 ]
             , div
-                [ className "row" ]
+                [ className B.row ]
                 [ div
-                    [ className "col-xs-6" ]
+                    [ className B.colXs6 ]
                     [ coinMapView tx.txInputsSum "Inputs balance" ]
                 , div
-                    [ className "col-xs-6" ]
+                    [ className B.colXs6 ]
                     [ coinMapView tx.txOutputsSum "Outputs balance" ]
                 ]
             ]
@@ -111,12 +113,12 @@ view (TransactionSummarySerializable tx) state =
            ]
     coinMapView cs name =
         div
-            [ className "panel panel-default" ]
+            [ classNames [B.panel, B.panelDefault] ]
             [ div
-                [ className "panel-heading" ]
+                [ className B.panelHeading ]
                 [ text name ]
             , table
-                [ className "table table-striped table-hover" ]
+                [ classNames [B.table, B.tableStriped, B.tableHover] ]
                 [ thead [] [ tr []
                     [ th [] [ text "Coin color" ]
                     , th [] [ text "Coin amount" ]

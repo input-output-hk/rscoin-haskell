@@ -1,37 +1,40 @@
 module App.View.Header where
 
-import Prelude                     (const, ($), (==), (<<<))
+import Prelude                        (const, ($), (==), (<<<))
 
-import App.Routes                  (homeUrl) as R
-import App.Types                   (State, Action (..))
+import App.Routes                     (homeUrl) as R
+import App.Types                      (State, Action (..))
 
 
-import Pux.Html                    (Html, div, text, span, button,
-                                    input, a, li, ul, nav)
-import Pux.Router                  (link) as R
-import Pux.Html.Attributes         (className, aria, data_, type_,
-                                    placeholder, value)
-import Pux.Html.Events             (onChange, onClick, onKeyDown)
+import Pux.Html                       (Html, div, text, span, button,
+                                       input, a, li, ul, nav)
+import Pux.Router                     (link) as R
+import Pux.Html.Attributes            (aria, data_, type_,
+                                       placeholder, value)
+import Pux.Html.Events                (onChange, onClick, onKeyDown)
+
+import Serokell.Pux.Html              (classNames, className)
+import Serokell.Pux.Themes.Bootstrap3 as B
 
 view :: State -> Html Action
 view state =
     nav
-        [ className "navbar navbar-default" ]
+        [ classNames [B.navbar, B.navbarDefault] ]
         [ div
-            [ className "container-fluid" ]
+            [ className B.containerFluid ]
             [ div
-                [ className "navbar-header" ]
+                [ className B.navbarHeader ]
                 [ R.link R.homeUrl
-                    [ className "navbar-brand"
+                    [ className B.navbarBrand
                     ]
                     [ text "RS | COIN" ]
                 ]
             , ul
-                [ className "nav navbar-nav navbar-right" ]
+                [ classNames [B.nav, B.navbarNav, B.navbarRight] ]
                 [ li
-                    [ className "dropdown" ]
+                    [ className B.dropdown ]
                     [ a
-                        [ className "dropwdown-toggle"
+                        [ className B.dropdownToggle
                         , data_ "target" "#"
                         , data_ "toggle" "dropdown"
                         , aria "haspopup" "true"
@@ -39,11 +42,11 @@ view state =
                         ]
                         [ text "English"
                         , span
-                            [ className "caret" ]
+                            [ className B.caret ]
                             []
                         ]
                     , ul
-                        [ className "dropdown-menu" ]
+                        [ className B.dropdownMenu ]
                         [ li
                             []
                             [ a
@@ -54,22 +57,22 @@ view state =
                     ]
                 ]
             , div
-                [ className "col-xs-6 navbar-form navbar-right" ]
+                [ classNames [B.colXs6, B.navbarForm, B.navbarRight] ]
                 [ div
-                    [ className "input-group" ]
+                    [ className B.inputGroup ]
                     [ input
                         [ type_ "text"
                         , value state.searchQuery
                         , onChange $ SearchQueryChange <<< _.value <<< _.target
                         , onKeyDown $ \e -> if e.keyCode == 13 then SearchButton else Nop
-                        , className "form-control"
+                        , className B.formControl
                         , placeholder "Address / Transaction"
                         ] []
                     , span
-                        [ className "input-group-btn" ]
+                        [ className B.inputGroupBtn ]
                         [ button
                             [ onClick $ const SearchButton
-                            , className "btn btn-danger"
+                            , classNames [B.btn, B.btnDanger]
                             ] [ text "Search" ]
                         ]
                     ]

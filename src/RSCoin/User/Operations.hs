@@ -257,7 +257,7 @@ importAddress st (skMaybe,pk) fromH = do
         in commitError $ sformat formatPattern walletHeight walletHeight
     let period = [fromH..walletHeight]
         perLength = walletHeight - fromH - 1
-        delta = max deltaMax perLength
+        delta = min deltaMax perLength
         periodsLast = splitEvery delta period
     C.logInfo $ sformat
         ("Starting blockchain query process for blocks " % int % ".." % int) fromH walletHeight

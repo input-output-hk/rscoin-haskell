@@ -45,7 +45,6 @@ data UserCommand
                       Text
                       [(Int64, Int)]
                       (Maybe UserCache)
-
     -- | Initialize multisignature address allocation.
     -- 1. Number m of required signatures from addr;
     -- 2. List of user parties in addresses;
@@ -59,7 +58,12 @@ data UserCommand
                             (Maybe Text)
     -- | List all addresses in which current user acts like party
     | ListAllocations
-
+    -- | List all allocations in the blacklist
+    | ListAllocationsBlacklist
+    -- | Put an allocation into blacklist and ignore it
+    | BlacklistAllocation Int
+    -- | Unignore the allocation
+    | WhitelistAllocation Int
     -- | For a request #N in local list send confirmation to a Notary.
     -- 1. #N in user list;
     -- 2. @Just (pathToHot, partyAddr)@ : if we want to sign as a 'TrustParty';
@@ -127,12 +131,6 @@ userCommandParser =
              (info (pure StartGUI) (progDesc "Start graphical user interface.")) <>
 #endif
          command
-             "list-alloc"
-             (info
-                  (pure ListAllocations)
-                  (progDesc
-                       "List all multisignature address allocations you need to confirm")) <>
-         command
              "update"
              (info
                   (pure UpdateBlockchain)
@@ -146,11 +144,28 @@ userCommandParser =
                   addMultisigOpts
                   (progDesc "Create multisignature address allocation")) <>
          command
-             "confirm"
+             "list-alloc"
+             (info
+                  (pure ListAllocations)
+                  (progDesc
+                       "List all multisignature address allocations you need to confirm")) <>
+         command "list-alloc-blacklisted"
+             (info
+                  (pure ListAllocationsBlacklist)
+                  (progDesc $
+                       "List all multisignature address allocations that " <>
+                       "are blacklisted (ignored).")) <>
+         command
+             "allocation-confirm"
              (info
                   confirmOpts
                   (progDesc
                        "Confirm MS address allocation from `rscoin-user list-alloc`")) <>
+         command "allocation-blacklist"
+             (info blacklistAllocationOpts (progDesc "Blacklist an allocation")) <>
+         command "allocation-whitelist"
+             (info whitelistAllocationOpts
+                  (progDesc "Restore an allocation from the blacklist")) <>
          command
              "import-address"
              (info
@@ -366,6 +381,13 @@ userCommandParser =
             (strOption $
              short 'k' <> long "secret-key" <> help "Path to secret key" <>
              metavar "FILEPATH")
+    blacklistAllocationOpts = BlacklistAllocation <$> option
+        auto (short 'i' <> long "index" <> metavar "INT" <>
+             help "Index of allocation, starting from 1 in `list-alloc`")
+    whitelistAllocationOpts = WhitelistAllocation <$> option
+        auto (short 'i' <> long "index" <> metavar "INT" <>
+             help "Index of allocation, starting from 1 in `list-alloc`")
+
 
 userOptionsParser :: FilePath -> FilePath -> FilePath -> Parser UserOptions
 userOptionsParser dskp configDir defaultConfigPath =

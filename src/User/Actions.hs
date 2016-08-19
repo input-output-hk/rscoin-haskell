@@ -100,7 +100,13 @@ processCommandNoOpts st (O.CreateMultisigAddress n usrAddr trustAddr masterPk si
 processCommandNoOpts st (O.ConfirmAllocation i mHot masterPk sig) =
     processConfirmAllocation st i mHot masterPk sig
 processCommandNoOpts st O.ListAllocations =
-    processListAllocation st
+    processListAllocation st False
+processCommandNoOpts st O.ListAllocationsBlacklist =
+    processListAllocation st True
+processCommandNoOpts st (O.BlacklistAllocation ix) =
+    processBlackWhiteListing st True ix
+processCommandNoOpts st (O.WhitelistAllocation ix) =
+    processBlackWhiteListing st False ix
 processCommandNoOpts st (O.ImportAddress skPathMaybe pkPath heightFrom) =
     processImportAddress st skPathMaybe pkPath heightFrom
 processCommandNoOpts st (O.ExportAddress addrId filepath) =
@@ -323,23 +329,55 @@ processConfirmAllocation st i mHot mMasterPkText mMasterSlaveSigText =
 
        C.logInfo "Address allocation successfully confirmed!"
 
+-- | Boolean flags stands for "show blacklist?". Default -- false,
+-- show whitelist.
 processListAllocation
     :: (MonadIO m, WorkMode m)
-    => U.UserState -> m ()
-processListAllocation st =
+    => U.UserState -> Bool -> m ()
+processListAllocation st blacklist = eWrap $ do
+    -- update local cache
+    U.retrieveAllocationsList st
+    msigAddrsList <-
+        (`zip` [(1 :: Int) ..]) . M.assocs <$>
+        (if blacklist
+         then U.query st U.GetIgnoredAllocationStrategies
+         else U.query st U.GetAllocationStrategies)
+    if null msigAddrsList
+    then liftIO $ putStrLn ("Allocation address " ++
+            (if blacklist then "black" else "") ++ "list is empty")
+    else do
+        when blacklist $
+            liftIO $ putStrLn "Here is a *blacklisted* strategy list:"
+        forM_ msigAddrsList $
+            \((addr,allocStrat),i) ->
+                liftIO $ TIO.putStrLn $ sformat
+                    (int % ". " % build % "\n" % build) i addr allocStrat
+
+-- | Blacklists and whitelists allocations. Bool true mean
+-- "blacklist". False -- "whitelist".
+processBlackWhiteListing
+    :: (MonadIO m, WorkMode m)
+    => U.UserState -> Bool -> Int -> m ()
+processBlackWhiteListing st blacklist ix =
     eWrap $
-    do -- update local cache
-       U.retrieveAllocationsList
-           st
-       msigAddrsList <-
-           (`zip` [(1 :: Int) ..]) . M.assocs <$>
-           U.query st U.GetAllocationStrategies
-       when (null msigAddrsList) $
-           liftIO $ putStrLn "Allocation address list is empty"
-       forM_ msigAddrsList $
-           \((addr,allocStrat),i) ->
-               liftIO $ TIO.putStrLn $ sformat
-                   (int % ". " % build % "\n" % build) i addr allocStrat
+    do msaddrs <- M.keys <$>
+           (if blacklist
+            then U.query st U.GetAllocationStrategies
+            else U.query st U.GetIgnoredAllocationStrategies)
+       when (ix <= 0 || ix > (length msaddrs)) $
+           U.commitError $
+           sformat ("index " % int % " should be positive and no bigger than " %
+                    int % " -- the size of " % listName) ix (length msaddrs)
+       let msaddr = msaddrs !! (ix - 1)
+       if blacklist
+       then U.update st $ U.BlacklistAllocation msaddr
+       else U.update st $ U.WhitelistAllocation msaddr
+       C.logInfo successText
+  where
+    listName = if blacklist then "blacklist" else "alloc list"
+    successText = if blacklist
+                  then "Allocation was successfully blacklisted"
+                  else "Allocation was successfully whitelisted back"
 
 processImportAddress
     :: (MonadIO m, WorkMode m)

@@ -30,6 +30,7 @@ module RSCoin.User.Wallet
        , getAddressStrategy
        , resolveAddressLocally
        , getAllocationStrategies
+       , getIgnoredAllocationStrategies
        , getAllocationByIndex
 
          -- * Updates
@@ -40,6 +41,8 @@ module RSCoin.User.Wallet
        , addAddress
        , deleteAddress
        , updateAllocationStrategies
+       , blacklistAllocation
+       , whitelistAllocation
        , initWallet
        ) where
 
@@ -106,22 +109,24 @@ data WalletStorage = WalletStorage
     { -- | Address that user own. Owning is dictated by strategy. In
       -- default strategy you should have secret key. But in general
       -- it's not necessary.
-      _ownedAddresses    :: M.Map Address (Maybe SecretKey)
+      _ownedAddresses  :: M.Map Address (Maybe SecretKey)
       -- | Transactions that user is aware of and that reference user
       -- addresses, that were not spent (utxo basically)
-    , _userTxAddrids     :: M.Map Address (S.Set TrAddrId)
+    , _userTxAddrids   :: M.Map Address (S.Set TrAddrId)
       -- | Support list for deleted events
-    , _periodDeleted     :: S.Set (Address, TrAddrId)
+    , _periodDeleted   :: S.Set (Address, TrAddrId)
       -- | Support list for added events
-    , _periodAdded       :: S.Set (Address, TrAddrId)
+    , _periodAdded     :: S.Set (Address, TrAddrId)
       -- | Last blockchain height known to user (if known)
-    , _lastBlockId       :: Maybe PeriodId
+    , _lastBlockId     :: Maybe PeriodId
       -- | History of all transactions being made (incomes + outcomes)
-    , _historyTxs        :: S.Set TxHistoryRecord
+    , _historyTxs      :: S.Set TxHistoryRecord
       -- | Map from addresses to strategies that we own
-    , _addrStrategies    :: M.Map Address C.TxStrategy
+    , _addrStrategies  :: M.Map Address C.TxStrategy
       -- | List of pairs (multisignatureAddress, strategy) with user as party.
-    , _msAddrAllocations :: M.Map MSAddress AllocationInfo
+    , _msAddrAllocs    :: M.Map MSAddress AllocationInfo
+      -- | Allocations that are ignored from the main list
+    , _msIgnoredAllocs :: M.Map MSAddress AllocationInfo
     } deriving (Show)
 
 $(L.makeLenses ''WalletStorage)
@@ -145,6 +150,7 @@ emptyWalletStorage =
         S.empty
         Nothing
         S.empty
+        M.empty
         M.empty
         M.empty
 
@@ -308,15 +314,18 @@ resolveAddressLocally addrid =
 
 -- | Get all 'M.Map' of MS addresses in which current user is party.
 getAllocationStrategies :: ExceptQuery (M.Map MSAddress AllocationInfo)
-getAllocationStrategies = checkInitR $ L.view msAddrAllocations
+getAllocationStrategies = checkInitR $ L.view msAddrAllocs
 
--- | Get element in allocation strategies Map by index.
+-- | Get all blacklisted allocation strategies
+getIgnoredAllocationStrategies :: ExceptQuery (M.Map MSAddress AllocationInfo)
+getIgnoredAllocationStrategies = checkInitR $ L.view msIgnoredAllocs
+
+-- | Get element in allocation strategies Map by index. Index should be in [0..
 getAllocationByIndex :: Int -> ExceptQuery (MSAddress, AllocationInfo)
 getAllocationByIndex i = checkInitR $ do
-    msAddrs <- L.view msAddrAllocations
-    when (i >= M.size msAddrs) $
-        throwM $ BadRequest "index i is greater than size of local ms list"
+    msAddrs <- L.view msAddrAllocs
     return $ M.elemAt i msAddrs
+
 
 -- ===============
 -- Updates section
@@ -630,12 +639,38 @@ deleteAddress address =
         periodDeleted %= S.filter ((== addr) . fst)
         periodAdded %= S.filter ((== addr) . fst)
         addrStrategies %= M.delete addr
-        msAddrAllocations %= M.delete addr
+        msAddrAllocs %= M.delete addr
+        msIgnoredAllocs %= M.delete addr
         historyTxs %= S.fromList . mapMaybe (historyTxFilter addr) . S.toList
 
 -- | Update '_msAddrsAllocations' by 'M.Map' from Notary.
 updateAllocationStrategies :: M.Map MSAddress AllocationInfo -> ExceptUpdate ()
-updateAllocationStrategies newMap = checkInitS $ msAddrAllocations .= newMap
+updateAllocationStrategies newMap = checkInitS $ do
+    blacklisted <- L.use msIgnoredAllocs
+    let common = M.intersection blacklisted newMap
+        notCommon = M.difference newMap common
+    msIgnoredAllocs .= common
+    msAddrAllocs .= notCommon
+
+-- | Puts an msaddr's allocation info into blacklist and ignores it forever
+blacklistAllocation :: MSAddress -> ExceptUpdate ()
+blacklistAllocation msaddr = checkInitS $ do
+    maybeAllocinfo <- L.uses msAddrAllocs $ M.lookup msaddr
+    maybe (throwM $ BadRequest $ sformat ("Can't blacklist msaddr " %
+           build % "because it's not in storage.") msaddr)
+          (\e -> do msIgnoredAllocs %= M.insert msaddr e
+                    msAddrAllocs %= M.delete msaddr)
+          maybeAllocinfo
+
+-- | Whitelists address's allocation info back from the blacklist
+whitelistAllocation :: MSAddress -> ExceptUpdate ()
+whitelistAllocation msaddr = checkInitS $ do
+    maybeAllocinfo <- L.uses msIgnoredAllocs $ M.lookup msaddr
+    maybe (throwM $ BadRequest $ sformat ("Can't whitelist msaddr " %
+           build % "because it's not in storage.") msaddr)
+          (\e -> do msAddrAllocs %= M.insert msaddr e
+                    msIgnoredAllocs %= M.delete msaddr)
+          maybeAllocinfo
 
 -- | Initialize wallet with list of addresses to hold and
 -- mode-specific parameter startHeight: if it's (Just i), then the

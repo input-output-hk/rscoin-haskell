@@ -4,9 +4,8 @@
 -- | Wrap Storage into AcidState.
 
 module RSCoin.Mintette.AcidState
-       ( State (..)
+       ( State
        , query
-       , toAcidState
        , update
 
        , checkNotDoubleSpent
@@ -24,11 +23,12 @@ module RSCoin.Mintette.AcidState
 import           Control.Exception       (throw)
 import           Control.Monad.Catch     (MonadThrow (throwM))
 import           Control.Monad.Trans     (MonadIO)
-import           Data.Acid               (AcidState, EventResult, EventState,
-                                          Query, QueryEvent, Update,
-                                          UpdateEvent)
-import           Data.Acid.Advanced      (query', update')
+import           Data.Acid               (EventResult, EventState, Query,
+                                          QueryEvent, Update, UpdateEvent)
 import           Data.SafeCopy           (base, deriveSafeCopy)
+
+import           Serokell.Util.AcidState (ExtendedState, queryExtended,
+                                          updateExtended)
 
 import           RSCoin.Core             (ActionLog, AddrId, Address,
                                           CheckConfirmation, CheckConfirmations,
@@ -39,16 +39,7 @@ import           RSCoin.Core             (ActionLog, AddrId, Address,
 
 import qualified RSCoin.Mintette.Storage as MS
 
-type AState = AcidState MS.Storage
-
-data State
-    = LocalState AState
-                 FilePath
-    | MemoryState AState
-
-toAcidState :: State -> AState
-toAcidState (LocalState st _) = st
-toAcidState (MemoryState st)  = st
+type State = ExtendedState MS.Storage
 
 $(deriveSafeCopy 0 'base ''MS.Storage)
 
@@ -58,12 +49,12 @@ instance MonadThrow (Update s) where
 query
     :: (EventState event ~ MS.Storage, QueryEvent event, MonadIO m)
     => State -> event -> m (EventResult event)
-query st = query' (toAcidState st)
+query = queryExtended
 
 update
     :: (EventState event ~ MS.Storage, UpdateEvent event, MonadIO m)
     => State -> event -> m (EventResult event)
-update st = update' (toAcidState st)
+update = updateExtended
 
 getUtxoPset :: Query MS.Storage (Utxo,Pset)
 getUtxoPset = MS.getUtxoPset

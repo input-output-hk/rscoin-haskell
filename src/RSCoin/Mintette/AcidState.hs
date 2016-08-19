@@ -20,8 +20,6 @@ module RSCoin.Mintette.AcidState
        , startPeriod
        ) where
 
-import           Control.Exception       (throw)
-import           Control.Monad.Catch     (MonadThrow (throwM))
 import           Control.Monad.Trans     (MonadIO)
 import           Data.Acid               (EventResult, EventState, Query,
                                           QueryEvent, Update, UpdateEvent)
@@ -42,9 +40,6 @@ import qualified RSCoin.Mintette.Storage as MS
 type State = ExtendedState MS.Storage
 
 $(deriveSafeCopy 0 'base ''MS.Storage)
-
-instance MonadThrow (Update s) where
-    throwM = throw
 
 query
     :: (EventState event ~ MS.Storage, QueryEvent event, MonadIO m)

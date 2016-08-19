@@ -22,8 +22,6 @@ module RSCoin.Explorer.AcidState
        , AddHBlock (..)
        ) where
 
-import           Control.Exception                 (throw)
-import           Control.Monad.Catch               (MonadThrow (throwM))
 import           Control.Monad.Trans               (MonadIO)
 import           Data.Acid                         (EventResult, EventState,
                                                     Query, QueryEvent, Update,
@@ -65,9 +63,6 @@ closeState = closeExtendedState
 
 tidyState :: MonadIO m => State -> m ()
 tidyState = tidyExtendedState
-
-instance MonadThrow (Update s) where
-    throwM = throw
 
 getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, C.CoinsMap)
 getAddressBalance = ES.getAddressBalance

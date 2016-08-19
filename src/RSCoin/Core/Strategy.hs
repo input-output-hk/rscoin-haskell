@@ -30,32 +30,31 @@ module RSCoin.Core.Strategy
      , partyToAllocation
      ) where
 
-import           Control.Lens               (makeLenses, traversed, (^..))
+import           Control.Lens                      (makeLenses, traversed,
+                                                    (^..))
 
-import           Data.Binary                (Binary (get, put), getWord8,
-                                             putWord8)
-import           Data.Hashable              (Hashable)
-import           Data.HashMap.Strict        (HashMap)
-import qualified Data.HashMap.Strict        as HM
-import           Data.HashSet               (HashSet)
-import qualified Data.HashSet               as HS hiding (HashSet)
-import           Data.Map                   (Map)
-import           Data.SafeCopy              (SafeCopy (getCopy, putCopy), base,
-                                             contain, deriveSafeCopy, safeGet,
-                                             safePut)
-import qualified Data.Set                   as S
-import           Data.Text.Buildable        (Buildable (build))
-import           GHC.Generics               (Generic)
+import           Data.Binary                       (Binary (get, put), getWord8,
+                                                    putWord8)
+import           Data.Hashable                     (Hashable)
+import           Data.HashMap.Strict               (HashMap)
+import           Data.HashSet                      (HashSet)
+import qualified Data.HashSet                      as HS hiding (HashSet)
+import           Data.Map                          (Map)
+import           Data.SafeCopy                     (base, deriveSafeCopy)
+import qualified Data.Set                          as S
+import           Data.Text.Buildable               (Buildable (build))
+import           GHC.Generics                      (Generic)
 
-import           Formatting                 (bprint, int, (%))
-import qualified Formatting                 as F (build)
+import           Formatting                        (bprint, int, (%))
+import qualified Formatting                        as F (build)
 
-import           Serokell.Util.Text         (listBuilderJSON,
-                                             listBuilderJSONIndent)
+import           Serokell.Util.AcidState.Instances ()
+import           Serokell.Util.Text                (listBuilderJSON,
+                                                    listBuilderJSONIndent)
 
-import           RSCoin.Core.Crypto.Signing (PublicKey, Signature)
-import           RSCoin.Core.Primitives     (Address, Transaction)
-import           RSCoin.Core.Transaction    (validateSignature)
+import           RSCoin.Core.Crypto.Signing        (PublicKey, Signature)
+import           RSCoin.Core.Primitives            (Address, Transaction)
+import           RSCoin.Core.Transaction           (validateSignature)
 
 -- | Type alisas for places where address is used as multisignature address.
 type MSAddress = Address
@@ -159,12 +158,6 @@ data AllocationStrategy = AllocationStrategy
     , _allParties :: HashSet AllocationAddress  -- ^ 'Set' of all parties for this address
     } deriving (Eq, Show)
 
-instance (Eq a, Hashable a, SafeCopy a) => SafeCopy (HashSet a) where
-    putCopy = contain . safePut . HS.toList
-    getCopy = contain $ do
-        hsList <- safeGet
-        pure $ HS.fromList hsList
-
 $(deriveSafeCopy 0 'base ''AllocationStrategy)
 $(makeLenses ''AllocationStrategy)
 
@@ -190,12 +183,6 @@ data AllocationInfo = AllocationInfo
     { _allocationStrategy   :: AllocationStrategy
     , _currentConfirmations :: HashMap AllocationAddress Address
     } deriving (Eq, Show)
-
-instance (Eq a, Hashable a, SafeCopy a, SafeCopy b) => SafeCopy (HashMap a b) where
-    putCopy = contain . safePut . HM.toList
-    getCopy = contain $ do
-        hmList <- safeGet
-        pure $ HM.fromList hmList
 
 $(deriveSafeCopy 0 'base ''AllocationInfo)
 $(makeLenses ''AllocationInfo)

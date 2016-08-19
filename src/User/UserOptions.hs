@@ -315,7 +315,7 @@ userCommandParser =
         ConfirmAllocation <$>
         option
             auto
-            (short 'n' <> metavar "INT" <>
+            (short 'i' <> long "index" <> metavar "INT" <>
              help "Index starting from 1 in `list-alloc`") <*>
         optional
             (strOption $
@@ -346,7 +346,7 @@ userCommandParser =
         ExportAddress <$>
         option
             auto
-            (long "index" <> help "Id of address in `list` command output." <>
+            (short 'i' <> long "index" <> help "Id of address in `list` command output." <>
              metavar "INT") <*>
         strOption
             (long "path" <> help "Path to export address' keys to." <>
@@ -355,7 +355,7 @@ userCommandParser =
         DeleteAddress <$>
         option
             auto
-            (long "index" <> help "Id of address in `list` command output." <>
+            (short 'i' <> long "index" <> help "Id of address in `list` command output." <>
              metavar "INT") <*>
         switch
         (long "force" <> short 'f' <>

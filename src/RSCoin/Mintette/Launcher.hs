@@ -35,5 +35,5 @@ launchMintetteReal
 launchMintetteReal epochDelta port sk dbPath ctxArg =
     mintetteWrapperReal dbPath ctxArg $
     \st -> do
-        fork_ $ runWorkerWithDelta epochDelta sk st dbPath
+        fork_ $ runWorkerWithDelta epochDelta sk st
         serve port st sk

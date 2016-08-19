@@ -46,7 +46,7 @@ mintetteThread mintetteId benchDir secretKey =
          M.openState $ benchDir </> dbFormatPath "mintette-db" mintetteId)
         (liftIO . M.closeState) $
     \mintetteState -> do
-        _ <- fork $ M.runWorker secretKey mintetteState Nothing
+        _ <- fork $ M.runWorker secretKey mintetteState
         M.serve (defaultPort + mintetteId) mintetteState secretKey
 
 notaryThread :: FilePath -> IO ()

@@ -8,35 +8,31 @@ module RSCoin.Mintette.Worker
        ) where
 
 import           Control.Monad             (unless)
-import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (liftIO)
-import           Data.Acid                 (createCheckpoint, update)
 import           Data.Time.Units           (TimeUnit)
 import           Formatting                (build, sformat, shown, (%))
-
-import           Serokell.Util.AcidState   (createAndDiscardArchive)
 
 import           RSCoin.Core               (SecretKey, defaultEpochDelta,
                                             logError)
 import           RSCoin.Mintette.Acidic    (FinishEpoch (..))
-import           RSCoin.Mintette.AcidState (State)
+import           RSCoin.Mintette.AcidState (State, update)
 import           RSCoin.Mintette.Error     (isMEInactive)
 
-import           RSCoin.Timed              (WorkMode, repeatForever, sec, tu)
+import           RSCoin.Timed              (WorkMode, repeatForever, tu)
 
 -- | Start worker which updates state when epoch finishes. Default
 -- epoch length is used.
-runWorker :: WorkMode m => SecretKey -> State -> Maybe FilePath -> m ()
+runWorker :: WorkMode m => SecretKey -> State -> m ()
 runWorker = runWorkerWithDelta defaultEpochDelta
 
 -- | Start worker which updates state when epoch finishes. Epoch
 -- length is passed as argument.
 runWorkerWithDelta
     :: (Show t, Num t, Integral t, TimeUnit t, WorkMode m)
-    => t -> SecretKey -> State -> Maybe FilePath -> m ()
-runWorkerWithDelta epochDelta sk st storagePath =
+    => t -> SecretKey -> State -> m ()
+runWorkerWithDelta epochDelta sk st =
     repeatForever (tu epochDelta) handler $
-    liftIO $ onEpochFinished sk st storagePath
+    liftIO $ onEpochFinished sk st
   where
     restartDelay = epochDelta `div` 3
     handler e = do
@@ -49,9 +45,5 @@ runWorkerWithDelta epochDelta sk st storagePath =
                 e
         return $ tu restartDelay
 
-onEpochFinished :: SecretKey -> State -> Maybe FilePath -> IO ()
-onEpochFinished sk st storagePath = do
-    update st $ FinishEpoch sk
-    createCheckpoint st
-    --pid <- query st GetPeriodId -- can be used to cleanup archive once in N periods
-    whenJust storagePath $ createAndDiscardArchive st
+onEpochFinished :: SecretKey -> State -> IO ()
+onEpochFinished sk st = update st $ FinishEpoch sk

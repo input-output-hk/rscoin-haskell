@@ -30,13 +30,13 @@ import           Test.RSCoin.Full.Mintette.Config  (MintetteConfig)
 import qualified Test.RSCoin.Full.Mintette.Storage as MS
 
 openState :: FilePath -> IO State
-openState fp = openLocalStateFrom fp OMS.mkStorage
+openState fp = flip OMA.LocalState fp <$> openLocalStateFrom fp OMS.mkStorage
 
 openMemState :: IO State
-openMemState = openMemoryState OMS.mkStorage
+openMemState = OMA.MemoryState <$> openMemoryState OMS.mkStorage
 
 closeState :: State -> IO ()
-closeState = closeAcidState
+closeState = closeAcidState . OMA.toAcidState
 
 checkNotDoubleSpent
     :: MintetteConfig

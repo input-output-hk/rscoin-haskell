@@ -27,7 +27,6 @@ module RSCoin.Core.Logging
        , WithNamedLogger (..)
        , logDebug
        , logError
-       , logFunction
        , logInfo
        , logMessage
        , logWarning
@@ -53,8 +52,6 @@ import           System.Log.Logger          (Priority (DEBUG, ERROR, INFO, WARNI
                                              logM, removeHandler,
                                              rootLoggerName, setHandlers,
                                              setLevel, updateGlobalLogger)
-
-import           RSCoin.Mintette.Error      (MintetteError (..))
 
 -- | This type is intended to be used as command line option
 -- which specifies which messages to print.
@@ -172,10 +169,6 @@ logWarning = logMessage Warning
 logError :: (WithNamedLogger m, MonadIO m)
          => T.Text -> m ()
 logError = logMessage Error
-
-logFunction :: (MonadIO m, WithNamedLogger m) => MintetteError -> T.Text -> m ()
-logFunction MEInactive = logInfo
-logFunction _          = logWarning
 
 logMessage
     :: (WithNamedLogger m, MonadIO m)

@@ -65,7 +65,7 @@ data NotaryInfo = NotaryInfo
 $(makeLenses ''NotaryInfo)
 
 data UserInfo = UserInfo
-    { _userState :: U.RSCoinUserState
+    { _userState :: U.UserState
     }
 
 $(makeLenses ''UserInfo)
@@ -123,7 +123,7 @@ instance WithState MintetteInfo M.State where
 instance WithState NotaryInfo N.NotaryState where
     state = notaryState
 
-instance WithState UserInfo U.RSCoinUserState where
+instance WithState UserInfo U.UserState where
     state = userState
 
 class WithPort w where

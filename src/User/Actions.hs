@@ -19,7 +19,6 @@ import           Control.Monad           (forM_, join, unless, void, when)
 import           Control.Monad.IO.Class  (MonadIO)
 import           Control.Monad.Trans     (liftIO)
 
-import           Data.Acid.Advanced      (query')
 import           Data.Bifunctor          (bimap, second)
 import qualified Data.ByteString.Base64  as B64
 import           Data.Char               (isSpace)
@@ -69,7 +68,7 @@ import qualified UserOptions             as O
 initializeStorage
     :: forall (m :: * -> *).
        (WorkMode m)
-    => U.RSCoinUserState
+    => U.UserState
     -> O.UserOptions
     -> m ()
 initializeStorage st O.UserOptions{..} =
@@ -80,7 +79,7 @@ initializeStorage st O.UserOptions{..} =
 
 processCommand
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState -> O.UserCommand -> O.UserOptions -> m ()
+    => U.UserState -> O.UserCommand -> O.UserOptions -> m ()
 #if GtkGui
 processCommand st O.StartGUI opts = processStartGUI st opts
 #endif
@@ -89,7 +88,7 @@ processCommand st command _       = processCommandNoOpts st command
 -- | Processes command line user command
 processCommandNoOpts
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState -> O.UserCommand -> m ()
+    => U.UserState -> O.UserCommand -> m ()
 processCommandNoOpts st O.ListAddresses =
     processListAddresses st
 processCommandNoOpts st (O.FormTransaction inp out outC cache) =
@@ -115,18 +114,18 @@ processCommandNoOpts _ (O.SignSeed seedB64 mPath) =
 
 processListAddresses
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState -> m ()
+    => U.UserState -> m ()
 processListAddresses st =
     eWrap $
     do res <- updateBlockchain st False
        unless res $ C.logInfo "Successfully updated blockchain."
        genAddr <- (^. C.genesisAddress) <$> getNodeContext
-       addresses <- query' st $ U.GetOwnedAddresses genAddr
+       addresses <- U.query st $ U.GetOwnedAddresses genAddr
        (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin], Bool)]) <-
            mapM (\addr -> do
                       coins <- C.coinsToList <$> getAmountNoUpdate st addr
-                      hasSecret <- isJust . snd <$> query' st (U.FindUserAddress addr)
-                      strategy <- query' st $ U.GetAddressStrategy addr
+                      hasSecret <- isJust . snd <$> U.query st (U.FindUserAddress addr)
+                      strategy <- U.query st $ U.GetAddressStrategy addr
                       return ( C.getAddress addr
                              , fromMaybe C.DefaultStrategy strategy
                              , coins
@@ -161,7 +160,7 @@ processListAddresses st =
                          ("    This is a multisig address ("%int%"/"%int%") controlled by keys: ")
                          m (length allowed)
                     forM_ allowed $ \allowedAddr -> do
-                        addresses <- query' st $ U.GetOwnedAddresses genAddr
+                        addresses <- U.query st $ U.GetOwnedAddresses genAddr
                         TIO.putStrLn $ sformat
                             (if allowedAddr `elem` addresses
                              then "    * "%build%" owned by you"
@@ -170,7 +169,7 @@ processListAddresses st =
 
 processFormTransaction
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState
+    => U.UserState
     -> [(Word, Int64, Int)]
     -> T.Text
     -> [(Int64, Int)]
@@ -200,7 +199,7 @@ processFormTransaction st inputs outputAddrStr outputCoins cache = eWrap $ do
 
 processMultisigAddress
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState
+    => U.UserState
     -> Int
     -> [T.Text]
     -> [T.Text]
@@ -218,7 +217,7 @@ processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigT
         U.commitError "Parameter m should be less than length of list"
 
     msPublicKey          <- snd  <$> liftIO C.keyGen
-    (userAddress,userSk) <- head <$> query' st U.GetUserAddresses
+    (userAddress,userSk) <- head <$> U.query st U.GetUserAddresses
     let msAddr            = C.Address msPublicKey
     let partyAddr         = C.UserParty userAddress
     let msStrat           = C.AllocationStrategy m $ HS.fromList partiesAddrs
@@ -259,7 +258,7 @@ processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigT
 
 processUpdateBlockchain
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState -> m ()
+    => U.UserState -> m ()
 processUpdateBlockchain st =
     eWrap $
     do res <- updateBlockchain st True
@@ -270,7 +269,7 @@ processUpdateBlockchain st =
 
 processConfirmAllocation
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState
+    => U.UserState
     -> Int
     -> Maybe String
     -> Maybe T.Text
@@ -281,14 +280,14 @@ processConfirmAllocation st i mHot mMasterPkText mMasterSlaveSigText =
     do when (i <= 0) $  -- Crazy indentation ;(
            U.commitError $
            sformat ("Index i should be greater than 0 but given: " % int) i
-       strategiesSize <- M.size <$> query' st U.GetAllocationStrategies
+       strategiesSize <- M.size <$> U.query st U.GetAllocationStrategies
        when (strategiesSize == 0) $
            U.commitError "No allocation strategies are saved. Execute list-alloc again"
        when (strategiesSize < i) $
            U.commitError $ sformat
            ("Only " % int % " strategies are available, index " %
             int % " is out of range.") strategiesSize i
-       (msAddr,C.AllocationInfo{..}) <- query' st $ U.GetAllocationByIndex (i - 1)
+       (msAddr,C.AllocationInfo{..}) <- U.query st $ U.GetAllocationByIndex (i - 1)
        (slaveSk,partyAddr) <-
            case mHot of
                Just (read -> (hotSkPath,partyPkStr)) -> do
@@ -306,7 +305,7 @@ processConfirmAllocation st i mHot mMasterPkText mMasterSlaveSigText =
                    return (hotSk, partyAddr)
                Nothing -> do
                    (userAddress,userSk) <-
-                       head <$> query' st U.GetUserAddresses
+                       head <$> U.query st U.GetUserAddresses
                    return (userSk, C.UserParty userAddress)
        let partySignature = C.sign slaveSk (msAddr, _allocationStrategy)
 
@@ -326,7 +325,7 @@ processConfirmAllocation st i mHot mMasterPkText mMasterSlaveSigText =
 
 processListAllocation
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState -> m ()
+    => U.UserState -> m ()
 processListAllocation st =
     eWrap $
     do -- update local cache
@@ -334,7 +333,7 @@ processListAllocation st =
            st
        msigAddrsList <-
            (`zip` [(1 :: Int) ..]) . M.assocs <$>
-           query' st U.GetAllocationStrategies
+           U.query st U.GetAllocationStrategies
        when (null msigAddrsList) $
            liftIO $ putStrLn "Allocation address list is empty"
        forM_ msigAddrsList $
@@ -344,7 +343,7 @@ processListAllocation st =
 
 processImportAddress
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState
+    => U.UserState
     -> Maybe FilePath
     -> FilePath
     -> Int
@@ -358,7 +357,7 @@ processImportAddress st skPathMaybe pkPath heightFrom = do
 
 processExportAddress
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState
+    => U.UserState
     -> Int
     -> FilePath
     -> m ()
@@ -367,13 +366,13 @@ processExportAddress st ix0 filepath = do
     checkAddressId st ix
     allAddresses <- getAllPublicAddresses st
     let addr = allAddresses !! ix
-    strategy <- fromJust <$> query' st (U.GetAddressStrategy addr)
+    strategy <- fromJust <$> U.query st (U.GetAddressStrategy addr)
     case strategy of
         C.DefaultStrategy -> do
             C.logInfo
                 "The strategy of your address is default, dumping it to the file"
             (addr'@(C.getAddress -> pk),sk) <-
-                second fromJust <$> query' st (U.FindUserAddress addr)
+                second fromJust <$> U.query st (U.FindUserAddress addr)
             unless (addr' == addr) $
                 C.logError $
                 "Internal error, address found is not the same " <>
@@ -398,13 +397,13 @@ processExportAddress st ix0 filepath = do
 
 processDeleteAddress
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState -> Int -> Bool -> m ()
+    => U.UserState -> Int -> Bool -> m ()
 processDeleteAddress st ix0 force =
     eWrap $
     do C.logInfo $ sformat ("Deleting address #" % int) ix0
        checkAddressId st ix
        ourAddr <- (!! ix) <$> getAllPublicAddresses st
-       dependent <- query' st $ U.GetDependentAddresses ourAddr
+       dependent <- U.query st $ U.GetDependentAddresses ourAddr
        unless (null dependent) $ liftIO $ do
            TIO.putStrLn $ "These addresses depend on the requested one so they " <>
                           "will be removed as well:"
@@ -454,7 +453,7 @@ processSignSeed seedB64 mPath = liftIO $ do
 #if GtkGui
 processStartGUI
     :: (MonadIO m, WorkMode m)
-    -> U.RSCoinUserState
+    -> U.UserState
     -> O.UserOptions
     -> m ()
 processStartGUI st opts@O.UserOptions{..} = do
@@ -482,7 +481,7 @@ processStartGUI st opts@O.UserOptions{..} = do
 
 dumpCommand
     :: WorkMode m
-    => U.RSCoinUserState -> O.DumpCommand -> m ()
+    => U.UserState -> O.DumpCommand -> m ()
 dumpCommand _ O.DumpMintettes = void C.getMintettes
 dumpCommand _ O.DumpAddresses = void C.getAddresses
 dumpCommand _ O.DumpPeriod = void C.getBlockchainHeight
@@ -496,5 +495,5 @@ dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
     C.logInfo . show' . (`genericIndex` (idx - 1)) =<<
     (\ctx ->
-          query' st (U.GetOwnedAddresses (ctx ^. C.genesisAddress))) =<<
+          U.query st (U.GetOwnedAddresses (ctx ^. C.genesisAddress))) =<<
     getNodeContext

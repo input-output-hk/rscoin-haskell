@@ -7,9 +7,7 @@ import           Control.Exception       (finally)
 import           Control.Monad           (forM_)
 import           Control.Monad.Catch     (bracket)
 import           Control.Monad.Extra     (whenJust)
-import           Control.Monad.Trans     (MonadIO (liftIO))
 
-import qualified Data.Acid               as ACID
 import           Data.Maybe              (fromMaybe)
 import           Data.String.Conversions (cs)
 import           Formatting              (sformat, stext, string, (%))
@@ -156,12 +154,7 @@ setupBankUser CommonParams{..} = do
     Cherepakha.mkdir workingDirDeprecated
     C.writeSecretKey skPath bankSecretKey
     runRealModeUntrusted C.userLoggerName contextArgument $
-        bracket
-            (liftIO $ U.openState dbDir)
-            (\st ->
-                  liftIO $
-                  do ACID.createCheckpoint st
-                     U.closeState st) $
+        bracket (U.openState dbDir) U.closeState $
         \st ->
              U.initState st addressesNum $ Just skPath
     Cherepakha.echo $

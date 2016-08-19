@@ -1,8 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import           Control.Monad.Catch (MonadCatch, bracket, catch, throwM)
-import           Control.Monad.Trans (MonadIO, liftIO)
-import qualified Data.Acid           as ACID
+import           Control.Monad.Trans (MonadIO)
 import qualified Data.Text           as T
 
 import qualified RSCoin.Core         as C
@@ -23,12 +22,7 @@ main = do
                 then CADefault
                 else CACustomLocation configPath
     runRealModeUntrusted C.userLoggerName ctxArg $
-        bracket
-            (liftIO $ U.openState walletPath)
-            (\st ->
-                  liftIO $
-                  do ACID.createCheckpoint st
-                     U.closeState st) $
+        bracket (U.openState walletPath) U.closeState $
         \st -> do
             C.logDebug $
                 mconcat ["Called with options: ", (T.pack . show) opts]

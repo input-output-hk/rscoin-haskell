@@ -24,20 +24,24 @@ module RSCoin.Notary.AcidState
        , openState
        , openMemState
        , query
+       , tidyState
        , update
        ) where
 
-import           Control.Monad.Trans   (MonadIO (liftIO))
-import           Data.Acid             (AcidState, EventResult, EventState,
-                                        QueryEvent, UpdateEvent, closeAcidState,
-                                        makeAcidic, openLocalStateFrom)
-import           Data.Acid.Advanced    (query', update')
-import           Data.Acid.Memory      (openMemoryState)
-import           Data.SafeCopy         (base, deriveSafeCopy)
+import           Control.Monad.Trans     (MonadIO (liftIO))
+import           Data.Acid               (AcidState, EventResult, EventState,
+                                          QueryEvent, UpdateEvent,
+                                          closeAcidState, makeAcidic,
+                                          openLocalStateFrom)
+import           Data.Acid.Advanced      (query', update')
+import           Data.Acid.Memory        (openMemoryState)
+import           Data.SafeCopy           (base, deriveSafeCopy)
 
-import           RSCoin.Core           (PublicKey)
-import           RSCoin.Notary.Storage (Storage (..))
-import qualified RSCoin.Notary.Storage as S
+import           Serokell.Util.AcidState (tidyLocalState)
+
+import           RSCoin.Core             (PublicKey)
+import           RSCoin.Notary.Storage   (Storage (..))
+import qualified RSCoin.Notary.Storage   as S
 
 type AState = AcidState Storage
 
@@ -87,6 +91,10 @@ openMemState trustedKeys =
 
 closeState :: MonadIO m => NotaryState -> m ()
 closeState = liftIO . closeAcidState . toAcidState
+
+tidyState :: NotaryState -> IO ()
+tidyState (LocalState st fp) = tidyLocalState st fp
+tidyState (MemoryState _)    = return ()
 
 $(makeAcidic ''Storage
              [ 'S.acquireSignatures

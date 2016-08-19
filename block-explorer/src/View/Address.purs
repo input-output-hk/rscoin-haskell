@@ -1,41 +1,43 @@
 module App.View.Address where
 
-import Prelude                     (($), map, show)
+import Prelude                        (($), map, show)
 
-import App.Types                    (Action, State, Coin(Coin), Color(Color),
-                                    TransactionSummarySerializable(TransactionSummarySerializable),
-                                    queryToString)
-import App.Routes                  (txUrl) as R
+import App.Types                       (Action, State, Coin(Coin), Color(Color),
+                                       TransactionSummarySerializable(TransactionSummarySerializable),
+                                       queryToString)
+import App.Routes                     (txUrl) as R
 
-import Pux.Html (Html, tbody, text, th, tr, thead, table, div, small, h3, td)
-import Pux.Html.Attributes         (className)
-import Pux.Router                  (link)
+import Pux.Html (Html, tbody, text,    th, tr, thead, table, div, small, h3, td)
+import Pux.Router                     (link)
 
-import Data.Tuple.Nested           (uncurry2)
-import Data.Array                  (length)
-import Data.Maybe                  (fromMaybe)
+import Data.Tuple.Nested              (uncurry2)
+import Data.Array                     (length)
+import Data.Maybe                     (fromMaybe)
+
+import Serokell.Pux.Html              (classNames, className)
+import Serokell.Pux.Themes.Bootstrap3 as B
 
 view :: State -> Html Action
 view state =
     div []
         [
           div
-            [ className "page-header" ]
+            [ className B.pageHeader ]
             [ h3 [] [ text "Address "
                     , small [] [ text queryInfo ]
                     ]
             ]
         , div
-            [ className "container" ]
+            [ className B.container ]
             [ div
-                [ className "row" ]
+                [ className B.row ]
                 [ div
-                    [ className "panel panel-default" ]
+                    [ classNames [B.panel, B.panelDefault] ]
                     [ div
-                        [ className "panel-heading" ]
+                        [ className B.panelHeading ]
                         [ text "Balance" ]
                     , table
-                        [ className "table table-striped table-hover" ]
+                        [ classNames [B.table, B.tableStriped, B.tableHover] ]
                         [ thead [] [ tr []
                             [ th [] [ text "Height" ]
                             , th [] [ text "Coin color" ]
@@ -46,14 +48,14 @@ view state =
                     ]
                 ]
             , div
-                [ className "row" ]
+                [ className B.row ]
                 [ div
-                    [ className "panel panel-default" ]
+                    [ classNames [B.panel, B.panelDefault] ]
                     [ div
-                        [ className "panel-heading" ]
+                        [ className B.panelHeading ]
                         [ text "Transaction input feed" ]
                     , table
-                        [ className "table table-striped table-hover" ]
+                        [ classNames [B.table, B.tableStriped, B.tableHover] ]
                         [ thead [] [ tr []
                             [ th [] [ text "Transaction" ]
                             , th [] [ text "Sent from" ]

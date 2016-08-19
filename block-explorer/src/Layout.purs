@@ -18,7 +18,8 @@ import App.View.Transaction           (view) as Transaction
 import App.View.Header                (view) as Header
 import App.View.Alert                 (view) as Alert
 
-import Serokell.Pux.Themes.Bootstrap3 (bootstrapCss)
+import Serokell.Pux.Themes.Bootstrap3 (bootstrapCss, containerFluid)
+import Serokell.Pux.Html              (className)
 
 import Data.Maybe                     (Maybe(Nothing, Just), maybe, fromJust,
                                        isNothing, isJust)
@@ -33,7 +34,6 @@ import Pux                            (EffModel, noEffects, onlyEffects)
 import Pux.Html                       (Html, div)
 
 import Pux.Router                     (navigateTo) as R
-import Pux.Html.Attributes            (className)
 
 import Control.Apply                  ((*>))
 import Control.Alternative            ((<|>))
@@ -152,7 +152,7 @@ view state =
         [ Header.view state
         , Alert.view state
         , div
-            [ className "container-fluid" ]
+            [ className containerFluid ]
             [ case state.route of
                 R.Home -> Address.view state
                 R.Address _ -> Address.view state

@@ -16,7 +16,6 @@ import           Control.Monad                  (when)
 import           Control.Monad.Catch            (catch, throwM)
 import           Control.Monad.Trans            (lift, liftIO)
 
-import           Data.Acid.Advanced             (query', update')
 import           Data.List                      (nub, (\\))
 import qualified Data.Map.Strict                as M
 import           Data.Maybe                     (catMaybes, fromJust)
@@ -35,7 +34,8 @@ import           RSCoin.Bank.AcidState          (AddExplorer (..),
                                                  GetPeriodId (..),
                                                  GetTransaction (..),
                                                  RemoveExplorer (..),
-                                                 RemoveMintette (..), State)
+                                                 RemoveMintette (..), BankState,
+                                                 query, update)
 import           RSCoin.Bank.Error              (BankError (BEInconsistentResponse))
 import           RSCoin.Bank.Worker             (onPeriodFinished)
 import           RSCoin.Core                    (ActionLog,
@@ -53,7 +53,7 @@ import qualified RSCoin.Timed                   as T
 
 serve
     :: T.WorkMode m
-    => State -> T.ThreadId -> (T.ThreadId -> m T.ThreadId) -> m ()
+    => BankState -> T.ThreadId -> (T.ThreadId -> m T.ThreadId) -> m ()
 serve st workerThread restartWorkerAction = do
     threadIdMVar <- liftIO $ newMVar workerThread
     idr1 <- T.serverTypeRestriction0
@@ -94,34 +94,34 @@ toServer action = lift $ action `catch` handler
 -- toServer' :: T.WorkMode m => IO a -> T.ServerT m a
 -- toServer' = toServer . liftIO
 
-serveGetAddresses :: T.WorkMode m => State -> T.ServerT m AddressToTxStrategyMap
+serveGetAddresses :: T.WorkMode m => BankState -> T.ServerT m AddressToTxStrategyMap
 serveGetAddresses st =
     toServer $
-    do mts <- query' st GetAddresses
+    do mts <- query st GetAddresses
        logDebug $
           sformat ("Getting list of addresses: " % build) $ mapBuilder $ M.toList mts
        return mts
 
-serveGetMintettes :: T.WorkMode m => State -> T.ServerT m Mintettes
+serveGetMintettes :: T.WorkMode m => BankState -> T.ServerT m Mintettes
 serveGetMintettes st =
     toServer $
-    do mts <- query' st GetMintettes
+    do mts <- query st GetMintettes
        logDebug $ sformat ("Getting list of mintettes: " % build) mts
        return mts
 
-serveGetHeight :: T.WorkMode m => State -> T.ServerT m PeriodId
+serveGetHeight :: T.WorkMode m => BankState -> T.ServerT m PeriodId
 serveGetHeight st =
     toServer $
-    do pId <- query' st GetPeriodId
+    do pId <- query st GetPeriodId
        logDebug $ sformat ("Getting blockchain height: " % build) pId
        return pId
 
 serveGetHBlockEmission :: T.WorkMode m
-               => State -> PeriodId -> T.ServerT m (Maybe (HBlock, Maybe TransactionId))
+               => BankState -> PeriodId -> T.ServerT m (Maybe (HBlock, Maybe TransactionId))
 serveGetHBlockEmission st pId =
     toServer $
-    do mBlock <- query' st (GetHBlock pId)
-       emission <- query' st (GetEmission pId)
+    do mBlock <- query st (GetHBlock pId)
+       emission <- query st (GetEmission pId)
        logDebug $
            sformat ("Getting higher-level block with periodId " % build %
                     " and emission " % build % ": " % build)
@@ -129,7 +129,7 @@ serveGetHBlockEmission st pId =
        return $ (,emission) <$> mBlock
 
 serveGetHBlocks :: T.WorkMode m
-                => State -> [PeriodId] -> T.ServerT m [HBlock]
+                => BankState -> [PeriodId] -> T.ServerT m [HBlock]
 serveGetHBlocks st (nub -> periodIds) =
     toServer $
     do logDebug $
@@ -137,7 +137,7 @@ serveGetHBlocks st (nub -> periodIds) =
            listBuilderJSON periodIds
        blocks <-
            catMaybes <$>
-           mapM (\pid -> fmap (, pid) <$> query' st (GetHBlock pid)) periodIds
+           mapM (\pid -> fmap (, pid) <$> query st (GetHBlock pid)) periodIds
        let gotIndices = map snd blocks
        when (gotIndices /= periodIds) $
            throwM $
@@ -148,10 +148,10 @@ serveGetHBlocks st (nub -> periodIds) =
        return $ map fst blocks
 
 serveGetTransaction :: T.WorkMode m
-                    => State -> TransactionId -> T.ServerT m (Maybe Transaction)
+                    => BankState -> TransactionId -> T.ServerT m (Maybe Transaction)
 serveGetTransaction st tId =
     toServer $
-    do t <- query' st (GetTransaction tId)
+    do t <- query st (GetTransaction tId)
        logDebug $
            sformat ("Getting transaction with id " % build % ": " % build) tId t
        return t
@@ -161,46 +161,47 @@ serveGetTransaction st tId =
 -- row. But it is used only in benchmarks with infinite period so it is ok.
 serveFinishPeriod
     :: T.WorkMode m
-    => State
+    => BankState
     -> PublicKey
     -> Signature
     -> T.ServerT m ()
 serveFinishPeriod st bankPublicKey periodIdSignature = toServer $ do
     logInfo "Finish of period was requested"
     do
-        currentPeriodId <- query' st GetPeriodId
+        currentPeriodId <- query st GetPeriodId
         if verify bankPublicKey periodIdSignature currentPeriodId then do
             bankSK <- (fromJust . (^. NC.bankSecretKey)) <$> T.getNodeContext
-            onPeriodFinished bankSK st Nothing
+            onPeriodFinished bankSK st
         else do
             logError $
                 sformat ("Incorrect signature for periodId=" % int) currentPeriodId
 
 serveLocalControlRequest
     :: T.WorkMode m
-    => State
+    => BankState
     -> PublicKey
     -> PT.BankLocalControlRequest
     -> T.ServerT m (Maybe BankError)
-serveLocalControlRequest st bankPublicKey controlRequest
-  | not (PT.checkLocalControlRequest bankPublicKey controlRequest) =
-      wrapResponse $ throwM $
-      BEInconsistentResponse $
-      sformat
-          ("Tried to execute control request " % build %
-           " with *invalid* signature")
-          controlRequest
-  | otherwise = wrapResponse $ do
-      logInfo $ sformat ("Executing control request: " % build) controlRequest
-      case controlRequest of
-          PT.AddMintette m pk _         -> update' st (AddMintette m pk)
-          PT.AddExplorer e pid _        -> update' st (AddExplorer e pid)
-          PT.RemoveMintette host port _ -> update' st (RemoveMintette host port)
-          PT.RemoveExplorer host port _ -> update' st (RemoveExplorer host port)
-      logInfo $
-          sformat
-              ("Control request " % build % " executed successfully")
-              controlRequest
+serveLocalControlRequest st bankPublicKey controlRequest = do
+    periodId <- query st GetPeriodId
+    if not (PT.checkLocalControlRequest periodId bankPublicKey controlRequest) then
+        wrapResponse $ throwM $
+        BEInconsistentResponse $
+        sformat
+            ("Tried to execute control request " % build %
+             " with *invalid* signature")
+            controlRequest
+    else wrapResponse $ do
+        logInfo $ sformat ("Executing control request: " % build) controlRequest
+        case controlRequest of
+            PT.AddMintette m pk _         -> update st (AddMintette m pk)
+            PT.AddExplorer e pid _        -> update st (AddExplorer e pid)
+            PT.RemoveMintette host port _ -> update st (RemoveMintette host port)
+            PT.RemoveExplorer host port _ -> update st (RemoveExplorer host port)
+        logInfo $
+            sformat
+                ("Control request " % build % " executed successfully")
+                controlRequest
   where
     wrapResponse action = lift $ (action >> return Nothing) `catch` handler
     handler (e :: BankError) = logError (show' e) >> return (Just e)
@@ -209,10 +210,10 @@ serveLocalControlRequest st bankPublicKey controlRequest
 
 
 serveGetLogs :: T.WorkMode m
-             => State -> MintetteId -> Int -> Int -> T.ServerT m (Maybe ActionLog)
+             => BankState -> MintetteId -> Int -> Int -> T.ServerT m (Maybe ActionLog)
 serveGetLogs st m from to =
     toServer $
-    do mLogs <- query' st (GetLogs m from to)
+    do mLogs <- query st (GetLogs m from to)
        logDebug $
            sformat ("Getting action logs of mintette " % build %
                     " with range of entries " % int % " to " % int % ": " % build)
@@ -221,8 +222,8 @@ serveGetLogs st m from to =
 
 serveGetExplorers
     :: T.WorkMode m
-    => State -> T.ServerT m Explorers
+    => BankState -> T.ServerT m Explorers
 serveGetExplorers st = do
-    curPeriod <- query' st GetPeriodId
+    curPeriod <- query st GetPeriodId
     map fst . filter ((== curPeriod) . snd) <$>
-        query' st GetExplorersAndPeriods
+        query st GetExplorersAndPeriods

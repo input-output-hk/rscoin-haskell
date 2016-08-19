@@ -13,19 +13,20 @@ module RSCoin.Bank.Worker
 
 import           Control.Applicative      (liftA2)
 import           Control.Lens             ((^.))
-import           Control.Monad            (forM_, when)
+import           Control.Monad            (forM_, void, when)
 import           Control.Monad.Catch      (SomeException, bracket_, catch)
-import           Control.Monad.Extra      (unlessM, whenJust)
+import           Control.Monad.Extra      (unlessM)
 import           Control.Monad.Trans      (MonadIO (liftIO))
-import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
                                            newIORef, readIORef)
 import           Data.List                (sortOn)
-import           Data.Maybe               (fromMaybe)
+import           Data.Maybe               (fromJust, fromMaybe, isJust)
+import qualified Data.Text                as T
 import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
+import           System.FilePath          ((</>))
+import qualified Turtle.Prelude           as TURT
 
-import           Serokell.Util.AcidState  (tidyLocalState)
 import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
 
@@ -35,8 +36,9 @@ import           RSCoin.Bank.AcidState    (AddAddress (..), GetEmission (..),
                                            GetMintettes (..), GetPeriodId (..),
                                            RestoreExplorers (..),
                                            SetExplorerPeriod (..),
-                                           StartNewPeriod (..), State,
-                                           SuspendExplorer (..))
+                                           StartNewPeriod (..), BankState,
+                                           SuspendExplorer (..), query,
+                                           tidyState, update)
 import           RSCoin.Core              (defaultPeriodDelta,
                                            formatNewPeriodData,
                                            sendPeriodFinished, sign)
@@ -50,7 +52,7 @@ import           RSCoin.Timed             (MonadRpc (getNodeContext), Second,
 -- finishes. Default period length is used.
 runWorker
     :: WorkMode m
-    => IORef Bool -> C.SecretKey -> State -> Maybe FilePath -> m ()
+    => IORef Bool -> C.SecretKey -> BankState -> m ()
 runWorker = runWorkerWithPeriod defaultPeriodDelta
 
 -- | Start worker with provided period. Generalization of 'runWorker'.
@@ -59,8 +61,8 @@ runWorker = runWorkerWithPeriod defaultPeriodDelta
 -- Its value is True is empty iff this worker is doing something now.
 runWorkerWithPeriod
     :: (TimeUnit t, WorkMode m)
-    => t -> IORef Bool -> C.SecretKey -> State -> Maybe FilePath -> m ()
-runWorkerWithPeriod periodDelta mainIsBusy bankSK st storagePath =
+    => t -> IORef Bool -> C.SecretKey -> BankState -> m ()
+runWorkerWithPeriod periodDelta mainIsBusy bankSK st =
     repeatForever (tu periodDelta) handler worker
   where
     worker = do
@@ -68,7 +70,7 @@ runWorkerWithPeriod periodDelta mainIsBusy bankSK st storagePath =
                 bracket_
                     (liftIO $ atomicWriteIORef mainIsBusy True)
                     (liftIO $ atomicWriteIORef mainIsBusy False)
-        periodId <- query' st GetPeriodId
+        periodId <- query st GetPeriodId
         let sig = sign bankSK periodId
         t <- br $ measureTime_ $ C.finishPeriod sig
         C.logInfo $ sformat ("Finishing period took " % build) t
@@ -79,21 +81,26 @@ runWorkerWithPeriod periodDelta mainIsBusy bankSK st storagePath =
                 e
         return $ sec 20
 
-onPeriodFinished :: WorkMode m => C.SecretKey -> State -> Maybe FilePath -> m ()
-onPeriodFinished sk st storagePath = do
-    mintettes <- query' st GetMintettes
-    pId <- query' st GetPeriodId
+onPeriodFinished :: WorkMode m => C.SecretKey -> BankState -> m ()
+onPeriodFinished sk st = do
+    mintettes <- query st GetMintettes
+    pId <- query st GetPeriodId
     C.logInfo $ sformat ("Period " % int % " has just finished!") pId
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     initializeMultisignatureAddresses  -- init here to see them in next period
-    periodResults <- getPeriodResults mintettes pId
-    (bankPk,genAdr) <-
-        liftA2 (,) (^. C.bankPublicKey) (^. C.genesisAddress) <$>
-        getNodeContext
-    newPeriodData <- update' st $ StartNewPeriod bankPk genAdr sk periodResults
-    whenJust storagePath $ tidyLocalState st
-    newMintettes <- query' st GetMintettes
+    periodResults    <- getPeriodResults mintettes pId
+    (bankPk, genAdr) <- liftA2 (,) (^. C.bankPublicKey) (^. C.genesisAddress)
+                        <$> getNodeContext
+    newPeriodData    <- update st $ StartNewPeriod bankPk genAdr sk periodResults
+    pid <- query st GetPeriodId
+    liftIO $ tidyState st
+    when (isJust storagePath && pid `mod` 5 == 0) $ liftIO $ do
+         tidyState st
+         void $ TURT.shellStrict
+             (T.pack $ "rm -rf " ++ (fromJust storagePath </> "Archive"))
+             (return "")
+    newMintettes <- query st GetMintettes
     if null newMintettes
         then C.logWarning "New mintettes list is empty!"
         else do
@@ -105,16 +112,14 @@ onPeriodFinished sk st storagePath = do
             C.logInfo $
                 sformat
                     ("Announced new period with this NewPeriodData " %
-                     "(payload is Nothing -- omitted (only in Debug)):\n" %
-                     build)
+                     "(payload is Nothing -- omitted (only in Debug)):\n" % build)
                     (formatNewPeriodData False $ head newPeriodData)
             C.logDebug $
                 sformat
-                    ("Announced new period, sent these newPeriodData's:\n" %
-                     build)
+                    ("Announced new period, sent these newPeriodData's:\n" % build)
                     newPeriodData
     announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsN
-    update' st RestoreExplorers
+    update st RestoreExplorers
   where
     -- TODO: catch appropriate exception according to protocol implementation
     handlerAnnouncePeriodM (e :: SomeException) =
@@ -126,28 +131,23 @@ onPeriodFinished sk st storagePath = do
         sformat ("Error occurred in communicating with Notary: " % build) e
     initializeMultisignatureAddresses = do
         newMSAddresses <- C.queryNotaryCompleteMSAddresses
-        forM_ newMSAddresses $
-            \(msAddr,strategy) -> do
-                C.logInfo $
-                    sformat
-                        ("Creating MS address " % build % " with strategy " %
-                         build)
-                        msAddr
-                        strategy
-                update' st $ AddAddress msAddr strategy
+        forM_ newMSAddresses $ \(msAddr, strategy) -> do
+            C.logInfo $ sformat ("Creating MS address " % build % " with strategy " % build)
+                msAddr
+                strategy
+            update st $ AddAddress msAddr strategy
         C.logInfo "Removing new addresses from pool"
-        mCurBankSecKey <- (^. bankSecretKey) <$> getNodeContext
-        let curBankSecKey =
-                fromMaybe
-                    (error "Bank secret key is set to Nothing in config!")
-                    mCurBankSecKey
-        let msAddrs = map fst newMSAddresses
+        mCurBankSecKey <- (^.bankSecretKey) <$> getNodeContext
+        let curBankSecKey  = fromMaybe
+                                (error "Bank secret key is set to Nothing in config!")
+                                mCurBankSecKey
+        let msAddrs       = map fst newMSAddresses
         let signedMsAddrs = sign curBankSecKey msAddrs
         C.removeNotaryCompleteMSAddresses msAddrs signedMsAddrs
     announceNewPeriodsToNotary = do
         pId <- C.getNotaryPeriod
-        pId' <- query' st GetPeriodId
-        C.announceNewPeriodsToNotary pId' =<< query' st (GetHBlocks pId pId')
+        pId' <- query st GetPeriodId
+        C.announceNewPeriodsToNotary pId' =<< query st (GetHBlocks pId pId')
 
 getPeriodResults
     :: WorkMode m
@@ -170,12 +170,12 @@ getPeriodResults mts pId = do
 -- | Start worker which sends data to explorers.
 runExplorerWorker
     :: (TimeUnit t, WorkMode m)
-    => t -> IORef Bool -> C.SecretKey -> State -> m ()
+    => t -> IORef Bool -> C.SecretKey -> BankState -> m ()
 runExplorerWorker periodDelta mainIsBusy sk st =
     foreverSafe $
     do waitUntilPredicate (fmap not . liftIO $ readIORef mainIsBusy)
-       blocksNumber <- query' st GetPeriodId
-       explorersAndPeriods <- query' st GetExplorersAndPeriods
+       blocksNumber <- query st GetPeriodId
+       explorersAndPeriods <- query st GetExplorersAndPeriods
        let outdated = filter ((/= blocksNumber) . snd) explorersAndPeriods
            explorers = map fst explorersAndPeriods
            -- if all explorers are up-to-date, let's wait for this
@@ -185,7 +185,7 @@ runExplorerWorker periodDelta mainIsBusy sk st =
        failedExplorers <-
            map fst . filter (not . snd) . zip explorers <$>
            communicateWithExplorers sk st blocksNumber outdated
-       mapM_ (update' st . SuspendExplorer) failedExplorers
+       mapM_ (update st . SuspendExplorer) failedExplorers
   where
     foreverSafe action = do
         action `catch` handler
@@ -201,13 +201,13 @@ runExplorerWorker periodDelta mainIsBusy sk st =
 
 communicateWithExplorers
     :: WorkMode m
-    => C.SecretKey -> State -> C.PeriodId -> [(C.Explorer, C.PeriodId)] -> m [Bool]
+    => C.SecretKey -> BankState -> C.PeriodId -> [(C.Explorer, C.PeriodId)] -> m [Bool]
 communicateWithExplorers sk st blocksNumber =
     mapM (communicateWithExplorer sk st blocksNumber) . sortOn (negate . snd)
 
 communicateWithExplorer
     :: WorkMode m
-    => C.SecretKey -> State -> C.PeriodId -> (C.Explorer, C.PeriodId) -> m Bool
+    => C.SecretKey -> BankState -> C.PeriodId -> (C.Explorer, C.PeriodId) -> m Bool
 communicateWithExplorer sk st blocksNumber (explorer,expectedPeriod)
   | blocksNumber == expectedPeriod = return True
   | expectedPeriod >= 0 && expectedPeriod < blocksNumber =
@@ -222,14 +222,14 @@ communicateWithExplorer sk st blocksNumber (explorer,expectedPeriod)
 
 sendBlockToExplorer
     :: WorkMode m
-    => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m Bool
+    => C.SecretKey -> BankState -> C.Explorer -> C.PeriodId -> m Bool
 sendBlockToExplorer sk st explorer pId = do
-    blk <- fromMaybe reportFatalError <$> query' st (GetHBlock pId)
-    ems <- query' st (GetEmission pId)
+    blk <- fromMaybe reportFatalError <$> query st (GetHBlock pId)
+    ems <- query st (GetEmission pId)
     let sendAndUpdate = do
             newExpectedPeriod <-
                 C.announceNewBlock explorer pId (blk,ems) (C.sign sk (pId, blk))
-            update' st $ SetExplorerPeriod explorer newExpectedPeriod
+            update st $ SetExplorerPeriod explorer newExpectedPeriod
     (True <$ sendAndUpdate) `catch` handler
   where
     reportFatalError =

@@ -5,9 +5,12 @@
 -- | Wrap Storage into AcidState
 
 module RSCoin.Bank.AcidState
-       ( State
+       ( BankState
        , openState
        , openMemState
+       , query
+       , tidyState
+       , update
        , closeState
        , GetMintettes (..)
        , GetEmission (..)
@@ -31,32 +34,51 @@ module RSCoin.Bank.AcidState
        , StartNewPeriod (..)
        ) where
 
-import           Control.Lens        (view)
-import           Data.Acid           (AcidState, Query, Update, closeAcidState,
-                                      makeAcidic, openLocalStateFrom)
-import           Data.Acid.Memory    (openMemoryState)
+import           Control.Lens           (view)
+import           Control.Monad.Trans    (MonadIO)
+import           Data.Acid              (EventResult, EventState,
+                                         Query, QueryEvent, UpdateEvent,
+                                         Update, makeAcidic)
 
-import           RSCoin.Core         (ActionLog, Address,
-                                      AddressToTxStrategyMap, Explorer,
-                                      Explorers, HBlock, Mintette, MintetteId,
-                                      Mintettes, NewPeriodData,
-                                      PeriodId, PeriodResult, PublicKey,
-                                      SecretKey, Transaction, TransactionId,
-                                      TxStrategy)
+import           RSCoin.Core            (ActionLog, Address,
+                                         AddressToTxStrategyMap, Explorer,
+                                         Explorers, HBlock, Mintette, MintetteId,
+                                         Mintettes, NewPeriodData,
+                                         PeriodId, PeriodResult, PublicKey,
+                                         SecretKey, Transaction, TransactionId,
+                                         TxStrategy)
 
+import          Serokell.Util.AcidState (ExtendedState, closeExtendedState,
+                                         openLocalExtendedState,
+                                         openMemoryExtendedState,
+                                         tidyExtendedState,
+                                         queryExtended, updateExtended)
 
 import qualified RSCoin.Bank.Storage as BS
 
-type State = AcidState BS.Storage
+type BankState = ExtendedState BS.Storage
 
-openState :: FilePath -> IO State
-openState fp = openLocalStateFrom fp BS.mkStorage
+query
+    :: (EventState event ~ BS.Storage, QueryEvent event, MonadIO m)
+    => BankState -> event -> m (EventResult event)
+query = queryExtended
 
-openMemState :: IO State
-openMemState = openMemoryState BS.mkStorage
+update
+    :: (EventState event ~ BS.Storage, UpdateEvent event, MonadIO m)
+    => BankState -> event -> m (EventResult event)
+update = updateExtended
 
-closeState :: State -> IO ()
-closeState = closeAcidState
+tidyState :: MonadIO m => BankState -> m ()
+tidyState = tidyExtendedState
+
+openState :: FilePath -> IO BankState
+openState fp = openLocalExtendedState fp BS.mkStorage
+
+openMemState :: IO BankState
+openMemState = openMemoryExtendedState BS.mkStorage
+
+closeState :: BankState -> IO ()
+closeState = closeExtendedState
 
 getEmission :: PeriodId -> Query BS.Storage (Maybe TransactionId)
 getEmission = view . BS.getEmission

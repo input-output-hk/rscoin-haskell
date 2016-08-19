@@ -30,7 +30,8 @@ import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
                                             PreviousMintetteId (..),
                                             StartPeriod (..), tidyState)
 import           RSCoin.Mintette.AcidState (State, query, update)
-import           RSCoin.Mintette.Error     (MintetteError (..))
+import           RSCoin.Mintette.Error     (MintetteError (..),
+                                            logMintetteError)
 import           RSCoin.Timed              (ServerT, WorkMode,
                                             serverTypeRestriction0,
                                             serverTypeRestriction1,
@@ -172,7 +173,7 @@ handleGetMintettePeriod st =
        either onError onSuccess res
   where
     onError e = do
-        C.logFunction e "Failed to query periodId"
+        logMintetteError e "Failed to query periodId"
         return Nothing
     onSuccess pid = do
         C.logInfo $ sformat ("Successfully returning periodId " % int) pid

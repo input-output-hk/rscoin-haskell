@@ -3,9 +3,11 @@
 module RSCoin.Mintette.Error
        ( MintetteError (..)
        , isMEInactive
+       , logMintetteError
        ) where
 
 import           Control.Exception       (Exception (..), SomeException)
+import           Control.Monad.Trans     (MonadIO (liftIO))
 import           Data.Data               (Data)
 import           Data.MessagePack        (MessagePack (fromObject, toObject),
                                           Object)
@@ -14,9 +16,12 @@ import           Data.Text               (Text)
 import           Data.Text.Buildable     (Buildable (build))
 import qualified Data.Text.Format        as F
 import           Data.Typeable           (Typeable)
+import           Formatting              (sformat, shown, stext, (%))
+import qualified Formatting              (build)
 
 import           RSCoin.Core.Error       (rscExceptionFromException,
                                           rscExceptionToException)
+import           RSCoin.Core.Logging     (WithNamedLogger, logInfo, logWarning)
 import           RSCoin.Core.MessagePack ()
 import           RSCoin.Core.Primitives  (AddrId)
 import           RSCoin.Core.Types       (PeriodId)
@@ -86,3 +91,13 @@ instance MessagePack MintetteError where
 
 isMEInactive :: SomeException -> Bool
 isMEInactive = maybe False (== MEInactive) . fromException
+
+logMintetteError
+    :: (MonadIO m, WithNamedLogger m)
+    => MintetteError -> Text -> m ()
+logMintetteError e msg =
+    case e of
+        MEInactive -> logInfo toPrint
+        _          -> logWarning toPrint
+  where
+    toPrint = sformat (stext % ", error: " % Formatting.build) msg e

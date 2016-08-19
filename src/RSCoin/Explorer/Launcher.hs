@@ -36,7 +36,7 @@ explorerWrapperReal :: FilePath
                     -> IO a
 explorerWrapperReal storagePath ca =
     runRealModeUntrusted explorerLoggerName ca .
-    bracket (liftIO $ openState storagePath) (liftIO . closeState)
+    bracket (openState storagePath) closeState
 
 launchExplorerReal :: Int
                    -> Int
@@ -49,12 +49,12 @@ launchExplorerReal portRpc portWeb severity storagePath ca sk = do
     channel <- newChannel
     explorerWrapperReal storagePath ca $
         \st -> do
-            fork_ $ launchExplorer portRpc sk channel st (Just storagePath)
+            fork_ $ launchExplorer portRpc sk channel st
             launchWeb portWeb severity channel st
 
 launchExplorer
     :: WorkMode m
-    => Int -> SecretKey -> Channel -> State -> Maybe FilePath -> m ()
+    => Int -> SecretKey -> Channel -> State -> m ()
 launchExplorer port sk ch st = serve port ch st sk
 
 loggingMiddleware :: Severity -> Middleware

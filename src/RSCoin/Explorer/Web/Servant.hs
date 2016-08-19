@@ -15,7 +15,6 @@ import           Control.Monad.Catch               (Exception, catch, throwM)
 import           Control.Monad.Except              (throwError)
 import           Control.Monad.Reader              (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans               (liftIO)
-import           Data.Acid.Advanced                (query')
 import           Data.Typeable                     (Typeable)
 import           Network.Wai                       (Application)
 import           Servant                           ((:>), (:~>) (Nat), Capture, FromHttpApiData (parseUrlPiece),
@@ -26,7 +25,7 @@ import           Servant                           ((:>), (:~>) (Nat), Capture, 
 
 import qualified RSCoin.Core                       as C
 
-import           RSCoin.Explorer.AcidState         (GetTx (..), State)
+import           RSCoin.Explorer.AcidState         (GetTx (..), State, query)
 import           RSCoin.Explorer.Web.Sockets.Types (TransactionSummarySerializable,
                                                     mkTransactionSummarySerializable)
 
@@ -57,7 +56,7 @@ convertHandler st act = do
 handleGetTx :: C.TransactionId -> MyHandler TransactionSummarySerializable
 handleGetTx i =
     maybe (throwM NotFound) (pure . mkTransactionSummarySerializable) =<<
-    flip query' (GetTx i) =<< ask
+    flip query (GetTx i) =<< ask
 
 servantServer :: ServerT ExplorerApi MyHandler
 servantServer = handleGetTx

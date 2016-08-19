@@ -26,7 +26,6 @@ import           Control.Monad.Extra               (notM, whenM)
 import           Control.Monad.Reader              (ReaderT, runReaderT)
 import           Control.Monad.State               (MonadState, State, runState)
 import           Control.Monad.Trans               (MonadIO (liftIO))
-import           Data.Acid.Advanced                (query')
 import           Data.Bifunctor                    (second)
 import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (catMaybes, fromMaybe)
@@ -141,7 +140,7 @@ introduceAddress sendResponseOnError conn addr = do
         modifyConnectionsState connections (dropConnection addr connId)
   where
     checkAddressExistence = do
-        whenM (notM $ flip query' (DB.AddressExists addr) =<< view ssDataBase) $
+        whenM (notM $ flip DB.query (DB.AddressExists addr) =<< view ssDataBase) $
             do let e = "Address not found"
                when sendResponseOnError $ send conn $ OMError $ NotFound e
                throwM $ EENotFound e
@@ -154,7 +153,7 @@ introduceTransaction conn tId = do
         maybe
             (OMError $ NotFound "Transaction not found")
             (OMTransaction . mkTransactionSummarySerializable) =<<
-        flip query' (DB.GetTx tId) =<< view ssDataBase
+        flip DB.query (DB.GetTx tId) =<< view ssDataBase
 
 changeInfo :: WS.Connection -> C.Address -> C.TransactionId -> ServerMonad ()
 changeInfo conn addr tId =
@@ -182,7 +181,7 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
     onReceive AIGetBalance = do
         C.logDebug $ sformat ("Balance of " % build % " is requested") addr
         send conn . uncurry mkOMBalance =<<
-            flip query' (DB.GetAddressBalance addr) =<< view ssDataBase
+            flip DB.query (DB.GetAddressBalance addr) =<< view ssDataBase
     onReceive AIGetTxNumber = do
         C.logDebug $
             sformat
@@ -190,7 +189,7 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
                  " is requested")
                 addr
         send conn . uncurry OMTxNumber =<<
-            flip query' (DB.GetAddressTxNumber addr) =<< view ssDataBase
+            flip DB.query (DB.GetAddressTxNumber addr) =<< view ssDataBase
     onReceive (AIGetTransactions indices@(lo,hi)) = do
         C.logDebug $
             sformat
@@ -200,7 +199,7 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
                 hi
                 addr
         send conn . uncurry OMTransactions . toSerializable =<<
-            flip query' (DB.GetAddressTransactions addr indices) =<<
+            flip DB.query (DB.GetAddressTransactions addr indices) =<<
             view ssDataBase
     onReceive (AIChangeAddress addr') = introduceAddress True conn addr'
     onReceive (AIChangeInfo addr' tId) = changeInfo conn addr' tId
@@ -220,7 +219,7 @@ sender channel =
                => C.AddrId -> m (Maybe C.Address)
            inputToAddr (txId,idx,_) =
                fmap (fst . (!! idx) . txsOutputs) <$>
-               query' st (DB.GetTx txId)
+               DB.query st (DB.GetTx txId)
        affectedAddresses <-
            mappend outputAddresses . S.fromList . catMaybes <$>
            mapM inputToAddr inputs
@@ -247,9 +246,9 @@ notifyAboutAddressUpdate :: C.Address -> ServerMonad ()
 notifyAboutAddressUpdate addr = do
     st <- view ssDataBase
     connectionsState <- liftIO . readMVar =<< view ssConnections
-    msgBalance <- uncurry mkOMBalance <$> query' st (DB.GetAddressBalance addr)
+    msgBalance <- uncurry mkOMBalance <$> DB.query st (DB.GetAddressBalance addr)
     msgTxNumber <-
-        uncurry OMTxNumber <$> query' st (DB.GetAddressTxNumber addr)
+        uncurry OMTxNumber <$> DB.query st (DB.GetAddressTxNumber addr)
     let connIds =
             fromMaybe S.empty $ connectionsState ^. csAddrToConnId . at addr
         idToConn i = connectionsState ^. csIdToConn . at i

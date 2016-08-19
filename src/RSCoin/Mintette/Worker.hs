@@ -12,7 +12,7 @@ import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (liftIO)
 import           Data.Acid                 (createCheckpoint, update)
 import           Data.Time.Units           (TimeUnit)
-import           Formatting                (build, sformat, (%))
+import           Formatting                (build, sformat, shown, (%))
 
 import           Serokell.Util.AcidState   (createAndDiscardArchive)
 
@@ -32,18 +32,22 @@ runWorker = runWorkerWithDelta defaultEpochDelta
 -- | Start worker which updates state when epoch finishes. Epoch
 -- length is passed as argument.
 runWorkerWithDelta
-    :: (TimeUnit t, WorkMode m)
+    :: (Show t, Num t, Integral t, TimeUnit t, WorkMode m)
     => t -> SecretKey -> State -> Maybe FilePath -> m ()
 runWorkerWithDelta epochDelta sk st storagePath =
     repeatForever (tu epochDelta) handler $
     liftIO $ onEpochFinished sk st storagePath
   where
+    restartDelay = epochDelta `div` 3
     handler e = do
         unless (isMEInactive e) $
             logError $
             sformat
-                ("Error was caught by worker, restarting in 2 seconds: " % build) e
-        return $ sec 2
+                ("Error was caught by worker, restarting in " % shown % ": " %
+                 build)
+                restartDelay
+                e
+        return $ tu restartDelay
 
 onEpochFinished :: SecretKey -> State -> Maybe FilePath -> IO ()
 onEpochFinished sk st storagePath = do

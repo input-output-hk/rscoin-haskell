@@ -7,14 +7,18 @@ module Test.RSCoin.Full.Mintette.Acidic
        ( openState
        , openMemState
        , closeState
+       , tidyState
        , CheckNotDoubleSpent (..)
        , CommitTx (..)
        ) where
 
-import           Data.Acid                         (Update, closeAcidState,
-                                                    makeAcidic,
-                                                    openLocalStateFrom)
-import           Data.Acid.Memory                  (openMemoryState)
+import           Control.Monad.Trans               (MonadIO)
+import           Data.Acid                         (Update, makeAcidic)
+
+import           Serokell.Util.AcidState           (closeExtendedState,
+                                                    openLocalExtendedState,
+                                                    openMemoryExtendedState,
+                                                    tidyExtendedState)
 
 import           RSCoin.Core                       (AddrId, Address,
                                                     CheckConfirmation,
@@ -29,14 +33,17 @@ import qualified RSCoin.Mintette.Storage           as OMS
 import           Test.RSCoin.Full.Mintette.Config  (MintetteConfig)
 import qualified Test.RSCoin.Full.Mintette.Storage as MS
 
-openState :: FilePath -> IO State
-openState fp = flip OMA.LocalState fp <$> openLocalStateFrom fp OMS.mkStorage
+openState :: MonadIO m => FilePath -> m State
+openState fp = openLocalExtendedState fp OMS.mkStorage
 
-openMemState :: IO State
-openMemState = OMA.MemoryState <$> openMemoryState OMS.mkStorage
+openMemState :: MonadIO m => m State
+openMemState = openMemoryExtendedState OMS.mkStorage
 
-closeState :: State -> IO ()
-closeState = closeAcidState . OMA.toAcidState
+closeState :: MonadIO m => State -> m ()
+closeState = closeExtendedState
+
+tidyState :: MonadIO m => State -> m ()
+tidyState = tidyExtendedState
 
 checkNotDoubleSpent
     :: MintetteConfig

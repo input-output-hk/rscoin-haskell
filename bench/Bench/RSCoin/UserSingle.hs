@@ -78,7 +78,7 @@ dumpWorker countRef startTime dumpFile = forever $ do
 runSingleUser :: Maybe Word
               -> Word
               -> FilePath
-              -> U.RSCoinUserState
+              -> U.UserState
               -> MsgPackRpc ()
 runSingleUser logIntervalMaybe txNum dumpFile st = do
     -- clear file before printing results in it
@@ -105,7 +105,7 @@ runSingleUser logIntervalMaybe txNum dumpFile st = do
 runSingleSuperUser :: Maybe Word
                    -> Word
                    -> FilePath
-                   -> U.RSCoinUserState
+                   -> U.UserState
                    -> MsgPackRpc ()
 runSingleSuperUser logInterval txNum dumpFile bankUserState = do
     let additionalBankAddreses = 0

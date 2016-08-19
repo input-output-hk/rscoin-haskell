@@ -15,8 +15,6 @@ import           Control.Monad              (forM_, when)
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.Trans        (liftIO)
 
-import           Data.Acid                  (createCheckpoint)
-import           Data.Acid.Advanced         (query')
 import           Data.Optional              (Optional, defaultTo, empty)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
@@ -51,22 +49,17 @@ userThreadWithPath
     -> Word
     -> Optional FilePath
     -> IO a
-userThreadWithPath
-    benchDir
-    userAction
-    userId
-    (defaultTo (benchDir </> dbFormatPath walletPathPrefix userId) -> walletPath)
-  =
+userThreadWithPath benchDir userAction userId (defaultTo
+                                                   (benchDir </>
+                                                    dbFormatPath
+                                                        walletPathPrefix
+                                                        userId) -> walletPath) =
     runRealModeUntrusted userLoggerName CADefault $
-    bracket
-        (liftIO $ U.openState walletPath)
-        (\userState -> liftIO $ do
-            createCheckpoint userState
-            U.closeState userState)
-        (userAction userId)
+    bracket (U.openState walletPath) U.closeState (userAction userId)
 
 queryMyAddress :: U.UserState -> Address -> MsgPackRpc Address
-queryMyAddress userState = fmap head . query' userState . U.GetOwnedDefaultAddresses
+queryMyAddress userState =
+    fmap head . U.query userState . U.GetOwnedDefaultAddresses
 
 -- | Create user with 1 address and return it.
 initializeUser :: Word -> U.UserState -> MsgPackRpc Address

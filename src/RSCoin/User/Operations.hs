@@ -191,11 +191,11 @@ getAmountByIndex st idx = do
         (getAmount st)
         addr
 
--- | Returns list of public addresses available
+-- | Returns list of public addresses (of all strategies) available
 getAllPublicAddresses :: WorkMode m => A.RSCoinUserState -> m [C.Address]
 getAllPublicAddresses st = do
     genAddr <- (^. C.genesisAddress) <$> getNodeContext
-    query' st $ A.GetOwnedDefaultAddresses genAddr
+    query' st $ A.GetOwnedAddresses genAddr
 
 genesisAddressIndex :: WorkMode m => A.RSCoinUserState -> m (Maybe Word)
 genesisAddressIndex st = do

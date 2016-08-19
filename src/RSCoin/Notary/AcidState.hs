@@ -80,7 +80,7 @@ openMemState trustedKeys = openMemoryExtendedState st
 closeState :: MonadIO m => NotaryState -> m ()
 closeState = closeExtendedState
 
-tidyState :: NotaryState -> IO ()
+tidyState :: MonadIO m => NotaryState -> m ()
 tidyState = tidyExtendedState
 
 $(makeAcidic ''Storage

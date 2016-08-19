@@ -7,7 +7,6 @@ module RSCoin.Mintette.Launcher
        ) where
 
 import           Control.Monad.Catch       (bracket)
-import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Data.Time.Units           (TimeUnit)
 
 import           RSCoin.Core               (SecretKey, mintetteLoggerName)
@@ -25,8 +24,7 @@ mintetteWrapperReal :: Maybe FilePath
                     -> IO a
 mintetteWrapperReal dbPath ca action = do
     let openAction = maybe openMemState openState dbPath
-    runRealModeUntrusted mintetteLoggerName ca .
-        bracket (liftIO openAction) (liftIO . closeState) $
+    runRealModeUntrusted mintetteLoggerName ca . bracket openAction closeState $
         action
 
 launchMintetteReal

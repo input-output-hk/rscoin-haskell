@@ -102,7 +102,7 @@ processCommandNoOpts st (O.ConfirmAllocation i mHot masterPk sig) =
     processConfirmAllocation st i mHot masterPk sig
 processCommandNoOpts st O.ListAllocations =
     processListAllocation st
-processCommandNoOpts st (O.ImportAddress skPathMaybe pkPath heightFrom) = do
+processCommandNoOpts st (O.ImportAddress skPathMaybe pkPath heightFrom) =
     processImportAddress st skPathMaybe pkPath heightFrom
 processCommandNoOpts st (O.ExportAddress addrId filepath) =
     processExportAddress st addrId filepath
@@ -362,20 +362,11 @@ processExportAddress
     -> Int
     -> FilePath
     -> m ()
-processExportAddress st addrId filepath = do
-    genAddr <- (^. C.genesisAddress) <$> getNodeContext
-    allAddresses <- query' st $ U.GetOwnedDefaultAddresses genAddr
-    let addrN = length allAddresses
-    when (addrId `notElem` [1 .. addrN]) $
-        U.commitError $
-        sformat
-            ("You have " % int % " addresses, but address #" % int %
-             " was requested that's out of range [1.." %
-             int)
-            addrN
-            addrId
-            addrN
-    let addr = allAddresses !! (addrId - 1)
+processExportAddress st ix0 filepath = do
+    let ix = ix0 - 1
+    checkAddressId st ix
+    allAddresses <- getAllPublicAddresses st
+    let addr = allAddresses !! ix
     strategy <- fromJust <$> query' st (U.GetAddressStrategy addr)
     case strategy of
         C.DefaultStrategy -> do
@@ -407,10 +398,7 @@ processExportAddress st addrId filepath = do
 
 processDeleteAddress
     :: (MonadIO m, WorkMode m)
-    => U.RSCoinUserState
-    -> Int
-    -> Bool
-    -> m ()
+    => U.RSCoinUserState -> Int -> Bool -> m ()
 processDeleteAddress st ix0 force =
     eWrap $
     do C.logInfo $ sformat ("Deleting address #" % int) ix0

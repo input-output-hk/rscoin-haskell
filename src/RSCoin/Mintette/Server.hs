@@ -13,9 +13,10 @@ module RSCoin.Mintette.Server
        , handleGetLogs
        ) where
 
-import           Control.Exception         (throwIO, try)
+import           Control.Exception         (try)
 import           Control.Monad.Catch       (catch)
 import           Control.Monad.IO.Class    (liftIO)
+import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
 
 import           Serokell.Util.Text        (listBuilderJSONIndent, pairBuilder,
@@ -65,16 +66,18 @@ serve port st sk = do
             idr8 $ handleGetLogs st
         ]
 
-toServer :: WorkMode m => IO a -> ServerT m a
-toServer action = liftIO $ action `catch` handler
+type ServerTE m a = ServerT m (Either T.Text a)
+
+toServer :: WorkMode m => IO a -> ServerTE m a
+toServer action = liftIO $ (Right <$> action) `catch` handler
   where
     handler (e :: MintetteError) = do
         C.logError $ show' e
-        throwIO e
+        return $ Left $ show' e
 
 handlePeriodFinished
     :: WorkMode m
-    => C.SecretKey -> State -> C.PeriodId -> ServerT m C.PeriodResult
+    => C.SecretKey -> State -> C.PeriodId -> ServerTE m C.PeriodResult
 handlePeriodFinished sk st pId =
     toServer $
     do (curUtxo,curPset) <- query st GetUtxoPset
@@ -99,10 +102,9 @@ handlePeriodFinished sk st pId =
        tidyState st
        return res
 
-handleNewPeriod :: WorkMode m
-                => State
-                -> C.NewPeriodData
-                -> ServerT m ()
+handleNewPeriod
+    :: WorkMode m
+    => State -> C.NewPeriodData -> ServerTE m ()
 handleNewPeriod st npd =
     toServer $
     do prevMid <- query st PreviousMintetteId
@@ -126,7 +128,7 @@ handleCheckTx
     -> C.Transaction
     -> C.AddrId
     -> [(C.Address, C.Signature)]
-    -> ServerT m (Either MintetteError C.CheckConfirmation)
+    -> ServerTE m C.CheckConfirmation
 handleCheckTx sk st tx addrId sg =
     toServer $
     do C.logDebug $
@@ -137,17 +139,12 @@ handleCheckTx sk st tx addrId sg =
            sformat
                ("My current utxo is: " % build % "\nCurrent pset is: " % build)
                curUtxo curPset
-       res <- try $ update st $ CheckNotDoubleSpent sk tx addrId sg
-       either onError onSuccess res
-  where
-    onError e =
-        Left e <$ C.logFunction e (sformat ("CheckTx failed: " % build) e)
-    onSuccess res = do
-        C.logInfo $
+       res <- update st $ CheckNotDoubleSpent sk tx addrId sg
+       C.logInfo $
             sformat ("Confirmed addrid (" % build % ") from transaction: " % build)
                 addrId tx
-        C.logInfo $ sformat ("Confirmation: " % build) res
-        return $ Right res
+       C.logInfo $ sformat ("Confirmation: " % build) res
+       return res
 
 handleCommitTx
     :: WorkMode m
@@ -155,22 +152,19 @@ handleCommitTx
     -> State
     -> C.Transaction
     -> C.CheckConfirmations
-    -> ServerT m (Either MintetteError C.CommitAcknowledgment)
+    -> ServerTE m C.CommitAcknowledgment
 handleCommitTx sk st tx cc =
     toServer $
     do C.logDebug $
            sformat ("There is an attempt to commit transaction (" % build % ").") tx
        C.logDebug $ sformat ("Here are confirmations: " % build) cc
-       res <- try $ update st $ CommitTx sk tx cc
-       either onError onSuccess res
-  where
-    onError e =
-        Left e <$ C.logFunction e (sformat ("CommitTx failed: " % build) e)
-    onSuccess res = do
-        C.logInfo $ sformat ("Successfully committed transaction " % build) tx
-        return $ Right res
+       res <- update st $ CommitTx sk tx cc
+       C.logInfo $ sformat ("Successfully committed transaction " % build) tx
+       return res
 
-handleGetMintettePeriod :: WorkMode m => State -> ServerT m (Maybe C.PeriodId)
+handleGetMintettePeriod
+    :: WorkMode m
+    => State -> ServerTE m (Maybe C.PeriodId)
 handleGetMintettePeriod st =
     toServer $
     do C.logDebug "Querying periodId"
@@ -187,16 +181,17 @@ handleGetMintettePeriod st =
 
 -- Dumping Mintette state
 
-handleGetUtxo :: WorkMode m => State -> ServerT m C.Utxo
+handleGetUtxo :: WorkMode m => State -> ServerTE m C.Utxo
 handleGetUtxo st =
     toServer $
     do C.logDebug "Getting utxo"
-       (curUtxo, _) <- query st GetUtxoPset
+       (curUtxo,_) <- query st GetUtxoPset
        C.logDebug $ sformat ("Corrent utxo is: " % build) curUtxo
        return curUtxo
 
-handleGetBlocks :: WorkMode m
-                => State -> C.PeriodId -> ServerT m (Maybe [C.LBlock])
+handleGetBlocks
+    :: WorkMode m
+    => State -> C.PeriodId -> ServerTE m (Maybe [C.LBlock])
 handleGetBlocks st pId =
     toServer $
     do res <- query st $ GetBlocks pId
@@ -205,8 +200,9 @@ handleGetBlocks st pId =
                 pId (listBuilderJSONIndent 2 <$> res)
        return res
 
-handleGetLogs :: WorkMode m
-              => State -> C.PeriodId -> ServerT m (Maybe C.ActionLog)
+handleGetLogs
+    :: WorkMode m
+    => State -> C.PeriodId -> ServerTE m (Maybe C.ActionLog)
 handleGetLogs st pId =
     toServer $
     do res <- query st $ GetLogs pId

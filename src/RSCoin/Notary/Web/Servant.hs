@@ -8,27 +8,27 @@ module RSCoin.Notary.Web.Servant
         ( servantApp
         ) where
 
-import           Control.Monad.Catch     (catch)
-import           Control.Monad.Except    (throwError)
-import           Control.Monad.Reader    (ReaderT, ask, runReaderT)
-import           Control.Monad.Trans     (liftIO)
+import           Control.Monad            (void)
+import           Control.Monad.Catch      (catch)
+import           Control.Monad.Except     (throwError)
+import           Control.Monad.Reader     (ReaderT, ask, runReaderT)
+import           Control.Monad.Trans      (liftIO)
+import           Data.Tuple.Curry         (Curry, uncurryN)
+import           Formatting               (build, sformat)
+import           Network.Wai              (Application)
+import           Servant                  ((:<|>) (..), (:>), (:~>) (Nat), Get,
+                                           Handler, Header, Headers, JSON, Post,
+                                           Proxy (Proxy), ReqBody, ServerT,
+                                           StdMethod (OPTIONS), Verb, addHeader,
+                                           enter, err500, serve)
 
-import           Data.Tuple.Curry        (Curry, uncurryN)
+import           Serokell.Util.Exceptions (throwText)
 
-import           Formatting              (build, sformat)
+import qualified RSCoin.Core              as C
+import           RSCoin.Notary.AcidState  as S
+import           RSCoin.Notary.Error      (NotaryError)
+import qualified RSCoin.Notary.Server     as S
 
-import           Network.Wai             (Application)
-
-import qualified RSCoin.Core             as C
-import           RSCoin.Notary.AcidState as S
-import           RSCoin.Notary.Error     (NotaryError)
-import qualified RSCoin.Notary.Server    as S
-
-import           Servant                 ((:<|>) (..), (:>), (:~>) (Nat), Get,
-                                          Handler, Header, Headers, JSON, Post,
-                                          Proxy (Proxy), ReqBody, ServerT,
-                                          StdMethod (OPTIONS), Verb, addHeader,
-                                          enter, err500, serve)
 
 type AllocateMSInput =
     ( C.Address
@@ -64,10 +64,12 @@ type MyHandler = ReaderT S.NotaryState IO
 servantServer :: ServerT NotaryApi MyHandler
 servantServer =
     return preHeaders
-    :<|> (\arg -> do method S.handleAllocateMultisig arg
+    :<|> (\arg -> do void $ method S.handleAllocateMultisig arg
                      return $ addHeader "*" ())
-    :<|> method0 S.handleGetPeriodId
+    :<|> (method0 (\st -> fromRightWithFail =<< S.handleGetPeriodId st))
   where
+    fromRightWithFail (Left t)  = throwText t
+    fromRightWithFail (Right a) = return a
     preHeaders = addHeader "*" $
                  addHeader "POST, GET, OPTIONS" $
                  addHeader "X-PINGOTHER, Content-Type" ()

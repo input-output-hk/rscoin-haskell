@@ -48,14 +48,14 @@ import           Data.Monoid                ((<>))
 import           Data.Text                  (Text, pack)
 import qualified Data.Text.Buildable        as B (Buildable (build))
 import           Data.Typeable              (Typeable)
-import           Formatting                 (build, int, sformat, shown, (%))
+import           Formatting                 (build, int, sformat, shown, stext,
+                                             (%))
 import qualified Network.MessagePack.Client as MP (RpcError (..))
 import           Safe                       (atMay)
 
 import           Serokell.Util.Text         (listBuilderJSONIndent, mapBuilder,
                                              pairBuilder, show')
 
-import           RSCoin.Bank.Error          (BankError)
 import           RSCoin.Core.Crypto         (PublicKey, Signature)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
@@ -75,7 +75,6 @@ import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              Mintette, MintetteId, Mintettes,
                                              NewPeriodData, PeriodId,
                                              PeriodResult, Utxo)
-import           RSCoin.Mintette.Error      (MintetteError)
 import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
                                              WorkMode)
 
@@ -116,14 +115,22 @@ monadTimedHandler = log' . fromError
 handleErrors :: (WorkMode m, MessagePack a) => m a -> m a
 handleErrors action = action `catch` rpcErrorHandler `catch` monadTimedHandler
 
-callBank :: (WorkMode m, MessagePack a) => P.Client a -> m a
-callBank = handleErrors . P.callBankSafe
+handleEither :: (WorkMode m, MessagePack a) => m (Either Text a) -> m a
+handleEither action = do
+    res <- action
+    either
+        (throwM . MethodError . sformat ("Error on caller side has ocurred: " % stext))
+        return
+        res
+
+callBank :: (WorkMode m, MessagePack a) => P.Client (Either Text a) -> m a
+callBank = handleEither . handleErrors . P.callBankSafe
 
 callMintette :: (WorkMode m, MessagePack a) => Mintette -> P.Client a -> m a
 callMintette m = handleErrors . P.callMintetteSafe m
 
-callNotary :: (WorkMode m, MessagePack a) => P.Client a -> m a
-callNotary = handleErrors . P.callNotary
+callNotary :: (WorkMode m, MessagePack a) => P.Client (Either Text a) -> m a
+callNotary = handleEither . handleErrors . P.callNotary
 
 withResult :: WorkMode m => IO () -> (a -> IO ()) -> m a -> m a
 withResult before after action = do
@@ -197,7 +204,7 @@ finishPeriod currentPeriodSignature =
         (const $ L.logDebug "Successfully finished period") $
     callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
 
-sendBankLocalControlRequest :: WorkMode m => P.BankLocalControlRequest -> m (Maybe BankError)
+sendBankLocalControlRequest :: WorkMode m => P.BankLocalControlRequest -> m ()
 sendBankLocalControlRequest request =
     withResult
         (L.logInfo $ sformat ("Sending control request to bank: " % build) request)
@@ -210,7 +217,7 @@ checkNotDoubleSpent
     -> Transaction
     -> AddrId
     -> [(Address, Signature)]
-    -> m (Either MintetteError CheckConfirmation)
+    -> m (Either Text CheckConfirmation)
 checkNotDoubleSpent m tx a s =
     withResult infoMessage (either onError onSuccess) $
     callMintette m $ P.call (P.RSCMintette P.CheckTx) tx a s
@@ -218,7 +225,7 @@ checkNotDoubleSpent m tx a s =
     infoMessage =
         L.logDebug $ sformat ("Checking addrid (" % build % ") from transaction: " % build) a tx
     onError e =
-        L.logFunction e $ sformat ("Checking double spending failed: " % build) e
+        L.logError $ sformat ("Checking double spending failed: " % stext) e
     onSuccess res = do
         L.logDebug $
             sformat ("Confirmed addrid (" % build % ") from transaction: " % build) a tx
@@ -229,20 +236,20 @@ commitTx
     => Mintette
     -> Transaction
     -> CheckConfirmations
-    -> m (Either MintetteError CommitAcknowledgment)
+    -> m (Either Text CommitAcknowledgment)
 commitTx m tx cc =
     withResult infoMessage (either onError onSuccess) $
     callMintette m $ P.call (P.RSCMintette P.CommitTx) tx cc
   where
     infoMessage = L.logInfo $ sformat ("Commit transaction " % build) tx
-    onError e = L.logFunction e $ sformat ("Commit tx failed: " % build) e
+    onError e = L.logError $ sformat ("Commit tx failed: " % stext) e
     onSuccess _ =
         L.logInfo $ sformat ("Successfully committed transaction " % build) tx
 
 getMintettePeriod :: WorkMode m => Mintette -> m (Maybe PeriodId)
 getMintettePeriod m =
     withResult infoMessage (maybe onError onSuccess) $
-    callMintette m $ P.call (P.RSCMintette P.GetMintettePeriod)
+    handleEither $ callMintette m $ P.call (P.RSCMintette P.GetMintettePeriod)
   where
     infoMessage = L.logInfo $
         sformat ("Getting minette period from mintette " % build) m
@@ -254,7 +261,9 @@ getMintettePeriod m =
 sendPeriodFinished :: WorkMode m => Mintette -> PeriodId -> m PeriodResult
 sendPeriodFinished mintette pId =
     withResult infoMessage successMessage $
+    handleEither $
     callMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
+
   where
     infoMessage =
         L.logInfo $
@@ -338,11 +347,13 @@ announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do
     L.logInfo $
         sformat
-            ("Announce new period to mintette " % build %
-             ", new period data " % build)
+            ("Announce new period to mintette " % build % ", new period data " %
+             build)
             mintette
             npd
-    callMintette mintette $ P.call (P.RSCMintette P.AnnounceNewPeriod) npd
+    handleEither $
+        callMintette mintette $ P.call (P.RSCMintette P.AnnounceNewPeriod) npd
+
 
 announceNewBlock
     :: WorkMode m
@@ -422,7 +433,8 @@ getMintetteUtxo mId = do
         withResult
             (L.logDebug "Getting utxo")
             (L.logDebug . sformat ("Corrent utxo is: " % build))
-            (callMintette mintette $ P.call (P.RSCDump P.GetMintetteUtxo))
+            (handleEither $
+             callMintette mintette $ P.call (P.RSCDump P.GetMintetteUtxo))
 
 getMintetteBlocks :: WorkMode m => MintetteId -> PeriodId -> m (Maybe [LBlock])
 getMintetteBlocks mId pId = do
@@ -436,8 +448,9 @@ getMintetteBlocks mId pId = do
     onJust mintette =
         withResult
             infoMessage
-            (maybe onError onSuccess)
-            $ callMintette mintette $ P.call (P.RSCDump P.GetMintetteBlocks) pId
+            (maybe onError onSuccess) $
+            handleEither $
+            callMintette mintette $ P.call (P.RSCDump P.GetMintetteBlocks) pId
       where
         infoMessage =
             L.logDebug $
@@ -466,6 +479,7 @@ getMintetteLogs mId pId = do
         throwM $ MethodError e
     onJust mintette =
         withResult infoMessage (maybe onError onSuccess) $
+        handleEither $
         callMintette mintette $ P.call (P.RSCDump P.GetMintetteLogs) pId
       where
         infoMessage =

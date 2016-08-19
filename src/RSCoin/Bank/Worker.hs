@@ -14,18 +14,17 @@ import           Control.Applicative      (liftA2)
 import           Control.Lens             ((^.))
 import           Control.Monad            (forM_, when)
 import           Control.Monad.Catch      (SomeException, bracket_, catch)
-import           Control.Monad.Extra      (unlessM)
+import           Control.Monad.Extra      (unlessM, whenJust)
 import           Control.Monad.Trans      (MonadIO (liftIO))
-import           Data.Acid                (createCheckpoint)
 import           Data.Acid.Advanced       (query', update')
 import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
                                            newIORef, readIORef)
 import           Data.List                (sortOn)
-import           Data.Maybe               (fromJust, fromMaybe, isJust)
+import           Data.Maybe               (fromMaybe)
 import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
 
-import           Serokell.Util.AcidState  (createAndDiscardArchive)
+import           Serokell.Util.AcidState  (tidyLocalState)
 import           Serokell.Util.Bench      (measureTime_)
 import           Serokell.Util.Exceptions ()
 
@@ -90,10 +89,7 @@ onPeriodFinished sk st storagePath = do
         liftA2 (,) (^. C.bankPublicKey) (^. C.genesisAddress) <$>
         getNodeContext
     newPeriodData <- update' st $ StartNewPeriod bankPk genAdr sk periodResults
-    pid <- query' st GetPeriodId
-    liftIO $ createCheckpoint st
-    when (isJust storagePath && pid `mod` 5 == 0) $
-        createAndDiscardArchive st $ fromJust storagePath
+    whenJust storagePath $ tidyLocalState st
     newMintettes <- query' st GetMintettes
     if null newMintettes
         then C.logWarning "New mintettes list is empty!"

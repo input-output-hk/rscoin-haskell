@@ -6,9 +6,12 @@
 -- (and it's done in testing framework)
 
 module RSCoin.Mintette.Acidic
-       ( openState
-       , openMemState
+       ( State (..)
        , closeState
+       , openState
+       , openMemState
+       , tidyState
+
        , GetUtxoPset (..)
        , PreviousMintetteId (..)
        , CheckNotDoubleSpent (..)
@@ -25,18 +28,24 @@ import           Data.Acid                 (closeAcidState, makeAcidic,
                                             openLocalStateFrom)
 import           Data.Acid.Memory          (openMemoryState)
 
-import           RSCoin.Mintette.AcidState (State)
+import           Serokell.Util.AcidState   (tidyLocalState)
+
+import           RSCoin.Mintette.AcidState (State (..), toAcidState)
 import qualified RSCoin.Mintette.AcidState as S
 import qualified RSCoin.Mintette.Storage   as MS
 
 openState :: FilePath -> IO State
-openState fp = openLocalStateFrom fp MS.mkStorage
+openState fp = flip LocalState fp <$> openLocalStateFrom fp MS.mkStorage
 
 openMemState :: IO State
-openMemState = openMemoryState MS.mkStorage
+openMemState = MemoryState <$> openMemoryState MS.mkStorage
 
 closeState :: State -> IO ()
-closeState = closeAcidState
+closeState = closeAcidState . toAcidState
+
+tidyState :: State -> IO ()
+tidyState (LocalState st fp) = tidyLocalState st fp
+tidyState (MemoryState _)    = return ()
 
 $(makeAcidic ''MS.Storage
              [ 'S.getUtxoPset

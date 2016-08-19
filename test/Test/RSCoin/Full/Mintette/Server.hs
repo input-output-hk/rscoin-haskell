@@ -9,14 +9,13 @@ module Test.RSCoin.Full.Mintette.Server
 import           Control.Exception                (throwIO, try)
 import           Control.Monad.Catch              (catch)
 import           Control.Monad.IO.Class           (liftIO)
-import           Data.Acid.Advanced               (query', update')
 import           Formatting                       (build, sformat, (%))
 
 import           Serokell.Util.Text               (show')
 
 import qualified RSCoin.Core                      as C
 import           RSCoin.Mintette.Acidic           (GetUtxoPset (..))
-import           RSCoin.Mintette.AcidState        (State)
+import           RSCoin.Mintette.AcidState        (State, query, update)
 import           RSCoin.Mintette.Error            (MintetteError)
 import qualified RSCoin.Mintette.Server           as OMS
 import           RSCoin.Timed                     (ServerT, WorkMode,
@@ -77,12 +76,12 @@ handleCheckTx sk st conf tx addrId sg =
     toServer $
     do C.logDebug $
            sformat ("Checking addrid (" % build % ") from transaction: " % build) addrId tx
-       (curUtxo,curPset) <- query' st GetUtxoPset
+       (curUtxo,curPset) <- query st GetUtxoPset
        C.logDebug $
            sformat
                ("My current utxo is: " % build % "\nCurrent pset is: " % build)
                curUtxo curPset
-       res <- try $ update' st $ MA.CheckNotDoubleSpent conf sk tx addrId sg
+       res <- try $ update st $ MA.CheckNotDoubleSpent conf sk tx addrId sg
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do
@@ -108,7 +107,7 @@ handleCommitTx sk st conf tx cc =
     do C.logDebug $
            sformat ("There is an attempt to commit transaction (" % build % ")") tx
        C.logDebug $ sformat ("Here are confirmations: " % build) cc
-       res <- try $ update' st $ MA.CommitTx conf sk tx cc
+       res <- try $ update st $ MA.CommitTx conf sk tx cc
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do

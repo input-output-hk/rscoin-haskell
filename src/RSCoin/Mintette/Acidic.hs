@@ -6,7 +6,7 @@
 -- (and it's done in testing framework)
 
 module RSCoin.Mintette.Acidic
-       ( State (..)
+       ( State
        , closeState
        , openState
        , openMemState
@@ -24,28 +24,29 @@ module RSCoin.Mintette.Acidic
        , GetPeriodId (..)
        ) where
 
-import           Data.Acid                 (closeAcidState, makeAcidic,
-                                            openLocalStateFrom)
-import           Data.Acid.Memory          (openMemoryState)
+import           Control.Monad.Trans       (MonadIO)
+import           Data.Acid                 (makeAcidic)
 
-import           Serokell.Util.AcidState   (tidyLocalState)
+import           Serokell.Util.AcidState   (closeExtendedState,
+                                            openLocalExtendedState,
+                                            openMemoryExtendedState,
+                                            tidyExtendedState)
 
-import           RSCoin.Mintette.AcidState (State (..), toAcidState)
+import           RSCoin.Mintette.AcidState (State)
 import qualified RSCoin.Mintette.AcidState as S
 import qualified RSCoin.Mintette.Storage   as MS
 
-openState :: FilePath -> IO State
-openState fp = flip LocalState fp <$> openLocalStateFrom fp MS.mkStorage
+openState :: MonadIO m => FilePath -> m State
+openState fp = openLocalExtendedState fp MS.mkStorage
 
-openMemState :: IO State
-openMemState = MemoryState <$> openMemoryState MS.mkStorage
+openMemState :: MonadIO m => m State
+openMemState = openMemoryExtendedState MS.mkStorage
 
-closeState :: State -> IO ()
-closeState = closeAcidState . toAcidState
+closeState :: MonadIO m => State -> m ()
+closeState = closeExtendedState
 
-tidyState :: State -> IO ()
-tidyState (LocalState st fp) = tidyLocalState st fp
-tidyState (MemoryState _)    = return ()
+tidyState :: MonadIO m => State -> m ()
+tidyState = tidyExtendedState
 
 $(makeAcidic ''MS.Storage
              [ 'S.getUtxoPset

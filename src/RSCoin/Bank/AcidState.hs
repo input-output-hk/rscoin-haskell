@@ -31,9 +31,7 @@ module RSCoin.Bank.AcidState
        , StartNewPeriod (..)
        ) where
 
-import           Control.Exception   (throw)
 import           Control.Lens        (view)
-import           Control.Monad.Catch (MonadThrow (throwM))
 import           Data.Acid           (AcidState, Query, Update, closeAcidState,
                                       makeAcidic, openLocalStateFrom)
 import           Data.Acid.Memory    (openMemoryState)
@@ -59,9 +57,6 @@ openMemState = openMemoryState BS.mkStorage
 
 closeState :: State -> IO ()
 closeState = closeAcidState
-
-instance MonadThrow (Update s) where
-    throwM = throw
 
 getEmission :: PeriodId -> Query BS.Storage (Maybe TransactionId)
 getEmission = view . BS.getEmission

@@ -20,39 +20,47 @@ module RSCoin.Notary.Storage
         , removeCompleteMSAddresses
         ) where
 
-import           Control.Exception    (throw)
-import           Control.Lens         (Lens', at, makeLenses, to, use, uses,
-                                       view, (%=), (%~), (&), (.=), (?=), (^.))
-import           Control.Monad        (forM_, unless, when, (<=<))
-import           Control.Monad.Catch  (MonadThrow (throwM))
-import           Control.Monad.Extra  (whenM)
+import           Control.Lens                      (Lens', at, makeLenses, to,
+                                                    use, uses, view, (%=), (%~),
+                                                    (&), (.=), (?=), (^.))
+import           Control.Monad                     (forM_, unless, when, (<=<))
+import           Control.Monad.Catch               (MonadThrow (throwM))
+import           Control.Monad.Extra               (whenM)
 
-import           Data.Acid            (Query, Update, liftQuery)
-import qualified Data.Foldable        as F
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.HashSet         as HS
-import           Data.Map.Strict      (Map)
-import qualified Data.Map.Strict      as M hiding (Map)
-import           Data.Maybe           (fromJust, fromMaybe, isJust)
-import           Data.Set             (Set)
-import qualified Data.Set             as S hiding (Set)
+import           Data.Acid                         (Query, Update, liftQuery)
+import qualified Data.Foldable                     as F
+import qualified Data.HashMap.Strict               as HM
+import qualified Data.HashSet                      as HS
+import           Data.Map.Strict                   (Map)
+import qualified Data.Map.Strict                   as M hiding (Map)
+import           Data.Maybe                        (fromJust, fromMaybe, isJust)
+import           Data.Set                          (Set)
+import qualified Data.Set                          as S hiding (Set)
 
-import           Formatting           (build, sformat, (%))
+import           Formatting                        (build, sformat, (%))
 
-import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
-                                       PeriodId, PublicKey, Signature,
-                                       Transaction (..), Utxo,
-                                       computeOutputAddrids,
-                                       notaryMSAttemptsLimit, validateSignature,
-                                       verify)
-import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
-                                       AllocationAddress, AllocationInfo (..),
-                                       AllocationStrategy (..), MSAddress,
-                                       PartyAddress (..), TxStrategy (..),
-                                       allParties, allocateTxFromAlloc,
-                                       allocationStrategy, currentConfirmations,
-                                       isStrategyCompleted, partyToAllocation)
-import           RSCoin.Notary.Error  (NotaryError (..))
+import           Serokell.Util.AcidState.Instances ()
+
+import           RSCoin.Core                       (AddrId, Address (..),
+                                                    HBlock (..), PeriodId,
+                                                    PublicKey, Signature,
+                                                    Transaction (..), Utxo,
+                                                    computeOutputAddrids,
+                                                    notaryMSAttemptsLimit,
+                                                    validateSignature, verify)
+import           RSCoin.Core.Strategy              (AddressToTxStrategyMap,
+                                                    AllocationAddress,
+                                                    AllocationInfo (..),
+                                                    AllocationStrategy (..),
+                                                    MSAddress,
+                                                    PartyAddress (..),
+                                                    TxStrategy (..), allParties,
+                                                    allocateTxFromAlloc,
+                                                    allocationStrategy,
+                                                    currentConfirmations,
+                                                    isStrategyCompleted,
+                                                    partyToAllocation)
+import           RSCoin.Notary.Error               (NotaryError (..))
 
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
@@ -114,9 +122,6 @@ ifNotEmpty s | F.null s  = Nothing
 
 getStrategy :: Address -> Update Storage TxStrategy
 getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> use addresses
-
-instance MonadThrow (Update s) where
-    throwM = throw
 
 -- | Throws NEBlocked if user reaches limit of attempts (DDOS protection).
 guardMaxAttemps :: Address -> Update Storage ()

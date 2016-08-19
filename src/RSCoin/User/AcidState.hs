@@ -68,9 +68,6 @@ type RSCoinUserState = A.AcidState WalletStorage
 instance MonadThrow (A.Query WalletStorage) where
     throwM = throw
 
-instance MonadThrow (A.Update WalletStorage) where
-    throwM = throw
-
 -- | Opens ACID state. If not there, it returns unitialized
 -- unoperatable storage.
 openState :: FilePath -> IO RSCoinUserState

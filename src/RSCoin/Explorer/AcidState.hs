@@ -6,9 +6,13 @@
 
 module RSCoin.Explorer.AcidState
        ( State
+       , closeState
        , openState
        , openMemState
-       , closeState
+       , query
+       , tidyState
+       , update
+
        , GetAddressBalance (..)
        , GetAddressTxNumber (..)
        , GetAddressTransactions (..)
@@ -20,26 +24,47 @@ module RSCoin.Explorer.AcidState
 
 import           Control.Exception                 (throw)
 import           Control.Monad.Catch               (MonadThrow (throwM))
-import           Data.Acid                         (AcidState, Query, Update,
-                                                    closeAcidState, makeAcidic,
-                                                    openLocalStateFrom)
-import           Data.Acid.Memory                  (openMemoryState)
+import           Control.Monad.Trans               (MonadIO)
+import           Data.Acid                         (EventResult, EventState,
+                                                    Query, QueryEvent, Update,
+                                                    UpdateEvent, makeAcidic)
+
+import           Serokell.Util.AcidState           (ExtendedState,
+                                                    closeExtendedState,
+                                                    openLocalExtendedState,
+                                                    openMemoryExtendedState,
+                                                    queryExtended,
+                                                    tidyExtendedState,
+                                                    updateExtended)
 
 import qualified RSCoin.Core                       as C
 
 import qualified RSCoin.Explorer.Storage           as ES
 import           RSCoin.Explorer.Web.Sockets.Types (TransactionSummary (..))
 
-type State = AcidState ES.Storage
+type State = ExtendedState ES.Storage
 
-openState :: FilePath -> IO State
-openState fp = openLocalStateFrom fp ES.mkStorage
+query
+    :: (EventState event ~ ES.Storage, QueryEvent event, MonadIO m)
+    => State -> event -> m (EventResult event)
+query = queryExtended
 
-openMemState :: IO State
-openMemState = openMemoryState ES.mkStorage
+update
+    :: (EventState event ~ ES.Storage, UpdateEvent event, MonadIO m)
+    => State -> event -> m (EventResult event)
+update = updateExtended
 
-closeState :: State -> IO ()
-closeState = closeAcidState
+openState :: MonadIO m => FilePath -> m State
+openState fp = openLocalExtendedState fp ES.mkStorage
+
+openMemState :: MonadIO m => m State
+openMemState = openMemoryExtendedState ES.mkStorage
+
+closeState :: MonadIO m => State -> m ()
+closeState = closeExtendedState
+
+tidyState :: MonadIO m => State -> m ()
+tidyState = tidyExtendedState
 
 instance MonadThrow (Update s) where
     throwM = throw

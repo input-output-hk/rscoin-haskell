@@ -59,7 +59,7 @@ type NotaryApi =
 notaryApi :: Proxy NotaryApi
 notaryApi = Proxy
 
-type MyHandler = ReaderT S.RSCoinNotaryState IO
+type MyHandler = ReaderT S.NotaryState IO
 
 servantServer :: ServerT NotaryApi MyHandler
 servantServer =
@@ -72,11 +72,11 @@ servantServer =
                  addHeader "POST, GET, OPTIONS" $
                  addHeader "X-PINGOTHER, Content-Type" ()
     method :: (Curry (t -> IO b) b1) =>
-              (S.RSCoinNotaryState -> b1) -> t -> MyHandler b
+              (S.NotaryState -> b1) -> t -> MyHandler b
     method act arg = ask >>= \st -> liftIO (uncurryN (act st) arg)
     method0 act = ask >>= \st -> liftIO (act st)
 
-convertHandler :: forall a . S.RSCoinNotaryState -> MyHandler a -> Handler a
+convertHandler :: forall a . S.NotaryState -> MyHandler a -> Handler a
 convertHandler st act = liftIO (runReaderT act st) `catch` handler
   where
     handler (e :: NotaryError) = do
@@ -84,7 +84,7 @@ convertHandler st act = liftIO (runReaderT act st) `catch` handler
         -- @TODO improve errors (they should actually mean smth)
         throwError err500
 
-servantApp :: S.RSCoinNotaryState -> Application
+servantApp :: S.NotaryState -> Application
 servantApp st = serve notaryApi $ enter nat servantServer
   where
     nat :: MyHandler :~> Handler

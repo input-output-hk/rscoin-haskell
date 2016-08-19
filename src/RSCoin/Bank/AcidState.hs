@@ -39,10 +39,9 @@ import           Data.Acid.Memory    (openMemoryState)
 import           RSCoin.Core         (ActionLog, Address,
                                       AddressToTxStrategyMap, Explorer,
                                       Explorers, HBlock, Mintette, MintetteId,
-                                      Mintettes, NewPeriodData,
-                                      PeriodId, PeriodResult, PublicKey,
-                                      SecretKey, Transaction, TransactionId,
-                                      TxStrategy)
+                                      Mintettes, NewPeriodData, PeriodId,
+                                      PeriodResult, PublicKey, SecretKey,
+                                      Transaction, TransactionId, TxStrategy)
 
 
 import qualified RSCoin.Bank.Storage as BS
@@ -83,7 +82,7 @@ getHBlock :: PeriodId -> Query BS.Storage (Maybe HBlock)
 getHBlock = view . BS.getHBlock
 
 getTransaction :: TransactionId -> Query BS.Storage (Maybe Transaction)
-getTransaction = view . BS.getTransaction
+getTransaction = BS.getTransaction
 
 getHBlocks :: PeriodId -> PeriodId -> Query BS.Storage [HBlock]
 getHBlocks from to = view $ BS.getHBlocks from to

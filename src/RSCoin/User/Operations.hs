@@ -26,7 +26,6 @@ module RSCoin.User.Operations
        , isInitialized
        , updateToBlockHeight
        , updateBlockchain
-       , addUserAddress
        , importAddress
        , deleteUserAddress
        , submitTransactionFromAll
@@ -212,17 +211,6 @@ getLastBlockId st = A.query st A.GetLastBlockId
 
 isInitialized :: MonadIO m => A.UserState -> m Bool
 isInitialized st = A.query st A.IsInitialized
-
--- | Puts given address and it's related transactions (that contain it
--- as output S_{out}) into wallet. Blockchain won't be queried.
-addUserAddress
-    :: MonadIO m
-    => A.UserState
-    -> C.PublicKey
-    -> Maybe C.SecretKey
-    -> m ()
-addUserAddress st pk skMaybe =
-    A.update st $ A.AddAddress (C.Address pk) skMaybe M.empty
 
 -- | Same as addAddress, but queries blockchain automatically and
 -- queries transactions that affect this address

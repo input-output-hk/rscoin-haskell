@@ -15,14 +15,14 @@ module RSCoin.Notary.Server
         ) where
 
 import           Control.Applicative     (liftA2)
-import           Control.Exception       (throwIO)
 import           Control.Lens            ((^.))
 import           Control.Monad.Catch     (catch)
 import           Control.Monad.IO.Class  (MonadIO, liftIO)
+import           Data.Text               (Text)
 
 import           Formatting              (build, int, sformat, shown, (%))
 
-import           Serokell.Util.Text      (pairBuilder)
+import           Serokell.Util.Text      (pairBuilder, show')
 
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
@@ -45,12 +45,14 @@ import           RSCoin.Timed            (MonadRpc (getNodeContext), WorkMode,
                                           serverTypeRestriction3,
                                           serverTypeRestriction5)
 
-toServer :: MonadIO m => IO a -> m a
-toServer action = liftIO $ action `catch` handler
+type ServerTE m a = m (Either Text a)
+
+toServer :: MonadIO m => IO a -> ServerTE m a
+toServer action = liftIO $ (Right <$> action) `catch` handler
   where
     handler (e :: NotaryError) = do
         C.logError $ sformat build e
-        throwIO e
+        return $ Left $ show' e
 
 -- | Run Notary server which will process incoming sing requests.
 serveNotary
@@ -96,8 +98,8 @@ handlePollTxs
     :: MonadIO m
     => NotaryState
     -> [C.Address]
-    -> m [(C.Address, [(C.Transaction, [(C.Address, C.Signature)])])]
-handlePollTxs st addrs = do
+    -> ServerTE m [(C.Address, [(C.Transaction, [(C.Address, C.Signature)])])]
+handlePollTxs st addrs = toServer $ do
     res <- query st $ PollTransactions addrs
     --logDebug $ format' "Receiving polling request by addresses {}: {}" (addrs, res)
     return res
@@ -108,22 +110,26 @@ handlePublishTx
     -> C.Transaction
     -> C.Address
     -> (C.Address, C.Signature)
-    -> m [(C.Address, C.Signature)]
-handlePublishTx st tx addr sg = toServer $ do
-    update st $ AddSignedTransaction tx addr sg
-    res <- update st $ AcquireSignatures tx addr
-    C.logDebug $ sformat ("Getting signatures for tx " % build % ", addr " % build % ": " % build)
-        tx
-        addr
-        res
-    return res
+    -> ServerTE m [(C.Address, C.Signature)]
+handlePublishTx st tx addr sg =
+    toServer $
+    do update st $ AddSignedTransaction tx addr sg
+       res <- update st $ AcquireSignatures tx addr
+       C.logDebug $
+           sformat
+               ("Getting signatures for tx " % build % ", addr " % build % ": " %
+                build)
+               tx
+               addr
+               res
+       return res
 
 handleAnnounceNewPeriods
     :: MonadIO m
     => NotaryState
     -> C.PeriodId
     -> [C.HBlock]
-    -> m ()
+    -> ServerTE m ()
 handleAnnounceNewPeriods st pId hblocks = toServer $ do
     update st $ AnnounceNewPeriods pId hblocks
     tidyState st
@@ -131,7 +137,9 @@ handleAnnounceNewPeriods st pId hblocks = toServer $ do
         hblocks
         pId
 
-handleGetPeriodId :: MonadIO m => NotaryState -> m C.PeriodId
+handleGetPeriodId
+    :: MonadIO m
+    => NotaryState -> ServerTE m C.PeriodId
 handleGetPeriodId st = toServer $ do
     res <- query st GetPeriodId
     C.logDebug $ sformat ("Getting periodId: " % int) res
@@ -142,7 +150,7 @@ handleGetSignatures
     => NotaryState
     -> C.Transaction
     -> C.Address
-    -> m [(C.Address, C.Signature)]
+    -> ServerTE m [(C.Address, C.Signature)]
 handleGetSignatures st tx addr = toServer $ do
     res <- query st $ GetSignatures tx addr
     C.logDebug $ sformat ("Getting signatures for tx " % build % ", addr " % build % ": " % build)
@@ -154,7 +162,7 @@ handleGetSignatures st tx addr = toServer $ do
 handleQueryCompleteMS
     :: MonadIO m
     => NotaryState
-    -> m [(C.Address, C.TxStrategy)]
+    -> ServerTE m [(C.Address, C.TxStrategy)]
 handleQueryCompleteMS st = toServer $ do
     res <- query st QueryCompleteMSAdresses
     C.logDebug $ sformat ("Getting complete MS: " % shown) res
@@ -166,7 +174,7 @@ handleRemoveCompleteMS
     -> C.PublicKey
     -> [C.Address]
     -> C.Signature
-    -> m ()
+    -> ServerTE m ()
 handleRemoveCompleteMS st bankPublicKey addresses signedAddrs = toServer $ do
     C.logDebug $ sformat ("Removing complete MS of " % shown) addresses
     update st $ RemoveCompleteMSAddresses bankPublicKey addresses signedAddrs
@@ -179,7 +187,7 @@ handleAllocateMultisig
     -> C.AllocationStrategy
     -> C.Signature
     -> Maybe (C.PublicKey, C.Signature)
-    -> m ()
+    -> ServerTE m ()
 handleAllocateMultisig st msAddr partyAddr allocStrat signature mMasterCheck = toServer $ do
     C.logDebug "Begining allocation MS address..."
     C.logDebug $
@@ -194,7 +202,7 @@ handleQueryMyAllocationMS
     :: MonadIO m
     => NotaryState
     -> C.AllocationAddress
-    -> m [(C.MSAddress, C.AllocationInfo)]
+    -> ServerTE m [(C.MSAddress, C.AllocationInfo)]
 handleQueryMyAllocationMS st allocAddr = toServer $ do
     C.logDebug "Querying my MS allocations..."
     query st $ QueryMyMSRequests allocAddr

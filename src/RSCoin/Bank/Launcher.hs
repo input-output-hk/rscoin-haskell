@@ -19,7 +19,6 @@ module RSCoin.Bank.Launcher
 
 import           Control.Monad             (when)
 import           Control.Monad.Catch       (bracket, throwM)
-import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (liftIO)
 import           Data.Acid.Advanced        (update')
 import           Data.IORef                (newIORef)
@@ -27,11 +26,8 @@ import           Data.Maybe                (fromJust, isNothing)
 import           Data.Time.Units           (TimeUnit)
 import           Formatting                (int, sformat, (%))
 
-import           Serokell.Util.Text        (show')
-
 import           RSCoin.Core               (Explorer, Mintette, PeriodId,
-                                            PublicKey, SecretKey, logError,
-                                            sign)
+                                            PublicKey, SecretKey, sign)
 import           RSCoin.Core.Communication (getBlockchainHeight,
                                             getMintettePeriod,
                                             sendBankLocalControlRequest)
@@ -103,12 +99,9 @@ addExplorerInPlace :: ContextArgument
 addExplorerInPlace ca bankSk storagePath e pId =
     bankWrapperReal bankSk storagePath ca $ flip update' (AddExplorer e pId)
 
-wrapResult res = whenJust res $ \e -> logError (show' e) >> throwM e
-
 wrapRequest :: ContextArgument -> SecretKey -> P.BankLocalControlRequest -> IO ()
-wrapRequest ca bankSk request = do
-    res <- runRealModeBank ca bankSk $ sendBankLocalControlRequest request
-    wrapResult res
+wrapRequest ca bankSk request =
+    runRealModeBank ca bankSk $ sendBankLocalControlRequest request
 
 -- | Add mintette to Bank (send a request signed with bank's sk)
 -- Also pings minttete to check that it's compatible
@@ -129,7 +122,7 @@ addMintetteReq ca bankSk m k = do
                      ". Check out, maybe mintette's state" %
                      " is old & incosistent.")
             mPid bankPid
-        wrapResult =<< sendBankLocalControlRequest (P.AddMintette m k proof)
+        sendBankLocalControlRequest (P.AddMintette m k proof)
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerReq :: ContextArgument -> SecretKey -> Explorer -> PeriodId -> IO ()

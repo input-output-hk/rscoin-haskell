@@ -23,6 +23,7 @@ import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
 import           Data.List                     (genericLength, nub)
 import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust, mapMaybe)
+import qualified Data.Text                     as T
 import           Data.Time.Units               (Second)
 import           Data.Tuple.Select             (sel1, sel2, sel3)
 import           Formatting                    (build, int, sformat, (%))
@@ -38,7 +39,6 @@ import           RSCoin.Core.Strategy          (TxStrategy (..),
 import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitAcknowledgment (..),
                                                 Mintette, MintetteId, PeriodId)
-import           RSCoin.Mintette.Error         (MintetteError)
 import           RSCoin.Timed                  (WorkMode)
 import           RSCoin.Timed.MonadTimed       (sec, timeout)
 import           RSCoin.User.Cache             (UserCache, getOwnersByAddrid,
@@ -206,15 +206,15 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
                  (genericLength owns)
     commitTxWarningMessage owns =
         sformat
-            ("Some mintettes returned error in response to `commitTx`: "% build) .
+            ("Some mintettes returned error in response to `commitTx`: " % build) .
         listBuilderJSON . map pairBuilder . mintettesAndErrors owns
     mintettesAndErrors
         :: [(Mintette, MintetteId)]
-        -> [Either MintetteError CommitAcknowledgment]
-        -> [(Mintette, MintetteError)]
+        -> [Either T.Text CommitAcknowledgment]
+        -> [(Mintette, T.Text)]
     mintettesAndErrors owns =
         map sndFromLeft . filter (isLeft . snd) . zip (map fst owns)
-    sndFromLeft :: (a, Either MintetteError b) -> (a, MintetteError)
+    sndFromLeft :: (a, Either T.Text b) -> (a, T.Text)
     sndFromLeft (a,b) = (a, fromLeft' b)
     invalidateCache
         :: WorkMode m

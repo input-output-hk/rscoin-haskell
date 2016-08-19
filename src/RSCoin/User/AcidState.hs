@@ -6,12 +6,15 @@
 -- | This module wraps RSCoin.User.Wallet into ACID state.
 
 module RSCoin.User.AcidState
-       ( RSCoinUserState
+       ( UserState
        , openState
        , openMemState
        , closeState
        , initState
        , initStateBank
+       , query
+       , tidyState
+       , update
 
        -- * Queries
        , IsInitialized (..)
@@ -39,48 +42,68 @@ module RSCoin.User.AcidState
        , InitWallet (..)
        ) where
 
-import           Control.Exception    (throw, throwIO)
-import           Control.Lens         ((^.))
-import           Control.Monad        (replicateM, unless)
-import           Control.Monad.Catch  (MonadThrow, throwM)
-import           Control.Monad.Trans  (liftIO)
-import           Data.Acid            (makeAcidic)
-import qualified Data.Acid            as A
-import           Data.Acid.Memory     as AM
-import           Data.Map             (Map)
-import           Data.SafeCopy        (base, deriveSafeCopy)
+import           Control.Exception       (throw, throwIO)
+import           Control.Lens            ((^.))
+import           Control.Monad           (replicateM, unless)
+import           Control.Monad.Catch     (MonadThrow, throwM)
+import           Control.Monad.Trans     (MonadIO (liftIO))
+import           Data.Acid               (EventResult, EventState, QueryEvent,
+                                          UpdateEvent, makeAcidic)
+import qualified Data.Acid               as A
+import           Data.Map                (Map)
+import           Data.SafeCopy           (base, deriveSafeCopy)
 
-import qualified RSCoin.Core          as C
-import           RSCoin.Core.Crypto   (keyGen)
-import           RSCoin.Core.Strategy (AllocationInfo, MSAddress)
-import           RSCoin.Timed         (MonadRpc (getNodeContext), WorkMode)
-import           RSCoin.User.Logic    (getBlockchainHeight)
-import           RSCoin.User.Wallet   (TxHStatus, TxHistoryRecord,
-                                       WalletStorage)
-import qualified RSCoin.User.Wallet   as W
+import           Serokell.Util.AcidState (ExtendedState, closeExtendedState,
+                                          openLocalExtendedState,
+                                          openMemoryExtendedState,
+                                          queryExtended, tidyExtendedState,
+                                          updateExtended)
+
+import qualified RSCoin.Core             as C
+import           RSCoin.Core.Crypto      (keyGen)
+import           RSCoin.Core.Strategy    (AllocationInfo, MSAddress)
+import           RSCoin.Timed            (MonadRpc (getNodeContext), WorkMode)
+import           RSCoin.User.Logic       (getBlockchainHeight)
+import           RSCoin.User.Wallet      (TxHStatus, TxHistoryRecord,
+                                          WalletStorage)
+import qualified RSCoin.User.Wallet      as W
 
 $(deriveSafeCopy 0 'base ''TxHStatus)
 $(deriveSafeCopy 0 'base ''TxHistoryRecord)
 $(deriveSafeCopy 0 'base ''WalletStorage)
 
-type RSCoinUserState = A.AcidState WalletStorage
+type UserState = ExtendedState WalletStorage
+
+query
+    :: (EventState event ~ WalletStorage, QueryEvent event, MonadIO m)
+    => UserState -> event -> m (EventResult event)
+query = queryExtended
+
+update
+    :: (EventState event ~ WalletStorage, UpdateEvent event, MonadIO m)
+    => UserState -> event -> m (EventResult event)
+update = updateExtended
 
 instance MonadThrow (A.Query WalletStorage) where
     throwM = throw
 
 -- | Opens ACID state. If not there, it returns unitialized
 -- unoperatable storage.
-openState :: FilePath -> IO RSCoinUserState
+openState :: MonadIO m => FilePath -> m UserState
 openState path = do
-    st <- A.openLocalStateFrom path W.emptyWalletStorage
-    st <$ A.createCheckpoint st
+    st <- openLocalExtendedState path W.emptyWalletStorage
+    st <$ tidyState st
 
-openMemState :: IO RSCoinUserState
-openMemState = AM.openMemoryState W.emptyWalletStorage
+openMemState :: MonadIO m => m UserState
+openMemState = openMemoryExtendedState W.emptyWalletStorage
 
 -- | Closes the ACID state.
-closeState :: RSCoinUserState -> IO ()
-closeState = A.closeAcidState
+closeState :: MonadIO m => UserState -> m ()
+closeState st = tidyState st >> closeExtendedState st
+
+-- | Tidies the ACID state.
+tidyState :: MonadIO m => UserState -> m ()
+tidyState = tidyExtendedState
 
 isInitialized :: A.Query WalletStorage Bool
 getSecretKey :: C.Address -> A.Query WalletStorage (Maybe (Maybe C.SecretKey))
@@ -157,7 +180,7 @@ $(makeAcidic
 -- also loads secret bank key from ~/.rscoin/bankPrivateKey and adds
 -- it to known addresses (public key is hardcoded in
 -- RSCoin.Core.Constants).
-initState :: WorkMode m => RSCoinUserState -> Int -> Maybe FilePath -> m ()
+initState :: WorkMode m => UserState -> Int -> Maybe FilePath -> m ()
 initState st n (Just skPath) = do
     sk <- liftIO $ C.readSecretKey skPath
     initStateBank st n sk
@@ -165,13 +188,13 @@ initState st n Nothing = do
     height <- pred <$> getBlockchainHeight
     liftIO $
         do addresses <- replicateM n keyGen
-           A.update st $ InitWallet addresses (Just height)
-           A.createCheckpoint st
+           update st $ InitWallet addresses (Just height)
+           tidyState st
 
 -- | This function is is similar to the previous one, but is intended to
 -- be used in tests/benchmark, where bank's secret key is embeded and
 -- is not contained in file.
-initStateBank :: WorkMode m => RSCoinUserState -> Int -> C.SecretKey -> m ()
+initStateBank :: WorkMode m => UserState -> Int -> C.SecretKey -> m ()
 initStateBank st n sk = do
     genAdr <- (^. C.genesisAddress) <$> getNodeContext
     liftIO $ do
@@ -180,5 +203,5 @@ initStateBank st n sk = do
            throwIO $
            W.BadRequest "Imported bank's secret key doesn't belong to bank."
        addresses <- replicateM n keyGen
-       A.update st $ InitWallet (bankAddress : addresses) Nothing
-       A.createCheckpoint st
+       update st $ InitWallet (bankAddress : addresses) Nothing
+       tidyState st

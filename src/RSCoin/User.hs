@@ -9,7 +9,6 @@ module RSCoin.User
 import           Control.Lens           ((^.))
 import           Control.Monad.Trans    (MonadIO)
 
-import           Data.Acid.Advanced     (query')
 import           RSCoin.User.AcidState  as Exports
 import           RSCoin.User.Cache      as Exports
 import           RSCoin.User.Error      as Exports
@@ -22,5 +21,6 @@ import           RSCoin.User.Wallet     as Exports hiding (addAddress,
 
 import qualified RSCoin.Core            as C
 
-getAllAddresses :: MonadIO m => RSCoinUserState -> C.NodeContext -> m [C.Address]
-getAllAddresses s nodeCtx = query' s $ GetOwnedDefaultAddresses (nodeCtx ^. C.genesisAddress)
+getAllAddresses :: MonadIO m => UserState -> C.NodeContext -> m [C.Address]
+getAllAddresses s nodeCtx =
+    query s $ GetOwnedDefaultAddresses (nodeCtx ^. C.genesisAddress)

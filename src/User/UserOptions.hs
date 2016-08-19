@@ -334,10 +334,10 @@ userCommandParser =
         ImportAddress <$>
         (optional $
          strOption $
-         long "sk-path" <> help "Path to file with binary-encoded secret key" <>
+         long "sk" <> help "Path to file with binary-encoded secret key" <>
          metavar "FILEPATH") <*>
         (strOption $
-         long "pk-path" <> help "Path to file with base64-encoded public key" <>
+         long "pk" <> help "Path to file with base64-encoded public key" <>
          metavar "FILEPATH") <*>
         (option auto $
          long "query-from" <> help "Height to query blockchain from" <> value 0 <>

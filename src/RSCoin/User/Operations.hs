@@ -73,6 +73,12 @@ import           RSCoin.User.Logic      (SignatureBundle, getExtraSignatures,
                                          joinBundles, validateTransaction)
 import qualified RSCoin.User.Wallet     as W
 
+-- | This constant is emphirical number of hblocks that can be fetched
+-- at once without problems on bank side (too big amount of hblock
+-- leads to timeouts).
+deltaMax :: Int
+deltaMax = 20
+
 walletInitialized :: MonadIO m => A.RSCoinUserState -> m Bool
 walletInitialized st = query' st A.IsInitialized
 
@@ -134,10 +140,10 @@ updateBlockchain st verbose = do
              "block's height in bank (" % int % "). Critical error.")
             walletHeight lastBlockHeight
     when (lastBlockHeight /= walletHeight) $ do
-        let delta = max 100 $ (lastBlockHeight - walletHeight) `div` 10
+        let delta = min deltaMax (lastBlockHeight - walletHeight)
             periods =
                 takeWhile (< lastBlockHeight)
-                    (iterate (+delta) (walletHeight + 1)) ++
+                    (iterate (+delta) (walletHeight + delta)) ++
                 [lastBlockHeight]
         forM_ periods
             (\h -> do
@@ -252,9 +258,7 @@ importAddress st (skMaybe,pk) fromH = do
         in commitError $ sformat formatPattern walletHeight walletHeight
     let period = [fromH..walletHeight]
         perLength = walletHeight - fromH - 1
-        delta = if perLength < 100
-                then perLength
-                else perLength `div` 10
+        delta = max deltaMax perLength
         periodsLast = splitEvery delta period
     C.logInfo $ sformat
         ("Starting blockchain query process for blocks " % int % ".." % int) fromH walletHeight

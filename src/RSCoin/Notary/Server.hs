@@ -36,7 +36,7 @@ import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           QueryCompleteMSAdresses (..),
                                           QueryMyMSRequests (..),
                                           RemoveCompleteMSAddresses (..), query,
-                                          update)
+                                          tidyState, update)
 import           RSCoin.Notary.Error     (NotaryError)
 import           RSCoin.Timed            (MonadRpc (getNodeContext), WorkMode,
                                           serverTypeRestriction0,
@@ -126,6 +126,7 @@ handleAnnounceNewPeriods
     -> m ()
 handleAnnounceNewPeriods st pId hblocks = toServer $ do
     update st $ AnnounceNewPeriods pId hblocks
+    tidyState st
     C.logDebug $ sformat ("New period announcement, hblocks " % build % " from periodId " % int)
         hblocks
         pId

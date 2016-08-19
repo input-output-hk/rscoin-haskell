@@ -39,7 +39,7 @@ import           Bench.RSCoin.FilePathUtils (dbFormatPath, walletPathPrefix)
 
 userThread
     :: FilePath
-    -> (Word -> U.RSCoinUserState -> MsgPackRpc a)
+    -> (Word -> U.UserState -> MsgPackRpc a)
     -> Word
     -> IO a
 userThread benchDir userAction userId
@@ -47,7 +47,7 @@ userThread benchDir userAction userId
 
 userThreadWithPath
     :: FilePath
-    -> (Word -> U.RSCoinUserState -> MsgPackRpc a)
+    -> (Word -> U.UserState -> MsgPackRpc a)
     -> Word
     -> Optional FilePath
     -> IO a
@@ -65,11 +65,11 @@ userThreadWithPath
             U.closeState userState)
         (userAction userId)
 
-queryMyAddress :: U.RSCoinUserState -> Address -> MsgPackRpc Address
+queryMyAddress :: U.UserState -> Address -> MsgPackRpc Address
 queryMyAddress userState = fmap head . query' userState . U.GetOwnedDefaultAddresses
 
 -- | Create user with 1 address and return it.
-initializeUser :: Word -> U.RSCoinUserState -> MsgPackRpc Address
+initializeUser :: Word -> U.UserState -> MsgPackRpc Address
 initializeUser userId userState = do
     let userAddressesNumber = 1
     logDebug $ sformat ("Initializing user " % int % "…") userId
@@ -78,7 +78,7 @@ initializeUser userId userState = do
     queryMyAddress userState genAddr <*
         logDebug (sformat ("Initialized user " % int % "…") userId)
 
-executeTransaction :: U.RSCoinUserState
+executeTransaction :: U.UserState
                    -> U.UserCache
                    -> Color
                    -> Rational
@@ -100,7 +100,7 @@ finishBankPeriod = do
     finishPeriod signature
 
 -- | Create user in `bankMode` and send coins to every user.
-initializeBank :: Word -> [Address] -> U.RSCoinUserState -> MsgPackRpc ()
+initializeBank :: Word -> [Address] -> U.UserState -> MsgPackRpc ()
 initializeBank coinsNum userAddresses bankUserState = do
     logInfo "Initializaing user in bankMode…"
     let additionalBankAddreses = 0
@@ -121,7 +121,7 @@ initializeBank coinsNum userAddresses bankUserState = do
 -- | Do `txNum` transactions to random address.
 benchUserTransactions :: Word
                       -> Word
-                      -> U.RSCoinUserState
+                      -> U.UserState
                       -> MsgPackRpc ()
 benchUserTransactions txNum userId userState = do
     let loggingStep = txNum `div` 5

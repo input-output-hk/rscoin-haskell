@@ -48,7 +48,7 @@ import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
                                        PartyAddress (..), TxStrategy (..),
                                        allParties, allocateTxFromAlloc,
                                        allocationStrategy, currentConfirmations,
-                                       isStrategyCompleted, partyToAllocation)
+                                       partyToAllocation)
 import           RSCoin.Notary.Error  (NotaryError (..))
 
 data Storage = Storage
@@ -205,10 +205,13 @@ allocateMSAddress
       unless (verify slavePk requestSig signedData) $
           throwM $ NEUnrelatedSignature $ sformat
               ("(msAddr, strategy) not signed with proper sk for pk: " % build) slavePk
+      when (HS.size _allParties < 2) $
+          throwM $ NEInvalidStrategy "multisignature address should have at least two members"
       when (_sigNumber <= 0) $
-          throwM $ NEInvalidArguments "required number of signatures should be positive"
+          throwM $ NEInvalidStrategy "number of signatures to sign tx should be positive"
       when (_sigNumber > HS.size _allParties) $
-          throwM $ NEInvalidArguments "required number of signatures is greater then party size"
+          throwM $ NEInvalidStrategy
+              "number of signatures to sign tx is greater then number of members"
       unless (partyToAllocation argPartyAddress `HS.member` _allParties) $
           throwM $ NEInvalidArguments "party address not in set of addresses"
       whenM (uses addresses $ M.member msAddr) $

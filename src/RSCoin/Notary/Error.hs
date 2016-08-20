@@ -24,11 +24,12 @@ data NotaryError
     = NEAddrNotRelativeToTx        -- ^ Address doesn't correspond to any of transaction's inputs
     | NEAddrIdNotInUtxo PeriodId   -- ^ One of transaction's addrId is not present in utxo
                                    --   PeriodId supplied -- actual periodId known to Notary
-    | NEBlocked                    -- ^ User has reached limit number of attempts for multisig allocation
+    | NEBlocked                    -- ^ User has reached limit number of attempts
     | NEInvalidArguments Text      -- ^ Generic exception for invalid arguments
     | NEInvalidSignature           -- ^ Invalid signature provided
     | NEStrategyNotSupported Text  -- ^ Address's strategy is not supported, with name provided
-    | NEUnrelatedSignature Text    -- ^ Signature provided doesn't correspond to any of address' parties
+    | NEUnrelatedSignature Text    -- ^ Signature doesn't correspond to any of address' parties
+    | NEInvalidStrategy Text       -- ^ Provided strategy is invalid
     deriving (Eq, Show, Typeable, Data)
 
 instance Exception NotaryError where
@@ -43,6 +44,7 @@ instance Buildable NotaryError where
     build NEInvalidSignature         = "NEInvalidSignature"
     build (NEStrategyNotSupported s) = bprint ("NEStrategyNotSupported, strategy " % stext) s
     build (NEUnrelatedSignature msg) = bprint ("NEUnrelatedSignature: " % stext) msg
+    build (NEInvalidStrategy msg)    = bprint ("NEInvalidStrategy: " % stext) msg
 
 toObj
     :: MessagePack a
@@ -57,6 +59,7 @@ instance MessagePack NotaryError where
     toObject NEInvalidSignature         = toObj (4, ())
     toObject (NEStrategyNotSupported s) = toObj (5, s)
     toObject (NEUnrelatedSignature msg) = toObj (6, msg)
+    toObject (NEInvalidStrategy msg)    = toObj (7, msg)
 
     fromObject obj = do
         (i, payload) <- fromObject obj
@@ -68,4 +71,5 @@ instance MessagePack NotaryError where
             4 -> pure NEInvalidSignature
             5 -> NEStrategyNotSupported <$> fromObject payload
             6 -> NEUnrelatedSignature   <$> fromObject payload
+            7 -> NEInvalidStrategy      <$> fromObject payload
             _ -> Nothing

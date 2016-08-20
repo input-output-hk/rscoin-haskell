@@ -605,7 +605,7 @@ findPartyAddress st userAddrs = do
                          []    -> commitError
                              "User is not one of --uaddr"
                          _:_:_ -> commitError
-                             "User isn't allowed to have more than one of his address amond parties"
+                             "User isn't allowed to have more than one of his address among parties"
                          [userAddress] -> pure userAddress
     mmUserSk         <- A.query st $ A.GetSecretKey userPartyAddr
     userSk           <- case mmUserSk of

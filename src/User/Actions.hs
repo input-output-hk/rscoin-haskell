@@ -104,6 +104,12 @@ processCommandNoOpts st (O.BlacklistAllocation ix) =
     processBlackWhiteListing st True ix
 processCommandNoOpts st (O.WhitelistAllocation ix) =
     processBlackWhiteListing st False ix
+processCommandNoOpts st (O.ColdFormTransaction inp out outC path) =
+    undefined st inp out outC path
+processCommandNoOpts st (O.ColdSendTransaction path) =
+    undefined st path
+processCommandNoOpts st (O.ColdSignTransaction path) =
+    undefined st path
 processCommandNoOpts st (O.ImportAddress skPathMaybe pkPath heightFrom) =
     processImportAddress st skPathMaybe pkPath heightFrom
 processCommandNoOpts st (O.ExportAddress addrId filepath) =

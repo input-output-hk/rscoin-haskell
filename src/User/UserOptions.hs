@@ -63,10 +63,6 @@ data UserCommand
     | ListAllocations (Maybe Text)
     -- | List all allocations in the blacklist
     | ListAllocationsBlacklist (Maybe Text)
-    -- | Put an allocation into blacklist and ignore it
-    | BlacklistAllocation Int
-    -- | Unignore the allocation
-    | WhitelistAllocation Int
     -- | For a request #N in local list send confirmation to a Notary.
     -- 1. #N in user list;
     -- 2. @Just (pathToHot, partyAddr)@ : if we want to sign as a 'TrustParty';
@@ -76,6 +72,18 @@ data UserCommand
                         (Maybe String)
                         (Maybe Text)
                         (Maybe Text)
+    -- | Put an allocation into blacklist and ignore it
+    | BlacklistAllocation Int
+    -- | Unignore the allocation
+    | WhitelistAllocation Int
+    -- | Form a transaction in the same way it's done in FormTransaction,
+    -- but dump the transaction and empty signature bundle to the file.
+    | ColdFormTransaction [(Word, Int64, Int)] Text [(Int64, Int)] FilePath
+    -- | Parse a transaction and full bundle from the file and process it
+    | ColdSendTransaction FilePath
+    -- | Given a file with transaction and empty signature bundle,
+    -- sign everything we can
+    | ColdSignTransaction FilePath
     -- | Add a local address to storage (filepaths to sk and pk, then
     -- blockchain heights to query -- minimum and maximum)
     | ImportAddress (Maybe FilePath) FilePath Int
@@ -166,7 +174,16 @@ userCommandParser =
              (info blacklistAllocationOpts (progDesc "Blacklist an allocation")) <>
          command "alloc-whitelist"
              (info whitelistAllocationOpts
-                  (progDesc "Restore an allocation from the blacklist")) <>
+                  (progDesc "Restore an allocation from the blacklist.")) <>
+         command "cold-form"
+             (info coldFormOpts
+                  (progDesc "Form a transaction and write it to disk to be signed by cold key.")) <>
+         command "cold-send"
+             (info coldSendOpts
+                  (progDesc "Read a signed transaction from file and process/send it.")) <>
+         command "cold-sign"
+             (info coldSignOpts
+                  (progDesc "Read non-signed transaction from file and sign it.")) <>
          command
              "import-address"
              (info
@@ -280,31 +297,29 @@ userCommandParser =
                        (metavar "INDEX" <> help "Index of address to dump"))
                   (progDesc "Dump address with given index.")))
   where
+    formTxFrom =
+        option auto
+             (long "from" <>
+              help
+                  ("Tuples (a,b,c) where " <>
+                   "'a' is id of address as numbered in list-wallets output, " <>
+                   "'b' is integer -- amount of coins to send, " <>
+                   "'c' is the color (0 for uncolored), any uncolored ~ colored.") <>
+              metavar "(INT,INT,INT)")
+    formTxToAddr = strOption (long "toaddr" <> help "Address to send coins to.")
+    formTxToCoin =
+        option auto
+            (long "tocoin" <>
+             help
+                 ("Pairs (a,b) where " <>
+                  "'a' is amount of coins to send, " <>
+                  "'b' is the color of that coin") <>
+             metavar "(INT,INT)")
     formTransactionOpts =
         FormTransaction <$>
-        some
-            (option
-                 auto
-                 (long "from" <>
-                  help
-                      ("Tuples (a,b,c) where " <>
-                       "'a' is id of address as numbered in list-wallets output, " <>
-                       "'b' is integer -- amount of coins to send, " <>
-                       "'c' is the color (0 for uncolored), any uncolored ~ colored.") <>
-                  metavar "(INT,INT,INT)")) <*>
-        strOption (long "toaddr" <> help "Address to send coins to.") <*>
-        many
-            (option
-                 auto
-                 (long "tocoin" <>
-                  help
-                      ("Pairs (a,b) where " <>
-                       "'a' is amount of coins to send, " <>
-                       "'b' is the color of that coin") <>
-                  metavar "(INT,INT)"))
+        some formTxFrom <*> formTxToAddr <*> many formTxToCoin
         -- FIXME: should we do caching here or not?
-        <*>
-        pure Nothing
+        <*> pure Nothing
     createMultisigOpts =
         CreateMultisigAddress <$>
         option auto (short 'm' <> metavar "INT" <> help "Number m from m/n") <*>
@@ -385,6 +400,25 @@ userCommandParser =
     whitelistAllocationOpts = WhitelistAllocation <$> option
         auto (short 'i' <> long "index" <> metavar "INT" <>
              help "Index of allocation, starting from 1 in `list-alloc`")
+    coldFormOpts =
+        ColdFormTransaction <$>
+        some formTxFrom <*> formTxToAddr <*> many formTxToCoin
+        <*> strOption
+            (long "path" <>
+             help "Path to file for non-signed transaction to write into" <>
+             metavar "FILEPATH")
+    coldSendOpts =
+        ColdSendTransaction <$>
+        strOption
+        (long "path" <>
+         help "Path to file with signed transaction" <>
+         metavar "FILEPATH")
+    coldSignOpts =
+        ColdSignTransaction <$>
+        strOption
+        (long "path" <>
+         help "Path to file with transaction to sign" <>
+         metavar "FILEPATH")
 
 userOptionsParser :: FilePath -> FilePath -> FilePath -> Parser UserOptions
 userOptionsParser dskp configDir defaultConfigPath =

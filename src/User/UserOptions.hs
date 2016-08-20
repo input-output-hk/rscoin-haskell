@@ -45,7 +45,6 @@ data UserCommand
                       Text
                       [(Int64, Int)]
                       (Maybe UserCache)
-
     -- | Initialize multisignature address allocation.
     -- 1. Number m of required signatures from addr;
     -- 2. List of user parties in addresses;
@@ -57,9 +56,13 @@ data UserCommand
                             [Text]
                             (Maybe Text)
                             (Maybe Text)
-    -- | List all addresses in which current user acts like party
-    | ListAllocations
 
+    -- | List all addresses in which current user acts like party.
+    -- Specify trust public key if you also want to receive MS addresses
+    -- with trust as party.
+    | ListAllocations (Maybe Text)
+    -- | List all allocations in the blacklist
+    | ListAllocationsBlacklist (Maybe Text)
     -- | For a request #N in local list send confirmation to a Notary.
     -- 1. #N in user list;
     -- 2. @Just (pathToHot, partyAddr)@ : if we want to sign as a 'TrustParty';
@@ -69,14 +72,24 @@ data UserCommand
                         (Maybe String)
                         (Maybe Text)
                         (Maybe Text)
+    -- | Put an allocation into blacklist and ignore it
+    | BlacklistAllocation Int
+    -- | Unignore the allocation
+    | WhitelistAllocation Int
+    -- | Form a transaction in the same way it's done in FormTransaction,
+    -- but dump the transaction and empty signature bundle to the file.
+    | ColdFormTransaction [(Word, Int64, Int)] Text [(Int64, Int)] FilePath
+    -- | Parse a transaction and full bundle from the file and process it
+    | ColdSendTransaction FilePath
+    -- | Given a file with transaction and empty signature bundle,
+    -- sign everything we can
+    | ColdSignTransaction FilePath
     -- | Add a local address to storage (filepaths to sk and pk, then
     -- blockchain heights to query -- minimum and maximum)
     | ImportAddress (Maybe FilePath) FilePath Int
     | ExportAddress Int FilePath
     | DeleteAddress Int Bool
     | Dump DumpCommand
-    -- @TODO move to rscoin-keygen
-    | SignSeed Text (Maybe FilePath)
 #if GtkGui
     -- | Start graphical user interface
     | StartGUI
@@ -127,12 +140,6 @@ userCommandParser =
              (info (pure StartGUI) (progDesc "Start graphical user interface.")) <>
 #endif
          command
-             "list-alloc"
-             (info
-                  (pure ListAllocations)
-                  (progDesc
-                       "List all multisignature address allocations you need to confirm")) <>
-         command
              "update"
              (info
                   (pure UpdateBlockchain)
@@ -143,14 +150,40 @@ userCommandParser =
          command
              "create-multisig"
              (info
-                  addMultisigOpts
+                  createMultisigOpts
                   (progDesc "Create multisignature address allocation")) <>
          command
-             "confirm"
+             "list-alloc"
+             (info
+                  (listAllocOpts ListAllocations)
+                  (progDesc
+                       "List all multisignature address allocations you need to confirm")) <>
+         command "list-alloc-blacklisted"
+             (info
+                  (listAllocOpts ListAllocationsBlacklist)
+                  (progDesc $
+                       "List all multisignature address allocations that " <>
+                       "are blacklisted (ignored).")) <>
+         command
+             "alloc-confirm"
              (info
                   confirmOpts
                   (progDesc
                        "Confirm MS address allocation from `rscoin-user list-alloc`")) <>
+         command "alloc-blacklist"
+             (info blacklistAllocationOpts (progDesc "Blacklist an allocation")) <>
+         command "alloc-whitelist"
+             (info whitelistAllocationOpts
+                  (progDesc "Restore an allocation from the blacklist.")) <>
+         command "cold-form"
+             (info coldFormOpts
+                  (progDesc "Form a transaction and write it to disk to be signed by cold key.")) <>
+         command "cold-send"
+             (info coldSendOpts
+                  (progDesc "Read a signed transaction from file and process/send it.")) <>
+         command "cold-sign"
+             (info coldSignOpts
+                  (progDesc "Read non-signed transaction from file and sign it.")) <>
          command
              "import-address"
              (info
@@ -262,37 +295,32 @@ userCommandParser =
                    argument
                        auto
                        (metavar "INDEX" <> help "Index of address to dump"))
-                  (progDesc "Dump address with given index.")) <>
-         command
-             "sign-seed"
-             (info signSeedOpts (progDesc "Sign seed with key.")))
+                  (progDesc "Dump address with given index.")))
   where
+    formTxFrom =
+        option auto
+             (long "from" <>
+              help
+                  ("Tuples (a,b,c) where " <>
+                   "'a' is id of address as numbered in list-wallets output, " <>
+                   "'b' is integer -- amount of coins to send, " <>
+                   "'c' is the color (0 for uncolored), any uncolored ~ colored.") <>
+              metavar "(INT,INT,INT)")
+    formTxToAddr = strOption (long "toaddr" <> help "Address to send coins to.")
+    formTxToCoin =
+        option auto
+            (long "tocoin" <>
+             help
+                 ("Pairs (a,b) where " <>
+                  "'a' is amount of coins to send, " <>
+                  "'b' is the color of that coin") <>
+             metavar "(INT,INT)")
     formTransactionOpts =
         FormTransaction <$>
-        some
-            (option
-                 auto
-                 (long "from" <>
-                  help
-                      ("Tuples (a,b,c) where " <>
-                       "'a' is id of address as numbered in list-wallets output, " <>
-                       "'b' is integer -- amount of coins to send, " <>
-                       "'c' is the color (0 for uncolored), any uncolored ~ colored.") <>
-                  metavar "(INT,INT,INT)")) <*>
-        strOption (long "toaddr" <> help "Address to send coins to.") <*>
-        many
-            (option
-                 auto
-                 (long "tocoin" <>
-                  help
-                      ("Pairs (a,b) where " <>
-                       "'a' is amount of coins to send, " <>
-                       "'b' is the color of that coin") <>
-                  metavar "(INT,INT)"))
+        some formTxFrom <*> formTxToAddr <*> many formTxToCoin
         -- FIXME: should we do caching here or not?
-        <*>
-        pure Nothing
-    addMultisigOpts =
+        <*> pure Nothing
+    createMultisigOpts =
         CreateMultisigAddress <$>
         option auto (short 'm' <> metavar "INT" <> help "Number m from m/n") <*>
         many
@@ -311,6 +339,12 @@ userCommandParser =
             (strOption $
              long "slave-sig" <> metavar "SIGNATURE" <>
              help "Signature of slave with master public key")
+    listAllocOpts allocCtor =
+        allocCtor <$>
+        optional
+            (strOption $
+             long "trust-party" <> metavar "PUBLIC KEY" <>
+             help "Trust address as party")
     confirmOpts =
         ConfirmAllocation <$>
         option
@@ -360,12 +394,31 @@ userCommandParser =
         switch
         (long "force" <> short 'f' <>
          help "Don't ask confirmation for deletion")
-    signSeedOpts =
-        SignSeed <$> (strOption $ long "seed" <> help "Seed to sign") <*>
-        optional
-            (strOption $
-             short 'k' <> long "secret-key" <> help "Path to secret key" <>
+    blacklistAllocationOpts = BlacklistAllocation <$> option
+        auto (short 'i' <> long "index" <> metavar "INT" <>
+             help "Index of allocation, starting from 1 in `list-alloc`")
+    whitelistAllocationOpts = WhitelistAllocation <$> option
+        auto (short 'i' <> long "index" <> metavar "INT" <>
+             help "Index of allocation, starting from 1 in `list-alloc`")
+    coldFormOpts =
+        ColdFormTransaction <$>
+        some formTxFrom <*> formTxToAddr <*> many formTxToCoin
+        <*> strOption
+            (long "path" <>
+             help "Path to file for non-signed transaction to write into" <>
              metavar "FILEPATH")
+    coldSendOpts =
+        ColdSendTransaction <$>
+        strOption
+        (long "path" <>
+         help "Path to file with signed transaction" <>
+         metavar "FILEPATH")
+    coldSignOpts =
+        ColdSignTransaction <$>
+        strOption
+        (long "path" <>
+         help "Path to file with transaction to sign" <>
+         metavar "FILEPATH")
 
 userOptionsParser :: FilePath -> FilePath -> FilePath -> Parser UserOptions
 userOptionsParser dskp configDir defaultConfigPath =

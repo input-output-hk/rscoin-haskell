@@ -20,7 +20,6 @@ module RSCoin.Bank.Launcher
 import           Control.Monad             (when)
 import           Control.Monad.Catch       (bracket, throwM)
 import           Control.Monad.Trans       (liftIO)
-import           Data.Acid.Advanced        (update')
 import           Data.IORef                (newIORef)
 import           Data.Maybe                (fromJust, isNothing)
 import           Data.Time.Units           (TimeUnit)
@@ -33,21 +32,22 @@ import           RSCoin.Core.Communication (getBlockchainHeight,
                                             sendBankLocalControlRequest)
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
-                                            WorkMode, fork, fork_, killThread,
+                                            WorkMode, fork_,
                                             runRealModeBank)
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
-                                            AddMintette (AddMintette), State,
-                                            closeState, openState)
+                                            AddMintette (AddMintette), BankState,
+                                            closeState, openState,
+                                            update)
 import           RSCoin.Bank.Error         (BankError (BEInconsistentResponse))
 import           RSCoin.Bank.Server        (serve)
 import           RSCoin.Bank.Worker        (runExplorerWorker,
-                                            runWorkerWithPeriod)
+                                            runWorker)
 
 bankWrapperReal :: SecretKey
                 -> FilePath
                 -> ContextArgument
-                -> (State -> MsgPackRpc a)
+                -> (BankState -> MsgPackRpc a)
                 -> IO a
 bankWrapperReal bankSk storagePath ca =
     runRealModeBank ca bankSk .
@@ -59,25 +59,20 @@ launchBankReal
     => t -> FilePath -> ContextArgument -> SecretKey -> IO ()
 launchBankReal periodDelta storagePath ca bankSk =
     bankWrapperReal bankSk storagePath ca $
-    launchBank periodDelta bankSk storagePath
+    launchBank periodDelta bankSk
 
 -- | Launch Bank in any WorkMode. This function works indefinitely.
 launchBank
     :: (TimeUnit t, WorkMode m)
-    => t -> SecretKey -> FilePath -> State -> m ()
-launchBank periodDelta bankSk storagePath st = do
-    mainIsBusy <- liftIO $ newIORef False
-    let startWorker =
-            runWorkerWithPeriod
-                periodDelta
-                mainIsBusy
-                bankSk
-                st
-                (Just storagePath)
-        restartWorker tId = killThread tId >> fork startWorker
-    workerThread <- fork startWorker
-    fork_ $ runExplorerWorker periodDelta mainIsBusy bankSk st
-    serve st workerThread restartWorker
+    => t -> SecretKey -> BankState -> m ()
+launchBank periodDelta bankSk st = do
+    isPeriodChanging <- liftIO $ newIORef False
+    runWorker
+        periodDelta
+        bankSk
+        st
+    fork_ $ runExplorerWorker periodDelta isPeriodChanging bankSk st
+    serve st isPeriodChanging
 
 -- | Adds mintette directly into bank's state
 addMintetteInPlace :: ContextArgument
@@ -87,7 +82,7 @@ addMintetteInPlace :: ContextArgument
                    -> PublicKey
                    -> IO ()
 addMintetteInPlace ca bankSk storagePath m k =
-    bankWrapperReal bankSk storagePath ca $ flip update' (AddMintette m k)
+    bankWrapperReal bankSk storagePath ca $ flip update (AddMintette m k)
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerInPlace :: ContextArgument
@@ -97,7 +92,7 @@ addExplorerInPlace :: ContextArgument
                    -> PeriodId
                    -> IO ()
 addExplorerInPlace ca bankSk storagePath e pId =
-    bankWrapperReal bankSk storagePath ca $ flip update' (AddExplorer e pId)
+    bankWrapperReal bankSk storagePath ca $ flip update (AddExplorer e pId)
 
 wrapRequest :: ContextArgument -> SecretKey -> P.BankLocalControlRequest -> IO ()
 wrapRequest ca bankSk request =

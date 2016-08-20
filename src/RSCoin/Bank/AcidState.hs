@@ -51,10 +51,10 @@ import           RSCoin.Core            (ActionLog, Address,
 import          Serokell.Util.AcidState (ExtendedState, closeExtendedState,
                                          openLocalExtendedState,
                                          openMemoryExtendedState,
-                                         tidyExtendedState,
-                                         queryExtended, updateExtended)
+                                         queryExtended, tidyExtendedState,
+                                         updateExtended)
 
-import qualified RSCoin.Bank.Storage as BS
+import qualified RSCoin.Bank.Storage    as BS
 
 type BankState = ExtendedState BS.Storage
 
@@ -105,7 +105,7 @@ getHBlock :: PeriodId -> Query BS.Storage (Maybe HBlock)
 getHBlock = view . BS.getHBlock
 
 getTransaction :: TransactionId -> Query BS.Storage (Maybe Transaction)
-getTransaction = view . BS.getTransaction
+getTransaction = BS.getTransaction
 
 getHBlocks :: PeriodId -> PeriodId -> Query BS.Storage [HBlock]
 getHBlocks from to = view $ BS.getHBlocks from to

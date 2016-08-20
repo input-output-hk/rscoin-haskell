@@ -31,6 +31,7 @@ module RSCoin.User.AcidState
        , GetAddressStrategy (..)
        , ResolveAddressLocally (..)
        , GetAllocationStrategies (..)
+       , GetIgnoredAllocationStrategies (..)
        , GetAllocationByIndex (..)
 
        -- * Updates
@@ -39,6 +40,8 @@ module RSCoin.User.AcidState
        , DeleteAddress (..)
        , AddTemporaryTransaction (..)
        , UpdateAllocationStrategies (..)
+       , BlacklistAllocation (..)
+       , WhitelistAllocation (..)
        , InitWallet (..)
        ) where
 
@@ -119,6 +122,7 @@ getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
 getAddressStrategy :: C.Address -> A.Query WalletStorage (Maybe C.TxStrategy)
 resolveAddressLocally :: C.AddrId -> A.Query WalletStorage (Maybe C.Address)
 getAllocationStrategies :: A.Query WalletStorage (Map MSAddress AllocationInfo)
+getIgnoredAllocationStrategies :: A.Query WalletStorage (Map MSAddress AllocationInfo)
 getAllocationByIndex :: Int -> A.Query WalletStorage (MSAddress, AllocationInfo)
 
 getSecretKey = W.getSecretKey
@@ -135,6 +139,7 @@ getTxsHistory = W.getTxsHistory
 getAddressStrategy = W.getAddressStrategy
 resolveAddressLocally = W.resolveAddressLocally
 getAllocationStrategies = W.getAllocationStrategies
+getIgnoredAllocationStrategies = W.getIgnoredAllocationStrategies
 getAllocationByIndex = W.getAllocationByIndex
 
 withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
@@ -142,6 +147,8 @@ addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage
 addAddress :: C.Address -> Maybe C.SecretKey -> Map C.PeriodId C.HBlock -> A.Update WalletStorage ()
 deleteAddress :: C.Address -> A.Update WalletStorage ()
 updateAllocationStrategies :: Map MSAddress AllocationInfo -> A.Update WalletStorage ()
+blacklistAllocation :: MSAddress -> A.Update WalletStorage ()
+whitelistAllocation :: MSAddress -> A.Update WalletStorage ()
 initWallet :: [(C.SecretKey,C.PublicKey)] -> Maybe Int -> A.Update WalletStorage ()
 
 withBlockchainUpdate = W.withBlockchainUpdate
@@ -149,6 +156,8 @@ addTemporaryTransaction = W.addTemporaryTransaction
 addAddress = W.addAddress
 deleteAddress = W.deleteAddress
 updateAllocationStrategies = W.updateAllocationStrategies
+blacklistAllocation = W.blacklistAllocation
+whitelistAllocation = W.whitelistAllocation
 initWallet = W.initWallet
 
 $(makeAcidic
@@ -166,6 +175,7 @@ $(makeAcidic
       , 'getTxsHistory
       , 'getAddressStrategy
       , 'getAllocationStrategies
+      , 'getIgnoredAllocationStrategies
       , 'getAllocationByIndex
       , 'resolveAddressLocally
       , 'withBlockchainUpdate
@@ -173,6 +183,8 @@ $(makeAcidic
       , 'addAddress
       , 'deleteAddress
       , 'updateAllocationStrategies
+      , 'blacklistAllocation
+      , 'whitelistAllocation
       , 'initWallet])
 
 -- | This function generates 'n' new addresses ((pk,sk) pairs

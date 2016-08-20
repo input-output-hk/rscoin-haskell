@@ -33,17 +33,22 @@ module RSCoin.User.Operations
        , TransactionData (..)
        , submitTransaction
        , submitTransactionRetry
+       , findPartyAddress
+       , verifyTrustEntry
        , retrieveAllocationsList
        ) where
 
 import           Control.Arrow          ((***))
 import           Control.Exception      (SomeException, assert, fromException)
-import           Control.Lens           (view)
-import           Control.Monad          (filterM, forM_, unless, void, when)
+import           Control.Lens           (view, (^.), _1)
+import           Control.Monad          (filterM, forM_, join, unless, void,
+                                         when)
 import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
-import           Control.Monad.Extra    (whenJust)
+import           Control.Monad.Extra    (concatMapM, whenJust)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Function          (on)
+import           Data.HashSet           (HashSet)
+import qualified Data.HashSet           as HS hiding (HashSet)
 import qualified Data.IntMap.Strict     as I
 import           Data.List              (elemIndex, foldl1', genericIndex,
                                          genericLength, groupBy, nub, sortOn)
@@ -212,6 +217,10 @@ getLastBlockId st = A.query st A.GetLastBlockId
 isInitialized :: MonadIO m => A.UserState -> m Bool
 isInitialized st = A.query st A.IsInitialized
 
+-- | Checks if this user address has corresponding secret key.
+hasSecretKey :: MonadIO m => A.UserState -> C.Address -> m Bool
+hasSecretKey st = fmap (isJust . join) . A.query st . A.GetSecretKey
+
 -- | Same as addAddress, but queries blockchain automatically and
 -- queries transactions that affect this address
 importAddress
@@ -243,7 +252,7 @@ importAddress st (skMaybe,pk) fromH = do
                 " is current wallet's top known blockchain height."
         in commitError $ sformat formatPattern walletHeight walletHeight
     let period = [fromH..walletHeight]
-        perLength = walletHeight - fromH - 1
+        perLength = walletHeight - fromH + 1
         delta = min deltaMax perLength
         periodsLast = splitEvery delta period
     C.logInfo $ sformat
@@ -254,6 +263,8 @@ importAddress st (skMaybe,pk) fromH = do
     A.update st $ A.AddAddress newAddress skMaybe $ M.fromList hblocks
   where
     newAddress = C.Address pk
+    splitEvery 0 _ =
+        error "splitEvery in Operations.importAddress called with delta 0"
     splitEvery _ [] = []
     splitEvery n list = let (first,rest) = splitAt n list
                         in first : (splitEvery n rest)
@@ -358,14 +369,15 @@ submitTransactionRetry tries st maybeCache td@TransactionData{..}
           "User.Operations.submitTransactionRetry shouldn't be called with tries < 1"
   | null tdInputs = commitError "you should enter at least one source input"
   | otherwise = do
-      (tx,signatures) <- constructAndSignTransaction st td
+      tx <- constructTransaction st td
+      emptyBundle <- getEmptySignatureBundle st tx
+      signatures <- signTransactionLocally st tx emptyBundle
       tx <$ sendTransactionRetry tries st maybeCache tx signatures
 
-constructAndSignTransaction
-    :: forall m.
-       WorkMode m
-    => A.UserState -> TransactionData -> m (C.Transaction, SignatureBundle)
-constructAndSignTransaction st TransactionData{..} = do
+constructTransaction
+    :: forall m . WorkMode m
+    => A.UserState -> TransactionData -> m C.Transaction
+constructTransaction st TransactionData{..} = do
     () <$ updateBlockchain st False
     C.logInfo $
         sformat
@@ -375,7 +387,7 @@ constructAndSignTransaction st TransactionData{..} = do
                         pairBuilder (a, listBuilderJSON b))
                   tdInputs)
             tdOutputAddress
-            (listBuilderJSONIndent 2 $ tdOutputCoins)
+            (listBuilderJSONIndent 2 tdOutputCoins)
     -- If there are multiple
     let tdInputsMerged :: [TransactionInput]
         tdInputsMerged = map (foldr1 (\(a,b) (_,d) -> (a, b++d))) $
@@ -419,26 +431,12 @@ constructAndSignTransaction st TransactionData{..} = do
             accInputs
     when (any isNothing txPieces) $
         commitError "Couldn't form transaction. Not enough funds."
-    let (addrPairList,inputAddrids,outputs) =
-            foldl1' pair3merge $ map fromJust txPieces
+    let (inputAddrids,outputs) = foldl1' mappend $ map fromJust txPieces
         outTr =
             C.Transaction
             { txInputs = inputAddrids
             , txOutputs = outputs ++ map (tdOutputAddress, ) tdOutputCoins
             }
-    signatures <-
-            M.fromList <$>
-            mapM
-                (\(addrid',address') -> do
-                      (pK, sKMaybe) <-
-                          A.query st (A.FindUserAddress address')
-                      when (isNothing sKMaybe) $ commitError $
-                          sformat ("The correspondent account " % build %
-                                   " doesn't have a secret key attached in" %
-                                   " the wallet. Its related public component " %
-                                   build) address' pK
-                      return (addrid', (pK, C.sign (fromJust sKMaybe) outTr)))
-                addrPairList
     when (not (null tdOutputCoins) && not (C.validateSum outTr)) $
         commitError $
         sformat ("Your transaction doesn't pass validity check: " % build) outTr
@@ -447,8 +445,56 @@ constructAndSignTransaction st TransactionData{..} = do
         sformat
             ("Our code is broken and our auto-generated transaction is invalid: " % build)
             outTr
-    sigBundle <- M.fromList <$> mapM toSignatureBundle (M.assocs signatures)
-    return (outTr, sigBundle)
+    return outTr
+
+-- | Get empty signature bundle for passing into `signTransactionLocally`
+getEmptySignatureBundle
+    :: forall m . WorkMode m
+    => A.UserState -> C.Transaction -> m SignatureBundle
+getEmptySignatureBundle st C.Transaction{..} = do
+    rawBundle <- mapM
+        (\addrid -> do
+              addr0 <- A.query st (A.ResolveAddressLocally addrid)
+              when (isNothing addr0) $
+                  commitError $
+                  sformat ("Addrid " % build % " doesn't have related address " %
+                           "imported into wallet. " %
+                           "Can't form transation with addrids that we don't own")
+                  addrid
+              let addr = fromJust addr0
+              strat <- A.query st $ A.GetAddressStrategy addr
+              when (isNothing strat) $
+                  commitError $
+                  sformat ("Address " % build % " has no strategy known to the wallet")
+                  addr
+              return (addrid, (addr, fromJust strat, [])))
+        txInputs
+    return $ M.fromList rawBundle
+
+-- | Sign transaction with local addresses that are available. If
+-- address with no secret keys in concountered, it throws an
+-- exception. Input signature bundle should have all actual signatures
+-- empty ([]) though having a skeleton of it -- map from addrids to
+-- (address,strategy,[]),strategy,[]).
+signTransactionLocally
+    :: forall m . WorkMode m
+    => A.UserState -> C.Transaction -> SignatureBundle -> m SignatureBundle
+signTransactionLocally st transaction emptySB = do
+    let addridsResolved = map (\(a,b) -> (a, b ^. _1)) $ M.assocs emptySB
+    signatures <-
+        M.fromList <$>
+        mapM
+            (\(addrid',address') -> do
+                  (pK, sKMaybe) <-
+                      A.query st (A.FindUserAddress address')
+                  when (isNothing sKMaybe) $ commitError $
+                      sformat ("The correspondent account " % build %
+                               " doesn't have a secret key attached in" %
+                               " the wallet. Its related public component " %
+                               build) address' pK
+                  return (addrid', (pK, C.sign (fromJust sKMaybe) transaction)))
+            addridsResolved
+    M.fromList <$> mapM toSignatureBundle (M.assocs signatures)
   where
     toSignatureBundle (addrid,signPair) = do
         address <- fromMaybe (error "Exception1 at toSignatureBundle in Operations.hs")
@@ -456,8 +502,6 @@ constructAndSignTransaction st TransactionData{..} = do
         str <- fromMaybe (error "Exception2 at toSignatureBundle in Operations.hs")
                    <$> A.query st (A.GetAddressStrategy address)
         return (addrid, (address, str, [signPair]))
-    pair3merge :: ([a], [b], [c]) -> ([a], [b], [c]) -> ([a], [b], [c])
-    pair3merge = mappend
 
 -- For given address and coins to send from it it returns a
 -- triple. First element is chosen addrids with user addresses to
@@ -470,12 +514,11 @@ submitTransactionMapper
     -> C.Address
     -> C.Address
     -> C.CoinsMap
-    -> m (Maybe ([(C.AddrId, C.Address)], [C.AddrId], [(C.Address, C.Coin)]))
+    -> m (Maybe ([C.AddrId], [(C.Address, C.Coin)]))
 submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
     genAddr <- view C.genesisAddress <$> getNodeContext
     (addrids :: [C.AddrId]) <- A.query st (A.GetOwnedAddrIds genAddr address)
-    let
-        -- Pairs of chosen addrids and change for each color
+    let -- Pairs of chosen addrids and change for each color
         chosenMap0
             :: Maybe [([C.AddrId], C.Coin)]
         chosenMap0 = I.elems <$> C.chooseAddresses addrids requestedCoins
@@ -493,10 +536,9 @@ submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
           | null outputCoin = map (outputAddr, ) $ C.coinsToList requestedCoins
           | otherwise = []
         retValue =
-            ( map (, address) inputAddrids
-            , inputAddrids
+            ( inputAddrids
             , changes ++ autoGeneratedOutputs)
-    return $ (const retValue) <$> chosenMap0
+    return $ const retValue <$> chosenMap0
 
 sendTransactionRetry
     :: forall m.
@@ -555,7 +597,7 @@ sendTransactionDo st maybeCache tx signatures = do
             walletHeight lastAppliedBlock
     let nonDefaultAddresses =
             M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
-            map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head $ sgns))) $
+            map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head sgns))) $
             filter ((/= C.DefaultStrategy) . sel2 . snd) $
             M.assocs signatures
     extraSignatures <- getExtraSignatures tx nonDefaultAddresses 120
@@ -579,18 +621,70 @@ isRetriableException e
     | isWalletSyncError e = True
     | otherwise = False
 
+-- | Find in wallet user address which is party in multisignature addres.
+findPartyAddress
+    :: forall m .
+       WorkMode m
+    => A.UserState
+    -> HashSet C.AllocationAddress
+    -> m (C.Address, C.SecretKey)
+findPartyAddress st userAddrs = do
+    defaultAddresses <-
+        A.query st . A.GetOwnedDefaultAddresses . view C.genesisAddress =<<
+        getNodeContext
+    let partyCandidates =
+            filter (`elem` defaultAddresses) $
+            map C._address $ HS.toList userAddrs
+    userPartyAddr <-
+        case partyCandidates of
+            [] -> commitError "User is not one of --uaddr"
+            _:_:_ ->
+                commitError
+                    "User isn't allowed to have more than one of his address among parties"
+            [userAddress] -> pure userAddress
+    mmUserSk <- A.query st $ A.GetSecretKey userPartyAddr
+    userSk <-
+        case mmUserSk of
+            Just (Just sk) -> pure sk
+            _ ->
+                commitError $
+                sformat
+                    ("User address " % build %
+                     " doesn't have corresponding secret key")
+                    userPartyAddr
+    return (userPartyAddr, userSk)
+
+-- | Verify that trust party address occurs in party set without user addresses.
+verifyTrustEntry
+    :: forall m .
+       WorkMode m
+    => A.UserState
+    -> HashSet C.AllocationAddress
+    -> m ()
+verifyTrustEntry st strategyParties = do
+    -- @TODO: remove duplicate code with 'findPartyAddress'
+    defaultAddresses <- A.query st . A.GetOwnedDefaultAddresses . view C.genesisAddress
+                        =<< getNodeContext
+    let partyCandidates = filter (`elem` defaultAddresses)
+                          $ map C._address
+                          $ HS.toList strategyParties
+    unless (null partyCandidates) $ commitError
+        "Addresses from wallet are not allowed to be parties with trust"
+
+
 -- | Get list of all allocation address in which user participates.
 retrieveAllocationsList
     :: forall m .
        WorkMode m
     => A.UserState
-    -> m ()  -- [(C.MSAddress, C.AllocationInfo)]
-retrieveAllocationsList st = do
-    -- @TODO: only first address as party is supported now
+    -> Maybe C.Address
+    -> m ()
+retrieveAllocationsList st mTrustPartyAddress = do
     genAddr         <- view C.genesisAddress <$> getNodeContext
-    fstUserAddress  <- head <$> A.query st (A.GetOwnedAddresses genAddr)
-    userAllocInfos  <- C.queryNotaryMyMSAllocations $ C.UserAlloc  fstUserAddress
-    trustAllocInfos <- C.queryNotaryMyMSAllocations $ C.TrustAlloc fstUserAddress
+    addressesWithSk <- filterM (hasSecretKey st) =<< A.query st (A.GetOwnedAddresses genAddr)
+    userAllocInfos  <- concatMapM (C.queryNotaryMyMSAllocations . C.UserAlloc) addressesWithSk
+    trustAllocInfos <- case mTrustPartyAddress of
+        Just taddr -> C.queryNotaryMyMSAllocations $ C.TrustAlloc taddr
+        Nothing    -> pure []
     let allInfos = userAllocInfos ++ trustAllocInfos
     A.update st $ A.UpdateAllocationStrategies $ M.fromList allInfos
-    -- return allInfos

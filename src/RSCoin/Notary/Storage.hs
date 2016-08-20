@@ -24,18 +24,16 @@ import           Control.Lens         (Lens', at, makeLenses, to, use, uses,
                                        view, (%=), (%~), (&), (.=), (?=), (^.))
 import           Control.Monad        (forM_, unless, when, (<=<))
 import           Control.Monad.Catch  (MonadThrow (throwM))
-import           Control.Monad.Extra  (whenM)
-
+import           Control.Monad.Extra  (whenJust, whenM)
 import           Data.Acid            (Query, Update, liftQuery)
 import qualified Data.Foldable        as F
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
 import           Data.Map.Strict      (Map)
 import qualified Data.Map.Strict      as M hiding (Map)
-import           Data.Maybe           (fromJust, fromMaybe, isJust)
+import           Data.Maybe           (fromJust, fromMaybe)
 import           Data.Set             (Set)
 import qualified Data.Set             as S hiding (Set)
-
 import           Formatting           (build, sformat, (%))
 
 import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
@@ -43,14 +41,14 @@ import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
                                        Transaction (..), Utxo,
                                        computeOutputAddrids,
                                        notaryMSAttemptsLimit, validateSignature,
-                                       verify)
+                                       validateSum, verify)
 import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
                                        AllocationAddress, AllocationInfo (..),
                                        AllocationStrategy (..), MSAddress,
                                        PartyAddress (..), TxStrategy (..),
                                        allParties, allocateTxFromAlloc,
                                        allocationStrategy, currentConfirmations,
-                                       isStrategyCompleted, partyToAllocation)
+                                       partyToAllocation)
 import           RSCoin.Notary.Error  (NotaryError (..))
 
 data Storage = Storage
@@ -104,8 +102,9 @@ emptyNotaryStorage =
 -- Erase occurrences published (address, transaction) from storage
 forgetAddrTx :: Address -> Transaction -> Update Storage ()
 forgetAddrTx addr tx = do
-  txPool %= M.update (ifNotEmpty . M.delete tx) addr
-  txPoolAddrIds %= \m -> foldr (M.update $ ifNotEmpty . S.delete (addr, tx)) m (txInputs tx)
+    txPool %= M.update (ifNotEmpty . M.delete tx) addr
+    txPoolAddrIds %=
+        \m -> foldr (M.update $ ifNotEmpty . S.delete (addr, tx)) m (txInputs tx)
 
 ifNotEmpty :: Foldable t => t a -> Maybe (t a)
 ifNotEmpty s | F.null s  = Nothing
@@ -117,45 +116,57 @@ getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> use addresses
 -- | Throws NEBlocked if user reaches limit of attempts (DDOS protection).
 guardMaxAttemps :: Address -> Update Storage ()
 guardMaxAttemps userAddr = do
-    periodStats %= M.insertWith (\new old -> min (old + new) notaryMSAttemptsLimit) userAddr 1
+    periodStats %=
+        M.insertWith (\new old -> min (old + new) notaryMSAttemptsLimit) userAddr 1
     currentAttemtps <- uses periodStats $ fromJust . M.lookup userAddr
     when (currentAttemtps >= notaryMSAttemptsLimit) $ throwM NEBlocked
 
--- | Receives tx, addr, (addr, sig) pair, checks validity and publishes (tx, addr) to storage,
--- adds (addr, sig) to list of already collected for particular (tx, addr) pair.
-addSignedTransaction :: Transaction -> Address -> (Address, Signature) -> Update Storage ()
-addSignedTransaction tx addr sg@(sigAddr, sig) = do
-    -- @TODO check transaction correctness, i.e. equality of sums and etc.
+-- | Receives tx, addr, (addr, sig) pair, checks validity and
+-- publishes (tx, addr) to storage, adds (addr, sig) to list of
+-- already collected for particular (tx, addr) pair.
+addSignedTransaction :: Transaction
+                     -> Address
+                     -> (Address, Signature)
+                     -> Update Storage ()
+addSignedTransaction tx addr (sigAddr,sig) = do
+    checkTransactionValidity
     checkAddrIdsKnown
     checkAddrRelativeToTx
     checkSigRelativeToAddr
     txMap <- fromMaybe M.empty . M.lookup addr <$> use txPool
-    when (not $ tx `M.member` txMap) $
-      txPoolAddrIds %= updateTxPoolAddrIds
-    txPool %= M.insert addr (M.alter (Just. uncurry M.insert sg . fromMaybe M.empty) tx txMap)
+    when (tx `M.notMember` txMap) $ txPoolAddrIds %= updateTxPoolAddrIds
+    txPool %=
+        M.insert
+            addr
+            (M.alter (Just . M.insert sigAddr sig . fromMaybe M.empty) tx txMap)
   where
     updateTxPoolAddrIds m = foldr (M.alter f) m $ txInputs tx
-      where f = Just . S.insert (addr, tx) . fromMaybe S.empty
+      where
+        f = Just . S.insert (addr, tx) . fromMaybe S.empty
+    checkTransactionValidity =
+        unless (validateSum tx) $
+        throwM $
+        NEInvalidArguments $
+        sformat ("Transaction doesn't pass valitidy check: " % build) tx
     -- Throws error if addrid isn't known (with corresponding label)
     -- User should repeat transaction after some timeout
     checkAddrIdsKnown = do
-      u <- use utxo
-      when (not $ all (`M.member` u) (txInputs tx)) $
-         use periodId >>= throwM . NEAddrIdNotInUtxo
+        u <- use utxo
+        unless (all (`M.member` u) (txInputs tx)) $
+            use periodId >>= throwM . NEAddrIdNotInUtxo
     checkAddrRelativeToTx = do
-      s <- fromMaybe S.empty . M.lookup addr <$> use unspentAddrIds
-      when (not $ any (`S.member` s) (txInputs tx)) $
-         throwM NEAddrNotRelativeToTx
+        s <- fromMaybe S.empty . M.lookup addr <$> use unspentAddrIds
+        unless (any (`S.member` s) (txInputs tx)) $
+            throwM NEAddrNotRelativeToTx
     checkSigRelativeToAddr = do
         strategy <- getStrategy addr
         case strategy of
-          DefaultStrategy
-            -> throwM $ NEStrategyNotSupported "DefaultStrategy"
-          MOfNStrategy _ addrs
-            -> when (not $ any (sigAddr ==) addrs) $
-                 throwM $ NEUnrelatedSignature "in multi transaction"
-        when (not $ validateSignature sig sigAddr tx) $
-          throwM NEInvalidSignature
+            DefaultStrategy ->
+                throwM $ NEStrategyNotSupported "DefaultStrategy"
+            MOfNStrategy _ addrs ->
+                when (sigAddr `notElem` addrs) $
+                throwM $ NEUnrelatedSignature "in multi transaction"
+        unless (validateSignature sig sigAddr tx) $ throwM NEInvalidSignature
 
 -- | Allocate new multisignature address by chosen strategy and
 -- given chain of certificates.
@@ -194,10 +205,13 @@ allocateMSAddress
       unless (verify slavePk requestSig signedData) $
           throwM $ NEUnrelatedSignature $ sformat
               ("(msAddr, strategy) not signed with proper sk for pk: " % build) slavePk
+      when (HS.size _allParties < 2) $
+          throwM $ NEInvalidStrategy "multisignature address should have at least two members"
       when (_sigNumber <= 0) $
-          throwM $ NEInvalidArguments "required number of signatures should be positive"
+          throwM $ NEInvalidStrategy "number of signatures to sign tx should be positive"
       when (_sigNumber > HS.size _allParties) $
-          throwM $ NEInvalidArguments "required number of signatures is greater then party size"
+          throwM $ NEInvalidStrategy
+              "number of signatures to sign tx is greater then number of members"
       unless (partyToAllocation argPartyAddress `HS.member` _allParties) $
           throwM $ NEInvalidArguments "party address not in set of addresses"
       whenM (uses addresses $ M.member msAddr) $
@@ -251,9 +265,11 @@ queryCompleteMSAdresses = queryMSAddressesHelper
 removeCompleteMSAddresses :: PublicKey -> [MSAddress] -> Signature -> Update Storage ()
 removeCompleteMSAddresses bankPublicKey completeAddrs signedAddrs = do
     unless (verify bankPublicKey signedAddrs completeAddrs) $
-        throwM $ NEUnrelatedSignature "addr list in remove MS query not signed by bank"
-    forM_ completeAddrs $ \adress ->
-        allocationStrategyPool %= M.delete adress
+        throwM $
+        NEUnrelatedSignature "addr list in remove MS query not signed by bank"
+    forM_ completeAddrs $
+        \adress ->
+             allocationStrategyPool %= M.delete adress
 
 -- | Request all address which contains 'allocAddress' as party.
 queryMyMSRequests :: AllocationAddress -> Query Storage [(MSAddress, AllocationInfo)]
@@ -268,9 +284,8 @@ queryMyMSRequests allocAddress = queryMSAddressesHelper
 acquireSignatures :: Transaction -> Address -> Update Storage [(Address, Signature)]
 acquireSignatures tx addr = do
     sgs <- liftQuery (getSignatures tx addr)
-    strategy <- getStrategy addr
-    when (isStrategyCompleted strategy addr sgs tx) $
-        forgetAddrTx addr tx
+--    strategy <- getStrategy addr
+--    when (isStrategyCompleted strategy addr sgs tx) $ forgetAddrTx addr tx
     return sgs
 
 -- | By given (tx, addr) get list of collected signatures (or empty list if (tx, addr)
@@ -293,14 +308,14 @@ announceNewPeriods pId' blocks = do
 
 announceNewPeriod :: HBlock -> Update Storage ()
 announceNewPeriod HBlock{..} = do
-      addresses %= M.union hbAddresses
-      forM_ (concatMap txInputs hbTransactions) processTxIn
-      forM_ (concatMap computeOutputAddrids hbTransactions) $ uncurry processTxOut
-      periodStats .= M.empty
+    addresses %= M.union hbAddresses
+    forM_ (concatMap txInputs hbTransactions) processTxIn
+    forM_ (concatMap computeOutputAddrids hbTransactions) $ uncurry processTxOut
+    periodStats .= M.empty
   where
     processTxIn addrId = do
         addrM <- M.lookup addrId <$> use utxo
-        when (isJust addrM) $ processTxIn' addrId (fromJust addrM)
+        whenJust addrM $ processTxIn' addrId
     processTxIn' addrId addr = do
         utxo %= M.delete addrId
         unspentAddrIds %= M.update (ifNotEmpty . S.delete addrId) addr

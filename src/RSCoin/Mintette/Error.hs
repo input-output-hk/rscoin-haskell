@@ -7,7 +7,7 @@ module RSCoin.Mintette.Error
        ) where
 
 import           Control.Exception       (Exception (..), SomeException)
-import           Control.Monad.Trans     (MonadIO (liftIO))
+import           Control.Monad.Trans     (MonadIO)
 import           Data.Data               (Data)
 import           Data.MessagePack        (MessagePack (fromObject, toObject),
                                           Object)
@@ -16,7 +16,7 @@ import           Data.Text               (Text)
 import           Data.Text.Buildable     (Buildable (build))
 import qualified Data.Text.Format        as F
 import           Data.Typeable           (Typeable)
-import           Formatting              (sformat, shown, stext, (%))
+import           Formatting              (sformat, stext, (%))
 import qualified Formatting              (build)
 
 import           RSCoin.Core.Error       (rscExceptionFromException,

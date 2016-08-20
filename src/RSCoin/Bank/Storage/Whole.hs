@@ -36,11 +36,13 @@ module RSCoin.Bank.Storage.Whole
        , startNewPeriod
        ) where
 
-import           Control.Lens                  (Getter, makeLenses, to, use,
-                                                uses, (%%=), (%=), (+=), (.=))
+import           Control.Lens                  (Getter, at, makeLenses, to, use,
+                                                uses, view, (%%=), (%=), (+=),
+                                                (.=))
 import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (MonadThrow (throwM))
 import           Control.Monad.Extra           (whenJust)
+import           Control.Monad.Reader          (MonadReader)
 import           Control.Monad.State           (MonadState, execState, runState)
 import           Data.Bifunctor                (first)
 import           Data.Foldable                 (foldl')
@@ -76,6 +78,13 @@ import qualified RSCoin.Bank.Storage.Explorers as ES
 import qualified RSCoin.Bank.Storage.Mintettes as MS
 import qualified RSCoin.Bank.Strategies        as Strategies
 
+-- | TransactionIndex consists of two indices: the first one is the
+-- index of block containing this transaction, the second one is the
+-- index of transaction in this block. It's implementation detail of
+-- this storage.
+newtype TransactionIndex =
+    TransactionIndex (PeriodId, Word)
+
 -- | Storage contains all the data used by Bank.
 data Storage = Storage
     {
@@ -92,7 +101,7 @@ data Storage = Storage
       -- | Utxo for all the transaction ever made.
     , _utxo             :: !C.Utxo
       -- | Mapping from transaction id to actual transaction with this id.
-    , _transactionMap   :: !(MP.Map C.TransactionId C.Transaction)
+    , _transactionMap   :: !(MP.Map C.TransactionId TransactionIndex)
       -- | List off all emission hashes from the very beginning.
     , _emissionHashes   :: ![C.TransactionId]
       -- | Known addresses accompanied with their strategies. Note that every address with
@@ -103,6 +112,7 @@ data Storage = Storage
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
+$(deriveSafeCopy 0 'base ''TransactionIndex)
 $(deriveSafeCopy 0 'base ''Storage)
 
 -- | Make empty storage
@@ -164,8 +174,19 @@ getHBlock :: C.PeriodId -> Query (Maybe C.HBlock)
 getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
 
 -- | Resolve transaction hash into transaction
-getTransaction :: C.TransactionId -> Query (Maybe C.Transaction)
-getTransaction tId = transactionMap . to (MP.lookup tId)
+getTransaction
+    :: (MonadReader Storage m)
+    => C.TransactionId -> m (Maybe C.Transaction)
+getTransaction tId =
+    maybe (pure Nothing) getTransactionByIndex =<<
+    view (transactionMap . at tId)
+
+getTransactionByIndex
+    :: (MonadReader Storage m)
+    => TransactionIndex -> m (Maybe C.Transaction)
+getTransactionByIndex (TransactionIndex (blkIdx,txIdx)) = do
+    block <- view $ getHBlock blkIdx
+    return $ (`atMay` fromIntegral txIdx) . C.hbTransactions =<< block
 
 -- Dumping Bank state
 
@@ -321,17 +342,22 @@ startNewPeriodFinally
     -> C.EmissionId
     -> ExceptUpdate [MintetteId]
 startNewPeriodFinally sk goodMintettes newBlockCtor emissionTid = do
+    blockIdx <- use periodId
     periodId += 1
     updateIds <- updateMintettes sk goodMintettes
     newAddrs <- updateAddresses
     newBlock <- newBlockCtor newAddrs sk <$> use getDpk
     updateUtxo $ hbTransactions newBlock
     -- TODO: this can be written more elegantly !
-    when (isJust emissionTid) $
+    when
+        (isJust emissionTid) $
         emissionHashes %= (fromJust emissionTid :)
-    blocks %= (newBlock:)
-    transactionMap %= (\map' -> foldl' (\m t -> MP.insert (hash t) t m)
-        map' (hbTransactions newBlock))
+    blocks %= (newBlock :)
+    let populateTransactionMap = foldl' foldStep
+        foldStep oldMap (txIdx,tx) =
+            MP.insert (hash tx) (TransactionIndex (blockIdx, txIdx)) oldMap
+    transactionMap %=
+        flip populateTransactionMap (enumerate $ hbTransactions newBlock)
     return updateIds
 
 -- | Add pending addresses to addresses map (addr -> strategy), return

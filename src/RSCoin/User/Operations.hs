@@ -59,6 +59,7 @@ import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
 import           Data.Tuple.Select      (sel1, sel2, sel3)
+import           Debug.Trace
 import           Formatting             (build, int, sformat, shown, (%))
 import           Safe                   (atMay)
 
@@ -252,17 +253,24 @@ importAddress st (skMaybe,pk) fromH = do
                 " is current wallet's top known blockchain height."
         in commitError $ sformat formatPattern walletHeight walletHeight
     let period = [fromH..walletHeight]
-        perLength = walletHeight - fromH - 1
+        perLength = walletHeight - fromH + 1
         delta = min deltaMax perLength
         periodsLast = splitEvery delta period
+    traceM $ show period
+    traceM $ show perLength
+    traceM $ show delta
+    traceM $ show periodsLast
     C.logInfo $ sformat
         ("Starting blockchain query process for blocks " % int % ".." % int) fromH walletHeight
     hblocks <- (period `zip`) . concat <$>
-        mapM (\l -> C.getBlocksByHeight (head l) (last l)) periodsLast
+        mapM (\l ->
+               trace ("l is : " ++ show l) $ C.getBlocksByHeight (head l) (last l)) periodsLast
     C.logInfo "Ended blockchain query process"
     A.update st $ A.AddAddress newAddress skMaybe $ M.fromList hblocks
   where
     newAddress = C.Address pk
+    splitEvery 0 _ =
+        error "splitEvery in Operations.importAddress called with delta 0"
     splitEvery _ [] = []
     splitEvery n list = let (first,rest) = splitAt n list
                         in first : (splitEvery n rest)

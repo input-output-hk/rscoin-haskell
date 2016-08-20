@@ -56,7 +56,7 @@ import           Safe                       (atMay)
 import           Serokell.Util.Text         (listBuilderJSONIndent, mapBuilder,
                                              pairBuilder, show')
 
-import           RSCoin.Core.Crypto         (PublicKey, Signature)
+import           RSCoin.Core.Crypto         (PublicKey, Signature, hash)
 import           RSCoin.Core.Error          (rscExceptionFromException,
                                              rscExceptionToException)
 import           RSCoin.Core.Logging        (WithNamedLogger (..))
@@ -184,8 +184,8 @@ getBlocksByHeight from to =
 getTransactionById :: WorkMode m => TransactionId -> m (Maybe Transaction)
 getTransactionById tId =
     withResult
-        (L.logInfo $ sformat ("Getting transaction by id " % build) tId)
-        (\t -> L.logInfo $ sformat
+        (L.logDebug $ sformat ("Getting transaction by id " % build) tId)
+        (\t -> L.logDebug $ sformat
                    ("Successfully got transaction by id " % build % ": " % build)
                    tId t)
         $ callBank $ P.call (P.RSCBank P.GetTransaction) tId
@@ -200,14 +200,14 @@ getGenesisBlock = do
 finishPeriod :: WorkMode m => Signature -> m ()
 finishPeriod currentPeriodSignature =
     withResult
-        (L.logInfo "Finishing period")
+        (L.logDebug "Finishing period")
         (const $ L.logDebug "Successfully finished period") $
     callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
 
 sendBankLocalControlRequest :: WorkMode m => P.BankLocalControlRequest -> m ()
 sendBankLocalControlRequest request =
     withResult
-        (L.logInfo $ sformat ("Sending control request to bank: " % build) request)
+        (L.logDebug $ sformat ("Sending control request to bank: " % build) request)
         (const $ L.logDebug "Sent control request successfully") $
          callBank $ P.call (P.RSCBank P.LocalControlRequest) request
 
@@ -241,22 +241,22 @@ commitTx m tx cc =
     withResult infoMessage (either onError onSuccess) $
     callMintette m $ P.call (P.RSCMintette P.CommitTx) tx cc
   where
-    infoMessage = L.logInfo $ sformat ("Commit transaction " % build) tx
+    infoMessage = L.logDebug $ sformat ("Commit transaction " % build) tx
     onError e = L.logError $ sformat ("Commit tx failed: " % stext) e
     onSuccess _ =
-        L.logInfo $ sformat ("Successfully committed transaction " % build) tx
+        L.logDebug $ sformat ("Successfully committed transaction " % build) tx
 
 getMintettePeriod :: WorkMode m => Mintette -> m (Maybe PeriodId)
 getMintettePeriod m =
     withResult infoMessage (maybe onError onSuccess) $
     handleEither $ callMintette m $ P.call (P.RSCMintette P.GetMintettePeriod)
   where
-    infoMessage = L.logInfo $
+    infoMessage = L.logDebug $
         sformat ("Getting minette period from mintette " % build) m
     onError = L.logError $ sformat
         ("getMintettePeriod failed for mintette " % build) m
     onSuccess p =
-        L.logInfo $ sformat ("Successfully got the period: " % build) p
+        L.logDebug $ sformat ("Successfully got the period: " % build) p
 
 sendPeriodFinished :: WorkMode m => Mintette -> PeriodId -> m PeriodResult
 sendPeriodFinished mintette pId =
@@ -266,11 +266,11 @@ sendPeriodFinished mintette pId =
 
   where
     infoMessage =
-        L.logInfo $
+        L.logDebug $
         sformat ("Send period " % int % " finished to mintette " % build)
             pId mintette
     successMessage (_,blks,lgs) =
-        L.logInfo $
+        L.logDebug $
         sformat
             ("Received period result from mintette " % build % ": \n" %
             " Blocks: " % build % "\n" %
@@ -279,7 +279,7 @@ sendPeriodFinished mintette pId =
 
 announceNewPeriodsToNotary :: WorkMode m => PeriodId -> [HBlock] -> m ()
 announceNewPeriodsToNotary pId' hblocks = do
-    L.logInfo $
+    L.logDebug $
         sformat
             ("Announce new periods to Notary, hblocks " % build %
              ", latest periodId " %
@@ -290,7 +290,7 @@ announceNewPeriodsToNotary pId' hblocks = do
 
 getNotaryPeriod :: WorkMode m => m PeriodId
 getNotaryPeriod = do
-    L.logInfo "Getting period of Notary"
+    L.logDebug "Getting period of Notary"
     callNotary $ P.call $ P.RSCNotary P.GetNotaryPeriod
 
 allocateMultisignatureAddress
@@ -302,7 +302,7 @@ allocateMultisignatureAddress
     -> Maybe (PublicKey, Signature)
     -> m ()
 allocateMultisignatureAddress msAddr partyAddr allocStrat signature mMasterCheck = do
-    L.logInfo $ sformat
+    L.logDebug $ sformat
         ( "Allocate new ms address: " % build % "\n ,"
         % "from party address: "      % build % "\n ,"
         % "allocation strategy: "     % build % "\n ,"
@@ -319,12 +319,12 @@ allocateMultisignatureAddress msAddr partyAddr allocStrat signature mMasterCheck
 
 queryNotaryCompleteMSAddresses :: WorkMode m => m [(Address, TxStrategy)]
 queryNotaryCompleteMSAddresses = do
-    L.logInfo "Querying Notary complete MS addresses"
+    L.logDebug "Querying Notary complete MS addresses"
     callNotary $ P.call $ P.RSCNotary P.QueryCompleteMS
 
 removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> Signature -> m ()
 removeNotaryCompleteMSAddresses addresses signedAddrs = do
-    L.logInfo "Removing Notary complete MS addresses"
+    L.logDebug "Removing Notary complete MS addresses"
     callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses signedAddrs
 
 queryNotaryMyMSAllocations
@@ -337,7 +337,7 @@ queryNotaryMyMSAllocations allocAddr =
         successMessage
         $ callNotary $ P.call (P.RSCNotary P.QueryMyAllocMS) allocAddr
   where
-    infoMessage = L.logInfo "Calling Notary for my MS addresses..."
+    infoMessage = L.logDebug "Calling Notary for my MS addresses..."
     successMessage res =
         L.logDebug
         $ sformat ("Retrieving from Notary: " % build)
@@ -345,7 +345,7 @@ queryNotaryMyMSAllocations allocAddr =
 
 announceNewPeriod :: WorkMode m => Mintette -> NewPeriodData -> m ()
 announceNewPeriod mintette npd = do
-    L.logInfo $
+    L.logDebug $
         sformat
             ("Announce new period to mintette " % build % ", new period data " %
              build)
@@ -364,7 +364,7 @@ announceNewBlock explorer pId blk signature =
     P.call (P.RSCExplorer P.EMNewBlock) pId blk signature
   where
     infoMessage =
-        L.logInfo $
+        L.logDebug $
         sformat
             ("Announcing new (" % int % "-th) block to " % build)
             pId
@@ -527,7 +527,9 @@ getTxSignatures tx addr =
   where
     infoMessage =
         L.logDebug $
-        sformat ("Getting signatures for tx " % shown % ", addr " % shown) tx addr
+        sformat ("Getting signatures for tx " % shown
+                 % ", hash " % build % ", addr " % shown )
+                tx (hash tx) addr
     successMessage res =
         L.logDebug $ sformat ("Received signatures from Notary: " % shown) res
 

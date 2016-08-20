@@ -196,7 +196,7 @@ processFormTransaction st inputs outputAddrStr outputCoins cache = eWrap $ do
              , tdOutputCoins = outputs'
              }
     unless (isJust outputAddr) $
-        U.commitError $ "Provided key can't be exported: " <> outputAddrStr
+        U.commitError $ "Provided key can't be read/imported (check format): " <> outputAddrStr
     tx <- submitTransactionRetry 2 st cache td
     C.logInfo $
         sformat ("Successfully submitted transaction with hash: " % build) $
@@ -243,7 +243,7 @@ processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigT
         mMasterCheck
 
     C.logInfo $ sformat
-        ("Your new address will be added in the next block: " % build)
+        ("Your new address will be added in the next block after it's confirmed: " % build)
         msPublicKey
   where
     parseTextAddresses

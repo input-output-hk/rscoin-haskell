@@ -386,7 +386,7 @@ constructAndSignTransaction st TransactionData{..} = do
                         pairBuilder (a, listBuilderJSON b))
                   tdInputs)
             tdOutputAddress
-            (listBuilderJSONIndent 2 $ tdOutputCoins)
+            (listBuilderJSONIndent 2 tdOutputCoins)
     -- If there are multiple
     let tdInputsMerged :: [TransactionInput]
         tdInputsMerged = map (foldr1 (\(a,b) (_,d) -> (a, b++d))) $
@@ -598,21 +598,29 @@ findPartyAddress
     -> HashSet C.AllocationAddress
     -> m (C.Address, C.SecretKey)
 findPartyAddress st userAddrs = do
-    defaultAddresses <- A.query st . A.GetOwnedDefaultAddresses . view C.genesisAddress
-                        =<< getNodeContext
-    let partyCandidates = filter (`elem` defaultAddresses) $ map C._address $ HS.toList userAddrs
-    userPartyAddr    <- case partyCandidates of
-                         []    -> commitError
-                             "User is not one of --uaddr"
-                         _:_:_ -> commitError
-                             "User isn't allowed to have more than one of his address among parties"
-                         [userAddress] -> pure userAddress
-    mmUserSk         <- A.query st $ A.GetSecretKey userPartyAddr
-    userSk           <- case mmUserSk of
-        Just (Just sk) -> pure sk
-        _              -> commitError $ sformat
-                              ("User address " % build % " doesn't have corresponding secret key")
-                              userPartyAddr
+    defaultAddresses <-
+        A.query st . A.GetOwnedDefaultAddresses . view C.genesisAddress =<<
+        getNodeContext
+    let partyCandidates =
+            filter (`elem` defaultAddresses) $
+            map C._address $ HS.toList userAddrs
+    userPartyAddr <-
+        case partyCandidates of
+            [] -> commitError "User is not one of --uaddr"
+            _:_:_ ->
+                commitError
+                    "User isn't allowed to have more than one of his address among parties"
+            [userAddress] -> pure userAddress
+    mmUserSk <- A.query st $ A.GetSecretKey userPartyAddr
+    userSk <-
+        case mmUserSk of
+            Just (Just sk) -> pure sk
+            _ ->
+                commitError $
+                sformat
+                    ("User address " % build %
+                     " doesn't have corresponding secret key")
+                    userPartyAddr
     return (userPartyAddr, userSk)
 
 -- | Verify that trust party address occurs in party set without user addresses.

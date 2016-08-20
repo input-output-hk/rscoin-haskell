@@ -40,7 +40,7 @@ import           RSCoin.Core.Types             (CheckConfirmations,
                                                 CommitAcknowledgment (..),
                                                 Mintette, MintetteId, PeriodId)
 import           RSCoin.Timed                  (WorkMode)
-import           RSCoin.Timed.MonadTimed       (sec, timeout)
+import           RSCoin.Timed.MonadTimed       (for, ms, sec, timeout, wait)
 import           RSCoin.User.Cache             (UserCache, getOwnersByAddrid,
                                                 getOwnersByTx,
                                                 invalidateUserCache)
@@ -104,6 +104,7 @@ getExtraSignatures tx requests time = do
             in map (,(addr,str,signs)) addrids)
     pingUntilDead [] ready = return ready
     pingUntilDead notReady@(addr:otherAddrs) ready = do
+        wait $ for 400 ms
         sigs <- CC.getTxSignatures tx addr
         if isStrategyCompleted (getStrategy addr) addr sigs tx
         then pingUntilDead otherAddrs $ (addr,sigs):ready

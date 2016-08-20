@@ -151,13 +151,17 @@ handleGetSignatures
     -> C.Transaction
     -> C.Address
     -> ServerTE m [(C.Address, C.Signature)]
-handleGetSignatures st tx addr = toServer $ do
-    res <- query st $ GetSignatures tx addr
-    C.logDebug $ sformat ("Getting signatures for tx " % build % ", addr " % build % ": " % build)
-        tx
-        addr
-        res
-    return res
+handleGetSignatures st tx addr =
+    toServer $
+    do res <- query st $ GetSignatures tx addr
+       C.logDebug $
+           sformat
+               ("Getting signatures for tx " % build % ", addr " % build % ": " %
+                build)
+               tx
+               addr
+               res
+       return res
 
 handleQueryCompleteMS
     :: MonadIO m

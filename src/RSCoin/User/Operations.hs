@@ -33,17 +33,22 @@ module RSCoin.User.Operations
        , TransactionData (..)
        , submitTransaction
        , submitTransactionRetry
+       , findPartyAddress
+       , verifyTrustEntry
        , retrieveAllocationsList
        ) where
 
 import           Control.Arrow          ((***))
 import           Control.Exception      (SomeException, assert, fromException)
 import           Control.Lens           (view)
-import           Control.Monad          (filterM, forM_, unless, void, when)
+import           Control.Monad          (filterM, forM_, join, unless, void,
+                                         when)
 import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
-import           Control.Monad.Extra    (whenJust)
+import           Control.Monad.Extra    (concatMapM, whenJust)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Function          (on)
+import           Data.HashSet           (HashSet)
+import qualified Data.HashSet           as HS hiding (HashSet)
 import qualified Data.IntMap.Strict     as I
 import           Data.List              (elemIndex, foldl1', genericIndex,
                                          genericLength, groupBy, nub, sortOn)
@@ -211,6 +216,10 @@ getLastBlockId st = A.query st A.GetLastBlockId
 
 isInitialized :: MonadIO m => A.UserState -> m Bool
 isInitialized st = A.query st A.IsInitialized
+
+-- | Checks if this user address has corresponding secret key.
+hasSecretKey :: MonadIO m => A.UserState -> C.Address -> m Bool
+hasSecretKey st = fmap (isJust . join) . A.query st . A.GetSecretKey
 
 -- | Same as addAddress, but queries blockchain automatically and
 -- queries transactions that affect this address
@@ -579,18 +588,62 @@ isRetriableException e
     | isWalletSyncError e = True
     | otherwise = False
 
+-- | Find in wallet user address which is party in multisignature addres.
+findPartyAddress
+    :: forall m .
+       WorkMode m
+    => A.UserState
+    -> HashSet C.AllocationAddress
+    -> m (C.Address, C.SecretKey)
+findPartyAddress st userAddrs = do
+    defaultAddresses <- A.query st . A.GetOwnedDefaultAddresses . view C.genesisAddress
+                        =<< getNodeContext
+    let partyCandidates = filter (`elem` defaultAddresses) $ map C._address $ HS.toList userAddrs
+    userPartyAddr    <- case partyCandidates of
+                         []    -> commitError
+                             "User is not one of --uaddr"
+                         _:_:_ -> commitError
+                             "User isn't allowed to have more than one of his address amond parties"
+                         [userAddress] -> pure userAddress
+    mmUserSk         <- A.query st $ A.GetSecretKey userPartyAddr
+    userSk           <- case mmUserSk of
+        Just (Just sk) -> pure sk
+        _              -> commitError $ sformat
+                              ("User address " % build % " doesn't have corresponding secret key")
+                              userPartyAddr
+    return (userPartyAddr, userSk)
+
+-- | Verify that trust party address occurs in party set without user addresses.
+verifyTrustEntry
+    :: forall m .
+       WorkMode m
+    => A.UserState
+    -> HashSet C.AllocationAddress
+    -> m ()
+verifyTrustEntry st strategyParties = do
+    -- @TODO: remove duplicate code with 'findPartyAddress'
+    defaultAddresses <- A.query st . A.GetOwnedDefaultAddresses . view C.genesisAddress
+                        =<< getNodeContext
+    let partyCandidates = filter (`elem` defaultAddresses)
+                          $ map C._address
+                          $ HS.toList strategyParties
+    unless (null partyCandidates) $ commitError
+        "Addresses from wallet are not allowed to be parties with trust"
+
+
 -- | Get list of all allocation address in which user participates.
 retrieveAllocationsList
     :: forall m .
        WorkMode m
     => A.UserState
-    -> m ()  -- [(C.MSAddress, C.AllocationInfo)]
-retrieveAllocationsList st = do
-    -- @TODO: only first address as party is supported now
+    -> Maybe C.Address
+    -> m ()
+retrieveAllocationsList st mTrustPartyAddress = do
     genAddr         <- view C.genesisAddress <$> getNodeContext
-    fstUserAddress  <- head <$> A.query st (A.GetOwnedAddresses genAddr)
-    userAllocInfos  <- C.queryNotaryMyMSAllocations $ C.UserAlloc  fstUserAddress
-    trustAllocInfos <- C.queryNotaryMyMSAllocations $ C.TrustAlloc fstUserAddress
+    addressesWithSk <- filterM (hasSecretKey st) =<< A.query st (A.GetOwnedAddresses genAddr)
+    userAllocInfos  <- concatMapM (C.queryNotaryMyMSAllocations . C.UserAlloc) addressesWithSk
+    trustAllocInfos <- case mTrustPartyAddress of
+        Just taddr -> C.queryNotaryMyMSAllocations $ C.TrustAlloc taddr
+        Nothing    -> pure []
     let allInfos = userAllocInfos ++ trustAllocInfos
     A.update st $ A.UpdateAllocationStrategies $ M.fromList allInfos
-    -- return allInfos

@@ -56,14 +56,18 @@ data UserCommand
                             [Text]
                             (Maybe Text)
                             (Maybe Text)
-    -- | List all addresses in which current user acts like party
-    | ListAllocations
+
+    -- | List all addresses in which current user acts like party.
+    -- Specify trust public key if you also want to receive MS addresses
+    -- with trust as party.
+    | ListAllocations (Maybe Text)
     -- | List all allocations in the blacklist
-    | ListAllocationsBlacklist
+    | ListAllocationsBlacklist (Maybe Text)
     -- | Put an allocation into blacklist and ignore it
     | BlacklistAllocation Int
     -- | Unignore the allocation
     | WhitelistAllocation Int
+
     -- | For a request #N in local list send confirmation to a Notary.
     -- 1. #N in user list;
     -- 2. @Just (pathToHot, partyAddr)@ : if we want to sign as a 'TrustParty';
@@ -141,17 +145,17 @@ userCommandParser =
          command
              "create-multisig"
              (info
-                  addMultisigOpts
+                  createMultisigOpts
                   (progDesc "Create multisignature address allocation")) <>
          command
              "list-alloc"
              (info
-                  (pure ListAllocations)
+                  (listAllocOpts ListAllocations)
                   (progDesc
                        "List all multisignature address allocations you need to confirm")) <>
          command "list-alloc-blacklisted"
              (info
-                  (pure ListAllocationsBlacklist)
+                  (listAllocOpts ListAllocationsBlacklist)
                   (progDesc $
                        "List all multisignature address allocations that " <>
                        "are blacklisted (ignored).")) <>
@@ -307,7 +311,7 @@ userCommandParser =
         -- FIXME: should we do caching here or not?
         <*>
         pure Nothing
-    addMultisigOpts =
+    createMultisigOpts =
         CreateMultisigAddress <$>
         option auto (short 'm' <> metavar "INT" <> help "Number m from m/n") <*>
         many
@@ -326,6 +330,12 @@ userCommandParser =
             (strOption $
              long "slave-sig" <> metavar "SIGNATURE" <>
              help "Signature of slave with master public key")
+    listAllocOpts allocCtor =
+        allocCtor <$>
+        optional
+            (strOption $
+             long "trust-party" <> metavar "PUBLIC KEY" <>
+             help "Trust address as party")
     confirmOpts =
         ConfirmAllocation <$>
         option

@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -19,7 +18,7 @@ import           Control.Monad           (forM_, join, unless, void, when)
 import           Control.Monad.IO.Class  (MonadIO)
 import           Control.Monad.Trans     (liftIO)
 
-import           Data.Bifunctor          (bimap, second)
+import           Data.Bifunctor          (bimap, first, second)
 import qualified Data.ByteString.Base64  as B64
 import           Data.Char               (isSpace)
 import           Data.Function           (on)
@@ -51,7 +50,7 @@ import           RSCoin.Timed            (for, ms, wait)
 
 import qualified RSCoin.Core             as C
 
-import           RSCoin.Core.Strategy    (AllocationInfo (..),
+import           RSCoin.Core.Strategy    (AllocationAddress (..),
                                           PartyAddress (..))
 import           RSCoin.Timed            (WorkMode, getNodeContext)
 import qualified RSCoin.User             as U
@@ -99,10 +98,10 @@ processCommandNoOpts st (O.CreateMultisigAddress n usrAddr trustAddr masterPk si
     processMultisigAddress st n usrAddr trustAddr masterPk sig
 processCommandNoOpts st (O.ConfirmAllocation i mHot masterPk sig) =
     processConfirmAllocation st i mHot masterPk sig
-processCommandNoOpts st O.ListAllocations =
-    processListAllocation st False
-processCommandNoOpts st O.ListAllocationsBlacklist =
-    processListAllocation st True
+processCommandNoOpts st (O.ListAllocations mTrustAddrText) =
+    processListAllocation st mTrustAddrText False
+processCommandNoOpts st (O.ListAllocationsBlacklist mTrustAddrText) =
+    processListAllocation st mTrustAddrText True
 processCommandNoOpts st (O.BlacklistAllocation ix) =
     processBlackWhiteListing st True ix
 processCommandNoOpts st (O.WhitelistAllocation ix) =
@@ -216,24 +215,25 @@ processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigT
     when (null textUAddrs && null textTAddrs) $
         U.commitError "Can't create multisig with empty addrs list"
 
-    userAddrs  <- map C.UserAlloc  <$> parseTextAddresses textUAddrs
-    trustAddrs <- map C.TrustAlloc <$> parseTextAddresses textTAddrs
+    userAddrs       <- map UserAlloc  <$> parseTextAddresses textUAddrs
+    trustAddrs      <- map TrustAlloc <$> parseTextAddresses textTAddrs
     let partiesAddrs = userAddrs ++ trustAddrs
-    when (m > length partiesAddrs) $
+    let partySet     = HS.fromList partiesAddrs
+    when (m > HS.size partySet) $
         U.commitError "Parameter m should be less than length of list"
 
-    msPublicKey          <- snd  <$> liftIO C.keyGen
-    (userAddress,userSk) <- head <$> U.query st U.GetUserAddresses
-    let msAddr            = C.Address msPublicKey
-    let partyAddr         = C.UserParty userAddress
-    let msStrat           = C.AllocationStrategy m $ HS.fromList partiesAddrs
-    let userSignature     = C.sign userSk (msAddr, msStrat)
+    (userPartyAddr, userSk) <- U.findPartyAddress st partySet
+    msPublicKey             <- snd  <$> liftIO C.keyGen
+    let msAddr               = C.Address msPublicKey
+    let partyAddr            = C.UserParty userPartyAddr
+    let msStrat              = C.AllocationStrategy m partySet
+    let userSignature        = C.sign userSk (msAddr, msStrat)
 
     -- @TODO: replace with Either and liftA2
-    -- @TODO: we loose errors :(
-    let !mMasterPk       = join $ C.constructPublicKey <$> mMasterPkText
-    let !mMasterSlaveSig = join $ C.constructSignature <$> mMasterSlaveSigText
-    let !mMasterCheck    = liftA2 (,) mMasterPk mMasterSlaveSig
+    -- @TODO: we lose errors :(
+    let mMasterPk       = join $ C.constructPublicKey <$> mMasterPkText
+    let mMasterSlaveSig = join $ C.constructSignature <$> mMasterSlaveSigText
+    let mMasterCheck    = liftA2 (,) mMasterPk mMasterSlaveSig
 
     C.allocateMultisignatureAddress
         msAddr
@@ -242,17 +242,15 @@ processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigT
         userSignature
         mMasterCheck
 
-    C.logInfo $
-        sformat
-            ("Your new address will be added in the next block: " % build)
-            msPublicKey
+    C.logInfo $ sformat
+        ("Your new address will be added in the next block: " % build)
+        msPublicKey
   where
     parseTextAddresses
         :: WorkMode m
         => [T.Text] -> m [C.Address]
     parseTextAddresses textAddrs = do
-        let partiesAddrs =
-                mapMaybe (fmap C.Address . C.constructPublicKey) textAddrs
+        let partiesAddrs = mapMaybe (fmap C.Address . C.constructPublicKey) textAddrs
         when (length partiesAddrs /= length textAddrs) $
             do let parsed = T.unlines (map show' partiesAddrs)
                U.commitError $
@@ -286,6 +284,7 @@ processConfirmAllocation st i mHot mMasterPkText mMasterSlaveSigText =
     do when (i <= 0) $  -- Crazy indentation ;(
            U.commitError $
            sformat ("Index i should be greater than 0 but given: " % int) i
+
        strategiesSize <- M.size <$> U.query st U.GetAllocationStrategies
        when (strategiesSize == 0) $
            U.commitError "No allocation strategies are saved. Execute list-alloc again"
@@ -293,37 +292,33 @@ processConfirmAllocation st i mHot mMasterPkText mMasterSlaveSigText =
            U.commitError $ sformat
            ("Only " % int % " strategies are available, index " %
             int % " is out of range.") strategiesSize i
-       (msAddr,C.AllocationInfo{..}) <- U.query st $ U.GetAllocationByIndex (i - 1)
-       (slaveSk,partyAddr) <-
-           case mHot of
-               Just (read -> (hotSkPath,partyPkStr)) -> do
-                   hotSk <- liftIO $ C.readSecretKey hotSkPath
-                   let party =
-                           C.Address $
-                           fromMaybe
+
+       (msAddr, allocInfo)  <- U.query st $ U.GetAllocationByIndex (i - 1)
+       let submittedStrategy = allocInfo         ^. C.allocationStrategy
+       let strategyParties   = submittedStrategy ^. C.allParties
+       (partyAddr, slaveSk) <- case mHot of
+           Just (read -> (hotSkPath, partyPkStr)) -> do
+               U.verifyTrustEntry st strategyParties
+
+               hotSk <- liftIO $ C.readSecretKey hotSkPath
+               let party = C.Address $ fromMaybe
                                (error "Not valid hot partyPk!")
                                (C.constructPublicKey $ T.pack partyPkStr)
-                   let partyAddr =
-                           C.TrustParty
-                           { partyAddress = party
-                           , hotTrustKey = C.derivePublicKey hotSk
-                           }
-                   return (hotSk, partyAddr)
-               Nothing -> do
-                   (userAddress,userSk) <-
-                       head <$> U.query st U.GetUserAddresses
-                   return (userSk, C.UserParty userAddress)
-       let partySignature = C.sign slaveSk (msAddr, _allocationStrategy)
+               let partyAddr = C.TrustParty { partyAddress = party
+                                            , hotTrustKey  = C.derivePublicKey hotSk
+                                            }
+               return (partyAddr, hotSk)
+           Nothing -> first C.UserParty <$> U.findPartyAddress st strategyParties
 
-       -- @TODO: we loose errors :(
-       let !mMasterPk       = join $ C.constructPublicKey <$> mMasterPkText
-       let !mMasterSlaveSig = join $ C.constructSignature <$> mMasterSlaveSigText
-       let !mMasterCheck    = liftA2 (,) mMasterPk mMasterSlaveSig
+       let partySignature  = C.sign slaveSk (msAddr, submittedStrategy)
+       let mMasterPk       = join $ C.constructPublicKey <$> mMasterPkText
+       let mMasterSlaveSig = join $ C.constructSignature <$> mMasterSlaveSigText
+       let mMasterCheck    = liftA2 (,) mMasterPk mMasterSlaveSig
 
        C.allocateMultisignatureAddress
            msAddr
            partyAddr
-           _allocationStrategy
+           submittedStrategy
            partySignature
            mMasterCheck
 
@@ -333,10 +328,14 @@ processConfirmAllocation st i mHot mMasterPkText mMasterSlaveSigText =
 -- show whitelist.
 processListAllocation
     :: (MonadIO m, WorkMode m)
-    => U.UserState -> Bool -> m ()
-processListAllocation st blacklist = eWrap $ do
-    -- update local cache
-    U.retrieveAllocationsList st
+    => U.UserState
+    -> Maybe T.Text
+    -> Bool
+    -> m ()
+processListAllocation st mTrustAddrText blacklist = eWrap $ do
+    let trustAddr = C.Address <$> join (C.constructPublicKey <$> mTrustAddrText)
+    U.retrieveAllocationsList st trustAddr
+
     msigAddrsList <-
         (`zip` [(1 :: Int) ..]) . M.assocs <$>
         (if blacklist

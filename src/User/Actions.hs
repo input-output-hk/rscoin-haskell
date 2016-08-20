@@ -19,7 +19,6 @@ import           Control.Monad.IO.Class  (MonadIO)
 import           Control.Monad.Trans     (liftIO)
 
 import           Data.Bifunctor          (bimap, first, second)
-import qualified Data.ByteString.Base64  as B64
 import           Data.Char               (isSpace)
 import           Data.Function           (on)
 import qualified Data.HashSet            as HS
@@ -30,7 +29,6 @@ import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
 import           Data.Monoid             ((<>))
 import qualified Data.Set                as S hiding (Set)
 import qualified Data.Text               as T
-import           Data.Text.Encoding      (encodeUtf8)
 import qualified Data.Text.IO            as TIO
 import           Formatting              (build, int, sformat, stext, string,
                                           (%))
@@ -114,8 +112,6 @@ processCommandNoOpts st (O.DeleteAddress ix force) =
     processDeleteAddress st ix force
 processCommandNoOpts st (O.Dump command) =
     eWrap $ dumpCommand st command
-processCommandNoOpts _ (O.SignSeed seedB64 mPath) =
-    processSignSeed seedB64 mPath
 
 processListAddresses
     :: (MonadIO m, WorkMode m)
@@ -363,7 +359,7 @@ processBlackWhiteListing st blacklist ix =
            (if blacklist
             then U.query st U.GetAllocationStrategies
             else U.query st U.GetIgnoredAllocationStrategies)
-       when (ix <= 0 || ix > (length msaddrs)) $
+       when (ix <= 0 || ix > length msaddrs) $
            U.commitError $
            sformat ("index " % int % " should be positive and no bigger than " %
                     int % " -- the size of " % listName) ix (length msaddrs)
@@ -467,25 +463,6 @@ processDeleteAddress st ix0 force =
         else do
             print' "Couldn't parse your answer. Y/N?"
             askConfirmation ourAddr
-
-processSignSeed
-    :: MonadIO m
-    => T.Text
-    -> Maybe FilePath
-    -> m ()
-processSignSeed seedB64 mPath = liftIO $ do
-    sk <- maybe (pure $ error "Attain secret key is not defined!") C.readSecretKey mPath
-    (seedPk, _) <- case B64.decode $ encodeUtf8 seedB64 of
-              Left _ -> fail "Wrong seed supplied (base64 decoding failed)"
-              Right s ->
-                  maybe (fail "Failed to derive keypair from seed") pure $
-                      C.deterministicKeyGen s
-    liftIO $ TIO.putStrLn $
-       sformat ("Seed Pk: " % build) seedPk
-    let (pk, sig) = (C.derivePublicKey sk, C.sign sk seedPk)
-    liftIO $ TIO.putStrLn $
-       sformat ("AttPk: " % build % ", AttSig: " % build % ", verifyChain: " % build)
-           pk sig (C.verifyChain pk [(sig, seedPk)])
 
 #if GtkGui
 processStartGUI

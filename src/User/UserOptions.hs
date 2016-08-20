@@ -82,8 +82,6 @@ data UserCommand
     | ExportAddress Int FilePath
     | DeleteAddress Int Bool
     | Dump DumpCommand
-    -- @TODO move to rscoin-keygen
-    | SignSeed Text (Maybe FilePath)
 #if GtkGui
     -- | Start graphical user interface
     | StartGUI
@@ -280,10 +278,7 @@ userCommandParser =
                    argument
                        auto
                        (metavar "INDEX" <> help "Index of address to dump"))
-                  (progDesc "Dump address with given index.")) <>
-         command
-             "sign-seed"
-             (info signSeedOpts (progDesc "Sign seed with key.")))
+                  (progDesc "Dump address with given index.")))
   where
     formTransactionOpts =
         FormTransaction <$>
@@ -384,19 +379,12 @@ userCommandParser =
         switch
         (long "force" <> short 'f' <>
          help "Don't ask confirmation for deletion")
-    signSeedOpts =
-        SignSeed <$> (strOption $ long "seed" <> help "Seed to sign") <*>
-        optional
-            (strOption $
-             short 'k' <> long "secret-key" <> help "Path to secret key" <>
-             metavar "FILEPATH")
     blacklistAllocationOpts = BlacklistAllocation <$> option
         auto (short 'i' <> long "index" <> metavar "INT" <>
              help "Index of allocation, starting from 1 in `list-alloc`")
     whitelistAllocationOpts = WhitelistAllocation <$> option
         auto (short 'i' <> long "index" <> metavar "INT" <>
              help "Index of allocation, starting from 1 in `list-alloc`")
-
 
 userOptionsParser :: FilePath -> FilePath -> FilePath -> Parser UserOptions
 userOptionsParser dskp configDir defaultConfigPath =

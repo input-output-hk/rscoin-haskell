@@ -28,8 +28,7 @@ import qualified Data.Text.Format    as F
 import           Formatting          (bprint, float, int, (%))
 import           GHC.Generics        (Generic)
 
-import           Serokell.Util.Text  (listBuilderJSON, pairBuilder,
-                                      tripleBuilder)
+import           Serokell.Util.Text  (listBuilderJSON, pairBuilder)
 
 import           RSCoin.Core.Crypto  (Hash, PublicKey, constructPublicKey, hash)
 
@@ -113,12 +112,9 @@ type AddrId = (TransactionId, Int, Coin)
 instance Buildable (TransactionId, Int, Coin) where
     build (t,i,c) =
         mconcat
-            [ "Addrid { transactionId="
-            , build t
-            , ", index="
-            , build i
-            , ", coins="
-            , build c
+            [ "Addrid { transactionId = " , build t
+            , ", index = " , build i
+            , ", coins = " , build c
             , " }"]
 
 -- | Transaction represents act of transfering units of currency from
@@ -142,7 +138,7 @@ instance Buildable Transaction where
     build Transaction{..} =
         F.build
             template
-            ( listBuilderJSON $ map tripleBuilder txInputs
+            ( listBuilderJSON $ map build txInputs
             , listBuilderJSON $ map pairBuilder txOutputs)
       where
         template = "Transaction { inputs = {}, outputs = {} }"

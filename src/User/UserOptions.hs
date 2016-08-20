@@ -67,7 +67,6 @@ data UserCommand
     | BlacklistAllocation Int
     -- | Unignore the allocation
     | WhitelistAllocation Int
-
     -- | For a request #N in local list send confirmation to a Notary.
     -- 1. #N in user list;
     -- 2. @Just (pathToHot, partyAddr)@ : if we want to sign as a 'TrustParty';
@@ -160,14 +159,14 @@ userCommandParser =
                        "List all multisignature address allocations that " <>
                        "are blacklisted (ignored).")) <>
          command
-             "allocation-confirm"
+             "alloc-confirm"
              (info
                   confirmOpts
                   (progDesc
                        "Confirm MS address allocation from `rscoin-user list-alloc`")) <>
-         command "allocation-blacklist"
+         command "alloc-blacklist"
              (info blacklistAllocationOpts (progDesc "Blacklist an allocation")) <>
-         command "allocation-whitelist"
+         command "alloc-whitelist"
              (info whitelistAllocationOpts
                   (progDesc "Restore an allocation from the blacklist")) <>
          command

@@ -43,7 +43,7 @@ module RSCoin.Mintette.Storage
 import           Control.Applicative        ((<|>))
 import           Control.Lens               (Getter, at, makeLenses, to, use,
                                              uses, view, views, (%=), (+=),
-                                             (.=), (<>=), (<~))
+                                             (.=), (<>=), (<~), (^.), _1)
 import           Control.Monad              (unless, when)
 import           Control.Monad.Catch        (MonadThrow (throwM))
 import           Control.Monad.Extra        (whenJust)
@@ -54,7 +54,6 @@ import           Data.Maybe                 (fromJust, fromMaybe, isJust,
                                              isNothing)
 import qualified Data.Set                   as S
 import           Data.Tuple.Curry           (uncurryN)
-import           Data.Tuple.Select          (sel1)
 import           Safe                       (atMay, headMay)
 
 import           RSCoin.Core                (ActionLog, ActionLogHeads,
@@ -213,7 +212,7 @@ commitTx sk tx@C.Transaction{..} bundle = do
   where
     checkInputConfirmed mts curDpk addrid = do
         pId <- use periodId
-        let addridOwners = owners mts (sel1 addrid)
+        let addridOwners = owners mts (addrid ^. _1)
             ownerConfirmed owner =
                 maybe
                     False
@@ -327,7 +326,7 @@ startPeriod C.NewPeriodData{..} = do
                    M.filterWithKey
                        (\k _ ->
                              k `M.notMember` deleted &&
-                             isOwner npdMintettes (sel1 k) (fromJust mId))
+                             isOwner npdMintettes (k ^. _1) (fromJust mId))
                        blockOutputs -- just for verbosity
            utxo <>= deletedNotInBlockchain
            utxo %= (`M.difference` addedNotInBlockchain)

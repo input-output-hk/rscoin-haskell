@@ -24,7 +24,8 @@ module RSCoin.Explorer.Storage
        ) where
 
 import           Control.Lens                      (at, makeLenses, use, view,
-                                                    views, (%=), (.=), _Just)
+                                                    views, (%=), (.=), _3,
+                                                    _Just)
 import           Control.Monad                     (unless)
 import           Control.Monad.Catch               (MonadThrow (throwM))
 import           Control.Monad.Extra               (whenJustM)
@@ -36,7 +37,6 @@ import           Data.List                         (foldl', genericDrop,
 import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (fromMaybe, isJust)
 import           Data.SafeCopy                     (base, deriveSafeCopy)
-import           Data.Tuple.Select                 (sel3)
 
 import qualified RSCoin.Core                       as C
 
@@ -185,7 +185,7 @@ applyTransaction tx@C.Transaction{..} = do
                     I.insertWith (+) (C.getC $ C.getColor c) c m)
               I.empty
               txInputs
-        , txsInputsTotal = sum $ map (C.getCoin . sel3) txInputs
+        , txsInputsTotal = sum $ map (C.getCoin . view _3) txInputs
         , txsOutputsSum = foldl'
               (\m (_,c) ->
                     I.insertWith (+) (C.getC $ C.getColor c) c m)

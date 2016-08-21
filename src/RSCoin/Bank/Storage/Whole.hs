@@ -38,7 +38,7 @@ module RSCoin.Bank.Storage.Whole
 
 import           Control.Lens                  (Getter, at, makeLenses, to, use,
                                                 uses, view, (%%=), (%=), (+=),
-                                                (.=))
+                                                (.=), _3)
 import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (MonadThrow (throwM))
 import           Control.Monad.Extra           (whenJust)
@@ -52,7 +52,6 @@ import           Data.List                     (unfoldr)
 import qualified Data.Map                      as MP
 import           Data.Maybe                    (fromJust, isJust, mapMaybe)
 import           Data.SafeCopy                 (base, deriveSafeCopy)
-import           Data.Tuple.Select             (sel3)
 import           Data.Typeable                 (Typeable)
 import           Safe                          (atMay, headMay)
 
@@ -425,7 +424,7 @@ allocateCoins bankPk mintetteKeys goodResults pId =
         Strategies.allocateCoins
             Strategies.AllocateCoinsDefault
             pId
-            (map sel3 . map snd $ goodResults)
+            (map (view _3) . map snd $ goodResults)
     inputValue = sum (bankReward : goodMintetteRewards)
     idxInGoodToGlobal idxInGood = fst $ goodResults !! idxInGood
     mintetteOutputs =

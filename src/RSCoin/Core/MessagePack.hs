@@ -2,6 +2,7 @@
 
 module RSCoin.Core.MessagePack  () where
 
+import           Control.Lens               (view, _3)
 import           Data.Bifunctor             (bimap)
 import           Data.Binary                (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy       as BSL
@@ -13,7 +14,6 @@ import           Data.MessagePack           (MessagePack (fromObject, toObject),
 import           Data.Ratio                 (Ratio, denominator, numerator, (%))
 import qualified Data.Set                   as S
 import           Data.Tuple.Curry           (uncurryN)
-import           Data.Tuple.Select          (sel3)
 
 import           RSCoin.Core.Crypto         ()
 import qualified RSCoin.Core.Primitives     as C
@@ -51,7 +51,7 @@ instance MessagePack Integer where
         | otherwise = ObjectBin . BSL.toStrict $ encode i
     fromObject (ObjectInt i) = Just $ fromInt i
     fromObject (ObjectBin b) =
-        either (const Nothing) (Just . sel3) . decodeOrFail $ BSL.fromStrict b
+        either (const Nothing) (Just . view _3) . decodeOrFail $ BSL.fromStrict b
     fromObject _             = Nothing
 
 instance (Integral a, MessagePack a) => MessagePack (Ratio a) where

@@ -31,6 +31,9 @@ module RSCoin.User.Operations
        , submitTransactionFromAll
        , TransactionInput
        , TransactionData (..)
+       , constructTransaction
+       , getEmptySignatureBundle
+       , signTransactionLocally
        , submitTransaction
        , submitTransactionRetry
        , findPartyAddress

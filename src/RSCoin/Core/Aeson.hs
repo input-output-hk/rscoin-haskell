@@ -17,7 +17,7 @@ import           Serokell.Aeson.Options (defaultOptionsPS)
 import           RSCoin.Core.Primitives (Address, Coin, CoinAmount (..), Color,
                                          Transaction)
 import           RSCoin.Core.Strategy   (AllocationAddress, AllocationStrategy,
-                                         PartyAddress)
+                                         PartyAddress, TxStrategy)
 
 showFPrec :: Int -> Double -> T.Text
 showFPrec prec =
@@ -34,3 +34,4 @@ $(deriveJSON defaultOptionsPS ''Address)
 $(deriveJSON defaultOptionsPS ''AllocationAddress)
 $(deriveJSON defaultOptionsPS ''AllocationStrategy)
 $(deriveJSON defaultOptionsPS ''PartyAddress)
+$(deriveJSON defaultOptionsPS ''TxStrategy)

@@ -17,8 +17,9 @@ import           Control.Lens            ((^.))
 import           Control.Monad           (forM_, join, unless, void, when)
 import           Control.Monad.IO.Class  (MonadIO)
 import           Control.Monad.Trans     (liftIO)
-
+import           Data.Aeson              (decode, encode)
 import           Data.Bifunctor          (bimap, first, second)
+import qualified Data.ByteString.Lazy    as BS
 import           Data.Char               (isSpace)
 import           Data.Function           (on)
 import qualified Data.HashSet            as HS
@@ -47,17 +48,19 @@ import           RSCoin.Timed            (for, ms, wait)
 #endif
 
 import qualified RSCoin.Core             as C
-
+import           RSCoin.Core.Aeson       ()
 import           RSCoin.Core.Strategy    (AllocationAddress (..),
                                           PartyAddress (..))
 import           RSCoin.Timed            (WorkMode, getNodeContext)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..), checkAddressId,
+                                          constructTransaction,
                                           deleteUserAddress,
                                           getAllPublicAddresses,
-                                          getAmountNoUpdate, importAddress,
-                                          submitTransactionRetry,
+                                          getAmountNoUpdate,
+                                          getEmptySignatureBundle,
+                                          importAddress, submitTransactionRetry,
                                           updateBlockchain)
 import qualified UserOptions             as O
 
@@ -105,7 +108,7 @@ processCommandNoOpts st (O.BlacklistAllocation ix) =
 processCommandNoOpts st (O.WhitelistAllocation ix) =
     processBlackWhiteListing st False ix
 processCommandNoOpts st (O.ColdFormTransaction inp out outC path) =
-    undefined st inp out outC path
+    processColdFormTransaction st inp out outC path
 processCommandNoOpts st (O.ColdSendTransaction path) =
     undefined st path
 processCommandNoOpts st (O.ColdSignTransaction path) =
@@ -174,34 +177,40 @@ processListAddresses st =
                              else "    * "%build)
                             allowedAddr
 
+formTransactionPayload
+    :: (WorkMode m)
+    => [(Word, Int64, Int)] -> T.Text -> [(Int64, Int)] -> m TransactionData
+formTransactionPayload inputs outputAddrStr outputCoins = eWrap $ do
+    unless (isJust outputAddr) $
+        U.commitError $
+        "Provided key can't be read/imported (check format): " <> outputAddrStr
+    return td
+  where
+    outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
+    inputs' =
+        map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
+        groupBy ((==) `on` snd) $
+        map (\(idx,o,c) -> (idx - 1, [C.Coin (C.Color c) (C.CoinAmount $ toRational o)]))
+        inputs
+    outputs' =
+        map (uncurry (flip C.Coin) . bimap (C.CoinAmount . toRational) C.Color)
+            outputCoins
+    td = TransactionData
+         { tdInputs = inputs'
+         , tdOutputAddress = fromJust outputAddr
+         , tdOutputCoins = outputs'
+         }
+
 processFormTransaction
     :: (MonadIO m, WorkMode m)
-    => U.UserState
-    -> [(Word, Int64, Int)]
-    -> T.Text
-    -> [(Int64, Int)]
-    -> m ()
-processFormTransaction st inputs outputAddrStr outputCoins  = eWrap $ do
-    let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
-        inputs' =
-            map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
-            groupBy ((==) `on` snd) $
-            map (\(idx,o,c) -> (idx - 1, [C.Coin (C.Color c) (C.CoinAmount $ toRational o)]))
-            inputs
-        outputs' =
-            map (uncurry (flip C.Coin) . bimap (C.CoinAmount . toRational) C.Color)
-                outputCoins
-        td = TransactionData
-             { tdInputs = inputs'
-             , tdOutputAddress = fromJust outputAddr
-             , tdOutputCoins = outputs'
-             }
-    unless (isJust outputAddr) $
-        U.commitError $ "Provided key can't be read/imported (check format): " <> outputAddrStr
-    tx <- submitTransactionRetry 2 st Nothing td
-    C.logInfo $
-        sformat ("Successfully submitted transaction with hash: " % build) $
-            C.hash tx
+    => U.UserState -> [(Word, Int64, Int)] -> T.Text -> [(Int64, Int)] -> m ()
+processFormTransaction st inputs outputAddrStr outputCoins =
+    eWrap $
+    do td <- formTransactionPayload inputs outputAddrStr outputCoins
+       tx <- submitTransactionRetry 2 st Nothing td
+       C.logInfo $
+           sformat ("Successfully submitted transaction with hash: " % build) $
+           C.hash tx
 
 processMultisigAddress
     :: (MonadIO m, WorkMode m)
@@ -378,6 +387,24 @@ processBlackWhiteListing st blacklist ix =
     successText = if blacklist
                   then "Allocation was successfully blacklisted"
                   else "Allocation was successfully whitelisted back"
+
+-- | Forms transaction, its related empty signature bundle and dumps
+-- it to the file
+processColdFormTransaction
+    :: (MonadIO m, WorkMode m)
+    => U.UserState
+    -> [(Word, Int64, Int)]
+    -> T.Text
+    -> [(Int64, Int)]
+    -> FilePath
+    -> m ()
+processColdFormTransaction st inputs outputAddrStr outputCoins path = eWrap $ do
+    td <- formTransactionPayload inputs outputAddrStr outputCoins
+    tx <- constructTransaction st td
+    emptyBundle <- getEmptySignatureBundle st tx
+    liftIO $ BS.writeFile path $ encode (tx, M.assocs emptyBundle)
+    C.logInfo $ sformat
+        ("Your transaction data has been written to the '" % string % "'") path
 
 processImportAddress
     :: (MonadIO m, WorkMode m)

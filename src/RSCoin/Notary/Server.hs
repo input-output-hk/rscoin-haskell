@@ -98,7 +98,7 @@ handlePollTxs
     :: MonadIO m
     => NotaryState
     -> [C.Address]
-    -> ServerTE m [(C.Address, [(C.Transaction, [(C.Address, C.Signature)])])]
+    -> ServerTE m [(C.Address, [(C.Transaction, [(C.Address, C.Signature C.Transaction)])])]
 handlePollTxs st addrs = toServer $ do
     res <- query st $ PollTransactions addrs
     --logDebug $ format' "Receiving polling request by addresses {}: {}" (addrs, res)
@@ -109,8 +109,8 @@ handlePublishTx
     => NotaryState
     -> C.Transaction
     -> C.Address
-    -> (C.Address, C.Signature)
-    -> ServerTE m [(C.Address, C.Signature)]
+    -> (C.Address, C.Signature C.Transaction)
+    -> ServerTE m [(C.Address, C.Signature C.Transaction)]
 handlePublishTx st tx addr sg =
     toServer $
     do update st $ AddSignedTransaction tx addr sg
@@ -150,7 +150,7 @@ handleGetSignatures
     => NotaryState
     -> C.Transaction
     -> C.Address
-    -> ServerTE m [(C.Address, C.Signature)]
+    -> ServerTE m [(C.Address, C.Signature C.Transaction)]
 handleGetSignatures st tx addr =
     toServer $
     do res <- query st $ GetSignatures tx addr
@@ -177,7 +177,7 @@ handleRemoveCompleteMS
     => NotaryState
     -> C.PublicKey
     -> [C.Address]
-    -> C.Signature
+    -> C.Signature [C.MSAddress]
     -> ServerTE m ()
 handleRemoveCompleteMS st bankPublicKey addresses signedAddrs = toServer $ do
     C.logDebug $ sformat ("Removing complete MS of " % shown) addresses
@@ -189,8 +189,8 @@ handleAllocateMultisig
     -> C.Address
     -> C.PartyAddress
     -> C.AllocationStrategy
-    -> C.Signature
-    -> Maybe (C.PublicKey, C.Signature)
+    -> C.Signature (C.MSAddress, C.AllocationStrategy)
+    -> Maybe (C.PublicKey, C.Signature C.PublicKey)
     -> ServerTE m ()
 handleAllocateMultisig st msAddr partyAddr allocStrat signature mMasterCheck = toServer $ do
     C.logDebug "Begining allocation MS address..."

@@ -35,7 +35,7 @@ type ExplorerApi =
 explorerApi :: Proxy ExplorerApi
 explorerApi = Proxy
 
-instance FromHttpApiData C.Hash where
+instance FromHttpApiData (C.Hash a) where
     parseUrlPiece = C.parseHash
 
 data WebError =

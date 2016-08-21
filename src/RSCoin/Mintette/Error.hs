@@ -8,7 +8,6 @@ module RSCoin.Mintette.Error
 
 import           Control.Exception       (Exception (..), SomeException)
 import           Control.Monad.Trans     (MonadIO)
-import           Data.Data               (Data)
 import           Data.MessagePack        (MessagePack (fromObject, toObject),
                                           Object)
 import           Data.Monoid             ((<>))
@@ -38,7 +37,7 @@ data MintetteError
     | MENotConfirmed                      -- ^ Can't deduce that transaction was confirmed.
     | MEAlreadyActive                     -- ^ Can't start new period because mintette
                                           -- is already active.
-    deriving (Show, Typeable, Eq, Data)
+    deriving (Show, Typeable, Eq)
 
 instance Exception MintetteError where
     toException = rscExceptionToException

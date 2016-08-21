@@ -177,7 +177,7 @@ serveFinishPeriod
     -> MVar T.ThreadId
     -> (T.ThreadId -> m T.ThreadId)
     -> PublicKey
-    -> Signature
+    -> Signature PeriodId
     -> ServerTE m ()
 serveFinishPeriod st threadIdMVar restartAction bankPublicKey periodIdSignature = toServer $ do
     logInfo "Forced finish of period was requested"

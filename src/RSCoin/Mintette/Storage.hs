@@ -58,7 +58,7 @@ import           Safe                       (atMay, headMay)
 
 import           RSCoin.Core                (ActionLog, ActionLogHeads,
                                              AddressToTxStrategyMap,
-                                             HBlock (..), Hash, LBlock,
+                                             HBlock (..), HBlockHash, LBlock,
                                              MintetteId, Mintettes, PeriodId,
                                              Pset, SecretKey, TxStrategy (..),
                                              Utxo, computeOutputAddrids,
@@ -84,7 +84,7 @@ data Storage = Storage
     , _invMintetteId :: !(Maybe MintetteId)      -- ^ Invariant for mintetteId
     , _dpk           :: !C.Dpk                   -- ^ DPK for current period
     , _logHeads      :: !ActionLogHeads          -- ^ All known heads of logs
-    , _lastBankHash  :: !(Maybe Hash)            -- ^ Hash of the last HBlock
+    , _lastBankHash  :: !(Maybe HBlockHash)      -- ^ Hash of the last HBlock
     , _addresses     :: !AddressToTxStrategyMap  -- ^ Complete list of system's addresses
                                                  -- accompanied with their strategies.
                                                  -- Should be up-to-date with
@@ -117,7 +117,7 @@ mkStorage =
 
 type Query a = Getter Storage a
 
-logHead :: Query (Maybe (C.ActionLogEntry, Hash))
+logHead :: Query (Maybe (C.ActionLogEntry, C.ActionLogEntryHash))
 logHead = actionLogs . to f
   where
     f = foldr ((<|>) . headMay) Nothing
@@ -155,7 +155,7 @@ type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 checkNotDoubleSpent :: C.SecretKey
                     -> C.Transaction
                     -> C.AddrId
-                    -> [(C.Address, C.Signature)]
+                    -> [(C.Address, C.Signature C.Transaction)]
                     -> ExceptUpdate C.CheckConfirmation
 checkNotDoubleSpent sk tx addrId sg = do
     checkIsActive

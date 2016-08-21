@@ -53,7 +53,7 @@ import           RSCoin.Notary.Error  (NotaryError (..))
 
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
-      _txPool                 :: !(Map Address (Map Transaction (Map Address Signature)))
+      _txPool                 :: !(Map Address (Map Transaction (Map Address (Signature Transaction))))
 
       -- | Mapping between addrid and all pairs (addr, transaction),
       -- being kept in `txPool`, such that addrid serve as an input for transaction.
@@ -126,7 +126,7 @@ guardMaxAttemps userAddr = do
 -- already collected for particular (tx, addr) pair.
 addSignedTransaction :: Transaction
                      -> Address
-                     -> (Address, Signature)
+                     -> (Address, Signature Transaction)
                      -> Update Storage ()
 addSignedTransaction tx addr (sigAddr,sig) = do
     checkTransactionValidity
@@ -168,16 +168,20 @@ addSignedTransaction tx addr (sigAddr,sig) = do
                 throwM $ NEUnrelatedSignature "in multi transaction"
         unless (validateSignature sig sigAddr tx) $ throwM NEInvalidSignature
 
+type MSSignature = Signature (MSAddress, AllocationStrategy)
+
+type MaybePKSignature = Maybe (PublicKey, Signature PublicKey)
+
 -- | Allocate new multisignature address by chosen strategy and
 -- given chain of certificates.
 allocateMSAddress
-    :: MSAddress                    -- ^ New multisig address itself
-    -> PartyAddress                 -- ^ Address of party who call this
-    -> AllocationStrategy           -- ^ Strategy for MS address allocation
-    -> Signature                    -- ^ 'Signature' of @(msAddr, argStrategy)@
-    -> Maybe (PublicKey, Signature) -- ^ Party address authorization.
-                                    -- 1. cold master public key
-                                    -- 2. signature of party by master key
+    :: MSAddress                     -- ^ New multisig address itself
+    -> PartyAddress                  -- ^ Address of party who call this
+    -> AllocationStrategy            -- ^ Strategy for MS address allocation
+    -> MSSignature                   -- ^ 'Signature' of @(msAddr, argStrategy)@
+    -> MaybePKSignature              -- ^ Party address authorization.
+                                     -- 1. cold master public key
+                                     -- 2. signature of party by master key
     -> Update Storage ()
 allocateMSAddress
     msAddr
@@ -262,7 +266,7 @@ queryCompleteMSAdresses = queryMSAddressesHelper
     (allocateTxFromAlloc . _allocationStrategy)
 
 -- | Remove all addresses from list (bank only usage).
-removeCompleteMSAddresses :: PublicKey -> [MSAddress] -> Signature -> Update Storage ()
+removeCompleteMSAddresses :: PublicKey -> [MSAddress] -> Signature [MSAddress] -> Update Storage ()
 removeCompleteMSAddresses bankPublicKey completeAddrs signedAddrs = do
     unless (verify bankPublicKey signedAddrs completeAddrs) $
         throwM $
@@ -281,7 +285,7 @@ queryMyMSRequests allocAddress = queryMSAddressesHelper
 -- | By given (tx, addr) retreives list of collected signatures.
 -- If list is complete enough to complete strategy, (tx, addr) pair
 -- and all corresponding data occurrences get removed from Storage.
-acquireSignatures :: Transaction -> Address -> Update Storage [(Address, Signature)]
+acquireSignatures :: Transaction -> Address -> Update Storage [(Address, Signature Transaction)]
 acquireSignatures tx addr = do
     sgs <- liftQuery (getSignatures tx addr)
 --    strategy <- getStrategy addr
@@ -290,7 +294,7 @@ acquireSignatures tx addr = do
 
 -- | By given (tx, addr) get list of collected signatures (or empty list if (tx, addr)
 -- is not registered/already removed from Notary). Read-only method.
-getSignatures :: Transaction -> Address -> Query Storage [(Address, Signature)]
+getSignatures :: Transaction -> Address -> Query Storage [(Address, Signature Transaction)]
 getSignatures tx addr = maybe [] M.assocs . (M.lookup tx <=< M.lookup addr) <$> view txPool
 
 -- | Get last known periodId of Notary (interface for bank).
@@ -327,5 +331,5 @@ announceNewPeriod HBlock{..} = do
         unspentAddrIds %= M.alter (Just . S.insert addrId . fromMaybe S.empty) addr
 
 -- @TODO implement
-pollTransactions :: [Address] -> Query Storage [(Address, [(Transaction, [(Address, Signature)])])]
+pollTransactions :: [Address] -> Query Storage [(Address, [(Transaction, [(Address, Signature Transaction)])])]
 pollTransactions _ = return []

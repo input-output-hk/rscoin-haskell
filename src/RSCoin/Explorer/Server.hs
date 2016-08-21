@@ -41,7 +41,7 @@ handleNewHBlock
     -> C.PublicKey
     -> C.PeriodId
     -> (C.HBlock, C.EmissionId)
-    -> C.Signature
+    -> C.Signature (C.PeriodId, C.HBlock)
     -> ServerT m C.PeriodId
 handleNewHBlock ch st bankPublicKey newBlockId (newBlock,emission) sig = do
     C.logInfo $ sformat ("Received new block #" % int) newBlockId
@@ -57,7 +57,7 @@ handleNewHBlock ch st bankPublicKey newBlockId (newBlock,emission) sig = do
             C.logDebug $
                 sformat ("Transaction hashes: " % build) $
                 listBuilderJSONIndent 2 $
-                map (C.hash :: C.Transaction -> C.Hash) $
+                map (C.hash :: C.Transaction -> C.Hash C.Transaction) $
                 C.hbTransactions newBlock
             C.logDebug $
                 sformat ("Transactions: " % build) $

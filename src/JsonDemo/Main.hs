@@ -30,7 +30,7 @@ main :: IO ()
 main = do
     let coin = C.Coin 0 0.3242342
         key  = C.testBankPublicKey
-        hash = C.hash ()
+        hash = C.unsafeHash ()
         addr = C.Address key
         tx = C.Transaction [(hash, 0, coin)] [(addr, coin)]
         err = W.ParseError "error"

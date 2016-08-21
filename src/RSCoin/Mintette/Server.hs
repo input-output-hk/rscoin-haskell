@@ -128,7 +128,7 @@ handleCheckTx
     -> State
     -> C.Transaction
     -> C.AddrId
-    -> [(C.Address, C.Signature)]
+    -> [(C.Address, C.Signature C.Transaction)]
     -> ServerTE m C.CheckConfirmation
 handleCheckTx sk st tx addrId sg =
     toServer $

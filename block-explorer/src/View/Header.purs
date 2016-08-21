@@ -1,33 +1,67 @@
 module App.View.Header where
 
-import Prelude                        (const, ($), (==), (<<<))
+import Prelude                        (const, ($), (==), (<<<), bind, (<>))
 
 import App.Routes                     (homeUrl) as R
 import App.Types                      (State, Action (..))
 
 
 import Pux.Html                       (Html, div, text, span, button,
-                                       input, a, li, ul, nav)
+                                       input, a, li, ul, nav, img)
 import Pux.Router                     (link) as R
 import Pux.Html.Attributes            (aria, data_, type_,
-                                       placeholder, value)
+                                       placeholder, value, src, alt)
 import Pux.Html.Events                (onChange, onClick, onKeyDown)
+
+import Pux.CSS                        (style, backgroundColor, rgb, Color,
+                                       color, white, backgroundImage, url)
+import CSS.String                     (fromString)
+import CSS.Stylesheet                 (CSS, key)
 
 import Serokell.Pux.Html              (classNames, className)
 import Serokell.Pux.Themes.Bootstrap3 as B
 
+darkRed :: Color
+darkRed = rgb 126 0 0
+
+imagePath :: String -> String
+imagePath i = "image/" <> i
+
+logoPath :: String
+logoPath = imagePath "logo-copy.png"
+
+headerBitmapPath :: String
+headerBitmapPath = imagePath "header-bitmap-copy.png"
+
+opacity :: Number -> CSS
+opacity = key $ fromString "opacity"
+
 view :: State -> Html Action
 view state =
     nav
-        [ classNames [B.navbar, B.navbarDefault] ]
+        [ classNames [B.navbar, B.navbarDefault]
+        , style do
+            backgroundImage $ url headerBitmapPath
+        ]
         [ div
-            [ className B.containerFluid ]
+            [ className B.containerFluid
+            , style do
+                backgroundColor darkRed
+                opacity 0.8
+            ]
             [ div
                 [ className B.navbarHeader ]
                 [ R.link R.homeUrl
                     [ className B.navbarBrand
+                    , style do
+                        color white
                     ]
-                    [ text "RS | COIN" ]
+                    [ img
+                        [ alt "Brand"
+                        , src logoPath
+                        ]
+                        []
+                    ]
                 ]
             , ul
                 [ classNames [B.nav, B.navbarNav, B.navbarRight] ]
@@ -39,8 +73,9 @@ view state =
                         , data_ "toggle" "dropdown"
                         , aria "haspopup" "true"
                         , aria "expanded" "false"
+                        , style $ color white
                         ]
-                        [ text "English"
+                        [ text "ADA"
                         , span
                             [ className B.caret ]
                             []
@@ -72,8 +107,14 @@ view state =
                         [ className B.inputGroupBtn ]
                         [ button
                             [ onClick $ const SearchButton
-                            , classNames [B.btn, B.btnDanger]
-                            ] [ text "Search" ]
+                            , classNames [B.btn, B.btnDefault]
+                            ]
+                            [ span
+                                [ classNames [B.glyphicon, B.glyphiconSearch]
+                                , aria "hidden" "true"
+                                ]
+                                []
+                            ]
                         ]
                     ]
                 ]

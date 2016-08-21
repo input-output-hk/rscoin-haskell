@@ -88,8 +88,8 @@ processCommandNoOpts
     => U.UserState -> O.UserCommand -> m ()
 processCommandNoOpts st O.ListAddresses =
     processListAddresses st
-processCommandNoOpts st (O.FormTransaction inp out outC cache) =
-    processFormTransaction st inp out outC cache
+processCommandNoOpts st (O.FormTransaction inp out outC) =
+    processFormTransaction st inp out outC
 processCommandNoOpts st O.UpdateBlockchain =
     processUpdateBlockchain st
 processCommandNoOpts st (O.CreateMultisigAddress n usrAddr trustAddr masterPk sig) =
@@ -180,9 +180,8 @@ processFormTransaction
     -> [(Word, Int64, Int)]
     -> T.Text
     -> [(Int64, Int)]
-    -> (Maybe U.UserCache)
     -> m ()
-processFormTransaction st inputs outputAddrStr outputCoins cache = eWrap $ do
+processFormTransaction st inputs outputAddrStr outputCoins  = eWrap $ do
     let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
         inputs' =
             map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
@@ -199,7 +198,7 @@ processFormTransaction st inputs outputAddrStr outputCoins cache = eWrap $ do
              }
     unless (isJust outputAddr) $
         U.commitError $ "Provided key can't be read/imported (check format): " <> outputAddrStr
-    tx <- submitTransactionRetry 2 st cache td
+    tx <- submitTransactionRetry 2 st Nothing td
     C.logInfo $
         sformat ("Successfully submitted transaction with hash: " % build) $
             C.hash tx

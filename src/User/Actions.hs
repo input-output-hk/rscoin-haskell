@@ -14,7 +14,7 @@ module Actions
 
 import           Control.Applicative     (liftA2)
 import           Control.Lens            ((^.))
-import           Control.Monad           (forM, forM_, join, unless, void, when)
+import           Control.Monad           (forM_, join, unless, void, when)
 import           Control.Monad.IO.Class  (MonadIO)
 import           Control.Monad.Trans     (liftIO)
 

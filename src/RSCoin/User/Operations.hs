@@ -600,11 +600,19 @@ sendTransactionDo st maybeCache tx signatures = do
              " when blockchain's last block is " % int % ").")
             walletHeight lastAppliedBlock
     let nonDefaultAddresses =
-            M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
-            map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head sgns))) $
             filter ((/= C.DefaultStrategy) . view _2 . snd) $
             M.assocs signatures
-    extraSignatures <- getExtraSignatures tx nonDefaultAddresses 120
+        withoutSigs =
+            map (\(_,(addr,_,sgns)) -> if null sgns then Just addr else Nothing)
+                nonDefaultAddresses
+        nonDefaultAddressesMapped =
+            M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
+            map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head sgns)))
+            nonDefaultAddresses
+    unless (null withoutSigs) $ commitError $
+        sformat ("These addresses doesn't have signatures attached: \n" % build) $
+        listBuilderJSONIndent 2 withoutSigs
+    extraSignatures <- getExtraSignatures tx nonDefaultAddressesMapped 120
     let allSignatures :: SignatureBundle
         allSignatures = M.unionWith joinBundles
                                     (fromMaybe M.empty extraSignatures)

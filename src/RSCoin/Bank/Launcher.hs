@@ -32,17 +32,14 @@ import           RSCoin.Core.Communication (getBlockchainHeight,
                                             sendBankLocalControlRequest)
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
-                                            WorkMode, fork_,
-                                            runRealModeBank)
+                                            WorkMode, fork_, runRealModeBank)
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
                                             AddMintette (AddMintette), State,
-                                            closeState, openState,
-                                            update)
+                                            closeState, openState, update)
 import           RSCoin.Bank.Error         (BankError (BEInconsistentResponse))
 import           RSCoin.Bank.Server        (serve)
-import           RSCoin.Bank.Worker        (runExplorerWorker,
-                                            runWorker)
+import           RSCoin.Bank.Worker        (runExplorerWorker, runWorker)
 
 bankWrapperReal :: SecretKey
                 -> FilePath
@@ -67,10 +64,7 @@ launchBank
     => t -> SecretKey -> State -> m ()
 launchBank periodDelta bankSk st = do
     isPeriodChanging <- liftIO $ newIORef False
-    runWorker
-        periodDelta
-        bankSk
-        st
+    fork_ $ runWorker periodDelta bankSk st
     fork_ $ runExplorerWorker periodDelta isPeriodChanging bankSk st
     serve st isPeriodChanging
 

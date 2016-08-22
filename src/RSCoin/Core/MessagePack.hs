@@ -185,6 +185,7 @@ instance MessagePack C.BankLocalControlRequest where
     toObject (C.AddExplorer e pid sig)        = toObj (1, (e,pid,sig))
     toObject (C.RemoveMintette host port sig) = toObj (2, (host,port,sig))
     toObject (C.RemoveExplorer host port sig) = toObj (3, (host,port,sig))
+    toObject (C.FinishPeriod sig)             = toObj (4, sig)
     fromObject obj = do
         (i,payload) <- fromObject obj
         case (i :: Int) of
@@ -192,4 +193,5 @@ instance MessagePack C.BankLocalControlRequest where
             1 -> uncurry3 C.AddExplorer <$> fromObject payload
             2 -> uncurry3 C.RemoveMintette <$> fromObject payload
             3 -> uncurry3 C.RemoveExplorer <$> fromObject payload
+            4 -> C.FinishPeriod <$> fromObject payload
             _ -> Nothing

@@ -4,6 +4,8 @@ import Prelude                        (const, ($), (==), (<<<), bind, (<>))
 
 import App.Routes                     (homeUrl) as R
 import App.Types                      (State, Action (..))
+import App.CSS                        (darkRed, opacity, logoPath,
+                                       headerBitmapPath)
 
 
 import Pux.Html                       (Html, div, text, span, button,
@@ -13,28 +15,11 @@ import Pux.Html.Attributes            (aria, data_, type_,
                                        placeholder, value, src, alt)
 import Pux.Html.Events                (onChange, onClick, onKeyDown)
 
-import Pux.CSS                        (style, backgroundColor, rgb, Color,
+import Pux.CSS                        (style, backgroundColor,
                                        color, white, backgroundImage, url)
-import CSS.String                     (fromString)
-import CSS.Stylesheet                 (CSS, key)
 
 import Serokell.Pux.Html              (classNames, className)
 import Serokell.Pux.Themes.Bootstrap3 as B
-
-darkRed :: Color
-darkRed = rgb 126 0 0
-
-imagePath :: String -> String
-imagePath i = "image/" <> i
-
-logoPath :: String
-logoPath = imagePath "logo-copy.png"
-
-headerBitmapPath :: String
-headerBitmapPath = imagePath "header-bitmap-copy.png"
-
-opacity :: Number -> CSS
-opacity = key $ fromString "opacity"
 
 view :: State -> Html Action
 view state =

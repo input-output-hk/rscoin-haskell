@@ -30,9 +30,8 @@ import           RSCoin.Core                (Color (..), Mintette (..),
                                              testBankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
-import           RSCoin.Timed               (Second, WorkMode, for, ms,
-                                             myThreadId, sec, wait,
-                                             workWhileMVarEmpty)
+import           RSCoin.Timed               (Second, WorkMode, for, ms, sec,
+                                             wait, workWhileMVarEmpty)
 import qualified RSCoin.User                as U
 
 import           Test.RSCoin.Full.Action    (Coloring (Coloring),

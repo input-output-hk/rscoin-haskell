@@ -18,7 +18,6 @@ module RSCoin.Bank.AcidState
        , GetPeriodId (..)
        , GetHBlock (..)
        , GetHBlocks (..)
-       , GetTransaction (..)
        , GetLogs (..)
        , AddAddress (..)
        , AddMintette (..)
@@ -41,8 +40,7 @@ import           RSCoin.Core         (ActionLog, Address,
                                       Explorers, HBlock, Mintette, MintetteId,
                                       Mintettes, NewPeriodData, PeriodId,
                                       PeriodResult, PublicKey, SecretKey,
-                                      Transaction, TransactionId, TxStrategy)
-
+                                      TransactionId, TxStrategy)
 
 import qualified RSCoin.Bank.Storage as BS
 
@@ -80,9 +78,6 @@ getPeriodId = view BS.getPeriodId
 
 getHBlock :: PeriodId -> Query BS.Storage (Maybe HBlock)
 getHBlock = view . BS.getHBlock
-
-getTransaction :: TransactionId -> Query BS.Storage (Maybe Transaction)
-getTransaction = BS.getTransaction
 
 getHBlocks :: PeriodId -> PeriodId -> Query BS.Storage [HBlock]
 getHBlocks from to = view $ BS.getHBlocks from to
@@ -136,7 +131,6 @@ $(makeAcidic ''BS.Storage
              , 'getPeriodId
              , 'getHBlock
              , 'getHBlocks
-             , 'getTransaction
              , 'getLogs
              , 'addAddress
              , 'addMintette

@@ -64,6 +64,8 @@ $(makeLenses ''AddressData)
 
 $(deriveSafeCopy 0 'base ''AddressData)
 
+-- TODO: store blocks, store transactions map more efficiently (see
+-- `change-transcation-map` for example).
 data Storage = Storage
     {
       -- | State of all addresses ever seen by this explorer.

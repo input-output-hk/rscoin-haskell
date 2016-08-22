@@ -23,7 +23,6 @@ module RSCoin.Bank.Storage.Whole
        , getPeriodId
        , getHBlock
        , getHBlocks
-       , getTransaction
        , getLogs
        , addAddress
        , addMintette
@@ -36,16 +35,14 @@ module RSCoin.Bank.Storage.Whole
        , startNewPeriod
        ) where
 
-import           Control.Lens                  (Getter, at, makeLenses, to, use,
+import           Control.Lens                  (Getter, makeLenses, to, use,
                                                 uses, view, (%%=), (%=), (+=),
                                                 (.=), _3)
 import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (MonadThrow (throwM))
 import           Control.Monad.Extra           (whenJust)
-import           Control.Monad.Reader          (MonadReader)
 import           Control.Monad.State           (MonadState, execState, runState)
 import           Data.Bifunctor                (first)
-import           Data.Foldable                 (foldl')
 import qualified Data.HashMap.Lazy             as M
 import qualified Data.HashSet                  as S
 import           Data.List                     (unfoldr)
@@ -99,8 +96,6 @@ data Storage = Storage
     , _blocks           :: ![C.HBlock]
       -- | Utxo for all the transaction ever made.
     , _utxo             :: !C.Utxo
-      -- | Mapping from transaction id to actual transaction with this id.
-    , _transactionMap   :: !(MP.Map C.TransactionId TransactionIndex)
       -- | List off all emission hashes from the very beginning.
     , _emissionHashes   :: ![C.TransactionId]
       -- | Known addresses accompanied with their strategies. Note that every address with
@@ -123,7 +118,6 @@ mkStorage =
     , _periodId = 0
     , _blocks = []
     , _utxo = MP.empty
-    , _transactionMap = MP.empty
     , _emissionHashes = []
     , _addresses = MP.empty
     , _pendingAddresses = MP.empty
@@ -171,21 +165,6 @@ getPeriodId = periodId
 -- | Get last block by periodId
 getHBlock :: C.PeriodId -> Query (Maybe C.HBlock)
 getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
-
--- | Resolve transaction hash into transaction
-getTransaction
-    :: (MonadReader Storage m)
-    => C.TransactionId -> m (Maybe C.Transaction)
-getTransaction tId =
-    maybe (pure Nothing) getTransactionByIndex =<<
-    view (transactionMap . at tId)
-
-getTransactionByIndex
-    :: (MonadReader Storage m)
-    => TransactionIndex -> m (Maybe C.Transaction)
-getTransactionByIndex (TransactionIndex (blkIdx,txIdx)) = do
-    block <- view $ getHBlock blkIdx
-    return $ (`atMay` fromIntegral txIdx) . C.hbTransactions =<< block
 
 -- Dumping Bank state
 
@@ -341,7 +320,6 @@ startNewPeriodFinally
     -> C.EmissionId
     -> ExceptUpdate [MintetteId]
 startNewPeriodFinally sk goodMintettes newBlockCtor emissionTid = do
-    blockIdx <- use periodId
     periodId += 1
     updateIds <- updateMintettes sk goodMintettes
     newAddrs <- updateAddresses
@@ -352,11 +330,6 @@ startNewPeriodFinally sk goodMintettes newBlockCtor emissionTid = do
         (isJust emissionTid) $
         emissionHashes %= (fromJust emissionTid :)
     blocks %= (newBlock :)
-    let populateTransactionMap = foldl' foldStep
-        foldStep oldMap (txIdx,tx) =
-            MP.insert (hash tx) (TransactionIndex (blockIdx, txIdx)) oldMap
-    transactionMap %=
-        flip populateTransactionMap (enumerate $ hbTransactions newBlock)
     return updateIds
 
 -- | Add pending addresses to addresses map (addr -> strategy), return

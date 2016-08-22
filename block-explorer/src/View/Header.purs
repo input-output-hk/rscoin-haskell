@@ -5,7 +5,7 @@ import Prelude                        (const, ($), (==), (<<<), bind, (<>))
 import App.Routes                     (homeUrl) as R
 import App.Types                      (State, Action (..))
 import App.CSS                        (darkRed, opacity, logoPath,
-                                       headerBitmapPath)
+                                       headerBitmapPath, noBorder)
 
 
 import Pux.Html                       (Html, div, text, span, button,
@@ -15,7 +15,7 @@ import Pux.Html.Attributes            (aria, data_, type_,
                                        placeholder, value, src, alt)
 import Pux.Html.Events                (onChange, onClick, onKeyDown)
 
-import Pux.CSS                        (style, backgroundColor,
+import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
 
 import Serokell.Pux.Html              (classNames, className)
@@ -27,6 +27,7 @@ view state =
         [ classNames [B.navbar, B.navbarDefault]
         , style do
             backgroundImage $ url headerBitmapPath
+            noBorder
         ]
         [ div
             [ className B.containerFluid
@@ -40,6 +41,8 @@ view state =
                     [ className B.navbarBrand
                     , style do
                         color white
+                        let p = px 10.0
+                        padding p p p p
                     ]
                     [ img
                         [ alt "Brand"

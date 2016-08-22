@@ -2,7 +2,7 @@ module App.CSS where
 
 import Prelude                        (($), (<>))
 
-import Pux.CSS                        (rgb, Color)
+import Pux.CSS                        (rgb, Color, border, solid, nil, white, height, px)
 
 import CSS.String                     (fromString)
 import CSS.Stylesheet                 (CSS, key)
@@ -22,4 +22,8 @@ headerBitmapPath = imagePath "header-bitmap-copy.png"
 opacity :: Number -> CSS
 opacity = key $ fromString "opacity"
 
+noBorder :: CSS
+noBorder = border solid nil white
 
+headFootHeight :: CSS
+headFootHeight = height $ px 50.0 -- TODO: this should be 72 px

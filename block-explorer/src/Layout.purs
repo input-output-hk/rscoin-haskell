@@ -17,6 +17,7 @@ import App.View.NotFound              (view) as NotFound
 import App.View.Transaction           (view) as Transaction
 import App.View.Header                (view) as Header
 import App.View.Alert                 (view) as Alert
+import App.View.Footer                (view) as Footer
 
 import Serokell.Pux.Themes.Bootstrap3 (bootstrapCss, containerFluid)
 import Serokell.Pux.Html              (className)
@@ -163,4 +164,5 @@ view state =
 					in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
                 R.NotFound -> NotFound.view state
             ]
+        , Footer.view state
         ]

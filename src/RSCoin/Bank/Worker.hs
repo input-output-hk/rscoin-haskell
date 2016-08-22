@@ -10,15 +10,22 @@ module RSCoin.Bank.Worker
        , runExplorerWorker
        ) where
 
-import           Control.Monad            (when)
-import           Control.Monad.Catch      (SomeException, catch)
-import           Control.Monad.Extra      (unlessM)
+import           Control.Applicative      (liftA2)
+import           Control.Lens             ((^.))
+import           Control.Monad            (forM_, when)
+import           Control.Monad.Catch      (SomeException, bracket_, catch)
+import           Control.Monad.Extra      (unlessM, whenJust)
 import           Control.Monad.Trans      (MonadIO (liftIO))
-import           Data.IORef               (IORef, readIORef)
+import           Data.Acid.Advanced       (query', update')
+import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
+                                           newIORef, readIORef)
 import           Data.List                (sortOn)
 import           Data.Maybe               (fromMaybe)
 import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
+
+import           Serokell.Util.AcidState  (tidyLocalState)
+import           Serokell.Util.Bench      (measureTime_)
 
 import           Serokell.Util.Exceptions ()
 

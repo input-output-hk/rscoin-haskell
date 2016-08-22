@@ -10,11 +10,13 @@ module RSCoin.User.Logic
        ( CC.getBlockByHeight
        , CC.getBlockchainHeight
        , SignatureBundle
+       , SignatureValue
        , joinBundles
        , getExtraSignatures
        , validateTransaction
        ) where
 
+import           Control.Lens                  (view, _1, _2, _3)
 import           Control.Monad                 (guard, unless, when)
 import           Control.Monad.Catch           (throwM)
 import           Control.Monad.Trans           (liftIO)
@@ -25,7 +27,6 @@ import qualified Data.Map                      as M
 import           Data.Maybe                    (catMaybes, fromJust, mapMaybe)
 import qualified Data.Text                     as T
 import           Data.Time.Units               (Second)
-import           Data.Tuple.Select             (sel1, sel2, sel3)
 import           Formatting                    (build, int, sformat, (%))
 
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
@@ -51,7 +52,9 @@ import           Serokell.Util.Text            (listBuilderJSON, pairBuilder)
 -- | SignatureBundle is a datatype that represents signatures needed
 -- to prove that address owners are OK with transaction spending money
 -- from that address
-type SignatureBundle = M.Map AddrId (Address, TxStrategy, [(Address,Signature)])
+-- @TODO: these types are awful :(
+type SignatureValue  = (Address, TxStrategy, [(Address, Signature)])
+type SignatureBundle = M.Map AddrId SignatureValue
 
 -- | This type represents for each unique address in the given transaction:
 -- * Strategy of working on that address
@@ -92,10 +95,10 @@ getExtraSignatures tx requests time = do
         return $ Just $ toBundle $ ready ++ timeoutRes
   where
     lookupMap addr = fromJust $ M.lookup addr requests
-    getStrategy = sel1 . lookupMap
-    getAddrIds = sel2 . lookupMap
-    getOwnSignaturePair = sel3 . lookupMap
-    checkInput = all (`elem` txInputs tx) $ concatMap sel2 $ M.elems requests
+    getStrategy = view _1 . lookupMap
+    getAddrIds = view _2 . lookupMap
+    getOwnSignaturePair = view _3 . lookupMap
+    checkInput = all (`elem` txInputs tx) $ concatMap (view _2)$ M.elems requests
     toBundle =
         M.fromListWith joinBundles .
         concatMap (\(addr,signs) ->
@@ -177,7 +180,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
         signedPairMb <-
             rightToMaybe <$>
             (CC.checkNotDoubleSpent mintette tx addrid $
-             sel3 $ fromJust $ M.lookup addrid signatureBundle)
+             view _3 $ fromJust $ M.lookup addrid signatureBundle)
         return $
             signedPairMb >>=
             \proof ->

@@ -14,12 +14,12 @@ module RSCoin.Core.Transaction
 
 import           Control.Arrow          ((&&&))
 import           Control.Exception      (assert)
+import           Control.Lens           (view, _3)
 import           Data.Foldable          (foldl', foldr')
 import           Data.Function          (on)
 import qualified Data.IntMap.Strict     as M
 import           Data.List              (delete, groupBy, nub, sortBy)
 import           Data.Ord               (comparing)
-import           Data.Tuple.Select      (sel3)
 
 import           RSCoin.Core.Coin       (coinsToMap)
 import           RSCoin.Core.Crypto     (Signature, hash, verify)
@@ -33,7 +33,7 @@ validateSum Transaction{..} =
     and [ totalInputs >= totalOutputs
         , greyInputs >= greyOutputs + totalUnpaintedSum ]
   where
-    inputs  = coinsToMap $ map sel3 txInputs
+    inputs  = coinsToMap $ map (view _3) txInputs
     outputs = coinsToMap $ map snd txOutputs
     totalInputs  = sum $ map getCoin $ M.elems inputs
     totalOutputs = sum $ map getCoin $ M.elems outputs
@@ -77,8 +77,8 @@ getAddrIdByAddress addr transaction@Transaction{..} =
 -- addrids with smaller amount of money first.
 chooseAddresses :: [AddrId] -> M.IntMap Coin -> Maybe (M.IntMap ([AddrId], Coin))
 chooseAddresses addrids valueMap =
-    chooseOptimal addrids' sel3 valueMap'
-    where addrids' = filter ((/=0) . getCoin . sel3) addrids
+    chooseOptimal addrids' (view _3) valueMap'
+    where addrids' = filter ((/=0) . getCoin . view _3) addrids
           valueMap' = M.filter ((/=0) . getCoin) valueMap
 
 chooseOptimal

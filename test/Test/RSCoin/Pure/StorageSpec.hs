@@ -15,7 +15,8 @@ module Test.RSCoin.Pure.StorageSpec
 
 import           Control.Exception              (Exception)
 import           Control.Lens                   (at, ix, makeLenses, preuse,
-                                                 use, (+=), (.=), (^.))
+                                                 use, view, (+=), (.=), (^.),
+                                                 _1, _3)
 import           Control.Monad                  (forM, when)
 import           Control.Monad.Catch            (MonadThrow (throwM))
 import           Control.Monad.State.Lazy       (gets)
@@ -23,7 +24,6 @@ import           Data.List                      (elemIndex)
 import qualified Data.Map                       as M
 import           Data.Maybe                     (fromJust)
 import           Data.Text                      (Text)
-import           Data.Tuple.Select              (sel1, sel3)
 import           Data.Typeable                  (Typeable)
 import           Test.Hspec                     (Spec, describe)
 import           Test.Hspec.QuickCheck          (prop)
@@ -155,10 +155,10 @@ instance CanUpdate SendGoodTransaction where
                 C.Transaction
                     [addrId]
                     [ ( C.Address $ C.derivePublicKey sgtOutputSecretKey
-                      , sel3 addrId)]
+                      , view _3 addrId)]
             signature = C.sign sk tx
             ownersIn =
-                map (flip M.elemAt mts) $ C.owners (M.toList mts) (sel1 addrId)
+                map (flip M.elemAt mts) $ C.owners (M.toList mts) (view _1 addrId)
             getConfirmation (m,ms) = do
                 addr <- fromJust <$> use (bankState . B.bankStorage . B.getAddressFromUtxo addrId)
                 confirmation <-
@@ -179,7 +179,7 @@ instance CanUpdate SendGoodTransaction where
                 M.fromList confirmations
         mapM_ commitTx ownersOut
         availableOutputs . ix actualIdx .=
-            (sgtOutputSecretKey, (C.hash tx, 0, sel3 addrId))
+            (sgtOutputSecretKey, (C.hash tx, 0, view _3 addrId))
 
 instance Arbitrary SomeUpdate where
     arbitrary =

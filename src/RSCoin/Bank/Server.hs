@@ -41,7 +41,6 @@ import           RSCoin.Bank.AcidState          (AddAddress (..),
                                                  GetHBlocks (..), GetLogs (..),
                                                  GetMintettes (..),
                                                  GetPeriodId (..),
-                                                 GetTransaction (..),
                                                  RemoveExplorer (..),
                                                  RemoveMintette (..),
                                                  RestoreExplorers (..),
@@ -52,8 +51,9 @@ import           RSCoin.Core                    (ActionLog,
                                                  AddressToTxStrategyMap,
                                                  Explorers, HBlock, MintetteId,
                                                  Mintettes, PeriodId, PublicKey,
-                                                 Transaction, TransactionId,
-                                                 logDebug, logError, logInfo)
+                                                 Signature, TransactionId,
+                                                 logDebug, logError, logInfo,
+                                                 verify)
 import qualified RSCoin.Core.NodeConfig         as NC
 import qualified RSCoin.Core                    as C
 import qualified RSCoin.Core.Protocol.Types     as PT (BankLocalControlRequest (..),
@@ -63,7 +63,7 @@ import qualified RSCoin.Timed                   as T
 serve
     :: T.WorkMode m
     => BankState -> IORef Bool -> m ()
-serve st mainIsBusy = do
+serve st isPeriodChanging = do
     idr1 <- T.serverTypeRestriction0
     idr2 <- T.serverTypeRestriction0
     idr3 <- T.serverTypeRestriction1
@@ -82,12 +82,11 @@ serve st mainIsBusy = do
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
         , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight st
         , C.method (C.RSCBank C.GetHBlocks) $ idr3 $ serveGetHBlocks st
-        , C.method (C.RSCBank C.GetTransaction) $ idr4 $ serveGetTransaction st
         , C.method (C.RSCDump C.GetLogs) $ idr5 $ serveGetLogs st
         , C.method (C.RSCBank C.GetAddresses) $ idr6 $ serveGetAddresses st
         , C.method (C.RSCBank C.GetExplorers) $ idr7 $ serveGetExplorers st
         , C.method (C.RSCBank C.LocalControlRequest) $
-          idr8 $ serveLocalControlRequest st bankPublicKey mainIsBusy
+          idr8 $ serveLocalControlRequest st bankPublicKey isPeriodChanging
         , C.method (C.RSCBank C.GetHBlockEmission) $
           idr9 $ serveGetHBlockEmission st]
 
@@ -100,13 +99,12 @@ toServer action = lift $ (Right <$> action) `catch` handler
         logError $ show' e
         return $ Left $ show' e
 
-
 -- toServer' :: T.WorkMode m => IO a -> T.ServerT m a
 -- toServer' = toServer . liftIO
 
 serveGetAddresses
     :: T.WorkMode m
-    => BankState -> ServerTE m AddressToTxStrategyMap
+    => State -> ServerTE m AddressToTxStrategyMap
 serveGetAddresses st =
     toServer $
     do mts <- query st GetAddresses
@@ -116,14 +114,14 @@ serveGetAddresses st =
 
 serveGetMintettes
     :: T.WorkMode m
-    => BankState -> ServerTE m Mintettes
+    => State -> ServerTE m Mintettes
 serveGetMintettes st =
     toServer $
     do mts <- query st GetMintettes
        logDebug $ sformat ("Getting list of mintettes: " % build) mts
        return mts
 
-serveGetHeight :: T.WorkMode m => BankState -> ServerTE m PeriodId
+serveGetHeight :: T.WorkMode m => State -> ServerTE m PeriodId
 serveGetHeight st =
     toServer $
     do pId <- query st GetPeriodId
@@ -132,7 +130,7 @@ serveGetHeight st =
 
 serveGetHBlockEmission
     :: T.WorkMode m
-    => BankState -> PeriodId -> ServerTE m (Maybe (HBlock, Maybe TransactionId))
+    => State -> PeriodId -> ServerTE m (Maybe (HBlock, Maybe TransactionId))
 serveGetHBlockEmission st pId =
     toServer $
     do mBlock <- query st (GetHBlock pId)
@@ -145,7 +143,7 @@ serveGetHBlockEmission st pId =
 
 serveGetHBlocks
     :: T.WorkMode m
-    => BankState -> [PeriodId] -> ServerTE m [HBlock]
+    => State -> [PeriodId] -> ServerTE m [HBlock]
 serveGetHBlocks st (nub -> periodIds) =
     toServer $
     do logDebug $
@@ -162,16 +160,6 @@ serveGetHBlocks st (nub -> periodIds) =
                ("Couldn't get blocks for the following periods: " % build) $
            listBuilderJSON (periodIds \\ gotIndices)
        return $ map fst blocks
-
-serveGetTransaction
-    :: T.WorkMode m
-    => BankState -> TransactionId -> ServerTE m (Maybe Transaction)
-serveGetTransaction st tId =
-    toServer $
-    do t <- query st (GetTransaction tId)
-       logDebug $
-           sformat ("Getting transaction with id " % build % ": " % build) tId t
-       return t
 
 getPeriodResults
     :: T.WorkMode m
@@ -298,11 +286,12 @@ serveLocalControlRequest st bankPublicKey isPeriodChanging controlRequest = do
                 ("Control request " % build % " executed successfully")
                 controlRequest
 
+
 -- Dumping Bank state
 
 serveGetLogs
     :: T.WorkMode m
-    => BankState -> MintetteId -> Int -> Int -> ServerTE m (Maybe ActionLog)
+    => State -> MintetteId -> Int -> Int -> ServerTE m (Maybe ActionLog)
 serveGetLogs st m from to =
     toServer $
     do mLogs <- query st (GetLogs m from to)
@@ -314,7 +303,7 @@ serveGetLogs st m from to =
 
 serveGetExplorers
     :: T.WorkMode m
-    => BankState -> ServerTE m Explorers
+    => State -> ServerTE m Explorers
 serveGetExplorers st =
     toServer $
     do curPeriod <- query st GetPeriodId

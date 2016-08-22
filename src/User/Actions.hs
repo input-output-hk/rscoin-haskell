@@ -14,11 +14,13 @@ module Actions
 
 import           Control.Applicative     (liftA2)
 import           Control.Lens            ((^.))
-import           Control.Monad           (forM_, join, unless, void, when)
+import           Control.Monad           (forM, forM_, join, unless, void, when)
 import           Control.Monad.IO.Class  (MonadIO)
 import           Control.Monad.Trans     (liftIO)
 
+import           Data.Aeson              (decode, encode)
 import           Data.Bifunctor          (bimap, first, second)
+import qualified Data.ByteString.Lazy    as BS
 import           Data.Char               (isSpace)
 import           Data.Function           (on)
 import qualified Data.HashSet            as HS
@@ -47,17 +49,19 @@ import           RSCoin.Timed            (for, ms, wait)
 #endif
 
 import qualified RSCoin.Core             as C
-
+import           RSCoin.Core.Aeson       ()
 import           RSCoin.Core.Strategy    (AllocationAddress (..),
                                           PartyAddress (..))
 import           RSCoin.Timed            (WorkMode, getNodeContext)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..), checkAddressId,
+                                          constructTransaction,
                                           deleteUserAddress,
                                           getAllPublicAddresses,
-                                          getAmountNoUpdate, importAddress,
-                                          submitTransactionRetry,
+                                          getAmountNoUpdate,
+                                          getEmptySignatureBundle,
+                                          importAddress, submitTransactionRetry,
                                           updateBlockchain)
 import qualified UserOptions             as O
 
@@ -88,8 +92,8 @@ processCommandNoOpts
     => U.UserState -> O.UserCommand -> m ()
 processCommandNoOpts st O.ListAddresses =
     processListAddresses st
-processCommandNoOpts st (O.FormTransaction inp out outC cache) =
-    processFormTransaction st inp out outC cache
+processCommandNoOpts st (O.FormTransaction inp out outC) =
+    processFormTransaction st inp out outC
 processCommandNoOpts st O.UpdateBlockchain =
     processUpdateBlockchain st
 processCommandNoOpts st (O.CreateMultisigAddress n usrAddr trustAddr masterPk sig) =
@@ -105,11 +109,11 @@ processCommandNoOpts st (O.BlacklistAllocation ix) =
 processCommandNoOpts st (O.WhitelistAllocation ix) =
     processBlackWhiteListing st False ix
 processCommandNoOpts st (O.ColdFormTransaction inp out outC path) =
-    undefined st inp out outC path
-processCommandNoOpts st (O.ColdSendTransaction path) =
-    undefined st path
+    processColdFormTransaction st inp out outC path
 processCommandNoOpts st (O.ColdSignTransaction path) =
-    undefined st path
+    processColdSignTransaction st path
+processCommandNoOpts st (O.ColdSendTransaction path) =
+    processColdSendTransaction st path
 processCommandNoOpts st (O.ImportAddress skPathMaybe pkPath heightFrom) =
     processImportAddress st skPathMaybe pkPath heightFrom
 processCommandNoOpts st (O.ExportAddress addrId filepath) =
@@ -174,35 +178,40 @@ processListAddresses st =
                              else "    * "%build)
                             allowedAddr
 
+formTransactionPayload
+    :: (WorkMode m)
+    => [(Word, Int64, Int)] -> T.Text -> [(Int64, Int)] -> m TransactionData
+formTransactionPayload inputs outputAddrStr outputCoins = eWrap $ do
+    unless (isJust outputAddr) $
+        U.commitError $
+        "Provided key can't be read/imported (check format): " <> outputAddrStr
+    return td
+  where
+    outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
+    inputs' =
+        map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
+        groupBy ((==) `on` snd) $
+        map (\(idx,o,c) -> (idx - 1, [C.Coin (C.Color c) (C.CoinAmount $ toRational o)]))
+        inputs
+    outputs' =
+        map (uncurry (flip C.Coin) . bimap (C.CoinAmount . toRational) C.Color)
+            outputCoins
+    td = TransactionData
+         { tdInputs = inputs'
+         , tdOutputAddress = fromJust outputAddr
+         , tdOutputCoins = outputs'
+         }
+
 processFormTransaction
     :: (MonadIO m, WorkMode m)
-    => U.UserState
-    -> [(Word, Int64, Int)]
-    -> T.Text
-    -> [(Int64, Int)]
-    -> (Maybe U.UserCache)
-    -> m ()
-processFormTransaction st inputs outputAddrStr outputCoins cache = eWrap $ do
-    let outputAddr = C.Address <$> C.constructPublicKey outputAddrStr
-        inputs' =
-            map (foldr1 (\(a,b) (_,d) -> (a, b ++ d))) $
-            groupBy ((==) `on` snd) $
-            map (\(idx,o,c) -> (idx - 1, [C.Coin (C.Color c) (C.CoinAmount $ toRational o)]))
-            inputs
-        outputs' =
-            map (uncurry (flip C.Coin) . bimap (C.CoinAmount . toRational) C.Color)
-                outputCoins
-        td = TransactionData
-             { tdInputs = inputs'
-             , tdOutputAddress = fromJust outputAddr
-             , tdOutputCoins = outputs'
-             }
-    unless (isJust outputAddr) $
-        U.commitError $ "Provided key can't be read/imported (check format): " <> outputAddrStr
-    tx <- submitTransactionRetry 2 st cache td
-    C.logInfo $
-        sformat ("Successfully submitted transaction with hash: " % build) $
-            C.hash tx
+    => U.UserState -> [(Word, Int64, Int)] -> T.Text -> [(Int64, Int)] -> m ()
+processFormTransaction st inputs outputAddrStr outputCoins =
+    eWrap $
+    do td <- formTransactionPayload inputs outputAddrStr outputCoins
+       tx <- submitTransactionRetry 2 st Nothing td
+       C.logInfo $
+           sformat ("Successfully submitted transaction with hash: " % build) $
+           C.hash tx
 
 processMultisigAddress
     :: (MonadIO m, WorkMode m)
@@ -379,6 +388,58 @@ processBlackWhiteListing st blacklist ix =
     successText = if blacklist
                   then "Allocation was successfully blacklisted"
                   else "Allocation was successfully whitelisted back"
+
+-- | Forms transaction, its related empty signature bundle and dumps
+-- it to the file
+processColdFormTransaction
+    :: (MonadIO m, WorkMode m)
+    => U.UserState
+    -> [(Word, Int64, Int)]
+    -> T.Text
+    -> [(Int64, Int)]
+    -> FilePath
+    -> m ()
+processColdFormTransaction st inputs outputAddrStr outputCoins path = eWrap $ do
+    td <- formTransactionPayload inputs outputAddrStr outputCoins
+    tx <- constructTransaction st td
+    emptyBundle <- getEmptySignatureBundle st tx
+    liftIO $ BS.writeFile path $ encode (tx, M.assocs emptyBundle)
+    C.logInfo $ sformat
+        ("Your transaction data has been written to the '" % string % "'") path
+
+-- | Signs transaction from given file and writes output into new file with
+-- @.signed@ extension with new signature bundle.
+processColdSignTransaction
+    :: WorkMode m
+    => U.UserState
+    -> FilePath
+    -> m ()
+processColdSignTransaction st bundlePath = eWrap $ do
+    (tx, sigAssocs) :: (C.Transaction, [(C.AddrId, U.SignatureValue)]) <-
+        liftIO $ (fromJust . decode) <$> BS.readFile bundlePath
+    let sigBundle = M.fromList sigAssocs
+    updatedSigBundle <- U.signTransactionLocally st tx sigBundle
+--    updatedSigBundle <- forM sigAssocs $ \(addrId, (msAddr, C.MOfNStrategy m p, signatures)) -> do
+--        (userAddr, userSk) <- U.findPartyAddress st $ HS.fromList $ map C.UserAlloc $ S.toList p
+--        pure (addrId, (msAddr, C.MOfNStrategy m p, (userAddr, C.sign userSk tx) : signatures))
+    -- @TODO: not efficient check
+    if sigBundle == updatedSigBundle
+    then C.logInfo "No transactions have been signed"
+    else do
+        liftIO $ BS.writeFile (bundlePath <> ".signed") $
+            encode (tx, M.assocs updatedSigBundle)
+        C.logInfo "Some transactions have been succesfully signed!"
+
+processColdSendTransaction
+    :: WorkMode m
+    => U.UserState
+    -> FilePath
+    -> m ()
+processColdSendTransaction st bundlePath = eWrap $ do
+    (tx, sigAssocs) :: (C.Transaction, [(C.AddrId, U.SignatureValue)]) <-
+        liftIO $ (fromJust . decode) <$> BS.readFile bundlePath
+    let sigBundle = M.fromList sigAssocs
+    U.sendTransactionRetry 2 st Nothing tx sigBundle
 
 processImportAddress
     :: (MonadIO m, WorkMode m)

@@ -25,7 +25,6 @@ import           RSCoin.Core            (MintetteId, PeriodId, Severity (Info),
                                          configDirectory, defaultAccountsNumber,
                                          defaultConfigurationPath,
                                          defaultSecretKeyPath)
-import           RSCoin.User            (UserCache)
 
 
 -- | Command that describes single action from command-line interface
@@ -39,12 +38,8 @@ data UserCommand
     -- | First argument represents inputs -- pairs (a,b,c), where a is
     -- index (starting from 1) of address in wallet, b is positive
     -- integer representing value to send. c is color.  Second
-    -- argument represents the address to send, and amount. Forth
-    -- argument is optional cache
-    | FormTransaction [(Word, Int64, Int)]
-                      Text
-                      [(Int64, Int)]
-                      (Maybe UserCache)
+    -- argument represents the address to send, and amount.
+    | FormTransaction [(Word, Int64, Int)] Text [(Int64, Int)]
     -- | Initialize multisignature address allocation.
     -- 1. Number m of required signatures from addr;
     -- 2. List of user parties in addresses;
@@ -68,10 +63,7 @@ data UserCommand
     -- 2. @Just (pathToHot, partyAddr)@ : if we want to sign as a 'TrustParty';
     -- 3. Master public key;
     -- 4. Signature of slave key with master key.
-    | ConfirmAllocation Int
-                        (Maybe String)
-                        (Maybe Text)
-                        (Maybe Text)
+    | ConfirmAllocation Int (Maybe String) (Maybe Text) (Maybe Text)
     -- | Put an allocation into blacklist and ignore it
     | BlacklistAllocation Int
     -- | Unignore the allocation
@@ -316,10 +308,7 @@ userCommandParser =
                   "'b' is the color of that coin") <>
              metavar "(INT,INT)")
     formTransactionOpts =
-        FormTransaction <$>
-        some formTxFrom <*> formTxToAddr <*> many formTxToCoin
-        -- FIXME: should we do caching here or not?
-        <*> pure Nothing
+        FormTransaction <$> some formTxFrom <*> formTxToAddr <*> many formTxToCoin
     createMultisigOpts =
         CreateMultisigAddress <$>
         option auto (short 'm' <> metavar "INT" <> help "Number m from m/n") <*>

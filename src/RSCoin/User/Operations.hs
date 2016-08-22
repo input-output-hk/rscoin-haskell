@@ -31,8 +31,12 @@ module RSCoin.User.Operations
        , submitTransactionFromAll
        , TransactionInput
        , TransactionData (..)
+       , constructTransaction
+       , getEmptySignatureBundle
+       , signTransactionLocally
        , submitTransaction
        , submitTransactionRetry
+       , sendTransactionRetry  -- @TODO: very bad; we skip checks but didn't manage to pass bundle in other way
        , findPartyAddress
        , verifyTrustEntry
        , retrieveAllocationsList
@@ -40,7 +44,7 @@ module RSCoin.User.Operations
 
 import           Control.Arrow          ((***))
 import           Control.Exception      (SomeException, assert, fromException)
-import           Control.Lens           (view, (^.), _1)
+import           Control.Lens           (view, (^.), _1, _2, _3)
 import           Control.Monad          (filterM, forM_, join, unless, void,
                                          when)
 import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
@@ -58,7 +62,6 @@ import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.IO           as TIO
-import           Data.Tuple.Select      (sel1, sel2, sel3)
 import           Formatting             (build, int, sformat, shown, (%))
 import           Safe                   (atMay)
 
@@ -178,7 +181,7 @@ getAmountNoUpdate
     => A.UserState -> C.Address -> m C.CoinsMap
 getAmountNoUpdate st address = do
     genAddr <- view C.genesisAddress <$> getNodeContext
-    C.coinsToMap . map sel3 <$> A.query st (A.GetOwnedAddrIds genAddr address)
+    C.coinsToMap . map (view _3) <$> A.query st (A.GetOwnedAddrIds genAddr address)
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
 -- n is the number of accounts stored in wallet)
@@ -424,7 +427,7 @@ constructTransaction st TransactionData{..} = do
              else "The") <>
         sformat
             (" following account doesn't have enough coins: " % build)
-            (sel1 $ head overSpentAccounts)
+            (view _1 $ head overSpentAccounts)
     txPieces <-
         mapM
             (uncurry (submitTransactionMapper st tdOutputCoins tdOutputAddress))
@@ -580,6 +583,7 @@ sendTransactionDo
     -> SignatureBundle
     -> m ()
 sendTransactionDo st maybeCache tx signatures = do
+    () <$ updateBlockchain st False
     walletHeight <- A.query st A.GetLastBlockId
     periodId <- C.getBlockchainHeight
     let lastAppliedBlock = periodId - 1
@@ -593,12 +597,12 @@ sendTransactionDo st maybeCache tx signatures = do
         WalletSyncError $
         sformat
             ("Wallet isn't updated (lastBlockHeight " % int %
-             " when blockchain's last block is " % int %").")
+             " when blockchain's last block is " % int % ").")
             walletHeight lastAppliedBlock
     let nonDefaultAddresses =
             M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
             map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head sgns))) $
-            filter ((/= C.DefaultStrategy) . sel2 . snd) $
+            filter ((/= C.DefaultStrategy) . view _2 . snd) $
             M.assocs signatures
     extraSignatures <- getExtraSignatures tx nonDefaultAddresses 120
     let allSignatures :: SignatureBundle

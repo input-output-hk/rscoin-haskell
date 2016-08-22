@@ -10,12 +10,13 @@ module RSCoin.Explorer.Storage
        , mkStorage
 
        , Query
+       , addressExists
        , getAddressBalance
        , getAddressTxNumber
        , getAddressTransactions
        , getLastPeriodId
        , getTx
-       , addressExists
+       , getTxSummary
 
        , Update
        , ExceptUpdate
@@ -23,26 +24,27 @@ module RSCoin.Explorer.Storage
 
        ) where
 
-import           Control.Lens                      (at, makeLenses, use, view,
-                                                    views, (%=), (.=), _Just)
-import           Control.Monad                     (unless)
-import           Control.Monad.Catch               (MonadThrow (throwM))
-import           Control.Monad.Extra               (whenJustM)
-import           Control.Monad.Reader              (MonadReader)
-import           Control.Monad.State               (MonadState)
-import qualified Data.IntMap.Strict                as I
-import           Data.List                         (foldl', genericDrop,
-                                                    genericLength, genericTake)
-import qualified Data.Map.Strict                   as M
-import           Data.Maybe                        (fromMaybe, isJust)
-import           Data.SafeCopy                     (base, deriveSafeCopy)
-import           Data.Tuple.Select                 (sel3)
+import           Control.Lens                       (at, makeLenses, use, view,
+                                                     views, (%=), (.=), _3,
+                                                     _Just)
+import           Control.Monad                      (unless)
+import           Control.Monad.Catch                (MonadThrow (throwM))
+import           Control.Monad.Extra                (whenJustM)
+import           Control.Monad.Reader               (MonadReader)
+import           Control.Monad.State                (MonadState)
+import qualified Data.IntMap.Strict                 as I
+import           Data.List                          (foldl', genericDrop,
+                                                     genericLength, genericTake)
+import qualified Data.Map.Strict                    as M
+import           Data.Maybe                         (fromMaybe, isJust)
+import           Data.SafeCopy                      (base, deriveSafeCopy)
 
-import qualified RSCoin.Core                       as C
+import qualified RSCoin.Core                        as C
 
-import           RSCoin.Explorer.Error             (ExplorerError (..))
-import           RSCoin.Explorer.Web.Sockets.Types (AddrId,
-                                                    TransactionSummary (..))
+import           RSCoin.Explorer.Error              (ExplorerError (..))
+import           RSCoin.Explorer.TransactionSummary (ExtendedAddrId,
+                                                     TransactionSummary (..),
+                                                     txSummaryToTx)
 
 $(deriveSafeCopy 0 'base ''TransactionSummary)
 
@@ -132,8 +134,12 @@ getLastPeriodId :: Query (Maybe C.PeriodId)
 getLastPeriodId = view lastPeriodId
 
 -- | Get transaction with given id (if it can be found).
-getTx :: C.TransactionId -> Query (Maybe TransactionSummary)
-getTx i = view $ transactionsMap . at i
+getTx :: C.TransactionId -> Query (Maybe C.Transaction)
+getTx = fmap (fmap txSummaryToTx) . getTxSummary
+
+-- | Get summary of transaction with given id (if it can be found).
+getTxSummary :: C.TransactionId -> Query (Maybe TransactionSummary)
+getTxSummary i = view $ transactionsMap . at i
 
 -- | Cheks whether address exists in storage
 addressExists :: C.Address -> Query Bool
@@ -167,7 +173,7 @@ applyTransaction tx@C.Transaction{..} = do
     txInputsSummaries <-
         mapM
             (\a ->
-                  mkSummaryAddrId a =<< inputToAddr a)
+                  mkExtendedAddrId a =<< inputToAddr a)
             txInputs
     let txSummary = mkTransactionSummary txInputsSummaries
     transactionsMap . at txHash .= Just txSummary
@@ -185,7 +191,7 @@ applyTransaction tx@C.Transaction{..} = do
                     I.insertWith (+) (C.getC $ C.getColor c) c m)
               I.empty
               txInputs
-        , txsInputsTotal = sum $ map (C.getCoin . sel3) txInputs
+        , txsInputsTotal = sum $ map (C.getCoin . view _3) txInputs
         , txsOutputsSum = foldl'
               (\m (_,c) ->
                     I.insertWith (+) (C.getC $ C.getColor c) c m)
@@ -200,8 +206,8 @@ applyTransaction tx@C.Transaction{..} = do
     inputToAddr (txId,idx,_) =
         fmap (fst . (!! idx) . txsOutputs) <$>
         (use $ transactionsMap . at txId)
-    mkSummaryAddrId :: C.AddrId -> (Maybe C.Address) -> ExceptUpdate AddrId
-    mkSummaryAddrId (txId,ind,c) addr
+    mkExtendedAddrId :: C.AddrId -> (Maybe C.Address) -> ExceptUpdate ExtendedAddrId
+    mkExtendedAddrId (txId,ind,c) addr
       | isJust addr = return (txId, ind, c, addr)
       | otherwise = do
           hasEmission <- elem txId <$> use emissionHashes

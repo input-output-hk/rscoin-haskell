@@ -47,7 +47,7 @@ import           RSCoin.Bank.Worker        (runExplorerWorker,
 bankWrapperReal :: SecretKey
                 -> FilePath
                 -> ContextArgument
-                -> (BankState -> MsgPackRpc a)
+                -> (State -> MsgPackRpc a)
                 -> IO a
 bankWrapperReal bankSk storagePath ca =
     runRealModeBank ca bankSk .

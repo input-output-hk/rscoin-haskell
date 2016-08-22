@@ -14,8 +14,8 @@ module RSCoin.User.Cache
 
 import           Control.Concurrent.STM (TVar, atomically, modifyTVar,
                                          newTVarIO, readTVarIO, writeTVar)
+import           Control.Lens           (view, _1)
 import           Control.Monad.Trans    (MonadIO (liftIO))
-import           Data.Tuple.Select      (sel1)
 
 import qualified RSCoin.Core            as C
 import           RSCoin.Timed           (WorkMode)
@@ -98,4 +98,4 @@ getOwnersByAddrid
     -> C.PeriodId
     -> C.AddrId
     -> m [(C.Mintette, C.MintetteId)]
-getOwnersByAddrid cache p = getOwnersByTxId cache p . sel1
+getOwnersByAddrid cache p = getOwnersByTxId cache p . view _1

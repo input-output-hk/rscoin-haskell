@@ -14,7 +14,6 @@ import           Control.Lens               (view, (^.))
 import           Control.Monad              (replicateM)
 import           Control.Monad.Reader       (runReaderT)
 import           Control.Monad.Trans        (MonadIO (liftIO))
-import           Data.Acid.Advanced         (update')
 import qualified Data.IntMap.Strict         as M
 import           Data.IORef                 (newIORef)
 import           Data.List                  (genericLength)
@@ -104,15 +103,13 @@ runBank v b = do
     -- TODO: this code is a modified version of launchBank. Invent
     -- smth to share code
     workWhileMVarEmpty v $
-        B.runWorkerWithPeriod
+        B.runWorker
             periodDelta
-            mainIsBusy
             (b ^. secretKey)
             (b ^. state)
-            Nothing
     workWhileMVarEmpty v $
         B.runExplorerWorker periodDelta mainIsBusy (b ^. secretKey) (b ^. state)
-    workWhileMVarEmpty v $ B.serve (b ^. state) myTId pure  -- FIXME: close state `finally`
+    workWhileMVarEmpty v $ B.serve (b ^. state) mainIsBusy -- FIXME: close state `finally`
 
 runMintettes
     :: WorkMode m
@@ -142,7 +139,7 @@ addMintetteToBank b mintette = do
         mintPKey  = mintette ^. publicKey
         bankSt    = b ^. state
     logDebug $ sformat ("Adding mintette " % build) addedMint
-    update' bankSt $ B.AddMintette addedMint mintPKey
+    B.update bankSt $ B.AddMintette addedMint mintPKey
     logDebug $ sformat ("Added mintette " % build) addedMint
 
 initBUser

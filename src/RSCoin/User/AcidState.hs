@@ -45,31 +45,30 @@ module RSCoin.User.AcidState
        , InitWallet (..)
        ) where
 
-import           Control.Exception       (throw, throwIO)
-import           Control.Lens            ((^.))
-import           Control.Monad           (replicateM, unless)
-import           Control.Monad.Catch     (MonadThrow, throwM)
-import           Control.Monad.Trans     (MonadIO (liftIO))
-import           Data.Acid               (EventResult, EventState, QueryEvent,
-                                          UpdateEvent, makeAcidic)
-import qualified Data.Acid               as A
-import           Data.Map                (Map)
-import           Data.SafeCopy           (base, deriveSafeCopy)
+import           Control.Exception    (throw, throwIO)
+import           Control.Lens         ((^.))
+import           Control.Monad        (replicateM, unless)
+import           Control.Monad.Catch  (MonadThrow, throwM)
+import           Control.Monad.Trans  (MonadIO (liftIO))
+import           Data.Acid            (EventResult, EventState, QueryEvent,
+                                       UpdateEvent, makeAcidic)
+import qualified Data.Acid            as A
+import           Data.Map             (Map)
+import           Data.SafeCopy        (base, deriveSafeCopy)
 
-import           Serokell.Util.AcidState (ExtendedState, closeExtendedState,
-                                          openLocalExtendedState,
-                                          openMemoryExtendedState,
-                                          queryExtended, tidyExtendedState,
-                                          updateExtended)
+import           Serokell.AcidState   (ExtendedState, closeExtendedState,
+                                       openLocalExtendedState,
+                                       openMemoryExtendedState, queryExtended,
+                                       tidyExtendedState, updateExtended)
 
-import qualified RSCoin.Core             as C
-import           RSCoin.Core.Crypto      (keyGen)
-import           RSCoin.Core.Strategy    (AllocationInfo, MSAddress)
-import           RSCoin.Timed            (MonadRpc (getNodeContext), WorkMode)
-import           RSCoin.User.Logic       (getBlockchainHeight)
-import           RSCoin.User.Wallet      (TxHStatus, TxHistoryRecord,
-                                          WalletStorage)
-import qualified RSCoin.User.Wallet      as W
+import qualified RSCoin.Core          as C
+import           RSCoin.Core.Crypto   (keyGen)
+import           RSCoin.Core.Strategy (AllocationInfo, MSAddress)
+import           RSCoin.Timed         (MonadRpc (getNodeContext), WorkMode)
+import           RSCoin.User.Logic    (getBlockchainHeight)
+import           RSCoin.User.Wallet   (TxHStatus, TxHistoryRecord,
+                                       WalletStorage)
+import qualified RSCoin.User.Wallet   as W
 
 $(deriveSafeCopy 0 'base ''TxHStatus)
 $(deriveSafeCopy 0 'base ''TxHistoryRecord)

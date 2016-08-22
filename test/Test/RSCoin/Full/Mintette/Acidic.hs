@@ -15,7 +15,7 @@ module Test.RSCoin.Full.Mintette.Acidic
 import           Control.Monad.Trans               (MonadIO)
 import           Data.Acid                         (Update, makeAcidic)
 
-import           Serokell.Util.AcidState           (closeExtendedState,
+import           Serokell.AcidState                (closeExtendedState,
                                                     openLocalExtendedState,
                                                     openMemoryExtendedState,
                                                     tidyExtendedState)

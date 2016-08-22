@@ -9,54 +9,49 @@ module RSCoin.Bank.Server
        ( serve
        ) where
 
-import           Control.Applicative            (liftA2)
-import           Control.Lens                   ((^.))
-import           Control.Monad                  (forM_, when)
-import           Control.Monad.Catch            (SomeException, bracket_,
-                                                 catch, throwM)
-import           Control.Monad.Trans            (lift, liftIO)
+import           Control.Applicative        (liftA2)
+import           Control.Lens               ((^.))
+import           Control.Monad              (forM_, when)
+import           Control.Monad.Catch        (SomeException, bracket_, catch,
+                                             throwM)
+import           Control.Monad.Trans        (lift, liftIO)
 
-import           Data.IORef                     (IORef, atomicWriteIORef,
-                                                 modifyIORef, newIORef,
-                                                 readIORef)
-import           Data.List                      (nub, (\\))
-import qualified Data.Map.Strict                as M
-import           Data.Maybe                     (catMaybes, fromJust, fromMaybe)
-import qualified Data.Text                      as T
-import           Formatting                     (build, int, sformat, (%))
+import           Data.IORef                 (IORef, atomicWriteIORef,
+                                             modifyIORef, newIORef, readIORef)
+import           Data.List                  (nub, (\\))
+import qualified Data.Map.Strict            as M
+import           Data.Maybe                 (catMaybes, fromJust, fromMaybe)
+import qualified Data.Text                  as T
+import           Formatting                 (build, int, sformat, stext, (%))
 
-import           Serokell.Util.Bench            (measureTime_)
+import           Serokell.Util.Bench        (measureTime_)
+import           Serokell.Util.Text         (listBuilderJSON, mapBuilder, show')
 
-import           Serokell.Util.Text             (listBuilderJSON, mapBuilder,
-                                                 show')
-
-import           RSCoin.Bank.AcidState          (AddAddress (..),
-                                                 AddExplorer (..),
-                                                 AddMintette (..),
-                                                 GetAddresses (..),
-                                                 GetEmission (..),
-                                                 GetExplorersAndPeriods (..),
-                                                 GetHBlock (..),
-                                                 GetHBlocks (..), GetLogs (..),
-                                                 GetMintettes (..),
-                                                 GetPeriodId (..),
-                                                 RemoveExplorer (..),
-                                                 RemoveMintette (..),
-                                                 RestoreExplorers (..),
-                                                 StartNewPeriod (..), State,
-                                                 query, tidyState, update)
-import           RSCoin.Bank.Error              (BankError (BEInconsistentResponse))
-import           RSCoin.Core                    (ActionLog,
-                                                 AddressToTxStrategyMap,
-                                                 Explorers, HBlock, MintetteId,
-                                                 Mintettes, PeriodId, PublicKey,
-                                                 TransactionId, logDebug,
-                                                 logError, logInfo)
-import qualified RSCoin.Core.NodeConfig         as NC
-import qualified RSCoin.Core                    as C
-import qualified RSCoin.Core.Protocol.Types     as PT (BankLocalControlRequest (..),
-                                                       checkLocalControlRequest)
-import qualified RSCoin.Timed                   as T
+import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
+                                             AddMintette (..),
+                                             GetAddresses (..),
+                                             GetEmission (..),
+                                             GetExplorersAndPeriods (..),
+                                             GetHBlock (..), GetHBlocks (..),
+                                             GetLogs (..), GetMintettes (..),
+                                             GetPeriodId (..),
+                                             RemoveExplorer (..),
+                                             RemoveMintette (..),
+                                             RestoreExplorers (..),
+                                             StartNewPeriod (..), State,
+                                             getStatistics, query, tidyState,
+                                             update)
+import           RSCoin.Bank.Error          (BankError (BEInconsistentResponse))
+import           RSCoin.Core                (ActionLog, AddressToTxStrategyMap,
+                                             Explorers, HBlock, MintetteId,
+                                             Mintettes, PeriodId, PublicKey,
+                                             TransactionId, logDebug, logError,
+                                             logInfo)
+import qualified RSCoin.Core                as C
+import qualified RSCoin.Core.NodeConfig     as NC
+import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
+                                                   checkLocalControlRequest)
+import qualified RSCoin.Timed               as T
 
 serve
     :: T.WorkMode m
@@ -249,10 +244,11 @@ serveFinishPeriod st isPeriodChanging = do
                 (liftIO $ atomicWriteIORef isPeriodChanging True)
                 (liftIO $ atomicWriteIORef isPeriodChanging False)
     logInfo "Finish of period was requested"
-    do
-        bankSK <- (fromJust . (^. NC.bankSecretKey)) <$> T.getNodeContext
-        t <- br $ measureTime_ $ onPeriodFinished bankSK st
-        logInfo $ sformat ("Finishing period took " % build) t
+    do bankSK <- (fromJust . (^. NC.bankSecretKey)) <$> T.getNodeContext
+       t <- br $ measureTime_ $ onPeriodFinished bankSK st
+       logInfo $ sformat ("Finishing period took " % build) t
+       logDebug . sformat ("Storage statistics:\n" % stext) =<<
+           getStatistics st
 
 serveLocalControlRequest
     :: T.WorkMode m

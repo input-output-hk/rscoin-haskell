@@ -1,17 +1,21 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 -- | Wrap Storage into AcidState
 
 module RSCoin.Bank.AcidState
        ( State
+       , closeState
+       , getStatistics
        , openState
        , openMemState
        , query
        , tidyState
        , update
-       , closeState
+
+         -- | Queries
        , GetMintettes (..)
        , GetEmission (..)
        , GetEmissions (..)
@@ -22,6 +26,8 @@ module RSCoin.Bank.AcidState
        , GetHBlock (..)
        , GetHBlocks (..)
        , GetLogs (..)
+
+         -- | Updates
        , AddAddress (..)
        , AddMintette (..)
        , AddExplorer (..)
@@ -33,26 +39,37 @@ module RSCoin.Bank.AcidState
        , StartNewPeriod (..)
        ) where
 
-import           Control.Lens            (view)
-import           Control.Monad.Trans     (MonadIO)
-import           Data.Acid               (EventResult, EventState, Query,
-                                          QueryEvent, Update, UpdateEvent,
-                                          makeAcidic)
+import           Control.Lens                  (view)
+import           Control.Monad.Reader          (ask)
+import           Control.Monad.Trans           (MonadIO)
+import           Data.Acid                     (EventResult, EventState, Query,
+                                                QueryEvent, Update, UpdateEvent,
+                                                makeAcidic)
+import           Data.Text                     (Text)
+import           Formatting                    (bprint, stext, (%))
 
-import           RSCoin.Core             (ActionLog, Address,
-                                          AddressToTxStrategyMap, Explorer,
-                                          Explorers, HBlock, Mintette,
-                                          MintetteId, Mintettes, NewPeriodData,
-                                          PeriodId, PeriodResult, PublicKey,
-                                          SecretKey, TransactionId, TxStrategy)
+import           RSCoin.Core                   (ActionLog, Address,
+                                                AddressToTxStrategyMap,
+                                                Explorer, Explorers, HBlock,
+                                                Mintette, MintetteId, Mintettes,
+                                                NewPeriodData, PeriodId,
+                                                PeriodResult, PublicKey,
+                                                SecretKey, TransactionId,
+                                                TxStrategy)
 
-import           Serokell.Util.AcidState (ExtendedState, closeExtendedState,
-                                          openLocalExtendedState,
-                                          openMemoryExtendedState,
-                                          queryExtended, tidyExtendedState,
-                                          updateExtended)
+import           Serokell.AcidState            (ExtendedState,
+                                                closeExtendedState,
+                                                openLocalExtendedState,
+                                                openMemoryExtendedState,
+                                                queryExtended,
+                                                tidyExtendedState,
+                                                updateExtended)
+import           Serokell.AcidState.Statistics (StoragePart (..),
+                                                estimateMemoryUsage)
+import           Serokell.Data.Memory.Units    (Byte, memory)
+import           Serokell.Util.Text            (listBuilderJSONIndent, show')
 
-import qualified RSCoin.Bank.Storage     as BS
+import qualified RSCoin.Bank.Storage           as BS
 
 type State = ExtendedState BS.Storage
 
@@ -77,6 +94,9 @@ openMemState = openMemoryExtendedState BS.mkStorage
 
 closeState :: State -> IO ()
 closeState = closeExtendedState
+
+getStorage :: Query BS.Storage BS.Storage
+getStorage = ask
 
 getEmission :: PeriodId -> Query BS.Storage (Maybe TransactionId)
 getEmission = view . BS.getEmission
@@ -108,11 +128,8 @@ getHBlocks from to = view $ BS.getHBlocks from to
 getLogs :: MintetteId -> Int -> Int -> Query BS.Storage (Maybe ActionLog)
 getLogs m from to = view $ BS.getLogs m from to
 
--- Dumping Bank state
-
 addAddress :: Address -> TxStrategy -> Update BS.Storage ()
 addAddress = BS.addAddress
-
 
 addMintette :: Mintette -> PublicKey -> Update BS.Storage ()
 addMintette = BS.addMintette
@@ -125,7 +142,6 @@ removeMintette = BS.removeMintette
 
 removeExplorer :: String -> Int -> Update BS.Storage ()
 removeExplorer = BS.removeExplorer
-
 
 setExplorerPeriod :: Explorer -> PeriodId -> Update BS.Storage ()
 setExplorerPeriod = BS.setExplorerPeriod
@@ -155,6 +171,9 @@ $(makeAcidic ''BS.Storage
              , 'getHBlock
              , 'getHBlocks
              , 'getLogs
+
+             , 'getStorage
+
              , 'addAddress
              , 'addMintette
              , 'addExplorer
@@ -165,3 +184,13 @@ $(makeAcidic ''BS.Storage
              , 'restoreExplorers
              , 'startNewPeriod
              ])
+
+getStatistics
+    :: MonadIO m
+    => State -> m Text
+getStatistics st =
+    show' . listBuilderJSONIndent 3 . map toBuilder . estimateMemoryUsage parts <$>
+    query st GetStorage
+  where
+    parts = [StoragePart "mintettes" BS.getMintettes]
+    toBuilder (name,size :: Byte) = bprint (stext % ": " % memory) name size

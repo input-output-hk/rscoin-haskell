@@ -27,20 +27,19 @@ module RSCoin.Notary.AcidState
        , update
        ) where
 
-import           Control.Monad.Trans     (MonadIO)
-import           Data.Acid               (EventResult, EventState, QueryEvent,
-                                          UpdateEvent, makeAcidic)
-import           Data.SafeCopy           (base, deriveSafeCopy)
+import           Control.Monad.Trans   (MonadIO)
+import           Data.Acid             (EventResult, EventState, QueryEvent,
+                                        UpdateEvent, makeAcidic)
+import           Data.SafeCopy         (base, deriveSafeCopy)
 
-import           Serokell.Util.AcidState (ExtendedState, closeExtendedState,
-                                          openLocalExtendedState,
-                                          openMemoryExtendedState,
-                                          queryExtended, tidyExtendedState,
-                                          updateExtended)
+import           Serokell.AcidState    (ExtendedState, closeExtendedState,
+                                        openLocalExtendedState,
+                                        openMemoryExtendedState, queryExtended,
+                                        tidyExtendedState, updateExtended)
 
-import           RSCoin.Core             (PublicKey)
-import           RSCoin.Notary.Storage   (Storage (..))
-import qualified RSCoin.Notary.Storage   as S
+import           RSCoin.Core           (PublicKey)
+import           RSCoin.Notary.Storage (Storage (..))
+import qualified RSCoin.Notary.Storage as S
 
 type NotaryState = ExtendedState Storage
 

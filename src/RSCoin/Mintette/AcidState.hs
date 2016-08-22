@@ -25,7 +25,7 @@ import           Data.Acid               (EventResult, EventState, Query,
                                           QueryEvent, Update, UpdateEvent)
 import           Data.SafeCopy           (base, deriveSafeCopy)
 
-import           Serokell.Util.AcidState (ExtendedState, queryExtended,
+import           Serokell.AcidState      (ExtendedState, queryExtended,
                                           updateExtended)
 
 import           RSCoin.Core             (ActionLog, AddrId, Address,

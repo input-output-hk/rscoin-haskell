@@ -28,7 +28,7 @@ import           Data.Acid                          (EventResult, EventState,
                                                      Query, QueryEvent, Update,
                                                      UpdateEvent, makeAcidic)
 
-import           Serokell.Util.AcidState            (ExtendedState,
+import           Serokell.AcidState                 (ExtendedState,
                                                      closeExtendedState,
                                                      openLocalExtendedState,
                                                      openMemoryExtendedState,

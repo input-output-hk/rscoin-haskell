@@ -8,6 +8,9 @@ module RSCoin.Bank.AcidState
        ( State
        , openState
        , openMemState
+       , query
+       , tidyState
+       , update
        , closeState
        , GetMintettes (..)
        , GetEmission (..)
@@ -30,30 +33,50 @@ module RSCoin.Bank.AcidState
        , StartNewPeriod (..)
        ) where
 
-import           Control.Lens        (view)
-import           Data.Acid           (AcidState, Query, Update, closeAcidState,
-                                      makeAcidic, openLocalStateFrom)
-import           Data.Acid.Memory    (openMemoryState)
+import           Control.Lens            (view)
+import           Control.Monad.Trans     (MonadIO)
+import           Data.Acid               (EventResult, EventState, Query,
+                                          QueryEvent, Update, UpdateEvent,
+                                          makeAcidic)
 
-import           RSCoin.Core         (ActionLog, Address,
-                                      AddressToTxStrategyMap, Explorer,
-                                      Explorers, HBlock, Mintette, MintetteId,
-                                      Mintettes, NewPeriodData, PeriodId,
-                                      PeriodResult, PublicKey, SecretKey,
-                                      TransactionId, TxStrategy)
+import           RSCoin.Core             (ActionLog, Address,
+                                          AddressToTxStrategyMap, Explorer,
+                                          Explorers, HBlock, Mintette,
+                                          MintetteId, Mintettes, NewPeriodData,
+                                          PeriodId, PeriodResult, PublicKey,
+                                          SecretKey, TransactionId, TxStrategy)
 
-import qualified RSCoin.Bank.Storage as BS
+import           Serokell.Util.AcidState (ExtendedState, closeExtendedState,
+                                          openLocalExtendedState,
+                                          openMemoryExtendedState,
+                                          queryExtended, tidyExtendedState,
+                                          updateExtended)
 
-type State = AcidState BS.Storage
+import qualified RSCoin.Bank.Storage     as BS
+
+type State = ExtendedState BS.Storage
+
+query
+    :: (EventState event ~ BS.Storage, QueryEvent event, MonadIO m)
+    => State -> event -> m (EventResult event)
+query = queryExtended
+
+update
+    :: (EventState event ~ BS.Storage, UpdateEvent event, MonadIO m)
+    => State -> event -> m (EventResult event)
+update = updateExtended
+
+tidyState :: MonadIO m => State -> m ()
+tidyState = tidyExtendedState
 
 openState :: FilePath -> IO State
-openState fp = openLocalStateFrom fp BS.mkStorage
+openState fp = openLocalExtendedState fp BS.mkStorage
 
 openMemState :: IO State
-openMemState = openMemoryState BS.mkStorage
+openMemState = openMemoryExtendedState BS.mkStorage
 
 closeState :: State -> IO ()
-closeState = closeAcidState
+closeState = closeExtendedState
 
 getEmission :: PeriodId -> Query BS.Storage (Maybe TransactionId)
 getEmission = view . BS.getEmission

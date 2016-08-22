@@ -14,7 +14,6 @@ import           Control.Lens               (view, (^.))
 import           Control.Monad              (replicateM)
 import           Control.Monad.Reader       (runReaderT)
 import           Control.Monad.Trans        (MonadIO (liftIO))
-import           Data.Acid.Advanced         (update')
 import qualified Data.IntMap.Strict         as M
 import           Data.IORef                 (newIORef)
 import           Data.List                  (genericLength)
@@ -31,9 +30,8 @@ import           RSCoin.Core                (Color (..), Mintette (..),
                                              testBankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
-import           RSCoin.Timed               (Second, WorkMode, for, ms,
-                                             myThreadId, sec, wait,
-                                             workWhileMVarEmpty)
+import           RSCoin.Timed               (Second, WorkMode, for, ms, sec,
+                                             wait, workWhileMVarEmpty)
 import qualified RSCoin.User                as U
 
 import           Test.RSCoin.Full.Action    (Coloring (Coloring),
@@ -99,20 +97,17 @@ runBank
     :: WorkMode m
     => MVar () -> BankInfo -> m ()
 runBank v b = do
-    myTId <- myThreadId
     mainIsBusy <- liftIO $ newIORef False
     -- TODO: this code is a modified version of launchBank. Invent
     -- smth to share code
     workWhileMVarEmpty v $
-        B.runWorkerWithPeriod
+        B.runWorker
             periodDelta
-            mainIsBusy
             (b ^. secretKey)
             (b ^. state)
-            Nothing
     workWhileMVarEmpty v $
         B.runExplorerWorker periodDelta mainIsBusy (b ^. secretKey) (b ^. state)
-    workWhileMVarEmpty v $ B.serve (b ^. state) myTId pure  -- FIXME: close state `finally`
+    workWhileMVarEmpty v $ B.serve (b ^. state) mainIsBusy -- FIXME: close state `finally`
 
 runMintettes
     :: WorkMode m
@@ -142,7 +137,7 @@ addMintetteToBank b mintette = do
         mintPKey  = mintette ^. publicKey
         bankSt    = b ^. state
     logDebug $ sformat ("Adding mintette " % build) addedMint
-    update' bankSt $ B.AddMintette addedMint mintPKey
+    B.update bankSt $ B.AddMintette addedMint mintPKey
     logDebug $ sformat ("Added mintette " % build) addedMint
 
 initBUser

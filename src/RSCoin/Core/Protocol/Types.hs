@@ -36,13 +36,15 @@ data BankLocalControlRequest =
     | AddExplorer Explorer PeriodId Signature
     | RemoveMintette String Int Signature      -- ^ Host/port
     | RemoveExplorer String Int Signature      -- ^ Host/port
+    | FinishPeriod Signature
     deriving (Show,Eq)
 
-checkLocalControlRequest :: PublicKey -> BankLocalControlRequest -> Bool
-checkLocalControlRequest pk (AddMintette m p s)    = verify pk s (m,p)
-checkLocalControlRequest pk (AddExplorer e pid s)  = verify pk s (e,pid)
-checkLocalControlRequest pk (RemoveMintette h p s) = verify pk s (h,p)
-checkLocalControlRequest pk (RemoveExplorer h p s) = verify pk s (h,p)
+checkLocalControlRequest :: PeriodId -> PublicKey -> BankLocalControlRequest -> Bool
+checkLocalControlRequest _ pk (AddMintette m p s)    = verify pk s (m,p)
+checkLocalControlRequest _ pk (AddExplorer e pid s)  = verify pk s (e,pid)
+checkLocalControlRequest _ pk (RemoveMintette h p s) = verify pk s (h,p)
+checkLocalControlRequest _ pk (RemoveExplorer h p s) = verify pk s (h,p)
+checkLocalControlRequest pid pk (FinishPeriod s) = verify pk s pid
 
 -- TODO Maybe make it more pretty (e.g. without signature)
 instance Buildable BankLocalControlRequest where
@@ -56,7 +58,6 @@ data BankMethod
     | GetBlockchainHeight
     | GetHBlocks
     | GetHBlockEmission
-    | FinishPeriod
     | LocalControlRequest -- used for adding/removing mintettes/explorers
     deriving (Show)
 

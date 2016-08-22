@@ -214,11 +214,11 @@ getGenesisBlock = do
     return block
 
 finishPeriod :: WorkMode m => Signature -> m ()
-finishPeriod currentPeriodSignature =
+finishPeriod currentPeriodSignature = do
     withResult
         (L.logDebug "Finishing period")
         (const $ L.logDebug "Successfully finished period") $
-    callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
+        callBank $ P.call (P.FinishPeriod currentPeriodSignature) currentPeriodSignature
 
 sendBankLocalControlRequest :: WorkMode m => P.BankLocalControlRequest -> m ()
 sendBankLocalControlRequest request =

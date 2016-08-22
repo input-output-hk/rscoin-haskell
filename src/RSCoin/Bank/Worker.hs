@@ -26,8 +26,7 @@ import           RSCoin.Bank.AcidState    (GetEmission (..),
                                            GetExplorersAndPeriods (..),
                                            GetHBlock (..), GetPeriodId (..),
                                            SetExplorerPeriod (..), State,
-                                           SuspendExplorer (..), query,
-                                           update)
+                                           SuspendExplorer (..), query, update)
 import           RSCoin.Core              (defaultPeriodDelta, sign)
 import qualified RSCoin.Core              as C
 import           RSCoin.Timed             (Second, WorkMode, for, ms,
@@ -53,7 +52,7 @@ runWorker periodDelta bankSK st =
     worker = do
         periodId <- query st GetPeriodId
         let sig = sign bankSK periodId
-        C.finishPeriod sig
+        C.sendBankLocalControlRequest $ C.FinishPeriod sig
     handler e = do
         C.logError $
             sformat

@@ -14,7 +14,6 @@ module RSCoin.Core.Communication
        , getBlocksByHeight
        , getTransactionById
        , getGenesisBlock
-       , finishPeriod
        , sendBankLocalControlRequest
        , checkNotDoubleSpent
        , commitTx
@@ -212,13 +211,6 @@ getGenesisBlock = do
     block <- getBlockByHeight 0
     liftIO $ L.logDebug "Successfully got genesis block"
     return block
-
-finishPeriod :: WorkMode m => Signature -> m ()
-finishPeriod currentPeriodSignature = do
-    withResult
-        (L.logDebug "Finishing period")
-        (const $ L.logDebug "Successfully finished period") $
-        callBank $ P.call (P.FinishPeriod currentPeriodSignature) currentPeriodSignature
 
 sendBankLocalControlRequest :: WorkMode m => P.BankLocalControlRequest -> m ()
 sendBankLocalControlRequest request =

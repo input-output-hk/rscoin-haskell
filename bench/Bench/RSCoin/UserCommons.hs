@@ -19,11 +19,12 @@ import           Data.Optional              (Optional, defaultTo, empty)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
-import           RSCoin.Core                (Address (..), Coin (..),
-                                             CoinAmount (..), Color,
-                                             finishPeriod, genesisAddress,
+import           RSCoin.Core                (Address (..), BankLocalControlRequest (FinishPeriod),
+                                             Coin (..), CoinAmount (..), Color,
+                                             genesisAddress,
                                              getBlockchainHeight, keyGen,
-                                             logDebug, logInfo, sign,
+                                             logDebug, logInfo,
+                                             sendBankLocalControlRequest, sign,
                                              userLoggerName)
 import           RSCoin.Core.NodeConfig     (testBankSecretKey)
 import           RSCoin.Timed               (ContextArgument (CADefault),
@@ -90,7 +91,7 @@ finishBankPeriod :: MsgPackRpc ()
 finishBankPeriod = do
     currentPeriodId <- getBlockchainHeight
     let signature    = sign testBankSecretKey currentPeriodId
-    finishPeriod signature
+    sendBankLocalControlRequest $ FinishPeriod signature
 
 -- | Create user in `bankMode` and send coins to every user.
 initializeBank :: Word -> [Address] -> U.UserState -> MsgPackRpc ()

@@ -16,6 +16,9 @@ imagePath i = "image/" <> i
 logoPath :: String
 logoPath = imagePath "logo-copy.png"
 
+logoSmallPath :: String
+logoSmallPath = imagePath "logo-small.png"
+
 headerBitmapPath :: String
 headerBitmapPath = imagePath "header-bitmap-copy.png"
 

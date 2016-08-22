@@ -8,13 +8,13 @@ module Test.RSCoin.Core.TransactionSpec
        ( spec,
        ) where
 
+import           Control.Lens               (view, _3)
 import           Data.Bifunctor             (first, second)
 import qualified Data.IntMap.Strict         as M (IntMap, elems,
                                                   findWithDefault, foldrWithKey,
                                                   lookup, mapWithKey, null, (!))
 import           Data.List                  (genericLength, sort)
 import           Data.Maybe                 (isJust)
-import           Data.Tuple.Select          (sel3)
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (arbitrary), Gen,
@@ -127,7 +127,7 @@ validateSumCorrectForValid = C.validateSum . getTr
 
 validateInputMoreThanOutput :: NonEmptyList C.AddrId -> C.Address -> Bool
 validateInputMoreThanOutput (getNonEmpty -> inputs) adr =
-    let outputs = map ((adr, ) . sel3) inputs
+    let outputs = map ((adr, ) . view _3) inputs
         helper [] = ([], [])
         helper ((a,C.Coin col cn):xs) =
             ((a, C.Coin col (cn + 1)) : xs, (a, C.Coin col (cn - 1)) : xs)
@@ -162,7 +162,7 @@ validateSig sk tr = C.validateSignature (C.sign sk tr) (C.Address $ C.derivePubl
 
 chooseAddressesJustWhenPossible :: NonEmptyList C.AddrId -> M.IntMap C.Coin  -> Bool
 chooseAddressesJustWhenPossible (getNonEmpty -> adrlist) cmap =
-    let adrCoinMap = C.coinsToMap $ map sel3 adrlist
+    let adrCoinMap = C.coinsToMap $ map (view _3) adrlist
         step color coin accum =
             let adrcn = C.getCoin $ M.findWithDefault 0 color adrCoinMap
                 coin' = C.getCoin coin
@@ -197,7 +197,7 @@ chooseSmallerAddressesFirst txId (getNonEmpty -> coins0) =
         result = C.chooseAddresses allAddrIds cMap
         addrIdsEqual :: [C.AddrId] -> [C.AddrId] -> Bool
         addrIdsEqual l1 l2 = canonizeAddrIds l1 == canonizeAddrIds l2
-        canonizeAddrIds = sort . filter ((/= 0) . C.getCoin . sel3)
+        canonizeAddrIds = sort . filter ((/= 0) . C.getCoin . view _3)
     in case result of
            Nothing -> False
            Just resMap ->

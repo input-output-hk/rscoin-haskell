@@ -10,6 +10,7 @@ module RSCoin.User.Logic
        ( CC.getBlockByHeight
        , CC.getBlockchainHeight
        , SignatureBundle
+       , SignatureValue
        , joinBundles
        , getExtraSignatures
        , validateTransaction
@@ -51,7 +52,9 @@ import           Serokell.Util.Text            (listBuilderJSON, pairBuilder)
 -- | SignatureBundle is a datatype that represents signatures needed
 -- to prove that address owners are OK with transaction spending money
 -- from that address
-type SignatureBundle = M.Map AddrId (Address, TxStrategy, [(Address,Signature)])
+-- @TODO: these types are awful :(
+type SignatureValue  = (Address, TxStrategy, [(Address, Signature)])
+type SignatureBundle = M.Map AddrId SignatureValue
 
 -- | This type represents for each unique address in the given transaction:
 -- * Strategy of working on that address

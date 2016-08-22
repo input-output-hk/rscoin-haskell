@@ -14,9 +14,10 @@ module Actions
 
 import           Control.Applicative     (liftA2)
 import           Control.Lens            ((^.))
-import           Control.Monad           (forM_, join, unless, void, when)
+import           Control.Monad           (forM, forM_, join, unless, void, when)
 import           Control.Monad.IO.Class  (MonadIO)
 import           Control.Monad.Trans     (liftIO)
+
 import           Data.Aeson              (decode, encode)
 import           Data.Bifunctor          (bimap, first, second)
 import qualified Data.ByteString.Lazy    as BS
@@ -109,10 +110,10 @@ processCommandNoOpts st (O.WhitelistAllocation ix) =
     processBlackWhiteListing st False ix
 processCommandNoOpts st (O.ColdFormTransaction inp out outC path) =
     processColdFormTransaction st inp out outC path
-processCommandNoOpts st (O.ColdSendTransaction path) =
-    undefined st path
 processCommandNoOpts st (O.ColdSignTransaction path) =
-    undefined st path
+    processColdSignTransaction st path
+processCommandNoOpts st (O.ColdSendTransaction path) =
+    processColdSendTransaction st path
 processCommandNoOpts st (O.ImportAddress skPathMaybe pkPath heightFrom) =
     processImportAddress st skPathMaybe pkPath heightFrom
 processCommandNoOpts st (O.ExportAddress addrId filepath) =
@@ -405,6 +406,38 @@ processColdFormTransaction st inputs outputAddrStr outputCoins path = eWrap $ do
     liftIO $ BS.writeFile path $ encode (tx, M.assocs emptyBundle)
     C.logInfo $ sformat
         ("Your transaction data has been written to the '" % string % "'") path
+
+-- | Signs transaction from given file and writes output into new file with
+-- @.signed@ extension with new signature bundle.
+processColdSignTransaction
+    :: WorkMode m
+    => U.UserState
+    -> FilePath
+    -> m ()
+processColdSignTransaction st bundlePath = eWrap $ do
+    (tx, sigAssocs) :: (C.Transaction, [(C.AddrId, U.SignatureValue)]) <-
+        liftIO $ (fromJust . decode) <$> BS.readFile bundlePath
+    updatedSigBundle <- forM sigAssocs $ \(addrId, (msAddr, C.MOfNStrategy m p, signatures)) -> do
+        (userAddr, userSk) <- U.findPartyAddress st $ HS.fromList $ map C.UserAlloc $ S.toList p
+        pure (addrId, (msAddr, C.MOfNStrategy m p, (userAddr, C.sign userSk tx) : signatures))
+
+    -- @TODO: not efficient check
+    if sigAssocs == updatedSigBundle then
+        C.logInfo "No transactions have been signed"
+    else do
+        liftIO $ BS.writeFile (bundlePath <> ".signed") $ encode (tx, updatedSigBundle)
+        C.logInfo "Some transactions have been succesfully signed!"
+
+processColdSendTransaction
+    :: WorkMode m
+    => U.UserState
+    -> FilePath
+    -> m ()
+processColdSendTransaction st bundlePath = eWrap $ do
+    (tx, sigAssocs) :: (C.Transaction, [(C.AddrId, U.SignatureValue)]) <-
+        liftIO $ (fromJust . decode) <$> BS.readFile bundlePath
+    let sigBundle = M.fromList sigAssocs
+    U.sendTransactionRetry 2 st Nothing tx sigBundle
 
 processImportAddress
     :: (MonadIO m, WorkMode m)

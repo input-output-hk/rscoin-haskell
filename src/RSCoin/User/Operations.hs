@@ -36,6 +36,7 @@ module RSCoin.User.Operations
        , signTransactionLocally
        , submitTransaction
        , submitTransactionRetry
+       , sendTransactionRetry  -- @TODO: very bad; we skip checks but didn't manage to pass bundle in other way
        , findPartyAddress
        , verifyTrustEntry
        , retrieveAllocationsList

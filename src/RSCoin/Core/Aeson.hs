@@ -6,8 +6,9 @@ module RSCoin.Core.Aeson
        (
        ) where
 
-import           Data.Aeson             (ToJSON, toJSON)
-import           Data.Aeson.TH          (deriveJSON, deriveToJSON)
+import           Data.Aeson             (FromJSON (..), ToJSON, toJSON,
+                                         withText)
+import           Data.Aeson.TH          (deriveJSON)
 import           Data.Aeson.Types       (Value (..))
 import qualified Data.Text              as T
 import           Formatting             (fixed, sformat)
@@ -23,15 +24,18 @@ showFPrec :: Int -> Double -> T.Text
 showFPrec prec =
     T.dropWhileEnd (== '.') . T.dropWhileEnd (== '0') . sformat (fixed prec)
 
-instance ToJSON CoinAmount where
-    toJSON = String . showFPrec 5 . realToFrac . getAmount
-
-$(deriveToJSON defaultOptionsPS ''Transaction)
-$(deriveToJSON defaultOptionsPS ''Color)
-$(deriveToJSON defaultOptionsPS ''Coin)
+--instance ToJSON CoinAmount where
+--    toJSON = String . showFPrec 5 . realToFrac . getAmount
+--
+--instance FromJSON CoinAmount where
+--    parseJSON = withText "CoinAmount" $ pure . CoinAmount . read . T.unpack
 
 $(deriveJSON defaultOptionsPS ''Address)
 $(deriveJSON defaultOptionsPS ''AllocationAddress)
 $(deriveJSON defaultOptionsPS ''AllocationStrategy)
+$(deriveJSON defaultOptionsPS ''Coin)
+$(deriveJSON defaultOptionsPS ''CoinAmount)
+$(deriveJSON defaultOptionsPS ''Color)
 $(deriveJSON defaultOptionsPS ''PartyAddress)
+$(deriveJSON defaultOptionsPS ''Transaction)
 $(deriveJSON defaultOptionsPS ''TxStrategy)

@@ -19,26 +19,27 @@ module RSCoin.Explorer.AcidState
        , GetLastPeriodId (..)
        , AddressExists (..)
        , GetTx (..)
+       , GetTxSummary (..)
        , AddHBlock (..)
        ) where
 
-import           Control.Monad.Trans               (MonadIO)
-import           Data.Acid                         (EventResult, EventState,
-                                                    Query, QueryEvent, Update,
-                                                    UpdateEvent, makeAcidic)
+import           Control.Monad.Trans                (MonadIO)
+import           Data.Acid                          (EventResult, EventState,
+                                                     Query, QueryEvent, Update,
+                                                     UpdateEvent, makeAcidic)
 
-import           Serokell.Util.AcidState           (ExtendedState,
-                                                    closeExtendedState,
-                                                    openLocalExtendedState,
-                                                    openMemoryExtendedState,
-                                                    queryExtended,
-                                                    tidyExtendedState,
-                                                    updateExtended)
+import           Serokell.Util.AcidState            (ExtendedState,
+                                                     closeExtendedState,
+                                                     openLocalExtendedState,
+                                                     openMemoryExtendedState,
+                                                     queryExtended,
+                                                     tidyExtendedState,
+                                                     updateExtended)
 
-import qualified RSCoin.Core                       as C
+import qualified RSCoin.Core                        as C
 
-import qualified RSCoin.Explorer.Storage           as ES
-import           RSCoin.Explorer.Web.Sockets.Types (TransactionSummary (..))
+import qualified RSCoin.Explorer.Storage            as ES
+import           RSCoin.Explorer.TransactionSummary (TransactionSummary)
 
 type State = ExtendedState ES.Storage
 
@@ -79,8 +80,11 @@ getAddressTransactions = ES.getAddressTransactions
 getLastPeriodId :: Query ES.Storage (Maybe C.PeriodId)
 getLastPeriodId = ES.getLastPeriodId
 
-getTx :: C.TransactionId -> Query ES.Storage (Maybe TransactionSummary)
+getTx :: C.TransactionId -> Query ES.Storage (Maybe C.Transaction)
 getTx = ES.getTx
+
+getTxSummary :: C.TransactionId -> Query ES.Storage (Maybe TransactionSummary)
+getTxSummary = ES.getTxSummary
 
 addressExists :: C.Address -> Query ES.Storage Bool
 addressExists = ES.addressExists
@@ -94,6 +98,7 @@ $(makeAcidic ''ES.Storage
              , 'getAddressTransactions
              , 'getLastPeriodId
              , 'getTx
+             , 'getTxSummary
              , 'addressExists
              , 'addHBlock
              ])

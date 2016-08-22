@@ -103,6 +103,7 @@ library
                      , RSCoin.Explorer.Channel
                      , RSCoin.Explorer.Server
                      , RSCoin.Explorer.Storage
+                     , RSCoin.Explorer.TransactionSummary
                      , RSCoin.Explorer.Web
                      , RSCoin.Explorer.Web.Servant
                      , RSCoin.Explorer.Web.Sockets

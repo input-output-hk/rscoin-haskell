@@ -6,12 +6,12 @@ module RSCoin.Core.Aeson
        (
        ) where
 
-import           Data.Aeson             (FromJSON (..), ToJSON, toJSON,
-                                         withText)
+-- import           Data.Aeson             (FromJSON (..), ToJSON, toJSON,
+                                         -- withText)
 import           Data.Aeson.TH          (deriveJSON)
-import           Data.Aeson.Types       (Value (..))
-import qualified Data.Text              as T
-import           Formatting             (fixed, sformat)
+-- import           Data.Aeson.Types       (Value (..))
+
+-- import           Formatting             (fixed, sformat)
 
 import           Serokell.Aeson.Options (defaultOptionsPS)
 
@@ -20,9 +20,9 @@ import           RSCoin.Core.Primitives (Address, Coin, CoinAmount (..), Color,
 import           RSCoin.Core.Strategy   (AllocationAddress, AllocationStrategy,
                                          PartyAddress, TxStrategy)
 
-showFPrec :: Int -> Double -> T.Text
-showFPrec prec =
-    T.dropWhileEnd (== '.') . T.dropWhileEnd (== '0') . sformat (fixed prec)
+-- showFPrec :: Int -> Double -> T.Text
+-- showFPrec prec =
+--     T.dropWhileEnd (== '.') . T.dropWhileEnd (== '0') . sformat (fixed prec)
 
 --instance ToJSON CoinAmount where
 --    toJSON = String . showFPrec 5 . realToFrac . getAmount

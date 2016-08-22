@@ -34,7 +34,6 @@ import           RSCoin.Bank.AcidState          (AddExplorer (..),
                                                  GetHBlock (..), GetLogs (..),
                                                  GetMintettes (..),
                                                  GetPeriodId (..),
-                                                 GetTransaction (..),
                                                  RemoveExplorer (..),
                                                  RemoveMintette (..), State)
 import           RSCoin.Bank.Error              (BankError (BEInconsistentResponse))
@@ -42,9 +41,9 @@ import           RSCoin.Core                    (ActionLog,
                                                  AddressToTxStrategyMap,
                                                  Explorers, HBlock, MintetteId,
                                                  Mintettes, PeriodId, PublicKey,
-                                                 Signature, Transaction,
-                                                 TransactionId, logDebug,
-                                                 logError, logInfo, verify)
+                                                 Signature, TransactionId,
+                                                 logDebug, logError, logInfo,
+                                                 verify)
 import qualified RSCoin.Core.NodeConfig         as NC
 import qualified RSCoin.Core.Protocol           as C
 import qualified RSCoin.Core.Protocol.Types     as PT (BankLocalControlRequest (..),
@@ -60,12 +59,11 @@ serve st workerThread restartWorkerAction = do
     idr2 <- T.serverTypeRestriction0
     idr3 <- T.serverTypeRestriction1
     idr4 <- T.serverTypeRestriction1
-    idr5 <- T.serverTypeRestriction1
-    idr6 <- T.serverTypeRestriction3
+    idr5 <- T.serverTypeRestriction3
+    idr6 <- T.serverTypeRestriction0
     idr7 <- T.serverTypeRestriction0
-    idr8 <- T.serverTypeRestriction0
+    idr8 <- T.serverTypeRestriction1
     idr9 <- T.serverTypeRestriction1
-    idr10 <- T.serverTypeRestriction1
 
     (bankPublicKey, bankPort) <- liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort)
                                  <$> T.getNodeContext
@@ -75,16 +73,15 @@ serve st workerThread restartWorkerAction = do
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
         , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight st
         , C.method (C.RSCBank C.GetHBlocks) $ idr3 $ serveGetHBlocks st
-        , C.method (C.RSCBank C.GetTransaction) $ idr4 $ serveGetTransaction st
         , C.method (C.RSCBank C.FinishPeriod) $
-          idr5 $ serveFinishPeriod st threadIdMVar restartWorkerAction bankPublicKey
-        , C.method (C.RSCDump C.GetLogs) $ idr6 $ serveGetLogs st
-        , C.method (C.RSCBank C.GetAddresses) $ idr7 $ serveGetAddresses st
-        , C.method (C.RSCBank C.GetExplorers) $ idr8 $ serveGetExplorers st
+          idr4 $ serveFinishPeriod st threadIdMVar restartWorkerAction bankPublicKey
+        , C.method (C.RSCDump C.GetLogs) $ idr5 $ serveGetLogs st
+        , C.method (C.RSCBank C.GetAddresses) $ idr6 $ serveGetAddresses st
+        , C.method (C.RSCBank C.GetExplorers) $ idr7 $ serveGetExplorers st
         , C.method (C.RSCBank C.LocalControlRequest) $
-          idr9 $ serveLocalControlRequest st bankPublicKey
+          idr8 $ serveLocalControlRequest st bankPublicKey
         , C.method (C.RSCBank C.GetHBlockEmission) $
-          idr10 $ serveGetHBlockEmission st]
+          idr9 $ serveGetHBlockEmission st]
 
 type ServerTE m a = T.ServerT m (Either T.Text a)
 
@@ -94,7 +91,6 @@ toServer action = lift $ (Right <$> action) `catch` handler
     handler (e :: BankError) = do
         logError $ show' e
         return $ Left $ show' e
-
 
 -- toServer' :: T.WorkMode m => IO a -> T.ServerT m a
 -- toServer' = toServer . liftIO
@@ -157,16 +153,6 @@ serveGetHBlocks st (nub -> periodIds) =
                ("Couldn't get blocks for the following periods: " % build) $
            listBuilderJSON (periodIds \\ gotIndices)
        return $ map fst blocks
-
-serveGetTransaction
-    :: T.WorkMode m
-    => State -> TransactionId -> ServerTE m (Maybe Transaction)
-serveGetTransaction st tId =
-    toServer $
-    do t <- query' st (GetTransaction tId)
-       logDebug $
-           sformat ("Getting transaction with id " % build % ": " % build) tId t
-       return t
 
 -- !!! WARNING !!!
 -- Usage of this function may accidentally lead to finishing period twice in a

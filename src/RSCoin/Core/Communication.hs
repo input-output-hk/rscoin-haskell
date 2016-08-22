@@ -8,6 +8,7 @@
 
 module RSCoin.Core.Communication
        ( CommunicationError (..)
+       , askExplorer
        , getBlockchainHeight
        , getBlockByHeight
        , getBlocksByHeight
@@ -28,8 +29,9 @@ module RSCoin.Core.Communication
        , queryNotaryMyMSAllocations
        , announceNewBlock
        , P.unCps
-       , getMintettes
        , getAddresses
+       , getExplorers
+       , getMintettes
        , getLogs
        , getMintetteUtxo
        , getMintetteBlocks
@@ -40,6 +42,7 @@ module RSCoin.Core.Communication
        ) where
 
 import           Control.Exception          (Exception (..))
+import           Control.Monad              (when)
 import           Control.Monad.Catch        (catch, throwM)
 import           Control.Monad.Trans        (MonadIO, liftIO)
 import qualified Data.Map                   as M
@@ -52,8 +55,10 @@ import           Formatting                 (build, int, sformat, shown, stext,
                                              (%))
 import qualified Network.MessagePack.Client as MP (RpcError (..))
 import           Safe                       (atMay)
+import           System.Random              (randomRIO)
 
-import           Serokell.Util.Text         (listBuilderJSONIndent, mapBuilder,
+import           Serokell.Util.Text         (listBuilderJSON,
+                                             listBuilderJSONIndent, mapBuilder,
                                              pairBuilder, show')
 
 import           RSCoin.Core.Crypto         (PublicKey, Signature, hash)
@@ -71,9 +76,9 @@ import           RSCoin.Core.Strategy       (AddressToTxStrategyMap,
 import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              CheckConfirmations,
                                              CommitAcknowledgment,
-                                             Explorer (..), HBlock, LBlock,
-                                             Mintette, MintetteId, Mintettes,
-                                             NewPeriodData, PeriodId,
+                                             Explorer (..), Explorers, HBlock,
+                                             LBlock, Mintette, MintetteId,
+                                             Mintettes, NewPeriodData, PeriodId,
                                              PeriodResult, Utxo)
 import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
                                              WorkMode)
@@ -181,14 +186,25 @@ getBlocksByHeight from to =
                  int % ": " % build)
                 from to (listBuilderJSONIndent 2 res)
 
-getTransactionById :: WorkMode m => TransactionId -> m (Maybe Transaction)
-getTransactionById tId =
+askExplorer :: WorkMode m => (Explorer -> m a) -> m a
+askExplorer query = do
+    explorers <- getExplorers
+    when (null explorers) $
+        throwM $ MethodError "There are no active explorers"
+-- TODO: ask other explorers in case of error
+    query . (explorers !!) =<< liftIO (randomRIO (0, length explorers - 1))
+
+getTransactionById
+    :: WorkMode m
+    => TransactionId -> Explorer -> m (Maybe Transaction)
+getTransactionById tId explorer =
     withResult
         (L.logDebug $ sformat ("Getting transaction by id " % build) tId)
         (\t -> L.logDebug $ sformat
                    ("Successfully got transaction by id " % build % ": " % build)
                    tId t)
-        $ callBank $ P.call (P.RSCBank P.GetTransaction) tId
+        $ P.callExplorerSafe explorer
+        $ P.call (P.RSCExplorer P.EMGetTransaction) tId
 
 getGenesisBlock :: WorkMode m => m HBlock
 getGenesisBlock = do
@@ -393,6 +409,15 @@ getMintettes =
         (L.logDebug "Getting list of mintettes")
         (L.logDebug . sformat ("Successfully got list of mintettes " % build))
         $ callBank $ P.call (P.RSCBank P.GetMintettes)
+
+getExplorers :: WorkMode m => m Explorers
+getExplorers =
+    withResult
+        (L.logDebug "Getting list of explorers")
+        (L.logDebug .
+         sformat ("Successfully got list of explorers " % build) .
+         listBuilderJSON) $
+    callBank $ P.call (P.RSCBank P.GetExplorers)
 
 getLogs :: WorkMode m => MintetteId -> Int -> Int -> m (Maybe ActionLog)
 getLogs m from to =

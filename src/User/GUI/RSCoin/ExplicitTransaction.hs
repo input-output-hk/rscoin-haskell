@@ -19,7 +19,7 @@ import           GUI.RSCoin.GUIAcid     (GUIState, addTransaction,
                                          getTransaction)
 import           RSCoin.Core            (Address (..), Coin (..),
                                          CoinAmount (..), Transaction (..),
-                                         getTransactionById)
+                                         askExplorer, getTransactionById)
 import           RSCoin.Timed           (WorkMode)
 
 -- | Transaction in a user-printable form.
@@ -39,7 +39,7 @@ fromTransaction st (Transaction i o) = do
     return $ ExplicitTransaction ti o
   where
     performRequest tId = do
-        pt <- getTransactionById tId
+        pt <- askExplorer (getTransactionById tId)
         liftIO $ addTransaction st tId pt
         return pt
     getTransactionWithDB tId = do
@@ -61,4 +61,4 @@ getTransactionAmount addrs (ExplicitTransaction i o) =
     calculate (x:xs) = calculate xs + (if isMy x then getCoin $ snd x else zeroCoin)
 
     isMy (Nothing, _) = False
-    isMy (Just d, _) = getAddress d `elem` map getAddress addrs
+    isMy (Just d, _)  = getAddress d `elem` map getAddress addrs

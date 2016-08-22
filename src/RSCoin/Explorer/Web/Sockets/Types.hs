@@ -10,9 +10,7 @@
 -- with client.
 
 module RSCoin.Explorer.Web.Sockets.Types
-       ( TransactionSummary (..)
-       , TransactionSummarySerializable
-       , AddrId
+       ( TransactionSummarySerializable
        , mkTransactionSummarySerializable
        , ServerError (..)
        , ErrorableMsg
@@ -22,35 +20,21 @@ module RSCoin.Explorer.Web.Sockets.Types
        , mkOMBalance
        ) where
 
+import           Data.Aeson                         (FromJSON, ToJSON (toJSON),
+                                                     eitherDecode, encode)
+import           Data.Aeson.TH                      (deriveJSON, deriveToJSON)
+import qualified Data.ByteString.Lazy               as BSL
+import           Data.Either.Combinators            (mapLeft)
+import qualified Data.IntMap.Strict                 as IS
+import           Data.Text                          (Text, pack)
+import           GHC.Generics                       (Generic)
+import qualified Network.WebSockets                 as WS
 
-import           Data.Aeson              (FromJSON, ToJSON (toJSON),
-                                          eitherDecode, encode)
-import           Data.Aeson.TH           (deriveJSON, deriveToJSON)
-import qualified Data.ByteString.Lazy    as BSL
-import           Data.Either.Combinators (mapLeft)
-import qualified Data.IntMap.Strict      as IS
-import           Data.Text               (Text, pack)
-import           GHC.Generics            (Generic)
-import qualified Network.WebSockets      as WS
+import           Serokell.Aeson.Options             (defaultOptionsPS)
 
-import           Serokell.Aeson.Options  (defaultOptionsPS)
-
-import qualified RSCoin.Core             as C
-
-
--- | This type should be modified version of AddrId from RSCoin.Core
-type AddrId = (C.TransactionId, Int, C.Coin, Maybe C.Address)
-
--- | This type should be modified version of Transaction from RSCoin.Core
-data TransactionSummary = TransactionSummary
-    { txsId           :: C.TransactionId
-    , txsInputs       :: [AddrId]
-    , txsOutputs      :: [(C.Address, C.Coin)]
-    , txsInputsSum    :: C.CoinsMap
-    , txsInputsTotal  :: C.CoinAmount
-    , txsOutputsSum   :: C.CoinsMap
-    , txsOutputsTotal :: C.CoinAmount
-    } deriving (Show)
+import qualified RSCoin.Core                        as C
+import           RSCoin.Explorer.TransactionSummary (ExtendedAddrId,
+                                                     TransactionSummary (..))
 
 newtype SerializableCoinsMap =
     SerializableCoinsMap C.CoinsMap
@@ -61,7 +45,7 @@ instance ToJSON SerializableCoinsMap where
 
 data TransactionSummarySerializable = TransactionSummarySerializable
     { txId           :: C.TransactionId
-    , txInputs       :: [AddrId]
+    , txInputs       :: [ExtendedAddrId]
     , txOutputs      :: [(C.Address, C.Coin)]
     , txInputsSum    :: SerializableCoinsMap
     , txInputsTotal  :: C.CoinAmount

@@ -56,7 +56,6 @@ data BankMethod
     | GetBlockchainHeight
     | GetHBlocks
     | GetHBlockEmission
-    | GetTransaction
     | FinishPeriod
     | LocalControlRequest -- used for adding/removing mintettes/explorers
     deriving (Show)
@@ -64,6 +63,7 @@ data BankMethod
 -- | Requests processed by Explorer.
 data ExplorerMethod
     = EMNewBlock
+    | EMGetTransaction
     deriving (Show)
 
 -- | Requests processed by a Mintette.

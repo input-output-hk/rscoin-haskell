@@ -583,6 +583,7 @@ sendTransactionDo
     -> SignatureBundle
     -> m ()
 sendTransactionDo st maybeCache tx signatures = do
+    () <$ updateBlockchain st False
     walletHeight <- A.query st A.GetLastBlockId
     periodId <- C.getBlockchainHeight
     let lastAppliedBlock = periodId - 1
@@ -596,7 +597,7 @@ sendTransactionDo st maybeCache tx signatures = do
         WalletSyncError $
         sformat
             ("Wallet isn't updated (lastBlockHeight " % int %
-             " when blockchain's last block is " % int %").")
+             " when blockchain's last block is " % int % ").")
             walletHeight lastAppliedBlock
     let nonDefaultAddresses =
             M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $

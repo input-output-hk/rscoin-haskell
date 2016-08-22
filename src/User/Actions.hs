@@ -417,15 +417,17 @@ processColdSignTransaction
 processColdSignTransaction st bundlePath = eWrap $ do
     (tx, sigAssocs) :: (C.Transaction, [(C.AddrId, U.SignatureValue)]) <-
         liftIO $ (fromJust . decode) <$> BS.readFile bundlePath
-    updatedSigBundle <- forM sigAssocs $ \(addrId, (msAddr, C.MOfNStrategy m p, signatures)) -> do
-        (userAddr, userSk) <- U.findPartyAddress st $ HS.fromList $ map C.UserAlloc $ S.toList p
-        pure (addrId, (msAddr, C.MOfNStrategy m p, (userAddr, C.sign userSk tx) : signatures))
-
+    let sigBundle = M.fromList sigAssocs
+    updatedSigBundle <- U.signTransactionLocally st tx sigBundle
+--    updatedSigBundle <- forM sigAssocs $ \(addrId, (msAddr, C.MOfNStrategy m p, signatures)) -> do
+--        (userAddr, userSk) <- U.findPartyAddress st $ HS.fromList $ map C.UserAlloc $ S.toList p
+--        pure (addrId, (msAddr, C.MOfNStrategy m p, (userAddr, C.sign userSk tx) : signatures))
     -- @TODO: not efficient check
-    if sigAssocs == updatedSigBundle then
-        C.logInfo "No transactions have been signed"
+    if sigBundle == updatedSigBundle
+    then C.logInfo "No transactions have been signed"
     else do
-        liftIO $ BS.writeFile (bundlePath <> ".signed") $ encode (tx, updatedSigBundle)
+        liftIO $ BS.writeFile (bundlePath <> ".signed") $
+            encode (tx, M.assocs updatedSigBundle)
         C.logInfo "Some transactions have been succesfully signed!"
 
 processColdSendTransaction

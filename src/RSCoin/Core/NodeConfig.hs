@@ -31,11 +31,9 @@ module RSCoin.Core.NodeConfig
         ) where
 
 import           Control.Exception          (Exception, throwIO)
-import           Control.Lens               (Getter, makeLenses, to, (^.), _1,
-                                             _2)
+import           Control.Lens               (Getter, makeLenses, to, _1, _2)
 import           Control.Monad              (when)
 
-import           Data.Bifunctor             (second)
 import           Data.ByteString            (ByteString)
 import qualified Data.Configurator          as Config
 import qualified Data.Configurator.Types    as Config
@@ -77,11 +75,9 @@ defaultNodeContext = defaultNodeContextWithLogger nakedLoggerName
 defaultNodeContextWithLogger :: LoggerName -> NodeContext
 defaultNodeContextWithLogger _ctxLoggerName = NodeContext {..}
   where
-    _bankAddr                        = (localhost, defaultPort)
-    _notaryAddr                      = (localhost, 4001)
-    (_bankPublicKey, _) = fromMaybe
-        (error "[FATAL] Failed to construct (pk, sk) pair for default context")
-        $ second Just <$> deterministicKeyGen "default-node-context-keygen-seed"
+    _bankAddr      = (localhost, defaultPort)
+    _notaryAddr    = (localhost, 4001)
+    _bankPublicKey = testBankPublicKey
 
 bankHost :: Getter NodeContext Host
 bankHost = bankAddr . _1
@@ -98,7 +94,7 @@ genesisAddress = bankPublicKey . to Address
 
 -- | This Bank public key should be used only for tests and benchmarks.
 testBankPublicKey :: PublicKey
-testBankPublicKey = defaultNodeContext ^. bankPublicKey
+testBankPublicKey = derivePublicKey testBankSecretKey
 
 -- | This Bank secret key should be used only for tests and benchmarks.
 testBankSecretKey :: SecretKey

@@ -13,7 +13,6 @@ module RSCoin.Notary.AcidState
        , AnnounceNewPeriods (..)
        , GetPeriodId (..)
        , GetSignatures (..)
-       , PollTransactions (..)
        , QueryAllMSAdresses (..)
        , QueryCompleteMSAdresses (..)
        , QueryMyMSRequests (..)
@@ -90,7 +89,6 @@ $(makeAcidic ''Storage
              , 'S.announceNewPeriods
              , 'S.getPeriodId
              , 'S.getSignatures
-             , 'S.pollTransactions
              , 'S.queryAllMSAdresses
              , 'S.queryCompleteMSAdresses
              , 'S.queryMyMSRequests

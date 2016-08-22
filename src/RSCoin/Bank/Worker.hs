@@ -10,29 +10,22 @@ module RSCoin.Bank.Worker
        , runExplorerWorker
        ) where
 
-import           Control.Applicative      (liftA2)
-import           Control.Lens             ((^.))
-import           Control.Monad            (forM_, when)
-import           Control.Monad.Catch      (SomeException, bracket_, catch)
-import           Control.Monad.Extra      (unlessM, whenJust)
+import           Control.Monad            (when)
+import           Control.Monad.Catch      (SomeException, catch)
+import           Control.Monad.Extra      (unlessM)
 import           Control.Monad.Trans      (MonadIO (liftIO))
-import           Data.Acid.Advanced       (query', update')
-import           Data.IORef               (IORef, atomicWriteIORef, modifyIORef,
-                                           newIORef, readIORef)
+import           Data.IORef               (IORef, readIORef)
 import           Data.List                (sortOn)
 import           Data.Maybe               (fromMaybe)
 import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
 
-import           Serokell.Util.AcidState  (tidyLocalState)
-import           Serokell.Util.Bench      (measureTime_)
-
 import           Serokell.Util.Exceptions ()
 
-import           RSCoin.Bank.AcidState    (BankState, GetEmission (..),
+import           RSCoin.Bank.AcidState    (GetEmission (..),
                                            GetExplorersAndPeriods (..),
                                            GetHBlock (..), GetPeriodId (..),
-                                           SetExplorerPeriod (..),
+                                           SetExplorerPeriod (..), State,
                                            SuspendExplorer (..), query,
                                            update)
 import           RSCoin.Core              (defaultPeriodDelta, sign)
@@ -44,7 +37,7 @@ import           RSCoin.Timed             (Second, WorkMode, for, ms,
 -- finishes. Default period length is used.
 runWorkerDefaultPeriod
     :: WorkMode m
-    => C.SecretKey -> BankState -> m ()
+    => C.SecretKey -> State -> m ()
 runWorkerDefaultPeriod = runWorker defaultPeriodDelta
 
 -- | Start worker with provided period. Generalization of 'runWorker'.
@@ -53,7 +46,7 @@ runWorkerDefaultPeriod = runWorker defaultPeriodDelta
 -- Its value is True is empty iff this worker is doing something now.
 runWorker
     :: (TimeUnit t, WorkMode m)
-    => t -> C.SecretKey -> BankState -> m ()
+    => t -> C.SecretKey -> State -> m ()
 runWorker periodDelta bankSK st =
     repeatForever (tu periodDelta) handler worker
   where
@@ -71,7 +64,7 @@ runWorker periodDelta bankSK st =
 -- | Start worker which sends data to explorers.
 runExplorerWorker
     :: (TimeUnit t, WorkMode m)
-    => t -> IORef Bool -> C.SecretKey -> BankState -> m ()
+    => t -> IORef Bool -> C.SecretKey -> State -> m ()
 runExplorerWorker periodDelta mainIsBusy sk st =
     foreverSafe $
     do waitUntilPredicate (fmap not . liftIO $ readIORef mainIsBusy)
@@ -102,13 +95,13 @@ runExplorerWorker periodDelta mainIsBusy sk st =
 
 communicateWithExplorers
     :: WorkMode m
-    => C.SecretKey -> BankState -> C.PeriodId -> [(C.Explorer, C.PeriodId)] -> m [Bool]
+    => C.SecretKey -> State -> C.PeriodId -> [(C.Explorer, C.PeriodId)] -> m [Bool]
 communicateWithExplorers sk st blocksNumber =
     mapM (communicateWithExplorer sk st blocksNumber) . sortOn (negate . snd)
 
 communicateWithExplorer
     :: WorkMode m
-    => C.SecretKey -> BankState -> C.PeriodId -> (C.Explorer, C.PeriodId) -> m Bool
+    => C.SecretKey -> State -> C.PeriodId -> (C.Explorer, C.PeriodId) -> m Bool
 communicateWithExplorer sk st blocksNumber (explorer,expectedPeriod)
   | blocksNumber == expectedPeriod = return True
   | expectedPeriod >= 0 && expectedPeriod < blocksNumber =
@@ -123,7 +116,7 @@ communicateWithExplorer sk st blocksNumber (explorer,expectedPeriod)
 
 sendBlockToExplorer
     :: WorkMode m
-    => C.SecretKey -> BankState -> C.Explorer -> C.PeriodId -> m Bool
+    => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m Bool
 sendBlockToExplorer sk st explorer pId = do
     blk <- fromMaybe reportFatalError <$> query st (GetHBlock pId)
     ems <- query st (GetEmission pId)

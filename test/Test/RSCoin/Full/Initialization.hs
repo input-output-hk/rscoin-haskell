@@ -98,7 +98,6 @@ runBank
     :: WorkMode m
     => MVar () -> BankInfo -> m ()
 runBank v b = do
-    myTId <- myThreadId
     mainIsBusy <- liftIO $ newIORef False
     -- TODO: this code is a modified version of launchBank. Invent
     -- smth to share code

@@ -36,7 +36,7 @@ import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
                                             runRealModeBank)
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
-                                            AddMintette (AddMintette), BankState,
+                                            AddMintette (AddMintette), State,
                                             closeState, openState,
                                             update)
 import           RSCoin.Bank.Error         (BankError (BEInconsistentResponse))
@@ -64,7 +64,7 @@ launchBankReal periodDelta storagePath ca bankSk =
 -- | Launch Bank in any WorkMode. This function works indefinitely.
 launchBank
     :: (TimeUnit t, WorkMode m)
-    => t -> SecretKey -> BankState -> m ()
+    => t -> SecretKey -> State -> m ()
 launchBank periodDelta bankSk st = do
     isPeriodChanging <- liftIO $ newIORef False
     runWorker

@@ -33,7 +33,6 @@ import           Serokell.Util.Text             (listBuilderJSON, mapBuilder,
 import           RSCoin.Bank.AcidState          (AddAddress (..),
                                                  AddExplorer (..),
                                                  AddMintette (..),
-                                                 BankState,
                                                  GetAddresses (..),
                                                  GetEmission (..),
                                                  GetExplorersAndPeriods (..),
@@ -44,16 +43,15 @@ import           RSCoin.Bank.AcidState          (AddAddress (..),
                                                  RemoveExplorer (..),
                                                  RemoveMintette (..),
                                                  RestoreExplorers (..),
-                                                 StartNewPeriod (..),
+                                                 StartNewPeriod (..), State,
                                                  query, tidyState, update)
 import           RSCoin.Bank.Error              (BankError (BEInconsistentResponse))
 import           RSCoin.Core                    (ActionLog,
                                                  AddressToTxStrategyMap,
                                                  Explorers, HBlock, MintetteId,
                                                  Mintettes, PeriodId, PublicKey,
-                                                 Signature, TransactionId,
-                                                 logDebug, logError, logInfo,
-                                                 verify)
+                                                 TransactionId, logDebug,
+                                                 logError, logInfo)
 import qualified RSCoin.Core.NodeConfig         as NC
 import qualified RSCoin.Core                    as C
 import qualified RSCoin.Core.Protocol.Types     as PT (BankLocalControlRequest (..),
@@ -62,17 +60,16 @@ import qualified RSCoin.Timed                   as T
 
 serve
     :: T.WorkMode m
-    => BankState -> IORef Bool -> m ()
+    => State -> IORef Bool -> m ()
 serve st isPeriodChanging = do
     idr1 <- T.serverTypeRestriction0
     idr2 <- T.serverTypeRestriction0
     idr3 <- T.serverTypeRestriction1
-    idr4 <- T.serverTypeRestriction1
-    idr5 <- T.serverTypeRestriction3
+    idr4 <- T.serverTypeRestriction3
+    idr5 <- T.serverTypeRestriction0
     idr6 <- T.serverTypeRestriction0
-    idr7 <- T.serverTypeRestriction0
+    idr7 <- T.serverTypeRestriction1
     idr8 <- T.serverTypeRestriction1
-    idr9 <- T.serverTypeRestriction1
 
     (bankPublicKey, bankPort) <- liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort)
                                  <$> T.getNodeContext
@@ -82,13 +79,13 @@ serve st isPeriodChanging = do
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
         , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight st
         , C.method (C.RSCBank C.GetHBlocks) $ idr3 $ serveGetHBlocks st
-        , C.method (C.RSCDump C.GetLogs) $ idr5 $ serveGetLogs st
-        , C.method (C.RSCBank C.GetAddresses) $ idr6 $ serveGetAddresses st
-        , C.method (C.RSCBank C.GetExplorers) $ idr7 $ serveGetExplorers st
+        , C.method (C.RSCDump C.GetLogs) $ idr4 $ serveGetLogs st
+        , C.method (C.RSCBank C.GetAddresses) $ idr5 $ serveGetAddresses st
+        , C.method (C.RSCBank C.GetExplorers) $ idr6 $ serveGetExplorers st
         , C.method (C.RSCBank C.LocalControlRequest) $
-          idr8 $ serveLocalControlRequest st bankPublicKey isPeriodChanging
+          idr7 $ serveLocalControlRequest st bankPublicKey isPeriodChanging
         , C.method (C.RSCBank C.GetHBlockEmission) $
-          idr9 $ serveGetHBlockEmission st]
+          idr8 $ serveGetHBlockEmission st]
 
 type ServerTE m a = T.ServerT m (Either T.Text a)
 
@@ -179,7 +176,7 @@ getPeriodResults mts pId = do
                ("Error occurred in communicating with mintette " % build) e
            modifyIORef res (Nothing :)
 
-onPeriodFinished :: T.WorkMode m => C.SecretKey -> BankState -> m ()
+onPeriodFinished :: T.WorkMode m => C.SecretKey -> State -> m ()
 onPeriodFinished sk st = do
     mintettes <- query st GetMintettes
     pId <- query st GetPeriodId
@@ -243,7 +240,7 @@ onPeriodFinished sk st = do
 
 serveFinishPeriod
     :: T.WorkMode m
-    => BankState
+    => State
     -> IORef Bool
     -> m ()
 serveFinishPeriod st isPeriodChanging = do
@@ -259,7 +256,7 @@ serveFinishPeriod st isPeriodChanging = do
 
 serveLocalControlRequest
     :: T.WorkMode m
-    => BankState
+    => State
     -> PublicKey
     -> IORef Bool
     -> PT.BankLocalControlRequest

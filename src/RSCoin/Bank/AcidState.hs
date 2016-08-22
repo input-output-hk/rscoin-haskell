@@ -5,7 +5,7 @@
 -- | Wrap Storage into AcidState
 
 module RSCoin.Bank.AcidState
-       ( BankState
+       ( State
        , openState
        , openMemState
        , query
@@ -56,28 +56,28 @@ import          Serokell.Util.AcidState (ExtendedState, closeExtendedState,
 
 import qualified RSCoin.Bank.Storage    as BS
 
-type BankState = ExtendedState BS.Storage
+type State = ExtendedState BS.Storage
 
 query
     :: (EventState event ~ BS.Storage, QueryEvent event, MonadIO m)
-    => BankState -> event -> m (EventResult event)
+    => State -> event -> m (EventResult event)
 query = queryExtended
 
 update
     :: (EventState event ~ BS.Storage, UpdateEvent event, MonadIO m)
-    => BankState -> event -> m (EventResult event)
+    => State -> event -> m (EventResult event)
 update = updateExtended
 
-tidyState :: MonadIO m => BankState -> m ()
+tidyState :: MonadIO m => State -> m ()
 tidyState = tidyExtendedState
 
-openState :: FilePath -> IO BankState
+openState :: FilePath -> IO State
 openState fp = openLocalExtendedState fp BS.mkStorage
 
-openMemState :: IO BankState
+openMemState :: IO State
 openMemState = openMemoryExtendedState BS.mkStorage
 
-closeState :: BankState -> IO ()
+closeState :: State -> IO ()
 closeState = closeExtendedState
 
 getEmission :: PeriodId -> Query BS.Storage (Maybe TransactionId)

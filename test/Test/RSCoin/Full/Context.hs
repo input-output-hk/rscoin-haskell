@@ -46,7 +46,7 @@ newtype UserNumber = UserNumber
 
 data BankInfo = BankInfo
     { _bankKeys  :: (SecretKey, PublicKey)
-    , _bankState :: B.BankState
+    , _bankState :: B.State
     }
 
 $(makeLenses ''BankInfo)
@@ -114,7 +114,7 @@ instance WithKeys MintetteInfo where
 class WithState w s | w -> s where
     state :: Getter w s
 
-instance WithState BankInfo B.BankState where
+instance WithState BankInfo B.State where
     state = bankState
 
 instance WithState MintetteInfo M.State where

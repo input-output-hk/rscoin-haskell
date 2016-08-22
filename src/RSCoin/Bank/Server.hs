@@ -21,7 +21,7 @@ import           Data.IORef                     (IORef, atomicWriteIORef,
                                                  readIORef)
 import           Data.List                      (nub, (\\))
 import qualified Data.Map.Strict                as M
-import           Data.Maybe                     (catMaybes, fromJust, fromMaybe)
+import           Data.Maybe                     (catMaybes)
 import qualified Data.Text                      as T
 import           Formatting                     (build, int, sformat, (%))
 
@@ -50,8 +50,8 @@ import           RSCoin.Core                    (ActionLog,
                                                  AddressToTxStrategyMap,
                                                  Explorers, HBlock, MintetteId,
                                                  Mintettes, PeriodId, PublicKey,
-                                                 TransactionId, logDebug,
-                                                 logError, logInfo)
+                                                 SecretKey, TransactionId,
+                                                 logDebug, logError, logInfo)
 import qualified RSCoin.Core.NodeConfig         as NC
 import qualified RSCoin.Core                    as C
 import qualified RSCoin.Core.Protocol.Types     as PT (BankLocalControlRequest (..),
@@ -60,8 +60,8 @@ import qualified RSCoin.Timed                   as T
 
 serve
     :: T.WorkMode m
-    => State -> IORef Bool -> m ()
-serve st isPeriodChanging = do
+    => State -> SecretKey -> IORef Bool -> m ()
+serve st bankSK isPeriodChanging = do
     idr1 <- T.serverTypeRestriction0
     idr2 <- T.serverTypeRestriction0
     idr3 <- T.serverTypeRestriction1
@@ -71,7 +71,7 @@ serve st isPeriodChanging = do
     idr7 <- T.serverTypeRestriction1
     idr8 <- T.serverTypeRestriction1
 
-    (bankPublicKey, bankPort) <- liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort)
+    (bankPK, bankPort) <- liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort)
                                  <$> T.getNodeContext
 
     C.serve
@@ -83,7 +83,7 @@ serve st isPeriodChanging = do
         , C.method (C.RSCBank C.GetAddresses) $ idr5 $ serveGetAddresses st
         , C.method (C.RSCBank C.GetExplorers) $ idr6 $ serveGetExplorers st
         , C.method (C.RSCBank C.LocalControlRequest) $
-          idr7 $ serveLocalControlRequest st bankPublicKey isPeriodChanging
+          idr7 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging
         , C.method (C.RSCBank C.GetHBlockEmission) $
           idr8 $ serveGetHBlockEmission st]
 
@@ -176,7 +176,7 @@ getPeriodResults mts pId = do
                ("Error occurred in communicating with mintette " % build) e
            modifyIORef res (Nothing :)
 
-onPeriodFinished :: T.WorkMode m => C.SecretKey -> State -> m ()
+onPeriodFinished :: T.WorkMode m => SecretKey -> State -> m ()
 onPeriodFinished sk st = do
     mintettes <- query st GetMintettes
     pId <- query st GetPeriodId
@@ -226,12 +226,8 @@ onPeriodFinished sk st = do
                 strategy
             update st $ AddAddress msAddr strategy
         C.logInfo "Removing new addresses from pool"
-        mCurBankSecKey <- (^. NC.bankSecretKey) <$> T.getNodeContext
-        let curBankSecKey  = fromMaybe
-                                (error "Bank secret key is set to Nothing in config!")
-                                mCurBankSecKey
         let msAddrs       = map fst newMSAddresses
-        let signedMsAddrs = C.sign curBankSecKey msAddrs
+        let signedMsAddrs = C.sign sk msAddrs
         C.removeNotaryCompleteMSAddresses msAddrs signedMsAddrs
     announceNewPeriodsToNotary = do
         pId <- C.getNotaryPeriod
@@ -241,16 +237,16 @@ onPeriodFinished sk st = do
 serveFinishPeriod
     :: T.WorkMode m
     => State
+    -> SecretKey
     -> IORef Bool
     -> m ()
-serveFinishPeriod st isPeriodChanging = do
+serveFinishPeriod st bankSK isPeriodChanging = do
     let br =
             bracket_
                 (liftIO $ atomicWriteIORef isPeriodChanging True)
                 (liftIO $ atomicWriteIORef isPeriodChanging False)
     logInfo "Finish of period was requested"
     do
-        bankSK <- (fromJust . (^. NC.bankSecretKey)) <$> T.getNodeContext
         t <- br $ measureTime_ $ onPeriodFinished bankSK st
         logInfo $ sformat ("Finishing period took " % build) t
 
@@ -258,12 +254,13 @@ serveLocalControlRequest
     :: T.WorkMode m
     => State
     -> PublicKey
+    -> SecretKey
     -> IORef Bool
     -> PT.BankLocalControlRequest
     -> ServerTE m ()
-serveLocalControlRequest st bankPublicKey isPeriodChanging controlRequest = do
+serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest = do
     periodId <- query st GetPeriodId
-    if not (PT.checkLocalControlRequest periodId bankPublicKey controlRequest) then
+    if not (PT.checkLocalControlRequest periodId bankPK controlRequest) then
         toServer $ throwM $
         BEInconsistentResponse $
         sformat
@@ -277,7 +274,7 @@ serveLocalControlRequest st bankPublicKey isPeriodChanging controlRequest = do
             PT.AddExplorer e pid _        -> update st (AddExplorer e pid)
             PT.RemoveMintette host port _ -> update st (RemoveMintette host port)
             PT.RemoveExplorer host port _ -> update st (RemoveExplorer host port)
-            PT.FinishPeriod _             -> serveFinishPeriod st isPeriodChanging
+            PT.FinishPeriod _             -> serveFinishPeriod st bankSK isPeriodChanging
         logInfo $
             sformat
                 ("Control request " % build % " executed successfully")

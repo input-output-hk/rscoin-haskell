@@ -11,7 +11,6 @@ module RSCoin.Core.NodeConfig
           -- * 'NodeContext' lenses
         , bankAddr
         , bankPublicKey
-        , bankSecretKey
         , ctxLoggerName
         , notaryAddr
 
@@ -40,7 +39,7 @@ import           Data.Bifunctor             (second)
 import           Data.ByteString            (ByteString)
 import qualified Data.Configurator          as Config
 import qualified Data.Configurator.Types    as Config
-import           Data.Maybe                 (fromJust, fromMaybe, isNothing)
+import           Data.Maybe                 (fromMaybe, isNothing)
 import           Data.String                (IsString)
 import qualified Data.Text                  as T
 import           Data.Typeable              (Typeable)
@@ -65,7 +64,6 @@ data NodeContext = NodeContext
     { _bankAddr      :: NetworkAddress
     , _notaryAddr    :: NetworkAddress
     , _bankPublicKey :: PublicKey
-    , _bankSecretKey :: Maybe SecretKey  -- @TODO: not type-safe solution, but ok for now
     , _ctxLoggerName :: LoggerName
     } deriving (Show)
 
@@ -81,7 +79,7 @@ defaultNodeContextWithLogger _ctxLoggerName = NodeContext {..}
   where
     _bankAddr                        = (localhost, defaultPort)
     _notaryAddr                      = (localhost, 4001)
-    (_bankPublicKey, _bankSecretKey) = fromMaybe
+    (_bankPublicKey, _) = fromMaybe
         (error "[FATAL] Failed to construct (pk, sk) pair for default context")
         $ second Just <$> deterministicKeyGen "default-node-context-keygen-seed"
 
@@ -104,7 +102,9 @@ testBankPublicKey = defaultNodeContext ^. bankPublicKey
 
 -- | This Bank secret key should be used only for tests and benchmarks.
 testBankSecretKey :: SecretKey
-testBankSecretKey = fromJust $ defaultNodeContext ^. bankSecretKey
+testBankSecretKey = snd $
+                    fromMaybe (error "[FATAL] Failed to construct (pk, sk) pair") $
+                    deterministicKeyGen "default-node-context-keygen-seed"
 
 bankPublicKeyPropertyName :: IsString s => s
 bankPublicKeyPropertyName = "bank.publicKey"
@@ -154,7 +154,7 @@ readDeployNodeContext (Just newBankSecretKey) confPath = do
 
     return obtainedContext
         { _bankPublicKey = newBankPublicKey
-        , _bankSecretKey = Just newBankSecretKey }
+        }
 readDeployNodeContext Nothing confPath = do
     (deployConfig, obtainedContext) <- readRequiredDeployContext confPath
     cfgBankPublicKey  <- Config.require deployConfig bankPublicKeyPropertyName

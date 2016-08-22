@@ -107,7 +107,7 @@ runBank v b = do
             (b ^. state)
     workWhileMVarEmpty v $
         B.runExplorerWorker periodDelta mainIsBusy (b ^. secretKey) (b ^. state)
-    workWhileMVarEmpty v $ B.serve (b ^. state) mainIsBusy -- FIXME: close state `finally`
+    workWhileMVarEmpty v $ B.serve (b ^. state) (b ^. secretKey) mainIsBusy -- FIXME: close state `finally`
 
 runMintettes
     :: WorkMode m

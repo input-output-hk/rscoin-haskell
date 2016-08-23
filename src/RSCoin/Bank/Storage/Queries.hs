@@ -22,17 +22,18 @@ module RSCoin.Bank.Storage.Queries
        , getPeriodId
        ) where
 
-import           Control.Lens                  (Getter, to, view)
+import           Control.Lens                  (Getter, to)
 import qualified Data.Map                      as MP
 import           Safe                          (atMay)
 
 import           RSCoin.Core                   (PeriodId)
 import qualified RSCoin.Core                   as C
 
+import qualified RSCoin.Bank.Storage.Addresses as AS
 import qualified RSCoin.Bank.Storage.Explorers as ES
 import qualified RSCoin.Bank.Storage.Mintettes as MS
-import           RSCoin.Bank.Storage.Storage   (Storage, addresses, blocks,
-                                                emissionHashes,
+import           RSCoin.Bank.Storage.Storage   (Storage, addressesStorage,
+                                                blocks, emissionHashes,
                                                 explorersStorage,
                                                 mintettesStorage, periodId,
                                                 utxo)
@@ -49,7 +50,7 @@ getEmissions left right = emissionHashes . to (reverseFromTo (max left 1) right)
 
 -- | Returns addresses (to strategies) map
 getAddresses :: Query C.AddressToTxStrategyMap
-getAddresses = addresses
+getAddresses = addressesStorage . AS.getAddresses
 
 -- | Resolves addrid into address using local utxo
 getAddressFromUtxo :: C.AddrId -> Query (Maybe C.Address)

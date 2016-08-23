@@ -86,6 +86,7 @@ library
                      , RSCoin.Bank.AcidState
                      , RSCoin.Bank.Launcher
                      , RSCoin.Bank.Server
+                     , RSCoin.Bank.Storage.Addresses
                      , RSCoin.Bank.Storage.Explorers
                      , RSCoin.Bank.Storage.Mintettes
                      , RSCoin.Bank.Storage.Storage

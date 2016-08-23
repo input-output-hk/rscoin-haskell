@@ -52,7 +52,6 @@ mkExplorersStorage =
     , _esSuspendedExplorers = M.empty
     }
 
-
 type Query a = Getter ExplorersStorage a
 
 -- | Get list of all explorers in storage.

@@ -53,14 +53,14 @@ import           RSCoin.Core                   (ActionLog,
 import qualified RSCoin.Core                   as C
 
 import           RSCoin.Bank.Error             (BankError (..))
+import qualified RSCoin.Bank.Storage.Addresses as AS
 import qualified RSCoin.Bank.Storage.Explorers as ES
 import qualified RSCoin.Bank.Storage.Mintettes as MS
 import qualified RSCoin.Bank.Storage.Queries   as Q
-import           RSCoin.Bank.Storage.Storage   (Storage, addresses, blocks,
-                                                emissionHashes,
+import           RSCoin.Bank.Storage.Storage   (Storage, addressesStorage,
+                                                blocks, emissionHashes,
                                                 explorersStorage,
-                                                mintettesStorage,
-                                                pendingAddresses, periodId,
+                                                mintettesStorage, periodId,
                                                 utxo)
 import qualified RSCoin.Bank.Strategies        as Strategies
 
@@ -68,11 +68,9 @@ type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
 -- | Add given address to storage and associate given strategy with it.
--- @TODO: Mind behaviour when address is being added more than once per period
 addAddress :: Address -> C.TxStrategy -> Update ()
-addAddress addr strategy = do
-    curAddresses <- use addresses
-    unless (addr `MP.member` curAddresses) $ pendingAddresses %= MP.insert addr strategy
+addAddress addr strategy =
+    addressesStorage %= execState (AS.addAddress addr strategy)
 
 -- | Add given mintette to storage and associate given key with it.
 addMintette :: C.Mintette -> C.PublicKey -> ExceptUpdate ()
@@ -138,12 +136,12 @@ startNewPeriod bankPk genAdr sk results = do
     payload' <- formPayload currentMintettes changedMintetteIx
     periodId' <- use periodId
     mintettes' <- use Q.getMintettes
-    addresses' <- use addresses
+    addresses <- use Q.getAddresses
     hblock' <- uses blocks head
     dpk <- use Q.getDpk
     let npdPattern pl = NewPeriodData periodId' mintettes' hblock' pl dpk
         usersNPDs =
-          map (\i -> npdPattern ((i,,) <$> (i `MP.lookup` payload') <*> pure addresses'))
+          map (\i -> npdPattern ((i,,) <$> (i `MP.lookup` payload') <*> pure addresses))
               [0 .. length currentMintettes - 1]
     return usersNPDs
 
@@ -211,14 +209,9 @@ startNewPeriodFinally sk goodMintettes newBlockCtor emissionTid = do
     return updateIds
 
 -- | Add pending addresses to addresses map (addr -> strategy), return
--- it as an argument
+-- it as an argument.
 updateAddresses :: Update C.AddressToTxStrategyMap
-updateAddresses = do
-    oldKnown <- use addresses
-    pending <- use pendingAddresses
-    addresses %= flip MP.union pending
-    pendingAddresses .= MP.empty
-    return $ pending MP.\\ oldKnown
+updateAddresses = addressesStorage %%= runState AS.updateAddresses
 
 -- | Given a set of transactions, change utxo in a correspondent way
 updateUtxo :: [Transaction] -> ExceptUpdate ()

@@ -85,7 +85,7 @@ data NotaryMethod
     | AllocateMultisig
     | GetNotaryPeriod
     | GetSignatures
-    | PollTransactions
+    | PollPendingTransactions
     | PublishTransaction
     | QueryCompleteMS
     | QueryMyAllocMS

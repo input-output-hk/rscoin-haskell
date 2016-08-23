@@ -38,7 +38,7 @@ module RSCoin.Core.Communication
        , getMintetteLogs
        , publishTxToNotary
        , getTxSignatures
-       , pollTxsFromNotary
+       , pollPendingTransactions
        ) where
 
 import           Control.Exception          (Exception (..))
@@ -557,21 +557,20 @@ getTxSignatures tx addr =
     successMessage res =
         L.logDebug $ sformat ("Received signatures from Notary: " % shown) res
 
--- | This method is somewhat mystic because it's not used anywhere and
--- it won't be until we have perfectly working UI. It's supposed to be
--- used over time to detect transactions that you `may` want to
--- sign. And then dialog pops up.
-pollTxsFromNotary
+-- | This method is supposed to be used to detect transactions
+-- that you `may` want to sign.
+pollPendingTransactions
     :: WorkMode m
-    => [Address] -> m [Transaction]
-pollTxsFromNotary addrs =
+    => [Address]
+    -> m [Transaction]
+pollPendingTransactions parties =
     withResult infoMessage successMessage $
-    callNotary $ P.call (P.RSCNotary P.PollTransactions) addrs
+    callNotary $ P.call (P.RSCNotary P.PollPendingTransactions) parties
   where
     infoMessage =
         L.logDebug $
         sformat
             ("Polling transactions to sign for addresses: " % shown)
-            addrs
+            parties
     successMessage res =
         L.logDebug $ sformat ("Received transactions to sign: " % shown) res

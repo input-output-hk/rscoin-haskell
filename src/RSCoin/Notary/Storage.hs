@@ -5,19 +5,20 @@
 -- | Storage for Notary's data.
 
 module RSCoin.Notary.Storage
-        ( Storage (_masterKeys)
-        , acquireSignatures
-        , addSignedTransaction
-        , allocateMSAddress
-        , announceNewPeriods
-        , emptyNotaryStorage
-        , getPeriodId
-        , getSignatures
-        , queryAllMSAdresses
-        , queryCompleteMSAdresses
-        , queryMyMSRequests
-        , removeCompleteMSAddresses
-        ) where
+       ( Storage (_masterKeys)
+       , acquireSignatures
+       , addSignedTransaction
+       , allocateMSAddress
+       , announceNewPeriods
+       , emptyNotaryStorage
+       , getPeriodId
+       , getSignatures
+       , pollPendingTxs
+       , queryAllMSAdresses
+       , queryCompleteMSAdresses
+       , queryMyMSRequests
+       , removeCompleteMSAddresses
+       ) where
 
 import           Control.Lens         (Lens', at, makeLenses, to, use, uses,
                                        view, (%=), (%~), (&), (.=), (?=), (^.))
@@ -27,10 +28,11 @@ import           Control.Monad.Extra  (whenJust, whenM)
 import           Data.Acid            (Query, Update, liftQuery)
 import qualified Data.Foldable        as F
 import qualified Data.HashMap.Strict  as HM
-import qualified Data.HashSet         as HS
+import           Data.HashSet         (HashSet)
+import qualified Data.HashSet         as HS hiding (HashSet)
 import           Data.Map.Strict      (Map)
 import qualified Data.Map.Strict      as M hiding (Map)
-import           Data.Maybe           (fromJust, fromMaybe)
+import           Data.Maybe           (fromJust, fromMaybe, mapMaybe)
 import           Data.Set             (Set)
 import qualified Data.Set             as S hiding (Set)
 import           Formatting           (build, sformat, (%))
@@ -193,7 +195,7 @@ allocateMSAddress
 -- transactions
 ---------------
 
--- Erase occurrences published (address, transaction) from storage
+-- | Erase occurrences published (address, transaction) from storage
 forgetAddrTx :: Address -> Transaction -> Update Storage ()
 forgetAddrTx addr tx = do
     txPool %= M.update (ifNotEmpty . M.delete tx) addr
@@ -355,3 +357,24 @@ getSignatures tx addr = maybe [] M.assocs . (M.lookup tx <=< M.lookup addr) <$> 
 -- | Get last known periodId of Notary (interface for bank).
 getPeriodId :: Query Storage PeriodId
 getPeriodId = view periodId
+
+-- | Collect all pending multisignature transactions which have one of
+-- party is a member of given list.
+-- @TODO: replace [Address] with @HashSet Address@ for faster checks
+pollPendingTxs :: [Address] -> Query Storage [Transaction]
+pollPendingTxs parties = do
+    curTxPool      <- view txPool
+    curUtxo        <- view utxo
+    let pendingTxs  = M.elems curTxPool >>= M.keys
+    let resultTxSet = F.foldl' (partyFold curUtxo) HS.empty pendingTxs
+    return $ HS.toList resultTxSet
+  where
+    partyFold :: Utxo
+              -> HashSet Transaction
+              -> Transaction
+              -> HashSet Transaction
+    partyFold addrIdResolve txSet tx@Transaction{..} =
+        if any (`elem` parties)
+           $ mapMaybe (`M.lookup` addrIdResolve) txInputs
+        then HS.insert tx txSet
+        else txSet

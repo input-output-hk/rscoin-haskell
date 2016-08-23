@@ -30,7 +30,7 @@ import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           AllocateMSAddress (..),
                                           AnnounceNewPeriods (..),
                                           GetPeriodId (..), GetSignatures (..),
-                                          NotaryState,
+                                          NotaryState, PollPendingTxs (..),
                                           QueryAllMSAdresses (..),
                                           QueryCompleteMSAdresses (..),
                                           QueryMyMSRequests (..),
@@ -67,6 +67,7 @@ serveNotary notaryState = do
     idr6 <- serverTypeRestriction2
     idr7 <- serverTypeRestriction5
     idr8 <- serverTypeRestriction1
+    idr9 <- serverTypeRestriction1
 
     (bankPublicKey, notaryPort) <- liftA2 (,) (^. C.bankPublicKey) (^. C.notaryPort)
                                    <$> getNodeContext
@@ -88,6 +89,8 @@ serveNotary notaryState = do
             $ handleAllocateMultisig notaryState
         , P.method (P.RSCNotary P.QueryMyAllocMS)             $ idr8
             $ handleQueryMyAllocationMS notaryState
+        , P.method (P.RSCNotary P.PollPendingTransactions)    $ idr9
+            $ handlePollPendingTxs notaryState
         ]
 
 handlePublishTx
@@ -196,3 +199,12 @@ handleQueryMyAllocationMS
 handleQueryMyAllocationMS st allocAddr = toServer $ do
     C.logDebug "Querying my MS allocations..."
     query st $ QueryMyMSRequests allocAddr
+
+handlePollPendingTxs
+    :: MonadIO m
+    => NotaryState
+    -> [C.Address]
+    -> ServerTE m [C.Transaction]
+handlePollPendingTxs st parties = toServer $ do
+    C.logDebug "Polling pending txs..."
+    query st $ PollPendingTxs parties

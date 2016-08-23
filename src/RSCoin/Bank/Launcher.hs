@@ -33,7 +33,8 @@ import           RSCoin.Core.Communication (getBlockchainHeight,
                                             sendBankLocalControlRequest)
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
-                                            WorkMode, fork_, runRealModeBank)
+                                            WorkMode, for, fork_, ms,
+                                            runRealModeBank, wait)
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
                                             AddMintette (AddMintette), State,
@@ -65,9 +66,10 @@ launchBank
     => t -> SecretKey -> State -> m ()
 launchBank periodDelta bankSk st = do
     isPeriodChanging <- liftIO $ newIORef False
+    fork_ $ serve st bankSk isPeriodChanging
+    wait $ for 1 ms
     fork_ $ runWorker periodDelta bankSk st
-    fork_ $ runExplorerWorker periodDelta isPeriodChanging bankSk st
-    serve st bankSk isPeriodChanging
+    runExplorerWorker periodDelta isPeriodChanging bankSk st
 
 -- | Adds mintette directly into bank's state
 addMintetteInPlace :: ContextArgument

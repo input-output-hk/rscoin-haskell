@@ -100,6 +100,8 @@ runBank v b = do
     mainIsBusy <- liftIO $ newIORef False
     -- TODO: this code is a modified version of launchBank. Invent
     -- smth to share code
+    workWhileMVarEmpty v $ B.serve (b ^. state) (b ^. secretKey) mainIsBusy
+    wait $ for 10 ms
     workWhileMVarEmpty v $
         B.runWorker
             periodDelta
@@ -107,7 +109,7 @@ runBank v b = do
             (b ^. state)
     workWhileMVarEmpty v $
         B.runExplorerWorker periodDelta mainIsBusy (b ^. secretKey) (b ^. state)
-    workWhileMVarEmpty v $ B.serve (b ^. state) (b ^. secretKey) mainIsBusy -- FIXME: close state `finally`
+    -- FIXME: close state `finally`
 
 runMintettes
     :: WorkMode m

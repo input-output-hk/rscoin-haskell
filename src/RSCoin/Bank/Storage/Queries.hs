@@ -8,20 +8,29 @@
 module RSCoin.Bank.Storage.Queries
        ( Query
 
+         -- | Action logs
+       , getAllActionLogs
+       , getLogs
+
+         -- | Participants
+       , getExplorers
+       , getExplorersAndPeriods
+       , getMintettes
+
+         -- | HBlocks
+       , getAllHBlocks
+       , getHBlock
+       , getHBlocks
+
+         -- | Other
        , getAddresses
        , getAddressFromUtxo
        , getDpk
        , getEmission
        , getEmissions
-       , getExplorers
-       , getExplorersAndPeriods
-       , getHBlock
-       , getHBlocks
-       , getLogs
-       , getMintettes
        , getPeriodId
-       , getUtxo
        , getStatisticsId
+       , getUtxo
        ) where
 
 import           Control.Lens                  (Getter, to)
@@ -87,17 +96,25 @@ getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
 -- take exactly `b` elements of list that come after first `a`.
 reverseFromTo :: Int -> Int -> [a] -> [a]
 reverseFromTo from to' = drop small . take big . reverse
-    where (small, big) = (min from to', max from to')
+  where
+    (small,big) = (min from to', max from to')
+
+-- | Return all HBLocks that are in blockchain now
+getAllHBlocks :: Query [C.HBlock]
+getAllHBlocks = blocks
 
 -- | Return HBLocks that are in blockchain now
 getHBlocks :: PeriodId -> PeriodId -> Query [C.HBlock]
 getHBlocks left right = blocks . to (reverseFromTo left right)
 
+-- | Get all actionlogs
+getAllActionLogs :: Query [C.ActionLog]
+getAllActionLogs = mintettesStorage . MS.getActionLogs
+
 -- | Get actionlogs
 getLogs :: C.MintetteId -> Int -> Int -> Query (Maybe C.ActionLog)
 getLogs m left right =
-    mintettesStorage .
-    MS.getActionLogs . to (fmap (reverseFromTo left right) . (`atMay` m))
+    getAllActionLogs . to (fmap (reverseFromTo left right) . (`atMay` m))
 
 -- | Get utxo.
 getUtxo :: Query C.Utxo

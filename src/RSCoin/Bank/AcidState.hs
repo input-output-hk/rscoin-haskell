@@ -41,7 +41,7 @@ module RSCoin.Bank.AcidState
        , CheckAndBumpStatisticsId (..)
        ) where
 
-import           Control.Lens                  (view)
+import           Control.Lens                  (to, view)
 import           Control.Monad.Reader          (ask)
 import           Control.Monad.Trans           (MonadIO)
 import           Data.Acid                     (EventResult, EventState, Query,
@@ -104,7 +104,7 @@ getEmission :: PeriodId -> Query BS.Storage (Maybe TransactionId)
 getEmission = view . BS.getEmission
 
 getEmissions :: PeriodId -> PeriodId -> Query BS.Storage [TransactionId]
-getEmissions from to = view $ BS.getEmissions from to
+getEmissions fromIdx toIdx = view $ BS.getEmissions fromIdx toIdx
 
 getAddresses :: Query BS.Storage AddressToTxStrategyMap
 getAddresses = view BS.getAddresses
@@ -125,10 +125,10 @@ getHBlock :: PeriodId -> Query BS.Storage (Maybe HBlock)
 getHBlock = view . BS.getHBlock
 
 getHBlocks :: PeriodId -> PeriodId -> Query BS.Storage [HBlock]
-getHBlocks from to = view $ BS.getHBlocks from to
+getHBlocks fromIdx toIdx = view $ BS.getHBlocks fromIdx toIdx
 
 getLogs :: MintetteId -> Int -> Int -> Query BS.Storage (Maybe ActionLog)
-getLogs m from to = view $ BS.getLogs m from to
+getLogs m fromIdx toIdx = view $ BS.getLogs m fromIdx toIdx
 
 getStatisticsId :: Query BS.Storage Int
 getStatisticsId = view BS.getStatisticsId
@@ -203,6 +203,19 @@ getStatistics st =
   where
     parts =
         [ StoragePart "mintettes" BS.getMintettes
+        , StoragePart "actionLogs" BS.getAllActionLogs
+        , StoragePart "dpk" BS.getDpk
+
+        , StoragePart "explorers" BS.getExplorersAndPeriods
+
+        , StoragePart "addresses" BS.getAddresses
+
+        , StoragePart "blocks" BS.getAllHBlocks
         , StoragePart "utxo" BS.getUtxo
-        , StoragePart "dpk" BS.getDpk]
+
+        , StoragePart "periodId" BS.getPeriodId
+        , StoragePart "statisticsId" BS.getStatisticsId
+
+        , StoragePart "Storage" (to id)
+        ]
     toBuilder (name,size :: Byte) = bprint (stext % ": " % memory) name size

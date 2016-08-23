@@ -39,7 +39,7 @@ view state =
             [ div
                 [ className B.colXs8 ]
                 [ table
-                    [ classNames [B.table] ]
+                    [ className B.table ]
                     [ tbody
                         []
                         [ tr

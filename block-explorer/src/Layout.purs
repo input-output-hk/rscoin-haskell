@@ -12,7 +12,7 @@ import App.Types                      (Address (..), IntroductoryMsg (..),
                                        OutcomingMsg (..),
                                        Action (..), State, SearchQuery (..),
                                        PublicKey (..), ServerError (..), Hash (..))
-import App.CSS                        (veryLightGrey)
+import App.CSS                        (veryLightGrey, styleSheet)
 import App.ViewNew.Address            (view) as Address
 import App.ViewNew.NotFound           (view) as NotFound
 import App.ViewNew.Transaction        (view) as Transaction
@@ -33,10 +33,12 @@ import Data.Array                     (filter, head)
 import Debug.Trace                    (traceAny)
 
 import Pux                            (EffModel, noEffects, onlyEffects)
-import Pux.Html                       (Html, div)
+import Pux.Html                       (Html, div, style, text)
+import Pux.Html.Attributes            (type_)
 
 import Pux.Router                     (navigateTo) as R
-import Pux.CSS                        (style, backgroundColor)
+import Pux.CSS                        (style, backgroundColor) as CSS
+import CSS.Render                     (renderedSheet, render)
 
 import Control.Apply                  ((*>))
 import Control.Alternative            ((<|>))
@@ -151,10 +153,11 @@ update Nop state = noEffects state
 view :: State -> Html Action
 view state =
     bootstrapCss
-        [ style do
-            backgroundColor veryLightGrey
-        ]
-        [ Header.view state
+        [ CSS.style $ CSS.backgroundColor veryLightGrey ]
+        [ style
+            [ type_ "text/css" ]
+            [ text $ unsafePartial $ fromJust $ renderedSheet $ render styleSheet ]
+        , Header.view state
         , Alert.view state
         , div
             [ className containerFluid ]

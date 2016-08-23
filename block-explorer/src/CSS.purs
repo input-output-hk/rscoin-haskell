@@ -2,7 +2,9 @@ module App.CSS where
 
 import Prelude                        (($), (<>))
 
-import Pux.CSS                        (rgb, Color, border, solid, nil, white, height, px)
+import Pux.CSS                        (rgb, Color, border, solid, nil,
+                                       white, height, px, (?), body,
+                                       backgroundColor, td)
 
 import CSS.String                     (fromString)
 import CSS.Stylesheet                 (CSS, key)
@@ -39,3 +41,7 @@ noBorder = border solid nil white
 
 headFootHeight :: CSS
 headFootHeight = height $ px 50.0 -- TODO: this should be 72 px
+
+styleSheet :: CSS
+styleSheet =
+    td ? noBorder

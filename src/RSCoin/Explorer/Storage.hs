@@ -38,6 +38,7 @@ import           Data.List                          (foldl', genericDrop,
 import qualified Data.Map.Strict                    as M
 import           Data.Maybe                         (fromMaybe, isJust)
 import           Data.SafeCopy                      (base, deriveSafeCopy)
+import           Formatting                         (build, sformat, (%))
 
 import qualified RSCoin.Core                        as C
 
@@ -208,14 +209,17 @@ applyTransaction tx@C.Transaction{..} = do
     inputToAddr (txId,idx,_) =
         fmap (fst . (!! idx) . txsOutputs) <$>
         (use $ transactionsMap . at txId)
-    mkExtendedAddrId :: C.AddrId -> (Maybe C.Address) -> ExceptUpdate ExtendedAddrId
+    mkExtendedAddrId :: C.AddrId
+                     -> (Maybe C.Address)
+                     -> ExceptUpdate ExtendedAddrId
     mkExtendedAddrId (txId,ind,c) addr
       | isJust addr = return (txId, ind, c, addr)
       | otherwise = do
           hasEmission <- elem txId <$> use emissionHashes
           if hasEmission
               then return (txId, ind, c, Nothing)
-              else throwM $ EEInternalError "Invalid transaction id seen."
+              else throwM $ EEInternalError $
+                   sformat ("Invalid transaction id seen: " % build) txId
 
 applyTxInput :: TransactionSummary -> C.AddrId -> Update ()
 applyTxInput tx (oldTxId,idx,c) =

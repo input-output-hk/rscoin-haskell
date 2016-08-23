@@ -51,7 +51,10 @@ data UserCommand
                             [Text]
                             (Maybe Text)
                             (Maybe Text)
-
+    -- | Query notary to get list of pending transactions
+    | ListPendingTransactions
+    -- | Sign and send transaction from the pending list by id ∈ [1..list.length]
+    | SendPendingTransaction Int
     -- | List all addresses in which current user acts like party.
     -- Specify trust public key if you also want to receive MS addresses
     -- with trust as party.
@@ -142,8 +145,17 @@ userCommandParser =
          command
              "create-multisig"
              (info
-                  createMultisigOpts
-                  (progDesc "Create multisignature address allocation")) <>
+                 createMultisigOpts
+                 (progDesc "Create multisignature address allocation")) <>
+         command
+             "list-pending"
+             (info
+                 (pure ListPendingTransactions)
+                 (progDesc "List transactions that are pending to be signed")) <>
+         command
+             "send-pending"
+             (info sendPendingOpts
+                 (progDesc "Send a pending transaction from list-pending by index")) <>
          command
              "list-alloc"
              (info
@@ -408,6 +420,12 @@ userCommandParser =
         (long "path" <>
          help "Path to file with transaction to sign" <>
          metavar "FILEPATH")
+    sendPendingOpts =
+        SendPendingTransaction <$>
+        option auto
+            (short 'i' <> long "index" <>
+             help "Id of transaction in list-pending list" <>
+             metavar "INT")
 
 userOptionsParser :: FilePath -> FilePath -> FilePath -> Parser UserOptions
 userOptionsParser dskp configDir defaultConfigPath =

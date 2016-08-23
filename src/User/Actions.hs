@@ -25,17 +25,19 @@ import           Data.Char               (isSpace)
 import           Data.Function           (on)
 import qualified Data.HashSet            as HS
 import           Data.Int                (Int64)
-import           Data.List               (genericIndex, groupBy)
+import           Data.List               (genericIndex, groupBy, intersperse)
 import qualified Data.Map                as M
 import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
 import           Data.Monoid             ((<>))
 import qualified Data.Set                as S hiding (Set)
 import qualified Data.Text               as T
+import qualified Data.Text.Buildable     as B (Buildable (build))
 import qualified Data.Text.IO            as TIO
 import           Formatting              (build, int, sformat, stext, string,
                                           (%))
 
-import           Serokell.Util.Text      (show')
+import           Serokell.Util.Text      (listBuilderJSONIndent, pairBuilder,
+                                          show')
 
 #if GtkGui
 import           Control.Exception       (SomeException)
@@ -98,6 +100,10 @@ processCommandNoOpts st O.UpdateBlockchain =
     processUpdateBlockchain st
 processCommandNoOpts st (O.CreateMultisigAddress n usrAddr trustAddr masterPk sig) =
     processMultisigAddress st n usrAddr trustAddr masterPk sig
+processCommandNoOpts st (O.ListPendingTransactions) =
+    processListPendingTxs st
+processCommandNoOpts st (O.SendPendingTransaction index) =
+    processSendPendingTx st index
 processCommandNoOpts st (O.ConfirmAllocation i mHot masterPk sig) =
     processConfirmAllocation st i mHot masterPk sig
 processCommandNoOpts st (O.ListAllocations mTrustAddrText) =
@@ -270,6 +276,62 @@ processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigT
                         stext)
                        parsed
         return partiesAddrs
+
+processListPendingTxs :: (MonadIO m, WorkMode m) => U.UserState -> m ()
+processListPendingTxs st = do
+    addrs <- getAllPublicAddresses st
+    C.logInfo "Querying notary to update the list of pending transactions"
+    txs0 <- C.pollTxsFromNotary addrs
+    U.update st $ U.UpdatePendingTxs $ S.fromList txs0
+    txs <- U.query st U.GetPendingTxs
+    if null txs
+    then do
+        C.logInfo "Successfully updated pending txs list, but it's empty"
+        liftIO $ TIO.putStrLn "No pending transactions"
+    else do
+        C.logInfo "Successfully updated pending txs list"
+        forM_ ([(1::Integer)..] `zip` txs) $ \(i,transaction) -> do
+            builder <- altTxBuilder transaction
+            liftIO $ TIO.putStrLn $ sformat (int % ". " % build) i builder
+  where
+    altTxBuilder tx@C.Transaction{..} = do
+        resolved <-
+            mapM (\addrid -> (addrid,) <$>
+                     U.query st (U.ResolveAddressLocally addrid))
+                 txInputs
+        let mapFoo (addrid,Nothing) = B.build addrid
+            mapFoo (addrid,Just addr) =
+                B.build addrid <> " that's owned by addr " <> B.build addr
+            mappedResolved = map mapFoo resolved
+            builtInputs = mconcat $ intersperse ",\n  " mappedResolved
+        return $ mconcat ["Transaction{\ninputs:"
+                         , builtInputs
+                         , "\noutputs:"
+                         , listBuilderJSONIndent 2 $ map pairBuilder txOutputs
+                         , "\nhash: "
+                         , B.build $ C.hash tx
+                         , "\n}"
+                         ]
+
+processSendPendingTx
+    :: (MonadIO m, WorkMode m)
+    => U.UserState -> Int -> m ()
+processSendPendingTx st ix0 = do
+    txs <- U.query st U.GetPendingTxs
+    let l = length txs
+    when (null txs) $ U.commitError "No transactions are currently pending."
+    when (ix < 0 || ix >= l) $
+        U.commitError $
+        sformat
+            ("Index is out of range [1," % int % "], where " % int %
+             " is total number of pending txs at the moment") l l
+    let tx = txs !! ix
+    emptyBundle <- U.getEmptySignatureBundle st tx
+    signatures <- U.signTransactionLocally st tx emptyBundle
+    C.logInfo "Collecting signatures & sending"
+    U.sendTransactionRetry 3 st Nothing tx signatures
+  where
+    ix = ix0 - 1
 
 processUpdateBlockchain
     :: (MonadIO m, WorkMode m)

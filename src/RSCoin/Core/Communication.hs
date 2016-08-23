@@ -563,7 +563,7 @@ getTxSignatures tx addr =
 -- sign. And then dialog pops up.
 pollTxsFromNotary
     :: WorkMode m
-    => [Address] -> m [(Address, [(Transaction, [(Address, Signature)])])]
+    => [Address] -> m [Transaction]
 pollTxsFromNotary addrs =
     withResult infoMessage successMessage $
     callNotary $ P.call (P.RSCNotary P.PollTransactions) addrs

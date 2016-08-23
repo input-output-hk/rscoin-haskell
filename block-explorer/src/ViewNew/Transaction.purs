@@ -8,39 +8,38 @@ import App.RSCoin                     (Coin(Coin), Color(Color),
 import App.Types                      (Action, State)
 import App.Routes                     (txUrl, addressUrl)
 
-import Pux.Html (Html, div, tbody,    text, th, tr, thead, table, small, h3, td)
+import Pux.Html                       (Html, div, tbody, text, th, tr,
+                                       thead, table, small, h3, td)
+import Pux.Html.Attributes            (className, id_)
 import Pux.Router                     (link)
 
 import Data.Tuple.Nested              (uncurry2, uncurry4)
 import Data.Array                     (length)
 import Data.Maybe                     (Maybe (..))
 
-import Serokell.Pux.Html              (classNames, className)
-import Serokell.Pux.Themes.Bootstrap3 as B
-
 view :: TransactionSummarySerializable -> State -> Html Action
 view (TransactionSummarySerializable tx) state =
     div []
         [
           div
-            [ className B.pageHeader ]
+            [ className "page-header" ]
             [ h3 [] [ text "Transaction "
                     , small [] [ text $ show tx.txId ]
                     ]
             ]
         , div
-            [ className B.container ]
+            [ className "container" ]
             [ div
-                [ className B.row ]
+                [ className "row" ]
                 [ div
-                    [ className B.colXs6 ]
+                    [ className "col-xs-6" ]
                     [ div
-                        [ classNames [B.panel, B.panelDefault] ]
+                        [ className "panel panel-default" ]
                         [ div
-                            [ className B.panelHeading ]
+                            [ className "panel-heading" ]
                             [ text "Inputs" ]
                         , table
-                            [ classNames [B.table, B.tableStriped, B.tableHover] ]
+                            [ className "table table-striped table-hover" ]
                             [ thead [] [ tr []
                                 [ th [] [ text "Address from" ]
                                 , th [] [ text "Coin color" ]
@@ -51,14 +50,14 @@ view (TransactionSummarySerializable tx) state =
                         ]
                     ]
                 , div
-                    [ className B.colXs6 ]
+                    [ className "col-xs-6" ]
                     [ div
-                        [ classNames [B.panel, B.panelDefault] ]
+                        [ className "panel panel-default" ]
                         [ div
-                            [ className B.panelHeading ]
+                            [ className "panel-heading" ]
                             [ text "Outputs" ]
                         , table
-                            [ classNames [B.table, B.tableStriped, B.tableHover] ]
+                            [ className "table table-striped table-hover" ]
                             [ thead [] [ tr []
                                 [ th [] [ text "Address to" ]
                                 , th [] [ text "Coin color" ]
@@ -70,12 +69,12 @@ view (TransactionSummarySerializable tx) state =
                     ]
                 ]
             , div
-                [ className B.row ]
+                [ className "row" ]
                 [ div
-                    [ className B.colXs6 ]
+                    [ className "col-xs-6" ]
                     [ coinMapView tx.txInputsSum "Inputs balance" ]
                 , div
-                    [ className B.colXs6 ]
+                    [ className "col-xs-6" ]
                     [ coinMapView tx.txOutputsSum "Outputs balance" ]
                 ]
             ]
@@ -113,12 +112,12 @@ view (TransactionSummarySerializable tx) state =
            ]
     coinMapView cs name =
         div
-            [ classNames [B.panel, B.panelDefault] ]
+            [ className "panel panel-default" ]
             [ div
-                [ className B.panelHeading ]
+                [ className "panel-heading" ]
                 [ text name ]
             , table
-                [ classNames [B.table, B.tableStriped, B.tableHover] ]
+                [ className "table table-striped table-hover" ]
                 [ thead [] [ tr []
                     [ th [] [ text "Coin color" ]
                     , th [] [ text "Coin amount" ]

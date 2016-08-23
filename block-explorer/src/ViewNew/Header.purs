@@ -11,33 +11,30 @@ import App.CSS                        (darkRed, opacity, logoPath,
 import Pux.Html                       (Html, div, text, span, button,
                                        input, a, li, ul, nav, img)
 import Pux.Router                     (link) as R
-import Pux.Html.Attributes            (aria, data_, type_,
+import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt)
 
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
 
-import Serokell.Pux.Html              (classNames, className)
-import Serokell.Pux.Themes.Bootstrap3 as B
-
 view :: State -> Html Action
 view state =
     nav
-        [ classNames [B.navbar, B.navbarDefault]
+        [ className "navbar navbar-default"
         , style do
             backgroundImage $ url headerBitmapPath
             noBorder
         ]
         [ div
-            [ className B.containerFluid
+            [ className "container-fluid"
             , style do
                 backgroundColor darkRed
                 opacity 0.8
             ]
             [ div
-                [ className B.navbarHeader ]
+                [ className "navbar-header" ]
                 [ R.link R.homeUrl
-                    [ className B.navbarBrand
+                    [ className "navbar-brand"
                     , style do
                         color white
                         let p = px 10.0
@@ -51,11 +48,11 @@ view state =
                     ]
                 ]
             , ul
-                [ classNames [B.nav, B.navbarNav, B.navbarRight] ]
+                [ className "nav navbar-nav navbar-right" ]
                 [ li
-                    [ className B.dropdown ]
+                    [ className "dropdown" ]
                     [ a
-                        [ className B.dropdownToggle
+                        [ className "dropdown-toggle"
                         , data_ "target" "#"
                         , data_ "toggle" "dropdown"
                         , aria "haspopup" "true"
@@ -64,11 +61,11 @@ view state =
                         ]
                         [ text "ADA"
                         , span
-                            [ className B.caret ]
+                            [ className "caret" ]
                             []
                         ]
                     , ul
-                        [ className B.dropdownMenu ]
+                        [ className "dropdown-menu" ]
                         [ li
                             []
                             [ a
@@ -79,22 +76,22 @@ view state =
                     ]
                 ]
             , div
-                [ classNames [B.colXs6, B.navbarForm, B.navbarRight] ]
+                [ className "col-xs-6 navbar-form navbar-right" ]
                 [ div
-                    [ className B.inputGroup ]
+                    [ className "input-group" ]
                     [ input
                         [ type_ "text"
                         , value state.searchQuery
-                        , className B.formControl
+                        , className "form-control"
                         , placeholder "Address / Transaction"
                         ] []
                     , span
-                        [ className B.inputGroupBtn ]
+                        [ className "input-group-btn" ]
                         [ button
-                            [ classNames [B.btn, B.btnDefault]
+                            [ className "btn btn-default"
                             ]
                             [ span
-                                [ classNames [B.glyphicon, B.glyphiconSearch]
+                                [ className "glyphicon glyphicon-search"
                                 , aria "hidden" "true"
                                 ]
                                 []

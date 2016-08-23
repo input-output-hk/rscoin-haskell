@@ -11,7 +11,7 @@ import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
 
 import Pux.Html                       (Html, tbody, text, th, tr, thead,
                                        table, div, small, h3, td, img)
-import Pux.Html.Attributes            (aria, data_, type_,
+import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt)
 import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
@@ -20,9 +20,6 @@ import Pux.CSS                        (style, backgroundColor, padding, px,
 import Data.Tuple.Nested              (uncurry2)
 import Data.Array                     (length)
 import Data.Maybe                     (fromMaybe)
-
-import Serokell.Pux.Html              (classNames, className)
-import Serokell.Pux.Themes.Bootstrap3 as B
 
 view :: State -> Html Action
 view state =
@@ -35,11 +32,11 @@ view state =
                     ]
             ]
         , div
-            [ className B.row ]
+            [ className "row" ]
             [ div
-                [ className B.colXs8 ]
+                [ className "col-xs-8" ]
                 [ table
-                    [ className B.table ]
+                    [ className "table" ]
                     [ tbody
                         []
                         [ tr
@@ -70,7 +67,7 @@ view state =
 
                 ]
             , div
-                [ className B.colXs4 ]
+                [ className "col-xs-4" ]
                 []
             ]
         ]

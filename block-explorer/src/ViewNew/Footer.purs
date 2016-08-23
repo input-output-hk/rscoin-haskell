@@ -11,7 +11,7 @@ import App.CSS                        (darkRed, opacity, logoSmallPath,
 import Pux.Html                       (Html, div, text, span, button,
                                        input, a, li, ul, nav, img, footer)
 import Pux.Router                     (link) as R
-import Pux.Html.Attributes            (aria, data_, type_,
+import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt)
 import Pux.Html.Events                (onChange, onClick, onKeyDown)
 
@@ -19,9 +19,6 @@ import Pux.CSS                        (style, backgroundColor, height, px,
                                        color, white, backgroundImage, url,
                                        padding, width, pct, textAlign, center,
                                        nil)
-
-import Serokell.Pux.Html              (classNames, className)
-import Serokell.Pux.Themes.Bootstrap3 as B
 
 view :: State -> Html Action
 view state =
@@ -37,11 +34,11 @@ view state =
                 headFootHeight
             ]
             [ div
-                [ className B.containerFluid ]
+                [ className "container-fluid" ]
                 [ div
-                    [ className B.navbarHeader ]
+                    [ className "navbar-header" ]
                     [ R.link R.homeUrl
-                        [ className B.navbarBrand
+                        [ className "navbar-brand"
                         , style do
                             color white
                             let p = px 18.0
@@ -63,34 +60,6 @@ view state =
                         padding p nil p nil
                     ]
                     [ text "About us | Contacts | Privacy Policy | Terms of Service" ]
---                , ul
---                    [ classNames [B.nav, B.navbarNav, B.navbarRight] ]
---                    [ li
---                        [ className B.dropdown ]
---                        [ a
---                            [ className B.dropdownToggle
---                            , data_ "target" "#"
---                            , data_ "toggle" "dropdown"
---                            , aria "haspopup" "true"
---                            , aria "expanded" "false"
---                            , style $ color white
---                            ]
---                            [ text "English"
---                            , span
---                                [ className B.caret ]
---                                []
---                            ]
---                        , ul
---                            [ className B.dropdownMenu ]
---                            [ li
---                                []
---                                [ a
---                                    [ data_ "target" "#" ]
---                                    [ text "English" ]
---                                ]
---                            ]
---                        ]
---                    ]
                 ]
             ]
         ]

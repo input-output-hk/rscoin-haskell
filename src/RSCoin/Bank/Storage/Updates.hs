@@ -1,29 +1,15 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
-{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 
--- | Storage containing whole bank's data.
+-- | Storage updates.
 
-module RSCoin.Bank.Storage.Whole
-       ( Storage
-       , mkStorage
-       , Query
-       , Update
+module RSCoin.Bank.Storage.Updates
+       (
+         Update
        , ExceptUpdate
-       , explorersStorage
-       , getEmission
-       , getEmissions
-       , getAddresses
-       , getAddressFromUtxo
-       , getMintettes
-       , getExplorers
-       , getExplorersAndPeriods
-       , getPeriodId
-       , getHBlock
-       , getHBlocks
-       , getLogs
+
        , addAddress
        , addMintette
        , addExplorer
@@ -35,9 +21,8 @@ module RSCoin.Bank.Storage.Whole
        , startNewPeriod
        ) where
 
-import           Control.Lens                  (Getter, makeLenses, to, use,
-                                                uses, view, (%%=), (%=), (+=),
-                                                (.=), _3)
+import           Control.Lens                  (use, uses, view, (%%=), (%=),
+                                                (+=), (.=), _3)
 import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (MonadThrow (throwM))
 import           Control.Monad.Extra           (whenJust)
@@ -48,9 +33,7 @@ import qualified Data.HashSet                  as S
 import           Data.List                     (unfoldr)
 import qualified Data.Map                      as MP
 import           Data.Maybe                    (fromJust, isJust, mapMaybe)
-import           Data.SafeCopy                 (base, deriveSafeCopy)
-import           Data.Typeable                 (Typeable)
-import           Safe                          (atMay, headMay)
+import           Safe                          (headMay)
 
 import           Serokell.Util                 (enumerate)
 
@@ -72,119 +55,14 @@ import qualified RSCoin.Core                   as C
 import           RSCoin.Bank.Error             (BankError (..))
 import qualified RSCoin.Bank.Storage.Explorers as ES
 import qualified RSCoin.Bank.Storage.Mintettes as MS
+import qualified RSCoin.Bank.Storage.Queries   as Q
+import           RSCoin.Bank.Storage.Storage   (Storage, addresses, blocks,
+                                                emissionHashes,
+                                                explorersStorage,
+                                                mintettesStorage,
+                                                pendingAddresses, periodId,
+                                                utxo)
 import qualified RSCoin.Bank.Strategies        as Strategies
-
--- | TransactionIndex consists of two indices: the first one is the
--- index of block containing this transaction, the second one is the
--- index of transaction in this block. It's implementation detail of
--- this storage.
-newtype TransactionIndex =
-    TransactionIndex (PeriodId, Word)
-
--- | Storage contains all the data used by Bank.
-data Storage = Storage
-    {
-      -- | Data about mintettes.
-      _mintettesStorage :: !MS.MintettesStorage
-      -- | Data about explorers.
-    , _explorersStorage :: !ES.ExplorersStorage
-      -- | Id of ongoing period. Doesn't mean anything if there is no
-      -- active period.
-    , _periodId         :: !C.PeriodId
-      -- | List of all blocks from the very beginning. Head of this
-      -- list is the most recent block.
-    , _blocks           :: ![C.HBlock]
-      -- | Utxo for all the transaction ever made.
-    , _utxo             :: !C.Utxo
-      -- | List off all emission hashes from the very beginning.
-    , _emissionHashes   :: ![C.TransactionId]
-      -- | Known addresses accompanied with their strategies. Note that every address with
-      -- non-default strategy should be stored here in order to participate in transaction.
-    , _addresses        :: !C.AddressToTxStrategyMap
-      -- | Pending addresses to publish within next HBlock.
-    , _pendingAddresses :: !C.AddressToTxStrategyMap
-    } deriving (Typeable)
-
-$(makeLenses ''Storage)
-$(deriveSafeCopy 0 'base ''TransactionIndex)
-$(deriveSafeCopy 0 'base ''Storage)
-
--- | Make empty storage
-mkStorage :: Storage
-mkStorage =
-    Storage
-    { _mintettesStorage = MS.mkMintettesStorage
-    , _explorersStorage = ES.mkExplorersStorage
-    , _periodId = 0
-    , _blocks = []
-    , _utxo = MP.empty
-    , _emissionHashes = []
-    , _addresses = MP.empty
-    , _pendingAddresses = MP.empty
-    }
-
-type Query a = Getter Storage a
-
--- | Returns emission hash made in provided period
-getEmission :: C.PeriodId -> Query (Maybe C.TransactionId)
-getEmission pId = emissionHashes . to (\b -> b `atMay` (length b - pId))
-
--- | Return emission hashes provided in period range
-getEmissions :: PeriodId -> PeriodId -> Query [C.TransactionId]
-getEmissions left right = emissionHashes . to (reverseFromTo (max left 1) right)
-
--- | Returns addresses (to strategies) map
-getAddresses :: Query C.AddressToTxStrategyMap
-getAddresses = addresses
-
--- | Resolves addrid into address using local utxo
-getAddressFromUtxo :: AddrId -> Query (Maybe Address)
-getAddressFromUtxo addrId = utxo . to (MP.lookup addrId)
-
--- | Returns mintettes list
-getMintettes :: Query C.Mintettes
-getMintettes = mintettesStorage . MS.getMintettes
-
--- | Returns explorers list
-getExplorers :: Query C.Explorers
-getExplorers = explorersStorage . ES.getExplorers
-
--- | Returns a map from all available explorers and periodIds related
--- to them
-getExplorersAndPeriods :: Query [(C.Explorer, C.PeriodId)]
-getExplorersAndPeriods = explorersStorage . ES.getExplorersAndPeriods
-
--- | Get dpk
-getDpk :: Query C.Dpk
-getDpk = mintettesStorage . MS.getDpk
-
--- | Get current periodId
-getPeriodId :: Query C.PeriodId
-getPeriodId = periodId
-
--- | Get last block by periodId
-getHBlock :: C.PeriodId -> Query (Maybe C.HBlock)
-getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
-
--- Dumping Bank state
-
--- | Given two indices `(a,b)` swap them so `a < b` if needed, then
--- take exactly `b` elements of list that come after first `a`.
-reverseFromTo :: Int -> Int -> [a] -> [a]
-reverseFromTo from to' = drop small . take big . reverse
-    where (small, big) = (min from to', max from to')
-
--- | Return HBLocks that are in blockchain now
-getHBlocks :: PeriodId -> PeriodId -> Query [HBlock]
-getHBlocks left right = blocks . to (reverseFromTo left right)
-
--- | Get actionlogs
-getLogs :: MintetteId -> Int -> Int -> Query (Maybe ActionLog)
-getLogs m left right =
-    mintettesStorage .
-    MS.getActionLogs . to (fmap (reverseFromTo left right) . (`atMay` m))
-
--- Dumping Bank state
 
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
@@ -249,20 +127,20 @@ startNewPeriod
     -> [Maybe PeriodResult]
     -> ExceptUpdate [NewPeriodData]
 startNewPeriod bankPk genAdr sk results = do
-    mintettes <- use getMintettes
+    mintettes <- use Q.getMintettes
     unless (length mintettes == length results) $
         throwM $
         BEInconsistentResponse
             "Length of results is different from the length of mintettes"
     pId <- use periodId
     changedMintetteIx <- startNewPeriodDo bankPk genAdr sk pId results
-    currentMintettes <- use getMintettes
+    currentMintettes <- use Q.getMintettes
     payload' <- formPayload currentMintettes changedMintetteIx
     periodId' <- use periodId
-    mintettes' <- use getMintettes
+    mintettes' <- use Q.getMintettes
     addresses' <- use addresses
     hblock' <- uses blocks head
-    dpk <- use getDpk
+    dpk <- use Q.getDpk
     let npdPattern pl = NewPeriodData periodId' mintettes' hblock' pl dpk
         usersNPDs =
           map (\i -> npdPattern ((i,,) <$> (i `MP.lookup` payload') <*> pure addresses'))
@@ -283,14 +161,14 @@ startNewPeriodDo _ genAdr sk 0 _ =
     startNewPeriodFinally sk [] (const $ mkGenesisHBlock genAdr) Nothing
 startNewPeriodDo bankPk _ sk pId results = do
     lastHBlock <- head <$> use blocks
-    curDpk <- use getDpk
+    curDpk <- use Q.getDpk
     logs <- use $ mintettesStorage . MS.getActionLogs
     let keys = map fst curDpk
     unless (length keys == length results) $
         throwM $
         BEInconsistentResponse
             "Length of keys is different from the length of results"
-    mintettes <- use getMintettes
+    mintettes <- use Q.getMintettes
     let checkedResults =
             map (checkResult pId lastHBlock) $ zip3 results keys logs
         filteredResults =
@@ -323,7 +201,7 @@ startNewPeriodFinally sk goodMintettes newBlockCtor emissionTid = do
     periodId += 1
     updateIds <- updateMintettes sk goodMintettes
     newAddrs <- updateAddresses
-    newBlock <- newBlockCtor newAddrs sk <$> use getDpk
+    newBlock <- newBlockCtor newAddrs sk <$> use Q.getDpk
     updateUtxo $ hbTransactions newBlock
     -- TODO: this can be written more elegantly !
     when

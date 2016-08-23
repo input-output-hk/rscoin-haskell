@@ -88,7 +88,9 @@ library
                      , RSCoin.Bank.Server
                      , RSCoin.Bank.Storage.Explorers
                      , RSCoin.Bank.Storage.Mintettes
-                     , RSCoin.Bank.Storage.Whole
+                     , RSCoin.Bank.Storage.Storage
+                     , RSCoin.Bank.Storage.Queries
+                     , RSCoin.Bank.Storage.Updates
                      , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Communication

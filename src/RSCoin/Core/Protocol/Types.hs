@@ -26,7 +26,7 @@ data RSCoinMethod
     | RSCExplorer ExplorerMethod
     | RSCMintette MintetteMethod
     | RSCNotary   NotaryMethod
-    | RSCDump DumpMethod
+    | RSCDump     DumpMethod
     deriving (Show)
 
 -- | A request to control the bank from the bank's host side itself,
@@ -44,7 +44,7 @@ checkLocalControlRequest _ pk (AddMintette m p s)    = verify pk s (m,p)
 checkLocalControlRequest _ pk (AddExplorer e pid s)  = verify pk s (e,pid)
 checkLocalControlRequest _ pk (RemoveMintette h p s) = verify pk s (h,p)
 checkLocalControlRequest _ pk (RemoveExplorer h p s) = verify pk s (h,p)
-checkLocalControlRequest pid pk (FinishPeriod s) = verify pk s pid
+checkLocalControlRequest pid pk (FinishPeriod s)     = verify pk s pid
 
 -- TODO Maybe make it more pretty (e.g. without signature)
 instance Buildable BankLocalControlRequest where

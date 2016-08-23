@@ -152,12 +152,12 @@ update Nop state = noEffects state
 -- https://github.com/slamdata/purescript-halogen-bootstrap/blob/master/src/Halogen/Themes/Bootstrap3.purs
 view :: State -> Html Action
 view state =
-    bootstrapCss
-        [ CSS.style $ CSS.backgroundColor veryLightGrey ]
-        [ style
-            [ type_ "text/css" ]
-            [ text $ unsafePartial $ fromJust $ renderedSheet $ render styleSheet ]
-        , Header.view state
+    div
+        []
+        [-- style
+         --   [ type_ "text/css" ]
+         --   [ text $ unsafePartial $ fromJust $ renderedSheet $ render styleSheet ]
+          Header.view state
         , Alert.view state
         , div
             [ className containerFluid ]

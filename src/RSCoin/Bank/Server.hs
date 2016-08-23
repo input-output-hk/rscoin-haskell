@@ -10,7 +10,7 @@ module RSCoin.Bank.Server
        ) where
 
 import           Control.Applicative        (liftA2)
-import           Control.Lens               ((^.))
+import           Control.Lens               (view, (^.))
 import           Control.Monad              (forM_, when)
 import           Control.Monad.Catch        (SomeException, bracket_, catch,
                                              throwM)
@@ -179,10 +179,9 @@ onPeriodFinished sk st = do
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     initializeMultisignatureAddresses  -- init here to see them in next period
-    periodResults    <- getPeriodResults mintettes pId
-    (bankPk, genAdr) <- liftA2 (,) (^. C.bankPublicKey) (^. C.genesisAddress)
-                        <$> T.getNodeContext
-    newPeriodData    <- update st $ StartNewPeriod bankPk genAdr sk periodResults
+    periodResults <- getPeriodResults mintettes pId
+    bankPk        <- view C.bankPublicKey <$> T.getNodeContext
+    newPeriodData <- update st $ StartNewPeriod bankPk sk periodResults
     tidyState st
     newMintettes <- query st GetMintettes
     if null newMintettes

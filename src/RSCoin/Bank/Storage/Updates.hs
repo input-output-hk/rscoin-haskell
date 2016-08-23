@@ -120,18 +120,17 @@ restoreExplorers = explorersStorage %= execState ES.restoreExplorers
 -- mintettes) of NewPeriodDatas that should be sent to mintettes.
 startNewPeriod
     :: PublicKey
-    -> Address
     -> SecretKey
     -> [Maybe PeriodResult]
     -> ExceptUpdate [NewPeriodData]
-startNewPeriod bankPk genAdr sk results = do
+startNewPeriod bankPk sk results = do
     mintettes <- use Q.getMintettes
     unless (length mintettes == length results) $
         throwM $
         BEInconsistentResponse
             "Length of results is different from the length of mintettes"
     pId <- use periodId
-    changedMintetteIx <- startNewPeriodDo bankPk genAdr sk pId results
+    changedMintetteIx <- startNewPeriodDo bankPk sk pId results
     currentMintettes <- use Q.getMintettes
     payload' <- formPayload currentMintettes changedMintetteIx
     periodId' <- use periodId
@@ -150,14 +149,15 @@ startNewPeriod bankPk genAdr sk results = do
 -- merging LBlocks and adding generative transaction.
 startNewPeriodDo
     :: PublicKey
-    -> Address
     -> SecretKey
     -> PeriodId
     -> [Maybe PeriodResult]
     -> ExceptUpdate [MintetteId]
-startNewPeriodDo _ genAdr sk 0 _ =
-    startNewPeriodFinally sk [] (const $ mkGenesisHBlock genAdr) Nothing
-startNewPeriodDo bankPk _ sk pId results = do
+startNewPeriodDo bankPk sk 0 _ =
+    startNewPeriodFinally sk [] (const $ mkGenesisHBlock genAddr) Nothing
+  where
+    genAddr = C.Address bankPk
+startNewPeriodDo bankPk sk pId results = do
     lastHBlock <- head <$> use blocks
     curDpk <- use Q.getDpk
     logs <- use $ mintettesStorage . MS.getActionLogs

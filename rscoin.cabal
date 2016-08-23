@@ -425,11 +425,11 @@ test-suite rscoin-test
                      , Test.RSCoin.Full.Mintette.Config
                      , Test.RSCoin.Full.Mintette.Acidic
                      , Test.RSCoin.Full.Property
-                     , Test.RSCoin.Pure.BankState
-                     , Test.RSCoin.Pure.MintetteState
-                     , Test.RSCoin.Pure.StorageSpec
-                     , Test.RSCoin.Pure.Update
-                     , Test.RSCoin.Pure.UserState
+                     -- , Test.RSCoin.Pure.BankState
+                     -- , Test.RSCoin.Pure.MintetteState
+                     -- , Test.RSCoin.Pure.StorageSpec
+                     -- , Test.RSCoin.Pure.Update
+                     -- , Test.RSCoin.Pure.UserState
                      , Test.RSCoin.Timed.ExceptionSpec
                      , Test.RSCoin.Timed.MonadRpcSpec
                      , Test.RSCoin.Timed.MonadTimedSpec

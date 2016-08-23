@@ -154,7 +154,6 @@ restoreExplorers = BS.restoreExplorers
 
 startNewPeriod
     :: PublicKey
-    -> Address
     -> SecretKey
     -> [Maybe PeriodResult]
     -> Update BS.Storage [NewPeriodData]

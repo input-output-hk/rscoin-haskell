@@ -181,11 +181,12 @@ instance MessagePack C.ActionLogEntry where
             _ -> Nothing
 
 instance MessagePack C.BankLocalControlRequest where
-    toObject (C.AddMintette m pk sig)         = toObj (0, (m,pk,sig))
-    toObject (C.AddExplorer e pid sig)        = toObj (1, (e,pid,sig))
-    toObject (C.RemoveMintette host port sig) = toObj (2, (host,port,sig))
-    toObject (C.RemoveExplorer host port sig) = toObj (3, (host,port,sig))
+    toObject (C.AddMintette m pk sig)         = toObj (0, (m, pk, sig))
+    toObject (C.AddExplorer e pid sig)        = toObj (1, (e, pid, sig))
+    toObject (C.RemoveMintette host port sig) = toObj (2, (host, port, sig))
+    toObject (C.RemoveExplorer host port sig) = toObj (3, (host, port, sig))
     toObject (C.FinishPeriod sig)             = toObj (4, sig)
+    toObject (C.DumpStatistics sId sig)       = toObj (5, (sId, sig))
     fromObject obj = do
         (i,payload) <- fromObject obj
         case (i :: Int) of
@@ -194,4 +195,5 @@ instance MessagePack C.BankLocalControlRequest where
             2 -> uncurry3 C.RemoveMintette <$> fromObject payload
             3 -> uncurry3 C.RemoveExplorer <$> fromObject payload
             4 -> C.FinishPeriod <$> fromObject payload
+            5 -> uncurry2 C.DumpStatistics <$> fromObject payload
             _ -> Nothing

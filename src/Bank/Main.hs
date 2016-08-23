@@ -56,6 +56,8 @@ main = do
             B.removeMintetteReq ca bankSecretKey host port
         Opts.RemoveExplorer host port ->
             B.removeExplorerReq ca bankSecretKey host port
+        Opts.DumpStatistics ->
+            B.dumpStatisticsReq ca bankSecretKey
         Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
             B.launchBankReal periodDelta cloPath ca bankSecretKey

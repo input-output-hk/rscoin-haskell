@@ -20,6 +20,8 @@ module RSCoin.Bank.Storage.Queries
        , getLogs
        , getMintettes
        , getPeriodId
+       , getUtxo
+       , getStatisticsId
        ) where
 
 import           Control.Lens                  (Getter, to)
@@ -36,7 +38,7 @@ import           RSCoin.Bank.Storage.Storage   (Storage, addressesStorage,
                                                 blocks, emissionHashes,
                                                 explorersStorage,
                                                 mintettesStorage, periodId,
-                                                utxo)
+                                                statisticsId, utxo)
 
 type Query a = Getter Storage a
 
@@ -96,3 +98,11 @@ getLogs :: C.MintetteId -> Int -> Int -> Query (Maybe C.ActionLog)
 getLogs m left right =
     mintettesStorage .
     MS.getActionLogs . to (fmap (reverseFromTo left right) . (`atMay` m))
+
+-- | Get utxo.
+getUtxo :: Query C.Utxo
+getUtxo = utxo
+
+-- | Get statistics id.
+getStatisticsId :: Query Int
+getStatisticsId = statisticsId

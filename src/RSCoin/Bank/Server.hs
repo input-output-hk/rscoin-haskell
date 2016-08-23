@@ -22,6 +22,7 @@ import           Data.List                  (nub, (\\))
 import qualified Data.Map.Strict            as M
 import           Data.Maybe                 (catMaybes)
 import qualified Data.Text                  as T
+import qualified Data.Text.IO               as TIO
 import           Formatting                 (build, int, sformat, stext, (%))
 
 import           Serokell.Util.Bench        (measureTime_)
@@ -29,12 +30,14 @@ import           Serokell.Util.Text         (listBuilderJSON, mapBuilder, show')
 
 import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),
+                                             CheckAndBumpStatisticsId (..),
                                              GetAddresses (..),
                                              GetEmission (..),
                                              GetExplorersAndPeriods (..),
                                              GetHBlock (..), GetHBlocks (..),
                                              GetLogs (..), GetMintettes (..),
                                              GetPeriodId (..),
+                                             GetStatisticsId (..),
                                              RemoveExplorer (..),
                                              RemoveMintette (..),
                                              RestoreExplorers (..),
@@ -59,28 +62,29 @@ serve
 serve st bankSK isPeriodChanging = do
     idr1 <- T.serverTypeRestriction0
     idr2 <- T.serverTypeRestriction0
-    idr3 <- T.serverTypeRestriction1
-    idr4 <- T.serverTypeRestriction3
-    idr5 <- T.serverTypeRestriction0
+    idr3 <- T.serverTypeRestriction0
+    idr4 <- T.serverTypeRestriction1
+    idr5 <- T.serverTypeRestriction3
     idr6 <- T.serverTypeRestriction0
-    idr7 <- T.serverTypeRestriction1
+    idr7 <- T.serverTypeRestriction0
     idr8 <- T.serverTypeRestriction1
-
-    (bankPK, bankPort) <- liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort)
-                                 <$> T.getNodeContext
-
+    idr9 <- T.serverTypeRestriction1
+    (bankPK,bankPort) <-
+        liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort) <$> T.getNodeContext
     C.serve
         bankPort
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
         , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight st
-        , C.method (C.RSCBank C.GetHBlocks) $ idr3 $ serveGetHBlocks st
-        , C.method (C.RSCDump C.GetLogs) $ idr4 $ serveGetLogs st
-        , C.method (C.RSCBank C.GetAddresses) $ idr5 $ serveGetAddresses st
-        , C.method (C.RSCBank C.GetExplorers) $ idr6 $ serveGetExplorers st
+        , C.method (C.RSCBank C.GetStatisticsId) $
+          idr3 $ serveGetStatisticsId st
+        , C.method (C.RSCBank C.GetHBlocks) $ idr4 $ serveGetHBlocks st
+        , C.method (C.RSCDump C.GetLogs) $ idr5 $ serveGetLogs st
+        , C.method (C.RSCBank C.GetAddresses) $ idr6 $ serveGetAddresses st
+        , C.method (C.RSCBank C.GetExplorers) $ idr7 $ serveGetExplorers st
         , C.method (C.RSCBank C.LocalControlRequest) $
-          idr7 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging
+          idr8 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging
         , C.method (C.RSCBank C.GetHBlockEmission) $
-          idr8 $ serveGetHBlockEmission st]
+          idr9 $ serveGetHBlockEmission st]
 
 type ServerTE m a = T.ServerT m (Either T.Text a)
 
@@ -119,6 +123,9 @@ serveGetHeight st =
     do pId <- query st GetPeriodId
        logDebug $ sformat ("Getting blockchain height: " % build) pId
        return pId
+
+serveGetStatisticsId :: T.WorkMode m => State -> ServerTE m PeriodId
+serveGetStatisticsId st = toServer $ query st GetStatisticsId
 
 serveGetHBlockEmission
     :: T.WorkMode m
@@ -245,6 +252,15 @@ serveFinishPeriod st bankSK isPeriodChanging = do
        logDebug . sformat ("Storage statistics:\n" % stext) =<<
            getStatistics st
 
+serveDumpStatistics
+    :: T.WorkMode m
+    => State -> Int -> m ()
+serveDumpStatistics st sId = do
+    good <- update st $ CheckAndBumpStatisticsId sId
+    when good .
+        liftIO . TIO.putStrLn . sformat ("Storage statistics:\n" % stext) =<<
+        getStatistics st
+
 serveLocalControlRequest
     :: T.WorkMode m
     => State
@@ -270,6 +286,7 @@ serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest = do
             PT.RemoveMintette host port _ -> update st (RemoveMintette host port)
             PT.RemoveExplorer host port _ -> update st (RemoveExplorer host port)
             PT.FinishPeriod _             -> serveFinishPeriod st bankSK isPeriodChanging
+            PT.DumpStatistics sId _       -> serveDumpStatistics st sId
         logInfo $
             sformat
                 ("Control request " % build % " executed successfully")

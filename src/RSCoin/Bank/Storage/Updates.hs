@@ -19,6 +19,7 @@ module RSCoin.Bank.Storage.Updates
        , suspendExplorer
        , restoreExplorers
        , startNewPeriod
+       , checkAndBumpStatisticsId
        ) where
 
 import           Control.Lens                  (use, uses, view, (%%=), (%=),
@@ -61,7 +62,7 @@ import           RSCoin.Bank.Storage.Storage   (Storage, addressesStorage,
                                                 blocks, emissionHashes,
                                                 explorersStorage,
                                                 mintettesStorage, periodId,
-                                                utxo)
+                                                statisticsId, utxo)
 import qualified RSCoin.Bank.Strategies        as Strategies
 
 type Update a = forall m . MonadState Storage m => m a
@@ -329,3 +330,8 @@ updateMintettes :: SecretKey
                 -> Update [MintetteId]
 updateMintettes sk goodMintettes =
     mintettesStorage %%= runState (MS.updateMintettes sk goodMintettes)
+
+checkAndBumpStatisticsId :: Int -> Update Bool
+checkAndBumpStatisticsId sId = do
+    good <- (sId ==) <$> use statisticsId
+    good <$ when good (statisticsId += 1)

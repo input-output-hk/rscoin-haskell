@@ -26,6 +26,7 @@ module RSCoin.Bank.AcidState
        , GetHBlock (..)
        , GetHBlocks (..)
        , GetLogs (..)
+       , GetStatisticsId (..)
 
          -- | Updates
        , AddAddress (..)
@@ -37,6 +38,7 @@ module RSCoin.Bank.AcidState
        , SuspendExplorer (..)
        , RestoreExplorers (..)
        , StartNewPeriod (..)
+       , CheckAndBumpStatisticsId (..)
        ) where
 
 import           Control.Lens                  (view)
@@ -128,6 +130,9 @@ getHBlocks from to = view $ BS.getHBlocks from to
 getLogs :: MintetteId -> Int -> Int -> Query BS.Storage (Maybe ActionLog)
 getLogs m from to = view $ BS.getLogs m from to
 
+getStatisticsId :: Query BS.Storage Int
+getStatisticsId = view BS.getStatisticsId
+
 addAddress :: Address -> TxStrategy -> Update BS.Storage ()
 addAddress = BS.addAddress
 
@@ -159,6 +164,9 @@ startNewPeriod
     -> Update BS.Storage [NewPeriodData]
 startNewPeriod = BS.startNewPeriod
 
+checkAndBumpStatisticsId :: Int -> Update BS.Storage Bool
+checkAndBumpStatisticsId = BS.checkAndBumpStatisticsId
+
 $(makeAcidic ''BS.Storage
              [ 'getMintettes
              , 'getEmission
@@ -170,6 +178,7 @@ $(makeAcidic ''BS.Storage
              , 'getHBlock
              , 'getHBlocks
              , 'getLogs
+             , 'getStatisticsId
 
              , 'getStorage
 
@@ -182,6 +191,7 @@ $(makeAcidic ''BS.Storage
              , 'suspendExplorer
              , 'restoreExplorers
              , 'startNewPeriod
+             , 'checkAndBumpStatisticsId
              ])
 
 getStatistics
@@ -191,5 +201,8 @@ getStatistics st =
     show' . listBuilderJSONIndent 3 . map toBuilder . estimateMemoryUsage parts <$>
     query st GetStorage
   where
-    parts = [StoragePart "mintettes" BS.getMintettes]
+    parts =
+        [ StoragePart "mintettes" BS.getMintettes
+        , StoragePart "utxo" BS.getUtxo
+        , StoragePart "dpk" BS.getDpk]
     toBuilder (name,size :: Byte) = bprint (stext % ": " % memory) name size

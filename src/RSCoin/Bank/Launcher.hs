@@ -15,6 +15,7 @@ module RSCoin.Bank.Launcher
        , addExplorerReq
        , removeMintetteReq
        , removeExplorerReq
+       , dumpStatisticsReq
        ) where
 
 import           Control.Monad             (when)
@@ -28,7 +29,7 @@ import           Formatting                (int, sformat, (%))
 import           RSCoin.Core               (Explorer, Mintette, PeriodId,
                                             PublicKey, SecretKey, sign)
 import           RSCoin.Core.Communication (getBlockchainHeight,
-                                            getMintettePeriod,
+                                            getMintettePeriod, getStatisticsId,
                                             sendBankLocalControlRequest)
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
@@ -125,8 +126,15 @@ removeMintetteReq ca bankSk mintetteHost mintettePort = do
     let proof = sign bankSk (mintetteHost, mintettePort)
     wrapRequest ca bankSk $ P.RemoveMintette mintetteHost mintettePort proof
 
--- | Sends a request to remove explorer
+-- | Sends a request to remove explorer.
 removeExplorerReq :: ContextArgument  -> SecretKey -> String -> Int -> IO ()
 removeExplorerReq ca bankSk explorerHost explorerPort = do
     let proof = sign bankSk (explorerHost, explorerPort)
     wrapRequest ca bankSk $ P.RemoveExplorer explorerHost explorerPort proof
+
+-- | Sends a request to dump statistics about database usage.
+dumpStatisticsReq :: ContextArgument -> SecretKey -> IO ()
+dumpStatisticsReq ca bankSk = do
+    sId <- runRealModeBank ca bankSk getStatisticsId
+    let proof = sign bankSk sId
+    wrapRequest ca bankSk $ P.DumpStatistics sId proof

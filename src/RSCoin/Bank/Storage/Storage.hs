@@ -18,6 +18,7 @@ module RSCoin.Bank.Storage.Storage
        , blocks
        , utxo
        , emissionHashes
+       , statisticsId
 
        ) where
 
@@ -52,6 +53,8 @@ data Storage = Storage
     , _utxo             :: !C.Utxo
       -- | List off all emission hashes from the very beginning.
     , _emissionHashes   :: ![C.TransactionId]
+      -- | Used to make `DumpStatistics` endpoint private.
+    , _statisticsId     :: !Int
     } deriving (Typeable)
 
 $(makeLenses ''Storage)
@@ -68,4 +71,5 @@ mkStorage =
     , _blocks = []
     , _utxo = MP.empty
     , _emissionHashes = []
+    , _statisticsId = 42
     }

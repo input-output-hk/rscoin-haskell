@@ -10,6 +10,7 @@ module RSCoin.Core.Communication
        ( CommunicationError (..)
        , askExplorer
        , getBlockchainHeight
+       , getStatisticsId
        , getBlockByHeight
        , getBlocksByHeight
        , getTransactionById
@@ -150,6 +151,13 @@ getBlockchainHeight =
         (L.logDebug "Getting blockchain height")
         (L.logDebug . sformat ("Blockchain height is " % int))
         $ callBank $ P.call (P.RSCBank P.GetBlockchainHeight)
+
+getStatisticsId :: WorkMode m => m Int
+getStatisticsId =
+    withResult
+        (L.logDebug "Getting statistics id")
+        (L.logDebug . sformat ("Statistics id is " % int)) $
+    callBank $ P.call (P.RSCBank P.GetStatisticsId)
 
 -- TODO: should this method return Maybe HBlock ?
 -- | Given the height/perioud id, retreives block if it's present
@@ -385,7 +393,6 @@ announceNewBlock explorer pId blk signature =
             explorer
 
 -- Dumping Bank state
-
 
 getAddresses :: WorkMode m => m AddressToTxStrategyMap
 getAddresses =

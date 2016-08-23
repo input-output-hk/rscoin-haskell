@@ -10,6 +10,12 @@ import CSS.Stylesheet                 (CSS, key)
 darkRed :: Color
 darkRed = rgb 126 0 0
 
+veryLightGrey :: Color
+veryLightGrey = rgb 251 251 251
+
+lightGrey :: Color
+lightGrey = rgb 242 242 242
+
 imagePath :: String -> String
 imagePath i = "image/" <> i
 
@@ -21,6 +27,9 @@ logoSmallPath = imagePath "logo-small.png"
 
 headerBitmapPath :: String
 headerBitmapPath = imagePath "header-bitmap-copy.png"
+
+adaSymbolPath :: String
+adaSymbolPath = imagePath "ada-currency-symbol-dark.png"
 
 opacity :: Number -> CSS
 opacity = key $ fromString "opacity"

@@ -12,12 +12,13 @@ import App.Types                      (Address (..), IntroductoryMsg (..),
                                        OutcomingMsg (..),
                                        Action (..), State, SearchQuery (..),
                                        PublicKey (..), ServerError (..), Hash (..))
-import App.View.Address               (view) as Address
-import App.View.NotFound              (view) as NotFound
-import App.View.Transaction           (view) as Transaction
-import App.View.Header                (view) as Header
-import App.View.Alert                 (view) as Alert
-import App.View.Footer                (view) as Footer
+import App.CSS                        (veryLightGrey)
+import App.ViewNew.Address            (view) as Address
+import App.ViewNew.NotFound           (view) as NotFound
+import App.ViewNew.Transaction        (view) as Transaction
+import App.ViewNew.Header             (view) as Header
+import App.ViewNew.Alert              (view) as Alert
+import App.ViewNew.Footer             (view) as Footer
 
 import Serokell.Pux.Themes.Bootstrap3 (bootstrapCss, containerFluid)
 import Serokell.Pux.Html              (className)
@@ -35,6 +36,7 @@ import Pux                            (EffModel, noEffects, onlyEffects)
 import Pux.Html                       (Html, div)
 
 import Pux.Router                     (navigateTo) as R
+import Pux.CSS                        (style, backgroundColor)
 
 import Control.Apply                  ((*>))
 import Control.Alternative            ((<|>))
@@ -149,7 +151,9 @@ update Nop state = noEffects state
 view :: State -> Html Action
 view state =
     bootstrapCss
-        []
+        [ style do
+            backgroundColor veryLightGrey
+        ]
         [ Header.view state
         , Alert.view state
         , div

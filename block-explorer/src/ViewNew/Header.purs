@@ -32,8 +32,10 @@ view state =
                 , id_ "logo-link" ]
                 [ R.link R.homeUrl
                     []
-                    [ div
-                        [ id_ "logo" ]
+                    [ img
+                        [ id_ "logo"
+                        , src logoPath
+                        ]
                         []
                     ]
                 ]
@@ -81,29 +83,5 @@ view state =
                     ]
                     []
                 ]
-            --, div
-            --    [ className "col-xs-6 navbar-form navbar-right" ]
-            --    [ div
-            --        [ className "input-group" ]
-            --        [ input
-            --            [ type_ "text"
-            --            , value state.searchQuery
-            --            , className "form-control"
-            --            , placeholder "Address / Transaction"
-            --            ] []
-            --        , span
-            --            [ className "input-group-btn" ]
-            --            [ button
-            --                [ className "btn btn-default"
-            --                ]
-            --                [ span
-            --                    [ className "glyphicon glyphicon-search"
-            --                    , aria "hidden" "true"
-            --                    ]
-            --                    []
-            --                ]
-            --            ]
-            --        ]
-            --    ]
             ]
         ]

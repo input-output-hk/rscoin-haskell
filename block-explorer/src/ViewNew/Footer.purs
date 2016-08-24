@@ -4,7 +4,7 @@ import Prelude                        (const, ($), (==), (<<<), bind, (<>), (#))
 
 import App.Routes                     (homeUrl) as R
 import App.Types                      (State, Action (..))
-import App.CSS                        (darkRed, opacity, logoSmallPath,
+import App.CSS                        (darkRed, opacity, logoPath,
                                        headerBitmapPath, headFootHeight)
 
 
@@ -32,8 +32,10 @@ view state =
                 , id_ "footer-logo-link"]
                 [ R.link R.homeUrl
                     []
-                    [ div
-                        [ id_ "logo-small" ]
+                    [ img
+                        [ id_ "logo-small"
+                        , src logoPath
+                        ]
                         []
                     ]
                 ]

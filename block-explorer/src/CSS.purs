@@ -22,7 +22,7 @@ imagePath :: String -> String
 imagePath i = "image/" <> i
 
 logoPath :: String
-logoPath = imagePath "logo-copy.png"
+logoPath = imagePath "logo.svg"
 
 logoSmallPath :: String
 logoSmallPath = imagePath "logo-small.png"

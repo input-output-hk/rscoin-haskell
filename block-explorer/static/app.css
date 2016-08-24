@@ -41,12 +41,10 @@ body {
 }
 
 #logo {
-    content: url("image/logo.svg");
     height: 24px;
 }
 
 #logo-small {
-    content: url("image/logo.svg");
     height: 12px;
 }
 

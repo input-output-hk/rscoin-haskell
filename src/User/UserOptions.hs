@@ -148,21 +148,21 @@ userCommandParser =
                  createMultisigOpts
                  (progDesc "Create multisignature address allocation")) <>
          command
-             "list-pending"
+             "pending-list"
              (info
                  (pure ListPendingTransactions)
                  (progDesc "List transactions that are pending to be signed")) <>
          command
-             "send-pending"
+             "pending-send"
              (info sendPendingOpts
                  (progDesc "Send a pending transaction from list-pending by index")) <>
          command
-             "list-alloc"
+             "alloc-list"
              (info
                   (listAllocOpts ListAllocations)
                   (progDesc
                        "List all multisignature address allocations you need to confirm")) <>
-         command "list-alloc-blacklisted"
+         command "alloc-list-blacklisted"
              (info
                   (listAllocOpts ListAllocationsBlacklist)
                   (progDesc $
@@ -189,18 +189,18 @@ userCommandParser =
              (info coldSignOpts
                   (progDesc "Read non-signed transaction from file and sign it.")) <>
          command
-             "import-address"
+             "address-import"
              (info
                   importAddressOpts
                   (progDesc
                        "Import address to storage given a (secretKey,publicKey) pair")) <>
          command
-             "export-address"
+             "address-export"
              (info
                   exportAddressOpts
                   (progDesc "Export address' keypair  to the file.")) <>
          command
-             "delete-address"
+             "address-delete"
              (info
                   deleteAddressOpts
                   (progDesc $

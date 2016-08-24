@@ -34,7 +34,7 @@ import Debug.Trace                    (traceAny)
 
 import Pux                            (EffModel, noEffects, onlyEffects)
 import Pux.Html                       (Html, div, style, text)
-import Pux.Html.Attributes            (type_)
+import Pux.Html.Attributes            (type_, id_)
 
 import Pux.Router                     (navigateTo) as R
 import Pux.CSS                        (style, backgroundColor) as CSS
@@ -157,19 +157,22 @@ view state =
         [-- style
          --   [ type_ "text/css" ]
          --   [ text $ unsafePartial $ fromJust $ renderedSheet $ render styleSheet ]
-          Header.view state
-        , Alert.view state
-        , div
-            [ className containerFluid ]
-            [ case state.route of
-                R.Home -> Address.view state
-                R.Address _ -> Address.view state
-                R.Transaction tId ->
-		            let
-                        queryGetTx (Just (SQTransaction tx)) = Just tx
-                        queryGetTx _ = Nothing
-					in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
-                R.NotFound -> NotFound.view state
+          div
+            [ id_ "bla" ]
+            [ Header.view state
+            , Alert.view state
+            , div
+                [ className containerFluid ]
+                [ case state.route of
+                    R.Home -> Address.view state
+                    R.Address _ -> Address.view state
+                    R.Transaction tId ->
+                        let
+                            queryGetTx (Just (SQTransaction tx)) = Just tx
+                            queryGetTx _ = Nothing
+                        in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
+                    R.NotFound -> NotFound.view state
+                ]
             ]
         , Footer.view state
         ]

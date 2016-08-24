@@ -39,10 +39,8 @@ import           Safe                          (headMay)
 
 import           Serokell.Util                 (enumerate)
 
-import           RSCoin.Core                   (ActionLog,
-                                                ActionLogEntry (CloseEpochEntry),
-                                                AddrId, Address (..), Dpk,
-                                                HBlock (..), MintetteId,
+import           RSCoin.Core                   (ActionLog, AddrId, Address (..),
+                                                Dpk, HBlock (..), MintetteId,
                                                 Mintettes, NewPeriodData (..),
                                                 PeriodId, PeriodResult,
                                                 PublicKey, SecretKey,
@@ -234,7 +232,8 @@ checkResult expectedPid lastHBlock (r,key,storedLog) = do
     guard $ pId == expectedPid
     guard $ checkActionLog (headMay storedLog) actionLog
     let logsToCheck =
-            formLogsToCheck $ dropWhile (not . isCloseEpoch) actionLog
+            formLogsToCheck $
+            dropWhile (not . C.isCloseEpochEntry . fst) actionLog
     let g3 = length logsToCheck == length lBlocks
     guard g3
     mapM_
@@ -246,9 +245,7 @@ checkResult expectedPid lastHBlock (r,key,storedLog) = do
     formLogsToCheck = unfoldr step
     step []        = Nothing
     step actionLog = Just (actionLog, dropEpoch actionLog)
-    dropEpoch = dropWhile (not . isCloseEpoch) . drop 1
-    isCloseEpoch (CloseEpochEntry _,_) = True
-    isCloseEpoch _                     = False
+    dropEpoch = dropWhile (not . C.isCloseEpochEntry . fst) . drop 1
 
 -- | Perform coins allocation based on default allocation strategy
 -- (hardcoded). Given the mintette's public keys it splits reward

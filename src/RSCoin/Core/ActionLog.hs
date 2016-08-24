@@ -1,12 +1,15 @@
 -- | Functions tightly related to ActionLog
 
 module RSCoin.Core.ActionLog
-       ( checkActionLog
-       , actionLogNext
+       ( actionLogNext
+       , checkActionLog
+       , isCloseEpochEntry
+       , isCommitEntry
+       , isQueryEntry
        ) where
 
 import           RSCoin.Core.Crypto (Hash, hash)
-import           RSCoin.Core.Types  (ActionLog, ActionLogEntry)
+import           RSCoin.Core.Types  (ActionLog, ActionLogEntry (..))
 
 initialHash :: Hash
 initialHash = hash ("Ivan" :: String)
@@ -29,3 +32,15 @@ actionLogNext :: Maybe (ActionLogEntry, Hash)
               -> (ActionLogEntry, Hash)
 actionLogNext prevHead entry = (entry, hash (entry, prevHash))
   where prevHash = maybe initialHash snd prevHead
+
+isQueryEntry :: ActionLogEntry -> Bool
+isQueryEntry (QueryEntry _) = True
+isQueryEntry _              = False
+
+isCommitEntry :: ActionLogEntry -> Bool
+isCommitEntry (CommitEntry _ _) = True
+isCommitEntry _                 = False
+
+isCloseEpochEntry :: ActionLogEntry -> Bool
+isCloseEpochEntry (CloseEpochEntry _) = True
+isCloseEpochEntry _                   = False

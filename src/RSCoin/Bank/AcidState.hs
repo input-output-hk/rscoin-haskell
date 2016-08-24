@@ -51,8 +51,8 @@ import           Data.Maybe                    (fromMaybe)
 import           Data.Text                     (Text)
 import           Formatting                    (bprint, stext, (%))
 
-import           RSCoin.Core                   (ActionLog, ActionLogEntry (..),
-                                                Address, AddressToTxStrategyMap,
+import           RSCoin.Core                   (ActionLog, Address,
+                                                AddressToTxStrategyMap,
                                                 Explorer, Explorers, HBlock,
                                                 Mintette, MintetteId, Mintettes,
                                                 NewPeriodData, PeriodId,
@@ -234,16 +234,10 @@ getStatistics st =
     firstActionLogEntries = firstActionLog . to (map fst)
     firstActionLogQueryEntries :: Getter BS.Storage [C.ActionLogEntry]
     firstActionLogQueryEntries =
-        firstActionLogEntries . to (filter isQueryEntry)
+        firstActionLogEntries . to (filter C.isQueryEntry)
     firstActionLogCommitEntries :: Getter BS.Storage [C.ActionLogEntry]
     firstActionLogCommitEntries =
-        firstActionLogEntries . to (filter isCommitEntry)
+        firstActionLogEntries . to (filter C.isCommitEntry)
     firstActionLogCloseEpochEntries :: Getter BS.Storage [C.ActionLogEntry]
     firstActionLogCloseEpochEntries =
-        firstActionLogEntries . to (filter isCloseEpochEntry)
-    isQueryEntry (QueryEntry _) = True
-    isQueryEntry _              = False
-    isCommitEntry (CommitEntry _ _) = True
-    isCommitEntry _                 = False
-    isCloseEpochEntry (CloseEpochEntry _) = True
-    isCloseEpochEntry _                   = False
+        firstActionLogEntries . to (filter C.isCloseEpochEntry)

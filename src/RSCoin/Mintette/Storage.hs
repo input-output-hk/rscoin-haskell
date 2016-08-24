@@ -8,8 +8,28 @@
 -- | Storage for mintette's data.
 
 module RSCoin.Mintette.Storage
-       ( Storage
+       (
+         -- | Type and constructor
+         Storage
        , mkStorage
+
+         -- | Lenses
+       , addresses
+       , actionLogs
+       , dpk
+       , invMintetteId
+       , logHeads
+       , logSize
+       , lBlocks
+       , mintettes
+       , mintetteId
+       , pset
+       , txset
+       , utxo
+       , utxoAdded
+       , utxoDeleted
+
+         -- | Something excellent
        , checkNotDoubleSpent
        , commitTx
        , finishPeriod
@@ -20,23 +40,13 @@ module RSCoin.Mintette.Storage
        , getBlocks
        , getLogs
        , getPeriodId
+
        -- | Other helper methods
        , checkIsActive
        , checkTxSum
-       , pset
-       , addresses
        , logHead
-       , logSize
-       , utxo
        , pushLogEntry
-       , utxoDeleted
        , checkPeriodId
-       , mintettes
-       , mintetteId
-       , dpk
-       , logHeads
-       , utxoAdded
-       , txset
        , periodId
        ) where
 

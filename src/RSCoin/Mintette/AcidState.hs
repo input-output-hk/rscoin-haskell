@@ -8,18 +8,21 @@ module RSCoin.Mintette.AcidState
        , query
        , update
 
+       , getBlocks
+       , getLogs
+       , getPeriodId
+       , getStorage
+       , getUtxoPset
+       , previousMintetteId
+
        , checkNotDoubleSpent
        , commitTx
        , finishEpoch
        , finishPeriod
-       , getBlocks
-       , getLogs
-       , getPeriodId
-       , getUtxoPset
-       , previousMintetteId
        , startPeriod
        ) where
 
+import           Control.Monad.Reader    (ask)
 import           Control.Monad.Trans     (MonadIO)
 import           Data.Acid               (EventResult, EventState, Query,
                                           QueryEvent, Update, UpdateEvent)
@@ -62,6 +65,9 @@ getLogs = MS.getLogs
 
 getPeriodId :: Query MS.Storage PeriodId
 getPeriodId = MS.getPeriodId
+
+getStorage :: Query MS.Storage MS.Storage
+getStorage = ask
 
 previousMintetteId :: Query MS.Storage (Maybe MintetteId)
 previousMintetteId = MS.previousMintetteId

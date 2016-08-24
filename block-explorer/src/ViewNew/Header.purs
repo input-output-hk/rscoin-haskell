@@ -75,8 +75,10 @@ view state =
                     , placeholder "Address / IP / SHA hash"
                     ]
                     []
-                , div
-                    [ id_ "search-ic" ]
+                , span
+                    [ className "glyphicon glyphicon-search"
+                    , id_ "search-ic"
+                    ]
                     []
                 ]
             --, div

@@ -104,11 +104,10 @@ body {
 :-ms-input-placeholder      { color: rgba(255, 255, 255, 0.5); }
 
 #search-ic {
-    content: url("image/search-ic.svg");
-    height: 12px;
+    color: white;
+    font-size: 12px;
     padding-left: 296px;
     margin-top: 6px;
-    position: absolute;
 }
 
 #footer-links {

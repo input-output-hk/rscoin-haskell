@@ -172,7 +172,6 @@ addHBlock pId C.HBlock{..} emission = do
 
 applyTransaction :: C.Transaction -> ExceptUpdate ()
 applyTransaction tx@C.Transaction{..} = do
-    -- FIXME: @akegalj thinks fromJust should be safe here?
     txInputsSummaries <-
         mapM
             (\a ->

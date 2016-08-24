@@ -15,12 +15,8 @@ module RSCoin.Timed.PureRpc
 
 import           Control.Lens            (makeLenses, use, view, (%%=), (%=))
 import           Control.Monad           (forM_)
---import           Control.Monad.Base      (MonadBase (..))
 import           Control.Monad.Catch     (MonadCatch, MonadMask, MonadThrow,
                                           throwM)
---import           Control.Monad.Trans.Control (MonadBaseControl (..), ComposeSt, defaultRestoreM,
---                                              defaultLiftBaseWith, MonadTransControl (..),
---                                              defaultLiftWith, defaultRestoreT)
 import           Control.Monad.Random    (Rand, runRand)
 import           Control.Monad.State     (MonadState (get, put, state), StateT,
                                           evalStateT)
@@ -103,20 +99,6 @@ instance MonadState s m => MonadState s (PureRpc m) where
     get = lift get
     put = lift . put
     state = lift . state
-
--- Copy pasted instances from lifted-base sources (deriving doesn't work)
---instance MonadBase b m => MonadBase b (PureRpc m) where
---    liftBase = lift . liftBase
-
---instance MonadTransControl PureRpc where
---    type StT PureRpc a = StT StateT Host (TimedT (StateT (NetInfo (PureRpc m)) m)) a
---    liftWith = defaultLiftWith PureRpc unwrapPureRpc
---    restoreT = defaultRestoreT PureRpc
-
---instance MonadBaseControl IO m => MonadBaseControl IO (PureRpc m) where
---    type StM (PureRpc m) a = ComposeSt PureRpc m a
---    liftBaseWith = defaultLiftBaseWith
---    restoreM     = defaultRestoreM
 
 -- | Launches rpc scenario.
 runPureRpc

@@ -228,7 +228,7 @@ getStatistics st =
     toBuilder (name,size :: Byte) = bprint (stext % ": " % memory) name size
     firstActionLog :: Getter BS.Storage ActionLog
     firstActionLog = BS.getAllActionLogs . to (fromMaybe [] . headMay)
-    firstActionLogHashes :: Getter BS.Storage [C.Hash]
+    firstActionLogHashes :: Getter BS.Storage [C.ActionLogEntryHash]
     firstActionLogHashes = firstActionLog . to (map snd)
     firstActionLogEntries :: Getter BS.Storage [C.ActionLogEntry]
     firstActionLogEntries = firstActionLog . to (map fst)

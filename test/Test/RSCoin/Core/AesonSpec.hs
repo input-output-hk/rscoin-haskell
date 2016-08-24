@@ -21,11 +21,11 @@ spec =
             {-prop "Coin" $
                 \(a :: C.Coin) -> a === aesonMid a-}
             prop "Signature" $
-                \(a :: C.Signature) -> a === aesonMid a
+                \(a :: C.Signature Int) -> a === aesonMid a
             prop "Address" $
                 \(a :: C.Address) -> a === aesonMid a
             prop "Hash" $
-                \(a :: C.Hash) -> a === aesonMid a
+                \(a :: C.Hash Word) -> a === aesonMid a
             {-prop "SmallHBlock" $
                 \(a :: SmallHBlock) -> a === aesonMid a-}
             prop "PartyAddress" $

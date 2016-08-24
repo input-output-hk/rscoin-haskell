@@ -50,7 +50,7 @@ checkNotDoubleSpent
     -> SecretKey
     -> Transaction
     -> AddrId
-    -> [(Address, Signature)]
+    -> [(Address, Signature Transaction)]
     -> Update OMS.Storage CheckConfirmation
 checkNotDoubleSpent = MS.checkNotDoubleSpent
 

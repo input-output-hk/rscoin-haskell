@@ -39,7 +39,7 @@ genCoinInRange col lo hi = C.Coin col . C.CoinAmount <$> genRationalInRange lo h
 instance Arbitrary TransactionValid where
     arbitrary =
         TransactionValid <$>
-        do trid <- arbitrary :: Gen C.Hash
+        do trid <- arbitrary :: Gen C.TransactionId
            inps :: [(Int, C.Coin)] <-
                map (second abs) . getNonEmpty <$> arbitrary
            let coins :: C.CoinsMap

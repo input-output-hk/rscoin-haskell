@@ -123,6 +123,9 @@ guardMaxAttemps userAddr = do
     currentAttemtps <- uses periodStats $ fromJust . M.lookup userAddr
     when (currentAttemtps >= notaryMSAttemptsLimit) $ throwM NEBlocked
 
+type MSSignature = Signature (MSAddress, AllocationStrategy)
+type MaybePKSignature = Maybe (PublicKey, Signature PublicKey)
+
 -- | Allocate new multisignature address by chosen strategy and
 -- given chain of certificates.
 allocateMSAddress
@@ -210,7 +213,7 @@ getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> use addresses
 -- already collected for particular (tx, addr) pair.
 addSignedTransaction :: Transaction
                      -> Address
-                     -> (Address, Signature)
+                     -> (Address, Signature Transaction)
                      -> Update Storage ()
 addSignedTransaction tx addr (sigAddr,sig) = do
     checkTransactionValidity

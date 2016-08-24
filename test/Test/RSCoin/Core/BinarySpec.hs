@@ -33,13 +33,13 @@ spec =
             prop "Coin" $
                 \(a :: C.Coin) -> a === binMid a
             prop "Signature" $
-                \(a :: C.Signature) -> a === binMid a
+                \(a :: C.Signature Int) -> a === binMid a
             prop "Address" $
                 \(a :: C.Address) -> a === binMid a
             prop "Mintette" $
                 \(a :: C.Mintette) -> a === binMid a
             prop "Hash" $
-                \(a :: C.Hash) -> a === binMid a
+                \(a :: C.Hash Int) -> a === binMid a
             prop "Explorer" $
                 \(a :: C.Explorer) -> a === binMid a
             {-prop "SmallNewPeriodData" $

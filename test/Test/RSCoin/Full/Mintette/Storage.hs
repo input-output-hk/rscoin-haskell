@@ -51,7 +51,7 @@ checkNotDoubleSpent :: MintetteConfig
                     -> SecretKey
                     -> Transaction
                     -> AddrId
-                    -> [(C.Address, C.Signature)]
+                    -> [(C.Address, C.Signature C.Transaction)]
                     -> ExceptUpdate C.CheckConfirmation
 checkNotDoubleSpent conf sk tx addrId sg = do
     unless (checkActive conf) checkIsActive

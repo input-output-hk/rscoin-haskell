@@ -28,8 +28,8 @@ import qualified RSCoin.User                as U
 
 import           Test.RSCoin.Core.Arbitrary ()
 import           Test.RSCoin.Full.Action    (getUserState)
--- import           Test.RSCoin.Full.Context        (buser, state)
-import           Test.RSCoin.Full.Property  (FullPropertyRealMode, assertFP,
+import           Test.RSCoin.Full.Property  (FullPropertyEmulation,
+                                             FullPropertyRealMode, assertFP,
                                              pickFP, runTestEnvFP,
                                              runWorkModeFP)
 import qualified Test.RSCoin.Full.Property  as FP (FullProperty)
@@ -66,14 +66,15 @@ spec =
     before (setupLogging cfg) $ do
         describe "Full RSCoin" $ do
             fullProp "all users have unique addresses" prop_uniqueAddresses
-    where cfg@FullTestConfig {..} = config
-          fullProp :: String -> FullProperty -> Spec
-          fullProp propDescr = prop propDescr . propConverter
-          propConverter :: FullProperty -> Property
-          propConverter = (property :: FullPropertyRealMode a -> Property)
-            --if ftcRealMode
-            --then (property :: FullPropertyRealMode a -> Property)
-            --else (property :: FullPropertyEmulation a -> Property)
+  where
+    cfg@FullTestConfig {..} = config
+    fullProp :: String -> FullProperty -> Spec
+    fullProp propDescr = prop propDescr . propConverter
+    propConverter :: FullProperty -> Property
+    propConverter =
+        if ftcRealMode
+            then (property :: FullPropertyRealMode a -> Property)
+            else (property :: FullPropertyEmulation a -> Property)
 
 setupLogging :: FullTestConfig -> IO ()
 setupLogging FullTestConfig{..} = do

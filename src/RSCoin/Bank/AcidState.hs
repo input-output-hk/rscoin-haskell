@@ -41,24 +41,27 @@ module RSCoin.Bank.AcidState
        , CheckAndBumpStatisticsId (..)
        ) where
 
-import           Control.Lens                  (to, view)
+import           Control.Lens                  (Getter, to, view)
 import           Control.Monad.Reader          (ask)
 import           Control.Monad.Trans           (MonadIO)
 import           Data.Acid                     (EventResult, EventState, Query,
                                                 QueryEvent, Update, UpdateEvent,
                                                 makeAcidic)
+import           Data.Maybe                    (fromMaybe)
 import           Data.Text                     (Text)
 import           Formatting                    (bprint, stext, (%))
 
-import           RSCoin.Core                   (ActionLog, Address,
-                                                AddressToTxStrategyMap,
+import           RSCoin.Core                   (ActionLog, ActionLogEntry (..),
+                                                Address, AddressToTxStrategyMap,
                                                 Explorer, Explorers, HBlock,
                                                 Mintette, MintetteId, Mintettes,
                                                 NewPeriodData, PeriodId,
                                                 PeriodResult, PublicKey,
                                                 SecretKey, TransactionId,
                                                 TxStrategy)
+import qualified RSCoin.Core                   as C
 
+import           Safe                          (headMay)
 import           Serokell.AcidState            (ExtendedState,
                                                 closeExtendedState,
                                                 openLocalExtendedState,
@@ -203,8 +206,15 @@ getStatistics st =
   where
     parts =
         [ StoragePart "mintettes" BS.getMintettes
-        , StoragePart "actionLogs" BS.getAllActionLogs
         , StoragePart "dpk" BS.getDpk
+
+        , StoragePart "actionLogs" BS.getAllActionLogs
+        , StoragePart "actionLogs[0]" firstActionLog
+        , StoragePart "hashes from actionLogs[0]" firstActionLogHashes
+        , StoragePart "entries from actionLogs[0]" firstActionLogEntries
+        , StoragePart "query entries from actionLogs[0]" firstActionLogQueryEntries
+        , StoragePart "commit entries from actionLogs[0]" firstActionLogCommitEntries
+        , StoragePart "close epoch entries from actionLogs[0]" firstActionLogCloseEpochEntries
 
         , StoragePart "explorers" BS.getExplorersAndPeriods
 
@@ -213,9 +223,27 @@ getStatistics st =
         , StoragePart "blocks" BS.getAllHBlocks
         , StoragePart "utxo" BS.getUtxo
 
-        , StoragePart "periodId" BS.getPeriodId
-        , StoragePart "statisticsId" BS.getStatisticsId
-
         , StoragePart "Storage" (to id)
         ]
     toBuilder (name,size :: Byte) = bprint (stext % ": " % memory) name size
+    firstActionLog :: Getter BS.Storage ActionLog
+    firstActionLog = BS.getAllActionLogs . to (fromMaybe [] . headMay)
+    firstActionLogHashes :: Getter BS.Storage [C.Hash]
+    firstActionLogHashes = firstActionLog . to (map snd)
+    firstActionLogEntries :: Getter BS.Storage [C.ActionLogEntry]
+    firstActionLogEntries = firstActionLog . to (map fst)
+    firstActionLogQueryEntries :: Getter BS.Storage [C.ActionLogEntry]
+    firstActionLogQueryEntries =
+        firstActionLogEntries . to (filter isQueryEntry)
+    firstActionLogCommitEntries :: Getter BS.Storage [C.ActionLogEntry]
+    firstActionLogCommitEntries =
+        firstActionLogEntries . to (filter isCommitEntry)
+    firstActionLogCloseEpochEntries :: Getter BS.Storage [C.ActionLogEntry]
+    firstActionLogCloseEpochEntries =
+        firstActionLogEntries . to (filter isCloseEpochEntry)
+    isQueryEntry (QueryEntry _) = True
+    isQueryEntry _              = False
+    isCommitEntry (CommitEntry _ _) = True
+    isCommitEntry _                 = False
+    isCloseEpochEntry (CloseEpochEntry _) = True
+    isCloseEpochEntry _                   = False

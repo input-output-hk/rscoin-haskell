@@ -313,13 +313,13 @@ type NewMintetteIdPayload = (MintetteId, Utxo, AddressToTxStrategyMap)
 -- | Data sent by server on new period start. If mintette id changes,
 -- bank *must* include npdNewIdPayload.
 data NewPeriodData = NewPeriodData
-    { npdPeriodId     :: !PeriodId                   -- ^ Id of a new period
-    , npdMintettes    :: !Mintettes                  -- ^ Mintettes list
-    , npdHBlock       :: !HBlock                     -- ^ Last processed HBlock (needed to
-                                                     -- update local mintette's utxo)
+    { npdPeriodId     :: !PeriodId                     -- ^ Id of a new period
+    , npdMintettes    :: !Mintettes                    -- ^ Mintettes list
+    , npdHBlock       :: !HBlock                       -- ^ Last processed HBlock (needed to
+                                                       -- update local mintette's utxo)
     , npdNewIdPayload :: !(Maybe NewMintetteIdPayload) -- ^ Data needed for mintette to
-                                                     -- restore state if it's Id changes
-    , npdDpk          :: !Dpk                        -- ^ Dpk
+                                                       -- restore state if it's Id changes
+    , npdDpk          :: !Dpk                          -- ^ Dpk
     } deriving (Show, Eq)
 
 instance Buildable (AddrId, Address) where

@@ -36,8 +36,7 @@ import qualified Data.Text.IO            as TIO
 import           Formatting              (build, int, sformat, stext, string,
                                           (%))
 
-import           Serokell.Util.Text      (listBuilderJSONIndent, pairBuilder,
-                                          show')
+import           Serokell.Util.Text      (pairBuilder, show')
 
 #if GtkGui
 import           Control.Exception       (SomeException)
@@ -100,7 +99,7 @@ processCommandNoOpts st O.UpdateBlockchain =
     processUpdateBlockchain st
 processCommandNoOpts st (O.CreateMultisigAddress n usrAddr trustAddr masterPk sig) =
     processMultisigAddress st n usrAddr trustAddr masterPk sig
-processCommandNoOpts st (O.ListPendingTransactions) =
+processCommandNoOpts st O.ListPendingTransactions =
     processListPendingTxs st
 processCommandNoOpts st (O.SendPendingTransaction index) =
     processSendPendingTx st index
@@ -304,12 +303,14 @@ processListPendingTxs st = do
                 B.build addrid <> " that's owned by addr " <> B.build addr
             mappedResolved = map mapFoo resolved
             builtInputs = mconcat $ intersperse ",\n  " mappedResolved
-        return $ mconcat ["Transaction{\ninputs:"
-                         , builtInputs
-                         , "\noutputs:"
-                         , listBuilderJSONIndent 2 $ map pairBuilder txOutputs
-                         , "\nhash: "
+            builtOutputs =
+                mconcat $ intersperse ",\n  " $ map pairBuilder txOutputs
+        return $ mconcat ["Transaction with hash "
                          , B.build $ C.hash tx
+                         , ":{\n* inputs:\n  "
+                         , builtInputs
+                         , "\n* outputs:\n  "
+                         , builtOutputs
                          , "\n}"
                          ]
 

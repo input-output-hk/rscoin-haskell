@@ -57,7 +57,8 @@ import qualified Data.IntMap.Strict     as I
 import           Data.List              (elemIndex, foldl1', genericIndex,
                                          genericLength, groupBy, nub, sortOn)
 import qualified Data.Map               as M
-import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing)
+import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing,
+                                         mapMaybe)
 import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
@@ -603,15 +604,16 @@ sendTransactionDo st maybeCache tx signatures = do
             filter ((/= C.DefaultStrategy) . view _2 . snd) $
             M.assocs signatures
         withoutSigs =
-            map (\(_,(addr,_,sgns)) -> if null sgns then Just addr else Nothing)
+            mapMaybe
+                (\(_,(addr,_,sgns)) -> if null sgns then Just addr else Nothing)
                 nonDefaultAddresses
         nonDefaultAddressesMapped =
             M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
             map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head sgns)))
             nonDefaultAddresses
     unless (null withoutSigs) $ commitError $
-        sformat ("These addresses doesn't have signatures attached: \n" % build) $
-        listBuilderJSONIndent 2 withoutSigs
+        sformat ("These addresses don't have signatures attached: " % build) $
+        listBuilderJSON withoutSigs
     extraSignatures <- getExtraSignatures tx nonDefaultAddressesMapped 120
     let allSignatures :: SignatureBundle
         allSignatures = M.unionWith joinBundles

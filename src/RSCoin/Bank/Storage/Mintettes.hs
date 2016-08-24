@@ -21,16 +21,18 @@ module RSCoin.Bank.Storage.Mintettes
 
        ) where
 
-import           Control.Lens        (Getter, ix, makeLenses, use, uses, (%=),
-                                      (&), (.=), (.~))
-import           Control.Monad.State (State)
-import           Data.List           (delete, find, nub, (\\))
-import qualified Data.Map            as M
-import           Data.SafeCopy       (base, deriveSafeCopy)
-import           Formatting          (build, sformat, (%))
+import           Control.Lens         (Getter, ix, makeLenses, use, uses, (%=),
+                                       (&), (.=), (.~))
+import           Control.Monad        (unless, when)
+import           Control.Monad.Except (ExceptT, MonadError (throwError))
+import           Control.Monad.State  (State)
+import           Data.List            (delete, find, nub, (\\))
+import qualified Data.Map             as M
+import           Data.SafeCopy        (base, deriveSafeCopy)
+import           Formatting           (build, sformat, (%))
 
-import           RSCoin.Bank.Error   (BankError (BEInconsistentResponse))
-import qualified RSCoin.Core         as C
+import           RSCoin.Bank.Error    (BankError (BEInconsistentResponse))
+import qualified RSCoin.Core          as C
 
 -- | DeadMintetteState represents state of mintette which was removed
 -- from storage. It's needed to restore data if mintette resurrects.
@@ -91,36 +93,31 @@ getDpk = msDpk
 getActionLogs :: Query [C.ActionLog]
 getActionLogs = msActionLogs
 
-type Update a = State MintettesStorage a
+type Update = State MintettesStorage
+type ExceptUpdate = ExceptT BankError Update
 
 -- | Add mintette to the storage
-addMintette :: C.Mintette -> C.PublicKey -> Update (Maybe BankError)
+addMintette :: C.Mintette -> C.PublicKey -> ExceptUpdate ()
 addMintette m k = do
     isAdded <- (||) <$> uses msDpk (\dpk -> k `elem` map fst dpk)
                     <*> uses msPendingMintettes ((m `elem`) . map fst)
-    if not isAdded
-    then do
-        msMintettesToRemove %= delete m
-        msPendingMintettes %= ((m, k) :)
-        return Nothing
-    else return $ Just $ BEInconsistentResponse $
+    when isAdded $ throwError $ BEInconsistentResponse $
         sformat ("Mintette " % build % " is already added, won't add.") m
+    msMintettesToRemove %= delete m
+    msPendingMintettes %= ((m, k) :)
 
 -- | Unstages a mintette from being in a next period. Is canceled by
 -- `addMintette` and vice versa
-removeMintette :: C.Mintette -> Update (Maybe BankError)
+removeMintette :: C.Mintette -> ExceptUpdate ()
 removeMintette m = do
     isAdded <- (||) <$> uses msMintettes (m `elem`)
                     <*> uses msPendingMintettes ((m `elem`) . map fst)
-    if isAdded
-    then do
-        e <- uses msPendingMintettes $ find ((== m) . fst)
-        maybe (msMintettesToRemove %= nub . (m:))
-              (\m' -> msPendingMintettes %= delete m')
-              e
-        return Nothing
-    else return $ Just $ BEInconsistentResponse $
+    unless isAdded $ throwError $ BEInconsistentResponse $
         sformat ("Mintette " % build % " is not in the storage, can't remove") m
+    e <- uses msPendingMintettes $ find ((== m) . fst)
+    maybe (msMintettesToRemove %= nub . (m:))
+            (\m' -> msPendingMintettes %= delete m')
+              e
 
 -- | Update mintettes state, returning mintette id's that should
 -- change their utxo. Performs things as saving actionlogs, checking

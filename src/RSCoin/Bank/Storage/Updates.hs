@@ -22,12 +22,13 @@ module RSCoin.Bank.Storage.Updates
        , checkAndBumpStatisticsId
        ) where
 
-import           Control.Lens                  (use, uses, view, (%%=), (%=),
-                                                (+=), (.=), _3)
+import           Control.Lens                  (Lens', use, uses, view, (%%=),
+                                                (%=), (+=), (.=), _3)
 import           Control.Monad                 (forM_, guard, unless, when)
-import           Control.Monad.Catch           (MonadThrow (throwM))
-import           Control.Monad.Extra           (whenJust)
-import           Control.Monad.State           (MonadState, execState, runState)
+import           Control.Monad.Catch           (Exception, MonadThrow (throwM))
+import           Control.Monad.Except          (ExceptT, runExceptT)
+import           Control.Monad.State           (MonadState, State, execState,
+                                                runState)
 import           Data.Bifunctor                (first)
 import qualified Data.HashMap.Lazy             as M
 import qualified Data.HashSet                  as S
@@ -68,6 +69,14 @@ import qualified RSCoin.Bank.Strategies        as Strategies
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
+runExceptState
+    :: Exception e
+    => Lens' Storage s -> ExceptT e (State s) a -> ExceptUpdate a
+runExceptState lens action = do
+    (res,newSt) <- uses lens (runState (runExceptT action))
+    let onSuccess a = lens .= newSt >> return a
+    either throwM onSuccess res
+
 -- | Add given address to storage and associate given strategy with it.
 addAddress :: Address -> C.TxStrategy -> Update ()
 addAddress addr strategy =
@@ -75,10 +84,7 @@ addAddress addr strategy =
 
 -- | Add given mintette to storage and associate given key with it.
 addMintette :: C.Mintette -> C.PublicKey -> ExceptUpdate ()
-addMintette m k = do
-    (exc,s') <- uses mintettesStorage $ runState (MS.addMintette m k)
-    whenJust exc throwM
-    mintettesStorage .= s'
+addMintette m k = runExceptState mintettesStorage $ MS.addMintette m k
 
 -- | Add given explorer to storage and associate given PeriodId with
 -- it. If explorer exists, it is updated.
@@ -88,17 +94,12 @@ addExplorer e expectedPid =
 
 -- | Given host and port, remove mintette from the list of mintettes added
 removeMintette :: String -> Int -> ExceptUpdate ()
-removeMintette h p = do
-    (exc,s') <- uses mintettesStorage $ runState $ MS.removeMintette $ C.Mintette h p
-    whenJust exc throwM
-    mintettesStorage .= s'
+removeMintette h p =
+    runExceptState mintettesStorage $ MS.removeMintette $ C.Mintette h p
 
 -- | Given host and port, remove explorer from the list
 removeExplorer :: String -> Int -> ExceptUpdate ()
-removeExplorer h p = do
-    (exc,s') <- uses explorersStorage $ runState $ ES.removeExplorer h p
-    whenJust exc throwM
-    explorersStorage .= s'
+removeExplorer h p = runExceptState explorersStorage $ ES.removeExplorer h p
 
 -- | Update expected period id of given explorer. Adds explorer if it
 -- doesn't exist.

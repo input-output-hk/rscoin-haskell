@@ -40,6 +40,7 @@ module RSCoin.User.Operations
        , findPartyAddress
        , verifyTrustEntry
        , retrieveAllocationsList
+       , getPendingTransaction
        ) where
 
 import           Control.Arrow          ((***))
@@ -702,3 +703,16 @@ retrieveAllocationsList st mTrustPartyAddress = do
         Nothing    -> pure []
     let allInfos = userAllocInfos ++ trustAllocInfos
     A.update st $ A.UpdateAllocationStrategies $ M.fromList allInfos
+
+-- | Get pending transaction given an index i ∈ [0..txs.length)
+getPendingTransaction :: WorkMode m => A.UserState -> Int -> m C.Transaction
+getPendingTransaction st ix = do
+    txs <- A.query st A.GetPendingTxs
+    let l = length txs
+    when (null txs) $ commitError "No transactions are currently pending."
+    when (ix < 0 || ix >= l) $
+        commitError $
+        sformat
+            ("Index is out of range [1," % int % "], where " % int %
+             " is total number of pending txs at the moment") l l
+    return $ txs !! ix

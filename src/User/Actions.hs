@@ -56,14 +56,7 @@ import           RSCoin.Core.Strategy    (AllocationAddress (..),
 import           RSCoin.Timed            (WorkMode, getNodeContext)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
-import           RSCoin.User.Operations  (TransactionData (..), checkAddressId,
-                                          constructTransaction,
-                                          deleteUserAddress,
-                                          getAllPublicAddresses,
-                                          getAmountNoUpdate,
-                                          getEmptySignatureBundle,
-                                          importAddress, submitTransactionRetry,
-                                          updateBlockchain)
+import           RSCoin.User.Operations  (TransactionData (..))
 import qualified UserOptions             as O
 
 
@@ -103,6 +96,8 @@ processCommandNoOpts st O.ListPendingTransactions =
     processListPendingTxs st
 processCommandNoOpts st (O.SendPendingTransaction index) =
     processSendPendingTx st index
+processCommandNoOpts st (O.PendingToCold index path) =
+    processPendingToCold st index path
 processCommandNoOpts st (O.ConfirmAllocation i mHot masterPk sig) =
     processConfirmAllocation st i mHot masterPk sig
 processCommandNoOpts st (O.ListAllocations mTrustAddrText) =
@@ -133,13 +128,13 @@ processListAddresses
     => U.UserState -> m ()
 processListAddresses st =
     eWrap $
-    do res <- updateBlockchain st False
+    do res <- U.updateBlockchain st False
        unless res $ C.logInfo "Successfully updated blockchain."
        genAddr <- (^. C.genesisAddress) <$> getNodeContext
        addresses <- U.query st $ U.GetOwnedAddresses genAddr
        (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin], Bool)]) <-
            mapM (\addr -> do
-                      coins <- C.coinsToList <$> getAmountNoUpdate st addr
+                      coins <- C.coinsToList <$> U.getAmountNoUpdate st addr
                       hasSecret <- isJust . snd <$> U.query st (U.FindUserAddress addr)
                       strategy <- U.query st $ U.GetAddressStrategy addr
                       return ( C.getAddress addr
@@ -213,7 +208,7 @@ processFormTransaction
 processFormTransaction st inputs outputAddrStr outputCoins =
     eWrap $
     do td <- formTransactionPayload inputs outputAddrStr outputCoins
-       tx <- submitTransactionRetry 2 st Nothing td
+       tx <- U.submitTransactionRetry 2 st Nothing td
        C.logInfo $
            sformat ("Successfully submitted transaction with hash: " % build) $
            C.hash tx
@@ -278,7 +273,7 @@ processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigT
 
 processListPendingTxs :: (MonadIO m, WorkMode m) => U.UserState -> m ()
 processListPendingTxs st = do
-    addrs <- getAllPublicAddresses st
+    addrs <- U.getAllPublicAddresses st
     C.logInfo "Querying notary to update the list of pending transactions"
     txs0 <- C.pollPendingTransactions addrs
     U.update st $ U.UpdatePendingTxs $ S.fromList txs0
@@ -318,28 +313,28 @@ processSendPendingTx
     :: (MonadIO m, WorkMode m)
     => U.UserState -> Int -> m ()
 processSendPendingTx st ix0 = do
-    txs <- U.query st U.GetPendingTxs
-    let l = length txs
-    when (null txs) $ U.commitError "No transactions are currently pending."
-    when (ix < 0 || ix >= l) $
-        U.commitError $
-        sformat
-            ("Index is out of range [1," % int % "], where " % int %
-             " is total number of pending txs at the moment") l l
-    let tx = txs !! ix
+    tx <- U.getPendingTransaction st $ ix0 - 1
     emptyBundle <- U.getEmptySignatureBundle st tx
     signatures <- U.signTransactionLocally st tx emptyBundle
     C.logInfo "Collecting signatures & sending"
     U.sendTransactionRetry 3 st Nothing tx signatures
-  where
-    ix = ix0 - 1
+
+processPendingToCold
+    :: (MonadIO m, WorkMode m)
+    => U.UserState -> Int -> FilePath -> m ()
+processPendingToCold st ix0 path = do
+    tx <- U.getPendingTransaction st $ ix0 - 1
+    emptyBundle <- U.getEmptySignatureBundle st tx
+    liftIO $ BS.writeFile path $ encode (tx, M.assocs emptyBundle)
+    C.logInfo $ sformat
+        ("Your transaction data has been written to the '" % string % "'") path
 
 processUpdateBlockchain
     :: (MonadIO m, WorkMode m)
     => U.UserState -> m ()
 processUpdateBlockchain st =
     eWrap $
-    do res <- updateBlockchain st True
+    do res <- U.updateBlockchain st True
        C.logInfo $
            if res
                then "Blockchain is updated already."
@@ -464,8 +459,8 @@ processColdFormTransaction
     -> m ()
 processColdFormTransaction st inputs outputAddrStr outputCoins path = eWrap $ do
     td <- formTransactionPayload inputs outputAddrStr outputCoins
-    tx <- constructTransaction st td
-    emptyBundle <- getEmptySignatureBundle st tx
+    tx <- U.constructTransaction st td
+    emptyBundle <- U.getEmptySignatureBundle st tx
     liftIO $ BS.writeFile path $ encode (tx, M.assocs emptyBundle)
     C.logInfo $ sformat
         ("Your transaction data has been written to the '" % string % "'") path
@@ -489,9 +484,11 @@ processColdSignTransaction st bundlePath = eWrap $ do
     if sigBundle == updatedSigBundle
     then C.logInfo "No transactions have been signed"
     else do
-        liftIO $ BS.writeFile (bundlePath <> ".signed") $
-            encode (tx, M.assocs updatedSigBundle)
-        C.logInfo "Some transactions have been succesfully signed!"
+        let signedPath = bundlePath <> ".signed"
+        liftIO $ BS.writeFile signedPath $ encode (tx, M.assocs updatedSigBundle)
+        C.logInfo $ sformat ("Some transactions have been succesfully " %
+                             "signed, signed file is '" % string % "'")
+                            signedPath
 
 processColdSendTransaction
     :: WorkMode m
@@ -515,7 +512,7 @@ processImportAddress st skPathMaybe pkPath heightFrom = do
     pk <- liftIO $ C.logInfo "Reading pk..." >> C.readPublicKey pkPath
     sk <- liftIO $ flip (maybe (return Nothing)) skPathMaybe $ \skPath ->
         C.logInfo "Reading sk..." >> Just <$> C.readSecretKey skPath
-    importAddress st (sk,pk) heightFrom
+    U.importAddress st (sk,pk) heightFrom
     C.logInfo "Finished, your address successfully added"
 
 processExportAddress
@@ -526,8 +523,8 @@ processExportAddress
     -> m ()
 processExportAddress st ix0 filepath = do
     let ix = ix0 - 1
-    checkAddressId st ix
-    allAddresses <- getAllPublicAddresses st
+    U.checkAddressId st ix
+    allAddresses <- U.getAllPublicAddresses st
     let addr = allAddresses !! ix
     strategy <- fromJust <$> U.query st (U.GetAddressStrategy addr)
     case strategy of
@@ -564,8 +561,8 @@ processDeleteAddress
 processDeleteAddress st ix0 force =
     eWrap $
     do C.logInfo $ sformat ("Deleting address #" % int) ix0
-       checkAddressId st ix
-       ourAddr <- (!! ix) <$> getAllPublicAddresses st
+       U.checkAddressId st ix
+       ourAddr <- (!! ix) <$> U.getAllPublicAddresses st
        dependent <- U.query st $ U.GetDependentAddresses ourAddr
        unless (null dependent) $ liftIO $ do
            TIO.putStrLn $ "These addresses depend on the requested one so they " <>
@@ -581,7 +578,7 @@ processDeleteAddress st ix0 force =
     looksLikeNo s = let s' = T.toLower s in s' == "n" || s' == "no"
     proceedDeletion = do
        C.logInfo "Deleting address..."
-       deleteUserAddress st ix
+       U.deleteUserAddress st ix
        C.logInfo "Address was successfully deleted"
     askConfirmation ourAddr = do
         print' $ sformat ("Are you sure you want to delete this address: " %

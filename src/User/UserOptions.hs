@@ -55,6 +55,8 @@ data UserCommand
     | ListPendingTransactions
     -- | Sign and send transaction from the pending list by id ∈ [1..list.length]
     | SendPendingTransaction Int
+    -- | Get a pending transaction and dump it to the file
+    | PendingToCold Int FilePath
     -- | List all addresses in which current user acts like party.
     -- Specify trust public key if you also want to receive MS addresses
     -- with trust as party.
@@ -156,6 +158,11 @@ userCommandParser =
              "pending-send"
              (info sendPendingOpts
                  (progDesc "Send a pending transaction from list-pending by index")) <>
+         command
+             "pending-to-cold"
+             (info pendingToColdOpts
+                 (progDesc $ "Download pending transaction and dump it into " <>
+                             "the file to sign it with cold key")) <>
          command
              "alloc-list"
              (info
@@ -401,13 +408,14 @@ userCommandParser =
     whitelistAllocationOpts = WhitelistAllocation <$> option
         auto (short 'i' <> long "index" <> metavar "INT" <>
              help "Index of allocation, starting from 1 in `list-alloc`")
-    coldFormOpts =
-        ColdFormTransaction <$>
-        some formTxFrom <*> formTxToAddr <*> many formTxToCoin
-        <*> strOption
+    coldToWritePath =
+        strOption
             (long "path" <>
              help "Path to file for non-signed transaction to write into" <>
              metavar "FILEPATH")
+    coldFormOpts =
+        ColdFormTransaction <$>
+        some formTxFrom <*> formTxToAddr <*> many formTxToCoin <*> coldToWritePath
     coldSendOpts =
         ColdSendTransaction <$>
         strOption
@@ -420,12 +428,13 @@ userCommandParser =
         (long "path" <>
          help "Path to file with transaction to sign" <>
          metavar "FILEPATH")
-    sendPendingOpts =
-        SendPendingTransaction <$>
+    pendingTxId =
         option auto
             (short 'i' <> long "index" <>
              help "Id of transaction in list-pending list" <>
              metavar "INT")
+    sendPendingOpts = SendPendingTransaction <$> pendingTxId
+    pendingToColdOpts = PendingToCold <$> pendingTxId <*> coldToWritePath
 
 userOptionsParser :: FilePath -> FilePath -> FilePath -> Parser UserOptions
 userOptionsParser dskp configDir defaultConfigPath =

@@ -1,7 +1,132 @@
 body {
-    font-family: 'Source Sans Pro', 'Trebuchet MS', 'Lucida Grande', 'Helvetica Neue', sans-serif;
-    text-rendering: optimizeLegibility;
+    /*font-family: 'Source Sans Pro', 'Trebuchet MS', 'Lucida Grande', 'Helvetica Neue', sans-serif;*/
+    font-family: 'Montserrat', sans-serif !important;
     font-size: 14px;
     letter-spacing: .2px;
-    text-size-adjust: 100
+    text-rendering: optimizeLegibility;
+    text-size-adjust: 100;
+}
+
+.logo-header {
+    margin: 24px;
+    margin-left: 72px;
+}
+
+#header-image {
+    background-image: url("image/header-bitmap.png");
+    border: none;
+    height: 72px;
+}
+
+#footer-image {
+    background-image: url("image/footer-bitmap.png");
+    border: none;
+    height: 72px;
+}
+
+
+#header-container {
+    background-color: #7e0000;
+    opacity: 0.8;
+    height: 72px;
+    padding: 0 !important;
+}
+
+#logo-link {
+    margin: 24px 24px 24px 72px;
+}
+
+#footer-logo-link {
+    margin: 30px 24px 30px 72px;
+}
+
+#logo {
+    content: url("image/logo.svg");
+    height: 24px;
+}
+
+#logo-small {
+    content: url("image/logo.svg");
+    height: 12px;
+}
+
+#currency {
+    margin: 28px 72px 28px 0px
+}
+
+#toggle {
+    color: white;
+    font-size: 10px;
+    line-height: 16px;
+    padding: 0;
+}
+
+#toggle:hover {
+    background-color: transparent;
+}
+
+#caret {
+    margin-left: 6px;
+    margin-bottom: 2px;
+}
+
+#search-field-position {
+    height: 24px;
+    width: 320px;
+    margin: 24px auto;
+}
+
+#search-field {
+    background-color: transparent;
+    color: white;
+    font-size: 12px;
+    line-height: 12px;
+    height: 24px;
+    width: 320px;
+    border: solid 1px white;
+    border-radius: 12px;
+    opacity: 0.5;
+    padding-left: 12px;
+    position: absolute;
+}
+
+#search-field:hover {
+    opacity: 1;
+}
+
+#search-field:focus {
+    opacity: 1;
+}
+
+::-webkit-input-placeholder { color: rgba(255, 255, 255, 0.5); }
+::-moz-placeholder          { color: rgba(255, 255, 255, 0.5); }
+:-moz-placeholder           { color: rgba(255, 255, 255, 0.5); }
+:-ms-input-placeholder      { color: rgba(255, 255, 255, 0.5); }
+
+#search-ic {
+    content: url("image/search-ic.svg");
+    height: 12px;
+    padding-left: 296px;
+    margin-top: 6px;
+    position: absolute;
+}
+
+#footer-links {
+    color: white;
+    font-size: 10px;
+    line-height: 12px;
+    margin: 30px auto;
+    width: 480px;
+    text-align: center;
+}
+
+#footer-links a {
+    text-decoration: none;
+    color: white;
+    cursor: pointer;
+    margin: 0px 12px;
+}
+
+#footer-links a:hover {
+    border-bottom: solid 1px white;
 }

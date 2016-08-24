@@ -23,43 +23,67 @@ import Pux.CSS                        (style, backgroundColor, height, px,
 view :: State -> Html Action
 view state =
     footer
-        [ style do
-            backgroundImage $ url headerBitmapPath
-            headFootHeight
-        ]
+        [ id_ "footer-image" ]
         [ div
-            [ style do
-                backgroundColor darkRed
-                opacity 0.8
-                headFootHeight
-            ]
+            [ className "container-fluid"
+            , id_ "header-container" ]
             [ div
-                [ className "container-fluid" ]
-                [ div
-                    [ className "navbar-header" ]
-                    [ R.link R.homeUrl
-                        [ className "navbar-brand"
-                        , style do
-                            color white
-                            let p = px 18.0
-                            padding p p p p
+                [ className "navbar-header"
+                , id_ "footer-logo-link"]
+                [ R.link R.homeUrl
+                    []
+                    [ div
+                        [ id_ "logo-small" ]
+                        []
+                    ]
+                ]
+            , ul
+                [ className "nav navbar-nav navbar-right"
+                , id_ "currency"]
+                [ li
+                    [ className "dropdown" ]
+                    [ a
+                        [ className "dropdown-toggle"
+                        , data_ "target" "#"
+                        , data_ "toggle" "dropdown"
+                        , aria "haspopup" "true"
+                        , aria "expanded" "false"
+                        , id_ "toggle"
                         ]
-                        [ img
-                            [ alt "Brand"
-                            , src logoSmallPath
-                            ]
+                        [ text "English"
+                        , span
+                            [ className "caret"
+                            , id_ "caret"]
                             []
                         ]
+                    , ul
+                        [ className "dropdown-menu" ]
+                        [ li
+                            []
+                            [ a
+                                [ data_ "target" "#" ]
+                                [ text "English" ]
+                            ]
+                        ]
                     ]
-                , div
-                    [ style do
-                        width $ pct 100.0
-                        textAlign center
-                        color white
-                        let p = px 15.0
-                        padding p nil p nil
-                    ]
-                    [ text "About us | Contacts | Privacy Policy | Terms of Service" ]
+                ]
+            , div
+                [ id_ "footer-links" ]
+                [ a
+                    [ data_ "target" "#" ]
+                    [ text "About us" ]
+                , text "|"
+                , a
+                    [ data_ "target" "#" ]
+                    [ text "Contacts" ]
+                , text "|"
+                , a
+                    [ data_ "target" "#" ]
+                    [ text "Privacy Policy" ]
+                , text "|"
+                , a
+                    [ data_ "target" "#" ]
+                    [ text "Terms of Service" ]
                 ]
             ]
         ]

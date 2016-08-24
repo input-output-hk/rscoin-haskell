@@ -28,7 +28,7 @@ logoSmallPath :: String
 logoSmallPath = imagePath "logo-small.png"
 
 headerBitmapPath :: String
-headerBitmapPath = imagePath "header-bitmap-copy.png"
+headerBitmapPath = imagePath "header-bitmap.png"
 
 adaSymbolPath :: String
 adaSymbolPath = imagePath "ada-currency-symbol-dark.png"
@@ -40,7 +40,7 @@ noBorder :: CSS
 noBorder = border solid nil white
 
 headFootHeight :: CSS
-headFootHeight = height $ px 50.0 -- TODO: this should be 72 px
+headFootHeight = height $ px 72.0
 
 styleSheet :: CSS
 styleSheet =

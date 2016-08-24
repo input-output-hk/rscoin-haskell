@@ -70,16 +70,18 @@ $(deriveSafeCopy 0 'base ''AddressData)
 data Storage = Storage
     {
       -- | State of all addresses ever seen by this explorer.
-      _addresses       :: M.Map C.Address AddressData
+      _addresses       :: !(M.Map C.Address AddressData)
     ,
       -- | PeriodId of last added HBlock.
-      _lastPeriodId    :: Maybe C.PeriodId
+      _lastPeriodId    :: !(Maybe C.PeriodId)
     ,
       -- | Mapping from transaction id to actual transaction with this
       -- id. Contains all transactions ever seen by this explorer.
-      _transactionsMap :: M.Map C.TransactionId TransactionSummary
+      _transactionsMap :: !(M.Map C.TransactionId TransactionSummary)
       -- | List off all emission hashes from the very beginning.
-    , _emissionHashes  :: [C.TransactionId]
+    , _emissionHashes  :: ![C.TransactionId]
+      -- | Workaround
+    , _txMapWorkaround :: !(M.Map C.TransactionId C.Transaction)
     }
 
 $(makeLenses ''Storage)
@@ -94,6 +96,7 @@ mkStorage =
     , _lastPeriodId = Nothing
     , _transactionsMap = M.empty
     , _emissionHashes = []
+    , _txMapWorkaround = M.empty
     }
 
 type Query a = forall m. MonadReader Storage m => m a
@@ -164,10 +167,14 @@ addHBlock pId C.HBlock{..} emission = do
             , pmReceivedPeriod = pId
             }
     addEmission emission
+    mapM_
+        (\tx ->
+              txMapWorkaround . at (C.hash tx) .= Just tx)
+        hbTransactions
     mapM_ applyTransaction hbTransactions
     lastPeriodId .= Just pId
   where
-    addEmission (Just e) = emissionHashes %= (e:)
+    addEmission (Just e) = emissionHashes %= (e :)
     addEmission _        = pure ()
 
 applyTransaction :: C.Transaction -> ExceptUpdate ()
@@ -206,8 +213,8 @@ applyTransaction tx@C.Transaction{..} = do
     inputToAddr
         :: C.AddrId -> Update (Maybe C.Address)
     inputToAddr (txId,idx,_) =
-        fmap (fst . (!! idx) . txsOutputs) <$>
-        (use $ transactionsMap . at txId)
+        fmap (fst . (!! idx) . C.txOutputs) <$>
+        (use $ txMapWorkaround . at txId)
     mkExtendedAddrId :: C.AddrId
                      -> (Maybe C.Address)
                      -> ExceptUpdate ExtendedAddrId
@@ -222,10 +229,10 @@ applyTransaction tx@C.Transaction{..} = do
 
 applyTxInput :: TransactionSummary -> C.AddrId -> Update ()
 applyTxInput tx (oldTxId,idx,c) =
-    whenJustM (use $ transactionsMap . at oldTxId) applyTxInputDo
+    whenJustM (use $ txMapWorkaround . at oldTxId) applyTxInputDo
   where
     applyTxInputDo oldTx = do
-        let addr = fst $ txsOutputs oldTx !! idx
+        let addr = fst $ C.txOutputs oldTx !! idx
         changeAddressData tx (-c) addr
 
 applyTxOutput :: TransactionSummary -> (C.Address, C.Coin) -> Update ()

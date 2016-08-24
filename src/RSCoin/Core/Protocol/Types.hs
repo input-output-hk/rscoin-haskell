@@ -32,12 +32,12 @@ data RSCoinMethod
 -- | A request to control the bank from the bank's host side itself,
 -- always supplied with a proof of that (sk sign of tuple of all other args)
 data BankLocalControlRequest =
-      AddMintette Mintette PublicKey Signature
-    | AddExplorer Explorer PeriodId Signature
-    | RemoveMintette String Int Signature      -- ^ Host/port
-    | RemoveExplorer String Int Signature      -- ^ Host/port
-    | FinishPeriod Signature
-    | DumpStatistics Int Signature
+      AddMintette Mintette PublicKey (Signature (Mintette, PublicKey))
+    | AddExplorer Explorer PeriodId (Signature (Explorer, PeriodId))
+    | RemoveMintette String Int (Signature (String, Int))      -- ^ Host/port
+    | RemoveExplorer String Int (Signature (String, Int))      -- ^ Host/port
+    | FinishPeriod (Signature PeriodId)
+    | DumpStatistics Int (Signature Int)
     deriving (Show,Eq)
 
 checkLocalControlRequest :: PeriodId -> PublicKey -> BankLocalControlRequest -> Bool

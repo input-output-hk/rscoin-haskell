@@ -61,14 +61,14 @@ import           Serokell.Util.Text           (listBuilderJSON, pairBuilder,
 
 import qualified RSCoin.Core.Crypto.Hashing   as H
 
-newtype Signature = Signature
+newtype Signature a = Signature
     { getSignature :: E.Signature
     } deriving (Eq)
 
-sigToBs :: Signature -> BS.ByteString
+sigToBs :: (Signature a) -> BS.ByteString
 sigToBs = E.unSignature . getSignature
 
-bsToSig :: BS.ByteString -> Signature
+bsToSig :: BS.ByteString -> (Signature a)
 bsToSig = Signature . E.Signature
 
 putCopyBinary :: Binary a => a -> Contained Put
@@ -83,24 +83,24 @@ getCopyBinary =
     onError (_,_,errMsg) = fail errMsg
     onSuccess (_,_,res) = return res
 
-instance SafeCopy Signature where
+instance SafeCopy (Signature a) where
     putCopy = putCopyBinary
     getCopy = getCopyBinary
 
-instance Buildable (Signature, PublicKey) where
+instance Buildable (Signature a, PublicKey) where
     build = pairBuilder
 
-instance Buildable [(Signature, PublicKey)] where
+instance Buildable [(Signature a, PublicKey)] where
     build = listBuilderJSON
 
-instance Buildable Signature where
+instance Buildable (Signature a) where
     build = build . B64.encode . E.unSignature . getSignature
 
 -- @TODO: avoid code duplication for Show and Read instances
-instance Show Signature where
+instance Show (Signature a) where
     show sig = "Signature { getSignature = " ++ T.unpack (show' sig) ++ " }"
 
-instance Read Signature where
+instance Read (Signature a) where
     readPrec = lift $
         either
             (error . T.unpack)
@@ -111,18 +111,18 @@ instance Read Signature where
         (string "Signature " *> between (char '{') (char '}')
           (string " getSignature = " *> munch1 (not . isSpace) <* skipSpaces))
 
-instance MessagePack Signature where
+instance MessagePack (Signature a) where
     toObject = toObject . sigToBs
     fromObject obj = bsToSig <$> fromObject obj
 
-instance Binary Signature where
+instance Binary (Signature a) where
     get = bsToSig <$> get
     put = put . sigToBs
 
-instance ToJSON Signature where
+instance ToJSON (Signature a)where
     toJSON = toJSON . B64.encode . sigToBs
 
-instance FromJSON Signature where
+instance FromJSON (Signature a) where
     parseJSON = fmap (bsToSig . B64.getJsonByteString) . parseJSON
 
 
@@ -215,17 +215,17 @@ instance FromJSON PublicKey where
     parseJSON = fmap (bsToPk . B64.getJsonByteString) . parseJSON
 
 -- | Sign a serializable value.
-sign :: Binary t => SecretKey -> t -> Signature
+sign :: Binary t => SecretKey -> t -> Signature t
 sign (getSecretKey -> secKey) =
     Signature . E.dsign secKey . H.getHash . H.hash
 
 -- | Verify signature for a serializable value.
-verify :: Binary t => PublicKey -> Signature -> t -> Bool
+verify :: Binary t => PublicKey -> (Signature t) -> t -> Bool
 verify (getPublicKey -> pubKey) (getSignature -> sig) t =
     E.dverify pubKey (H.getHash $ H.hash t) sig
 
 -- | Verify chain of certificates.
-verifyChain :: PublicKey -> [(Signature, PublicKey)] -> Bool
+verifyChain :: PublicKey -> [(Signature PublicKey, PublicKey)] -> Bool
 verifyChain _ [] = True
 verifyChain pk ((sig, nextPk):rest) = verify pk sig nextPk && verifyChain nextPk rest
 
@@ -239,7 +239,7 @@ deterministicKeyGen seed =
     bimap PublicKey SecretKey <$> E.createKeypairFromSeed_ seed
 
 -- | Constructs signature from UTF-8 base64 text.
-constructSignature :: Text -> Maybe Signature
+constructSignature :: Text -> Maybe (Signature a)
 constructSignature =
     either (const Nothing) (Just . Signature . E.Signature) . B64.decode . trim
   where

@@ -76,7 +76,7 @@ checkNotDoubleSpent
     :: SecretKey
     -> Transaction
     -> AddrId
-    -> [(Address, Signature)]
+    -> [(Address, Signature Transaction)]
     -> Update MS.Storage CheckConfirmation
 checkNotDoubleSpent = MS.checkNotDoubleSpent
 

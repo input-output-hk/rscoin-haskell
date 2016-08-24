@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell    #-}
 
 -- | Hash-related functions and types.
 
@@ -6,6 +6,7 @@ module RSCoin.Core.Crypto.Hashing
        ( Hash
        , getHash
        , hash
+       , unsafeHash
        , parseHash
        ) where
 
@@ -28,19 +29,19 @@ import           Data.Text.Buildable        (Buildable (build))
 import qualified Serokell.Util.Base64       as B64
 
 -- | Hash is just a ByteString.
-newtype Hash = Hash
+newtype Hash a = Hash
     { getHash :: ByteString
     } deriving (Eq,Show,Binary,Ord,Hashable,MessagePack,IsString, Data)
 
 $(deriveSafeCopy 0 'base ''Hash)
 
-instance Buildable Hash where
+instance Buildable (Hash a) where
     build = build . B64.encode . getHash
 
 hashLengthBytes :: Integral a => a
 hashLengthBytes = 256 `div` 8
 
-parseHash :: T.Text -> Either T.Text Hash
+parseHash :: T.Text -> Either T.Text (Hash a)
 parseHash = B64.decode >=> constructHashChecked
   where
     constructHashChecked bs
@@ -53,11 +54,14 @@ blake2b256 bs =
     in BLAKE2.finalize l $ BLAKE2.update bs $ BLAKE2.initialize l
 
 -- | Hash serializable data.
-hash :: Binary t => t -> Hash
-hash = Hash . blake2b256 . toStrict . encode
+hash :: Binary t => t -> Hash t
+hash = unsafeHash
 
-instance ToJSON Hash where
+unsafeHash :: Binary t => t -> Hash a
+unsafeHash = Hash . blake2b256 . toStrict . encode
+
+instance ToJSON (Hash a) where
     toJSON = toJSON . B64.JsonByteString . getHash
 
-instance FromJSON Hash where
+instance FromJSON (Hash a) where
     parseJSON = fmap (Hash . B64.getJsonByteString) . parseJSON

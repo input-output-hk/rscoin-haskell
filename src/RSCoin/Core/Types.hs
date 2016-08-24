@@ -17,13 +17,16 @@ module RSCoin.Core.Types
        , CheckConfirmations
        , CommitAcknowledgment (..)
        , ActionLogEntry (..)
+       , ActionLogEntryHash (..)
        , ActionLog
        , LBlock (..)
+       , LBlockHash (..)
        , PeriodResult
        , Dpk
        , Utxo
        , Pset
        , HBlock (..)
+       , HBlockHash (..)
        , NewPeriodData (..)
        , formatNewPeriodData
        ) where
@@ -32,6 +35,7 @@ import           Control.Arrow          (first)
 import           Data.Binary            (Binary (get, put), Get, Put)
 import qualified Data.Map               as M
 import           Data.Maybe             (fromJust, isJust)
+import           Data.MessagePack       (MessagePack)
 import           Data.SafeCopy          (base, deriveSafeCopy)
 import           Data.Text.Buildable    (Buildable (build))
 import qualified Data.Text.Format       as F
@@ -109,7 +113,7 @@ type Explorers = [Explorer]
 
 -- | Each mintette has a log of actions along with hash which is chained.
 -- Head of this log is represented by pair of hash and sequence number.
-type ActionLogHead = (Hash, Int)
+type ActionLogHead = (ActionLogEntryHash, Int)
 
 instance Buildable ActionLogHead where
     build = pairBuilder
@@ -118,13 +122,15 @@ instance Buildable ActionLogHead where
 -- the particular mintette has indirectly interacted.
 type ActionLogHeads = M.Map PublicKey ActionLogHead
 
+type SignatureActLog = Signature (Transaction, AddrId, ActionLogHead, PeriodId)
+
 -- | CheckConfirmation is a confirmation received by user from mintette as
 -- a result of CheckNotDoubleSpent action.
 data CheckConfirmation = CheckConfirmation
-    { ccMintetteKey       :: !PublicKey      -- ^ key of corresponding mintette
-    , ccMintetteSignature :: !Signature      -- ^ signature for (tx, addrid, head)
-    , ccHead              :: !ActionLogHead  -- ^ head of log
-    , ccPeriodId          :: !PeriodId       -- ^ period id when confirmation was made
+    { ccMintetteKey       :: !PublicKey       -- ^ key of corresponding mintette
+    , ccMintetteSignature :: !SignatureActLog -- ^ signature for (tx, addrid, head)
+    , ccHead              :: !ActionLogHead   -- ^ head of log
+    , ccPeriodId          :: !PeriodId        -- ^ period id when confirmation was made
     } deriving (Show, Eq)
 
 instance Binary CheckConfirmation where
@@ -141,8 +147,6 @@ instance Buildable CheckConfirmation where
       where
         template = "CheckConfirmation (key = {}, sugnature = {}, head = {})"
 
-$(deriveSafeCopy 0 'base ''CheckConfirmation)
-
 -- | CheckConfirmations is a bundle of evidence collected by user and
 -- sent to mintette as payload for Commit action.
 type CheckConfirmations = M.Map (MintetteId, AddrId) CheckConfirmation
@@ -150,12 +154,14 @@ type CheckConfirmations = M.Map (MintetteId, AddrId) CheckConfirmation
 instance Buildable CheckConfirmations where
     build = mapBuilder . map (first pairBuilder) . M.assocs
 
+type SignatureActHead = Signature (Transaction, ActionLogHead)
+
 -- | CommitAcknowledgment is sent by mintette to user as an evidence
 -- that mintette has included it into lower-level block.
 data CommitAcknowledgment = CommitAcknowledgment
-    { caMintetteKey       :: !PublicKey      -- ^ key of corresponding mintette
-    , caMintetteSignature :: !Signature      -- ^ signature for (tx, logHead)
-    , caHead              :: !ActionLogHead  -- ^ head of log
+    { caMintetteKey       :: !PublicKey        -- ^ key of corresponding mintette
+    , caMintetteSignature :: !SignatureActHead -- ^ signature for (tx, logHead)
+    , caHead              :: !ActionLogHead    -- ^ head of log
     } deriving (Show, Eq)
 
 instance Binary CommitAcknowledgment where
@@ -165,8 +171,6 @@ instance Binary CommitAcknowledgment where
         put caHead
     get = CommitAcknowledgment <$> get <*> get <*> get
 
-$(deriveSafeCopy 0 'base ''CommitAcknowledgment)
-
 -- | Each mintette mantains a high-integrity action log, consisting of entries.
 data ActionLogEntry
     = QueryEntry !Transaction
@@ -174,6 +178,15 @@ data ActionLogEntry
                   !CheckConfirmations
     | CloseEpochEntry !ActionLogHeads
     deriving (Show, Eq)
+
+-- | ActionLogPairs are stored in ActionLog. This pair constists of
+-- action log entry and hash of previous pair in log.
+type ActionLogPair = (ActionLogEntry, ActionLogEntryHash)
+
+-- | ActionLogEntryHash is a hash of pervious ActionLogPair in log.
+newtype ActionLogEntryHash = ALEHash
+    { getALEHash :: Hash ActionLogPair
+    } deriving (Show, Eq, Binary, Buildable, MessagePack)
 
 putByte :: Word8 -> Put
 putByte = put
@@ -203,27 +216,31 @@ instance Buildable ActionLogEntry where
       where
         templateClose = "CloseEpoch (heads = {})"
 
-$(deriveSafeCopy 0 'base ''ActionLogEntry)
-
 -- | Action log is a list of entries.
-type ActionLog = [(ActionLogEntry, Hash)]
+type ActionLog = [(ActionLogEntry, ActionLogEntryHash)]
 
 instance Buildable ActionLog where
     build = listBuilderJSONIndent 2 . map pairBuilder
+
+type LBlockInfo = (HBlockHash, ActionLogEntryHash, ActionLogHeads, [Transaction])
+
+newtype LBlockHash = LBlockHash
+    { getLBlockHash :: Hash LBlockInfo
+    } deriving (Show, Eq, Binary, Buildable, MessagePack)
+
+type SignatureLBlock = Signature LBlockHash
 
 -- | Lower-level block generated by mintette in the end of an epoch.
 -- To form a lower-level block a mintette uses the transaction set it
 -- formed throughout the epoch and the hashes it has received from other
 -- mintettes.
 data LBlock = LBlock
-    { lbHash         :: !Hash            -- ^ hash of
+    { lbHash         :: !LBlockHash      -- ^ hash of
                                          -- (h^(i-1)_bank, h^m_(j-1), hashes, transactions)
     , lbTransactions :: ![Transaction]   -- ^ txset
-    , lbSignature    :: !Signature       -- ^ signature given by mintette for hash
+    , lbSignature    :: !SignatureLBlock -- ^ signature given by mintette for hash
     , lbHeads        :: !ActionLogHeads  -- ^ heads received from other mintettes
     } deriving (Show, Eq)
-
-$(deriveSafeCopy 0 'base ''LBlock)
 
 instance Buildable LBlock where
     build LBlock{..} =
@@ -244,12 +261,11 @@ instance Buildable LBlock where
                 , "}\n"
                 ]
 
-
 -- | PeriodResult is sent by mintette to bank when period finishes.
 type PeriodResult = (PeriodId, [LBlock], ActionLog)
 
 -- | DPK is a list of signatures which authorizies mintettes for one period
-type Dpk = [(PublicKey, Signature)]
+type Dpk = [(PublicKey, Signature PublicKey)]
 
 -- | Utxo is a type used by mintettes. (addrid -> addr) ∈ utxo means
 -- that there was an act of money transfer to address, but since then
@@ -264,18 +280,22 @@ type Pset = M.Map AddrId Transaction
 instance Buildable Dpk where
     build = listBuilderJSON . map pairBuilder
 
+newtype HBlockHash = HBlockHash
+    { getHBlockHash :: Hash (HBlockHash, [Transaction])
+    } deriving (Show,Eq,Binary,Buildable,MessagePack)
+
+type SignatureHBlock = Signature HBlockHash
+
 -- | Higher-level block generated by bank in the end of a period.
 -- To form a higher-level block bank uses lower-level blocks received
 -- from mintettes and simply merges them after checking validity.
 data HBlock = HBlock
-    { hbHash         :: !Hash
+    { hbHash         :: !HBlockHash
     , hbTransactions :: ![Transaction]
-    , hbSignature    :: !Signature
+    , hbSignature    :: !SignatureHBlock
     , hbDpk          :: !Dpk
     , hbAddresses    :: !AddressToTxStrategyMap
     } deriving (Show, Eq)
-
-$(deriveSafeCopy 0 'base ''HBlock)
 
 instance Binary HBlock where
     put HBlock{..} = do
@@ -334,9 +354,9 @@ instance Buildable Utxo where
 instance Buildable Pset where
     build mapping = listBuilderJSON $ M.toList mapping
 
-instance Buildable (Address, Signature) where
+instance Buildable (Address, Signature a) where
     build = pairBuilder
-instance Buildable [(Address, Signature)] where
+instance Buildable [(Address, Signature a)] where
     build = listBuilderJSONIndent 2
 
 instance Buildable [NewPeriodData] where
@@ -376,4 +396,12 @@ formatNewPeriodData withPayload NewPeriodData{..}
 instance Buildable NewPeriodData where
     build = formatNewPeriodData True
 
+$(deriveSafeCopy 0 'base ''CheckConfirmation)
+$(deriveSafeCopy 0 'base ''CommitAcknowledgment)
+$(deriveSafeCopy 0 'base ''ActionLogEntryHash)
+$(deriveSafeCopy 0 'base ''ActionLogEntry)
+$(deriveSafeCopy 0 'base ''LBlockHash)
+$(deriveSafeCopy 0 'base ''LBlock)
+$(deriveSafeCopy 0 'base ''HBlockHash)
+$(deriveSafeCopy 0 'base ''HBlock)
 $(deriveSafeCopy 0 'base ''NewPeriodData)

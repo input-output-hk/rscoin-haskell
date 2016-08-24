@@ -232,7 +232,7 @@ checkNotDoubleSpent
     => Mintette
     -> Transaction
     -> AddrId
-    -> [(Address, Signature)]
+    -> [(Address, Signature Transaction)]
     -> m (Either Text CheckConfirmation)
 checkNotDoubleSpent m tx a s =
     withResult infoMessage (either onError onSuccess) $
@@ -314,8 +314,8 @@ allocateMultisignatureAddress
     => Address
     -> PartyAddress
     -> AllocationStrategy
-    -> Signature
-    -> Maybe (PublicKey, Signature)
+    -> Signature (MSAddress, AllocationStrategy)
+    -> Maybe (PublicKey, Signature (MSAddress, AllocationStrategy))
     -> m ()
 allocateMultisignatureAddress msAddr partyAddr allocStrat signature mMasterCheck = do
     L.logDebug $ sformat
@@ -338,7 +338,7 @@ queryNotaryCompleteMSAddresses = do
     L.logDebug "Querying Notary complete MS addresses"
     callNotary $ P.call $ P.RSCNotary P.QueryCompleteMS
 
-removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> Signature -> m ()
+removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> Signature [Address] -> m ()
 removeNotaryCompleteMSAddresses addresses signedAddrs = do
     L.logDebug "Removing Notary complete MS addresses"
     callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses signedAddrs
@@ -373,7 +373,7 @@ announceNewPeriod mintette npd = do
 
 announceNewBlock
     :: WorkMode m
-    => Explorer -> PeriodId -> (HBlock, EmissionId) -> Signature -> m PeriodId
+    => Explorer -> PeriodId -> (HBlock, EmissionId) -> Signature (PeriodId, HBlock) -> m PeriodId
 announceNewBlock explorer pId blk signature =
     withResult infoMessage successMessage $
     P.callExplorer explorer $
@@ -526,11 +526,11 @@ getMintetteLogs mId pId = do
 -- get list of signatures after Notary adds yours.
 publishTxToNotary
     :: WorkMode m
-    => Transaction              -- ^ transaction to sign
-    -> Address                  -- ^ address of transaction input (individual, multisig or etc.)
-    -> (Address, Signature)     -- ^ party's public address and signature
-                                -- (made with it's secret key)
-    -> m [(Address, Signature)] -- ^ signatures for all parties already signed the transaction
+    => Transaction                          -- ^ transaction to sign
+    -> Address                              -- ^ address of transaction input (individual, multisig or etc.)
+    -> (Address, Signature Transaction)     -- ^ party's public address and signature
+                                -- (made with its secret key)
+    -> m [(Address, Signature Transaction)] -- ^ signatures for all parties already signed the transaction
 publishTxToNotary tx addr sg =
     withResult infoMessage successMessage $
     callNotary $ P.call (P.RSCNotary P.PublishTransaction) tx addr sg
@@ -544,7 +544,7 @@ publishTxToNotary tx addr sg =
 -- | Read-only method of Notary. Returns current state of signatures
 -- for the given address (that implicitly defines addrids ~
 -- transaction inputs) and transaction itself.
-getTxSignatures :: WorkMode m => Transaction -> Address -> m [(Address, Signature)]
+getTxSignatures :: WorkMode m => Transaction -> Address -> m [(Address, Signature Transaction)]
 getTxSignatures tx addr =
     withResult infoMessage successMessage $
     callNotary $ P.call (P.RSCNotary P.GetSignatures) tx addr

@@ -210,7 +210,11 @@ partyToAllocation UserParty{..}  = UserAlloc partyAddress
 
 -- | Checks if the inner state of strategy allows us to send
 -- transaction and it will be accepted
-isStrategyCompleted :: TxStrategy -> Address -> [(Address, Signature)] -> Transaction -> Bool
+isStrategyCompleted :: TxStrategy
+                    -> Address
+                    -> [(Address, Signature Transaction)]
+                    -> Transaction
+                    -> Bool
 isStrategyCompleted DefaultStrategy userAddr signs tx =
     any (\(addr, signature) -> userAddr == addr &&
                          validateSignature signature addr tx) signs

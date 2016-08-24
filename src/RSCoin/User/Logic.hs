@@ -53,19 +53,19 @@ import           Serokell.Util.Text            (listBuilderJSON, pairBuilder)
 -- to prove that address owners are OK with transaction spending money
 -- from that address
 -- @TODO: these types are awful :(
-type SignatureValue  = (Address, TxStrategy, [(Address, Signature)])
+type SignatureValue  = (Address, TxStrategy, [(Address, Signature Transaction)])
 type SignatureBundle = M.Map AddrId SignatureValue
 
 -- | This type represents for each unique address in the given transaction:
 -- * Strategy of working on that address
 -- * Addrids that spend money from that address in tx
 -- * User's permission to spend money from address
-type AddressSignInfo = (TxStrategy, [AddrId], (Address,Signature))
+type AddressSignInfo = (TxStrategy, [AddrId], (Address,Signature Transaction))
 
 joinBundles
-    :: (a, b, [(Address, Signature)])
-    -> (a, b, [(Address, Signature)])
-    -> (a, b, [(Address, Signature)])
+    :: (a, b, [(Address, Signature Transaction)])
+    -> (a, b, [(Address, Signature Transaction)])
+    -> (a, b, [(Address, Signature Transaction)])
 joinBundles (a,s,signs1) (_,_,signs2) = (a,s,nub $ signs1 ++ signs2)
 
 -- | Gets signatures that can't be retrieved locally (for strategies
@@ -119,7 +119,7 @@ getExtraSignatures tx requests time = do
     -- and addr `addr` and sigs are not ready
     perform :: WorkMode m
             => Address
-            -> m (Either Address (Bool, (Address, [(Address, Signature)])))
+            -> m (Either Address (Bool, (Address, [(Address, Signature Transaction)])))
     perform addr = do
         let returnRight b s = return $ Right (b,(addr,s))
             strategy = getStrategy addr
@@ -149,7 +149,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle height = do
     (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
     commitBundle bundle
   where
-    checkStrategy :: (Address, TxStrategy, [(Address, Signature)]) -> Bool
+    checkStrategy :: (Address, TxStrategy, [(Address, Signature Transaction)]) -> Bool
     checkStrategy (addr,str,sgns) = isStrategyCompleted str addr sgns tx
     processInput
         :: WorkMode m

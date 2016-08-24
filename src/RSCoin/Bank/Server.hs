@@ -247,10 +247,8 @@ serveFinishPeriod st bankSK isPeriodChanging = do
                 (liftIO $ atomicWriteIORef isPeriodChanging True)
                 (liftIO $ atomicWriteIORef isPeriodChanging False)
     logInfo "Finish of period was requested"
-    do t <- br $ measureTime_ $ onPeriodFinished bankSK st
-       logInfo $ sformat ("Finishing period took " % build) t
-       logDebug . sformat ("Storage statistics:\n" % stext) =<<
-           getStatistics st
+    t <- br $ measureTime_ $ onPeriodFinished bankSK st
+    logInfo $ sformat ("Finishing period took " % build) t
 
 serveDumpStatistics
     :: T.WorkMode m

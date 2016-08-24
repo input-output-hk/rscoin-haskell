@@ -144,7 +144,7 @@ instance Buildable Transaction where
         template = "Transaction { inputs = {}, outputs = {} }"
 
 -- | Transaction is identified by its hash
-type TransactionId = Hash
+type TransactionId = Hash Transaction
 
 -- | Emission is identified by transaction hash. Period 0 doesn't contain emission transaction so EmissionId for period 0 is Nothing
 type EmissionId = Maybe TransactionId

@@ -37,7 +37,7 @@ owners mintettes h =
   where
     l = length mintettes
     size = shardSize l
-    hashProduce i = C.hash $ getHash i `BS.append` getHash h
+    hashProduce i = C.unsafeHash $ getHash i `BS.append` getHash h
 
 -- | This function checks whether given mintette is owner of given transaction.
 -- TODO: most likely it will be possible to implement it more efficiently

@@ -26,8 +26,7 @@ body {
 
 
 #header-container {
-    background-color: #7e0000;
-    opacity: 0.8;
+    background-color: rgba(126, 0, 0, 0.8);
     height: 72px;
     padding: 0 !important;
 }

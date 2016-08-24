@@ -257,9 +257,11 @@ serveDumpStatistics
     => State -> Int -> m ()
 serveDumpStatistics st sId = do
     good <- update st $ CheckAndBumpStatisticsId sId
-    when good .
-        liftIO . TIO.putStrLn . sformat ("Storage statistics:\n" % stext) =<<
-        getStatistics st
+    when good $
+        do pId <- query st GetPeriodId
+           liftIO . TIO.putStrLn . sformat
+                   ("Storage statistics (period id is " % int % "):\n" % stext)
+                   pId =<< getStatistics st
 
 serveLocalControlRequest
     :: T.WorkMode m

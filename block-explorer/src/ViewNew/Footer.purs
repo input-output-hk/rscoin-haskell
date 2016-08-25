@@ -29,11 +29,11 @@ view state =
             , id_ "header-container" ]
             [ div
                 [ className "navbar-header"
-                , id_ "footer-logo-link"]
+                , id_ "logo-link"]
                 [ R.link R.homeUrl
                     []
                     [ img
-                        [ id_ "logo-small"
+                        [ id_ "logo"
                         , src logoPath
                         ]
                         []

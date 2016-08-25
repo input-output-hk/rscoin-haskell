@@ -24,6 +24,19 @@ body {
     height: 72px;
 }
 
+#section-title {
+    font-size: 12px;
+    line-height: 15px;
+    letter-spacing: 0.3px;
+    margin-top: 56px;
+    margin-left: 72px;
+    color: #7e0000;
+}
+
+#ada-symbol-dark {
+    height: 8px;
+    margin-right: 4px;
+}
 
 #header-container {
     background-color: rgba(126, 0, 0, 0.8);
@@ -104,7 +117,7 @@ body {
     color: white;
     font-size: 12px;
     margin-left: 296px;
-    margin-top: 6px;
+    margin-top: 5px;
 }
 
 #footer-links {
@@ -127,16 +140,6 @@ body {
     border-bottom: solid 1px white;
 }
 
-#qr-code-img {
-    height: 100px;
-}
-
-#color-table {
-    overflow-y: scroll;
-    overflow-x: hidden;
-    height:100px;
-}
-
 .dark-red-color {
     color: rgb(126, 0, 0);
 }
@@ -153,4 +156,90 @@ body {
 
 td {
     border: solid 0 white !important;
+}
+
+#info-table-margins {
+    margin: 24px 48px !important;
+}
+
+#no-margin {
+    margin: 0;
+}
+
+#no-padding {
+    padding: 0;
+}
+
+#no-padding-only-right {
+    padding: 0;
+    padding-right: 12px;
+}
+
+#no-padding-only-left {
+    padding: 0;
+    padding-left: 12px;
+}
+
+#info-table {
+    font-size: 10px;
+    line-height: 12px;
+    color: #333333;
+}
+
+#info-table tr, td {
+    height: 33px !important;
+}
+
+#info-table td {
+    padding-left: 24px;
+}
+
+#color-table-overflow {
+    background-color: #f2f2f2;
+    padding: 6px 0px !important;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    max-height:132px;
+}
+
+#color-table {
+	font-size: 10px;
+    line-height: 12px;
+	color: #333333;
+}
+
+#color-table tr, td {
+    padding: 6px 24px !important;
+    height: 24px !important;
+}
+
+#address-link {
+	font-size: 12px;
+    line-height: 14px;
+	color: #7e0000;
+    text-decoration: none;
+}
+
+#address-link:hover {
+    border-bottom: solid 1px #7e0000;
+    cursor: pointer;
+}
+
+#qr-code {
+    background-color: #f2f2f2;
+    padding: 3px 0px !important;
+}
+
+#qr-code-cell {
+    padding: 6px 0px 6px 24px !important;
+}
+
+#qr-code-text-cell {
+    padding: 6px 24px 12px 12px !important;
+    font-size: 9px;
+    line-height: 11px;
+}
+
+#qr-code-img {
+    height: 96px;
 }

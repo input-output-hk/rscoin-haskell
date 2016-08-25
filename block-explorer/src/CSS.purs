@@ -31,7 +31,7 @@ headerBitmapPath :: String
 headerBitmapPath = imagePath "header-bitmap.png"
 
 adaSymbolPath :: String
-adaSymbolPath = imagePath "ada-currency-symbol-dark.png"
+adaSymbolPath = imagePath "ada-currency-symbol-dark.svg"
 
 opacity :: Number -> CSS
 opacity = key $ fromString "opacity"

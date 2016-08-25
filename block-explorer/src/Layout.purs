@@ -160,15 +160,16 @@ view state =
             , Alert.view state
             , div
                 [ className "container-fluid" ]
-                [ case state.route of
-                    R.Home -> Address.view state
-                    R.Address _ -> Address.view state
-                    R.Transaction tId ->
-                        let
-                            queryGetTx (Just (SQTransaction tx)) = Just tx
-                            queryGetTx _ = Nothing
-                        in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
-                    R.NotFound -> NotFound.view state
+                [ Address.view state
+            --    [ case state.route of
+            --        R.Home -> Address.view state
+            --        R.Address _ -> Address.view state
+            --        R.Transaction tId ->
+            --            let
+            --                queryGetTx (Just (SQTransaction tx)) = Just tx
+            --                queryGetTx _ = Nothing
+            --            in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
+            --        R.NotFound -> NotFound.view state
                 ]
             ]
         , Footer.view state

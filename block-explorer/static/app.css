@@ -204,6 +204,12 @@ td {
     border: solid 0 white !important;
 }
 
+.alert {
+    top: 92px !important;
+    position: fixed !important;
+    z-index: 1030 !important;
+}
+
 #info-table-margins {
     margin: 24px 48px !important;
 }

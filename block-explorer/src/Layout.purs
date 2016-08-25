@@ -150,26 +150,25 @@ update Nop state = noEffects state
 view :: State -> Html Action
 view state =
     div
-        [ className "very-light-grey-background" ]
+        [ className "very-light-grey-background max-height" ]
         [-- style
          --   [ type_ "text/css" ]
          --   [ text $ unsafePartial $ fromJust $ renderedSheet $ render styleSheet ]
-          div
-            [ id_ "bla" ]
-            [ Header.view state
-            , Alert.view state
-            , div
-                [ className "container-fluid" ]
-                [ case state.route of
-                    R.Home -> Address.view state
-                    R.Address _ -> Address.view state
-                    R.Transaction tId ->
-                        let
-                            queryGetTx (Just (SQTransaction tx)) = Just tx
-                            queryGetTx _ = Nothing
-                        in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
-                    R.NotFound -> NotFound.view state
-                ]
+          Header.view state
+        , Alert.view state
+        , div
+            [ className "container-fluid"
+            , id_ "page-content"
+            ]
+            [ case state.route of
+                R.Home -> Address.view state
+                R.Address _ -> Address.view state
+                R.Transaction tId ->
+                    let
+                        queryGetTx (Just (SQTransaction tx)) = Just tx
+                        queryGetTx _ = Nothing
+                    in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
+                R.NotFound -> NotFound.view state
             ]
         , Footer.view state
         ]

@@ -21,7 +21,7 @@ import Pux.CSS                        (style, backgroundColor, padding, px,
 view :: State -> Html Action
 view state =
     nav
-        [ className "navbar navbar-default"
+        [ className "navbar navbar-default navbar-fixed-top"
         , id_ "header-image" ]
         [ div
             [ className "container-fluid"

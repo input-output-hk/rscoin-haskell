@@ -5,6 +5,12 @@ body {
     letter-spacing: .2px;
     text-rendering: optimizeLegibility;
     text-size-adjust: 100;
+    overflow-x: hidden;
+}
+
+html, body, #app, .max-height,
+.pux-devtool, .pux-devtool-app-container, div [data-reactroot] {
+    height: 100%;
 }
 
 .logo-header {
@@ -14,16 +20,13 @@ body {
 
 #header-image {
     background-image: url("image/header-bitmap.png");
-    border: none;
     height: 72px;
 }
 
 #footer-image {
     background-image: url("image/footer-bitmap.png");
-    border: none;
     height: 72px;
 }
-
 
 #header-container {
     background-color: rgba(126, 0, 0, 0.8);
@@ -134,7 +137,19 @@ body {
 #color-table {
     overflow-y: scroll;
     overflow-x: hidden;
-    height:100px;
+    height: 100px;
+}
+
+#page-content {
+    min-height: 100%;
+    margin-bottom: -72px;
+    padding-top: 72px;
+}
+
+#page-content:after {
+    content: "";
+    display: block;
+    height: 72px;
 }
 
 .dark-red-color {

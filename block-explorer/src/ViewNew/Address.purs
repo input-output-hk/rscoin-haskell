@@ -227,5 +227,7 @@ view state =
             ]
         , div
             [ className "row light-grey-background" ]
-            [ text "test" ]
+            [ div [] [ text "test" ]
+            , div [] [ text "test" ]
+            ]
         ]

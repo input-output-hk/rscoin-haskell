@@ -30,23 +30,28 @@ view state =
         [ div
             [ className "row" ]
             [ div
-                [ className "dark-red-color"
+                [ id_ "section-title"
                 ]
-                [ h3 [] [ text "ADDRESS"
-                        ]
-                ]
+                [ text "ADDRESS" ]
             , div
-                [ className "row" ]
+                [ className "row"
+                , id_ "info-table-margins" ]
                 [ div
-                    [ className "col-xs-8" ]
+                    [ className "col-xs-8"
+                    , id_ "no-padding-only-right" ]
                     [ table
                         [ className "table" ]
                         [ tbody
-                            []
+                            [ id_ "info-table" ]
                             [ tr
                                 []
                                 [ td [] [ text "Address" ]
-                                , td [] [ text "oqpwieoqweipqie" ]
+                                , td
+                                    []
+                                    [ a
+                                        [ id_ "address-link" ]
+                                        [ text "oqpwieoqweipqie" ]
+                                    ]
                                 ]
                             , tr
                                 [ className "light-grey-background" ]
@@ -59,10 +64,11 @@ view state =
                                 , td
                                     []
                                     [ img
-                                        [ src adaSymbolPath
+                                        [ id_ "ada-symbol-dark"
+                                        , src adaSymbolPath
                                         ]
                                         []
-                                    , text "213.12"
+                                    , text "213,12"
                                     , div
                                         [ className "pull-right" ]
                                         [ text "Color balance"
@@ -90,7 +96,8 @@ view state =
 
                     ]
                 , div
-                    [ className "col-xs-4" ]
+                    [ className "col-xs-4"
+                    , id_ "no-padding-only-left" ]
                     [ -- @sasha: this is from http://getbootstrap.com/javascript/#markup
                       -- and from http://getbootstrap.com/components/#nav-tabs
                       ul
@@ -134,18 +141,20 @@ view state =
                             , aria "labelledby" "color-balance-tab"
                             ]
                             [ div
-                                [ id_ "color-table" ]
+                                [ id_ "color-table-overflow" ]
                                 [ table
-                                    [ className "table" ]
+                                    [ className "table"
+                                    , id_ "no-margin" ]
                                     [ tbody
-                                        []
+                                        [ id_ "color-table" ]
                                         [ tr
                                             []
                                             [ td [] [ text "Red" ]
                                             , td
                                                 []
                                                 [ img
-                                                    [ src adaSymbolPath
+                                                    [ id_ "ada-symbol-dark"
+                                                    , src adaSymbolPath
                                                     ]
                                                     []
                                                 , text "71,2929"
@@ -157,7 +166,8 @@ view state =
                                             , td
                                                 []
                                                 [ img
-                                                    [ src adaSymbolPath
+                                                    [ id_ "ada-symbol-dark"
+                                                    , src adaSymbolPath
                                                     ]
                                                     []
                                                 , text "71,2929"
@@ -169,7 +179,8 @@ view state =
                                             , td
                                                 []
                                                 [ img
-                                                    [ src adaSymbolPath
+                                                    [ id_ "ada-symbol-dark"
+                                                    , src adaSymbolPath
                                                     ]
                                                     []
                                                 , text "71,2929"
@@ -181,7 +192,8 @@ view state =
                                             , td
                                                 []
                                                 [ img
-                                                    [ src adaSymbolPath
+                                                    [ id_ "ada-symbol-dark"
+                                                    , src adaSymbolPath
                                                     ]
                                                     []
                                                 , text "71,2929"
@@ -193,7 +205,8 @@ view state =
                                             , td
                                                 []
                                                 [ img
-                                                    [ src adaSymbolPath
+                                                    [ id_ "ada-symbol-dark"
+                                                    , src adaSymbolPath
                                                     ]
                                                     []
                                                 , text "71,2929"
@@ -210,16 +223,30 @@ view state =
                             , aria "labelledby" "qr-code-tab"
                             ]
                             [ div
-                                [ className "col-xs-5" ]
-                                [ img
-                                    [ src "http://www.appcoda.com/wp-content/uploads/2013/12/qrcode.jpg"
-                                    , id_ "qr-code-img"
+                                [ id_ "qr-code" ]
+                                [ table
+                                    [ className "table"
+                                    , id_ "no-margin" ]
+                                    [ tbody
+                                        []
+                                        [ tr
+                                            []
+                                            [ td
+                                                [ id_ "qr-code-cell" ]
+                                                [ img
+                                                    [ src "http://www.appcoda.com/wp-content/uploads/2013/12/qrcode.jpg"
+                                                    , id_ "qr-code-img"
+                                                    ]
+                                                    []
+                                            ]
+                                            , td
+                                                [ id_ "qr-code-text-cell" ]
+                                                [ text "Scan this QR Code to copy address to clipboard"
+                                                ]
+                                            ]
+                                        ]
                                     ]
-                                    []
                                 ]
-                            , div
-                                [ className "col-xs-7" ]
-                                [ text "Scan this QR Code to copy address to clipboard" ]
                             ]
                         ]
                     ]
@@ -228,6 +255,34 @@ view state =
         , div
             [ className "row light-grey-background" ]
             [ div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
+            , div [] [ text "test" ]
             , div [] [ text "test" ]
             ]
         ]

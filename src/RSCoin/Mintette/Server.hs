@@ -13,9 +13,8 @@ module RSCoin.Mintette.Server
        , handleGetLogs
        ) where
 
-import           Control.Exception         (try)
-import           Control.Monad.Catch       (catch)
-import           Control.Monad.IO.Class    (liftIO)
+import           Control.Monad.Catch       (catch, try)
+import           Control.Monad.Trans       (lift, liftIO)
 import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
 
@@ -69,8 +68,8 @@ serve port st sk = do
 
 type ServerTE m a = ServerT m (Either T.Text a)
 
-toServer :: WorkMode m => IO a -> ServerTE m a
-toServer action = liftIO $ (Right <$> action) `catch` handler
+toServer :: WorkMode m => m a -> ServerTE m a
+toServer action = lift $ (Right <$> action) `catch` handler
   where
     handler (e :: MintetteError) = do
         C.logError $ show' e

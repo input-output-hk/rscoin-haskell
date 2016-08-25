@@ -32,8 +32,8 @@ module RSCoin.Core.Logging
        , logWarning
        ) where
 
-import           Control.Monad.Trans        (MonadIO, liftIO)
-import           Control.Monad.Trans.Except (ExceptT)
+import           Control.Monad.Except       (ExceptT)
+import           Control.Monad.Trans        (MonadIO (liftIO), lift)
 
 import qualified Data.Text                  as T
 import           Data.Typeable              (Typeable)
@@ -148,11 +148,13 @@ class WithNamedLogger m where
 instance WithNamedLogger IO where
     getLoggerName = pure nakedLoggerName
 
-instance MonadIO m => WithNamedLogger (ServerT m) where
-    getLoggerName = liftIO $ getLoggerName
+instance (Monad m, WithNamedLogger m) =>
+         WithNamedLogger (ServerT m) where
+    getLoggerName = lift getLoggerName
 
-instance (MonadIO m) => WithNamedLogger (ExceptT e m) where
-    getLoggerName = liftIO $ getLoggerName
+instance (Monad m, WithNamedLogger m) =>
+         WithNamedLogger (ExceptT e m) where
+    getLoggerName = lift getLoggerName
 
 logDebug :: (WithNamedLogger m, MonadIO m)
          => T.Text -> m ()

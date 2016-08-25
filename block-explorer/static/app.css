@@ -131,6 +131,12 @@ body {
     height: 100px;
 }
 
+#color-table {
+    overflow-y: scroll;
+    overflow-x: hidden;
+    height:100px;
+}
+
 .dark-red-color {
     color: rgb(126, 0, 0);
 }

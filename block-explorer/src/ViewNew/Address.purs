@@ -94,7 +94,7 @@ view state =
                     [ -- @sasha: this is from http://getbootstrap.com/javascript/#markup
                       -- and from http://getbootstrap.com/components/#nav-tabs
                       ul
-                        [ className "nav nav-tabs" -- try experimenting with either nav-tabs or nav-pills classes .. I think nav-pills would require less overrides to match our style. There is laso nav-justified if we want to use it
+                        [ className "nav nav-pills" -- try experimenting with either nav-tabs or nav-pills classes .. I think nav-pills would require less overrides to match our style. There is laso nav-justified if we want to use it
                         -- we could even use fade effect if it looks good to you http://getbootstrap.com/javascript/#fade-effect
                         , role "tablist"
                         ]
@@ -133,32 +133,71 @@ view state =
                             , id_ "color-balance"
                             , aria "labelledby" "color-balance-tab"
                             ]
-                            [ table
-                                [ className "table" ]
-                                [ tbody
-                                    []
-                                    [ tr
+                            [ div
+                                [ id_ "color-table" ]
+                                [ table
+                                    [ className "table" ]
+                                    [ tbody
                                         []
-                                        [ td [] [ text "Red" ]
-                                        , td
+                                        [ tr
                                             []
-                                            [ img
-                                                [ src adaSymbolPath
-                                                ]
+                                            [ td [] [ text "Red" ]
+                                            , td
                                                 []
-                                            , text "71,2929"
+                                                [ img
+                                                    [ src adaSymbolPath
+                                                    ]
+                                                    []
+                                                , text "71,2929"
+                                                ]
                                             ]
-                                        ]
-                                    , tr
-                                        []
-                                        [ td [] [ text "Blue" ]
-                                        , td
+                                        , tr
                                             []
-                                            [ img
-                                                [ src adaSymbolPath
-                                                ]
+                                            [ td [] [ text "Blue" ]
+                                            , td
                                                 []
-                                            , text "71,2929"
+                                                [ img
+                                                    [ src adaSymbolPath
+                                                    ]
+                                                    []
+                                                , text "71,2929"
+                                                ]
+                                            ]
+                                        , tr
+                                            []
+                                            [ td [] [ text "Blue" ]
+                                            , td
+                                                []
+                                                [ img
+                                                    [ src adaSymbolPath
+                                                    ]
+                                                    []
+                                                , text "71,2929"
+                                                ]
+                                            ]
+                                        , tr
+                                            []
+                                            [ td [] [ text "Blue" ]
+                                            , td
+                                                []
+                                                [ img
+                                                    [ src adaSymbolPath
+                                                    ]
+                                                    []
+                                                , text "71,2929"
+                                                ]
+                                            ]
+                                        , tr
+                                            []
+                                            [ td [] [ text "Blue" ]
+                                            , td
+                                                []
+                                                [ img
+                                                    [ src adaSymbolPath
+                                                    ]
+                                                    []
+                                                , text "71,2929"
+                                                ]
                                             ]
                                         ]
                                     ]

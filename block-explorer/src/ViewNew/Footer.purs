@@ -43,7 +43,7 @@ view state =
                 [ className "nav navbar-nav navbar-right"
                 , id_ "currency"]
                 [ li
-                    [ className "dropdown" ]
+                    [ className "dropup" ]
                     [ a
                         [ className "dropdown-toggle"
                         , data_ "target" "#"

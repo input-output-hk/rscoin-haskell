@@ -104,6 +104,7 @@ view state =
                         [ className "nav nav-pills" -- try experimenting with either nav-tabs or nav-pills classes .. I think nav-pills would require less overrides to match our style. There is laso nav-justified if we want to use it
                         -- we could even use fade effect if it looks good to you http://getbootstrap.com/javascript/#fade-effect
                         , role "tablist"
+                        , id_ "tabs"
                         ]
                         [ li
                             [ role "presentation"

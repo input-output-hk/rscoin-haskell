@@ -297,10 +297,20 @@ td {
     height: 96px;
 }
 
-.nav-pills > li.active > a, .nav-pills > li.active > a:focus, .nav-pills > li.active > a:hover {
-    background-color: black;
+#tabs > li > a {
+    color: #333333;
+    font-size: 10px;
+    line-height: 12px;
+    opacity: 0.5;
 }
 
-.nav > li > a:focus, .nav > li > a:hover {
-    background-color: yellow;
+#tabs > li.active > a, #tabs > li.active > a:focus, #tabs > li.active > a:hover {
+    color: #333333;
+    background-color: transparent;
+    text-decoration: underline;
+    opacity: 1;
+}
+
+#tabs > li > a:focus, #tabs > li > a:hover {
+    background-color: transparent;
 }

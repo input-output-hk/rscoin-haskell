@@ -14,7 +14,7 @@ module RSCoin.Mintette.Server
        ) where
 
 import           Control.Monad.Catch       (catch, try)
-import           Control.Monad.Trans       (lift, liftIO)
+import           Control.Monad.Trans       (lift)
 import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
 

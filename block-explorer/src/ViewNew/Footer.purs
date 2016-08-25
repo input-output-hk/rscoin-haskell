@@ -59,12 +59,25 @@ view state =
                             []
                         ]
                     , ul
-                        [ className "dropdown-menu" ]
+                        [ className "dropdown-menu"
+                        , id_ "dropdown" ]
                         [ li
                             []
                             [ a
                                 [ data_ "target" "#" ]
                                 [ text "English" ]
+                            ]
+                        , li
+                            []
+                            [ a
+                                [ data_ "target" "#" ]
+                                [ text "Japanese" ]
+                            ]
+                        , li
+                            []
+                            [ a
+                                [ data_ "target" "#" ]
+                                [ text "Russian" ]
                             ]
                         ]
                     ]

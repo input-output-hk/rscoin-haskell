@@ -9,10 +9,12 @@ import App.Routes                     (txUrl) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath)
 
-import Pux.Html                       (Html, tbody, text, th, tr, thead,
-                                       table, div, small, h3, td, img)
+import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span,
+                                       table, div, small, h3, td, img, ul, li,
+                                       input, label)
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
-                                       placeholder, value, src, alt)
+                                       placeholder, value, src, alt, role, href,
+                                       autoComplete)
 import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
@@ -23,51 +25,168 @@ import Data.Maybe                     (fromMaybe)
 
 view :: State -> Html Action
 view state =
-    div []
+    div
+        []
         [ div
-            [ style do
-                color darkRed
-            ]
-            [ h3 [] [ text "ADDRESS"
-                    ]
-            ]
-        , div
             [ className "row" ]
             [ div
-                [ className "col-xs-8" ]
-                [ table
-                    [ className "table" ]
-                    [ tbody
-                        []
-                        [ tr
+                [ className "dark-red-color"
+                ]
+                [ h3 [] [ text "ADDRESS"
+                        ]
+                ]
+            , div
+                [ className "row" ]
+                [ div
+                    [ className "col-xs-8" ]
+                    [ table
+                        [ className "table" ]
+                        [ tbody
                             []
-                            [ td [ style noBorder ] [ text "Address" ]
-                            , td [ style noBorder ] [ text "oqpwieoqweipqie" ]
-                            ]
-                        , tr
-                            [ style $ backgroundColor lightGrey ]
-                            [ td [ style noBorder ] [ text "Transactions" ]
-                            , td [ style noBorder ] [ text "127" ]
-                            ]
-                        , tr
-                            []
-                            [ td [ style noBorder ] [ text "Final balance" ]
-                            , td
-                                [ style noBorder ]
-                                [ img
-                                    [ alt "Brand"
-                                    , src adaSymbolPath
-                                    ]
+                            [ tr
+                                []
+                                [ td [] [ text "Address" ]
+                                , td [] [ text "oqpwieoqweipqie" ]
+                                ]
+                            , tr
+                                [ className "light-grey-background" ]
+                                [ td [] [ text "Transactions" ]
+                                , td [] [ text "127" ]
+                                ]
+                            , tr
+                                []
+                                [ td [] [ text "Final balance" ]
+                                , td
                                     []
-                                , text "213.12"
+                                    [ img
+                                        [ src adaSymbolPath
+                                        ]
+                                        []
+                                    , text "213.12"
+                                    , div
+                                        [ className "pull-right" ]
+                                        [ text "Color balance"
+                                        , span
+                                            [ className "btn-group"
+                                            , data_ "toggle" "buttons"
+                                            ]
+                                            [ label
+                                                [ className "btn btn-primary active" ]
+                                                [ input
+                                                    [ type_ "checkbox"
+                                                    , autoComplete "off"
+                                                    ]
+                                                    []
+                                                , text "Show/Hide colors"
+                                                ]
+                                                -- @sasha: we can use http://www.bootstraptoggle.com/
+                                                -- or some other implementation if you prefer it. Please just let me know and I will replace them
+                                            ]
+                                        ]
+                                    ]
                                 ]
                             ]
                         ]
-                    ]
 
+                    ]
+                , div
+                    [ className "col-xs-4" ]
+                    [ -- @sasha: this is from http://getbootstrap.com/javascript/#markup
+                      -- and from http://getbootstrap.com/components/#nav-tabs
+                      ul
+                        [ className "nav nav-tabs" -- try experimenting with either nav-tabs or nav-pills classes .. I think nav-pills would require less overrides to match our style. There is laso nav-justified if we want to use it
+                        -- we could even use fade effect if it looks good to you http://getbootstrap.com/javascript/#fade-effect
+                        , role "tablist"
+                        ]
+                        [ li
+                            [ role "presentation"
+                            , className "active"
+                            ]
+                            [ a
+                                [ href "#color-balance"
+                                , id_ "color-balance-tab"
+                                , aria "controls" "color-balance"
+                                , role "tab"
+                                , data_ "toggle" "tab"
+                                ]
+                                [ text "Color balance" ]
+                            ]
+                        , li
+                            [ role "presentation"
+                            , className ""
+                            ]
+                            [ a
+                                [ href "#qr-code"
+                                , id_ "qr-code-tab"
+                                , aria "controls" "qr-code"
+                                , role "tab"
+                                , data_ "toggle" "tab"
+                                ]
+                                [ text "QR Code" ]
+                            ]
+                        ]
+                    , div
+                        [ className "tab-content" ]
+                        [ div
+                            [ role "tabpanel"
+                            , className "tab-pane active"
+                            , id_ "color-balance"
+                            , aria "labelledby" "color-balance-tab"
+                            ]
+                            [ table
+                                [ className "table" ]
+                                [ tbody
+                                    []
+                                    [ tr
+                                        []
+                                        [ td [] [ text "Red" ]
+                                        , td
+                                            []
+                                            [ img
+                                                [ src adaSymbolPath
+                                                ]
+                                                []
+                                            , text "71,2929"
+                                            ]
+                                        ]
+                                    , tr
+                                        []
+                                        [ td [] [ text "Blue" ]
+                                        , td
+                                            []
+                                            [ img
+                                                [ src adaSymbolPath
+                                                ]
+                                                []
+                                            , text "71,2929"
+                                            ]
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        , div
+                            [ role "tabpanel"
+                            , className "tab-pane"
+                            , id_ "qr-code"
+                            , aria "labelledby" "qr-code-tab"
+                            ]
+                            [ div
+                                [ className "col-xs-5" ]
+                                [ img
+                                    [ src "http://www.appcoda.com/wp-content/uploads/2013/12/qrcode.jpg"
+                                    , id_ "qr-code-img"
+                                    ]
+                                    []
+                                ]
+                            , div
+                                [ className "col-xs-7" ]
+                                [ text "Scan this QR Code to copy address to clipboard" ]
+                            ]
+                        ]
+                    ]
                 ]
-            , div
-                [ className "col-xs-4" ]
-                []
             ]
+        , div
+            [ className "row light-grey-background" ]
+            [ text "test" ]
         ]

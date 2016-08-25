@@ -20,9 +20,6 @@ import App.ViewNew.Header             (view) as Header
 import App.ViewNew.Alert              (view) as Alert
 import App.ViewNew.Footer             (view) as Footer
 
-import Serokell.Pux.Themes.Bootstrap3 (bootstrapCss, containerFluid)
-import Serokell.Pux.Html              (className)
-
 import Data.Maybe                     (Maybe(Nothing, Just), maybe, fromJust,
                                        isNothing, isJust)
 
@@ -34,7 +31,7 @@ import Debug.Trace                    (traceAny)
 
 import Pux                            (EffModel, noEffects, onlyEffects)
 import Pux.Html                       (Html, div, style, text)
-import Pux.Html.Attributes            (type_, id_)
+import Pux.Html.Attributes            (type_, id_, className)
 
 import Pux.Router                     (navigateTo) as R
 import Pux.CSS                        (style, backgroundColor) as CSS
@@ -153,7 +150,7 @@ update Nop state = noEffects state
 view :: State -> Html Action
 view state =
     div
-        []
+        [ className "very-light-grey-background" ]
         [-- style
          --   [ type_ "text/css" ]
          --   [ text $ unsafePartial $ fromJust $ renderedSheet $ render styleSheet ]
@@ -162,7 +159,7 @@ view state =
             [ Header.view state
             , Alert.view state
             , div
-                [ className containerFluid ]
+                [ className "container-fluid" ]
                 [ case state.route of
                     R.Home -> Address.view state
                     R.Address _ -> Address.view state

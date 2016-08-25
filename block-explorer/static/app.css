@@ -126,3 +126,25 @@ body {
 #footer-links a:hover {
     border-bottom: solid 1px white;
 }
+
+#qr-code-img {
+    height: 100px;
+}
+
+.dark-red-color {
+    color: rgb(126, 0, 0);
+}
+
+.light-grey-background {
+    background-color: rgb(242, 242, 242);
+}
+
+.very-light-grey-background {
+    background-color: rgb(251, 251, 251);
+}
+
+/* override bootstrap */
+
+td {
+    border: solid 0 white !important;
+}

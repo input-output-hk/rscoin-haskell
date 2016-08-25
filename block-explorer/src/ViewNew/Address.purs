@@ -11,7 +11,7 @@ import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
 
 import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span,
                                        table, div, small, h3, td, img, ul, li,
-                                       input, label)
+                                       input, label, button)
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt, role, href,
                                        autoComplete, htmlFor)
@@ -252,35 +252,236 @@ view state =
             ]
         , div
             [ className "row light-grey-background" ]
-            [ div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
-            , div [] [ text "test" ]
+            [ div
+                [ className "row" ]
+                [ div
+                    [ id_ "section-title"
+                    ]
+                    [ text "TRANSACTIONS" ]
+                ]
+            , div
+                [ className "row"
+                , id_ "info-table-margins"
+                ]
+                [ div
+                    [ className "col-xs-8" ]
+                    [ text "dkskjsdalkjdlaksjdlaksjdalksjd" ]
+                , div
+                    [ className "col-xs-4" ]
+                    [ div
+                        [ className "pull-left" ]
+                        [ text "2016-07-08 11:56:48" ]
+                    , button
+                        [ className "btn btn-success pull-right" ]
+                        [ img
+                            [ id_ "ada-symbol-dark"
+                            , src adaSymbolPath
+                            ]
+                            []
+                        , text "213,12"
+                        ]
+                    ]
+                ]
+            , div
+                [ className "row" ]
+                [ div
+                    [ className "col-xs-8" ]
+                    [ table
+                        [ className "table"
+                        , id_ "no-margin" ]
+                        [ tbody
+                            [ id_ "color-table" ]
+                            [ tr
+                                []
+                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                , td
+                                    []
+                                    [ -- have to import image here
+                                    ]
+                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                ]
+                            , tr
+                                []
+                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                , td
+                                    []
+                                    [ -- have to import image here
+                                    ]
+                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                ]
+                            , tr
+                                []
+                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                , td
+                                    []
+                                    [ -- have to import image here
+                                    ]
+                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                ]
+                            ]
+                        ]
+                    ]
+                , div
+                    [ className "col-xs-4" ]
+                    [ table
+                        [ className "table"
+                        , id_ "no-margin" ]
+                        [ tbody
+                            [ id_ "color-table" ]
+                            [ tr
+                                []
+                                [ td [] [ text "Red" ]
+                                , td
+                                    []
+                                    [ img
+                                        [ id_ "ada-symbol-dark"
+                                        , src adaSymbolPath
+                                        ]
+                                        []
+                                    , text "71,2929"
+                                    ]
+                                ]
+                            , tr
+                                []
+                                [ td [] [ text "Blue" ]
+                                , td
+                                    []
+                                    [ img
+                                        [ id_ "ada-symbol-dark"
+                                        , src adaSymbolPath
+                                        ]
+                                        []
+                                    , text "71,2929"
+                                    ]
+                                ]
+                            , tr
+                                []
+                                [ td [] [ text "Blue" ]
+                                , td
+                                    []
+                                    [ img
+                                        [ id_ "ada-symbol-dark"
+                                        , src adaSymbolPath
+                                        ]
+                                        []
+                                    , text "71,2929"
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            , div
+                [ className "row"
+                , id_ "info-table-margins"
+                ]
+                [ div
+                    [ className "col-xs-8" ]
+                    [ text "dkskjsdalkjdlaksjdlaksjdalksjd" ]
+                , div
+                    [ className "col-xs-4" ]
+                    [ div
+                        [ className "pull-left" ]
+                        [ text "2016-07-08 11:56:48" ]
+                    , button
+                        [ className "btn btn-success pull-right" ]
+                        [ img
+                            [ id_ "ada-symbol-dark"
+                            , src adaSymbolPath
+                            ]
+                            []
+                        , text "213,12"
+                        ]
+                    ]
+                ]
+            , div
+                [ className "row" ]
+                [ div
+                    [ className "col-xs-8" ]
+                    [ table
+                        [ className "table"
+                        , id_ "no-margin" ]
+                        [ tbody
+                            [ id_ "color-table" ]
+                            [ tr
+                                []
+                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                , td
+                                    []
+                                    [ -- have to import image here
+                                    ]
+                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                ]
+                            , tr
+                                []
+                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                , td
+                                    []
+                                    [ -- have to import image here
+                                    ]
+                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                ]
+                            , tr
+                                []
+                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                , td
+                                    []
+                                    [ -- have to import image here
+                                    ]
+                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
+                                ]
+                            ]
+                        ]
+                    ]
+                , div
+                    [ className "col-xs-4" ]
+                    [ table
+                        [ className "table"
+                        , id_ "no-margin" ]
+                        [ tbody
+                            [ id_ "color-table" ]
+                            [ tr
+                                []
+                                [ td [] [ text "Red" ]
+                                , td
+                                    []
+                                    [ img
+                                        [ id_ "ada-symbol-dark"
+                                        , src adaSymbolPath
+                                        ]
+                                        []
+                                    , text "71,2929"
+                                    ]
+                                ]
+                            , tr
+                                []
+                                [ td [] [ text "Blue" ]
+                                , td
+                                    []
+                                    [ img
+                                        [ id_ "ada-symbol-dark"
+                                        , src adaSymbolPath
+                                        ]
+                                        []
+                                    , text "71,2929"
+                                    ]
+                                ]
+                            , tr
+                                []
+                                [ td [] [ text "Blue" ]
+                                , td
+                                    []
+                                    [ img
+                                        [ id_ "ada-symbol-dark"
+                                        , src adaSymbolPath
+                                        ]
+                                        []
+                                    , text "71,2929"
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
             ]
         ]

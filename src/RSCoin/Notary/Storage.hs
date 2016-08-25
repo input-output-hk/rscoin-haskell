@@ -5,7 +5,7 @@
 -- | Storage for Notary's data.
 
 module RSCoin.Notary.Storage
-       ( Storage (_masterKeys)
+       ( Storage (_aliveSize, _masterKeys)
        , acquireSignatures
        , addSignedTransaction
        , allocateMSAddress
@@ -18,18 +18,21 @@ module RSCoin.Notary.Storage
        , queryCompleteMSAdresses
        , queryMyMSRequests
        , removeCompleteMSAddresses
+       , outdatedAllocs
        ) where
 
 import           Control.Lens         (Lens', at, makeLenses, to, use, uses,
                                        view, (%=), (%~), (&), (.=), (?=), (^.))
 import           Control.Monad        (forM_, unless, when, (<=<))
 import           Control.Monad.Catch  (MonadThrow (throwM))
-import           Control.Monad.Extra  (whenJust, whenM)
+import           Control.Monad.Extra  (unlessM, whenJust, whenM)
 import           Data.Acid            (Query, Update, liftQuery)
 import qualified Data.Foldable        as F
-import qualified Data.HashMap.Strict  as HM
+import qualified Data.HashMap.Strict  as HM hiding (HashMap)
 import           Data.HashSet         (HashSet)
 import qualified Data.HashSet         as HS hiding (HashSet)
+import           Data.IntMap.Strict   (IntMap)
+import qualified Data.IntMap.Strict   as IM hiding (IntMap)
 import           Data.Map.Strict      (Map)
 import qualified Data.Map.Strict      as M hiding (Map)
 import           Data.Maybe           (fromJust, fromMaybe, mapMaybe)
@@ -41,6 +44,7 @@ import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
                                        PeriodId, PublicKey, Signature,
                                        Transaction (..), Utxo,
                                        computeOutputAddrids,
+                                       notaryAliveSizeDefault,
                                        notaryMSAttemptsLimit, validateSignature,
                                        validateSum, verify)
 import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
@@ -68,6 +72,16 @@ data Storage = Storage
       -- used only during multisignature address allocation process.
     , _allocationStrategyPool :: !(Map MSAddress AllocationInfo)
 
+      -- | Mapping PeriodId -> MSAddresses that were allocated during period.
+    , _discardMSAddresses     :: !(IntMap [MSAddress])
+
+      -- | Mapping PeriodId -> Transactions that were submitted during period.
+    , _discardTransactions    :: !(IntMap [Transaction])
+
+      -- | Constant that defines how many periods we should store MS and txs
+      -- (i.e. information in '_discardMSAddresses' & '_discardTransactions'.
+    , _aliveSize              :: !PeriodId
+
       -- | Number of attempts for user per period to allocate multisig address.
     , _periodStats            :: !(Map Address Int)
 
@@ -94,6 +108,9 @@ emptyNotaryStorage =
     , _txPoolAddrIds          = M.empty
     , _unspentAddrIds         = M.empty
     , _allocationStrategyPool = M.empty
+    , _discardMSAddresses     = IM.empty
+    , _discardTransactions    = IM.empty
+    , _aliveSize              = notaryAliveSizeDefault
     , _periodStats            = M.empty
     , _addresses              = M.empty
     , _utxo                   = M.empty
@@ -182,8 +199,9 @@ allocateMSAddress
       let allocAddress = partyToAllocation argPartyAddress
 
       case mMSAddressInfo of
-          Nothing ->
-              --allocationStrategyPool %= M.insert
+          Nothing -> do
+              pId <- use periodId
+              discardMSAddresses %= IM.alter (Just . (msAddr :) . fromMaybe []) pId
               allocationStrategyPool.at msAddr ?=
                   AllocationInfo { _allocationStrategy   = argStrategy
                                  , _currentConfirmations = HM.singleton allocAddress partyAddr }
@@ -222,6 +240,9 @@ addSignedTransaction tx addr (sigAddr,sig) = do
     checkSigRelativeToAddr
     txMap <- fromMaybe M.empty . M.lookup addr <$> use txPool
     when (tx `M.notMember` txMap) $ txPoolAddrIds %= updateTxPoolAddrIds
+
+    pId <- use periodId
+    discardTransactions %= IM.alter (Just . (tx :) . fromMaybe []) pId
     txPool %=
         M.insert
             addr
@@ -268,6 +289,39 @@ announceNewPeriods pId' blocks = do
     mapM_ announceNewPeriod $ reverse $ take (pId' - pId) blocks
     periodId .= pId'
 
+    -- @TODO: remove duplcated code
+    alivePid <- use aliveSize
+
+    -- remove autdated allocations
+    unlessM (uses discardMSAddresses IM.null) $ do
+        (oldestSavedPid, _) <- uses discardMSAddresses IM.findMin
+        let deleteLookup = const $ const Nothing
+
+        forM_ [oldestSavedPid .. pId - alivePid] $ \oldPid -> do
+            (mMsList, newDiscard) <- uses discardMSAddresses
+                $ IM.updateLookupWithKey deleteLookup oldPid
+            discardMSAddresses .= newDiscard -- @TODO: optimize and set only once
+
+            whenJust mMsList $ \msList -> forM_ msList $ \msAddr ->
+                allocationStrategyPool %= M.delete msAddr
+
+    -- remove outdated transactions
+    unlessM (uses discardTransactions IM.null) $ do
+        (oldestSavedPid, _) <- uses discardTransactions IM.findMin
+        let deleteLookup = const $ const Nothing
+
+        forM_ [oldestSavedPid .. pId - alivePid] $ \oldPid -> do
+            (mTxList, newDiscard) <- uses discardTransactions
+                $ IM.updateLookupWithKey deleteLookup oldPid
+            discardTransactions .= newDiscard -- @TODO: optimize and set only once
+
+            -- this shit just makes me really sad :(
+            whenJust mTxList $ \txList -> forM_ txList $ \tx -> do
+                allMSAddrs <- uses txPool M.keys
+                forM_ allMSAddrs $ \msAddr ->
+                    txPool %= M.update (ifNotEmpty . M.delete tx) msAddr
+
+
 announceNewPeriod :: HBlock -> Update Storage ()
 announceNewPeriod HBlock{..} = do
     addresses %= M.union hbAddresses
@@ -295,6 +349,9 @@ announceNewPeriod HBlock{..} = do
 -----------------
 -- ms alloccation
 -----------------
+
+outdatedAllocs :: Query Storage (IntMap [MSAddress])
+outdatedAllocs = view discardMSAddresses
 
 queryMSAddressesHelper
     :: Lens' Storage (Map MSAddress info)

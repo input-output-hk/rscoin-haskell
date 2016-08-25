@@ -146,6 +146,7 @@ library
                      , monad-control
                      , msgpack >= 1.0.0
                      , msgpack-rpc >= 1.0.0
+                     , optional-args
                      , pqueue
                      , QuickCheck >= 2.8.1
                      , random
@@ -365,6 +366,7 @@ executable rscoin-deploy
                      , filepath
                      , formatting
                      , mtl
+                     , optional-args
                      , optparse-applicative
                      , rscoin
                      , serokell-core
@@ -454,6 +456,7 @@ test-suite rscoin-test
                      , lens >= 4.13
                      , msgpack >= 1.0.0
                      , mtl
+                     , optional-args
                      , QuickCheck >= 2.8.1
                      , safe
                      , safecopy

@@ -8,14 +8,17 @@ module NotaryOptions
 import           Data.Text              (Text)
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, many,
-                                         metavar, option, progDesc, short,
-                                         showDefault, switch, value, (<>))
+                                         metavar, option, progDesc,
+                                         short, showDefault, switch, value,
+                                         (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), configDirectory,
-                                         defaultConfigurationPath)
+import           RSCoin.Core            (PeriodId, Severity (Error),
+                                         configDirectory,
+                                         defaultConfigurationPath,
+                                         notaryAliveSizeDefault)
 
 data Options = Options
     { cliPath           :: FilePath
@@ -24,6 +27,7 @@ data Options = Options
     , cliWebPort        :: Int
     , cliConfigPath     :: FilePath
     , cliTrustedKeys    :: [Text]
+    , cliAliveSize      :: PeriodId
     , cloDefaultContext :: Bool
     } deriving Show
 
@@ -51,10 +55,13 @@ optionsParser configDir defaultConfigPath =
          metavar "FILEPATH") <*>
     many
         (strOption $
-         long "trust-keys" <> metavar "[PUBLIC KEY]" <>
+         long "trust-keys" <> metavar "PUBLIC KEY" <>
          help
              "Public keys notary will trust as master keys. If not specifed \
                \then notary will trust any key") <*>
+    option auto
+        (long "alive-size" <> metavar "INT" <> value notaryAliveSizeDefault <>
+         showDefault <> help "Number of periods to keep requests alive") <*>
     switch
         (mconcat
              [ short 'd'

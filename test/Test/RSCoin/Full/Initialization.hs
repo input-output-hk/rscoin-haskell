@@ -18,6 +18,7 @@ import qualified Data.IntMap.Strict         as M
 import           Data.IORef                 (newIORef)
 import           Data.List                  (genericLength)
 import           Data.Maybe                 (fromMaybe)
+import Data.Optional (Optional (Default))
 import           Formatting                 (build, sformat, (%))
 import           Test.QuickCheck            (NonEmptyList (..))
 
@@ -58,7 +59,7 @@ mkTestContext
     => MintetteNumber -> UserNumber -> Scenario -> m TestContext
 mkTestContext mNum uNum scen = do
     binfo <- BankInfo <$> bankKeyPair <*> liftIO B.openMemState
-    ninfo <- NotaryInfo <$> liftIO (N.openMemState [])
+    ninfo <- NotaryInfo <$> liftIO (N.openMemState [] Default)
     minfos <- mapM mkMintette [0 .. mNum - 1]
     buinfo <- UserInfo <$> liftIO U.openMemState
     uinfos <-

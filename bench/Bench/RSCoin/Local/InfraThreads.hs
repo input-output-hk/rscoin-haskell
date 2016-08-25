@@ -5,6 +5,7 @@ module Bench.RSCoin.Local.InfraThreads
         , notaryThread
         ) where
 
+import           Data.Optional              (Optional (Default))
 import           Data.Time.Units            (TimeUnit)
 
 import           System.FilePath            ((</>))
@@ -42,7 +43,8 @@ mintetteThread mintetteId benchDir secretKey =
     dbPath = Just $ benchDir </> dbFormatPath "mintette-db" mintetteId
 
 notaryThread :: FilePath -> IO ()
-notaryThread benchDir = N.launchNotaryReal Warning dbPath B.CADefault webPort []
+notaryThread benchDir =
+    N.launchNotaryReal Warning dbPath B.CADefault webPort [] Default
   where
     webPort = defaultPort - 1
     dbPath = Just $ benchDir </> "notary-db"

@@ -14,7 +14,7 @@ import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span
                                        input, label)
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt, role, href,
-                                       autoComplete)
+                                       autoComplete, htmlFor)
 import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
@@ -73,18 +73,15 @@ view state =
                                         [ className "pull-right" ]
                                         [ text "Color balance"
                                         , span
-                                            [ className "btn-group"
-                                            , data_ "toggle" "buttons"
-                                            ]
-                                            [ label
-                                                [ className "btn btn-primary active" ]
-                                                [ input
-                                                    [ type_ "checkbox"
-                                                    , autoComplete "off"
-                                                    ]
-                                                    []
-                                                , text "Show/Hide colors"
+                                            []
+                                            [ input
+                                                [ type_ "checkbox"
+                                                , id_ "color-toggle"
                                                 ]
+                                                []
+                                            , label
+                                                [ htmlFor "color-toggle" ]
+                                                []
                                                 -- @sasha: we can use http://www.bootstraptoggle.com/
                                                 -- or some other implementation if you prefer it. Please just let me know and I will replace them
                                             ]

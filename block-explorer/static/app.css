@@ -198,6 +198,28 @@ html, body, #app, .max-height,
     background-color: rgb(251, 251, 251);
 }
 
+/* custom toggle */
+
+input[type=checkbox] {
+    display: none;
+}
+
+input[type=checkbox] + label {
+    background: url("image/switch-off.svg") no-repeat;
+    height: 50px;
+    width: 50px;
+    display: inline-block;
+    padding: 0 0 0 0;
+}
+
+input[type=checkbox]:checked + label {
+    background: url("image/switch-on.svg") no-repeat;
+    height: 50px;
+    width: 50px;
+    display: inline-block;
+    padding: 0 0 0 0;
+}
+
 /* override bootstrap */
 
 td {

@@ -24,6 +24,12 @@ imagePath i = "image/" <> i
 logoPath :: String
 logoPath = imagePath "logo.svg"
 
+switchOnPath :: String
+switchOnPath = imagePath "switch-on.svg"
+
+switchOffPath :: String
+switchOffPath = imagePath "switch-off.svg"
+
 logoSmallPath :: String
 logoSmallPath = imagePath "logo-small.png"
 

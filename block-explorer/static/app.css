@@ -6,6 +6,7 @@ body {
     text-rendering: optimizeLegibility;
     text-size-adjust: 100;
     overflow-x: hidden;
+    min-width: 1048px;
 }
 
 html, body, #app, .max-height,

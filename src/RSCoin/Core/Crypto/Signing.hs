@@ -29,17 +29,14 @@ import qualified Crypto.Sign.Ed25519          as E
 import           Data.Aeson                   (FromJSON (parseJSON),
                                                ToJSON (toJSON))
 import           Data.Bifunctor               (bimap)
-import           Data.Binary                  (Binary (get, put), decodeOrFail,
-                                               encode)
+import           Data.Binary                  (Binary (get, put))
 import qualified Data.ByteString              as BS
 import           Data.Char                    (isSpace)
 import           Data.Hashable                (Hashable (hashWithSalt))
 import           Data.Maybe                   (fromMaybe)
 import           Data.MessagePack             (MessagePack (fromObject, toObject))
-import           Data.SafeCopy                (Contained,
-                                               SafeCopy (getCopy, putCopy),
-                                               contain, safeGet, safePut)
-import           Data.Serialize               (Get, Put)
+import           Data.SafeCopy                (SafeCopy)
+import qualified Data.Serialize               as Ser (Serialize (get, put))
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
 import           Data.Text.Buildable          (Buildable (build))
@@ -70,22 +67,6 @@ sigToBs = E.unSignature . getSignature
 
 bsToSig :: BS.ByteString -> (Signature a)
 bsToSig = Signature . E.Signature
-
-putCopyBinary :: Binary a => a -> Contained Put
-putCopyBinary = contain . safePut . encode
-
-getCopyBinary :: Binary a => Contained (Get a)
-getCopyBinary =
-    contain $
-    do bs <- safeGet
-       either onError onSuccess . decodeOrFail $ bs
-  where
-    onError (_,_,errMsg) = fail errMsg
-    onSuccess (_,_,res) = return res
-
-instance SafeCopy (Signature a) where
-    putCopy = putCopyBinary
-    getCopy = getCopyBinary
 
 instance Buildable (Signature a, PublicKey) where
     build = pairBuilder
@@ -119,19 +100,30 @@ instance Binary (Signature a) where
     get = bsToSig <$> get
     put = put . sigToBs
 
+instance Ser.Serialize (Signature a) where
+    put = Ser.put . sigToBs
+    get = bsToSig <$> Ser.get
+
+instance SafeCopy (Signature a) where
+
 instance ToJSON (Signature a)where
     toJSON = toJSON . B64.encode . sigToBs
 
 instance FromJSON (Signature a) where
     parseJSON = fmap (bsToSig . B64.getJsonByteString) . parseJSON
 
-
 newtype SecretKey = SecretKey
     { getSecretKey :: E.SecretKey
     } deriving (Eq, Ord)
 
+skToBs :: SecretKey -> BS.ByteString
+skToBs = E.unSecretKey . getSecretKey
+
+bsToSk :: BS.ByteString -> SecretKey
+bsToSk = SecretKey . E.SecretKey
+
 instance Buildable SecretKey where
-    build = build . B64.encode . E.unSecretKey . getSecretKey
+    build = build . B64.encode . skToBs
 
 instance Show SecretKey where
     show sk = "SecretKey { getSecretKey = " ++ T.unpack (show' sk) ++ " }"
@@ -140,7 +132,7 @@ instance Read SecretKey where
     readPrec = lift $
         either
             (error . T.unpack)
-            (SecretKey . E.SecretKey)
+            bsToSk
         . B64.decode
         . T.pack
         <$>
@@ -148,12 +140,14 @@ instance Read SecretKey where
           (string " getSecretKey = " *> munch1 (not . isSpace) <* skipSpaces))
 
 instance Binary SecretKey where
-    get = SecretKey . E.SecretKey <$> get
-    put = put . E.unSecretKey . getSecretKey
+    put = put . skToBs
+    get = bsToSk <$> get
+
+instance Ser.Serialize SecretKey where
+    put = Ser.put . skToBs
+    get = bsToSk <$> Ser.get
 
 instance SafeCopy SecretKey where
-    putCopy = putCopyBinary
-    getCopy = getCopyBinary
 
 instance Arbitrary SecretKey where
     arbitrary =
@@ -194,12 +188,14 @@ instance Hashable PublicKey where
     hashWithSalt s = hashWithSalt s . E.unPublicKey . getPublicKey
 
 instance Binary PublicKey where
-    get = bsToPk <$> get
     put = put . pkToBs
+    get = bsToPk <$> get
+
+instance Ser.Serialize PublicKey where
+    put = Ser.put . pkToBs
+    get = bsToPk <$> Ser.get
 
 instance SafeCopy PublicKey where
-    putCopy = putCopyBinary
-    getCopy = getCopyBinary
 
 instance MessagePack PublicKey where
     toObject = toObject . pkToBs

@@ -135,10 +135,10 @@ html, body, #app, .max-height,
     opacity: 1;
 }
 
-::-webkit-input-placeholder { color: rgba(255, 255, 255, 0.5); }
-::-moz-placeholder          { color: rgba(255, 255, 255, 0.5); }
-:-moz-placeholder           { color: rgba(255, 255, 255, 0.5); }
-:-ms-input-placeholder      { color: rgba(255, 255, 255, 0.5); }
+#search-field::-webkit-input-placeholder { color: rgba(255, 255, 255, 0.7); }
+#search-field::-moz-placeholder          { color: rgba(255, 255, 255, 0.7); }
+#search-field:-moz-placeholder           { color: rgba(255, 255, 255, 0.7); }
+#search-field:-ms-input-placeholder      { color: rgba(255, 255, 255, 0.7); }
 
 #search-ic {
     color: white;
@@ -491,3 +491,55 @@ input:checked + .slider:before {
 }
 
 /* Custom toggle end */
+
+#pagination {
+    width: 146px;
+    height: 32px;
+    border: solid 1px #cbcbcb;
+    border-radius: 4px;
+    font-size: 8px;
+    line-height: 8px;
+    padding: 8px 6px;
+}
+
+#pagination-search {
+    background-color: transparent;
+    height: 16px;
+    width: 33px;
+    border: none;
+    border-bottom: solid 1px #cbcbcb;
+    outline: none;
+    outline-width: 0;
+    padding: 4px 6px;
+    margin: 0px 6px;
+    text-align: center;
+}
+
+#pagination-search:focus {
+    background-color: #fbfbfb;
+    border-bottom: solid 1px #333333;
+}
+
+#pagination-search::-webkit-input-placeholder { color: rgba(51, 51, 51, 1); }
+#pagination-search::-moz-placeholder          { color: rgba(51, 51, 51, 1); }
+#pagination-search:-moz-placeholder           { color: rgba(51, 51, 51, 1); }
+#pagination-search:-ms-input-placeholder      { color: rgba(51, 51, 51, 1); }
+
+#navigation-arrow {
+    background-color: transparent;
+    padding: 4px;
+    margin: -4px 0px;
+}
+
+#navigation-arrow:hover {
+    background-color: #e6e6e6;
+    cursor: pointer;
+}
+
+.navagation-text-span {
+    padding: 0px 6px;
+}
+
+#disabled-text {
+    color: #a6a6a6;
+}

@@ -492,9 +492,11 @@ view state =
                         ]
                     ]
                 , div
-                    [ id_ "pagination" ]
+                    [ className "center-block"
+                    , id_ "pagination" ]
                     [ span
-                        [ className "glyphicon glyphicon-triangle-left" ]
+                        [ className "glyphicon glyphicon-triangle-left"
+                        , id_ "navigation-arrow" ]
                         []
                     ,  input
                         [ type_ "search"
@@ -503,10 +505,15 @@ view state =
                         ]
                         []
                     , span
-                        []
-                        [ text "of 9090" ]
+                        [ className "navagation-text-span"
+                        , id_ "disabled-text" ]
+                        [ text "of" ]
                     , span
-                        [ className "glyphicon glyphicon-triangle-right" ]
+                        [ className "navagation-text-span" ]
+                        [ text "9090" ]
+                    , span
+                        [ className "glyphicon glyphicon-triangle-right"
+                        , id_ "navigation-arrow" ]
                         []
                     ]
                 ]

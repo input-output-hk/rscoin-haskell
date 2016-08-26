@@ -516,6 +516,9 @@ view state =
                         , id_ "navigation-arrow" ]
                         []
                     ]
+                --, button
+                --    [ id_ "expand-button" ]
+                --    [ text "expand-button" ]
                 ]
             ]
         ]

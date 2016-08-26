@@ -147,6 +147,15 @@ html, body, #app, .max-height,
     margin-top: 5px;
 }
 
+#upper-version {
+    color: white;
+    font-size: 10px;
+    line-height: 12px;
+    opacity: 0.4;
+    vertical-align: super;
+    padding-left: 4px;
+}
+
 #footer-links {
     color: white;
     font-size: 10px;
@@ -542,4 +551,22 @@ input:checked + .slider:before {
 
 #disabled-text {
     color: #a6a6a6;
+}
+
+#expand-button {
+    background-color: transparent;
+    border: solid 1px #333333;
+    border-radius: 4px;
+    font-size: 8px;
+    line-height: 10px;
+    height: 22px;
+    max-width: 96px;
+    padding: 6px 12px;
+    opacity: 0.4;
+    text-align: center;
+    margin: 0 auto;
+}
+
+#expand-button:hover {
+    opacity: 1;
 }

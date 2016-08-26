@@ -37,6 +37,9 @@ view state =
                         , src logoPath
                         ]
                         []
+                    , span
+                        [ id_ "upper-version" ]
+                        [ text "VO.123" ]
                     ]
                 ]
             , ul

@@ -293,16 +293,19 @@ sendPeriodFinished mintette pId =
             " Logs: " % build % "\n")
             mintette (listBuilderJSONIndent 2 blks) lgs
 
-announceNewPeriodsToNotary :: WorkMode m => PeriodId -> [HBlock] -> m ()
-announceNewPeriodsToNotary pId' hblocks = do
-    L.logDebug $
-        sformat
-            ("Announce new periods to Notary, hblocks " % build %
-             ", latest periodId " %
-             int)
-            hblocks
-            pId'
-    callNotary $ P.call (P.RSCNotary P.AnnounceNewPeriodsToNotary) pId' hblocks
+announceNewPeriodsToNotary
+    :: WorkMode m
+    => PeriodId
+    -> [HBlock]
+    -> Signature [HBlock]
+    -> m ()
+announceNewPeriodsToNotary pId' hblocks hblocksSig = do
+    L.logDebug $ sformat
+        ("Announce new periods to Notary, hblocks " % build %
+         ", latest periodId " % int)
+        hblocks
+        pId'
+    callNotary $ P.call (P.RSCNotary P.AnnounceNewPeriodsToNotary) pId' hblocks hblocksSig
 
 getNotaryPeriod :: WorkMode m => m PeriodId
 getNotaryPeriod = do

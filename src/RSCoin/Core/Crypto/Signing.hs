@@ -220,7 +220,7 @@ sign (getSecretKey -> secKey) =
     Signature . E.dsign secKey . H.getHash . H.hash
 
 -- | Verify signature for a serializable value.
-verify :: Binary t => PublicKey -> (Signature t) -> t -> Bool
+verify :: Binary t => PublicKey -> Signature t -> t -> Bool
 verify (getPublicKey -> pubKey) (getSignature -> sig) t =
     E.dverify pubKey (H.getHash $ H.hash t) sig
 

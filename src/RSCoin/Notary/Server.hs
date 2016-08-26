@@ -15,7 +15,8 @@ module RSCoin.Notary.Server
 
 import           Control.Applicative     (liftA2)
 import           Control.Lens            ((^.))
-import           Control.Monad.Catch     (catch)
+import           Control.Monad           (unless)
+import           Control.Monad.Catch     (catch, throwM)
 import           Control.Monad.IO.Class  (MonadIO, liftIO)
 import           Data.Text               (Text)
 
@@ -34,9 +35,9 @@ import           RSCoin.Notary.AcidState (AcquireSignatures (..),
                                           QueryAllMSAdresses (..),
                                           QueryCompleteMSAdresses (..),
                                           QueryMyMSRequests (..),
-                                          RemoveCompleteMSAddresses (..), OutdatedAllocs (..), query,
+                                          RemoveCompleteMSAddresses (..), query,
                                           tidyState, update)
-import           RSCoin.Notary.Error     (NotaryError)
+import           RSCoin.Notary.Error     (NotaryError (..))
 import           RSCoin.Timed            (MonadRpc (getNodeContext), WorkMode,
                                           serverTypeRestriction0,
                                           serverTypeRestriction1,
@@ -61,7 +62,7 @@ serveNotary
 serveNotary notaryState = do
     idr1 <- serverTypeRestriction3
     idr2 <- serverTypeRestriction2
-    idr3 <- serverTypeRestriction2
+    idr3 <- serverTypeRestriction3
     idr4 <- serverTypeRestriction0
     idr5 <- serverTypeRestriction0
     idr6 <- serverTypeRestriction2
@@ -78,7 +79,7 @@ serveNotary notaryState = do
         , P.method (P.RSCNotary P.GetSignatures)              $ idr2
             $ handleGetSignatures notaryState
         , P.method (P.RSCNotary P.AnnounceNewPeriodsToNotary) $ idr3
-            $ handleAnnounceNewPeriods notaryState
+            $ handleAnnounceNewPeriods notaryState bankPublicKey
         , P.method (P.RSCNotary P.GetNotaryPeriod)            $ idr4
             $ handleGetPeriodId notaryState
         , P.method (P.RSCNotary P.QueryCompleteMS)            $ idr5
@@ -116,12 +117,18 @@ handlePublishTx st tx addr sg =
 handleAnnounceNewPeriods
     :: MonadIO m
     => NotaryState
+    -> C.PublicKey
     -> C.PeriodId
     -> [C.HBlock]
+    -> C.Signature [C.HBlock]
     -> ServerTE m ()
-handleAnnounceNewPeriods st pId hblocks = toServer $ do
-    outdatedAllocs <- query st OutdatedAllocs
-    C.logDebug $ sformat ("All discard info: " % shown) outdatedAllocs
+handleAnnounceNewPeriods st bankPk pId hblocks hblocksSig = toServer $ do
+--    DEBUG
+--    outdatedAllocs <- query st OutdatedAllocs
+--    C.logDebug $ sformat ("All discard info: " % shown) outdatedAllocs
+    unless (C.verify bankPk hblocksSig hblocks) $
+        throwM NEInvalidSignature
+
     update st $ AnnounceNewPeriods pId hblocks
     tidyState st
     C.logDebug $ sformat ("New period announcement, hblocks " % build % " from periodId " % int)

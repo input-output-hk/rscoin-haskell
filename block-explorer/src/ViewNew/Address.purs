@@ -72,21 +72,19 @@ view state =
                                     , text "213,12"
                                     , div
                                         [ className "pull-right" ]
-                                        [ text "Color balance"
-                                        , span
-                                            []
+                                        [ label
+                                            [ className "switch" ]
                                             [ input
-                                                [ type_ "checkbox"
-                                                , id_ "color-toggle"
-                                                ]
+                                                [ type_ "checkbox" ]
                                                 []
-                                            , label
-                                                [ htmlFor "color-toggle" ]
+                                            , div
+                                                [ className "slider round" ]
                                                 []
-                                                -- @sasha: we can use http://www.bootstraptoggle.com/
-                                                -- or some other implementation if you prefer it. Please just let me know and I will replace them
                                             ]
                                         ]
+                                    , div
+                                        [ className "pull-right" ]
+                                        [ text "Color balance" ]
                                     ]
                                 ]
                             ]

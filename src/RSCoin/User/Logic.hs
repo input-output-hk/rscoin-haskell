@@ -16,6 +16,7 @@ module RSCoin.User.Logic
        , validateTransaction
        ) where
 
+import           Control.Arrow                 (second)
 import           Control.Lens                  (view, _1, _2, _3)
 import           Control.Monad                 (guard, unless, when)
 import           Control.Monad.Catch           (throwM)
@@ -24,7 +25,7 @@ import           Data.Either                   (partitionEithers)
 import           Data.Either.Combinators       (fromLeft', isLeft, rightToMaybe)
 import           Data.List                     (genericLength, nub)
 import qualified Data.Map                      as M
-import           Data.Maybe                    (catMaybes, fromJust, mapMaybe)
+import           Data.Maybe                    (fromJust, mapMaybe, maybeToList)
 import qualified Data.Text                     as T
 import           Data.Time.Units               (Second)
 import           Formatting                    (build, int, sformat, (%))
@@ -37,7 +38,8 @@ import           RSCoin.Core.Primitives        (AddrId, Address,
                                                 Transaction (..))
 import           RSCoin.Core.Strategy          (TxStrategy (..),
                                                 isStrategyCompleted)
-import           RSCoin.Core.Types             (CheckConfirmations,
+import           RSCoin.Core.Types             (CheckConfirmation,
+                                                CheckConfirmations,
                                                 CommitAcknowledgment (..),
                                                 Mintette, MintetteId, PeriodId)
 import           RSCoin.Timed                  (WorkMode)
@@ -133,6 +135,9 @@ getExtraSignatures tx requests time = do
             then returnRight True afterPublishSigs
             else return $ Left addr
 
+-- | Just a convenient alias
+type Owner = (Mintette,MintetteId)
+
 -- | Implements V.1 from the paper. For all addrids that are inputs of
 -- transaction 'signatures' should contain signature of transaction
 -- given. If transaction is confirmed, just returns. If it's not
@@ -144,53 +149,90 @@ validateTransaction
     -> SignatureBundle -- ^ Signatures for local addresses with default strategy
     -> PeriodId        -- ^ Period in which the transaction should be sent
     -> m ()
-validateTransaction cache tx@Transaction{..} signatureBundle height = do
+validateTransaction cache tx@Transaction{..} signatureBundle periodId = do
     unless (all checkStrategy $ M.elems signatureBundle) $ throwM StrategyFailed
-    (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
+    (bundle :: CheckConfirmations) <- getConfirmations
+--    (bundle :: CheckConfirmations) <- mconcat <$> mapM processInput txInputs
     commitBundle bundle
   where
     checkStrategy :: (Address, TxStrategy, [(Address, Signature Transaction)]) -> Bool
     checkStrategy (addr,str,sgns) = isStrategyCompleted str addr sgns tx
-    processInput
-        :: WorkMode m
-        => AddrId -> m CheckConfirmations
-    processInput addrid = do
-        owns <- getOwnersByAddrid cache height addrid
+    reverseMap :: (Ord b) => M.Map a [b] -> M.Map b [a]
+    reverseMap orig =
+        let allElems = nub $ concat $ M.elems orig
+            assocs = M.assocs orig
+        in M.fromList [ (b, map fst $ filter ((b `elem`) . snd) assocs)
+                      | b <- allElems ]
+    retrieveOwners :: (WorkMode m) => AddrId -> m [(Mintette,MintetteId)]
+    retrieveOwners addrid = do
+        owns <- getOwnersByAddrid cache periodId addrid
         when (null owns) $
             throwM $
             MajorityRejected $
             sformat ("Addrid " % build % " doesn't have owners") addrid
-        -- TODO maybe optimize it: we shouldn't query all mintettes, only the majority
-        subBundle <- mconcat . catMaybes <$> mapM (processMintette addrid height) owns
-        when (length subBundle <= length owns `div` 2) $
-            do invalidateCache
-               throwM $
-                   MajorityRejected $
-                   sformat
-                       ("Couldn't get CheckNotDoubleSpent " %
-                        "from majority of mintettes: only " %
-                        int % "/" % int % " confirmed " % build %
-                        " is not double-spent.")
-                       (length subBundle) (length owns) addrid
-        return subBundle
-    processMintette
-        :: WorkMode m
-        => AddrId -> PeriodId -> (Mintette, MintetteId) -> m (Maybe CheckConfirmations)
-    processMintette addrid periodid (mintette,mid) = do
-        signedPairMb <-
-            rightToMaybe <$>
-            (CC.checkNotDoubleSpent mintette tx addrid $
-             view _3 $ fromJust $ M.lookup addrid signatureBundle)
-        return $
-            signedPairMb >>=
-            \proof ->
-                 M.singleton (mid, addrid) proof <$
-                 guard (verifyCheckConfirmation proof tx addrid periodid)
+        return owns
+    getConfirmations :: (WorkMode m) => m CheckConfirmations
+    getConfirmations = do
+        -- Get the mapping from addrids to owners it has
+        (requests :: M.Map AddrId [Owner]) <- M.fromList <$>
+            mapM (\addrid -> (addrid,) <$> retrieveOwners addrid) txInputs
+        -- Getting the shard size and reversed map
+        let shardSize :: Int
+            shardSize = length $ snd $ head $ M.assocs requests
+            revRequests :: M.Map Owner [AddrId]
+            revRequests = reverseMap requests
+        -- Querying each mintette and getting a map for their answers
+        (confirmations :: M.Map Owner [(AddrId, Maybe CheckConfirmation)]) <-
+            M.fromList <$>
+            mapM (\(owner,addrids) -> do
+                -- Those are only the part of signature bundle related to the
+                -- addrids the mintette must process
+                let bundlePart =
+                        M.filterWithKey (\addrid _ -> addrid `elem` addrids) $
+                            M.map (view _3) signatureBundle
+                response <-
+                    M.map rightToMaybe <$>
+                    CC.checkNotDoubleSpentBatch (fst owner) tx bundlePart
+                let verifyConfirmation addrid proofMaybe = do
+                        proof <- proofMaybe
+                        guard $ verifyCheckConfirmation proof tx addrid periodId
+                        return proof
+                return (owner, M.assocs $ M.mapWithKey verifyConfirmation response))
+            (M.assocs revRequests)
+        -- Reversing this map to something from addrid to (owner,[confirmations]
+        let revConfirmations :: M.Map AddrId [(MintetteId,CheckConfirmation)]
+            revConfirmations =
+                M.fromListWith (++) $
+                map (\((addrid,cc),(_,mId)) ->
+                      (addrid,maybeToList ((mId,) <$> cc))) $
+                map (second head) $
+                M.assocs $ reverseMap confirmations
+            failedConfirmsPred (_,allconfs) =
+                length allconfs <= shardSize `div` 2
+            failedConfirms = filter failedConfirmsPred $ M.assocs revConfirmations
+        unless (null failedConfirms) $ do
+            let (addrid,allConfs) = head failedConfirms
+            invalidateCache
+            throwM $
+                 MajorityRejected $
+                 sformat
+                     ("Couldn't get CheckNotDoubleSpent " %
+                      "from majority of mintettes: only " %
+                      int % "/" % int % " confirmed " % build %
+                      " is not double-spent.")
+                     (length allConfs) shardSize addrid
+        let checkConfirmations :: CheckConfirmations
+            checkConfirmations =
+                M.fromList $
+                concatMap (\(addrid,confs) ->
+                            map (\(mId,conf) -> ((mId,addrid),conf)) confs) $
+                M.assocs revConfirmations
+        return checkConfirmations
     commitBundle
         :: WorkMode m
         => CheckConfirmations -> m ()
     commitBundle bundle = do
-        owns <- getOwnersByTx cache height tx
+        owns <- getOwnersByTx cache periodId tx
         commitActions <-
             mapM
                 (\(mintette,_) ->

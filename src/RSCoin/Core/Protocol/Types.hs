@@ -75,6 +75,7 @@ data MintetteMethod
     = PeriodFinished
     | AnnounceNewPeriod
     | CheckTx
+    | CheckTxBatch
     | CommitTx
     | GetMintettePeriod
     deriving (Show)

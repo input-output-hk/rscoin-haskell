@@ -131,7 +131,7 @@ data CheckConfirmation = CheckConfirmation
     , ccMintetteSignature :: !SignatureActLog -- ^ signature for (tx, addrid, head)
     , ccHead              :: !ActionLogHead   -- ^ head of log
     , ccPeriodId          :: !PeriodId        -- ^ period id when confirmation was made
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Ord)
 
 instance Binary CheckConfirmation where
     put CheckConfirmation{..} = do
@@ -186,7 +186,7 @@ type ActionLogPair = (ActionLogEntry, ActionLogEntryHash)
 -- | ActionLogEntryHash is a hash of pervious ActionLogPair in log.
 newtype ActionLogEntryHash = ALEHash
     { getALEHash :: Hash ActionLogPair
-    } deriving (Show, Eq, Binary, Buildable, MessagePack)
+    } deriving (Show, Eq, Ord, Binary, Buildable, MessagePack)
 
 putByte :: Word8 -> Put
 putByte = put

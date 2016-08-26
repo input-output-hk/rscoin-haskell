@@ -17,6 +17,7 @@ module RSCoin.Core.Communication
        , getGenesisBlock
        , sendBankLocalControlRequest
        , checkNotDoubleSpent
+       , checkNotDoubleSpentBatch
        , commitTx
        , getMintettePeriod
        , sendPeriodFinished
@@ -247,6 +248,29 @@ checkNotDoubleSpent m tx a s =
             sformat ("Confirmed addrid (" % build % ") from transaction: " % build) a tx
         L.logDebug $ sformat ("Confirmation: " % build) res
 
+checkNotDoubleSpentBatch
+    :: WorkMode m
+    => Mintette
+    -> Transaction
+    -> M.Map AddrId [(Address, Signature Transaction)]
+    -> m (M.Map AddrId (Either Text CheckConfirmation))
+checkNotDoubleSpentBatch m tx signatures =
+    withResult infoMessage onReturn $ handleEither $
+    callMintette m $ P.call (P.RSCMintette P.CheckTxBatch) tx signatures
+  where
+    infoMessage =
+        L.logDebug $ sformat ("Checking addrids (" % build
+                              % ") from transaction: " % build)
+                             (listBuilderJSON $ M.keys signatures)
+                             tx
+    onReturn :: M.Map AddrId (Either Text CheckConfirmation) -> IO ()
+    onReturn _ =
+        L.logDebug $
+            sformat ("Confirmed signatures from transaction: " % build) tx
+--        L.logDebug $ sformat ("Confirmations: " % build) $
+--            listBuilderJSON $ map pairBuilder $ M.assocs res
+--      TODO add this log call (something bad with buildable)
+
 commitTx
     :: WorkMode m
     => Mintette
@@ -279,7 +303,6 @@ sendPeriodFinished mintette pId =
     withResult infoMessage successMessage $
     handleEither $
     callMintette mintette $ P.call (P.RSCMintette P.PeriodFinished) pId
-
   where
     infoMessage =
         L.logDebug $

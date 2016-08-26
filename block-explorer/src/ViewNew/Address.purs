@@ -493,6 +493,24 @@ view state =
                             ]
                         ]
                     ]
+                , div
+                    [ id_ "pagination" ]
+                    [ span
+                        [ className "glyphicon glyphicon-triangle-left" ]
+                        []
+                    ,  input
+                        [ type_ "search"
+                        , id_ "pagination-search"
+                        , placeholder "1200"
+                        ]
+                        []
+                    , span
+                        []
+                        [ text "of 9090" ]
+                    , span
+                        [ className "glyphicon glyphicon-triangle-right" ]
+                        []
+                    ]
                 ]
             ]
         ]

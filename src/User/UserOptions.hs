@@ -119,6 +119,7 @@ data UserOptions = UserOptions
     , logSeverity    :: Severity     -- ^ Logging severity
     , configPath     :: FilePath     -- ^ Configuration file path
     , defaultContext :: Bool         -- ^ Use defaultNodeContext
+    , rebuildDB      :: Bool         -- ^ Rebuild User DB
     } deriving (Show)
 
 userCommandParser :: Parser UserCommand
@@ -483,7 +484,13 @@ userOptionsParser dskp configDir defaultConfigPath =
                      long "default-context",
                      help ("Use default NodeContext. "
                            <> "Intended to be used for local deployment")
-                    ])
+                    ]) <*>
+    switch
+        (mconcat
+             [ short 'r'
+             , long "rebuild-db"
+             , help
+                   ("Erase database if it already exists")])
 
 -- | IO call that retrieves command line options
 getUserOptions :: IO UserOptions

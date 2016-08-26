@@ -62,12 +62,13 @@ update = updateExtended
 
 openState
     :: MonadIO m
-    => FilePath
+    => Bool
+    -> FilePath
     -> [PublicKey]
     -> Optional PeriodId
     -> m NotaryState
-openState fp trustedKeys (defaultTo notaryAliveSizeDefault -> aliveSize) =
-    openLocalExtendedState fp st
+openState deleteIfExists fp trustedKeys (defaultTo notaryAliveSizeDefault -> aliveSize) =
+    openLocalExtendedState deleteIfExists fp st
   where
     st = S.emptyNotaryStorage
              { _masterKeys = trustedKeys

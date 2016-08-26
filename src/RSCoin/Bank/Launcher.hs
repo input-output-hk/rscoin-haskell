@@ -44,20 +44,21 @@ import           RSCoin.Bank.Server        (serve)
 import           RSCoin.Bank.Worker        (runExplorerWorker, runWorker)
 
 bankWrapperReal :: SecretKey
+                -> Bool
                 -> FilePath
                 -> ContextArgument
                 -> (State -> MsgPackRpc a)
                 -> IO a
-bankWrapperReal bankSk storagePath ca =
+bankWrapperReal bankSk deleteIfExists storagePath ca =
     runRealModeBank ca bankSk .
-    bracket (liftIO $ openState storagePath) (liftIO . closeState)
+    bracket (liftIO $ openState deleteIfExists storagePath) (liftIO . closeState)
 
 -- | Launch Bank in real mode. This function works indefinitely.
 launchBankReal
     :: (TimeUnit t)
-    => t -> FilePath -> ContextArgument -> SecretKey -> IO ()
-launchBankReal periodDelta storagePath ca bankSk =
-    bankWrapperReal bankSk storagePath ca $
+    => Bool -> t -> FilePath -> ContextArgument -> SecretKey -> IO ()
+launchBankReal deleteIfExists periodDelta storagePath ca bankSk =
+    bankWrapperReal bankSk deleteIfExists storagePath ca $
     launchBank periodDelta bankSk
 
 -- | Launch Bank in any WorkMode. This function works indefinitely.
@@ -79,7 +80,7 @@ addMintetteInPlace :: ContextArgument
                    -> PublicKey
                    -> IO ()
 addMintetteInPlace ca bankSk storagePath m k =
-    bankWrapperReal bankSk storagePath ca $ flip update (AddMintette m k)
+    bankWrapperReal bankSk False storagePath ca $ flip update (AddMintette m k)
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerInPlace :: ContextArgument
@@ -89,7 +90,7 @@ addExplorerInPlace :: ContextArgument
                    -> PeriodId
                    -> IO ()
 addExplorerInPlace ca bankSk storagePath e pId =
-    bankWrapperReal bankSk storagePath ca $ flip update (AddExplorer e pId)
+    bankWrapperReal bankSk False storagePath ca $ flip update (AddExplorer e pId)
 
 wrapRequest :: ContextArgument -> SecretKey -> P.BankLocalControlRequest -> IO ()
 wrapRequest ca bankSk request =

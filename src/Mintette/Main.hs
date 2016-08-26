@@ -47,8 +47,8 @@ mainServe ctxArg Opts.ServeOptions{..} Opts.Options{..} = do
                 then Nothing
                 else Just cloPath
         epochDelta = fromInteger cloEpochDelta :: Second
-    M.launchMintetteReal epochDelta cloPort sk dbPath ctxArg
+    M.launchMintetteReal cloRebuildDB epochDelta cloPort sk dbPath ctxArg
 
 mainDumpStatistics :: M.ContextArgument -> Opts.Options -> IO ()
 mainDumpStatistics ctxArg Opts.Options {..} = do
-    M.dumpStorageStatistics cloPath ctxArg
+    M.dumpStorageStatistics cloRebuildDB cloPath ctxArg

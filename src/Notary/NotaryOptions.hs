@@ -29,6 +29,7 @@ data Options = Options
     , cliTrustedKeys    :: [Text]
     , cliAliveSize      :: PeriodId
     , cloDefaultContext :: Bool
+    , cloRebuildDB      :: Bool
     } deriving Show
 
 optionsParser :: FilePath -> FilePath -> Parser Options
@@ -68,7 +69,13 @@ optionsParser configDir defaultConfigPath =
              , long "default-context"
              , help
                    ("Use default NodeContext. " <>
-                    "Intended to be used for local deployment")])
+                    "Intended to be used for local deployment")]) <*>
+    switch
+        (mconcat
+             [ short 'r'
+             , long "rebuild-db"
+             , help
+                   ("Erase database if it already exists")])
 
 getOptions :: IO Options
 getOptions = do

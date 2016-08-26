@@ -51,7 +51,7 @@ view state =
                                     []
                                     [ a
                                         [ id_ "address-link" ]
-                                        [ text "oqpwieoqweipqie" ]
+                                        [ text "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9" ]
                                     ]
                                 ]
                             , tr

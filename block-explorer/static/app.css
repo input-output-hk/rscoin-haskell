@@ -503,7 +503,7 @@ input:checked + .slider:before {
 /* Custom toggle end */
 
 #pagination {
-    width: 146px;
+    width: 147px;
     height: 32px;
     border: solid 1px #cbcbcb;
     border-radius: 4px;

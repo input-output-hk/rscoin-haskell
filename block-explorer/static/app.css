@@ -121,7 +121,10 @@ html, body, #app, .max-height,
     border-radius: 12px;
     opacity: 0.5;
     padding-left: 12px;
+    padding-right: 28px;
     position: absolute;
+    outline: none;
+    outline-width: 0;
 }
 
 #search-field:hover {

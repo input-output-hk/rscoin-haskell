@@ -36,8 +36,17 @@ logoSmallPath = imagePath "logo-small.png"
 headerBitmapPath :: String
 headerBitmapPath = imagePath "header-bitmap.png"
 
+adaSymbolDarkPath :: String
+adaSymbolDarkPath = imagePath "ada-currency-symbol-dark.svg"
+
 adaSymbolPath :: String
-adaSymbolPath = imagePath "ada-currency-symbol-dark.svg"
+adaSymbolPath = imagePath "ada-currency-symbol.svg"
+
+transactionArrowGreenPath :: String
+transactionArrowGreenPath = imagePath "transaction-arrow-green.svg"
+
+transactionArrowRedPath :: String
+transactionArrowRedPath = imagePath "transaction-arrow-red.svg"
 
 opacity :: Number -> CSS
 opacity = key $ fromString "opacity"

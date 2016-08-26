@@ -7,14 +7,16 @@ import App.Types                       (Action, State, Coin(Coin), Color(Color),
                                        queryToString)
 import App.Routes                     (txUrl) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
-                                       headerBitmapPath, noBorder, adaSymbolPath)
+                                       headerBitmapPath, noBorder, adaSymbolPath,
+                                       adaSymbolDarkPath, transactionArrowGreenPath,
+                                       transactionArrowRedPath)
 
 import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span,
                                        table, div, small, h3, td, img, ul, li,
                                        input, label, button)
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt, role, href,
-                                       autoComplete, htmlFor)
+                                       autoComplete, htmlFor, rowSpan)
 import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
@@ -37,8 +39,7 @@ view state =
                 [ className "row"
                 , id_ "info-table-margins" ]
                 [ div
-                    [ className "col-xs-8"
-                    , id_ "no-padding-only-right" ]
+                    [ className "col-xs-8 no-padding-only-right" ]
                     [ table
                         [ className "table" ]
                         [ tbody
@@ -64,8 +65,8 @@ view state =
                                 , td
                                     []
                                     [ img
-                                        [ id_ "ada-symbol-dark"
-                                        , src adaSymbolPath
+                                        [ id_ "ada-symbol"
+                                        , src adaSymbolDarkPath
                                         ]
                                         []
                                     , text "213,12"
@@ -93,8 +94,7 @@ view state =
 
                     ]
                 , div
-                    [ className "col-xs-4"
-                    , id_ "no-padding-only-left" ]
+                    [ className "col-xs-4 no-padding-only-left" ]
                     [ -- @sasha: this is from http://getbootstrap.com/javascript/#markup
                       -- and from http://getbootstrap.com/components/#nav-tabs
                       ul
@@ -141,8 +141,7 @@ view state =
                             [ div
                                 [ id_ "color-table-overflow" ]
                                 [ table
-                                    [ className "table"
-                                    , id_ "no-margin" ]
+                                    [ className "table no-margin" ]
                                     [ tbody
                                         [ id_ "color-table" ]
                                         [ tr
@@ -151,8 +150,8 @@ view state =
                                             , td
                                                 []
                                                 [ img
-                                                    [ id_ "ada-symbol-dark"
-                                                    , src adaSymbolPath
+                                                    [ id_ "ada-symbol"
+                                                    , src adaSymbolDarkPath
                                                     ]
                                                     []
                                                 , text "71,2929"
@@ -164,8 +163,8 @@ view state =
                                             , td
                                                 []
                                                 [ img
-                                                    [ id_ "ada-symbol-dark"
-                                                    , src adaSymbolPath
+                                                    [ id_ "ada-symbol"
+                                                    , src adaSymbolDarkPath
                                                     ]
                                                     []
                                                 , text "71,2929"
@@ -177,8 +176,8 @@ view state =
                                             , td
                                                 []
                                                 [ img
-                                                    [ id_ "ada-symbol-dark"
-                                                    , src adaSymbolPath
+                                                    [ id_ "ada-symbol"
+                                                    , src adaSymbolDarkPath
                                                     ]
                                                     []
                                                 , text "71,2929"
@@ -190,8 +189,8 @@ view state =
                                             , td
                                                 []
                                                 [ img
-                                                    [ id_ "ada-symbol-dark"
-                                                    , src adaSymbolPath
+                                                    [ id_ "ada-symbol"
+                                                    , src adaSymbolDarkPath
                                                     ]
                                                     []
                                                 , text "71,2929"
@@ -203,8 +202,8 @@ view state =
                                             , td
                                                 []
                                                 [ img
-                                                    [ id_ "ada-symbol-dark"
-                                                    , src adaSymbolPath
+                                                    [ id_ "ada-symbol"
+                                                    , src adaSymbolDarkPath
                                                     ]
                                                     []
                                                 , text "71,2929"
@@ -223,8 +222,7 @@ view state =
                             [ div
                                 [ id_ "qr-code" ]
                                 [ table
-                                    [ className "table"
-                                    , id_ "no-margin" ]
+                                    [ className "table no-margin" ]
                                     [ tbody
                                         []
                                         [ tr
@@ -253,230 +251,243 @@ view state =
         , div
             [ className "row light-grey-background" ]
             [ div
-                [ className "row" ]
+                [ className "row no-margin" ]
                 [ div
                     [ id_ "section-title"
                     ]
                     [ text "TRANSACTIONS" ]
                 ]
             , div
-                [ className "row"
-                , id_ "info-table-margins"
-                ]
+                [ id_ "info-table-margins" ]
                 [ div
-                    [ className "col-xs-8" ]
-                    [ text "dkskjsdalkjdlaksjdlaksjdalksjd" ]
-                , div
-                    [ className "col-xs-4" ]
+                    [ className "row transaction-header no-margin" ]
                     [ div
-                        [ className "pull-left" ]
-                        [ text "2016-07-08 11:56:48" ]
-                    , button
-                        [ className "btn btn-success pull-right" ]
-                        [ img
-                            [ id_ "ada-symbol-dark"
-                            , src adaSymbolPath
-                            ]
-                            []
-                        , text "213,12"
+                        [ className "col-xs-8 no-padding"
+                        , id_ "transaction-hash" ]
+                        [ a
+                            [ id_ "link" ]
+                            [ text "6a3b06baa79d555d1bf7caac383deb4dbcb37e957fb270c0147cbd75b9a8d3a6" ]
                         ]
-                    ]
-                ]
-            , div
-                [ className "row" ]
-                [ div
-                    [ className "col-xs-8" ]
-                    [ table
-                        [ className "table"
-                        , id_ "no-margin" ]
-                        [ tbody
-                            [ id_ "color-table" ]
-                            [ tr
-                                []
-                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
-                                , td
-                                    []
-                                    [ -- have to import image here
-                                    ]
-                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
+                    , div
+                        [ className "col-xs-4 no-padding-only-left" ]
+                        [ div
+                            [ className "pull-left"
+                            , id_ "transaction-date" ]
+                            [ text "2016-07-08 11:56:48" ]
+                        , button
+                            [ className "income-button pull-right" ]
+                            [ img
+                                [ id_ "ada-symbol"
+                                , src adaSymbolPath
                                 ]
-                            , tr
                                 []
-                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
-                                , td
-                                    []
-                                    [ -- have to import image here
-                                    ]
-                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
-                                ]
-                            , tr
-                                []
-                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
-                                , td
-                                    []
-                                    [ -- have to import image here
-                                    ]
-                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
-                                ]
+                            , text "213,128,124,000"
                             ]
                         ]
                     ]
                 , div
-                    [ className "col-xs-4" ]
-                    [ table
-                        [ className "table"
-                        , id_ "no-margin" ]
-                        [ tbody
-                            [ id_ "color-table" ]
-                            [ tr
-                                []
-                                [ td [] [ text "Red" ]
-                                , td
-                                    []
-                                    [ img
-                                        [ id_ "ada-symbol-dark"
-                                        , src adaSymbolPath
-                                        ]
-                                        []
-                                    , text "71,2929"
-                                    ]
-                                ]
-                            , tr
-                                []
-                                [ td [] [ text "Blue" ]
-                                , td
-                                    []
-                                    [ img
-                                        [ id_ "ada-symbol-dark"
-                                        , src adaSymbolPath
-                                        ]
-                                        []
-                                    , text "71,2929"
-                                    ]
-                                ]
-                            , tr
-                                []
-                                [ td [] [ text "Blue" ]
-                                , td
-                                    []
-                                    [ img
-                                        [ id_ "ada-symbol-dark"
-                                        , src adaSymbolPath
-                                        ]
-                                        []
-                                    , text "71,2929"
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
-            , div
-                [ className "row"
-                , id_ "info-table-margins"
-                ]
-                [ div
-                    [ className "col-xs-8" ]
-                    [ text "dkskjsdalkjdlaksjdlaksjdalksjd" ]
-                , div
-                    [ className "col-xs-4" ]
+                    [ className "row transaction-body no-margin" ]
                     [ div
-                        [ className "pull-left" ]
-                        [ text "2016-07-08 11:56:48" ]
-                    , button
-                        [ className "btn btn-success pull-right" ]
-                        [ img
-                            [ id_ "ada-symbol-dark"
-                            , src adaSymbolPath
+                        [ className "col-xs-8 no-padding-only-right" ]
+                        [ table
+                            [ className "table"
+                            , id_ "transaction-addresses-table" ]
+                            [ tbody
+                                []
+                                [ tr
+                                    []
+                                    [ td
+                                        []
+                                        [ a
+                                            [ id_ "link"]
+                                            [ text "13dXD6C4KQVqnZGFTmuZzrVjWkH9pgc9Ng" ]
+                                        ]
+                                    , td
+                                        [ rowSpan 3
+                                        , id_ "spanned-cell" ]
+                                        [ img
+                                            [ id_ "transaction-arrow"
+                                            , src transactionArrowGreenPath
+                                            ]
+                                            []
+                                        ]
+                                    , td
+                                        [ rowSpan 3
+                                        , id_ "spanned-cell" ]
+                                        [ text "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9" ]
+                                    ]
+                                , tr
+                                    []
+                                    [ td
+                                        []
+                                        [ a
+                                            [ id_ "link"]
+                                            [ text "zrVjWkH9pgc9Ng13dXD6C4KQVqnZGFTmuZ" ]
+                                        ]
+                                    ]
+                                , tr
+                                    []
+                                    [ td
+                                        []
+                                        [ a
+                                            [ id_ "link"]
+                                            [ text "gc9Ng13dXD6C4KQVqnZGFTmuZzrVjWkH9p" ]
+                                        ]
+                                    ]
+                                ]
                             ]
-                            []
-                        , text "213,12"
                         ]
-                    ]
-                ]
-            , div
-                [ className "row" ]
-                [ div
-                    [ className "col-xs-8" ]
-                    [ table
-                        [ className "table"
-                        , id_ "no-margin" ]
-                        [ tbody
-                            [ id_ "color-table" ]
-                            [ tr
+                    , div
+                        [ className "col-xs-4 no-padding-only-left" ]
+                        [ table
+                            [ className "table"
+                            , id_ "transaction-addresses-table" ]
+                            [ tbody
                                 []
-                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
-                                , td
+                                [ tr
                                     []
-                                    [ -- have to import image here
+                                    [ td [] [ text "Red" ]
+                                    , td
+                                        [ id_ "money-amount" ]
+                                        [ img
+                                            [ id_ "ada-symbol"
+                                            , src adaSymbolDarkPath
+                                            ]
+                                            []
+                                        , text "71,2929"
+                                        ]
                                     ]
-                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
-                                ]
-                            , tr
-                                []
-                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
-                                , td
+                                , tr
                                     []
-                                    [ -- have to import image here
+                                    [ td [] [ text "Blue" ]
+                                    , td
+                                        [ id_ "money-amount" ]
+                                        [ img
+                                            [ id_ "ada-symbol"
+                                            , src adaSymbolDarkPath
+                                            ]
+                                            []
+                                        , text "71,2929"
+                                        ]
                                     ]
-                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
-                                ]
-                            , tr
-                                []
-                                [ td [] [ text "ksajdlksajdlksajdlskajd" ]
-                                , td
+                                , tr
                                     []
-                                    [ -- have to import image here
+                                    [ td [] [ text "Blue" ]
+                                    , td
+                                        [ id_ "money-amount" ]
+                                        [ img
+                                            [ id_ "ada-symbol"
+                                            , src adaSymbolDarkPath
+                                            ]
+                                            []
+                                        , text "71,2929"
+                                        ]
                                     ]
-                                , td [] [ text "ksajdlksajdlksajdlskajd" ]
                                 ]
                             ]
                         ]
                     ]
                 , div
-                    [ className "col-xs-4" ]
-                    [ table
-                        [ className "table"
-                        , id_ "no-margin" ]
-                        [ tbody
-                            [ id_ "color-table" ]
-                            [ tr
+                    [ className "row transaction-header no-margin" ]
+                    [ div
+                        [ className "col-xs-8 no-padding"
+                        , id_ "transaction-hash" ]
+                        [ a
+                            [ id_ "link" ]
+                            [ text "6a3b06baa79d555d1bf7caac383deb4dbcb37e957fb270c0147cbd75b9a8d3a6" ]
+                        ]
+                    , div
+                        [ className "col-xs-4 no-padding-only-left" ]
+                        [ div
+                            [ className "pull-left"
+                            , id_ "transaction-date" ]
+                            [ text "2016-07-08 11:56:48" ]
+                        , button
+                            [ className "outcome-button pull-right" ]
+                            [ img
+                                [ id_ "ada-symbol"
+                                , src adaSymbolPath
+                                ]
                                 []
-                                [ td [] [ text "Red" ]
-                                , td
+                            , text "-124,000"
+                            ]
+                        ]
+                    ]
+                , div
+                    [ className "row transaction-body no-margin" ]
+                    [ div
+                        [ className "col-xs-8 no-padding-only-right" ]
+                        [ table
+                            [ className "table"
+                            , id_ "transaction-addresses-table" ]
+                            [ tbody
+                                []
+                                [ tr
                                     []
-                                    [ img
-                                        [ id_ "ada-symbol-dark"
-                                        , src adaSymbolPath
+                                    [ td
+                                        [ rowSpan 2
+                                        , id_ "spanned-cell" ]
+                                        [ text "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9" ]
+                                    , td
+                                        [ rowSpan 2
+                                        , id_ "spanned-cell" ]
+                                        [ img
+                                            [ id_ "transaction-arrow"
+                                            , src transactionArrowRedPath
+                                            ]
+                                            []
                                         ]
+                                    , td
                                         []
-                                    , text "71,2929"
+                                        [ a
+                                            [ id_ "link"]
+                                            [ text "13dXD6C4KQVqnZGFTmuZzrVjWkH9pgc9Ng" ]
+                                        ]
+                                    ]
+                                , tr
+                                    []
+                                    [ td
+                                        []
+                                        [ a
+                                            [ id_ "link"]
+                                            [ text "zrVjWkH9pgc9Ng13dXD6C4KQVqnZGFTmuZ" ]
+                                        ]
                                     ]
                                 ]
-                            , tr
+                            ]
+                        ]
+                    , div
+                        [ className "col-xs-4 no-padding-only-left" ]
+                        [ table
+                            [ className "table"
+                            , id_ "transaction-addresses-table" ]
+                            [ tbody
                                 []
-                                [ td [] [ text "Blue" ]
-                                , td
+                                [ tr
                                     []
-                                    [ img
-                                        [ id_ "ada-symbol-dark"
-                                        , src adaSymbolPath
+                                    [ td [] [ text "Red" ]
+                                    , td
+                                        [ id_ "money-amount" ]
+                                        [ img
+                                            [ id_ "ada-symbol"
+                                            , src adaSymbolDarkPath
+                                            ]
+                                            []
+                                        , text "-71,2929"
                                         ]
-                                        []
-                                    , text "71,2929"
                                     ]
-                                ]
-                            , tr
-                                []
-                                [ td [] [ text "Blue" ]
-                                , td
+                                , tr
                                     []
-                                    [ img
-                                        [ id_ "ada-symbol-dark"
-                                        , src adaSymbolPath
+                                    [ td [] [ text "Blue" ]
+                                    , td
+                                        [ id_ "money-amount" ]
+                                        [ img
+                                            [ id_ "ada-symbol"
+                                            , src adaSymbolDarkPath
+                                            ]
+                                            []
+                                        , text "-71,2929"
                                         ]
-                                        []
-                                    , text "71,2929"
                                     ]
                                 ]
                             ]

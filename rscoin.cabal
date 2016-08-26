@@ -86,9 +86,12 @@ library
                      , RSCoin.Bank.AcidState
                      , RSCoin.Bank.Launcher
                      , RSCoin.Bank.Server
+                     , RSCoin.Bank.Storage.Addresses
                      , RSCoin.Bank.Storage.Explorers
                      , RSCoin.Bank.Storage.Mintettes
-                     , RSCoin.Bank.Storage.Whole
+                     , RSCoin.Bank.Storage.Storage
+                     , RSCoin.Bank.Storage.Queries
+                     , RSCoin.Bank.Storage.Updates
                      , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
                      , RSCoin.Core.Communication
@@ -103,6 +106,7 @@ library
                      , RSCoin.Explorer.Channel
                      , RSCoin.Explorer.Server
                      , RSCoin.Explorer.Storage
+                     , RSCoin.Explorer.TransactionSummary
                      , RSCoin.Explorer.Web
                      , RSCoin.Explorer.Web.Servant
                      , RSCoin.Explorer.Web.Sockets
@@ -142,6 +146,7 @@ library
                      , monad-control
                      , msgpack >= 1.0.0
                      , msgpack-rpc >= 1.0.0
+                     , optional-args
                      , pqueue
                      , QuickCheck >= 2.8.1
                      , random
@@ -361,6 +366,7 @@ executable rscoin-deploy
                      , filepath
                      , formatting
                      , mtl
+                     , optional-args
                      , optparse-applicative
                      , rscoin
                      , serokell-core
@@ -421,11 +427,11 @@ test-suite rscoin-test
                      , Test.RSCoin.Full.Mintette.Config
                      , Test.RSCoin.Full.Mintette.Acidic
                      , Test.RSCoin.Full.Property
-                     , Test.RSCoin.Pure.BankState
-                     , Test.RSCoin.Pure.MintetteState
-                     , Test.RSCoin.Pure.StorageSpec
-                     , Test.RSCoin.Pure.Update
-                     , Test.RSCoin.Pure.UserState
+                     -- , Test.RSCoin.Pure.BankState
+                     -- , Test.RSCoin.Pure.MintetteState
+                     -- , Test.RSCoin.Pure.StorageSpec
+                     -- , Test.RSCoin.Pure.Update
+                     -- , Test.RSCoin.Pure.UserState
                      , Test.RSCoin.Timed.ExceptionSpec
                      , Test.RSCoin.Timed.MonadRpcSpec
                      , Test.RSCoin.Timed.MonadTimedSpec
@@ -450,6 +456,7 @@ test-suite rscoin-test
                      , lens >= 4.13
                      , msgpack >= 1.0.0
                      , mtl
+                     , optional-args
                      , QuickCheck >= 2.8.1
                      , safe
                      , safecopy

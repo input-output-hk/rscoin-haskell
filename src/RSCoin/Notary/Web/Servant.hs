@@ -34,8 +34,8 @@ type AllocateMSInput =
     ( C.Address
     , C.PartyAddress
     , C.AllocationStrategy
-    , C.Signature
-    , Maybe (C.PublicKey, C.Signature)
+    , C.Signature (C.MSAddress, C.AllocationStrategy)
+    , Maybe (C.PublicKey, C.Signature C.PublicKey)
     )
 
 type Options = Verb 'OPTIONS 200

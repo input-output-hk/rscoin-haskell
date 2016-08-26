@@ -12,13 +12,17 @@ import qualified RSCoin.Bank         as B
 import           RSCoin.Core         (Explorer (..), Mintette (Mintette),
                                       constructPublicKey, initLogging, keyGen,
                                       logWarning, readPublicKey, readSecretKey,
-                                      writePublicKey, writeSecretKey)
+                                      testBankSecretKey, writePublicKey,
+                                      writeSecretKey)
 
 main :: IO ()
 main = do
     Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
-    bankSecretKeyEither <- try $ readSecretKey cloSkPath
+    bankSecretKeyEither <-
+        if cloDefaultContext
+            then pure $ pure testBankSecretKey
+            else try $ readSecretKey cloSkPath
     bankSecretKey <-
         case bankSecretKeyEither of
             Left (_ :: SomeException)
@@ -56,6 +60,7 @@ main = do
             B.removeMintetteReq ca bankSecretKey host port
         Opts.RemoveExplorer host port ->
             B.removeExplorerReq ca bankSecretKey host port
+        Opts.DumpStatistics -> B.dumpStatisticsReq ca bankSecretKey
         Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
             B.launchBankReal periodDelta cloPath ca bankSecretKey

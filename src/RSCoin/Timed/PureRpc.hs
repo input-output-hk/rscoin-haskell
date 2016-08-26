@@ -13,17 +13,13 @@ module RSCoin.Timed.PureRpc
     , Delays(..)
     ) where
 
-import           Control.Lens            (makeLenses, use, (%%=), (%=))
+import           Control.Lens            (makeLenses, use, view, (%%=), (%=))
 import           Control.Monad           (forM_)
---import           Control.Monad.Base      (MonadBase (..))
 import           Control.Monad.Catch     (MonadCatch, MonadMask, MonadThrow,
                                           throwM)
---import           Control.Monad.Trans.Control (MonadBaseControl (..), ComposeSt, defaultRestoreM,
---                                              defaultLiftBaseWith, MonadTransControl (..),
---                                              defaultLiftWith, defaultRestoreT)
 import           Control.Monad.Random    (Rand, runRand)
 import           Control.Monad.State     (MonadState (get, put, state), StateT,
-                                          evalStateT, get, put)
+                                          evalStateT)
 import           Control.Monad.Trans     (MonadIO, MonadTrans, lift)
 import           Data.Default            (Default, def)
 import           Data.Map                as Map
@@ -33,7 +29,8 @@ import           Data.MessagePack        (Object)
 import           Data.MessagePack.Object (MessagePack, fromObject, toObject)
 
 import           RSCoin.Core.Constants   (localhost)
-import           RSCoin.Core.NodeConfig  (Host, NetworkAddress,
+import           RSCoin.Core.Logging     (WithNamedLogger (..))
+import           RSCoin.Core.NodeConfig  (Host, NetworkAddress, ctxLoggerName,
                                           defaultNodeContext)
 import           RSCoin.Timed.MonadRpc   (Client (..), Method (..), MonadRpc (execClient, getNodeContext, serve),
                                           RpcError (..), methodBody, methodName)
@@ -103,20 +100,6 @@ instance MonadState s m => MonadState s (PureRpc m) where
     put = lift . put
     state = lift . state
 
--- Copy pasted instances from lifted-base sources (deriving doesn't work)
---instance MonadBase b m => MonadBase b (PureRpc m) where
---    liftBase = lift . liftBase
-
---instance MonadTransControl PureRpc where
---    type StT PureRpc a = StT StateT Host (TimedT (StateT (NetInfo (PureRpc m)) m)) a
---    liftWith = defaultLiftWith PureRpc unwrapPureRpc
---    restoreT = defaultRestoreT PureRpc
-
---instance MonadBaseControl IO m => MonadBaseControl IO (PureRpc m) where
---    type StM (PureRpc m) a = ComposeSt PureRpc m a
---    liftBaseWith = defaultLiftBaseWith
---    restoreM     = defaultRestoreM
-
 -- | Launches rpc scenario.
 runPureRpc
     :: (MonadIO m, MonadCatch m)
@@ -176,6 +159,10 @@ instance (MonadIO m, MonadThrow m, MonadCatch m) => MonadRpc (PureRpc m) where
 
     -- @TODO not sure it's ok when it comes to notaries
     getNodeContext = pure $ defaultNodeContext
+
+instance (MonadIO m, MonadThrow m, MonadCatch m) =>
+         WithNamedLogger (PureRpc m) where
+    getLoggerName = view ctxLoggerName <$> getNodeContext
 
 waitDelay :: (MonadThrow m, MonadIO m, MonadCatch m) => RpcStage -> PureRpc m ()
 waitDelay stage =

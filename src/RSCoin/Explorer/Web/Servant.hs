@@ -25,7 +25,8 @@ import           Servant                           ((:>), (:~>) (Nat), Capture, 
 
 import qualified RSCoin.Core                       as C
 
-import           RSCoin.Explorer.AcidState         (GetTx (..), State, query)
+import           RSCoin.Explorer.AcidState         (GetTxSummary (..), State,
+                                                    query)
 import           RSCoin.Explorer.Web.Sockets.Types (TransactionSummarySerializable,
                                                     mkTransactionSummarySerializable)
 
@@ -35,7 +36,7 @@ type ExplorerApi =
 explorerApi :: Proxy ExplorerApi
 explorerApi = Proxy
 
-instance FromHttpApiData C.Hash where
+instance FromHttpApiData (C.Hash a) where
     parseUrlPiece = C.parseHash
 
 data WebError =
@@ -56,7 +57,7 @@ convertHandler st act = do
 handleGetTx :: C.TransactionId -> MyHandler TransactionSummarySerializable
 handleGetTx i =
     maybe (throwM NotFound) (pure . mkTransactionSummarySerializable) =<<
-    flip query (GetTx i) =<< ask
+    flip query (GetTxSummary i) =<< ask
 
 servantServer :: ServerT ExplorerApi MyHandler
 servantServer = handleGetTx

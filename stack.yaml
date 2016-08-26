@@ -8,7 +8,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/serokell/serokell-core.git
-    commit: 8123f9ed0dfa69b1e5314990919b1fef7ee48bfa
+    commit: db7cde4e096eb6b4167b16b90aea0767895481ca
   extra-dep: true
 - location:
     git: https://github.com/serokell/msgpack-haskell.git
@@ -20,6 +20,10 @@ packages:
 - location:
     git: https://github.com/eskimor/purescript-bridge.git
     commit: 278e7e3ed0f6ceeab7e25c17c64404b920fc82ef
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/acid-state.git
+    commit: ad77e909bcd46c3e44eeca558eb8a6f1ff3600eb
   extra-dep: true
 
 nix:

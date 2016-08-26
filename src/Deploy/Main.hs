@@ -9,6 +9,7 @@ import           Control.Monad.Catch     (bracket)
 import           Control.Monad.Extra     (whenJust)
 
 import           Data.Maybe              (fromMaybe)
+import           Data.Optional           (Optional (Default))
 import           Data.String.Conversions (cs)
 import           Formatting              (sformat, stext, string, (%))
 import qualified Options.Applicative     as Opts
@@ -107,6 +108,7 @@ startNotary severity CommonParams{..} = do
                 contextArgument
                 8090
                 []
+                Default
     Cherepakha.mkdir workingDirDeprecated
     forkIO start
 

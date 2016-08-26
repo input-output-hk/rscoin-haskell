@@ -8,12 +8,13 @@
 
 module RSCoin.Core.Communication
        ( CommunicationError (..)
+       , askExplorer
        , getBlockchainHeight
+       , getStatisticsId
        , getBlockByHeight
        , getBlocksByHeight
        , getTransactionById
        , getGenesisBlock
-       , finishPeriod
        , sendBankLocalControlRequest
        , checkNotDoubleSpent
        , commitTx
@@ -28,18 +29,20 @@ module RSCoin.Core.Communication
        , queryNotaryMyMSAllocations
        , announceNewBlock
        , P.unCps
-       , getMintettes
        , getAddresses
+       , getExplorers
+       , getMintettes
        , getLogs
        , getMintetteUtxo
        , getMintetteBlocks
        , getMintetteLogs
        , publishTxToNotary
        , getTxSignatures
-       , pollTxsFromNotary
+       , pollPendingTransactions
        ) where
 
 import           Control.Exception          (Exception (..))
+import           Control.Monad              (when)
 import           Control.Monad.Catch        (catch, throwM)
 import           Control.Monad.Trans        (MonadIO, liftIO)
 import qualified Data.Map                   as M
@@ -52,8 +55,10 @@ import           Formatting                 (build, int, sformat, shown, stext,
                                              (%))
 import qualified Network.MessagePack.Client as MP (RpcError (..))
 import           Safe                       (atMay)
+import           System.Random              (randomRIO)
 
-import           Serokell.Util.Text         (listBuilderJSONIndent, mapBuilder,
+import           Serokell.Util.Text         (listBuilderJSON,
+                                             listBuilderJSONIndent, mapBuilder,
                                              pairBuilder, show')
 
 import           RSCoin.Core.Crypto         (PublicKey, Signature, hash)
@@ -71,9 +76,9 @@ import           RSCoin.Core.Strategy       (AddressToTxStrategyMap,
 import           RSCoin.Core.Types          (ActionLog, CheckConfirmation,
                                              CheckConfirmations,
                                              CommitAcknowledgment,
-                                             Explorer (..), HBlock, LBlock,
-                                             Mintette, MintetteId, Mintettes,
-                                             NewPeriodData, PeriodId,
+                                             Explorer (..), Explorers, HBlock,
+                                             LBlock, Mintette, MintetteId,
+                                             Mintettes, NewPeriodData, PeriodId,
                                              PeriodResult, Utxo)
 import           RSCoin.Timed               (MonadTimed, MonadTimedError (..),
                                              WorkMode)
@@ -147,6 +152,13 @@ getBlockchainHeight =
         (L.logDebug . sformat ("Blockchain height is " % int))
         $ callBank $ P.call (P.RSCBank P.GetBlockchainHeight)
 
+getStatisticsId :: WorkMode m => m Int
+getStatisticsId =
+    withResult
+        (L.logDebug "Getting statistics id")
+        (L.logDebug . sformat ("Statistics id is " % int)) $
+    callBank $ P.call (P.RSCBank P.GetStatisticsId)
+
 -- TODO: should this method return Maybe HBlock ?
 -- | Given the height/perioud id, retreives block if it's present
 getBlockByHeight :: WorkMode m => PeriodId -> m HBlock
@@ -181,14 +193,25 @@ getBlocksByHeight from to =
                  int % ": " % build)
                 from to (listBuilderJSONIndent 2 res)
 
-getTransactionById :: WorkMode m => TransactionId -> m (Maybe Transaction)
-getTransactionById tId =
+askExplorer :: WorkMode m => (Explorer -> m a) -> m a
+askExplorer query = do
+    explorers <- getExplorers
+    when (null explorers) $
+        throwM $ MethodError "There are no active explorers"
+-- TODO: ask other explorers in case of error
+    query . (explorers !!) =<< liftIO (randomRIO (0, length explorers - 1))
+
+getTransactionById
+    :: WorkMode m
+    => TransactionId -> Explorer -> m (Maybe Transaction)
+getTransactionById tId explorer =
     withResult
         (L.logDebug $ sformat ("Getting transaction by id " % build) tId)
         (\t -> L.logDebug $ sformat
                    ("Successfully got transaction by id " % build % ": " % build)
                    tId t)
-        $ callBank $ P.call (P.RSCBank P.GetTransaction) tId
+        $ P.callExplorerSafe explorer
+        $ P.call (P.RSCExplorer P.EMGetTransaction) tId
 
 getGenesisBlock :: WorkMode m => m HBlock
 getGenesisBlock = do
@@ -196,13 +219,6 @@ getGenesisBlock = do
     block <- getBlockByHeight 0
     liftIO $ L.logDebug "Successfully got genesis block"
     return block
-
-finishPeriod :: WorkMode m => Signature -> m ()
-finishPeriod currentPeriodSignature =
-    withResult
-        (L.logDebug "Finishing period")
-        (const $ L.logDebug "Successfully finished period") $
-    callBank $ P.call (P.RSCBank P.FinishPeriod) currentPeriodSignature
 
 sendBankLocalControlRequest :: WorkMode m => P.BankLocalControlRequest -> m ()
 sendBankLocalControlRequest request =
@@ -216,7 +232,7 @@ checkNotDoubleSpent
     => Mintette
     -> Transaction
     -> AddrId
-    -> [(Address, Signature)]
+    -> [(Address, Signature Transaction)]
     -> m (Either Text CheckConfirmation)
 checkNotDoubleSpent m tx a s =
     withResult infoMessage (either onError onSuccess) $
@@ -298,8 +314,8 @@ allocateMultisignatureAddress
     => Address
     -> PartyAddress
     -> AllocationStrategy
-    -> Signature
-    -> Maybe (PublicKey, Signature)
+    -> Signature (MSAddress, AllocationStrategy)
+    -> Maybe (PublicKey, Signature (MSAddress, AllocationStrategy))
     -> m ()
 allocateMultisignatureAddress msAddr partyAddr allocStrat signature mMasterCheck = do
     L.logDebug $ sformat
@@ -322,7 +338,7 @@ queryNotaryCompleteMSAddresses = do
     L.logDebug "Querying Notary complete MS addresses"
     callNotary $ P.call $ P.RSCNotary P.QueryCompleteMS
 
-removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> Signature -> m ()
+removeNotaryCompleteMSAddresses :: WorkMode m => [Address] -> Signature [Address] -> m ()
 removeNotaryCompleteMSAddresses addresses signedAddrs = do
     L.logDebug "Removing Notary complete MS addresses"
     callNotary $ P.call (P.RSCNotary P.RemoveCompleteMS) addresses signedAddrs
@@ -357,7 +373,7 @@ announceNewPeriod mintette npd = do
 
 announceNewBlock
     :: WorkMode m
-    => Explorer -> PeriodId -> (HBlock, EmissionId) -> Signature -> m PeriodId
+    => Explorer -> PeriodId -> (HBlock, EmissionId) -> Signature (PeriodId, HBlock) -> m PeriodId
 announceNewBlock explorer pId blk signature =
     withResult infoMessage successMessage $
     P.callExplorer explorer $
@@ -378,7 +394,6 @@ announceNewBlock explorer pId blk signature =
 
 -- Dumping Bank state
 
-
 getAddresses :: WorkMode m => m AddressToTxStrategyMap
 getAddresses =
     withResult
@@ -393,6 +408,15 @@ getMintettes =
         (L.logDebug "Getting list of mintettes")
         (L.logDebug . sformat ("Successfully got list of mintettes " % build))
         $ callBank $ P.call (P.RSCBank P.GetMintettes)
+
+getExplorers :: WorkMode m => m Explorers
+getExplorers =
+    withResult
+        (L.logDebug "Getting list of explorers")
+        (L.logDebug .
+         sformat ("Successfully got list of explorers " % build) .
+         listBuilderJSON) $
+    callBank $ P.call (P.RSCBank P.GetExplorers)
 
 getLogs :: WorkMode m => MintetteId -> Int -> Int -> m (Maybe ActionLog)
 getLogs m from to =
@@ -502,11 +526,11 @@ getMintetteLogs mId pId = do
 -- get list of signatures after Notary adds yours.
 publishTxToNotary
     :: WorkMode m
-    => Transaction              -- ^ transaction to sign
-    -> Address                  -- ^ address of transaction input (individual, multisig or etc.)
-    -> (Address, Signature)     -- ^ party's public address and signature
-                                -- (made with it's secret key)
-    -> m [(Address, Signature)] -- ^ signatures for all parties already signed the transaction
+    => Transaction                          -- ^ transaction to sign
+    -> Address                              -- ^ address of transaction input (individual, multisig or etc.)
+    -> (Address, Signature Transaction)     -- ^ party's public address and signature
+                                -- (made with its secret key)
+    -> m [(Address, Signature Transaction)] -- ^ signatures for all parties already signed the transaction
 publishTxToNotary tx addr sg =
     withResult infoMessage successMessage $
     callNotary $ P.call (P.RSCNotary P.PublishTransaction) tx addr sg
@@ -520,7 +544,7 @@ publishTxToNotary tx addr sg =
 -- | Read-only method of Notary. Returns current state of signatures
 -- for the given address (that implicitly defines addrids ~
 -- transaction inputs) and transaction itself.
-getTxSignatures :: WorkMode m => Transaction -> Address -> m [(Address, Signature)]
+getTxSignatures :: WorkMode m => Transaction -> Address -> m [(Address, Signature Transaction)]
 getTxSignatures tx addr =
     withResult infoMessage successMessage $
     callNotary $ P.call (P.RSCNotary P.GetSignatures) tx addr
@@ -533,21 +557,20 @@ getTxSignatures tx addr =
     successMessage res =
         L.logDebug $ sformat ("Received signatures from Notary: " % shown) res
 
--- | This method is somewhat mystic because it's not used anywhere and
--- it won't be until we have perfectly working UI. It's supposed to be
--- used over time to detect transactions that you `may` want to
--- sign. And then dialog pops up.
-pollTxsFromNotary
+-- | This method is supposed to be used to detect transactions
+-- that you `may` want to sign.
+pollPendingTransactions
     :: WorkMode m
-    => [Address] -> m [(Address, [(Transaction, [(Address, Signature)])])]
-pollTxsFromNotary addrs =
+    => [Address]
+    -> m [Transaction]
+pollPendingTransactions parties =
     withResult infoMessage successMessage $
-    callNotary $ P.call (P.RSCNotary P.PollTransactions) addrs
+    callNotary $ P.call (P.RSCNotary P.PollPendingTransactions) parties
   where
     infoMessage =
         L.logDebug $
         sformat
             ("Polling transactions to sign for addresses: " % shown)
-            addrs
+            parties
     successMessage res =
         L.logDebug $ sformat ("Received transactions to sign: " % shown) res

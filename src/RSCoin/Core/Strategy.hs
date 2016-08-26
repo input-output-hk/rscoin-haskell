@@ -30,31 +30,30 @@ module RSCoin.Core.Strategy
      , partyToAllocation
      ) where
 
-import           Control.Lens                      (makeLenses, traversed,
-                                                    (^..))
+import           Control.Lens               (makeLenses, traversed, (^..))
 
-import           Data.Binary                       (Binary (get, put), getWord8,
-                                                    putWord8)
-import           Data.Hashable                     (Hashable)
-import           Data.HashMap.Strict               (HashMap)
-import           Data.HashSet                      (HashSet)
-import qualified Data.HashSet                      as HS hiding (HashSet)
-import           Data.Map                          (Map)
-import           Data.SafeCopy                     (base, deriveSafeCopy)
-import qualified Data.Set                          as S
-import           Data.Text.Buildable               (Buildable (build))
-import           GHC.Generics                      (Generic)
+import           Data.Binary                (Binary (get, put), getWord8,
+                                             putWord8)
+import           Data.Hashable              (Hashable)
+import           Data.HashMap.Strict        (HashMap)
+import           Data.HashSet               (HashSet)
+import qualified Data.HashSet               as HS hiding (HashSet)
+import           Data.Map                   (Map)
+import           Data.SafeCopy              (base, deriveSafeCopy)
+import qualified Data.Set                   as S
+import           Data.Text.Buildable        (Buildable (build))
+import           GHC.Generics               (Generic)
 
-import           Formatting                        (bprint, int, (%))
-import qualified Formatting                        as F (build)
+import           Formatting                 (bprint, int, (%))
+import qualified Formatting                 as F (build)
 
-import           Serokell.Util.AcidState.Instances ()
-import           Serokell.Util.Text                (listBuilderJSON,
-                                                    listBuilderJSONIndent)
+import           Serokell.AcidState         ()
+import           Serokell.Util.Text         (listBuilderJSON,
+                                             listBuilderJSONIndent)
 
-import           RSCoin.Core.Crypto.Signing        (PublicKey, Signature)
-import           RSCoin.Core.Primitives            (Address, Transaction)
-import           RSCoin.Core.Transaction           (validateSignature)
+import           RSCoin.Core.Crypto.Signing (PublicKey, Signature)
+import           RSCoin.Core.Primitives     (Address, Transaction)
+import           RSCoin.Core.Transaction    (validateSignature)
 
 -- | Type alisas for places where address is used as multisignature address.
 type MSAddress = Address
@@ -69,7 +68,7 @@ data TxStrategy
     -- | Strategy for getting @m@ signatures
     -- out of @length list@, where every signature
     -- should be made by address in list @list@
-    | MOfNStrategy Int (S.Set Address)
+    | MOfNStrategy Int (S.Set Address)  -- @TODO: replace with HashSet
     deriving (Read, Show, Eq)
 
 $(deriveSafeCopy 0 'base ''TxStrategy)
@@ -211,7 +210,11 @@ partyToAllocation UserParty{..}  = UserAlloc partyAddress
 
 -- | Checks if the inner state of strategy allows us to send
 -- transaction and it will be accepted
-isStrategyCompleted :: TxStrategy -> Address -> [(Address, Signature)] -> Transaction -> Bool
+isStrategyCompleted :: TxStrategy
+                    -> Address
+                    -> [(Address, Signature Transaction)]
+                    -> Transaction
+                    -> Bool
 isStrategyCompleted DefaultStrategy userAddr signs tx =
     any (\(addr, signature) -> userAddr == addr &&
                          validateSignature signature addr tx) signs

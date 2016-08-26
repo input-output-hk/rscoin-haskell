@@ -31,6 +31,7 @@ module RSCoin.Timed.MonadRpc
        , serverTypeRestriction5
        ) where
 
+import           Control.Lens                (view)
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Reader        (MonadReader, ReaderT (..), ask,
@@ -49,8 +50,8 @@ import qualified Network.MessagePack.Client  as C
 import qualified Network.MessagePack.Server  as S
 
 import           RSCoin.Core.Logging         (WithNamedLogger (..))
-import           RSCoin.Core.NodeConfig      (NetworkAddress, NodeContext (..),
-                                              Port)
+import           RSCoin.Core.NodeConfig      (NetworkAddress, NodeContext, Port,
+                                              ctxLoggerName)
 import           RSCoin.Timed.MonadTimed     (MonadTimed (timeout))
 import           RSCoin.Timed.TimedIO        (TimedIO)
 
@@ -105,7 +106,7 @@ instance MonadRpc MsgPackRpc where
     getNodeContext = ask
 
 instance WithNamedLogger MsgPackRpc where
-    getLoggerName = _ctxLoggerName <$> getNodeContext
+    getLoggerName = view ctxLoggerName <$> getNodeContext
 
 instance MonadRpc m => MonadRpc (ReaderT r m) where
     execClient addr cli = lift $ execClient addr cli

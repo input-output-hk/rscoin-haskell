@@ -23,4 +23,10 @@ main = do
                 else N.CACustomLocation cliConfigPath
     when (length trustedKeys < length cliTrustedKeys) $
         logWarning "Not all keys were parsed!"
-    N.launchNotaryReal cliLogSeverity dbPath ctxArg cliWebPort trustedKeys
+    N.launchNotaryReal
+        cliLogSeverity
+        dbPath
+        ctxArg
+        cliWebPort
+        trustedKeys
+        (fromIntegral cliAliveSize)

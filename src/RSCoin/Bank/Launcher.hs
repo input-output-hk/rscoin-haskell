@@ -15,12 +15,12 @@ module RSCoin.Bank.Launcher
        , addExplorerReq
        , removeMintetteReq
        , removeExplorerReq
+       , dumpStatisticsReq
        ) where
 
 import           Control.Monad             (when)
 import           Control.Monad.Catch       (bracket, throwM)
 import           Control.Monad.Trans       (liftIO)
-import           Data.Acid.Advanced        (update')
 import           Data.IORef                (newIORef)
 import           Data.Maybe                (fromJust, isNothing)
 import           Data.Time.Units           (TimeUnit)
@@ -29,20 +29,19 @@ import           Formatting                (int, sformat, (%))
 import           RSCoin.Core               (Explorer, Mintette, PeriodId,
                                             PublicKey, SecretKey, sign)
 import           RSCoin.Core.Communication (getBlockchainHeight,
-                                            getMintettePeriod,
+                                            getMintettePeriod, getStatisticsId,
                                             sendBankLocalControlRequest)
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
-                                            WorkMode, fork, fork_, killThread,
-                                            runRealModeBank)
+                                            WorkMode, for, fork_, ms,
+                                            runRealModeBank, wait)
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
                                             AddMintette (AddMintette), State,
-                                            closeState, openState)
+                                            closeState, openState, update)
 import           RSCoin.Bank.Error         (BankError (BEInconsistentResponse))
 import           RSCoin.Bank.Server        (serve)
-import           RSCoin.Bank.Worker        (runExplorerWorker,
-                                            runWorkerWithPeriod)
+import           RSCoin.Bank.Worker        (runExplorerWorker, runWorker)
 
 bankWrapperReal :: SecretKey
                 -> FilePath
@@ -59,25 +58,18 @@ launchBankReal
     => t -> FilePath -> ContextArgument -> SecretKey -> IO ()
 launchBankReal periodDelta storagePath ca bankSk =
     bankWrapperReal bankSk storagePath ca $
-    launchBank periodDelta bankSk storagePath
+    launchBank periodDelta bankSk
 
 -- | Launch Bank in any WorkMode. This function works indefinitely.
 launchBank
     :: (TimeUnit t, WorkMode m)
-    => t -> SecretKey -> FilePath -> State -> m ()
-launchBank periodDelta bankSk storagePath st = do
-    mainIsBusy <- liftIO $ newIORef False
-    let startWorker =
-            runWorkerWithPeriod
-                periodDelta
-                mainIsBusy
-                bankSk
-                st
-                (Just storagePath)
-        restartWorker tId = killThread tId >> fork startWorker
-    workerThread <- fork startWorker
-    fork_ $ runExplorerWorker periodDelta mainIsBusy bankSk st
-    serve st workerThread restartWorker
+    => t -> SecretKey -> State -> m ()
+launchBank periodDelta bankSk st = do
+    isPeriodChanging <- liftIO $ newIORef False
+    fork_ $ serve st bankSk isPeriodChanging
+    wait $ for 1 ms
+    fork_ $ runWorker periodDelta bankSk st
+    runExplorerWorker periodDelta isPeriodChanging bankSk st
 
 -- | Adds mintette directly into bank's state
 addMintetteInPlace :: ContextArgument
@@ -87,7 +79,7 @@ addMintetteInPlace :: ContextArgument
                    -> PublicKey
                    -> IO ()
 addMintetteInPlace ca bankSk storagePath m k =
-    bankWrapperReal bankSk storagePath ca $ flip update' (AddMintette m k)
+    bankWrapperReal bankSk storagePath ca $ flip update (AddMintette m k)
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerInPlace :: ContextArgument
@@ -97,7 +89,7 @@ addExplorerInPlace :: ContextArgument
                    -> PeriodId
                    -> IO ()
 addExplorerInPlace ca bankSk storagePath e pId =
-    bankWrapperReal bankSk storagePath ca $ flip update' (AddExplorer e pId)
+    bankWrapperReal bankSk storagePath ca $ flip update (AddExplorer e pId)
 
 wrapRequest :: ContextArgument -> SecretKey -> P.BankLocalControlRequest -> IO ()
 wrapRequest ca bankSk request =
@@ -136,8 +128,15 @@ removeMintetteReq ca bankSk mintetteHost mintettePort = do
     let proof = sign bankSk (mintetteHost, mintettePort)
     wrapRequest ca bankSk $ P.RemoveMintette mintetteHost mintettePort proof
 
--- | Sends a request to remove explorer
+-- | Sends a request to remove explorer.
 removeExplorerReq :: ContextArgument  -> SecretKey -> String -> Int -> IO ()
 removeExplorerReq ca bankSk explorerHost explorerPort = do
     let proof = sign bankSk (explorerHost, explorerPort)
     wrapRequest ca bankSk $ P.RemoveExplorer explorerHost explorerPort proof
+
+-- | Sends a request to dump statistics about database usage.
+dumpStatisticsReq :: ContextArgument -> SecretKey -> IO ()
+dumpStatisticsReq ca bankSk = do
+    sId <- runRealModeBank ca bankSk getStatisticsId
+    let proof = sign bankSk sId
+    wrapRequest ca bankSk $ P.DumpStatistics sId proof

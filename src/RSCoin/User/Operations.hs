@@ -36,9 +36,11 @@ module RSCoin.User.Operations
        , signTransactionLocally
        , submitTransaction
        , submitTransactionRetry
+       , sendTransactionRetry  -- @TODO: very bad; we skip checks but didn't manage to pass bundle in other way
        , findPartyAddress
        , verifyTrustEntry
        , retrieveAllocationsList
+       , getPendingTransaction
        ) where
 
 import           Control.Arrow          ((***))
@@ -56,7 +58,8 @@ import qualified Data.IntMap.Strict     as I
 import           Data.List              (elemIndex, foldl1', genericIndex,
                                          genericLength, groupBy, nub, sortOn)
 import qualified Data.Map               as M
-import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing)
+import           Data.Maybe             (fromJust, fromMaybe, isJust, isNothing,
+                                         mapMaybe)
 import           Data.Monoid            ((<>))
 import qualified Data.Text              as T
 import           Data.Text.Buildable    (Buildable)
@@ -582,6 +585,7 @@ sendTransactionDo
     -> SignatureBundle
     -> m ()
 sendTransactionDo st maybeCache tx signatures = do
+    () <$ updateBlockchain st False
     walletHeight <- A.query st A.GetLastBlockId
     periodId <- C.getBlockchainHeight
     let lastAppliedBlock = periodId - 1
@@ -595,14 +599,23 @@ sendTransactionDo st maybeCache tx signatures = do
         WalletSyncError $
         sformat
             ("Wallet isn't updated (lastBlockHeight " % int %
-             " when blockchain's last block is " % int %").")
+             " when blockchain's last block is " % int % ").")
             walletHeight lastAppliedBlock
     let nonDefaultAddresses =
-            M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
-            map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head sgns))) $
             filter ((/= C.DefaultStrategy) . view _2 . snd) $
             M.assocs signatures
-    extraSignatures <- getExtraSignatures tx nonDefaultAddresses 120
+        withoutSigs =
+            mapMaybe
+                (\(_,(addr,_,sgns)) -> if null sgns then Just addr else Nothing)
+                nonDefaultAddresses
+        nonDefaultAddressesMapped =
+            M.fromListWith (\(str,a1,sgn) (_,a2,_) -> (str, nub $ a1 ++ a2, sgn)) $
+            map (\(addrid,(addr,str,sgns)) -> (addr,(str,[addrid],head sgns)))
+            nonDefaultAddresses
+    unless (null withoutSigs) $ commitError $
+        sformat ("These addresses don't have signatures attached: " % build) $
+        listBuilderJSON withoutSigs
+    extraSignatures <- getExtraSignatures tx nonDefaultAddressesMapped 120
     let allSignatures :: SignatureBundle
         allSignatures = M.unionWith joinBundles
                                     (fromMaybe M.empty extraSignatures)
@@ -690,3 +703,16 @@ retrieveAllocationsList st mTrustPartyAddress = do
         Nothing    -> pure []
     let allInfos = userAllocInfos ++ trustAllocInfos
     A.update st $ A.UpdateAllocationStrategies $ M.fromList allInfos
+
+-- | Get pending transaction given an index i ∈ [0..txs.length)
+getPendingTransaction :: WorkMode m => A.UserState -> Int -> m C.Transaction
+getPendingTransaction st ix = do
+    txs <- A.query st A.GetPendingTxs
+    let l = length txs
+    when (null txs) $ commitError "No transactions are currently pending."
+    when (ix < 0 || ix >= l) $
+        commitError $
+        sformat
+            ("Index is out of range [1," % int % "], where " % int %
+             " is total number of pending txs at the moment") l l
+    return $ txs !! ix

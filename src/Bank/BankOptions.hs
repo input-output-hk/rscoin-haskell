@@ -27,6 +27,7 @@ data Command
     | AddExplorer String Int T.Text Int
     | RemoveMintette String Int
     | RemoveExplorer String Int
+    | DumpStatistics
 
 data Options = Options
     { cloCommand        :: Command
@@ -64,7 +65,12 @@ commandParser =
              "remove-explorer"
              (info
                   removeExplorerOpts
-                  (progDesc "Remove given explorer from bank's database")))
+                  (progDesc "Remove given explorer from bank's database")) <>
+         command
+             "dump-statistics"
+             (info
+                  dumpStatisticsOpts
+                  (progDesc "Dump statistics about bank's database")))
   where
     mHost = strOption (long "host" <> help "Mintette's host" <> metavar "HOST")
     mPort =
@@ -91,6 +97,7 @@ commandParser =
              metavar "INT")
     removeMintetteOpts = RemoveMintette <$> mHost <*> mPort
     removeExplorerOpts = RemoveExplorer <$> eHost <*> ePort
+    dumpStatisticsOpts = pure DumpStatistics
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
 optionsParser defaultSKPath configDir defaultConfigPath =

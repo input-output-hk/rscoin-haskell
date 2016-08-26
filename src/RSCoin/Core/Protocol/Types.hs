@@ -26,23 +26,27 @@ data RSCoinMethod
     | RSCExplorer ExplorerMethod
     | RSCMintette MintetteMethod
     | RSCNotary   NotaryMethod
-    | RSCDump DumpMethod
+    | RSCDump     DumpMethod
     deriving (Show)
 
 -- | A request to control the bank from the bank's host side itself,
 -- always supplied with a proof of that (sk sign of tuple of all other args)
 data BankLocalControlRequest =
-      AddMintette Mintette PublicKey Signature
-    | AddExplorer Explorer PeriodId Signature
-    | RemoveMintette String Int Signature      -- ^ Host/port
-    | RemoveExplorer String Int Signature      -- ^ Host/port
+      AddMintette Mintette PublicKey (Signature (Mintette, PublicKey))
+    | AddExplorer Explorer PeriodId (Signature (Explorer, PeriodId))
+    | RemoveMintette String Int (Signature (String, Int))      -- ^ Host/port
+    | RemoveExplorer String Int (Signature (String, Int))      -- ^ Host/port
+    | FinishPeriod (Signature PeriodId)
+    | DumpStatistics Int (Signature Int)
     deriving (Show,Eq)
 
-checkLocalControlRequest :: PublicKey -> BankLocalControlRequest -> Bool
-checkLocalControlRequest pk (AddMintette m p s)    = verify pk s (m,p)
-checkLocalControlRequest pk (AddExplorer e pid s)  = verify pk s (e,pid)
-checkLocalControlRequest pk (RemoveMintette h p s) = verify pk s (h,p)
-checkLocalControlRequest pk (RemoveExplorer h p s) = verify pk s (h,p)
+checkLocalControlRequest :: PeriodId -> PublicKey -> BankLocalControlRequest -> Bool
+checkLocalControlRequest _ pk (AddMintette m p s)    = verify pk s (m,p)
+checkLocalControlRequest _ pk (AddExplorer e pid s)  = verify pk s (e,pid)
+checkLocalControlRequest _ pk (RemoveMintette h p s) = verify pk s (h,p)
+checkLocalControlRequest _ pk (RemoveExplorer h p s) = verify pk s (h,p)
+checkLocalControlRequest pid pk (FinishPeriod s)     = verify pk s pid
+checkLocalControlRequest _ pk (DumpStatistics sId s) = verify pk s sId
 
 -- TODO Maybe make it more pretty (e.g. without signature)
 instance Buildable BankLocalControlRequest where
@@ -54,16 +58,16 @@ data BankMethod
     | GetExplorers
     | GetAddresses
     | GetBlockchainHeight
+    | GetStatisticsId
     | GetHBlocks
     | GetHBlockEmission
-    | GetTransaction
-    | FinishPeriod
-    | LocalControlRequest -- used for adding/removing mintettes/explorers
+    | LocalControlRequest -- used for e. g. adding/removing mintettes/explorers
     deriving (Show)
 
 -- | Requests processed by Explorer.
 data ExplorerMethod
     = EMNewBlock
+    | EMGetTransaction
     deriving (Show)
 
 -- | Requests processed by a Mintette.
@@ -81,7 +85,7 @@ data NotaryMethod
     | AllocateMultisig
     | GetNotaryPeriod
     | GetSignatures
-    | PollTransactions
+    | PollPendingTransactions
     | PublishTransaction
     | QueryCompleteMS
     | QueryMyAllocMS

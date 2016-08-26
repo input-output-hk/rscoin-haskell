@@ -5,33 +5,37 @@
 -- | Storage for Notary's data.
 
 module RSCoin.Notary.Storage
-        ( Storage (_masterKeys)
-        , acquireSignatures
-        , addSignedTransaction
-        , allocateMSAddress
-        , announceNewPeriods
-        , emptyNotaryStorage
-        , getPeriodId
-        , getSignatures
-        , pollTransactions
-        , queryAllMSAdresses
-        , queryCompleteMSAdresses
-        , queryMyMSRequests
-        , removeCompleteMSAddresses
-        ) where
+       ( Storage (_aliveSize, _masterKeys)
+       , acquireSignatures
+       , addSignedTransaction
+       , allocateMSAddress
+       , announceNewPeriods
+       , emptyNotaryStorage
+       , getPeriodId
+       , getSignatures
+       , pollPendingTxs
+       , queryAllMSAdresses
+       , queryCompleteMSAdresses
+       , queryMyMSRequests
+       , removeCompleteMSAddresses
+       , outdatedAllocs
+       ) where
 
 import           Control.Lens         (Lens', at, makeLenses, to, use, uses,
                                        view, (%=), (%~), (&), (.=), (?=), (^.))
 import           Control.Monad        (forM_, unless, when, (<=<))
 import           Control.Monad.Catch  (MonadThrow (throwM))
-import           Control.Monad.Extra  (whenJust, whenM)
+import           Control.Monad.Extra  (unlessM, whenJust, whenM)
 import           Data.Acid            (Query, Update, liftQuery)
 import qualified Data.Foldable        as F
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.HashSet         as HS
+import qualified Data.HashMap.Strict  as HM hiding (HashMap)
+import           Data.HashSet         (HashSet)
+import qualified Data.HashSet         as HS hiding (HashSet)
+import           Data.IntMap.Strict   (IntMap)
+import qualified Data.IntMap.Strict   as IM hiding (IntMap)
 import           Data.Map.Strict      (Map)
 import qualified Data.Map.Strict      as M hiding (Map)
-import           Data.Maybe           (fromJust, fromMaybe)
+import           Data.Maybe           (fromJust, fromMaybe, mapMaybe)
 import           Data.Set             (Set)
 import qualified Data.Set             as S hiding (Set)
 import           Formatting           (build, sformat, (%))
@@ -40,6 +44,7 @@ import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
                                        PeriodId, PublicKey, Signature,
                                        Transaction (..), Utxo,
                                        computeOutputAddrids,
+                                       notaryAliveSizeDefault,
                                        notaryMSAttemptsLimit, validateSignature,
                                        validateSum, verify)
 import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
@@ -53,7 +58,8 @@ import           RSCoin.Notary.Error  (NotaryError (..))
 
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
-      _txPool                 :: !(Map Address (Map Transaction (Map Address Signature)))
+      -- @TODO: what an ugly type ;(
+      _txPool                 :: !(Map Address (Map Transaction (Map Address (Signature Transaction))))
 
       -- | Mapping between addrid and all pairs (addr, transaction),
       -- being kept in `txPool`, such that addrid serve as an input for transaction.
@@ -65,6 +71,16 @@ data Storage = Storage
       -- | Mapping from newly allocated multisignature addresses. This Map is
       -- used only during multisignature address allocation process.
     , _allocationStrategyPool :: !(Map MSAddress AllocationInfo)
+
+      -- | Mapping PeriodId -> MSAddresses that were allocated during period.
+    , _discardMSAddresses     :: !(IntMap [MSAddress])
+
+      -- | Mapping PeriodId -> Transactions that were submitted during period.
+    , _discardTransactions    :: !(IntMap [Transaction])
+
+      -- | Constant that defines how many periods we should store MS and txs
+      -- (i.e. information in '_discardMSAddresses' & '_discardTransactions'.
+    , _aliveSize              :: !PeriodId
 
       -- | Number of attempts for user per period to allocate multisig address.
     , _periodStats            :: !(Map Address Int)
@@ -92,6 +108,9 @@ emptyNotaryStorage =
     , _txPoolAddrIds          = M.empty
     , _unspentAddrIds         = M.empty
     , _allocationStrategyPool = M.empty
+    , _discardMSAddresses     = IM.empty
+    , _discardTransactions    = IM.empty
+    , _aliveSize              = notaryAliveSizeDefault
     , _periodStats            = M.empty
     , _addresses              = M.empty
     , _utxo                   = M.empty
@@ -99,19 +118,19 @@ emptyNotaryStorage =
     , _periodId               = -1
     }
 
--- Erase occurrences published (address, transaction) from storage
-forgetAddrTx :: Address -> Transaction -> Update Storage ()
-forgetAddrTx addr tx = do
-    txPool %= M.update (ifNotEmpty . M.delete tx) addr
-    txPoolAddrIds %=
-        \m -> foldr (M.update $ ifNotEmpty . S.delete (addr, tx)) m (txInputs tx)
+-- ==============
+-- UPDATE SECTION
+-- ==============
+
+{- Utility non exported functions -}
 
 ifNotEmpty :: Foldable t => t a -> Maybe (t a)
 ifNotEmpty s | F.null s  = Nothing
              | otherwise = Just s
 
-getStrategy :: Address -> Update Storage TxStrategy
-getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> use addresses
+-----------------
+-- ms alloccation
+-----------------
 
 -- | Throws NEBlocked if user reaches limit of attempts (DDOS protection).
 guardMaxAttemps :: Address -> Update Storage ()
@@ -121,63 +140,19 @@ guardMaxAttemps userAddr = do
     currentAttemtps <- uses periodStats $ fromJust . M.lookup userAddr
     when (currentAttemtps >= notaryMSAttemptsLimit) $ throwM NEBlocked
 
--- | Receives tx, addr, (addr, sig) pair, checks validity and
--- publishes (tx, addr) to storage, adds (addr, sig) to list of
--- already collected for particular (tx, addr) pair.
-addSignedTransaction :: Transaction
-                     -> Address
-                     -> (Address, Signature)
-                     -> Update Storage ()
-addSignedTransaction tx addr (sigAddr,sig) = do
-    checkTransactionValidity
-    checkAddrIdsKnown
-    checkAddrRelativeToTx
-    checkSigRelativeToAddr
-    txMap <- fromMaybe M.empty . M.lookup addr <$> use txPool
-    when (tx `M.notMember` txMap) $ txPoolAddrIds %= updateTxPoolAddrIds
-    txPool %=
-        M.insert
-            addr
-            (M.alter (Just . M.insert sigAddr sig . fromMaybe M.empty) tx txMap)
-  where
-    updateTxPoolAddrIds m = foldr (M.alter f) m $ txInputs tx
-      where
-        f = Just . S.insert (addr, tx) . fromMaybe S.empty
-    checkTransactionValidity =
-        unless (validateSum tx) $
-        throwM $
-        NEInvalidArguments $
-        sformat ("Transaction doesn't pass valitidy check: " % build) tx
-    -- Throws error if addrid isn't known (with corresponding label)
-    -- User should repeat transaction after some timeout
-    checkAddrIdsKnown = do
-        u <- use utxo
-        unless (all (`M.member` u) (txInputs tx)) $
-            use periodId >>= throwM . NEAddrIdNotInUtxo
-    checkAddrRelativeToTx = do
-        s <- fromMaybe S.empty . M.lookup addr <$> use unspentAddrIds
-        unless (any (`S.member` s) (txInputs tx)) $
-            throwM NEAddrNotRelativeToTx
-    checkSigRelativeToAddr = do
-        strategy <- getStrategy addr
-        case strategy of
-            DefaultStrategy ->
-                throwM $ NEStrategyNotSupported "DefaultStrategy"
-            MOfNStrategy _ addrs ->
-                when (sigAddr `notElem` addrs) $
-                throwM $ NEUnrelatedSignature "in multi transaction"
-        unless (validateSignature sig sigAddr tx) $ throwM NEInvalidSignature
+type MSSignature = Signature (MSAddress, AllocationStrategy)
+type MaybePKSignature = Maybe (PublicKey, Signature PublicKey)
 
 -- | Allocate new multisignature address by chosen strategy and
 -- given chain of certificates.
 allocateMSAddress
-    :: MSAddress                    -- ^ New multisig address itself
-    -> PartyAddress                 -- ^ Address of party who call this
-    -> AllocationStrategy           -- ^ Strategy for MS address allocation
-    -> Signature                    -- ^ 'Signature' of @(msAddr, argStrategy)@
-    -> Maybe (PublicKey, Signature) -- ^ Party address authorization.
-                                    -- 1. cold master public key
-                                    -- 2. signature of party by master key
+    :: MSAddress                     -- ^ New multisig address itself
+    -> PartyAddress                  -- ^ Address of party who call this
+    -> AllocationStrategy            -- ^ Strategy for MS address allocation
+    -> MSSignature                   -- ^ 'Signature' of @(msAddr, argStrategy)@
+    -> MaybePKSignature              -- ^ Party address authorization.
+                                     -- 1. cold master public key
+                                     -- 2. signature of party by master key
     -> Update Storage ()
 allocateMSAddress
     msAddr
@@ -224,8 +199,9 @@ allocateMSAddress
       let allocAddress = partyToAllocation argPartyAddress
 
       case mMSAddressInfo of
-          Nothing ->
-              --allocationStrategyPool %= M.insert
+          Nothing -> do
+              pId <- use periodId
+              discardMSAddresses %= IM.alter (Just . (msAddr :) . fromMaybe []) pId
               allocationStrategyPool.at msAddr ?=
                   AllocationInfo { _allocationStrategy   = argStrategy
                                  , _currentConfirmations = HM.singleton allocAddress partyAddr }
@@ -235,6 +211,147 @@ allocateMSAddress
 
               allocationStrategyPool.at msAddr ?=
                   (ainfo & currentConfirmations %~ HM.insert allocAddress partyAddr)
+
+---------------
+-- transactions
+---------------
+
+-- | Erase occurrences published (address, transaction) from storage
+forgetAddrTx :: Address -> Transaction -> Update Storage ()
+forgetAddrTx addr tx = do
+    txPool %= M.update (ifNotEmpty . M.delete tx) addr
+    txPoolAddrIds %=
+        \m -> foldr (M.update $ ifNotEmpty . S.delete (addr, tx)) m (txInputs tx)
+
+getStrategy :: Address -> Update Storage TxStrategy
+getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> use addresses
+
+-- | Receives tx, addr, (addr, sig) pair, checks validity and
+-- publishes (tx, addr) to storage, adds (addr, sig) to list of
+-- already collected for particular (tx, addr) pair.
+addSignedTransaction :: Transaction
+                     -> Address
+                     -> (Address, Signature Transaction)
+                     -> Update Storage ()
+addSignedTransaction tx addr (sigAddr,sig) = do
+    checkTransactionValidity
+    checkAddrIdsKnown
+    checkAddrRelativeToTx
+    checkSigRelativeToAddr
+    txMap <- fromMaybe M.empty . M.lookup addr <$> use txPool
+    when (tx `M.notMember` txMap) $ txPoolAddrIds %= updateTxPoolAddrIds
+
+    pId <- use periodId
+    discardTransactions %= IM.alter (Just . (tx :) . fromMaybe []) pId
+    txPool %=
+        M.insert
+            addr
+            (M.alter (Just . M.insert sigAddr sig . fromMaybe M.empty) tx txMap)
+  where
+    updateTxPoolAddrIds m = foldr (M.alter f) m $ txInputs tx
+      where
+        f = Just . S.insert (addr, tx) . fromMaybe S.empty
+    checkTransactionValidity =
+        unless (validateSum tx) $
+        throwM $
+        NEInvalidArguments $
+        sformat ("Transaction doesn't pass valitidy check: " % build) tx
+    -- Throws error if addrid isn't known (with corresponding label)
+    -- User should repeat transaction after some timeout
+    checkAddrIdsKnown = do
+        u <- use utxo
+        unless (all (`M.member` u) (txInputs tx)) $
+            use periodId >>= throwM . NEAddrIdNotInUtxo
+    checkAddrRelativeToTx = do
+        s <- fromMaybe S.empty . M.lookup addr <$> use unspentAddrIds
+        unless (any (`S.member` s) (txInputs tx)) $
+            throwM NEAddrNotRelativeToTx
+    checkSigRelativeToAddr = do
+        strategy <- getStrategy addr
+        case strategy of
+            DefaultStrategy ->
+                throwM $ NEStrategyNotSupported "DefaultStrategy"
+            MOfNStrategy _ addrs ->
+                when (sigAddr `notElem` addrs) $
+                throwM $ NEUnrelatedSignature "in multi transaction"
+        unless (validateSignature sig sigAddr tx) $ throwM NEInvalidSignature
+
+--------------------
+-- handle period end
+--------------------
+
+-- | Announce HBlocks, not yet known to Notary.
+announceNewPeriods :: PeriodId -- ^ periodId of latest hblock
+                   -> [HBlock] -- ^ blocks, head corresponds to the latest block
+                   -> Update Storage ()
+announceNewPeriods pId' blocks = do
+    pId <- use periodId
+    mapM_ announceNewPeriod $ reverse $ take (pId' - pId) blocks
+    periodId .= pId'
+
+    -- @TODO: remove duplcated code
+    alivePid <- use aliveSize
+
+    -- remove autdated allocations
+    unlessM (uses discardMSAddresses IM.null) $ do
+        (oldestSavedPid, _) <- uses discardMSAddresses IM.findMin
+        let deleteLookup = const $ const Nothing
+
+        forM_ [oldestSavedPid .. pId - alivePid] $ \oldPid -> do
+            (mMsList, newDiscard) <- uses discardMSAddresses
+                $ IM.updateLookupWithKey deleteLookup oldPid
+            discardMSAddresses .= newDiscard -- @TODO: optimize and set only once
+
+            whenJust mMsList $ \msList -> forM_ msList $ \msAddr ->
+                allocationStrategyPool %= M.delete msAddr
+
+    -- remove outdated transactions
+    unlessM (uses discardTransactions IM.null) $ do
+        (oldestSavedPid, _) <- uses discardTransactions IM.findMin
+        let deleteLookup = const $ const Nothing
+
+        forM_ [oldestSavedPid .. pId - alivePid] $ \oldPid -> do
+            (mTxList, newDiscard) <- uses discardTransactions
+                $ IM.updateLookupWithKey deleteLookup oldPid
+            discardTransactions .= newDiscard -- @TODO: optimize and set only once
+
+            -- this shit just makes me really sad :(
+            whenJust mTxList $ \txList -> forM_ txList $ \tx -> do
+                allMSAddrs <- uses txPool M.keys
+                forM_ allMSAddrs $ \msAddr ->
+                    txPool %= M.update (ifNotEmpty . M.delete tx) msAddr
+
+
+announceNewPeriod :: HBlock -> Update Storage ()
+announceNewPeriod HBlock{..} = do
+    addresses %= M.union hbAddresses
+    forM_ (concatMap txInputs hbTransactions) processTxIn
+    forM_ (concatMap computeOutputAddrids hbTransactions) $ uncurry processTxOut
+    periodStats .= M.empty
+  where
+    processTxIn addrId = do
+        addrM <- M.lookup addrId <$> use utxo
+        whenJust addrM $ processTxIn' addrId
+    processTxIn' addrId addr = do
+        utxo %= M.delete addrId
+        unspentAddrIds %= M.update (ifNotEmpty . S.delete addrId) addr
+        txAddrPairs <- fromMaybe S.empty . M.lookup addrId <$> use txPoolAddrIds
+        txPoolAddrIds %= M.delete addrId
+        forM_ txAddrPairs $ uncurry forgetAddrTx
+    processTxOut addrId addr = do
+        utxo %= M.insert addrId addr
+        unspentAddrIds %= M.alter (Just . S.insert addrId . fromMaybe S.empty) addr
+
+-- =============
+-- QUERY SECTION
+-- =============
+
+-----------------
+-- ms alloccation
+-----------------
+
+outdatedAllocs :: Query Storage (IntMap [MSAddress])
+outdatedAllocs = view discardMSAddresses
 
 queryMSAddressesHelper
     :: Lens' Storage (Map MSAddress info)
@@ -262,7 +379,7 @@ queryCompleteMSAdresses = queryMSAddressesHelper
     (allocateTxFromAlloc . _allocationStrategy)
 
 -- | Remove all addresses from list (bank only usage).
-removeCompleteMSAddresses :: PublicKey -> [MSAddress] -> Signature -> Update Storage ()
+removeCompleteMSAddresses :: PublicKey -> [MSAddress] -> Signature [MSAddress] -> Update Storage ()
 removeCompleteMSAddresses bankPublicKey completeAddrs signedAddrs = do
     unless (verify bankPublicKey signedAddrs completeAddrs) $
         throwM $
@@ -278,10 +395,14 @@ queryMyMSRequests allocAddress = queryMSAddressesHelper
     (\ainfo -> ainfo^.allocationStrategy.allParties.to (HS.member allocAddress))
     id
 
+---------------
+-- transactions
+---------------
+
 -- | By given (tx, addr) retreives list of collected signatures.
 -- If list is complete enough to complete strategy, (tx, addr) pair
 -- and all corresponding data occurrences get removed from Storage.
-acquireSignatures :: Transaction -> Address -> Update Storage [(Address, Signature)]
+acquireSignatures :: Transaction -> Address -> Update Storage [(Address, Signature Transaction)]
 acquireSignatures tx addr = do
     sgs <- liftQuery (getSignatures tx addr)
 --    strategy <- getStrategy addr
@@ -290,42 +411,30 @@ acquireSignatures tx addr = do
 
 -- | By given (tx, addr) get list of collected signatures (or empty list if (tx, addr)
 -- is not registered/already removed from Notary). Read-only method.
-getSignatures :: Transaction -> Address -> Query Storage [(Address, Signature)]
+getSignatures :: Transaction -> Address -> Query Storage [(Address, Signature Transaction)]
 getSignatures tx addr = maybe [] M.assocs . (M.lookup tx <=< M.lookup addr) <$> view txPool
 
 -- | Get last known periodId of Notary (interface for bank).
 getPeriodId :: Query Storage PeriodId
 getPeriodId = view periodId
 
--- | Announce HBlocks, not yet known to Notary.
-announceNewPeriods :: PeriodId -- ^ periodId of latest hblock
-                   -> [HBlock] -- ^ blocks, head corresponds to the latest block
-                   -> Update Storage ()
-announceNewPeriods pId' blocks = do
-    pId <- use periodId
-    mapM_ announceNewPeriod $ reverse $ take (pId' - pId) blocks
-    periodId .= pId'
-
-announceNewPeriod :: HBlock -> Update Storage ()
-announceNewPeriod HBlock{..} = do
-    addresses %= M.union hbAddresses
-    forM_ (concatMap txInputs hbTransactions) processTxIn
-    forM_ (concatMap computeOutputAddrids hbTransactions) $ uncurry processTxOut
-    periodStats .= M.empty
+-- | Collect all pending multisignature transactions which have one of
+-- party is a member of given list.
+-- @TODO: replace [Address] with @HashSet Address@ for faster checks
+pollPendingTxs :: [Address] -> Query Storage [Transaction]
+pollPendingTxs parties = do
+    curTxPool      <- view txPool
+    curUtxo        <- view utxo
+    let pendingTxs  = M.elems curTxPool >>= M.keys
+    let resultTxSet = F.foldl' (partyFold curUtxo) HS.empty pendingTxs
+    return $ HS.toList resultTxSet
   where
-    processTxIn addrId = do
-        addrM <- M.lookup addrId <$> use utxo
-        whenJust addrM $ processTxIn' addrId
-    processTxIn' addrId addr = do
-        utxo %= M.delete addrId
-        unspentAddrIds %= M.update (ifNotEmpty . S.delete addrId) addr
-        txAddrPairs <- fromMaybe S.empty . M.lookup addrId <$> use txPoolAddrIds
-        txPoolAddrIds %= M.delete addrId
-        forM_ txAddrPairs $ uncurry forgetAddrTx
-    processTxOut addrId addr = do
-        utxo %= M.insert addrId addr
-        unspentAddrIds %= M.alter (Just . S.insert addrId . fromMaybe S.empty) addr
-
--- @TODO implement
-pollTransactions :: [Address] -> Query Storage [(Address, [(Transaction, [(Address, Signature)])])]
-pollTransactions _ = return []
+    partyFold :: Utxo
+              -> HashSet Transaction
+              -> Transaction
+              -> HashSet Transaction
+    partyFold addrIdResolve txSet tx@Transaction{..} =
+        if any (`elem` parties)
+           $ mapMaybe (`M.lookup` addrIdResolve) txInputs
+        then HS.insert tx txSet
+        else txSet

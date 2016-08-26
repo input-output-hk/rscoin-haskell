@@ -82,13 +82,13 @@ spec =
             prop "Coin" $
                 \(a :: C.Coin) -> a === mid a
             prop "Signature" $
-                \(a :: C.Signature) -> a === mid a
+                \(a :: C.Signature Int) -> a === mid a
             prop "Address" $
                 \(a :: C.Address) -> a === mid a
             prop "Mintette" $
                 \(a :: C.Mintette) -> a === mid a
             prop "Hash" $
-                \(a :: C.Hash) -> a === mid a
+                \(a :: C.Hash Int) -> a === mid a
             prop "Explorer" $
                 \(a :: C.Explorer) -> a === mid a
             {-prop "NewPeriodData" $

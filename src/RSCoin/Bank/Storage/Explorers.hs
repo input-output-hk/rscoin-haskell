@@ -21,16 +21,17 @@ module RSCoin.Bank.Storage.Explorers
 
        ) where
 
-import           Control.Lens        (Getter, at, makeLenses, to, use, uses,
-                                      (%=), (.=), (<>=))
-import           Control.Monad.State (State)
-import           Data.List           (find)
-import qualified Data.Map            as M
-import           Data.SafeCopy       (base, deriveSafeCopy)
-import           Formatting          (int, sformat, string, (%))
+import           Control.Lens         (Getter, at, makeLenses, to, use, uses,
+                                       (%=), (.=), (<>=))
+import           Control.Monad.Except (ExceptT, MonadError (throwError))
+import           Control.Monad.State  (State)
+import           Data.List            (find)
+import qualified Data.Map             as M
+import           Data.SafeCopy        (base, deriveSafeCopy)
+import           Formatting           (int, sformat, string, (%))
 
-import           RSCoin.Bank.Error   (BankError (BEInconsistentResponse))
-import qualified RSCoin.Core         as C
+import           RSCoin.Bank.Error    (BankError (BEInconsistentResponse))
+import qualified RSCoin.Core          as C
 
 data ExplorersStorage = ExplorersStorage
     { -- | All explorers in storage. Explorer is associated with
@@ -52,7 +53,6 @@ mkExplorersStorage =
     , _esSuspendedExplorers = M.empty
     }
 
-
 type Query a = Getter ExplorersStorage a
 
 -- | Get list of all explorers in storage.
@@ -64,7 +64,8 @@ getExplorers = esExplorers . to M.keys
 getExplorersAndPeriods :: Query [(C.Explorer, C.PeriodId)]
 getExplorersAndPeriods = esExplorers . to M.assocs
 
-type Update a = State ExplorersStorage a
+type Update = State ExplorersStorage
+type ExceptUpdate = ExceptT BankError Update
 
 -- | Add given explorer to storage and associate given PeriodId with
 -- it. If explorer exists, it is updated.
@@ -72,15 +73,15 @@ addExplorer :: C.Explorer -> C.PeriodId -> Update ()
 addExplorer e pId = esExplorers . at e .= Just pId
 
 -- | Removes a host that matches host/port, fails if not present
-removeExplorer :: String -> Int -> Update (Maybe BankError)
+removeExplorer :: String -> Int -> ExceptUpdate ()
 removeExplorer host port = do
     expls <- uses esExplorers M.keys
     let res = find (\C.Explorer{..} -> explorerHost == host &&
                                        explorerPort == port) expls
-    maybe (return $ Just $ BEInconsistentResponse $
+    maybe (throwError $ BEInconsistentResponse $
            sformat ("Explorer with host " % string % " and port " % int %
                     " is not in the storage, can't remove") host port)
-          (\explorer -> esExplorers %= M.delete explorer >> return Nothing)
+          (\explorer -> esExplorers %= M.delete explorer)
           res
 
 -- | Update expected period id of given explorer. Adds explorer if it

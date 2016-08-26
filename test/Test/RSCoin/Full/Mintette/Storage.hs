@@ -11,15 +11,14 @@ module Test.RSCoin.Full.Mintette.Storage
        , commitTx
        ) where
 
-import           Control.Lens                     (at, use, uses, (%=), (.=),
-                                                   (<>=))
+import           Control.Lens                     (at, use, uses, view, (%=),
+                                                   (.=), (<>=), _1)
 import           Control.Monad                    (unless, when)
 import           Control.Monad.Catch              (MonadThrow (throwM))
 import           Control.Monad.State.Class        (MonadState)
 import qualified Data.Map                         as M
 import           Data.Maybe                       (fromJust, fromMaybe, isJust)
 import qualified Data.Set                         as S
-import           Data.Tuple.Select                (sel1)
 import           Safe                             (atMay)
 
 import           RSCoin.Core                      (AddrId, SecretKey,
@@ -52,7 +51,7 @@ checkNotDoubleSpent :: MintetteConfig
                     -> SecretKey
                     -> Transaction
                     -> AddrId
-                    -> [(C.Address, C.Signature)]
+                    -> [(C.Address, C.Signature C.Transaction)]
                     -> ExceptUpdate C.CheckConfirmation
 checkNotDoubleSpent conf sk tx addrId sg = do
     unless (checkActive conf) checkIsActive
@@ -118,7 +117,7 @@ commitTx conf sk tx@Transaction{..} bundle = do
       | skipChecksCommitTx conf = return True
     checkInputConfirmed mts curDpk addrid = do
         pId <- use periodId
-        let addridOwners = owners mts (sel1 addrid)
+        let addridOwners = owners mts (view _1 addrid)
             ownerConfirmed owner =
                 maybe
                     False

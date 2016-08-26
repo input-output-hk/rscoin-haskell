@@ -32,6 +32,7 @@ module RSCoin.User.Wallet
        , getAllocationStrategies
        , getIgnoredAllocationStrategies
        , getAllocationByIndex
+       , getPendingTxs
 
          -- * Updates
        , handleToAdd
@@ -43,6 +44,7 @@ module RSCoin.User.Wallet
        , updateAllocationStrategies
        , blacklistAllocation
        , whitelistAllocation
+       , updatePendingTxs
        , initWallet
        ) where
 
@@ -127,6 +129,8 @@ data WalletStorage = WalletStorage
     , _msAddrAllocs    :: M.Map MSAddress AllocationInfo
       -- | Allocations that are ignored from the main list
     , _msIgnoredAllocs :: M.Map MSAddress AllocationInfo
+      -- | List of transactions that are pending on the notary side
+    , _pendingTxs      :: S.Set Transaction
     } deriving (Show)
 
 $(L.makeLenses ''WalletStorage)
@@ -153,6 +157,7 @@ emptyWalletStorage =
         M.empty
         M.empty
         M.empty
+        S.empty
 
 -- =======
 -- Queries
@@ -326,6 +331,9 @@ getAllocationByIndex i = checkInitR $ do
     msAddrs <- L.view msAddrAllocs
     return $ M.elemAt i msAddrs
 
+-- | Get pending transactions
+getPendingTxs :: ExceptQuery [Transaction]
+getPendingTxs = checkInitR $ L.views pendingTxs S.toList
 
 -- ===============
 -- Updates section
@@ -661,6 +669,10 @@ blacklistAllocation msaddr = checkInitS $ do
           (\e -> do msIgnoredAllocs %= M.insert msaddr e
                     msAddrAllocs %= M.delete msaddr)
           maybeAllocinfo
+
+-- | Updates pending txs set to the given one
+updatePendingTxs :: S.Set Transaction -> ExceptUpdate ()
+updatePendingTxs txs = checkInitS $ pendingTxs .= txs
 
 -- | Whitelists address's allocation info back from the blacklist
 whitelistAllocation :: MSAddress -> ExceptUpdate ()

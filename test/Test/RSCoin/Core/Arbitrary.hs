@@ -8,7 +8,8 @@ module Test.RSCoin.Core.Arbitrary
        (
        ) where
 
-import           Data.DeriveTH
+import           Data.Binary           (Binary)
+import           Data.DeriveTH         (derive, makeArbitrary)
 import           Data.Hashable         (Hashable)
 import           Data.HashMap.Strict   (HashMap)
 import qualified Data.HashMap.Strict   as HM hiding (HashMap)
@@ -48,8 +49,17 @@ instance Arbitrary C.Mintette where
 instance Arbitrary C.Explorer where
     arbitrary = C.Explorer <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance Arbitrary C.Hash where
-    arbitrary = (C.hash :: C.Mintette -> C.Hash) <$> arbitrary
+instance Arbitrary (C.Hash a) where
+    arbitrary = C.unsafeHash <$> (arbitrary :: Gen Int)
+
+instance Arbitrary C.ActionLogEntryHash where
+    arbitrary = C.ALEHash <$> arbitrary
+
+instance Arbitrary C.LBlockHash where
+    arbitrary = C.LBlockHash <$> arbitrary
+
+instance Arbitrary C.HBlockHash where
+    arbitrary = C.HBlockHash <$> arbitrary
 
 instance Arbitrary C.Address where
     arbitrary = C.Address <$> arbitrary
@@ -74,8 +84,9 @@ instance Arbitrary C.CheckConfirmation where
 instance Arbitrary C.CommitAcknowledgment where
     arbitrary = C.CommitAcknowledgment <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance Arbitrary C.Signature where
-    arbitrary = C.sign <$> arbitrary <*> (arbitrary :: Gen String)
+instance (Binary a, Arbitrary a) =>
+         Arbitrary (C.Signature a) where
+    arbitrary = C.sign <$> arbitrary <*> arbitrary
 
 instance Arbitrary C.TxStrategy where
     arbitrary = oneof [ pure C.DefaultStrategy

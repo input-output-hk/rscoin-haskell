@@ -5,28 +5,25 @@ module Bench.RSCoin.Local.InfraThreads
         , notaryThread
         ) where
 
-import           Control.Monad.Catch        (bracket)
-import           Control.Monad.Trans        (liftIO)
-
+import           Data.Optional              (Optional (Default))
 import           Data.Time.Units            (TimeUnit)
 
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Mintette (Mintette), PublicKey,
-                                             SecretKey, defaultPort, localhost,
-                                             mintetteLoggerName,
-                                             notaryLoggerName,
-                                             testBankSecretKey)
+                                             SecretKey, Severity (Warning),
+                                             defaultEpochDelta, defaultPort,
+                                             localhost, testBankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
-import           RSCoin.Timed               (fork, runRealModeUntrusted)
+import           RSCoin.Timed               (ContextArgument (CADefault))
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 
 addMintette :: Int -> PublicKey -> IO ()
 addMintette mintetteId =
-    B.addMintetteReq B.CADefault testBankSecretKey mintette
+    B.addMintetteReq CADefault testBankSecretKey mintette
   where
     mintette = Mintette localhost (defaultPort + mintetteId)
 
@@ -35,24 +32,19 @@ bankThread periodDelta benchDir =
     B.launchBankReal
         periodDelta
         (benchDir </> "bank-db")
-        B.CADefault
+        CADefault
         testBankSecretKey
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir secretKey =
-    runRealModeUntrusted mintetteLoggerName B.CADefault $
-    bracket
-        (liftIO $
-         M.openState $ benchDir </> dbFormatPath "mintette-db" mintetteId)
-        (liftIO . M.closeState) $
-    \mintetteState -> do
-        _ <- fork $ M.runWorker secretKey mintetteState
-        M.serve (defaultPort + mintetteId) mintetteState secretKey
+    M.launchMintetteReal defaultEpochDelta port secretKey dbPath CADefault
+  where
+    port = defaultPort + mintetteId
+    dbPath = Just $ benchDir </> dbFormatPath "mintette-db" mintetteId
 
 notaryThread :: FilePath -> IO ()
 notaryThread benchDir =
-    runRealModeUntrusted notaryLoggerName B.CADefault $
-    bracket
-        (liftIO $ N.openState (benchDir </> "notary-db") [])
-        (liftIO . N.closeState)
-        N.serveNotary
+    N.launchNotaryReal Warning dbPath B.CADefault webPort [] Default
+  where
+    webPort = defaultPort - 1
+    dbPath = Just $ benchDir </> "notary-db"

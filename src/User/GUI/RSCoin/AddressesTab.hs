@@ -6,7 +6,6 @@ module GUI.RSCoin.AddressesTab
 
 import           Control.Monad         (forM_, void, when)
 
-import           Data.Acid             (update)
 import           Graphics.UI.Gtk       (AttrOp ((:=)), on)
 import qualified Graphics.UI.Gtk       as G
 
@@ -17,7 +16,7 @@ import           GUI.RSCoin.Glade      (GladeMainWindow (..))
 import           GUI.RSCoin.MainWindow (AddressesTab (..), MainWindow (..))
 
 import qualified RSCoin.Core           as C
-import           RSCoin.User           (AddAddress (..), RSCoinUserState)
+import           RSCoin.User           (AddAddress (..), UserState, update)
 
 createAddressesTab :: GladeMainWindow -> IO AddressesTab
 createAddressesTab GladeMainWindow{..} =
@@ -27,7 +26,7 @@ createAddressesTab GladeMainWindow{..} =
         gTreeViewAddressesView
     <$> G.listStoreNew []
 
-initAddressesTab :: Maybe FilePath -> RSCoinUserState -> MainWindow -> IO ()
+initAddressesTab :: Maybe FilePath -> UserState -> MainWindow -> IO ()
 initAddressesTab confPath st mw@MainWindow{..} = do
     let AddressesTab{..} = tabAddresses
     G.treeViewSetModel treeViewAddressesView addressesModel
@@ -61,7 +60,7 @@ initAddressesTab confPath st mw@MainWindow{..} = do
         updateAddressTab confPath st mw
     updateAddressTab confPath st mw
 
-updateAddressTab :: Maybe FilePath -> RSCoinUserState -> MainWindow -> IO ()
+updateAddressTab :: Maybe FilePath -> UserState -> MainWindow -> IO ()
 updateAddressTab confPath st MainWindow{..} = do
     let AddressesTab{..} = tabAddresses
     G.listStoreClear addressesModel

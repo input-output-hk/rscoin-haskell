@@ -13,8 +13,18 @@ import qualified MintetteOptions     as Opts
 
 main :: IO ()
 main = do
-    Opts.Options{..} <- Opts.getOptions
+    opts@Opts.Options{..} <- Opts.getOptions
     initLogging cloLogSeverity
+    let ctxArg =
+            if cloDefaultContext
+                then M.CADefault
+                else M.CACustomLocation cloConfigPath
+    case cloCommand of
+        Opts.Serve serveOpts -> mainServe ctxArg serveOpts opts
+        Opts.DumpStatistics  -> mainDumpStatistics ctxArg opts
+
+mainServe :: M.ContextArgument -> Opts.ServeOptions -> Opts.Options -> IO ()
+mainServe ctxArg Opts.ServeOptions{..} Opts.Options{..} = do
     skEither <- try $ readSecretKey cloSecretKeyPath
     sk <-
         case skEither of
@@ -36,9 +46,9 @@ main = do
             if cloMemMode
                 then Nothing
                 else Just cloPath
-        ctxArg =
-            if cloDefaultContext
-                then M.CADefault
-                else M.CACustomLocation cloConfigPath
         epochDelta = fromInteger cloEpochDelta :: Second
     M.launchMintetteReal epochDelta cloPort sk dbPath ctxArg
+
+mainDumpStatistics :: M.ContextArgument -> Opts.Options -> IO ()
+mainDumpStatistics ctxArg Opts.Options {..} = do
+    M.dumpStorageStatistics cloPath ctxArg

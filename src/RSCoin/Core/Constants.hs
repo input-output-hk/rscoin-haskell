@@ -14,6 +14,7 @@ module RSCoin.Core.Constants
         , emissionHash
         , genesisValue
         , localhost
+        , notaryAliveSizeDefault
         , notaryMSAttemptsLimit
         , periodReward
         , rpcTimeout
@@ -31,8 +32,8 @@ import           System.Directory           (getHomeDirectory)
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Core.CompileConfig  as CC
-import           RSCoin.Core.Crypto         (Hash, hash)
-import           RSCoin.Core.Primitives     (Coin (..))
+import           RSCoin.Core.Crypto         (Hash, unsafeHash)
+import           RSCoin.Core.Primitives     (Coin (..), Transaction)
 
 -- | Configuration directory (~/.rscoin/ on linux)
 configDirectory :: IO FilePath
@@ -60,9 +61,9 @@ defaultPeriodDelta = 100
 defaultEpochDelta :: Second
 defaultEpochDelta = 5
 
-emissionHash :: Binary t => t -> Hash
+emissionHash :: Binary t => t -> Hash Transaction
 emissionHash a =
-    hash ("This emission hash is needed for all generative" ++
+    unsafeHash ("This emission hash is needed for all generative" ++
           "transactions to be different" :: String, a)
 
 -- | This value is sent to genesisAddress in genesis transaction
@@ -92,6 +93,10 @@ rpcTimeout = $(lift $ CC.rscRpcTimeout CC.rscoinConfig)
 -- @TODO move to Notary config
 notaryMSAttemptsLimit :: Int
 notaryMSAttemptsLimit = 5
+
+-- @TODO move to Notary config
+notaryAliveSizeDefault :: Int
+notaryAliveSizeDefault = 100
 
 -- | File name for running app with configuration of 'configurator' libary.
 defaultConfigurationPath :: IO FilePath

@@ -4,7 +4,7 @@ module Test.RSCoin.Core.ShowReadSpec
        ( spec
        ) where
 
-import            RSCoin.Core                (PublicKey, SecretKey, Signature)
+import           RSCoin.Core                (PublicKey, SecretKey, Signature)
 
 import           Test.Hspec                 (Spec, describe)
 import           Test.Hspec.QuickCheck      (prop)
@@ -17,7 +17,7 @@ spec =
     describe "ShowRead" $ do
         describe "Identity Properties" $ do
             prop "Signature" $
-                \(a :: Signature) -> a === showMid a
+                \(a :: Signature Int) -> a === showMid a
             prop "SecretKey" $
                 \(a :: SecretKey) -> a === showMid a
             prop "PublicKey" $

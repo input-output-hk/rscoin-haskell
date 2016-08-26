@@ -51,7 +51,12 @@ data UserCommand
                             [Text]
                             (Maybe Text)
                             (Maybe Text)
-
+    -- | Query notary to get list of pending transactions
+    | ListPendingTransactions
+    -- | Sign and send transaction from the pending list by id ∈ [1..list.length]
+    | SendPendingTransaction Int
+    -- | Get a pending transaction and dump it to the file
+    | PendingToCold Int FilePath
     -- | List all addresses in which current user acts like party.
     -- Specify trust public key if you also want to receive MS addresses
     -- with trust as party.
@@ -142,15 +147,29 @@ userCommandParser =
          command
              "create-multisig"
              (info
-                  createMultisigOpts
-                  (progDesc "Create multisignature address allocation")) <>
+                 createMultisigOpts
+                 (progDesc "Create multisignature address allocation")) <>
          command
-             "list-alloc"
+             "pending-list"
+             (info
+                 (pure ListPendingTransactions)
+                 (progDesc "List transactions that are pending to be signed")) <>
+         command
+             "pending-send"
+             (info sendPendingOpts
+                 (progDesc "Send a pending transaction from list-pending by index")) <>
+         command
+             "pending-to-cold"
+             (info pendingToColdOpts
+                 (progDesc $ "Download pending transaction and dump it into " <>
+                             "the file to sign it with cold key")) <>
+         command
+             "alloc-list"
              (info
                   (listAllocOpts ListAllocations)
                   (progDesc
                        "List all multisignature address allocations you need to confirm")) <>
-         command "list-alloc-blacklisted"
+         command "alloc-list-blacklisted"
              (info
                   (listAllocOpts ListAllocationsBlacklist)
                   (progDesc $
@@ -177,18 +196,18 @@ userCommandParser =
              (info coldSignOpts
                   (progDesc "Read non-signed transaction from file and sign it.")) <>
          command
-             "import-address"
+             "address-import"
              (info
                   importAddressOpts
                   (progDesc
                        "Import address to storage given a (secretKey,publicKey) pair")) <>
          command
-             "export-address"
+             "address-export"
              (info
                   exportAddressOpts
                   (progDesc "Export address' keypair  to the file.")) <>
          command
-             "delete-address"
+             "address-delete"
              (info
                   deleteAddressOpts
                   (progDesc $
@@ -389,13 +408,14 @@ userCommandParser =
     whitelistAllocationOpts = WhitelistAllocation <$> option
         auto (short 'i' <> long "index" <> metavar "INT" <>
              help "Index of allocation, starting from 1 in `list-alloc`")
-    coldFormOpts =
-        ColdFormTransaction <$>
-        some formTxFrom <*> formTxToAddr <*> many formTxToCoin
-        <*> strOption
+    coldToWritePath =
+        strOption
             (long "path" <>
              help "Path to file for non-signed transaction to write into" <>
              metavar "FILEPATH")
+    coldFormOpts =
+        ColdFormTransaction <$>
+        some formTxFrom <*> formTxToAddr <*> many formTxToCoin <*> coldToWritePath
     coldSendOpts =
         ColdSendTransaction <$>
         strOption
@@ -408,6 +428,13 @@ userCommandParser =
         (long "path" <>
          help "Path to file with transaction to sign" <>
          metavar "FILEPATH")
+    pendingTxId =
+        option auto
+            (short 'i' <> long "index" <>
+             help "Id of transaction in list-pending list" <>
+             metavar "INT")
+    sendPendingOpts = SendPendingTransaction <$> pendingTxId
+    pendingToColdOpts = PendingToCold <$> pendingTxId <*> coldToWritePath
 
 userOptionsParser :: FilePath -> FilePath -> FilePath -> Parser UserOptions
 userOptionsParser dskp configDir defaultConfigPath =

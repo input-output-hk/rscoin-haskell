@@ -1,5 +1,6 @@
 module App.Types
        ( module RSCoin
+       , module Color
        , Action (..)
        , SearchQuery (..)
        , init
@@ -15,6 +16,7 @@ import App.RSCoin                  as RSCoin
 import App.RSCoin                  (Coin, Address,
                                     TransactionSummarySerializable(TransactionSummarySerializable),
                                     addressToString)
+import Data.Color                  as Color
 
 import Data.Maybe                  (Maybe (..))
 import Data.Tuple                  (Tuple)

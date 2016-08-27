@@ -8,18 +8,17 @@ module RSCoin.Notary.AcidState
        ( NotaryState
 
          -- * acid-state query and update data types
-       , AcquireSignatures (..)
        , AddSignedTransaction (..)
        , AllocateMSAddress (..)
        , AnnounceNewPeriods (..)
        , GetPeriodId (..)
        , GetSignatures (..)
+       , OutdatedAllocs (..)
        , PollPendingTxs (..)
        , QueryAllMSAdresses (..)
        , QueryCompleteMSAdresses (..)
        , QueryMyMSRequests (..)
        , RemoveCompleteMSAddresses (..)
-       , OutdatedAllocs (..)
 
          -- * Encapsulations
        , closeState
@@ -94,16 +93,15 @@ tidyState :: MonadIO m => NotaryState -> m ()
 tidyState = tidyExtendedState
 
 $(makeAcidic ''Storage
-             [ 'S.acquireSignatures
-             , 'S.addSignedTransaction
+             [ 'S.addSignedTransaction
              , 'S.allocateMSAddress
              , 'S.announceNewPeriods
              , 'S.getPeriodId
              , 'S.getSignatures
+             , 'S.outdatedAllocs
              , 'S.pollPendingTxs
              , 'S.queryAllMSAdresses
              , 'S.queryCompleteMSAdresses
              , 'S.queryMyMSRequests
              , 'S.removeCompleteMSAddresses
-             , 'S.outdatedAllocs
              ])

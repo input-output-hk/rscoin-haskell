@@ -6,7 +6,6 @@
 
 module RSCoin.Notary.Storage
        ( Storage (_aliveSize, _masterKeys)
-       , acquireSignatures
        , addSignedTransaction
        , allocateMSAddress
        , announceNewPeriods
@@ -118,21 +117,21 @@ emptyNotaryStorage =
     , _periodId               = -1
     }
 
--- ==============
--- UPDATE SECTION
--- ==============
-
 {- Utility non exported functions -}
 
 ifNotEmpty :: Foldable t => t a -> Maybe (t a)
 ifNotEmpty s | F.null s  = Nothing
              | otherwise = Just s
 
+-- ==============
+-- UPDATE SECTION
+-- ==============
+
 -----------------
 -- ms alloccation
 -----------------
 
--- | Throws NEBlocked if user reaches limit of attempts (DDOS protection).
+-- | Throws NEBlocked if user reaches limit of attempts (DoS protection).
 guardMaxAttemps :: Address -> Update Storage ()
 guardMaxAttemps userAddr = do
     periodStats %=
@@ -140,7 +139,7 @@ guardMaxAttemps userAddr = do
     currentAttemtps <- uses periodStats $ fromJust . M.lookup userAddr
     when (currentAttemtps >= notaryMSAttemptsLimit) $ throwM NEBlocked
 
-type MSSignature = Signature (MSAddress, AllocationStrategy)
+type MSSignature      = Signature (MSAddress, AllocationStrategy)
 type MaybePKSignature = Maybe (PublicKey, Signature PublicKey)
 
 -- | Allocate new multisignature address by chosen strategy and
@@ -212,6 +211,16 @@ allocateMSAddress
               allocationStrategyPool.at msAddr ?=
                   (ainfo & currentConfirmations %~ HM.insert allocAddress partyAddr)
 
+-- | Remove all addresses from list (bank only usage).
+removeCompleteMSAddresses :: PublicKey -> [MSAddress] -> Signature [MSAddress] -> Update Storage ()
+removeCompleteMSAddresses bankPublicKey completeAddrs signedAddrs = do
+    unless (verify bankPublicKey signedAddrs completeAddrs) $
+        throwM $
+        NEUnrelatedSignature "addr list in remove MS query not signed by bank"
+    forM_ completeAddrs $
+        \adress ->
+             allocationStrategyPool %= M.delete adress
+
 ---------------
 -- transactions
 ---------------
@@ -222,9 +231,6 @@ forgetAddrTx addr tx = do
     txPool %= M.update (ifNotEmpty . M.delete tx) addr
     txPoolAddrIds %=
         \m -> foldr (M.update $ ifNotEmpty . S.delete (addr, tx)) m (txInputs tx)
-
-getStrategy :: Address -> Update Storage TxStrategy
-getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> use addresses
 
 -- | Receives tx, addr, (addr, sig) pair, checks validity and
 -- publishes (tx, addr) to storage, adds (addr, sig) to list of
@@ -267,7 +273,7 @@ addSignedTransaction tx addr (sigAddr,sig) = do
         unless (any (`S.member` s) (txInputs tx)) $
             throwM NEAddrNotRelativeToTx
     checkSigRelativeToAddr = do
-        strategy <- getStrategy addr
+        strategy <- liftQuery (getStrategy addr)
         case strategy of
             DefaultStrategy ->
                 throwM $ NEStrategyNotSupported "DefaultStrategy"
@@ -378,16 +384,6 @@ queryCompleteMSAdresses = queryMSAddressesHelper
           ainfo^.currentConfirmations.to HM.size)
     (allocateTxFromAlloc . _allocationStrategy)
 
--- | Remove all addresses from list (bank only usage).
-removeCompleteMSAddresses :: PublicKey -> [MSAddress] -> Signature [MSAddress] -> Update Storage ()
-removeCompleteMSAddresses bankPublicKey completeAddrs signedAddrs = do
-    unless (verify bankPublicKey signedAddrs completeAddrs) $
-        throwM $
-        NEUnrelatedSignature "addr list in remove MS query not signed by bank"
-    forM_ completeAddrs $
-        \adress ->
-             allocationStrategyPool %= M.delete adress
-
 -- | Request all address which contains 'allocAddress' as party.
 queryMyMSRequests :: AllocationAddress -> Query Storage [(MSAddress, AllocationInfo)]
 queryMyMSRequests allocAddress = queryMSAddressesHelper
@@ -399,15 +395,9 @@ queryMyMSRequests allocAddress = queryMSAddressesHelper
 -- transactions
 ---------------
 
--- | By given (tx, addr) retreives list of collected signatures.
--- If list is complete enough to complete strategy, (tx, addr) pair
--- and all corresponding data occurrences get removed from Storage.
-acquireSignatures :: Transaction -> Address -> Update Storage [(Address, Signature Transaction)]
-acquireSignatures tx addr = do
-    sgs <- liftQuery (getSignatures tx addr)
---    strategy <- getStrategy addr
---    when (isStrategyCompleted strategy addr sgs tx) $ forgetAddrTx addr tx
-    return sgs
+-- | Get address strategy.
+getStrategy :: Address -> Query Storage TxStrategy
+getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> view addresses
 
 -- | By given (tx, addr) get list of collected signatures (or empty list if (tx, addr)
 -- is not registered/already removed from Notary). Read-only method.

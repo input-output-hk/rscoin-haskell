@@ -26,8 +26,7 @@ import           Serokell.Util.Text      (pairBuilder, show')
 
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
-import           RSCoin.Notary.AcidState (AcquireSignatures (..),
-                                          AddSignedTransaction (..),
+import           RSCoin.Notary.AcidState (AddSignedTransaction (..),
                                           AllocateMSAddress (..),
                                           AnnounceNewPeriods (..),
                                           GetPeriodId (..), GetSignatures (..),
@@ -104,7 +103,7 @@ handlePublishTx
 handlePublishTx st tx addr sg =
     toServer $
     do update st $ AddSignedTransaction tx addr sg
-       res <- update st $ AcquireSignatures tx addr
+       res <- query st $ GetSignatures tx addr
        C.logDebug $
            sformat
                ("Getting signatures for tx " % build % ", addr " % build % ": " %

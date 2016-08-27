@@ -14,8 +14,6 @@ module RSCoin.Core.Constants
         , emissionHash
         , genesisValue
         , localhost
-        , notaryAliveSizeDefault
-        , notaryMSAttemptsLimit
         , periodReward
         , rpcTimeout
         , shardDelta
@@ -89,14 +87,6 @@ shardDelta = $(lift $ CC.rscShardDelta CC.rscoinConfig)
 -- If timeout exceedes TimeoutError is thrown.
 rpcTimeout :: Second
 rpcTimeout = $(lift $ CC.rscRpcTimeout CC.rscoinConfig)
-
--- @TODO move to Notary config
-notaryMSAttemptsLimit :: Int
-notaryMSAttemptsLimit = 5
-
--- @TODO move to Notary config
-notaryAliveSizeDefault :: Int
-notaryAliveSizeDefault = 100
 
 -- | File name for running app with configuration of 'configurator' libary.
 defaultConfigurationPath :: IO FilePath

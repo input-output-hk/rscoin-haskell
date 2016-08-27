@@ -29,4 +29,5 @@ main = do
         ctxArg
         cliWebPort
         trustedKeys
-        (fromIntegral cliAliveSize)
+        (fromIntegral cliAllocAlive)
+        (fromIntegral cliTxAlive)

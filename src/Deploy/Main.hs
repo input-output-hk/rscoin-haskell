@@ -109,6 +109,7 @@ startNotary severity CommonParams{..} = do
                 8090
                 []
                 Default
+                Default
     Cherepakha.mkdir workingDirDeprecated
     forkIO start
 

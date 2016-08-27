@@ -29,21 +29,22 @@ module RSCoin.Notary.AcidState
        , update
        ) where
 
-import           Control.Monad.Trans   (MonadIO)
-import           Data.Acid             (EventResult, EventState, QueryEvent,
-                                        UpdateEvent, makeAcidic)
-import           Data.Optional         (Optional, defaultTo)
-import           Data.SafeCopy         (base, deriveSafeCopy)
+import           Control.Monad.Trans    (MonadIO)
+import           Data.Acid              (EventResult, EventState, QueryEvent,
+                                         UpdateEvent, makeAcidic)
+import           Data.Optional          (Optional, defaultTo)
+import           Data.SafeCopy          (base, deriveSafeCopy)
 
-import           Serokell.AcidState    (ExtendedState, closeExtendedState,
-                                        openLocalExtendedState,
-                                        openMemoryExtendedState, queryExtended,
-                                        tidyExtendedState, updateExtended)
+import           Serokell.AcidState     (ExtendedState, closeExtendedState,
+                                         openLocalExtendedState,
+                                         openMemoryExtendedState, queryExtended,
+                                         tidyExtendedState, updateExtended)
 
-import           RSCoin.Core           (PeriodId, PublicKey,
-                                        notaryAliveSizeDefault)
-import           RSCoin.Notary.Storage (Storage (..))
-import qualified RSCoin.Notary.Storage as S
+import           RSCoin.Core            (PeriodId, PublicKey)
+import           RSCoin.Notary.Defaults (defaultAllocationEndurance,
+                                         defaultTransactionEndurance)
+import           RSCoin.Notary.Storage  (Storage (..))
+import qualified RSCoin.Notary.Storage  as S
 
 type NotaryState = ExtendedState Storage
 
@@ -59,32 +60,44 @@ update
     => NotaryState -> event -> m (EventResult event)
 update = updateExtended
 
+openStateHelper
+    :: MonadIO m
+    => (Storage -> m NotaryState)
+    -> [PublicKey]
+    -> Optional PeriodId
+    -> Optional PeriodId
+    -> m NotaryState
+openStateHelper
+    stateOpener
+    masterKeys
+    (defaultTo defaultAllocationEndurance  -> allocationEndurance)
+    (defaultTo defaultTransactionEndurance -> transactionEndurance)
+  =
+    stateOpener notaryStorage
+  where
+    notaryStorage = S.emptyNotaryStorage
+                    { _allocationEndurance  = allocationEndurance
+                    , _transactionEndurance = transactionEndurance
+                    , _masterKeys           = masterKeys
+                    }
+
+
 openState
     :: MonadIO m
     => FilePath
     -> [PublicKey]
     -> Optional PeriodId
+    -> Optional PeriodId
     -> m NotaryState
-openState fp trustedKeys (defaultTo notaryAliveSizeDefault -> aliveSize) =
-    openLocalExtendedState fp st
-  where
-    st = S.emptyNotaryStorage
-             { _masterKeys = trustedKeys
-             , _aliveSize  = aliveSize
-             }
+openState fp = openStateHelper (openLocalExtendedState fp)
 
 openMemState
     :: MonadIO m
     => [PublicKey]
     -> Optional PeriodId
+    -> Optional PeriodId
     -> m NotaryState
-openMemState trustedKeys (defaultTo notaryAliveSizeDefault -> aliveSize) =
-    openMemoryExtendedState st
-  where
-    st = S.emptyNotaryStorage
-             { _masterKeys = trustedKeys
-             , _aliveSize  = aliveSize
-             }
+openMemState = openStateHelper openMemoryExtendedState
 
 closeState :: MonadIO m => NotaryState -> m ()
 closeState = closeExtendedState

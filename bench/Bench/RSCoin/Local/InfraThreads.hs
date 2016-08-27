@@ -44,7 +44,7 @@ mintetteThread mintetteId benchDir secretKey =
 
 notaryThread :: FilePath -> IO ()
 notaryThread benchDir =
-    N.launchNotaryReal Warning dbPath B.CADefault webPort [] Default
+    N.launchNotaryReal Warning dbPath B.CADefault webPort [] Default Default
   where
     webPort = defaultPort - 1
     dbPath = Just $ benchDir </> "notary-db"

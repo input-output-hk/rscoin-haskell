@@ -5,7 +5,7 @@
 -- | Storage for Notary's data.
 
 module RSCoin.Notary.Storage
-       ( Storage (_aliveSize, _masterKeys)
+       ( Storage (_allocationEndurance, _masterKeys, _transactionEndurance)
        , addSignedTransaction
        , allocateMSAddress
        , announceNewPeriods
@@ -20,40 +20,43 @@ module RSCoin.Notary.Storage
        , outdatedAllocs
        ) where
 
-import           Control.Lens         (Lens', at, makeLenses, to, use, uses,
-                                       view, (%=), (%~), (&), (.=), (?=), (^.))
-import           Control.Monad        (forM_, unless, when, (<=<))
-import           Control.Monad.Catch  (MonadThrow (throwM))
-import           Control.Monad.Extra  (unlessM, whenJust, whenM)
-import           Data.Acid            (Query, Update, liftQuery)
-import qualified Data.Foldable        as F
-import qualified Data.HashMap.Strict  as HM hiding (HashMap)
-import           Data.HashSet         (HashSet)
-import qualified Data.HashSet         as HS hiding (HashSet)
-import           Data.IntMap.Strict   (IntMap)
-import qualified Data.IntMap.Strict   as IM hiding (IntMap)
-import           Data.Map.Strict      (Map)
-import qualified Data.Map.Strict      as M hiding (Map)
-import           Data.Maybe           (fromJust, fromMaybe, mapMaybe)
-import           Data.Set             (Set)
-import qualified Data.Set             as S hiding (Set)
-import           Formatting           (build, sformat, (%))
+import           Control.Lens           (Lens', at, makeLenses, to, use, uses,
+                                         view, (%=), (%~), (&), (.=), (?=),
+                                         (^.))
+import           Control.Monad          (forM_, unless, when, (<=<))
+import           Control.Monad.Catch    (MonadThrow (throwM))
+import           Control.Monad.Extra    (unlessM, whenJust, whenM)
+import           Data.Acid              (Query, Update, liftQuery)
+import qualified Data.Foldable          as F
+import qualified Data.HashMap.Strict    as HM hiding (HashMap)
+import           Data.HashSet           (HashSet)
+import qualified Data.HashSet           as HS hiding (HashSet)
+import           Data.IntMap.Strict     (IntMap)
+import qualified Data.IntMap.Strict     as IM hiding (IntMap)
+import           Data.Map.Strict        (Map)
+import qualified Data.Map.Strict        as M hiding (Map)
+import           Data.Maybe             (fromJust, fromMaybe, mapMaybe)
+import           Data.Set               (Set)
+import qualified Data.Set               as S hiding (Set)
+import           Formatting             (build, sformat, (%))
 
-import           RSCoin.Core          (AddrId, Address (..), HBlock (..),
-                                       PeriodId, PublicKey, Signature,
-                                       Transaction (..), Utxo,
-                                       computeOutputAddrids,
-                                       notaryAliveSizeDefault,
-                                       notaryMSAttemptsLimit, validateSignature,
-                                       validateSum, verify)
-import           RSCoin.Core.Strategy (AddressToTxStrategyMap,
-                                       AllocationAddress, AllocationInfo (..),
-                                       AllocationStrategy (..), MSAddress,
-                                       PartyAddress (..), TxStrategy (..),
-                                       allParties, allocateTxFromAlloc,
-                                       allocationStrategy, currentConfirmations,
-                                       partyToAllocation)
-import           RSCoin.Notary.Error  (NotaryError (..))
+import           RSCoin.Core            (AddrId, Address (..), HBlock (..),
+                                         PeriodId, PublicKey, Signature,
+                                         Transaction (..), Utxo,
+                                         computeOutputAddrids,
+                                         validateSignature, validateSum, verify)
+import           RSCoin.Core.Strategy   (AddressToTxStrategyMap,
+                                         AllocationAddress, AllocationInfo (..),
+                                         AllocationStrategy (..), MSAddress,
+                                         PartyAddress (..), TxStrategy (..),
+                                         allParties, allocateTxFromAlloc,
+                                         allocationStrategy,
+                                         currentConfirmations,
+                                         partyToAllocation)
+import           RSCoin.Notary.Defaults (allocationAttemptsLimit,
+                                         defaultAllocationEndurance,
+                                         defaultTransactionEndurance)
+import           RSCoin.Notary.Error    (NotaryError (..))
 
 data Storage = Storage
     { -- | Pool of trasactions to be signed, already collected signatures.
@@ -77,9 +80,13 @@ data Storage = Storage
       -- | Mapping PeriodId -> Transactions that were submitted during period.
     , _discardTransactions    :: !(IntMap [Transaction])
 
-      -- | Constant that defines how many periods we should store MS and txs
-      -- (i.e. information in '_discardMSAddresses' & '_discardTransactions'.
-    , _aliveSize              :: !PeriodId
+      -- | Constant that defines how many periods we should store MS address allocation
+      -- requests (i.e. information in '_discardMSAddresses').
+    , _allocationEndurance    :: !PeriodId
+
+      -- | Constant that defines how many periods we should store transactions
+      -- requests (i.e. information in '_discardTransactions').
+    , _transactionEndurance   :: !PeriodId
 
       -- | Number of attempts for user per period to allocate multisig address.
     , _periodStats            :: !(Map Address Int)
@@ -109,7 +116,8 @@ emptyNotaryStorage =
     , _allocationStrategyPool = M.empty
     , _discardMSAddresses     = IM.empty
     , _discardTransactions    = IM.empty
-    , _aliveSize              = notaryAliveSizeDefault
+    , _allocationEndurance    = defaultAllocationEndurance
+    , _transactionEndurance   = defaultTransactionEndurance
     , _periodStats            = M.empty
     , _addresses              = M.empty
     , _utxo                   = M.empty
@@ -135,9 +143,9 @@ ifNotEmpty s | F.null s  = Nothing
 guardMaxAttemps :: Address -> Update Storage ()
 guardMaxAttemps userAddr = do
     periodStats %=
-        M.insertWith (\new old -> min (old + new) notaryMSAttemptsLimit) userAddr 1
+        M.insertWith (\new old -> min (old + new) allocationAttemptsLimit) userAddr 1
     currentAttemtps <- uses periodStats $ fromJust . M.lookup userAddr
-    when (currentAttemtps >= notaryMSAttemptsLimit) $ throwM NEBlocked
+    when (currentAttemtps >= allocationAttemptsLimit) $ throwM NEBlocked
 
 type MSSignature      = Signature (MSAddress, AllocationStrategy)
 type MaybePKSignature = Maybe (PublicKey, Signature PublicKey)
@@ -296,14 +304,15 @@ announceNewPeriods pId' blocks = do
     periodId .= pId'
 
     -- @TODO: remove duplcated code
-    alivePid <- use aliveSize
+    allocAliveInterval <- use allocationEndurance
+    txAliveInterval    <- use transactionEndurance
 
     -- remove autdated allocations
     unlessM (uses discardMSAddresses IM.null) $ do
         (oldestSavedPid, _) <- uses discardMSAddresses IM.findMin
         let deleteLookup = const $ const Nothing
 
-        forM_ [oldestSavedPid .. pId - alivePid] $ \oldPid -> do
+        forM_ [oldestSavedPid .. pId - allocAliveInterval] $ \oldPid -> do
             (mMsList, newDiscard) <- uses discardMSAddresses
                 $ IM.updateLookupWithKey deleteLookup oldPid
             discardMSAddresses .= newDiscard -- @TODO: optimize and set only once
@@ -316,7 +325,7 @@ announceNewPeriods pId' blocks = do
         (oldestSavedPid, _) <- uses discardTransactions IM.findMin
         let deleteLookup = const $ const Nothing
 
-        forM_ [oldestSavedPid .. pId - alivePid] $ \oldPid -> do
+        forM_ [oldestSavedPid .. pId - txAliveInterval] $ \oldPid -> do
             (mTxList, newDiscard) <- uses discardTransactions
                 $ IM.updateLookupWithKey deleteLookup oldPid
             discardTransactions .= newDiscard -- @TODO: optimize and set only once

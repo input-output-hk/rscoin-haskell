@@ -29,11 +29,20 @@ launchNotaryReal :: Severity
                  -> Int
                  -> [PublicKey]
                  -> Optional PeriodId
+                 -> Optional PeriodId
                  -> IO ()
-launchNotaryReal logSeverity dbPath ca webPort trustedKeys aliveSize = do
+launchNotaryReal
+    logSeverity
+    dbPath
+    ca
+    webPort
+    trustedKeys
+    allocationEndurance
+    transactionEndurance
+  = do
     let openAction = maybe openMemState openState dbPath
     runRealModeUntrusted notaryLoggerName ca $
-        bracket (openAction trustedKeys aliveSize) closeState $
+        bracket (openAction trustedKeys allocationEndurance transactionEndurance) closeState $
         \st -> do
             fork_ $ serveNotary st
             launchWeb webPort logSeverity st

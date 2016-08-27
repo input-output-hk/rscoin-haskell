@@ -64,6 +64,7 @@ library
 
                      , RSCoin.Notary
                      , RSCoin.Notary.AcidState
+                     , RSCoin.Notary.Defaults
                      , RSCoin.Notary.Error
                      , RSCoin.Notary.Launcher
                      , RSCoin.Notary.Server

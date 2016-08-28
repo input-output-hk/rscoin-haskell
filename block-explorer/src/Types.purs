@@ -10,7 +10,7 @@ module App.Types
 
 import Prelude                     (show, class Eq)
 
-import App.Routes                  (Route(NotFound))
+import App.Routes                  (Route, notFoundRoute)
 import App.Connection              (Connection, Action) as C
 import App.RSCoin                  as RSCoin
 import App.RSCoin                  (Coin, Address,
@@ -61,7 +61,7 @@ type State =
 
 init :: State
 init =
-    { route:            NotFound
+    { route:            notFoundRoute
     , socket:           Nothing
     , socketReady:      false
     , pendingActions:   []

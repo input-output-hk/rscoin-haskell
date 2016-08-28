@@ -3,7 +3,7 @@ module App.Layout where
 import Prelude                        (($), map, (<<<), pure, bind,
                                        (==), flip, (<>), (/=), otherwise)
 
-import App.Routes                     (Route (..), addressUrl, txUrl, match) as R
+import App.Routes                     (Route (..), Path (..), addressUrl, txUrl, match) as R
 import App.Connection                 (Action (..), WEBSOCKET,
                                        introMessage, send) as C
 import App.Types                      (Address (..), IntroductoryMsg (..),
@@ -51,7 +51,7 @@ txNum :: Int
 txNum = 15
 
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
-update (PageView route@(R.Address addr)) state =
+update (PageView route@(R.Route (R.Address addr) _)) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
@@ -66,7 +66,7 @@ update (PageView route@(R.Address addr)) state =
     socket' = unsafePartial $ fromJust state.socket
     onNewQueryDo action | state.queryInfo == Just (SQAddress addr) = pure Nop -- ignore
                         | otherwise = action
-update (PageView route@(R.Transaction tId)) state =
+update (PageView route@(R.Route (R.Transaction tId) _)) state =
     { state: state { route = route, queryInfo = map SQTransaction getTransaction }
     , effects:
         [ onNewQueryDo do

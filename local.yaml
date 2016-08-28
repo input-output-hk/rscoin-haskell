@@ -1,8 +1,8 @@
 directory: .
-mintettes: 9
+mintettes: 5
 explorers: 1
 period: 30000
-epoch: 4000
-globalSeverity: Debug
+epoch: 5000
+globalSeverity: Warning
 notarySeverity: Info
 explorerSeverity: Info

@@ -1,0 +1,3 @@
+[submodule "rscoin-core"]
+	path = rscoin-core
+	url = ssh://git@serokell.io:2222/rscoin/rscoin-core.git

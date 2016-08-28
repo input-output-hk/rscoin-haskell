@@ -40,14 +40,12 @@ import           RSCoin.Timed                    (ContextArgument (CADefault),
                                                   WorkMode, runEmulationMode,
                                                   runRealModeUntrusted)
 
-import           Test.RSCoin.Core.Arbitrary      ()
 import           Test.RSCoin.Full.Action         (Action (doAction))
 import           Test.RSCoin.Full.Context        (MintetteNumber,
                                                   Scenario (DefaultScenario),
                                                   TestEnv, UserNumber)
 import           Test.RSCoin.Full.Gen            (genValidActions)
 import           Test.RSCoin.Full.Initialization (finishTest, mkTestContext)
-import           Test.RSCoin.Timed.Arbitrary     ()
 
 type FullProperty m = TestEnv (PropertyM m)
 type FullPropertyEmulation = FullProperty (PureRpc IO)

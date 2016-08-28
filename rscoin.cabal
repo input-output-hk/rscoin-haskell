@@ -30,24 +30,6 @@ library
                      , RSCoin.Bank.Error
                      , RSCoin.Bank.Storage
 
-                     , RSCoin.Core
-                     , RSCoin.Core.ActionLog
-                     , RSCoin.Core.Aeson
-                     , RSCoin.Core.CheckConfirmation
-                     , RSCoin.Core.Constants
-                     , RSCoin.Core.Coin
-                     , RSCoin.Core.Crypto
-                     , RSCoin.Core.Error
-                     , RSCoin.Core.HBlock
-                     , RSCoin.Core.LBlock
-                     , RSCoin.Core.Logging
-                     , RSCoin.Core.NodeConfig
-                     , RSCoin.Core.Owners
-                     , RSCoin.Core.Primitives
-                     , RSCoin.Core.Strategy
-                     , RSCoin.Core.Transaction
-                     , RSCoin.Core.Types
-
                      , RSCoin.Explorer
                      , RSCoin.Explorer.Error
                      , RSCoin.Explorer.Launcher
@@ -70,14 +52,6 @@ library
                      , RSCoin.Notary.Server
                      , RSCoin.Notary.Storage
 
-                     , RSCoin.Timed
-                     , RSCoin.Timed.MonadTimed
-                     , RSCoin.Timed.MonadRpc
-                     , RSCoin.Timed.PureRpc
-                     , RSCoin.Timed.Timed
-                     , RSCoin.Timed.TimedIO
-                     , RSCoin.Timed.Misc
-
                      , RSCoin.User
                      , RSCoin.User.Error
                      , RSCoin.User.Logic
@@ -95,14 +69,6 @@ library
                      , RSCoin.Bank.Storage.Updates
                      , RSCoin.Bank.Strategies
                      , RSCoin.Bank.Worker
-                     , RSCoin.Core.Communication
-                     , RSCoin.Core.CompileConfig
-                     , RSCoin.Core.Crypto.Hashing
-                     , RSCoin.Core.Crypto.Signing
-                     , RSCoin.Core.MessagePack
-                     , RSCoin.Core.Protocol.Types
-                     , RSCoin.Core.Protocol.Methods
-                     , RSCoin.Core.Protocol
                      , RSCoin.Explorer.AcidState
                      , RSCoin.Explorer.Channel
                      , RSCoin.Explorer.Server
@@ -151,6 +117,7 @@ library
                      , pqueue
                      , QuickCheck >= 2.8.1
                      , random
+                     , rscoin-core
                      , safe
                      , safecopy
                      , serokell-core
@@ -187,6 +154,7 @@ executable rscoin-hs2purs
   other-modules:       PSTypes
   build-depends:       base >= 4.8 && < 4.9
                      , rscoin
+                     , rscoin-core
                      , purescript-bridge
                      , mtl
   hs-source-dirs:      src/PureScript
@@ -207,6 +175,7 @@ executable rscoin-bank
                      , mtl
                      , optparse-applicative
                      , rscoin
+                     , rscoin-core
                      , serokell-core
                      , text
                      , time-units
@@ -227,6 +196,7 @@ executable rscoin-keygen
                      , bytestring
                      , optparse-applicative
                      , rscoin
+                     , rscoin-core
                      , serokell-core
                      , text
   hs-source-dirs:      src/keygen
@@ -271,6 +241,7 @@ executable rscoin-user
                      , optparse-generic
                      , optparse-applicative >= 0.12.0.0
                      , rscoin
+                     , rscoin-core
                      , safecopy >= 0.9.0.1
                      , serokell-core
                      , stm
@@ -301,6 +272,7 @@ executable rscoin-mintette
                      , mtl >= 2.2.1
                      , optparse-applicative
                      , rscoin
+                     , rscoin-core
                      , serokell-core
                      , time-units >= 1.0.0
   hs-source-dirs:      src/Mintette
@@ -322,6 +294,7 @@ executable rscoin-notary
                      , mtl
                      , optparse-applicative
                      , rscoin
+                     , rscoin-core
                      , serokell-core
                      , text
                      , time-units
@@ -346,6 +319,7 @@ executable rscoin-explorer
                      , mtl >= 2.2.1
                      , optparse-applicative
                      , rscoin
+                     , rscoin-core
                      , serokell-core
   hs-source-dirs:      src/Explorer
   default-language:    Haskell2010
@@ -370,6 +344,7 @@ executable rscoin-deploy
                      , optional-args
                      , optparse-applicative
                      , rscoin
+                     , rscoin-core
                      , serokell-core
                      , string-conversions
                      , temporary
@@ -392,6 +367,7 @@ executable rscoin-json-demo
                      , base
                      , bytestring
                      , rscoin
+                     , rscoin-core
                      , serokell-core
                      , text
                      , text-format
@@ -406,16 +382,7 @@ executable rscoin-json-demo
 
 test-suite rscoin-test
   main-is:             Test.hs
-  other-modules:       Test.RSCoin.Core.AesonSpec
-                     , Test.RSCoin.Core.Arbitrary
-                     , Test.RSCoin.Core.BinarySpec
-                     , Test.RSCoin.Core.CoinSpec
-                     , Test.RSCoin.Core.CryptoSpec
-                     , Test.RSCoin.Core.MessagePackSpec
-                     , Test.RSCoin.Core.OwnersSpec
-                     , Test.RSCoin.Core.ShowReadSpec
-                     , Test.RSCoin.Core.TransactionSpec
-                     , Test.RSCoin.Full.Action
+  other-modules:       Test.RSCoin.Full.Action
                      , Test.RSCoin.Full.Constants
                      , Test.RSCoin.Full.Context
                      , Test.RSCoin.Full.Error
@@ -428,15 +395,13 @@ test-suite rscoin-test
                      , Test.RSCoin.Full.Mintette.Config
                      , Test.RSCoin.Full.Mintette.Acidic
                      , Test.RSCoin.Full.Property
+                     , Test.RSCoin.Local.Arbitrary
+                     , Test.RSCoin.Local.MessagePackSpec
                      -- , Test.RSCoin.Pure.BankState
                      -- , Test.RSCoin.Pure.MintetteState
                      -- , Test.RSCoin.Pure.StorageSpec
                      -- , Test.RSCoin.Pure.Update
                      -- , Test.RSCoin.Pure.UserState
-                     , Test.RSCoin.Timed.ExceptionSpec
-                     , Test.RSCoin.Timed.MonadRpcSpec
-                     , Test.RSCoin.Timed.MonadTimedSpec
-                     , Test.RSCoin.Timed.Arbitrary
                      , Spec
   type:                exitcode-stdio-1.0
   build-depends:       base >=4.8 && <4.9
@@ -472,6 +437,7 @@ test-suite rscoin-test
                      , msgpack-rpc >= 1.0.0
                      , random >= 1.1
                      , rscoin
+                     , rscoin-core
                      , MonadRandom >= 0.4.2.2
   hs-source-dirs:      test
   default-language:    Haskell2010
@@ -500,6 +466,7 @@ benchmark rscoin-bench-local
                      , optional-args
                      , optparse-generic
                      , rscoin
+                     , rscoin-core
                      , serokell-core
                      , temporary
                      , text
@@ -537,6 +504,7 @@ benchmark rscoin-bench-single-user
                      , optional-args
                      , optparse-generic
                      , rscoin
+                     , rscoin-core
                      , serokell-core
                      , temporary
                      , text
@@ -573,6 +541,7 @@ benchmark rscoin-bench-only-users
                      , optional-args
                      , optparse-generic
                      , rscoin
+                     , rscoin-core
                      , serokell-core
                      , temporary
                      , text
@@ -615,6 +584,7 @@ benchmark rscoin-bench-remote
                      , optional-args
                      , optparse-generic
                      , rscoin
+                     , rscoin-core
                      , serokell-core
                      , temporary
                      , text

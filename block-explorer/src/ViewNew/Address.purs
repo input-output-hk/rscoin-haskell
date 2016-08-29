@@ -10,6 +10,7 @@ import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
                                        adaSymbolDarkPath, transactionArrowGreenPath,
                                        transactionArrowRedPath)
+import App.Common.Html                (ttext, ttextUpper)
 
 import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span,
                                        table, div, small, h3, td, img, ul, li,
@@ -35,7 +36,7 @@ view state =
             [ div
                 [ id_ "section-title"
                 ]
-                [ text "ADDRESS" ]
+                [ ttextUpper state.language _.address ]
             , div
                 [ className "row"
                 , id_ "info-table-margins" ]
@@ -47,7 +48,7 @@ view state =
                             [ id_ "info-table" ]
                             [ tr
                                 []
-                                [ td [] [ text "Address" ]
+                                [ td [] [ ttext' _.address ]
                                 , td
                                     []
                                     [ a
@@ -57,12 +58,12 @@ view state =
                                 ]
                             , tr
                                 [ className "light-grey-background" ]
-                                [ td [] [ text "Transactions" ]
+                                [ td [] [ ttext' _.transactions ]
                                 , td [] [ text "127" ]
                                 ]
                             , tr
                                 []
-                                [ td [] [ text "Final balance" ]
+                                [ td [] [ ttext' _.finalBalance ]
                                 , td
                                     []
                                     [ img
@@ -88,7 +89,7 @@ view state =
                                         ]
                                     , div
                                         [ className "pull-right" ]
-                                        [ text "Color balance" ]
+                                        [ ttext' _.colorBalance ]
                                     ]
                                 ]
                             ]
@@ -116,7 +117,7 @@ view state =
                                 , role "tab"
                                 , data_ "toggle" "tab"
                                 ]
-                                [ text "Color balance" ]
+                                [ ttext' _.colorBalance ]
                             ]
                         , li
                             [ role "presentation"
@@ -129,7 +130,7 @@ view state =
                                 , role "tab"
                                 , data_ "toggle" "tab"
                                 ]
-                                [ text "QR Code" ]
+                                [ ttext' _.qrCode ]
                             ]
                         ]
                     , div
@@ -257,7 +258,7 @@ view state =
                 [ div
                     [ id_ "section-title"
                     ]
-                    [ text "TRANSACTIONS" ]
+                    [ ttextUpper state.language _.transactions ]
                 ]
             , div
                 [ id_ "info-table-margins" ]
@@ -526,3 +527,5 @@ view state =
                 ]
             ]
         ]
+  where
+    ttext' = ttext state.language

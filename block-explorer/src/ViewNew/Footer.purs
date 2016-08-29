@@ -58,7 +58,7 @@ view state =
                         , aria "expanded" "false"
                         , id_ "toggle"
                         ]
-                        [ ttext state.language _._nativeName
+                        [ ttext' _._nativeName
                         , span
                             [ className "caret"
                             , id_ "caret"]
@@ -75,23 +75,24 @@ view state =
                 [ id_ "footer-links" ]
                 [ a
                     [ data_ "target" "#" ]
-                    [ ttext state.language _.aboutUs ]
+                    [ ttext' _.aboutUs ]
                 , text "|"
                 , a
                     [ data_ "target" "#" ]
-                    [ ttext state.language _.contacts ]
+                    [ ttext' _.contacts ]
                 , text "|"
                 , a
                     [ data_ "target" "#" ]
-                    [ ttext state.language _.privacyPolicy ]
+                    [ ttext' _.privacyPolicy ]
                 , text "|"
                 , a
                     [ data_ "target" "#" ]
-                    [ ttext state.language _.termsOfService ]
+                    [ ttext' _.termsOfService ]
                 ]
             ]
         ]
   where
+    ttext' = ttext state.language
     languageItem lang =
         li
             []

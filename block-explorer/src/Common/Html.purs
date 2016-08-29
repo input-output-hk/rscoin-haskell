@@ -9,7 +9,13 @@ import Data.I18N (languageCode, Language, getTranslation, Translation)
 
 -- TODO: we should move this function to helpers
 ttext :: forall a. Language -> (Translation -> String) -> Html a
-ttext lang label =
+ttext = ttextClass ""
+
+ttextUpper :: forall a. Language -> (Translation -> String) -> Html a
+ttextUpper = ttextClass "text-uppercase"
+
+ttextClass :: forall a. String -> Language -> (Translation -> String) -> Html a
+ttextClass _class lang label =
     span
-        [ className $ "language-" <> languageCode lang ]
+        [ className $ _class <> " language-" <> languageCode lang ]
         [ text $ label $ getTranslation lang ]

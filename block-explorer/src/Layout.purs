@@ -92,8 +92,8 @@ update (PageView route@(R.Transaction tId)) state =
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
     \_ -> case unsafePartial $ fromRight msg of
-        OMBalance pId arr ->
-            { state: state { balance = arr, periodId = pId }
+        OMBalance pId coinsMap ->
+            { state: state { balance = Just coinsMap, periodId = pId }
             , effects:
                 [ do
                     C.send socket' <<< AIGetTransactions $ Tuple 0 txNum

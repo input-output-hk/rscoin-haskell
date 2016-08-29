@@ -14,13 +14,12 @@ import App.Routes                  (Path (NotFound))
 import App.Connection              (Connection, Action) as C
 import App.RSCoin                  as RSCoin
 import App.RSCoin                  (Coin, Address,
-                                    TransactionSummarySerializable(TransactionSummarySerializable),
-                                    addressToString)
+                                    TransactionSummarySerializable (..),
+                                    addressToString, CoinsMapSummarySerializable)
 import Data.Color                  as Color
 import Data.I18N                   (Language (..))
 
 import Data.Maybe                  (Maybe (..))
-import Data.Tuple                  (Tuple)
 import Data.Generic                (gEq)
 
 
@@ -56,7 +55,7 @@ type State =
     , queryInfo        :: Maybe SearchQuery
     , isAuthenticated  :: Boolean
     , searchQuery      :: String
-    , balance          :: Array (Tuple Int Coin)
+    , balance          :: Maybe CoinsMapSummarySerializable
     , txNumber         :: Maybe String
     , transactions     :: Array TransactionSummarySerializable
     , periodId         :: Int
@@ -74,7 +73,7 @@ init =
     , queryInfo:        Nothing
     , isAuthenticated:  false
     , searchQuery:      ""
-    , balance:          []
+    , balance:          Nothing
     , txNumber:         Nothing
     , transactions:     []
     , periodId:         0

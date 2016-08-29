@@ -22,7 +22,7 @@ main = do
                 then CADefault
                 else CACustomLocation configPath
     runRealModeUntrusted C.userLoggerName ctxArg $
-        bracket (U.openState walletPath) U.closeState $
+        bracket (U.openState rebuildDB walletPath) U.closeState $
         \st -> do
             C.logDebug $
                 mconcat ["Called with options: ", (T.pack . show) opts]

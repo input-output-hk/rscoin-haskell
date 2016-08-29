@@ -22,7 +22,6 @@ import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
 
 import qualified RSCoin.Core                     as C
 
-import           Test.RSCoin.Core.Arbitrary      ()
 import           Test.RSCoin.Full.Action         (Coloring (Coloring),
                                                   PartToSend (..),
                                                   PartsToSend (..),
@@ -33,7 +32,7 @@ import           Test.RSCoin.Full.Constants      (maxColor, minColor)
 import           Test.RSCoin.Full.Context        (MintetteNumber, UserNumber)
 import           Test.RSCoin.Full.Initialization (bankUserAddressesCount,
                                                   userAddressesCount)
-import           Test.RSCoin.Timed.Arbitrary     ()
+import           Test.RSCoin.Local.Arbitrary     ()
 
 instance Arbitrary MintetteNumber where
     arbitrary = choose (1, 5)

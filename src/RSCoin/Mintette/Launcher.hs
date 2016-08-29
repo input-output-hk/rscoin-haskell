@@ -25,27 +25,28 @@ import           RSCoin.Mintette.AcidState (State, query)
 import           RSCoin.Mintette.Server    (serve)
 import           RSCoin.Mintette.Worker    (runWorkerWithDelta)
 
-mintetteWrapperReal :: Maybe FilePath
+mintetteWrapperReal :: Bool
+                    -> Maybe FilePath
                     -> ContextArgument
                     -> (State -> MsgPackRpc a)
                     -> IO a
-mintetteWrapperReal dbPath ca action = do
-    let openAction = maybe openMemState openState dbPath
+mintetteWrapperReal deleteIfExists dbPath ca action = do
+    let openAction = maybe openMemState (openState deleteIfExists) dbPath
     runRealModeUntrusted mintetteLoggerName ca . bracket openAction closeState $
         action
 
 launchMintetteReal
     :: (Show t, Num t, Integral t, TimeUnit t)
-    => t -> Int -> SecretKey -> Maybe FilePath -> ContextArgument -> IO ()
-launchMintetteReal epochDelta port sk dbPath ctxArg =
-    mintetteWrapperReal dbPath ctxArg $
+    => Bool -> t -> Int -> SecretKey -> Maybe FilePath -> ContextArgument -> IO ()
+launchMintetteReal deleteIfExists epochDelta port sk dbPath ctxArg =
+    mintetteWrapperReal deleteIfExists dbPath ctxArg $
     \st -> do
         fork_ $ runWorkerWithDelta epochDelta sk st
         serve port st sk
 
-dumpStorageStatistics :: FilePath -> ContextArgument -> IO ()
-dumpStorageStatistics dbPath ctxArg =
-    mintetteWrapperReal (Just dbPath) ctxArg impl
+dumpStorageStatistics :: Bool -> FilePath -> ContextArgument -> IO ()
+dumpStorageStatistics deleteIfExists dbPath ctxArg =
+    mintetteWrapperReal deleteIfExists (Just dbPath) ctxArg impl
   where
     impl st = do
         pId <- query st GetPeriodId

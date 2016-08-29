@@ -53,8 +53,8 @@ update
     => State -> event -> m (EventResult event)
 update = updateExtended
 
-openState :: MonadIO m => FilePath -> m State
-openState fp = openLocalExtendedState fp ES.mkStorage
+openState :: MonadIO m => Bool -> FilePath -> m State
+openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp ES.mkStorage
 
 openMemState :: MonadIO m => m State
 openMemState = openMemoryExtendedState ES.mkStorage

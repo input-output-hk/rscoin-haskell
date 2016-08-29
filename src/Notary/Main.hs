@@ -25,8 +25,10 @@ main = do
         logWarning "Not all keys were parsed!"
     N.launchNotaryReal
         cliLogSeverity
+        cloRebuildDB
         dbPath
         ctxArg
         cliWebPort
         trustedKeys
-        (fromIntegral cliAliveSize)
+        (fromIntegral cliAllocAlive)
+        (fromIntegral cliTxAlive)

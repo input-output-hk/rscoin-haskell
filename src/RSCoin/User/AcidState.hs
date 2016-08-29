@@ -94,9 +94,9 @@ instance MonadThrow (A.Query WalletStorage) where
 
 -- | Opens ACID state. If not there, it returns unitialized
 -- unoperatable storage.
-openState :: MonadIO m => FilePath -> m UserState
-openState path = do
-    st <- openLocalExtendedState path W.emptyWalletStorage
+openState :: MonadIO m => Bool -> FilePath -> m UserState
+openState deleteIfExists path = do
+    st <- openLocalExtendedState deleteIfExists path W.emptyWalletStorage
     st <$ tidyState st
 
 openMemState :: MonadIO m => m UserState

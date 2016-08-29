@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | Server implementation for mintette
 
@@ -15,10 +16,13 @@ module RSCoin.Mintette.Server
 
 import           Control.Monad.Catch       (catch, try)
 import           Control.Monad.Trans       (lift)
+import           Data.Bifunctor            (first)
+import qualified Data.Map                  as M
 import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
 
-import           Serokell.Util.Text        (listBuilderJSONIndent, pairBuilder,
+import           Serokell.Util.Text        (listBuilderJSON,
+                                            listBuilderJSONIndent, pairBuilder,
                                             show')
 
 import qualified RSCoin.Core               as C
@@ -43,10 +47,11 @@ serve port st sk = do
     idr2 <- serverTypeRestriction1
     idr3 <- serverTypeRestriction3
     idr4 <- serverTypeRestriction2
-    idr5 <- serverTypeRestriction0
+    idr5 <- serverTypeRestriction2
     idr6 <- serverTypeRestriction0
-    idr7 <- serverTypeRestriction1
+    idr7 <- serverTypeRestriction0
     idr8 <- serverTypeRestriction1
+    idr9 <- serverTypeRestriction1
     C.serve port
         [ C.method (C.RSCMintette C.PeriodFinished) $
             idr1 $ handlePeriodFinished sk st
@@ -54,16 +59,18 @@ serve port st sk = do
             idr2 $ handleNewPeriod st
         , C.method (C.RSCMintette C.CheckTx) $
             idr3 $ handleCheckTx sk st
+        , C.method (C.RSCMintette C.CheckTxBatch) $
+            idr4 $ handleCheckTxBatch sk st
         , C.method (C.RSCMintette C.CommitTx) $
-            idr4 $ handleCommitTx sk st
+            idr5 $ handleCommitTx sk st
         , C.method (C.RSCMintette C.GetMintettePeriod) $
-            idr5 $ handleGetMintettePeriod st
+            idr6 $ handleGetMintettePeriod st
         , C.method (C.RSCDump C.GetMintetteUtxo) $
-            idr6 $ handleGetUtxo st
+            idr7 $ handleGetUtxo st
         , C.method (C.RSCDump C.GetMintetteBlocks) $
-            idr7 $ handleGetBlocks st
+            idr8 $ handleGetBlocks st
         , C.method (C.RSCDump C.GetMintetteLogs) $
-            idr8 $ handleGetLogs st
+            idr9 $ handleGetLogs st
         ]
 
 type ServerTE m a = ServerT m (Either T.Text a)
@@ -145,6 +152,36 @@ handleCheckTx sk st tx addrId sg =
                 addrId tx
        C.logInfo $ sformat ("Confirmation: " % build) res
        return res
+
+handleCheckTxBatch
+    :: WorkMode m
+    => C.SecretKey
+    -> State
+    -> C.Transaction
+    -> M.Map C.AddrId [(C.Address, C.Signature C.Transaction)]
+    -> ServerTE m (M.Map C.AddrId (Either T.Text C.CheckConfirmation))
+handleCheckTxBatch sk st tx sigs =
+    toServer $
+    do C.logDebug $ sformat
+           ("Checking addrids " % build % "of transaction: " % build)
+           (listBuilderJSON $ M.keys sigs) tx
+       (curUtxo,curPset) <- query st GetUtxoPset
+       C.logDebug $
+           sformat
+               ("My current utxo is: " % build % "\nCurrent pset is: " % build)
+               curUtxo curPset
+       res <- M.fromList <$>
+           mapM (\(addrId, sig) ->
+                  (addrId,) <$>
+                  try' (update st $ CheckNotDoubleSpent sk tx addrId sig))
+           (M.assocs sigs)
+       C.logInfo "Returning confirmations"-- TODO add logging
+       return res
+  where
+    try' :: (WorkMode m) => m a -> m (Either T.Text a)
+    try' action = do
+        (res :: Either MintetteError a) <- try action
+        return $ first show' res
 
 handleCommitTx
     :: WorkMode m

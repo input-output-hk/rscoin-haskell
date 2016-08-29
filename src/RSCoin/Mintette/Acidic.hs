@@ -45,8 +45,8 @@ import           RSCoin.Mintette.AcidState     (State)
 import qualified RSCoin.Mintette.AcidState     as S
 import qualified RSCoin.Mintette.Storage       as MS
 
-openState :: MonadIO m => FilePath -> m State
-openState fp = openLocalExtendedState fp MS.mkStorage
+openState :: MonadIO m => Bool -> FilePath -> m State
+openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp MS.mkStorage
 
 openMemState :: MonadIO m => m State
 openMemState = openMemoryExtendedState MS.mkStorage

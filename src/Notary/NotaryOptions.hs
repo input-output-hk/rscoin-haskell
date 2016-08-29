@@ -8,17 +8,17 @@ module NotaryOptions
 import           Data.Text              (Text)
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, many,
-                                         metavar, option, progDesc,
-                                         short, showDefault, switch, value,
-                                         (<>))
+                                         metavar, option, progDesc, short,
+                                         showDefault, switch, value, (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
 import           RSCoin.Core            (PeriodId, Severity (Error),
                                          configDirectory,
-                                         defaultConfigurationPath,
-                                         notaryAliveSizeDefault)
+                                         defaultConfigurationPath)
+import           RSCoin.Notary.Defaults (defaultAllocationEndurance,
+                                         defaultTransactionEndurance)
 
 data Options = Options
     { cliPath           :: FilePath
@@ -27,8 +27,10 @@ data Options = Options
     , cliWebPort        :: Int
     , cliConfigPath     :: FilePath
     , cliTrustedKeys    :: [Text]
-    , cliAliveSize      :: PeriodId
+    , cliAllocAlive     :: PeriodId
+    , cliTxAlive        :: PeriodId
     , cloDefaultContext :: Bool
+    , cloRebuildDB      :: Bool
     } deriving Show
 
 optionsParser :: FilePath -> FilePath -> Parser Options
@@ -60,15 +62,24 @@ optionsParser configDir defaultConfigPath =
              "Public keys notary will trust as master keys. If not specifed \
                \then notary will trust any key") <*>
     option auto
-        (long "alive-size" <> metavar "INT" <> value notaryAliveSizeDefault <>
-         showDefault <> help "Number of periods to keep requests alive") <*>
+        (long "alloc-alive" <> metavar "INT" <> value defaultAllocationEndurance <>
+         showDefault <> help "Number of periods to keep MS allocation requests alive") <*>
+    option auto
+        (long "tx-alive" <> metavar "INT" <> value defaultTransactionEndurance <>
+         showDefault <> help "Number of periods to keep transactions alive") <*>
     switch
         (mconcat
              [ short 'd'
              , long "default-context"
              , help
                    ("Use default NodeContext. " <>
-                    "Intended to be used for local deployment")])
+                    "Intended to be used for local deployment")]) <*>
+    switch
+        (mconcat
+             [ short 'r'
+             , long "rebuild-db"
+             , help
+                   ("Erase database if it already exists")])
 
 getOptions :: IO Options
 getOptions = do

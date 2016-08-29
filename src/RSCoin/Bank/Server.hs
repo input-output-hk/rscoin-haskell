@@ -231,9 +231,11 @@ onPeriodFinished sk st = do
         let signedMsAddrs = C.sign sk msAddrs
         C.removeNotaryCompleteMSAddresses msAddrs signedMsAddrs
     announceNewPeriodsToNotary = do
-        pId <- C.getNotaryPeriod
-        pId' <- query st GetPeriodId
-        C.announceNewPeriodsToNotary pId' =<< query st (GetHBlocks pId pId')
+        pId     <- C.getNotaryPeriod
+        pId'    <- query st GetPeriodId
+        hblocks <- query st (GetHBlocks pId pId')
+        let hblocksSig = C.sign sk hblocks
+        C.announceNewPeriodsToNotary pId' hblocks hblocksSig
 
 serveFinishPeriod
     :: T.WorkMode m

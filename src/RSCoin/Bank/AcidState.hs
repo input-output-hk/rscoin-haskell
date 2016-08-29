@@ -91,8 +91,8 @@ update = updateExtended
 tidyState :: MonadIO m => State -> m ()
 tidyState = tidyExtendedState
 
-openState :: FilePath -> IO State
-openState fp = openLocalExtendedState fp BS.mkStorage
+openState :: Bool -> FilePath -> IO State
+openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp BS.mkStorage
 
 openMemState :: IO State
 openMemState = openMemoryExtendedState BS.mkStorage

@@ -1,0 +1,3 @@
+[submodule "rscoin-core"]
+	path = rscoin-core
+	url = git@github.com:input-output-hk/rscoin-core.git

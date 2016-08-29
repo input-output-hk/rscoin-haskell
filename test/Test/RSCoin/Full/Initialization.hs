@@ -59,7 +59,7 @@ mkTestContext
     => MintetteNumber -> UserNumber -> Scenario -> m TestContext
 mkTestContext mNum uNum scen = do
     binfo <- BankInfo <$> bankKeyPair <*> liftIO B.openMemState
-    ninfo <- NotaryInfo <$> liftIO (N.openMemState [] Default)
+    ninfo <- NotaryInfo <$> liftIO (N.openMemState [] Default Default)
     minfos <- mapM mkMintette [0 .. mNum - 1]
     buinfo <- UserInfo <$> liftIO U.openMemState
     uinfos <-

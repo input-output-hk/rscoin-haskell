@@ -1,8 +1,13 @@
 module App.ViewNew.NotFound where
 
-import Pux.Html (Html, (#), div, h2, text)
+import Pux.Html            (Html, (#), (##), (!), div, h2, text)
+import Pux.Html.Attributes (className)
 
-view :: forall state action. state -> Html action
+import App.Types           (State)
+import App.Common.Html     (ttext)
+
+view :: forall action. State -> Html action
 view state =
     div # do
-        h2 # text "404 Not Found"
+        h2 ! className "text-center" ##
+            [ text "404 ", ttext state.language _.notFound ]

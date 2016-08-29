@@ -19,6 +19,7 @@ type Translation =
     , colorBalance   :: String
     , qrCode         :: String
     , to             :: String
+    , notFound       :: String
     }
 
 data Language
@@ -47,6 +48,7 @@ getTranslation lang@English =
     , colorBalance: "Color balance"
     , qrCode: "QR code"
     , to: "to"
+    , notFound: "Not Found"
     }
 getTranslation lang@Japanese =
     { _nativeName: languageNativeName lang
@@ -61,6 +63,7 @@ getTranslation lang@Japanese =
     , colorBalance: "各色の残高"
     , qrCode: "QRコード"
     , to: "に"
+    , notFound: "見つかりません"
     }
 getTranslation lang@Russian =
     { _nativeName: languageNativeName lang
@@ -75,6 +78,7 @@ getTranslation lang@Russian =
     , colorBalance: "Цветовой баланс"
     , qrCode: "QR код"
     , to: "к"
+    , notFound: "не обнаружена"
     }
 
 allLanguages :: Array Language

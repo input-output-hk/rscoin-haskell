@@ -4,8 +4,7 @@
 -- | Wrap Storage into AcidState (modified version for configurable mintettes).
 
 module Test.RSCoin.Full.Mintette.Acidic
-       ( openState
-       , openMemState
+       ( openMemState
        , closeState
        , tidyState
        , CheckNotDoubleSpent (..)
@@ -16,7 +15,6 @@ import           Control.Monad.Trans               (MonadIO)
 import           Data.Acid                         (Update, makeAcidic)
 
 import           Serokell.AcidState                (closeExtendedState,
-                                                    openLocalExtendedState,
                                                     openMemoryExtendedState,
                                                     tidyExtendedState)
 
@@ -32,9 +30,6 @@ import qualified RSCoin.Mintette.Storage           as OMS
 
 import           Test.RSCoin.Full.Mintette.Config  (MintetteConfig)
 import qualified Test.RSCoin.Full.Mintette.Storage as MS
-
-openState :: MonadIO m => FilePath -> m State
-openState fp = openLocalExtendedState fp OMS.mkStorage
 
 openMemState :: MonadIO m => m State
 openMemState = openMemoryExtendedState OMS.mkStorage

@@ -37,7 +37,7 @@ main = do
         err        = W.ParseError "error"
         introMsg   = W.IMAddressInfo addr
         aiMsg      = W.AIGetTransactions (Tuple 0 2)
-        outMsg     = W.OMTxNumber 8 10
+        outMsg     = W.OMTxNumber 8 "10"
         helper'    = do
             helper coin
             helper key

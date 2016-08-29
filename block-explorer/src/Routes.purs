@@ -59,29 +59,11 @@ instance eqPath :: Eq Path where
     eq (Address addr1) (Address addr2) = gEq addr1 addr2
     eq _ _ = false
 
-toUrl :: Route -> String
-toUrl (Route p q) =
-    if not $ null queries
-        then path p <> "?" <> joinWith "&" queries
-        else ""
-  where
-    path Home = homeUrl
-    path (Transaction tId) = txUrl tId
-    path (Address addr) = addressUrl addr
-    path NotFound = homeUrl
-    -- TODO: use Generic for generating this list
-    queries = catMaybes
-        [ if q.color
-            then Just $ query "color" $ show q.color
-            else Nothing
-        , if q.colorOption
-            then Just $ query "cOption" $ show q.colorOption
-            else Nothing
-        , if q.language /= English
-            then Just $ query "language" $ show q.language
-            else Nothing
-        ]
-    query s v = s <> "=" <> v
+toUrl :: Path -> String
+toUrl Home = homeUrl
+toUrl (Transaction tId) = txUrl tId
+toUrl (Address addr) = addressUrl addr
+toUrl NotFound = homeUrl
 
 match :: String -> Path
 match url = fromMaybe NotFound $ router url $

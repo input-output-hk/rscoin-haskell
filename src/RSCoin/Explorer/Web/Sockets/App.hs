@@ -31,6 +31,7 @@ import           Data.Bifunctor                     (second)
 import qualified Data.Map.Strict                    as M
 import           Data.Maybe                         (catMaybes, fromMaybe)
 import qualified Data.Set                           as S
+import           Data.Text                          (pack)
 import           Data.Time.Units                    (Second)
 import           Formatting                         (build, int, sformat, shown,
                                                      (%))
@@ -189,7 +190,7 @@ addressInfoHandler addr conn = forever $ recv conn onReceive
                 ("Number of transactions pointing to " % build %
                  " is requested")
                 addr
-        send conn . uncurry OMTxNumber =<<
+        send conn . uncurry OMTxNumber . fmap (pack . show) =<<
             flip DB.query (DB.GetAddressTxNumber addr) =<< view ssDataBase
     onReceive (AIGetTransactions indices@(lo,hi)) = do
         C.logDebug $
@@ -249,7 +250,7 @@ notifyAboutAddressUpdate addr = do
     connectionsState <- liftIO . readMVar =<< view ssConnections
     msgBalance <- uncurry mkOMBalance <$> DB.query st (DB.GetAddressBalance addr)
     msgTxNumber <-
-        uncurry OMTxNumber <$> DB.query st (DB.GetAddressTxNumber addr)
+        uncurry OMTxNumber . fmap (pack . show) <$> DB.query st (DB.GetAddressTxNumber addr)
     let connIds =
             fromMaybe S.empty $ connectionsState ^. csAddrToConnId . at addr
         idToConn i = connectionsState ^. csIdToConn . at i

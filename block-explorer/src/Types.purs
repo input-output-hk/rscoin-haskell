@@ -57,6 +57,7 @@ type State =
     , isAuthenticated  :: Boolean
     , searchQuery      :: String
     , balance          :: Array (Tuple Int Coin)
+    , txNumber         :: Maybe String
     , transactions     :: Array TransactionSummarySerializable
     , periodId         :: Int
     , error            :: Maybe String
@@ -74,6 +75,7 @@ init =
     , isAuthenticated:  false
     , searchQuery:      ""
     , balance:          []
+    , txNumber:         Nothing
     , transactions:     []
     , periodId:         0
     , error:            Nothing

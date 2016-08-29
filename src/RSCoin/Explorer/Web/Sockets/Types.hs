@@ -151,7 +151,7 @@ data OutcomingMsg
       -- | Sent within `AddressInfo` session. Contains number of
       -- transactions referencing address over given PeriodId.
       OMTxNumber !C.PeriodId
-                 !Word
+                 !Text
     |
       -- | Sent within `TransactionInfo` session. Contains transaction
       -- that is requested with its ThransactionId.

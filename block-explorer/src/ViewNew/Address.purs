@@ -5,7 +5,7 @@ import Prelude                        (($), map, show, (<<<), const, (<>))
 import App.Types                       (Action (..), State, Coin(Coin), Color(Color),
                                        TransactionSummarySerializable(TransactionSummarySerializable),
                                        queryToString)
-import App.Routes                     (txUrl, getQueryParams) as R
+import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
                                        adaSymbolDarkPath, transactionArrowGreenPath,
@@ -51,15 +51,16 @@ view state =
                                 [ td [] [ ttext' _.address ]
                                 , td
                                     []
-                                    [ a
+                                    [ link
+                                        (R.toUrl state.route)
                                         [ id_ "address-link" ]
-                                        [ text "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9" ]
+                                        [ text queryInfo ]
                                     ]
                                 ]
                             , tr
                                 [ className "light-grey-background" ]
                                 [ td [] [ ttext' _.transactions ]
-                                , td [] [ text "127" ]
+                                , td [] [ text $ fromMaybe "" state.txNumber ]
                                 ]
                             , tr
                                 []
@@ -529,3 +530,4 @@ view state =
         ]
   where
     ttext' = ttext state.language
+    queryInfo = fromMaybe "" $ map queryToString state.queryInfo

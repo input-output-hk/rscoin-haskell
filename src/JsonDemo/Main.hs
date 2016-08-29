@@ -36,7 +36,7 @@ main = do
         err = W.ParseError "error"
         introMsg = W.IMAddressInfo addr
         aiMsg = W.AIGetTransactions (0, 2)
-        outMsg = W.OMTxNumber 8 10
+        outMsg = W.OMTxNumber 8 "10"
         values =
             [ V coin
             , V key

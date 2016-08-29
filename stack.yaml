@@ -7,6 +7,7 @@ resolver: lts-6.7
 packages:
 - '.'
 - rscoin-core
+- /home/akegalj/projects/serokell/acid-state
 - location:
     git: https://github.com/serokell/serokell-core.git
     commit: 6ff417b65f1270cc0e9542e633d2bf8598014992
@@ -22,10 +23,10 @@ packages:
     git: https://github.com/eskimor/purescript-bridge.git
     commit: 278e7e3ed0f6ceeab7e25c17c64404b920fc82ef
   extra-dep: true
-- location:
-    git: https://github.com/serokell/acid-state.git
-    commit: ad77e909bcd46c3e44eeca558eb8a6f1ff3600eb
-  extra-dep: true
+  #- location:
+  #    git: https://github.com/serokell/acid-state.git
+  #    commit: ad77e909bcd46c3e44eeca558eb8a6f1ff3600eb
+  #  extra-dep: true
 
 nix:
     enable: false

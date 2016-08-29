@@ -23,23 +23,21 @@ module RSCoin.Explorer.AcidState
        , AddHBlock (..)
        ) where
 
-import           Control.Monad.Trans                (MonadIO)
-import           Data.Acid                          (EventResult, EventState,
-                                                     Query, QueryEvent, Update,
-                                                     UpdateEvent, makeAcidic)
+import           Control.Monad.Trans       (MonadIO)
+import           Data.Acid                 (EventResult, EventState, Query,
+                                            QueryEvent, Update, UpdateEvent,
+                                            makeAcidic)
 
-import           Serokell.AcidState                 (ExtendedState,
-                                                     closeExtendedState,
-                                                     openLocalExtendedState,
-                                                     openMemoryExtendedState,
-                                                     queryExtended,
-                                                     tidyExtendedState,
-                                                     updateExtended)
+import           Serokell.AcidState        (ExtendedState, closeExtendedState,
+                                            openLocalExtendedState,
+                                            openMemoryExtendedState,
+                                            queryExtended, tidyExtendedState,
+                                            updateExtended)
 
-import qualified RSCoin.Core                        as C
+import qualified RSCoin.Core               as C
 
-import qualified RSCoin.Explorer.Storage            as ES
-import           RSCoin.Explorer.TransactionSummary (TransactionSummary)
+import qualified RSCoin.Explorer.Storage   as ES
+import           RSCoin.Explorer.Summaries (CoinsMapSummary, TransactionSummary)
 
 type State = ExtendedState ES.Storage
 
@@ -65,7 +63,7 @@ closeState = closeExtendedState
 tidyState :: MonadIO m => State -> m ()
 tidyState = tidyExtendedState
 
-getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, C.CoinsMap)
+getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, CoinsMapSummary)
 getAddressBalance = ES.getAddressBalance
 
 getAddressTxNumber :: C.Address -> Query ES.Storage (C.PeriodId, Word)

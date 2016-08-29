@@ -10,6 +10,7 @@ import Data.Maybe (fromMaybe)
 colorToString :: Int -> String
 colorToString ix = fromMaybe ("Color" <> show (ix - length colors + 1)) $ index colors ix
 
+-- | From https://github.com/codebrainz/color-names/blob/master/output/colors.csv
 colors :: Array String
 colors =
     [ "Uncolored"

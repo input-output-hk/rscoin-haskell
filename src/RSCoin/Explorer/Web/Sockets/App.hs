@@ -12,48 +12,47 @@ module RSCoin.Explorer.Web.Sockets.App
        , mkWsApp
        ) where
 
-import           Control.Concurrent                 (forkIO)
-import           Control.Concurrent.MVar            (MVar, modifyMVar, newMVar,
-                                                     readMVar)
-import           Control.Lens                       (at, makeLenses, use, view,
-                                                     (%=), (+=), (.=), (^.))
-import           Control.Monad                      (forever, when)
-import           Control.Monad.Catch                (Handler (Handler),
-                                                     SomeException, catches,
-                                                     finally)
-import           Control.Monad.Catch                (MonadThrow (throwM), catch)
-import           Control.Monad.Extra                (notM, whenM)
-import           Control.Monad.Reader               (ReaderT, runReaderT)
-import           Control.Monad.State                (MonadState, State,
-                                                     runState)
-import           Control.Monad.Trans                (MonadIO (liftIO))
-import           Data.Bifunctor                     (second)
-import qualified Data.Map.Strict                    as M
-import           Data.Maybe                         (catMaybes, fromMaybe)
-import qualified Data.Set                           as S
-import           Data.Text                          (pack)
-import           Data.Time.Units                    (Second)
-import           Formatting                         (build, int, sformat, shown,
-                                                     (%))
-import qualified Network.WebSockets                 as WS
+import           Control.Concurrent                (forkIO)
+import           Control.Concurrent.MVar           (MVar, modifyMVar, newMVar,
+                                                    readMVar)
+import           Control.Lens                      (at, makeLenses, use, view,
+                                                    (%=), (+=), (.=), (^.))
+import           Control.Monad                     (forever, when)
+import           Control.Monad.Catch               (Handler (Handler),
+                                                    SomeException, catches,
+                                                    finally)
+import           Control.Monad.Catch               (MonadThrow (throwM), catch)
+import           Control.Monad.Extra               (notM, whenM)
+import           Control.Monad.Reader              (ReaderT, runReaderT)
+import           Control.Monad.State               (MonadState, State, runState)
+import           Control.Monad.Trans               (MonadIO (liftIO))
+import           Data.Bifunctor                    (second)
+import qualified Data.Map.Strict                   as M
+import           Data.Maybe                        (catMaybes, fromMaybe)
+import qualified Data.Set                          as S
+import           Data.Text                         (pack)
+import           Data.Time.Units                   (Second)
+import           Formatting                        (build, int, sformat, shown,
+                                                    (%))
+import qualified Network.WebSockets                as WS
 
-import           Serokell.Util.Concurrent           (threadDelay)
-import           Serokell.Util.Text                 (listBuilderJSON)
+import           Serokell.Util.Concurrent          (threadDelay)
+import           Serokell.Util.Text                (listBuilderJSON)
 
-import qualified RSCoin.Core                        as C
+import qualified RSCoin.Core                       as C
 
-import qualified RSCoin.Explorer.AcidState          as DB
-import           RSCoin.Explorer.Channel            (Channel, ChannelItem (..),
-                                                     readChannel)
-import           RSCoin.Explorer.Error              (ExplorerError (EENotFound))
-import           RSCoin.Explorer.TransactionSummary (TransactionSummary (txsOutputs))
-import           RSCoin.Explorer.Web.Sockets.Types  (AddressInfoMsg (..),
-                                                     ErrorableMsg,
-                                                     IntroductoryMsg (..),
-                                                     OutcomingMsg (..),
-                                                     ServerError (NotFound),
-                                                     mkOMBalance,
-                                                     mkTransactionSummarySerializable)
+import qualified RSCoin.Explorer.AcidState         as DB
+import           RSCoin.Explorer.Channel           (Channel, ChannelItem (..),
+                                                    readChannel)
+import           RSCoin.Explorer.Error             (ExplorerError (EENotFound))
+import           RSCoin.Explorer.Summaries         (TransactionSummary (txsOutputs))
+import           RSCoin.Explorer.Web.Sockets.Types (AddressInfoMsg (..),
+                                                    ErrorableMsg,
+                                                    IntroductoryMsg (..),
+                                                    OutcomingMsg (..),
+                                                    ServerError (NotFound),
+                                                    mkOMBalance,
+                                                    mkTransactionSummarySerializable)
 
 type ConnectionId = Word
 

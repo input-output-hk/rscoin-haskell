@@ -24,41 +24,44 @@ module RSCoin.Explorer.Storage
 
        ) where
 
-import           Control.Lens                       (at, makeLenses, use, view,
-                                                     views, (%=), (.=), _3,
-                                                     _Just)
-import           Control.Monad                      (unless)
-import           Control.Monad.Catch                (MonadThrow (throwM))
-import           Control.Monad.Extra                (whenJustM)
-import           Control.Monad.Reader               (MonadReader)
-import           Control.Monad.State                (MonadState)
-import qualified Data.IntMap.Strict                 as I
-import           Data.List                          (foldl', genericDrop,
-                                                     genericLength, genericTake)
-import qualified Data.Map.Strict                    as M
-import           Data.Maybe                         (fromMaybe, isJust)
-import           Data.SafeCopy                      (base, deriveSafeCopy)
-import           Formatting                         (build, sformat, (%))
+import           Control.Lens              (at, makeLenses, use, view, views,
+                                            (%=), (+=), (.=), _Just)
+import           Control.Monad             (unless)
+import           Control.Monad.Catch       (MonadThrow (throwM))
+import           Control.Monad.Extra       (whenJustM)
+import           Control.Monad.Reader      (MonadReader)
+import           Control.Monad.State       (MonadState)
+import qualified Data.IntMap.Strict        as I
+import           Data.List                 (foldl', genericDrop, genericLength,
+                                            genericTake)
+import qualified Data.Map.Strict           as M
+import           Data.Maybe                (fromMaybe, isJust)
+import           Data.SafeCopy             (base, deriveSafeCopy)
+import           Formatting                (build, sformat, (%))
 
-import qualified RSCoin.Core                        as C
+import qualified RSCoin.Core               as C
 
-import           RSCoin.Explorer.Error              (ExplorerError (..))
-import           RSCoin.Explorer.TransactionSummary (ExtendedAddrId,
-                                                     TransactionSummary (..),
-                                                     txSummaryToTx)
+import           RSCoin.Explorer.Error     (ExplorerError (..))
+import           RSCoin.Explorer.Summaries (CoinsMapSummary (..),
+                                            ExtendedAddrId,
+                                            TransactionSummary (..),
+                                            mkCoinsMapSummary, txSummaryToTx)
 
 $(deriveSafeCopy 0 'base ''TransactionSummary)
+$(deriveSafeCopy 0 'base ''CoinsMapSummary)
+
+$(makeLenses ''CoinsMapSummary)
 
 data AddressData = AddressData
-    { _adBalance      :: C.CoinsMap
+    { _adBalance      :: CoinsMapSummary
     , _adTransactions :: [TransactionSummary]
     }
 
 mkAddressData :: AddressData
 mkAddressData =
     AddressData
-    { _adBalance = C.zeroCoinsMap
-    , _adTransactions = []
+    { _adBalance = mkCoinsMapSummary C.zeroCoinsMap
+    , _adTransactions = mempty
     }
 
 $(makeLenses ''AddressData)
@@ -95,7 +98,7 @@ mkStorage =
     { _addresses = M.empty
     , _lastPeriodId = Nothing
     , _transactionsMap = M.empty
-    , _emissionHashes = []
+    , _emissionHashes = mempty
     , _txMapWorkaround = M.empty
     }
 
@@ -106,10 +109,10 @@ addTimestamp q = (,) <$> (maybe 0 succ <$> getLastPeriodId) <*> q
 
 -- | Get amount of coins (as CoinsMap) available from given
 -- address. Result is timestamped with id of ongoing period.
-getAddressBalance :: C.Address -> Query (C.PeriodId, C.CoinsMap)
+getAddressBalance :: C.Address -> Query (C.PeriodId, CoinsMapSummary)
 getAddressBalance addr =
     addTimestamp $
-    views (addresses . at addr) (maybe C.zeroCoinsMap (view adBalance))
+    views (addresses . at addr) (maybe (mkCoinsMapSummary C.zeroCoinsMap) (view adBalance))
 
 -- | Get number of transactions refering to given address. Result is
 -- timestamped with id of ongoing period.
@@ -195,18 +198,16 @@ applyTransaction tx@C.Transaction{..} = do
         { txsId = txHash
         , txsInputs = summaryTxInputs
         , txsOutputs = txOutputs
-        , txsInputsSum = foldl'
+        , txsInputsSum = mkCoinsMapSummary $ foldl'
               (\m (_,_,c) ->
                     I.insertWith (+) (C.getC $ C.getColor c) c m)
               I.empty
               txInputs
-        , txsInputsTotal = sum $ map (C.getCoin . view _3) txInputs
-        , txsOutputsSum = foldl'
+        , txsOutputsSum = mkCoinsMapSummary $ foldl'
               (\m (_,c) ->
                     I.insertWith (+) (C.getC $ C.getColor c) c m)
               I.empty
               txOutputs
-        , txsOutputsTotal = sum $ map (C.getCoin . snd) txOutputs
         }
     -- TODO: use getTx that is already defined in this module
     -- We have to promote Query to Update
@@ -242,8 +243,9 @@ changeAddressData :: TransactionSummary -> C.Coin -> C.Address -> Update ()
 changeAddressData tx c addr = do
     ensureAddressExists addr
     addresses . at addr . _Just . adTransactions %= (tx :)
-    addresses . at addr . _Just . adBalance %=
-        I.insertWith (+) (C.getC $ C.getColor c) c
+    let aData = addresses . at addr . _Just . adBalance
+    aData . cmsCoinsMap %= I.insertWith (+) (C.getC $ C.getColor c) c
+    aData . cmsCoinAmount += C.getCoin c
 
 ensureAddressExists :: C.Address -> Update ()
 ensureAddressExists addr =

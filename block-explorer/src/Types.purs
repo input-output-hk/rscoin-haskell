@@ -10,13 +10,14 @@ module App.Types
 
 import Prelude                     (show, class Eq)
 
-import App.Routes                  (Route, notFoundRoute)
+import App.Routes                  (Path (NotFound))
 import App.Connection              (Connection, Action) as C
 import App.RSCoin                  as RSCoin
 import App.RSCoin                  (Coin, Address,
                                     TransactionSummarySerializable(TransactionSummarySerializable),
                                     addressToString)
 import Data.Color                  as Color
+import Data.I18N                   (Language (..))
 
 import Data.Maybe                  (Maybe (..))
 import Data.Tuple                  (Tuple)
@@ -24,12 +25,13 @@ import Data.Generic                (gEq)
 
 
 data Action
-    = PageView Route
+    = PageView Path
     | SocketAction C.Action
     | SearchQueryChange String
     | SearchButton
     | DismissError
     | ColorToggle
+    | LanguageSet Language
     | Nop
 
 data SearchQuery
@@ -47,7 +49,7 @@ instance eqSearchQeuery :: Eq SearchQuery where
     eq _ _ = false
 
 type State =
-    { route            :: Route
+    { route            :: Path
     , socket           :: Maybe C.Connection
     , socketReady      :: Boolean
     , pendingActions   :: Array Action
@@ -58,11 +60,13 @@ type State =
     , transactions     :: Array TransactionSummarySerializable
     , periodId         :: Int
     , error            :: Maybe String
+    , colors           :: Boolean
+    , language         :: Language
     }
 
 init :: State
 init =
-    { route:            notFoundRoute
+    { route:            NotFound
     , socket:           Nothing
     , socketReady:      false
     , pendingActions:   []
@@ -73,4 +77,6 @@ init =
     , transactions:     []
     , periodId:         0
     , error:            Nothing
+    , colors:           false
+    , language:         English
     }

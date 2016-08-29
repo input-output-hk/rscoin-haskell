@@ -83,22 +83,15 @@ toUrl (Route p q) =
         ]
     query s v = s <> "=" <> v
 
-match :: String -> Route
-match url = fromMaybe notFoundRoute $ router url $
-    Route Home <$> optionalParams <* end
+match :: String -> Path
+match url = fromMaybe NotFound $ router url $
+    Home <$ end
     <|>
-    Route <<< Transaction <<< T.Hash <$> (lit txLit *> str) <*> optionalParams <* end
+    Transaction <<< T.Hash <$> (lit txLit *> str) <* end
     <|>
-    Route <<< Address <<< mkAddress <$> (lit addressLit *> str) <*> optionalParams <* end
+    Address <<< mkAddress <$> (lit addressLit *> str) <* end
   where
     mkAddress addr = T.Address {getAddress: T.PublicKey addr}
-    optionalParams :: Match QueryParams
-    optionalParams = mkQuery <$> param "color" <*> param "cOption" <*> param "language"
-    mkQuery c t l =
-        { color: fromMaybe false $ readBool c
-        , colorOption: fromMaybe false $ readBool t
-        , language: fromMaybe English $ readLanguage l
-        }
 
 addressLit :: String
 addressLit = "address"

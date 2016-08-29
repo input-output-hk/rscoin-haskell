@@ -1,19 +1,22 @@
 module App.ViewNew.Footer where
 
-import Prelude                        (const, ($), (==), (<<<), bind, (<>), (#))
+import Prelude                        (const, ($), (==), (<<<), bind, (<>), (#),
+                                       show, map)
 
 import App.Routes                     (homeUrl) as R
 import App.Types                      (State, Action (..))
 import App.CSS                        (darkRed, opacity, logoPath,
                                        headerBitmapPath, headFootHeight)
+import App.Common.Html                (ttext)
 
+import Data.I18N                      (allLanguages)
 
 import Pux.Html                       (Html, div, text, span, button,
                                        input, a, li, ul, nav, img, footer)
 import Pux.Router                     (link) as R
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt)
-import Pux.Html.Events                (onChange, onClick, onKeyDown)
+import Pux.Html.Events                (onClick)
 
 import Pux.CSS                        (style, backgroundColor, height, px,
                                        color, white, backgroundImage, url,
@@ -55,7 +58,7 @@ view state =
                         , aria "expanded" "false"
                         , id_ "toggle"
                         ]
-                        [ text "English"
+                        [ ttext state.language _._nativeName
                         , span
                             [ className "caret"
                             , id_ "caret"]
@@ -63,45 +66,38 @@ view state =
                         ]
                     , ul
                         [ className "dropdown-menu"
-                        , id_ "dropdown" ]
-                        [ li
-                            []
-                            [ a
-                                [ data_ "target" "#" ]
-                                [ text "English" ]
-                            ]
-                        , li
-                            []
-                            [ a
-                                [ data_ "target" "#" ]
-                                [ text "Japanese" ]
-                            ]
-                        , li
-                            []
-                            [ a
-                                [ data_ "target" "#" ]
-                                [ text "Russian" ]
-                            ]
+                        , id_ "dropdown"
                         ]
+                        $ map languageItem allLanguages
                     ]
                 ]
             , div
                 [ id_ "footer-links" ]
                 [ a
                     [ data_ "target" "#" ]
-                    [ text "About us" ]
+                    [ ttext state.language _.aboutUs ]
                 , text "|"
                 , a
                     [ data_ "target" "#" ]
-                    [ text "Contacts" ]
+                    [ ttext state.language _.contacts ]
                 , text "|"
                 , a
                     [ data_ "target" "#" ]
-                    [ text "Privacy Policy" ]
+                    [ ttext state.language _.privacyPolicy ]
                 , text "|"
                 , a
                     [ data_ "target" "#" ]
-                    [ text "Terms of Service" ]
+                    [ ttext state.language _.termsOfService ]
                 ]
             ]
         ]
+  where
+    languageItem lang =
+        li
+            []
+            [ a
+                [ data_ "target" "#"
+                , onClick $ const $ LanguageSet lang
+                ]
+                [ ttext lang _._nativeName ]
+            ]

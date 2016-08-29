@@ -1,10 +1,10 @@
 module App.Layout where
 
-import Prelude                        (($), map, (<<<), pure, bind,
+import Prelude                        (($), map, (<<<), pure, bind, not,
                                        (==), flip, (<>), (/=), otherwise)
 
-import App.Routes                     (Route (..), Path (..), addressUrl, txUrl,
-                                       toUrl, match, getQueryParams) as R
+import App.Routes                     (Path (..), addressUrl, txUrl,
+                                       match) as R
 import App.Connection                 (Action (..), WEBSOCKET,
                                        introMessage, send) as C
 import App.Types                      (Address (..), IntroductoryMsg (..),
@@ -21,8 +21,10 @@ import App.ViewNew.Header             (view) as Header
 import App.ViewNew.Alert              (view) as Alert
 import App.ViewNew.Footer             (view) as Footer
 
-import Data.Maybe                     (Maybe(Nothing, Just), maybe, fromJust,
+import Data.Maybe                     (Maybe(Nothing, Just), maybe,
                                        isNothing, isJust)
+
+import Serokell.Data.Maybe            (unsafeFromJust)
 
 import Data.Tuple                     (Tuple (..), snd)
 import Data.Either                    (fromRight)
@@ -52,7 +54,7 @@ txNum :: Int
 txNum = 15
 
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
-update (PageView route@(R.Route (R.Address addr) _)) state =
+update (PageView route@(R.Address addr)) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
@@ -64,10 +66,10 @@ update (PageView route@(R.Route (R.Address addr) _)) state =
         ]
     }
   where
-    socket' = unsafePartial $ fromJust state.socket
+    socket' = unsafeFromJust state.socket
     onNewQueryDo action | state.queryInfo == Just (SQAddress addr) = pure Nop -- ignore
                         | otherwise = action
-update (PageView route@(R.Route (R.Transaction tId) _)) state =
+update (PageView route@(R.Transaction tId)) state =
     { state: state { route = route, queryInfo = map SQTransaction getTransaction }
     , effects:
         [ onNewQueryDo do
@@ -77,7 +79,7 @@ update (PageView route@(R.Route (R.Transaction tId) _)) state =
         ]
     }
   where
-    socket' = unsafePartial $ fromJust state.socket
+    socket' = unsafeFromJust state.socket
     getTransaction =
         queryGetTx state.queryInfo
         <|>
@@ -128,7 +130,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             noEffects $ state { error = Just $ "NotFound: " <> e }
         _ -> noEffects state
   where
-    socket' = unsafePartial $ fromJust state.socket
+    socket' = unsafeFromJust state.socket
 update (SocketAction _) state = noEffects state
 update (SearchQueryChange sq) state = noEffects $ state { searchQuery = sq }
 update SearchButton state =
@@ -140,18 +142,14 @@ update SearchButton state =
             pure Nop
         ]
   where
-    socket' = unsafePartial $ fromJust state.socket
+    socket' = unsafeFromJust state.socket
     addr = Address { getAddress: PublicKey state.searchQuery }
     tId = Hash state.searchQuery
 update DismissError state = noEffects $ state { error = Nothing }
 update ColorToggle state =
-    onlyEffects state $
-        [ do
-            liftEff $ R.navigateTo $ R.toUrl $ state.route --(R.getQueryParams state.route)
-            pure Nop
-        ]
-  where
-    updateQueryParams (R.Route p s) s2 = R.Route p s2
+    noEffects $ state { colors = not state.colors }
+update (LanguageSet l) state =
+    noEffects $ state { language = l }
 update Nop state = noEffects state
 
 -- TODO: make safe version of bootstrap like

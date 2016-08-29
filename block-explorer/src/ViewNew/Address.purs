@@ -78,7 +78,7 @@ view state =
                                             [ input
                                                 [ type_ "checkbox"
                                                 , onChange $ const ColorToggle
-                                                , checked <<< _.color $ R.getQueryParams state.route
+                                                , checked state.colors
                                                 ]
                                                 []
                                             , div
@@ -88,7 +88,7 @@ view state =
                                         ]
                                     , div
                                         [ className "pull-right" ]
-                                        [ text $ "Color balance" <> show (_.color $ R.getQueryParams state.route) ]
+                                        [ text "Color balance" ]
                                     ]
                                 ]
                             ]

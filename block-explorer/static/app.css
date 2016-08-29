@@ -9,6 +9,21 @@ body {
     min-width: 1048px;
 }
 
+/* language fonts */
+.language-en {
+    font-family: 'Montserrat', sans-serif !important;
+}
+
+.language-ja {
+    font-family: 'Noto Sans Japanese', sans-serif !important; 
+}
+
+.language-ru {
+    font-family: 'Montserrat', sans-serif !important;
+}
+
+/* language fonts */
+
 html, body, #app, .max-height,
 .pux-devtool, .pux-devtool-app-container, div [data-reactroot] {
     height: 100%;
@@ -162,7 +177,6 @@ html, body, #app, .max-height,
     font-size: 10px;
     line-height: 12px;
     margin: 30px auto;
-    width: 480px;
     text-align: center;
 }
 

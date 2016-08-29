@@ -68,6 +68,7 @@ library
                      , RSCoin.Bank.Storage.Queries
                      , RSCoin.Bank.Storage.Updates
                      , RSCoin.Bank.Strategies
+                     , RSCoin.Bank.Types
                      , RSCoin.Bank.Worker
                      , RSCoin.Explorer.AcidState
                      , RSCoin.Explorer.Channel

@@ -34,10 +34,10 @@ import qualified Data.HashMap.Lazy             as M
 import qualified Data.HashSet                  as S
 import           Data.List                     (unfoldr)
 import qualified Data.Map                      as MP
-import           Data.Maybe                    (fromJust, isJust, mapMaybe)
+import           Data.Maybe                    (mapMaybe)
+import           Data.Time.Clock.POSIX         (POSIXTime)
 import           Safe                          (headMay)
 
-import           Serokell.Data.Variant         (Variant)
 import           Serokell.Util                 (enumerate)
 
 import           RSCoin.Core                   (ActionLog, AddrId, Address (..),
@@ -59,11 +59,11 @@ import qualified RSCoin.Bank.Storage.Explorers as ES
 import qualified RSCoin.Bank.Storage.Mintettes as MS
 import qualified RSCoin.Bank.Storage.Queries   as Q
 import           RSCoin.Bank.Storage.Storage   (Storage, addressesStorage,
-                                                blocks, emissionHashes,
-                                                explorersStorage,
+                                                blocks, explorersStorage,
                                                 mintettesStorage, periodId,
                                                 statisticsId, utxo)
 import qualified RSCoin.Bank.Strategies        as Strategies
+import           RSCoin.Bank.Types             (HBlockMetadata (..))
 
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
@@ -120,18 +120,18 @@ restoreExplorers = explorersStorage %= execState ES.restoreExplorers
 -- different set of mintettes. Return value is a list of size (length
 -- mintettes) of NewPeriodDatas that should be sent to mintettes.
 startNewPeriod
-    :: Variant
+    :: POSIXTime
     -> SecretKey
     -> [Maybe PeriodResult]
     -> ExceptUpdate [NewPeriodData]
-startNewPeriod metadata sk results = do
+startNewPeriod timestamp sk results = do
     mintettes <- use Q.getMintettes
     unless (length mintettes == length results) $
         throwM $
         BEInconsistentResponse
             "Length of results is different from the length of mintettes"
     pId <- use periodId
-    changedMintetteIx <- startNewPeriodDo metadata sk pId results
+    changedMintetteIx <- startNewPeriodDo timestamp sk pId results
     currentMintettes <- use Q.getMintettes
     payload' <- formPayload currentMintettes changedMintetteIx
     periodId' <- use periodId
@@ -149,16 +149,17 @@ startNewPeriod metadata sk results = do
 -- PeriodResults, sorting them relatevely to logs and dpk. Also
 -- merging LBlocks and adding generative transaction.
 startNewPeriodDo
-    :: Variant
+    :: POSIXTime
     -> SecretKey
     -> PeriodId
     -> [Maybe PeriodResult]
     -> ExceptUpdate [MintetteId]
-startNewPeriodDo metadata sk 0 _ =
-    startNewPeriodFinally metadata sk [] (const $ mkGenesisHBlock genAddr) Nothing
+startNewPeriodDo timestamp sk 0 _ =
+    startNewPeriodFinally metadata sk [] (const $ mkGenesisHBlock genAddr)
   where
     genAddr = C.Address $ C.derivePublicKey sk
-startNewPeriodDo metadata sk pId results = do
+    metadata = HBlockMetadata timestamp C.genesisEmissionHash
+startNewPeriodDo timestamp sk pId results = do
     lastHBlock <- uses blocks (C.wmValue . head)
     curDpk <- use Q.getDpk
     logs <- use $ mintettesStorage . MS.getActionLogs
@@ -172,19 +173,20 @@ startNewPeriodDo metadata sk pId results = do
             map (checkResult pId lastHBlock) $ zip3 results keys logs
         filteredResults =
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
-        emissionTransaction = allocateCoins (C.derivePublicKey sk) keys filteredResults pId
+        emissionTransaction =
+            allocateCoins (C.derivePublicKey sk) keys filteredResults pId
         checkEmission [(tid,_,_)] = return tid
-        checkEmission _ = throwM $ BEInternal
-            "Emission transaction should have one transaction hash"
+        checkEmission _ =
+            throwM $
+            BEInternal "Emission transaction should have one transaction hash"
         blockTransactions =
             emissionTransaction : mergeTransactions mintettes filteredResults
-    emissionTransactionId <- checkEmission $ C.txInputs emissionTransaction
+    emissionId <- checkEmission $ C.txInputs emissionTransaction
     startNewPeriodFinally
-        metadata
+        (HBlockMetadata timestamp emissionId)
         sk
         filteredResults
         (mkHBlock blockTransactions lastHBlock)
-        (Just emissionTransactionId)
   where
     filterCheckedResults (idx,mres) = (idx, ) <$> mres
 
@@ -192,22 +194,17 @@ startNewPeriodDo metadata sk pId results = do
 -- new block, add transactions to transaction resolving map. Return a
 -- list of mintettes that should update their utxo.
 startNewPeriodFinally
-    :: Variant
+    :: HBlockMetadata
     -> SecretKey
     -> [(MintetteId, PeriodResult)]
     -> (C.AddressToTxStrategyMap -> SecretKey -> Dpk -> HBlock)
-    -> C.EmissionId
     -> ExceptUpdate [MintetteId]
-startNewPeriodFinally metadata sk goodMintettes newBlockCtor emissionTid = do
+startNewPeriodFinally metadata sk goodMintettes newBlockCtor = do
     periodId += 1
     updateIds <- updateMintettes sk goodMintettes
     newAddrs <- updateAddresses
     newBlock <- newBlockCtor newAddrs sk <$> use Q.getDpk
     updateUtxo $ hbTransactions newBlock
-    -- TODO: this can be written more elegantly !
-    when
-        (isJust emissionTid) $
-        emissionHashes %= (fromJust emissionTid :)
     blocks %= (C.WithMetadata newBlock metadata :)
     return updateIds
 

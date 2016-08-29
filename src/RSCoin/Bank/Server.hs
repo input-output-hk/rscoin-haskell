@@ -23,9 +23,9 @@ import qualified Data.Map.Strict            as M
 import           Data.Maybe                 (catMaybes)
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as TIO
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, int, sformat, stext, (%))
 
-import           Serokell.Data.Variant      (none)
 import           Serokell.Util.Bench        (measureTime_)
 import           Serokell.Util.Text         (listBuilderJSON, mapBuilder, show')
 
@@ -33,7 +33,6 @@ import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),
                                              CheckAndBumpStatisticsId (..),
                                              GetAddresses (..),
-                                             GetEmission (..),
                                              GetExplorersAndPeriods (..),
                                              GetHBlock (..), GetHBlocks (..),
                                              GetLogs (..), GetMintettes (..),
@@ -49,8 +48,8 @@ import           RSCoin.Bank.Error          (BankError (BEInconsistentResponse))
 import           RSCoin.Core                (ActionLog, AddressToTxStrategyMap,
                                              Explorers, HBlock, MintetteId,
                                              Mintettes, PeriodId, PublicKey,
-                                             SecretKey, TransactionId, logDebug,
-                                             logError, logInfo)
+                                             SecretKey, logDebug, logError,
+                                             logInfo)
 import qualified RSCoin.Core                as C
 import qualified RSCoin.Core.NodeConfig     as NC
 import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
@@ -69,7 +68,6 @@ serve st bankSK isPeriodChanging = do
     idr6 <- T.serverTypeRestriction0
     idr7 <- T.serverTypeRestriction0
     idr8 <- T.serverTypeRestriction1
-    idr9 <- T.serverTypeRestriction1
     (bankPK,bankPort) <-
         liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort) <$> T.getNodeContext
     C.serve
@@ -83,9 +81,7 @@ serve st bankSK isPeriodChanging = do
         , C.method (C.RSCBank C.GetAddresses) $ idr6 $ serveGetAddresses st
         , C.method (C.RSCBank C.GetExplorers) $ idr7 $ serveGetExplorers st
         , C.method (C.RSCBank C.LocalControlRequest) $
-          idr8 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging
-        , C.method (C.RSCBank C.GetHBlockEmission) $
-          idr9 $ serveGetHBlockEmission st]
+          idr8 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging]
 
 type ServerTE m a = T.ServerT m (Either T.Text a)
 
@@ -127,19 +123,6 @@ serveGetHeight st =
 
 serveGetStatisticsId :: T.WorkMode m => State -> ServerTE m PeriodId
 serveGetStatisticsId st = toServer $ query st GetStatisticsId
-
-serveGetHBlockEmission
-    :: T.WorkMode m
-    => State -> PeriodId -> ServerTE m (Maybe (HBlock, Maybe TransactionId))
-serveGetHBlockEmission st pId =
-    toServer $
-    do mBlock <- query st (GetHBlock pId)
-       emission <- query st (GetEmission pId)
-       logDebug $
-           sformat ("Getting higher-level block with periodId " % build %
-                    " and emission " % build % ": " % build)
-                   pId emission mBlock
-       return $ (,emission) <$> mBlock
 
 serveGetHBlocks
     :: T.WorkMode m
@@ -188,7 +171,8 @@ onPeriodFinished sk st = do
     -- get [] here in this case (and it's fine).
     initializeMultisignatureAddresses  -- init here to see them in next period
     periodResults <- getPeriodResults mintettes pId
-    newPeriodData <- update st $ StartNewPeriod none sk periodResults
+    timestamp <- liftIO getPOSIXTime
+    newPeriodData <- update st $ StartNewPeriod timestamp sk periodResults
     tidyState st
     newMintettes <- query st GetMintettes
     if null newMintettes

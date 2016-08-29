@@ -22,7 +22,6 @@ view state =
                 [ button
                     [ type_ "button"
                     , className "close"
-                    , data_ "dismiss" "alert"
                     , aria "label" "Close"
                     , onClick $ const DismissError
                     ]

@@ -17,6 +17,7 @@ import Pux.Html.Attributes            (aria, data_, type_, className, id_,
 
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
+import Pux.Html.Events                (onChange, onKeyDown)
 
 view :: State -> Html Action
 view state =
@@ -76,6 +77,9 @@ view state =
                     [ type_ "search"
                     , id_ "search-field"
                     , placeholder "Address / IP / SHA hash"
+                    , value state.searchQuery
+                    , onChange $ SearchQueryChange <<< _.value <<< _.target
+                    , onKeyDown $ \e -> if e.keyCode == 13 then SearchButton else Nop
                     ]
                     []
                 , span

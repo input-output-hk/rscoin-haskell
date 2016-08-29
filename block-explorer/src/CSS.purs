@@ -19,7 +19,7 @@ lightGrey :: Color
 lightGrey = rgb 242 242 242
 
 imagePath :: String -> String
-imagePath i = "image/" <> i
+imagePath i = "/image/" <> i
 
 logoPath :: String
 logoPath = imagePath "logo.svg"

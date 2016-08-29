@@ -255,6 +255,8 @@ td {
 
 .alert {
     top: 92px !important;
+    left: 20px;
+    right: 20px;
     position: fixed !important;
     z-index: 1030 !important;
 }

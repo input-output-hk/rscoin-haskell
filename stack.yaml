@@ -6,7 +6,8 @@ resolver: lts-6.7
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
-- rscoin-core
+- location: rscoin-core
+  extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git
     commit: 6ff417b65f1270cc0e9542e633d2bf8598014992

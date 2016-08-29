@@ -10,7 +10,7 @@ module RSCoin.Bank.Server
        ) where
 
 import           Control.Applicative        (liftA2)
-import           Control.Lens               (view, (^.))
+import           Control.Lens               ((^.))
 import           Control.Monad              (forM_, when)
 import           Control.Monad.Catch        (SomeException, bracket_, catch,
                                              throwM)

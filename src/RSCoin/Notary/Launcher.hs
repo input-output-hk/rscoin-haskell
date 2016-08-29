@@ -24,6 +24,7 @@ import           RSCoin.Timed                         (ContextArgument (..),
                                                        runRealModeUntrusted)
 
 launchNotaryReal :: Severity
+                 -> Bool
                  -> Maybe FilePath
                  -> ContextArgument
                  -> Int
@@ -33,6 +34,7 @@ launchNotaryReal :: Severity
                  -> IO ()
 launchNotaryReal
     logSeverity
+    deleteIfExists
     dbPath
     ca
     webPort
@@ -40,7 +42,7 @@ launchNotaryReal
     allocationEndurance
     transactionEndurance
   = do
-    let openAction = maybe openMemState openState dbPath
+    let openAction = maybe openMemState (openState deleteIfExists) dbPath
     runRealModeUntrusted notaryLoggerName ca $
         bracket (openAction trustedKeys allocationEndurance transactionEndurance) closeState $
         \st -> do

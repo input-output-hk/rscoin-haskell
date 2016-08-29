@@ -30,6 +30,7 @@ addMintette mintetteId =
 bankThread :: TimeUnit t => t -> FilePath -> IO ()
 bankThread periodDelta benchDir =
     B.launchBankReal
+        False
         periodDelta
         (benchDir </> "bank-db")
         CADefault
@@ -37,14 +38,14 @@ bankThread periodDelta benchDir =
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir secretKey =
-    M.launchMintetteReal defaultEpochDelta port secretKey dbPath CADefault
+    M.launchMintetteReal False defaultEpochDelta port secretKey dbPath CADefault
   where
     port = defaultPort + mintetteId
     dbPath = Just $ benchDir </> dbFormatPath "mintette-db" mintetteId
 
 notaryThread :: FilePath -> IO ()
 notaryThread benchDir =
-    N.launchNotaryReal Warning dbPath B.CADefault webPort [] Default Default
+    N.launchNotaryReal Warning False dbPath B.CADefault webPort [] Default Default
   where
     webPort = defaultPort - 1
     dbPath = Just $ benchDir </> "notary-db"

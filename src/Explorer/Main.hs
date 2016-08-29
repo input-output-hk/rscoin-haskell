@@ -36,4 +36,4 @@ main = do
             if cloDefaultContext
                 then E.CADefault
                 else E.CACustomLocation cloConfigPath
-    E.launchExplorerReal cloPortRpc cloPortWeb cloLogSeverity cloPath ctxArg sk
+    E.launchExplorerReal cloRebuildDB cloPortRpc cloPortWeb cloLogSeverity cloPath ctxArg sk

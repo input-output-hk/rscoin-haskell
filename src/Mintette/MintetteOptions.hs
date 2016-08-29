@@ -40,6 +40,7 @@ data Options = Options
     , cloMemMode        :: Bool
     , cloConfigPath     :: FilePath
     , cloDefaultContext :: Bool
+    , cloRebuildDB      :: Bool
     }
 
 commandParser :: FilePath -> Parser Command
@@ -97,7 +98,13 @@ optionsParser defaultSKPath configDir defaultConfigPath =
              , long "default-context"
              , help
                    ("Use default NodeContext. " <>
-                    "Intended to be used for local deployment")])
+                    "Intended to be used for local deployment")]) <*>
+    switch
+        (mconcat
+             [ short 'r'
+             , long "rebuild-db"
+             , help
+                   ("Erase database if it already exists")])
 
 getOptions :: IO Options
 getOptions = do

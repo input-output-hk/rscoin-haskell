@@ -34,6 +34,10 @@ optionsParser =
     strArgument $
     mconcat
         [Opts.value "local.yaml", Opts.showDefault, Opts.metavar "FILEPATH"]
+{-    Opts.switch $
+    mconcat
+        [ Opts.short 'r', Opts.long "rebuild-db",
+          Opts.help "Erase databse if it already exists"]-}
 
 getConfigPath :: IO FilePath
 getConfigPath =
@@ -48,6 +52,7 @@ data CommonParams = CommonParams
     { cpBaseDir :: !FilePath
     , cpPeriod  :: !Millisecond
     , cpEpoch   :: !Millisecond
+    , cpRebuild :: !Bool
     } deriving (Show)
 
 contextArgument :: ContextArgument
@@ -68,7 +73,7 @@ startMintette CommonParams{..} idx = do
     Cherepakha.mkdir workingDirDeprecated
     (sk,pk) <- C.keyGen
     let start =
-            M.launchMintetteReal cpEpoch port sk (Just dbDir) contextArgument
+            M.launchMintetteReal cpRebuild cpEpoch port sk (Just dbDir) contextArgument
     (, pk) <$> forkIO start
 
 startExplorer
@@ -86,6 +91,7 @@ startExplorer severity CommonParams{..} idx = do
     (sk,pk) <- C.keyGen
     let start =
             E.launchExplorerReal
+                cpRebuild
                 portRpc
                 portWeb
                 (fromMaybe C.Warning severity)
@@ -104,6 +110,7 @@ startNotary severity CommonParams{..} = do
         start =
             N.launchNotaryReal
                 (fromMaybe C.Warning severity)
+                cpRebuild
                 (Just dbDir)
                 contextArgument
                 8090
@@ -143,7 +150,7 @@ startBank CommonParams{..} mintettes explorers = do
                   dbDir
                   (C.Mintette C.localhost port)
                   key)
-    forkIO $ B.launchBankReal cpPeriod dbDir contextArgument bankSecretKey
+    forkIO $ B.launchBankReal cpRebuild  cpPeriod dbDir contextArgument bankSecretKey
 
 -- TODO: we can setup other users similar way
 setupBankUser :: CommonParams -> IO ()
@@ -157,7 +164,7 @@ setupBankUser CommonParams{..} = do
     Cherepakha.mkdir workingDirDeprecated
     C.writeSecretKey skPath bankSecretKey
     runRealModeUntrusted C.userLoggerName contextArgument $
-        bracket (U.openState dbDir) U.closeState $
+        bracket (U.openState cpRebuild dbDir) U.closeState $
         \st ->
              U.initState st addressesNum $ Just skPath
     Cherepakha.echo $
@@ -201,6 +208,7 @@ main = do
                     { cpBaseDir = tmpDir
                     , cpPeriod = fromIntegral dcPeriod
                     , cpEpoch = fromIntegral dcEpoch
+                    , cpRebuild = False
                     }
                 mintetteIndices = [1 .. dcMintettes]
                 explorerIndices = [1 .. dcExplorers]

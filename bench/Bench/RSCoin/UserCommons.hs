@@ -56,7 +56,7 @@ userThreadWithPath benchDir userAction userId (defaultTo
                                                         walletPathPrefix
                                                         userId) -> walletPath) =
     runRealModeUntrusted userLoggerName CADefault $
-    bracket (U.openState walletPath) U.closeState (userAction userId)
+    bracket (U.openState False walletPath) U.closeState (userAction userId)
 
 queryMyAddress :: U.UserState -> Address -> MsgPackRpc Address
 queryMyAddress userState =

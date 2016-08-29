@@ -63,7 +63,7 @@ main = do
         Opts.DumpStatistics -> B.dumpStatisticsReq ca bankSecretKey
         Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
-            B.launchBankReal periodDelta cloPath ca bankSecretKey
+            B.launchBankReal cloRebuildDB periodDelta cloPath ca bankSecretKey
   where
     readPk pk = maybe (readPublicKeyFallback pk) return (constructPublicKey pk)
     readPublicKeyFallback pk = do

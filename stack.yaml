@@ -9,7 +9,7 @@ packages:
 - rscoin-core
 - location:
     git: https://github.com/serokell/serokell-core.git
-    commit: db7cde4e096eb6b4167b16b90aea0767895481ca
+    commit: 6ff417b65f1270cc0e9542e633d2bf8598014992
   extra-dep: true
 - location:
     git: https://github.com/serokell/msgpack-haskell.git

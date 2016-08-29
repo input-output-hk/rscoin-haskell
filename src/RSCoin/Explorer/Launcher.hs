@@ -30,24 +30,26 @@ import           RSCoin.Explorer.Channel              (Channel, newChannel)
 import           RSCoin.Explorer.Server               (serve)
 import qualified RSCoin.Explorer.Web                  as Web
 
-explorerWrapperReal :: FilePath
+explorerWrapperReal :: Bool
+                    -> FilePath
                     -> ContextArgument
                     -> (State -> MsgPackRpc a)
                     -> IO a
-explorerWrapperReal storagePath ca =
+explorerWrapperReal deleteIfExists storagePath ca =
     runRealModeUntrusted explorerLoggerName ca .
-    bracket (openState storagePath) closeState
+    bracket (openState deleteIfExists storagePath) closeState
 
-launchExplorerReal :: Int
+launchExplorerReal :: Bool
+                   -> Int
                    -> Int
                    -> Severity
                    -> FilePath
                    -> ContextArgument
                    -> SecretKey
                    -> IO ()
-launchExplorerReal portRpc portWeb severity storagePath ca sk = do
+launchExplorerReal deleteIfExists portRpc portWeb severity storagePath ca sk = do
     channel <- newChannel
-    explorerWrapperReal storagePath ca $
+    explorerWrapperReal deleteIfExists storagePath ca $
         \st -> do
             fork_ $ launchExplorer portRpc sk channel st
             launchWeb portWeb severity channel st

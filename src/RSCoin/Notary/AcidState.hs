@@ -84,12 +84,14 @@ openStateHelper
 
 openState
     :: MonadIO m
-    => FilePath
+    => Bool
+    -> FilePath
     -> [PublicKey]
     -> Optional PeriodId
     -> Optional PeriodId
     -> m NotaryState
-openState fp = openStateHelper (openLocalExtendedState fp)
+openState deleteIfExists fp =
+    openStateHelper (openLocalExtendedState deleteIfExists fp)
 
 openMemState
     :: MonadIO m

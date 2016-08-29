@@ -25,6 +25,7 @@ import qualified Data.Text                  as T
 import qualified Data.Text.IO               as TIO
 import           Formatting                 (build, int, sformat, stext, (%))
 
+import           Serokell.Data.Variant      (none)
 import           Serokell.Util.Bench        (measureTime_)
 import           Serokell.Util.Text         (listBuilderJSON, mapBuilder, show')
 
@@ -187,8 +188,7 @@ onPeriodFinished sk st = do
     -- get [] here in this case (and it's fine).
     initializeMultisignatureAddresses  -- init here to see them in next period
     periodResults <- getPeriodResults mintettes pId
-    bankPk        <- view C.bankPublicKey <$> T.getNodeContext
-    newPeriodData <- update st $ StartNewPeriod bankPk sk periodResults
+    newPeriodData <- update st $ StartNewPeriod none sk periodResults
     tidyState st
     newMintettes <- query st GetMintettes
     if null newMintettes

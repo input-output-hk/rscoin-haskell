@@ -90,7 +90,7 @@ getPeriodId = periodId
 
 -- | Get last block by periodId
 getHBlock :: C.PeriodId -> Query (Maybe C.HBlock)
-getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
+getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1)) . to (fmap C.wmValue)
 
 -- | Given two indices `(a,b)` swap them so `a < b` if needed, then
 -- take exactly `b` elements of list that come after first `a`.
@@ -101,11 +101,12 @@ reverseFromTo from to' = drop small . take big . reverse
 
 -- | Return all HBLocks that are in blockchain now
 getAllHBlocks :: Query [C.HBlock]
-getAllHBlocks = blocks
+getAllHBlocks = blocks . to (map C.wmValue)
 
 -- | Return HBLocks that are in blockchain now
 getHBlocks :: PeriodId -> PeriodId -> Query [C.HBlock]
-getHBlocks left right = blocks . to (reverseFromTo left right)
+getHBlocks left right =
+    blocks . to (reverseFromTo left right) . to (map C.wmValue)
 
 -- | Get all actionlogs
 getAllActionLogs :: Query [C.ActionLog]

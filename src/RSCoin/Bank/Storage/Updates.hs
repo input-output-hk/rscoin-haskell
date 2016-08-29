@@ -37,6 +37,7 @@ import qualified Data.Map                      as MP
 import           Data.Maybe                    (fromJust, isJust, mapMaybe)
 import           Safe                          (headMay)
 
+import           Serokell.Data.Variant         (Variant)
 import           Serokell.Util                 (enumerate)
 
 import           RSCoin.Core                   (ActionLog, AddrId, Address (..),
@@ -119,26 +120,26 @@ restoreExplorers = explorersStorage %= execState ES.restoreExplorers
 -- different set of mintettes. Return value is a list of size (length
 -- mintettes) of NewPeriodDatas that should be sent to mintettes.
 startNewPeriod
-    :: PublicKey
+    :: Variant
     -> SecretKey
     -> [Maybe PeriodResult]
     -> ExceptUpdate [NewPeriodData]
-startNewPeriod bankPk sk results = do
+startNewPeriod metadata sk results = do
     mintettes <- use Q.getMintettes
     unless (length mintettes == length results) $
         throwM $
         BEInconsistentResponse
             "Length of results is different from the length of mintettes"
     pId <- use periodId
-    changedMintetteIx <- startNewPeriodDo bankPk sk pId results
+    changedMintetteIx <- startNewPeriodDo metadata sk pId results
     currentMintettes <- use Q.getMintettes
     payload' <- formPayload currentMintettes changedMintetteIx
     periodId' <- use periodId
     mintettes' <- use Q.getMintettes
     addresses <- use Q.getAddresses
-    hblock' <- uses blocks head
+    addedBlock <- C.wmValue <$> uses blocks head
     dpk <- use Q.getDpk
-    let npdPattern pl = NewPeriodData periodId' mintettes' hblock' pl dpk
+    let npdPattern pl = NewPeriodData periodId' mintettes' addedBlock pl dpk
         usersNPDs =
           map (\i -> npdPattern ((i,,) <$> (i `MP.lookup` payload') <*> pure addresses))
               [0 .. length currentMintettes - 1]
@@ -148,17 +149,17 @@ startNewPeriod bankPk sk results = do
 -- PeriodResults, sorting them relatevely to logs and dpk. Also
 -- merging LBlocks and adding generative transaction.
 startNewPeriodDo
-    :: PublicKey
+    :: Variant
     -> SecretKey
     -> PeriodId
     -> [Maybe PeriodResult]
     -> ExceptUpdate [MintetteId]
-startNewPeriodDo bankPk sk 0 _ =
-    startNewPeriodFinally sk [] (const $ mkGenesisHBlock genAddr) Nothing
+startNewPeriodDo metadata sk 0 _ =
+    startNewPeriodFinally metadata sk [] (const $ mkGenesisHBlock genAddr) Nothing
   where
-    genAddr = C.Address bankPk
-startNewPeriodDo bankPk sk pId results = do
-    lastHBlock <- head <$> use blocks
+    genAddr = C.Address $ C.derivePublicKey sk
+startNewPeriodDo metadata sk pId results = do
+    lastHBlock <- uses blocks (C.wmValue . head)
     curDpk <- use Q.getDpk
     logs <- use $ mintettesStorage . MS.getActionLogs
     let keys = map fst curDpk
@@ -171,7 +172,7 @@ startNewPeriodDo bankPk sk pId results = do
             map (checkResult pId lastHBlock) $ zip3 results keys logs
         filteredResults =
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
-        emissionTransaction = allocateCoins bankPk keys filteredResults pId
+        emissionTransaction = allocateCoins (C.derivePublicKey sk) keys filteredResults pId
         checkEmission [(tid,_,_)] = return tid
         checkEmission _ = throwM $ BEInternal
             "Emission transaction should have one transaction hash"
@@ -179,6 +180,7 @@ startNewPeriodDo bankPk sk pId results = do
             emissionTransaction : mergeTransactions mintettes filteredResults
     emissionTransactionId <- checkEmission $ C.txInputs emissionTransaction
     startNewPeriodFinally
+        metadata
         sk
         filteredResults
         (mkHBlock blockTransactions lastHBlock)
@@ -190,12 +192,13 @@ startNewPeriodDo bankPk sk pId results = do
 -- new block, add transactions to transaction resolving map. Return a
 -- list of mintettes that should update their utxo.
 startNewPeriodFinally
-    :: SecretKey
+    :: Variant
+    -> SecretKey
     -> [(MintetteId, PeriodResult)]
     -> (C.AddressToTxStrategyMap -> SecretKey -> Dpk -> HBlock)
     -> C.EmissionId
     -> ExceptUpdate [MintetteId]
-startNewPeriodFinally sk goodMintettes newBlockCtor emissionTid = do
+startNewPeriodFinally metadata sk goodMintettes newBlockCtor emissionTid = do
     periodId += 1
     updateIds <- updateMintettes sk goodMintettes
     newAddrs <- updateAddresses
@@ -205,7 +208,7 @@ startNewPeriodFinally sk goodMintettes newBlockCtor emissionTid = do
     when
         (isJust emissionTid) $
         emissionHashes %= (fromJust emissionTid :)
-    blocks %= (newBlock :)
+    blocks %= (C.WithMetadata newBlock metadata :)
     return updateIds
 
 -- | Add pending addresses to addresses map (addr -> strategy), return

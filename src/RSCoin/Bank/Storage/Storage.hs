@@ -23,10 +23,11 @@ module RSCoin.Bank.Storage.Storage
        ) where
 
 import           Control.Lens                  (makeLenses)
-
 import qualified Data.Map                      as MP
 import           Data.SafeCopy                 (base, deriveSafeCopy)
 import           Data.Typeable                 (Typeable)
+
+import           Serokell.Data.Variant         (Variant)
 
 import qualified RSCoin.Core                   as C
 
@@ -48,7 +49,7 @@ data Storage = Storage
     , _periodId         :: !C.PeriodId
       -- | List of all blocks from the very beginning. Head of this
       -- list is the most recent block.
-    , _blocks           :: ![C.HBlock]
+    , _blocks           :: ![C.WithMetadata C.HBlock Variant]
       -- | Utxo for all the transaction ever made.
     , _utxo             :: !C.Utxo
       -- | List off all emission hashes from the very beginning.

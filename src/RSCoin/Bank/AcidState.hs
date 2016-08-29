@@ -50,18 +50,8 @@ import           Data.Acid                     (EventResult, EventState, Query,
 import           Data.Maybe                    (fromMaybe)
 import           Data.Text                     (Text)
 import           Formatting                    (bprint, stext, (%))
-
-import           RSCoin.Core                   (ActionLog, Address,
-                                                AddressToTxStrategyMap,
-                                                Explorer, Explorers, HBlock,
-                                                Mintette, MintetteId, Mintettes,
-                                                NewPeriodData, PeriodId,
-                                                PeriodResult, PublicKey,
-                                                SecretKey, TransactionId,
-                                                TxStrategy)
-import qualified RSCoin.Core                   as C
-
 import           Safe                          (headMay)
+
 import           Serokell.AcidState            (ExtendedState,
                                                 closeExtendedState,
                                                 openLocalExtendedState,
@@ -72,7 +62,18 @@ import           Serokell.AcidState            (ExtendedState,
 import           Serokell.AcidState.Statistics (StoragePart (..),
                                                 estimateMemoryUsage)
 import           Serokell.Data.Memory.Units    (Byte, memory)
+import           Serokell.Data.Variant         (Variant)
 import           Serokell.Util.Text            (listBuilderJSONIndent, show')
+
+import           RSCoin.Core                   (ActionLog, Address,
+                                                AddressToTxStrategyMap,
+                                                Explorer, Explorers, HBlock,
+                                                Mintette, MintetteId, Mintettes,
+                                                NewPeriodData, PeriodId,
+                                                PeriodResult, PublicKey,
+                                                SecretKey, TransactionId,
+                                                TxStrategy)
+import qualified RSCoin.Core                   as C
 
 import qualified RSCoin.Bank.Storage           as BS
 
@@ -161,7 +162,7 @@ restoreExplorers :: Update BS.Storage ()
 restoreExplorers = BS.restoreExplorers
 
 startNewPeriod
-    :: PublicKey
+    :: Variant
     -> SecretKey
     -> [Maybe PeriodResult]
     -> Update BS.Storage [NewPeriodData]

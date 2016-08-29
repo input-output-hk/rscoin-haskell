@@ -1,11 +1,19 @@
 module Data.I18N where
 
+import Prelude (class Show, show, class Eq)
+
 import Data.Maybe (Maybe (..))
 
 data Language
     = English
     | Japanese
     | Russian
+
+
+instance showLanguage :: Show Language where
+    show = languageNativeName
+
+derive instance eqLanguage :: Eq Language
 
 readBool :: String -> Maybe Boolean
 readBool "true" = Just true

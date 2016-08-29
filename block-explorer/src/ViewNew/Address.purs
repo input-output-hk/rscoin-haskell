@@ -1,11 +1,11 @@
 module App.ViewNew.Address where
 
-import Prelude                        (($), map, show)
+import Prelude                        (($), map, show, (<<<), const, (<>))
 
-import App.Types                       (Action, State, Coin(Coin), Color(Color),
+import App.Types                       (Action (..), State, Coin(Coin), Color(Color),
                                        TransactionSummarySerializable(TransactionSummarySerializable),
                                        queryToString)
-import App.Routes                     (txUrl) as R
+import App.Routes                     (txUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
                                        adaSymbolDarkPath, transactionArrowGreenPath,
@@ -16,7 +16,8 @@ import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span
                                        input, label, button)
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt, role, href,
-                                       autoComplete, htmlFor, rowSpan)
+                                       autoComplete, htmlFor, rowSpan, checked)
+import Pux.Html.Events                (onChange)
 import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
@@ -75,7 +76,10 @@ view state =
                                         [ label
                                             [ className "switch" ]
                                             [ input
-                                                [ type_ "checkbox" ]
+                                                [ type_ "checkbox"
+                                                , onChange $ const ColorToggle
+                                                , checked <<< _.color $ R.getQueryParams state.route
+                                                ]
                                                 []
                                             , div
                                                 [ className "slider round" ]
@@ -84,7 +88,7 @@ view state =
                                         ]
                                     , div
                                         [ className "pull-right" ]
-                                        [ text "Color balance" ]
+                                        [ text $ "Color balance" <> show (_.color $ R.getQueryParams state.route) ]
                                     ]
                                 ]
                             ]

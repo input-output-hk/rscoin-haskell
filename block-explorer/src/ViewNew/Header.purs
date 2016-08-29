@@ -67,30 +67,6 @@ view state =
                                 [ data_ "target" "#" ]
                                 [ text "ADA" ]
                             ]
-                        , li
-                            []
-                            [ a
-                                [ data_ "target" "#" ]
-                                [ text "YEN" ]
-                            ]
-                        , li
-                            []
-                            [ a
-                                [ data_ "target" "#" ]
-                                [ text "USD" ]
-                            ]
-                        , li
-                            []
-                            [ a
-                                [ data_ "target" "#" ]
-                                [ text "EUR" ]
-                            ]
-                        , li
-                            []
-                            [ a
-                                [ data_ "target" "#" ]
-                                [ text "RUR" ]
-                            ]
                         ]
                     ]
                 ]

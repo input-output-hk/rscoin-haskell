@@ -3,7 +3,8 @@ module App.Layout where
 import Prelude                        (($), map, (<<<), pure, bind,
                                        (==), flip, (<>), (/=), otherwise)
 
-import App.Routes                     (Route (..), Path (..), addressUrl, txUrl, match) as R
+import App.Routes                     (Route (..), Path (..), addressUrl, txUrl,
+                                       toUrl, match, getQueryParams) as R
 import App.Connection                 (Action (..), WEBSOCKET,
                                        introMessage, send) as C
 import App.Types                      (Address (..), IntroductoryMsg (..),
@@ -143,6 +144,14 @@ update SearchButton state =
     addr = Address { getAddress: PublicKey state.searchQuery }
     tId = Hash state.searchQuery
 update DismissError state = noEffects $ state { error = Nothing }
+update ColorToggle state =
+    onlyEffects state $
+        [ do
+            liftEff $ R.navigateTo $ R.toUrl $ state.route --(R.getQueryParams state.route)
+            pure Nop
+        ]
+  where
+    updateQueryParams (R.Route p s) s2 = R.Route p s2
 update Nop state = noEffects state
 
 -- TODO: make safe version of bootstrap like

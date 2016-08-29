@@ -29,6 +29,7 @@ data Action
     | SearchQueryChange String
     | SearchButton
     | DismissError
+    | ColorToggle
     | Nop
 
 data SearchQuery

@@ -89,7 +89,7 @@ view state =
                                             ]
                                         ]
                                     , div
-                                        [ className "pull-right" ]
+                                        [ className "pull-right font-light" ]
                                         [ ttext' _.colorBalance ]
                                     ]
                                 ]
@@ -498,7 +498,7 @@ view state =
                         ]
                     ]
                 , div
-                    [ className "center-block"
+                    [ className "center-block font-light"
                     , id_ "pagination" ]
                     [ span
                         [ className "glyphicon glyphicon-triangle-left"
@@ -522,9 +522,14 @@ view state =
                         , id_ "navigation-arrow" ]
                         []
                     ]
+                    , div
+                        [ className "font-light" ]
+                        [
                 --, button
-                --    [ id_ "expand-button" ]
+                --    [ id_ "expand-button"
+                --    ]
                 --    [ text "expand-button" ]
+                        ]
                 ]
             ]
         ]

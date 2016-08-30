@@ -1,6 +1,7 @@
 body {
     /*font-family: 'Source Sans Pro', 'Trebuchet MS', 'Lucida Grande', 'Helvetica Neue', sans-serif;*/
-    font-family: 'Montserrat Light', sans-serif !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 400;
     font-size: 14px;
     letter-spacing: .2px;
     text-rendering: optimizeLegibility;
@@ -11,15 +12,25 @@ body {
 
 /* language fonts */
 .language-en {
-    font-family: 'Montserrat Light', sans-serif !important;
+    font-family: inherit;
 }
 
 .language-ja {
     font-family: 'Noto Sans Japanese', sans-serif !important; 
+    font-weight: 400;
 }
 
 .language-ru {
+    font-family: inherit;
+}
+
+.font-light {
     font-family: 'Montserrat Light', sans-serif !important;
+    font-weight: 400;
+}
+
+.font-light .language-ja {
+    font-weight: 300 !important;
 }
 
 /* language fonts */

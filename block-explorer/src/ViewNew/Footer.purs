@@ -26,7 +26,9 @@ import Pux.CSS                        (style, backgroundColor, height, px,
 view :: State -> Html Action
 view state =
     footer
-        [ id_ "footer-image" ]
+        [ id_ "footer-image"
+        , className "font-light"
+        ]
         [ div
             [ className "container-fluid"
             , id_ "header-container" ]

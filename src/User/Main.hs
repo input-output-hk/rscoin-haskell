@@ -7,6 +7,7 @@ import qualified Data.Text           as T
 import qualified RSCoin.Core         as C
 import           RSCoin.Timed        (ContextArgument (CACustomLocation, CADefault),
                                       runRealModeUntrusted)
+import           RSCoin.Timed        (WorkMode, getNodeContext)
 import qualified RSCoin.User         as U
 import qualified RSCoin.User.Wallet  as W
 

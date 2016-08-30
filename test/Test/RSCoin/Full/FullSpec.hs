@@ -12,23 +12,28 @@ import           Control.Monad.Extra       (whenJust)
 import           Control.Monad.Trans       (lift)
 
 import           Data.Default              (Default (def))
+import           Data.IntMap               (fromList, (!))
 import           Data.List                 (nub)
 import           Test.Hspec                (Spec, before, describe)
 import           Test.Hspec.QuickCheck     (prop)
 import           Test.QuickCheck           (Arbitrary (arbitrary), Property,
                                             property)
 
-import           RSCoin.Core               (Severity (..), bankLoggerName,
+import           RSCoin.Core               (CoinsMap, Color (..), Severity (..),
+                                            bankLoggerName, grey,
                                             initLoggerByName, initLogging,
                                             mintetteLoggerName,
                                             testingLoggerName, userLoggerName)
 import           RSCoin.Timed              (MonadRpc (getNodeContext), WorkMode)
 import qualified RSCoin.User               as U
 
-import           Test.RSCoin.Full.Action   (getUserState)
+import           Test.QuickCheck           (NonEmptyList (..))
+import           Test.RSCoin.Full.Action   (getUserState, UserAction (..),
+                                            PartsToSend (..))
 import           Test.RSCoin.Full.Property (FullPropertyEmulation,
                                             FullPropertyRealMode, assertFP,
-                                            pickFP, runTestEnvFP, runWorkModeFP)
+                                            doActionFP, pickFP, runTestEnvFP,
+                                            runWorkModeFP)
 import qualified Test.RSCoin.Full.Property as FP (FullProperty)
 
 data FullTestConfig = FullTestConfig
@@ -62,7 +67,8 @@ spec :: Spec
 spec =
     before (setupLogging cfg) $ do
         describe "Full RSCoin" $ do
-            fullProp "all users have unique addresses" prop_uniqueAddresses
+            fullProp uniqueAdrDesc prop_uniqueAddresses
+            fullProp sendLoopDesc prop_sendLoopBack
   where
     cfg@FullTestConfig {..} = config
     fullProp :: String -> FullProperty -> Spec
@@ -72,6 +78,8 @@ spec =
         if ftcRealMode
             then (property :: FullPropertyRealMode a -> Property)
             else (property :: FullPropertyEmulation a -> Property)
+    uniqueAdrDesc = "all users have unique addresses"
+    sendLoopDesc = "sending an amount from an address to itself does not change its balance"
 
 setupLogging :: FullTestConfig -> IO ()
 setupLogging FullTestConfig{..} = do
@@ -92,29 +100,44 @@ prop_uniqueAddresses = do
   where
     isUnique l = l == nub l
 
--- getAmount buSt i = runWorkModeFP $ U.getAmountByIndex buSt i
+getAmount :: WorkMode m
+          => U.UserState
+          -> Int
+          -> FP.FullProperty m CoinsMap
+getAmount st i = runWorkModeFP $ U.getAmountByIndex st i
 
--- prop_sendLoopBack :: FullProperty ()
--- prop_sendLoopBack = do
---     buSt <- view $ buser . state
---     amount <- getAmount buSt 1
---     addr <- head <$> runWorkModeFP (U.getAllPublicAddresses buSt)
---     doActionFP $ FormTransaction Nothing (NonEmpty [(1, 50)]) $ Left addr
---     amount' <- getAmount buSt 1
---     assertFP $ amount' == amount
+prop_sendLoopBack :: FullProperty
+prop_sendLoopBack = do
+    state <- runTestEnvFP $ getUserState Nothing
+    amount <- getAmount state 1
+    addr <- head <$> (runWorkModeFP $ U.getAllPublicAddresses state)
+    doActionFP $ SubmitTransaction Nothing
+                                   (NonEmpty [(1, PartsToSend $ fromList [(0, 50.0)])])
+                                   (Left addr)
+                                   Nothing
+    amount' <- getAmount state 1
+    assertFP $ amount == amount'
 
--- prop_send2inARow :: FullProperty ()
--- prop_send2inARow = do
---     buSt <- view $ buser . state
---     addrs <- runWorkModeFP $ U.getAllPublicAddresses buSt
---     amount1 <- getAmount buSt 1
---     amount2 <- getAmount buSt 2
---     amount3 <- getAmount buSt 3
---     doActionFP $ FormTransaction Nothing (NonEmpty [(1, 50)]) $ Left (addrs !! 2)
---     doActionFP $ FormTransaction Nothing (NonEmpty [(2, 50)]) $ Left (addrs !! 3)
---     amount1' <- getAmount buSt 1
---     amount2' <- getAmount buSt 2
---     amount3' <- getAmount buSt 3
---     assertFP $ amount1 - amount1' == 50
---     assertFP $ amount3' - amount3 == 50
---     assertFP $ amount2' == amount2
+prop_send2inARow :: FullProperty
+prop_send2inARow = do
+    state <- runTestEnvFP $ getUserState Nothing
+    addrs <- runWorkModeFP $ U.getAllPublicAddresses state
+    amount1 <- getAmount state 1
+    amount2 <- getAmount state 2
+    amount3 <- getAmount state 3
+    doActionFP $ SubmitTransaction Nothing
+                                   (NonEmpty [(1, PartsToSend $ fromList [(0, 50.0)])])
+                                   (Left $ addrs !! 2)
+                                   Nothing
+    doActionFP $ SubmitTransaction Nothing
+                                   (NonEmpty [(2, PartsToSend $ fromList [(0, 50.0)])])
+                                   (Left $ addrs !! 3)
+                                   Nothing
+    amount1' <- getAmount state 1
+    amount2' <- getAmount state 2
+    amount3' <- getAmount state 3
+    assertFP $ (amount1 ! gr) - (amount1' ! gr) == 50
+    assertFP $ (amount3' ! gr) - (amount3 ! gr) == 50
+    assertFP $ amount2' == amount2
+  where
+    gr = getC grey

@@ -22,8 +22,8 @@ main =
         , mkSumType (Proxy :: Proxy T.OutcomingMsg)
         , mkSumType (Proxy :: Proxy P.Color)
         , mkSumType (Proxy :: Proxy P.Coin)
-        , mkSumType (Proxy :: Proxy T.TransactionSummarySerializable)
-        , mkSumType (Proxy :: Proxy T.CoinsMapSummarySerializable)
+        , mkSumType (Proxy :: Proxy T.TransactionSummary)
+        , mkSumType (Proxy :: Proxy T.CoinsMapSummary)
         , mkSumType (Proxy :: Proxy P.Address)]
   where
     -- , mkSumType (Proxy :: Proxy T.ServerError)

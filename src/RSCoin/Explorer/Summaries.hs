@@ -1,22 +1,33 @@
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Summaries for core types.
 
 module RSCoin.Explorer.Summaries
        ( ExtendedAddrId
+
        , TransactionSummary (..)
        , txSummaryToTx
-       , CoinsMapSummary (..)
+
+       , CoinsMapSummary
        , mkCoinsMapSummary
+       , cmsCoinsMap
+       , cmsCoinAmount
        ) where
 
-import qualified RSCoin.Core as C
+import           Control.Lens (makeLenses)
+import           Data.IntMap  (elems)
+import           GHC.Generics (Generic)
 
-import           Data.IntMap (elems)
+import qualified RSCoin.Core  as C
 
 -- | This is extended version of CoinsMap from RSCoin.Core
 data CoinsMapSummary = CoinsMapSummary
     { _cmsCoinsMap   :: C.CoinsMap
     , _cmsCoinAmount :: C.CoinAmount
-    } deriving (Show)
+    } deriving (Show, Generic)
+
+$(makeLenses ''CoinsMapSummary)
 
 mkCoinsMapSummary :: C.CoinsMap -> CoinsMapSummary
 mkCoinsMapSummary coins = CoinsMapSummary coins  . sum . map C.getCoin $ elems coins
@@ -31,7 +42,7 @@ data TransactionSummary = TransactionSummary
     , txsOutputs    :: [(C.Address, C.Coin)]
     , txsInputsSum  :: CoinsMapSummary
     , txsOutputsSum :: CoinsMapSummary
-    } deriving (Show)
+    } deriving (Show, Generic)
 
 txSummaryToTx :: TransactionSummary -> C.Transaction
 txSummaryToTx = undefined

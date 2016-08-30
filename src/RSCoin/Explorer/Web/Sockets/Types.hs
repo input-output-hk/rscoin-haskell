@@ -10,24 +10,19 @@
 -- with client.
 
 module RSCoin.Explorer.Web.Sockets.Types
-       ( TransactionSummarySerializable
-       , mkTransactionSummarySerializable
-       , CoinsMapSummarySerializable
-       , mkCoinsMapSummarySerializable
-       , ServerError (..)
+       ( ServerError (..)
        , ErrorableMsg
        , IntroductoryMsg (..)
        , AddressInfoMsg (..)
        , OutcomingMsg (..)
-       , mkOMBalance
+       , CoinsMapSummary
+       , TransactionSummary
        ) where
 
-import           Data.Aeson                (FromJSON, ToJSON (toJSON),
-                                            eitherDecode, encode)
+import           Data.Aeson                (FromJSON, eitherDecode, encode)
 import           Data.Aeson.TH             (deriveJSON, deriveToJSON)
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Either.Combinators   (mapLeft)
-import qualified Data.IntMap.Strict        as IS
 import           Data.Text                 (Text, pack)
 import           GHC.Generics              (Generic)
 import qualified Network.WebSockets        as WS
@@ -35,50 +30,8 @@ import qualified Network.WebSockets        as WS
 import           Serokell.Aeson.Options    (defaultOptionsPS)
 
 import qualified RSCoin.Core               as C
-import           RSCoin.Explorer.Summaries (CoinsMapSummary (..),
-                                            ExtendedAddrId,
-                                            TransactionSummary (..))
-
-newtype SerializableCoinsMap =
-    SerializableCoinsMap C.CoinsMap
-    deriving (Show)
-
-instance ToJSON SerializableCoinsMap where
-    toJSON (SerializableCoinsMap m) = toJSON . IS.assocs $ m
-
-data CoinsMapSummarySerializable = CoinsMapSummarySerializable
-    { cmCoinsMap   :: SerializableCoinsMap
-    , cmCoinAmount :: C.CoinAmount
-    } deriving (Show, Generic)
-
-$(deriveToJSON defaultOptionsPS ''CoinsMapSummarySerializable)
-
-mkCoinsMapSummarySerializable :: CoinsMapSummary -> CoinsMapSummarySerializable
-mkCoinsMapSummarySerializable CoinsMapSummary{..} =
-    CoinsMapSummarySerializable
-    { cmCoinsMap = SerializableCoinsMap _cmsCoinsMap
-    , cmCoinAmount = _cmsCoinAmount
-    }
-
-data TransactionSummarySerializable = TransactionSummarySerializable
-    { txId         :: C.TransactionId
-    , txInputs     :: [ExtendedAddrId]
-    , txOutputs    :: [(C.Address, C.Coin)]
-    , txInputsSum  :: CoinsMapSummarySerializable
-    , txOutputsSum :: CoinsMapSummarySerializable
-    } deriving (Show, Generic)
-
-$(deriveToJSON defaultOptionsPS ''TransactionSummarySerializable)
-
-mkTransactionSummarySerializable :: TransactionSummary -> TransactionSummarySerializable
-mkTransactionSummarySerializable TransactionSummary{..} =
-    TransactionSummarySerializable
-    { txId = txsId
-    , txInputs = txsInputs
-    , txOutputs = txsOutputs
-    , txInputsSum = mkCoinsMapSummarySerializable txsInputsSum
-    , txOutputsSum = mkCoinsMapSummarySerializable txsOutputsSum
-    }
+import           RSCoin.Explorer.Summaries (CoinsMapSummary, TransactionSummary)
+import           RSCoin.Explorer.Web.Aeson ()
 
 -- | Run-time errors which may happen within this server.
 data ServerError
@@ -159,7 +112,7 @@ data OutcomingMsg
     |
       -- | Sent within `AddressInfo` session.
       OMBalance !C.PeriodId
-                !CoinsMapSummarySerializable
+                !CoinsMapSummary
     |
       -- | Sent within `AddressInfo` session. Contains number of
       -- transactions referencing address over given PeriodId.
@@ -168,7 +121,7 @@ data OutcomingMsg
     |
       -- | Sent within `TransactionInfo` session. Contains transaction
       -- that is requested with its ThransactionId.
-      OMTransaction !TransactionSummarySerializable
+      OMTransaction !TransactionSummary
     |
       -- | Sent within `AddressInfo` session. This is a confirmation
       -- sent on establishing session.
@@ -176,11 +129,8 @@ data OutcomingMsg
     |
       -- | Sent within `AddressInfo` session. Has an indexed list of
       -- transactions referencing address over given PeriodId.
-      OMTransactions !C.PeriodId ![(Word, TransactionSummarySerializable)]
+      OMTransactions !C.PeriodId ![(Word, TransactionSummary)]
     deriving (Show,Generic)
-
-mkOMBalance :: C.PeriodId -> CoinsMapSummary -> OutcomingMsg
-mkOMBalance pId = OMBalance pId . mkCoinsMapSummarySerializable
 
 $(deriveToJSON defaultOptionsPS ''OutcomingMsg)
 

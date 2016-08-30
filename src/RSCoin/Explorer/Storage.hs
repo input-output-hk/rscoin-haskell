@@ -42,15 +42,13 @@ import           Data.SafeCopy             (base, deriveSafeCopy)
 import qualified RSCoin.Core               as C
 
 import           RSCoin.Explorer.Error     (ExplorerError (..))
-import           RSCoin.Explorer.Summaries (CoinsMapSummary (..),
-                                            ExtendedAddrId,
+import           RSCoin.Explorer.Summaries (CoinsMapSummary, ExtendedAddrId,
                                             TransactionSummary (..),
+                                            cmsCoinAmount, cmsCoinsMap,
                                             mkCoinsMapSummary, txSummaryToTx)
 
 $(deriveSafeCopy 0 'base ''TransactionSummary)
 $(deriveSafeCopy 0 'base ''CoinsMapSummary)
-
-$(makeLenses ''CoinsMapSummary)
 
 data AddressData = AddressData
     { _adBalance      :: CoinsMapSummary

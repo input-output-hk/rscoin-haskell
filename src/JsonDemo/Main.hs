@@ -17,7 +17,7 @@ data V =
 instance Buildable W.ServerError where
     build _ = "build is not defined"
 
-instance Buildable W.IntroductoryMsg where
+instance Buildable W.ControlMsg where
     build _ = "build is not defined"
 
 instance Buildable W.AddressInfoMsg where
@@ -33,10 +33,10 @@ main = do
         hash = C.unsafeHash ()
         addr = C.Address key
         tx = C.Transaction [(hash, 0, coin)] [(addr, coin)]
-        err = W.ParseError "error"
-        introMsg = W.IMAddressInfo addr
+        err = W.ParseError "github" "error"
+        introMsg = W.CMSetAddress addr
         aiMsg = W.AIGetTransactions (0, 2)
-        outMsg = W.OMTxNumber 8 "10"
+        outMsg = W.OMTxNumber addr 8 10
         values =
             [ V coin
             , V key

@@ -15,11 +15,12 @@ module RSCoin.Explorer.Summaries
        , cmsCoinAmount
        ) where
 
-import           Control.Lens (makeLenses)
-import           Data.IntMap  (elems)
-import           GHC.Generics (Generic)
+import           Control.Lens  (makeLenses)
+import           Data.IntMap   (elems)
+import           Data.SafeCopy (base, deriveSafeCopy)
+import           GHC.Generics  (Generic)
 
-import qualified RSCoin.Core  as C
+import qualified RSCoin.Core   as C
 
 -- | This is extended version of CoinsMap from RSCoin.Core
 data CoinsMapSummary = CoinsMapSummary
@@ -46,3 +47,6 @@ data TransactionSummary = TransactionSummary
 
 txSummaryToTx :: TransactionSummary -> C.Transaction
 txSummaryToTx = undefined
+
+$(deriveSafeCopy 0 'base ''TransactionSummary)
+$(deriveSafeCopy 0 'base ''CoinsMapSummary)

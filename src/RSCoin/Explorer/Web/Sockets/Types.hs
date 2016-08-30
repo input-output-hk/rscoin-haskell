@@ -12,9 +12,12 @@
 module RSCoin.Explorer.Web.Sockets.Types
        ( ServerError (..)
        , ErrorableMsg
-       , IntroductoryMsg (..)
+       , ControlMsg (..)
        , AddressInfoMsg (..)
+       , IncomingMsg (..)
        , OutcomingMsg (..)
+
+         -- | Re-exports
        , CoinsMapSummary
        , TransactionSummary
        ) where
@@ -35,41 +38,48 @@ import           RSCoin.Explorer.Web.Aeson ()
 
 -- | Run-time errors which may happen within this server.
 data ServerError
-    = ParseError !Text
+    = ParseError { peTypeName :: !Text
+                 , peError    :: !Text}
     | NotFound !Text
-    deriving (Show,Generic)
+    | LogicError !Text
+     deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''ServerError)
 
-type ErrorableMsg msg = Either ServerError msg
+type ErrorableMsg msg = Either Text msg
 
--- | Communication starts with Introductory Message sent by
--- client. This type describes all such messages. Introductiory
--- message starts communication between server and client about some
--- topic (e. g. about particular address).
-data IntroductoryMsg
+-- | ControlMsg is used to manage context (or state) of connection. In
+-- particular, server and client start communication with message of
+-- this type.
+data ControlMsg
     =
-      -- | AddressInfo starts communication about given Address. Within
-      -- this communication user can request various data about address.
-      IMAddressInfo !C.Address
+      -- | SetAddress sets context of connection to given
+      -- address. After that client can send `AddressInfoMsg` to get
+      -- information about this address. Also client gets subscribed
+      -- to notifications about this address.
+      CMSetAddress !C.Address
     |
-      -- | Get transaction with this specific transaction Id
-      IMTransactionInfo !C.TransactionId
+      -- | GetTransaction resets context of connection and
+      -- unsubscribes client from all notifications, because
+      -- information about transaction doesn't change (in our model).
+      CMGetTransaction !C.TransactionId
     |
-      -- | Get info either about AddressInfo or about TransactionInfo
-      IMInfo !C.Address !C.TransactionId
+      -- | This is special message which means that server has to
+      -- determine whether given string is address or id of
+      -- transaction and behave as CMGetTransaction or CMSetAddress.
+      CMSmart !Text
     deriving (Show,Generic)
 
-$(deriveJSON defaultOptionsPS ''IntroductoryMsg)
+$(deriveJSON defaultOptionsPS ''ControlMsg)
 
 customDecode
     :: FromJSON a
-    => BSL.ByteString -> Either ServerError a
-customDecode = mapLeft (ParseError . pack) . eitherDecode
+    => BSL.ByteString -> Either Text a
+customDecode = mapLeft pack . eitherDecode
 
-instance WS.WebSocketsData (ErrorableMsg IntroductoryMsg) where
+instance WS.WebSocketsData (ErrorableMsg ControlMsg) where
     fromLazyByteString = customDecode
-    toLazyByteString = error "Attempt to serialize IntroductoryMsg is illegal"
+    toLazyByteString = error "Attempt to serialize ControlMsg is illegal"
 
 -- | Within communication started with AddressInfo message client can
 -- send messages defined by this type.
@@ -90,12 +100,6 @@ data AddressInfoMsg
       -- `AIGetTransactions (0, 2)` requests two most recent
       -- transactions.
       AIGetTransactions !(Word, Word)
-    |
-      -- | Change user address TODO: improve this description
-      AIChangeAddress !C.Address
-    |
-      -- | Get info either about AddressInfo or about TransactionInfo
-      AIChangeInfo !C.Address !C.TransactionId
     deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''AddressInfoMsg)
@@ -104,6 +108,18 @@ instance WS.WebSocketsData (ErrorableMsg AddressInfoMsg) where
     fromLazyByteString = customDecode
     toLazyByteString = error "Attempt to serialize AddressInfoMsg is illegal"
 
+-- | IncomingMsg aggregates all types of messages which server can receive.
+data IncomingMsg
+    = IMControl !ControlMsg
+    | IMAddrInfo !AddressInfoMsg
+    deriving (Show,Generic)
+
+$(deriveJSON defaultOptionsPS ''IncomingMsg)
+
+instance WS.WebSocketsData (ErrorableMsg IncomingMsg) where
+    fromLazyByteString = customDecode
+    toLazyByteString = error "Attempt to serialize IncomingMsg is illegal"
+
 -- | This type contains all possible messages sent by this server.
 data OutcomingMsg
     =
@@ -111,25 +127,24 @@ data OutcomingMsg
       OMError !ServerError
     |
       -- | Sent within `AddressInfo` session.
-      OMBalance !C.PeriodId
+      OMBalance !C.Address
+                !C.PeriodId
                 !CoinsMapSummary
     |
       -- | Sent within `AddressInfo` session. Contains number of
       -- transactions referencing address over given PeriodId.
-      OMTxNumber !C.PeriodId
-                 !Text
+      OMTxNumber !C.Address
+                 !C.PeriodId
+                 !Word
     |
-      -- | Sent within `TransactionInfo` session. Contains transaction
-      -- that is requested with its ThransactionId.
+      -- | Sent in response to CMGetTransaction message.
       OMTransaction !TransactionSummary
-    |
-      -- | Sent within `AddressInfo` session. This is a confirmation
-      -- sent on establishing session.
-      OMSessionEstablished !C.Address
     |
       -- | Sent within `AddressInfo` session. Has an indexed list of
       -- transactions referencing address over given PeriodId.
-      OMTransactions !C.PeriodId ![(Word, TransactionSummary)]
+      OMTransactions !C.Address
+                     !C.PeriodId
+                     ![(Word, TransactionSummary)]
     deriving (Show,Generic)
 
 $(deriveToJSON defaultOptionsPS ''OutcomingMsg)

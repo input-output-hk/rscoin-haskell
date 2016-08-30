@@ -4,8 +4,8 @@ import           Language.PureScript.Bridge         (BridgePart, buildBridge,
                                                      typeName, writePSTypes,
                                                      (<|>), (^==))
 import           Language.PureScript.Bridge.PSTypes (psInt)
-import qualified RSCoin.Core.Primitives             as P
-import qualified RSCoin.Explorer.WebTypes           as T
+import qualified RSCoin.Core.Primitives             as Prim
+import qualified RSCoin.Explorer.WebTypes           as EWT
 
 import           PSTypes                            (psCoinAmount, psCoinsMap,
                                                      psHash, psPublicKey)
@@ -16,18 +16,18 @@ main =
     writePSTypes
         "block-explorer/src"
         (buildBridge customBridge)
-        [ mkSumType (Proxy :: Proxy T.ServerError)
-        , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
-        , mkSumType (Proxy :: Proxy T.AddressInfoMsg)
-        , mkSumType (Proxy :: Proxy T.OutcomingMsg)
-        , mkSumType (Proxy :: Proxy P.Color)
-        , mkSumType (Proxy :: Proxy P.Coin)
-        , mkSumType (Proxy :: Proxy T.TransactionSummary)
-        , mkSumType (Proxy :: Proxy T.CoinsMapSummary)
-        , mkSumType (Proxy :: Proxy P.Address)]
+        [ mkSumType (Proxy :: Proxy EWT.ServerError)
+        , mkSumType (Proxy :: Proxy EWT.ControlMsg)
+        , mkSumType (Proxy :: Proxy EWT.AddressInfoMsg)
+        , mkSumType (Proxy :: Proxy EWT.IncomingMsg)
+        , mkSumType (Proxy :: Proxy EWT.OutcomingMsg)
+        , mkSumType (Proxy :: Proxy EWT.TransactionSummary)
+        , mkSumType (Proxy :: Proxy EWT.CoinsMapSummary)
+
+        , mkSumType (Proxy :: Proxy Prim.Color)
+        , mkSumType (Proxy :: Proxy Prim.Coin)
+        , mkSumType (Proxy :: Proxy Prim.Address)]
   where
-    -- , mkSumType (Proxy :: Proxy T.ServerError)
-    -- , mkSumType (Proxy :: Proxy T.IntroductoryMsg)
     customBridge =
         defaultBridge <|> publicKeyBridge <|> wordBridge <|> hashBridge <|>
         coinAmountBridge <|> coinsMapBridge

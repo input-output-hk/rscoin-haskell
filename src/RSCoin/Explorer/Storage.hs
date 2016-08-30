@@ -9,15 +9,17 @@ module RSCoin.Explorer.Storage
        ( Storage
        , mkStorage
 
+         -- | Queries
        , Query
-       , addressExists
        , getAddressBalance
        , getAddressTxNumber
        , getAddressTransactions
        , getLastPeriodId
        , getTx
        , getTxSummary
+       , isAddressKnown
 
+         -- | Updates
        , Update
        , ExceptUpdate
        , addHBlock
@@ -46,9 +48,6 @@ import           RSCoin.Explorer.Summaries (CoinsMapSummary, ExtendedAddrId,
                                             TransactionSummary (..),
                                             cmsCoinAmount, cmsCoinsMap,
                                             mkCoinsMapSummary, txSummaryToTx)
-
-$(deriveSafeCopy 0 'base ''TransactionSummary)
-$(deriveSafeCopy 0 'base ''CoinsMapSummary)
 
 data AddressData = AddressData
     { _adBalance      :: CoinsMapSummary
@@ -148,9 +147,9 @@ getTx = fmap (fmap txSummaryToTx) . getTxSummary
 getTxSummary :: C.TransactionId -> Query (Maybe TransactionSummary)
 getTxSummary i = view $ transactionsMap . at i
 
--- | Cheks whether address exists in storage
-addressExists :: C.Address -> Query Bool
-addressExists addr = fmap isJust . view $ addresses . at addr
+-- | Returns True iff Explorer knows something about this address.
+isAddressKnown :: C.Address -> Query Bool
+isAddressKnown addr = views (addresses . at addr) isJust
 
 type Update a = forall m. MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a

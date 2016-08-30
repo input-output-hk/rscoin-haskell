@@ -17,13 +17,12 @@ module RSCoin.Bank.AcidState
 
          -- | Queries
        , GetMintettes (..)
-       , GetEmission (..)
-       , GetEmissions (..)
        , GetAddresses (..)
        , GetExplorers (..)
        , GetExplorersAndPeriods (..)
        , GetPeriodId (..)
        , GetHBlock (..)
+       , GetHBlockWithMetadata (..)
        , GetHBlocks (..)
        , GetLogs (..)
        , GetStatisticsId (..)
@@ -49,19 +48,10 @@ import           Data.Acid                     (EventResult, EventState, Query,
                                                 makeAcidic)
 import           Data.Maybe                    (fromMaybe)
 import           Data.Text                     (Text)
+import           Data.Time.Clock.POSIX         (POSIXTime)
 import           Formatting                    (bprint, stext, (%))
-
-import           RSCoin.Core                   (ActionLog, Address,
-                                                AddressToTxStrategyMap,
-                                                Explorer, Explorers, HBlock,
-                                                Mintette, MintetteId, Mintettes,
-                                                NewPeriodData, PeriodId,
-                                                PeriodResult, PublicKey,
-                                                SecretKey, TransactionId,
-                                                TxStrategy)
-import qualified RSCoin.Core                   as C
-
 import           Safe                          (headMay)
+
 import           Serokell.AcidState            (ExtendedState,
                                                 closeExtendedState,
                                                 openLocalExtendedState,
@@ -74,7 +64,17 @@ import           Serokell.AcidState.Statistics (StoragePart (..),
 import           Serokell.Data.Memory.Units    (Byte, memory)
 import           Serokell.Util.Text            (listBuilderJSONIndent, show')
 
+import           RSCoin.Core                   (ActionLog, Address,
+                                                AddressToTxStrategyMap,
+                                                Explorer, Explorers, HBlock,
+                                                Mintette, MintetteId, Mintettes,
+                                                NewPeriodData, PeriodId,
+                                                PeriodResult, PublicKey,
+                                                SecretKey, TxStrategy)
+import qualified RSCoin.Core                   as C
+
 import qualified RSCoin.Bank.Storage           as BS
+import           RSCoin.Bank.Types             (HBlockMetadata)
 
 type State = ExtendedState BS.Storage
 
@@ -103,12 +103,6 @@ closeState = closeExtendedState
 getStorage :: Query BS.Storage BS.Storage
 getStorage = ask
 
-getEmission :: PeriodId -> Query BS.Storage (Maybe TransactionId)
-getEmission = view . BS.getEmission
-
-getEmissions :: PeriodId -> PeriodId -> Query BS.Storage [TransactionId]
-getEmissions fromIdx toIdx = view $ BS.getEmissions fromIdx toIdx
-
 getAddresses :: Query BS.Storage AddressToTxStrategyMap
 getAddresses = view BS.getAddresses
 
@@ -126,6 +120,10 @@ getPeriodId = view BS.getPeriodId
 
 getHBlock :: PeriodId -> Query BS.Storage (Maybe HBlock)
 getHBlock = view . BS.getHBlock
+
+getHBlockWithMetadata :: C.PeriodId
+                      -> Query BS.Storage (Maybe (C.WithMetadata C.HBlock HBlockMetadata))
+getHBlockWithMetadata = view . BS.getHBlockWithMetadata
 
 getHBlocks :: PeriodId -> PeriodId -> Query BS.Storage [HBlock]
 getHBlocks fromIdx toIdx = view $ BS.getHBlocks fromIdx toIdx
@@ -161,7 +159,7 @@ restoreExplorers :: Update BS.Storage ()
 restoreExplorers = BS.restoreExplorers
 
 startNewPeriod
-    :: PublicKey
+    :: POSIXTime
     -> SecretKey
     -> [Maybe PeriodResult]
     -> Update BS.Storage [NewPeriodData]
@@ -172,13 +170,12 @@ checkAndBumpStatisticsId = BS.checkAndBumpStatisticsId
 
 $(makeAcidic ''BS.Storage
              [ 'getMintettes
-             , 'getEmission
-             , 'getEmissions
              , 'getAddresses
              , 'getExplorers
              , 'getExplorersAndPeriods
              , 'getPeriodId
              , 'getHBlock
+             , 'getHBlockWithMetadata
              , 'getHBlocks
              , 'getLogs
              , 'getStatisticsId

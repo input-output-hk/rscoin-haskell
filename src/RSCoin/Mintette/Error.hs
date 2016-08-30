@@ -12,11 +12,10 @@ import           Data.MessagePack        (MessagePack (fromObject, toObject),
                                           Object)
 import           Data.Monoid             ((<>))
 import           Data.Text               (Text)
-import           Data.Text.Buildable     (Buildable (build))
-import qualified Data.Text.Format        as F
+import qualified Data.Text.Buildable     as B (Buildable (build))
 import           Data.Typeable           (Typeable)
-import           Formatting              (sformat, stext, (%))
-import qualified Formatting              (build)
+import           Formatting              (bprint, build, int, sformat, stext,
+                                          (%))
 
 import           RSCoin.Core.Error       (rscExceptionFromException,
                                           rscExceptionToException)
@@ -43,18 +42,18 @@ instance Exception MintetteError where
     toException = rscExceptionToException
     fromException = rscExceptionFromException
 
-instance Buildable MintetteError where
-    build (MEInternal m) = "internal error: " <> build m
+instance B.Buildable MintetteError where
+    build (MEInternal m) = "internal error: " <> B.build m
     build MEInactive = "mintette is not active right now"
     build (MEPeriodMismatch expected received) =
-        F.build
-            "received strange PeriodId: {} (expected {})"
-            (received, expected)
+        bprint
+            ("received strange PeriodId: " % int % " (expected " % int % ")")
+            received expected
     build MEInvalidTxSums =
         "sum of transaction outputs is greater than sum of inputs"
-    build (MEInconsistentRequest msg) = build msg
+    build (MEInconsistentRequest msg) = B.build msg
     build (MENotUnspent a) =
-        F.build "can't deduce that {} is unspent transaction output" $ F.Only a
+        bprint ("can't deduce that " % build % " is unspent transaction output") a
     build MEInvalidSignature = "failed to verify signature"
     build MENotConfirmed = "transaction doesn't have enough confirmations"
     build MEAlreadyActive = "can't start new period when period is active"

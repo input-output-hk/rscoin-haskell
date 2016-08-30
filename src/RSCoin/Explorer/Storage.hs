@@ -37,7 +37,7 @@ import           Data.List                 (foldl', genericDrop, genericLength,
 import qualified Data.Map.Strict           as M
 import           Data.Maybe                (fromMaybe, isJust)
 import           Data.SafeCopy             (base, deriveSafeCopy)
-import           Formatting                (build, sformat, (%))
+--import           Formatting                (build, sformat, (%))
 
 import qualified RSCoin.Core               as C
 
@@ -81,8 +81,8 @@ data Storage = Storage
       -- | Mapping from transaction id to actual transaction with this
       -- id. Contains all transactions ever seen by this explorer.
       _transactionsMap :: !(M.Map C.TransactionId TransactionSummary)
-      -- | List off all emission hashes from the very beginning.
-    , _emissionHashes  :: ![C.TransactionId]
+ --     -- | List off all emission hashes from the very beginning.
+ --   -- , _emissionHashes  :: ![C.TransactionId]
       -- | Workaround
     , _txMapWorkaround :: !(M.Map C.TransactionId C.Transaction)
     }
@@ -98,7 +98,7 @@ mkStorage =
     { _addresses = M.empty
     , _lastPeriodId = Nothing
     , _transactionsMap = M.empty
-    , _emissionHashes = mempty
+    -- , _emissionHashes = []
     , _txMapWorkaround = M.empty
     }
 
@@ -160,8 +160,8 @@ type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 -- | Modify storage by applying given higher-level block. Period
 -- identifier is required to check that given HBlock is the next after
 -- last applied block.
-addHBlock :: C.PeriodId -> C.HBlock -> C.EmissionId -> ExceptUpdate ()
-addHBlock pId C.HBlock{..} emission = do
+addHBlock :: C.PeriodId -> C.WithMetadata C.HBlock ignore -> ExceptUpdate ()
+addHBlock pId (C.WithMetadata C.HBlock{..} _) = do
     expectedPid <- maybe 0 succ <$> use lastPeriodId
     unless (expectedPid == pId) $
         throwM
@@ -169,16 +169,16 @@ addHBlock pId C.HBlock{..} emission = do
             { pmExpectedPeriod = expectedPid
             , pmReceivedPeriod = pId
             }
-    addEmission emission
+    -- addEmission emission
     mapM_
         (\tx ->
               txMapWorkaround . at (C.hash tx) .= Just tx)
         hbTransactions
     mapM_ applyTransaction hbTransactions
     lastPeriodId .= Just pId
-  where
-    addEmission (Just e) = emissionHashes %= (e :)
-    addEmission _        = pure ()
+  -- where
+  --   addEmission (Just e) = emissionHashes %= (e :)
+  --   addEmission _        = pure ()
 
 applyTransaction :: C.Transaction -> ExceptUpdate ()
 applyTransaction tx@C.Transaction{..} = do
@@ -221,12 +221,13 @@ applyTransaction tx@C.Transaction{..} = do
                      -> ExceptUpdate ExtendedAddrId
     mkExtendedAddrId (txId,ind,c) addr
       | isJust addr = return (txId, ind, c, addr)
-      | otherwise = do
-          hasEmission <- elem txId <$> use emissionHashes
-          if hasEmission
-              then return (txId, ind, c, Nothing)
-              else throwM $ EEInternalError $
-                   sformat ("Invalid transaction id seen: " % build) txId
+      | otherwise = return (txId, ind, c, Nothing)
+          -- TODO: return this check during refactoring
+          -- hasEmission <- elem txId <$> use emissionHashes
+          -- if hasEmission
+          --     then return (txId, ind, c, Nothing)
+          --     else throwM $ EEInternalError $
+          --          sformat ("Invalid transaction id seen: " % build) txId
 
 applyTxInput :: TransactionSummary -> C.AddrId -> Update ()
 applyTxInput tx (oldTxId,idx,c) =

@@ -20,14 +20,13 @@ module RSCoin.Bank.Storage.Queries
          -- | HBlocks
        , getAllHBlocks
        , getHBlock
+       , getHBlockWithMetadata
        , getHBlocks
 
          -- | Other
        , getAddresses
        , getAddressFromUtxo
        , getDpk
-       , getEmission
-       , getEmissions
        , getPeriodId
        , getStatisticsId
        , getUtxo
@@ -44,20 +43,12 @@ import qualified RSCoin.Bank.Storage.Addresses as AS
 import qualified RSCoin.Bank.Storage.Explorers as ES
 import qualified RSCoin.Bank.Storage.Mintettes as MS
 import           RSCoin.Bank.Storage.Storage   (Storage, addressesStorage,
-                                                blocks, emissionHashes,
-                                                explorersStorage,
+                                                blocks, explorersStorage,
                                                 mintettesStorage, periodId,
                                                 statisticsId, utxo)
+import           RSCoin.Bank.Types             (HBlockMetadata)
 
 type Query a = Getter Storage a
-
--- | Returns emission hash made in provided period
-getEmission :: C.PeriodId -> Query (Maybe C.TransactionId)
-getEmission pId = emissionHashes . to (\b -> b `atMay` (length b - pId))
-
--- | Return emission hashes provided in period range
-getEmissions :: C.PeriodId -> C.PeriodId -> Query [C.TransactionId]
-getEmissions left right = emissionHashes . to (reverseFromTo (max left 1) right)
 
 -- | Returns addresses (to strategies) map
 getAddresses :: Query C.AddressToTxStrategyMap
@@ -88,9 +79,13 @@ getDpk = mintettesStorage . MS.getDpk
 getPeriodId :: Query C.PeriodId
 getPeriodId = periodId
 
--- | Get last block by periodId
+-- | Get higher-level block by periodId.
 getHBlock :: C.PeriodId -> Query (Maybe C.HBlock)
-getHBlock pId = blocks . to (\b -> b `atMay` (length b - pId - 1)) . to (fmap C.wmValue)
+getHBlock pId = getHBlockWithMetadata pId . to (fmap C.wmValue)
+
+-- | Get higher-level block by periodId with metadata.
+getHBlockWithMetadata :: C.PeriodId -> Query (Maybe (C.WithMetadata C.HBlock HBlockMetadata))
+getHBlockWithMetadata pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
 
 -- | Given two indices `(a,b)` swap them so `a < b` if needed, then
 -- take exactly `b` elements of list that come after first `a`.

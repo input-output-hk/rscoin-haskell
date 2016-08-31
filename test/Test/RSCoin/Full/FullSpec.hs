@@ -69,6 +69,7 @@ spec =
         describe "Full RSCoin" $ do
             fullProp uniqueAdrDesc prop_uniqueAddresses
             fullProp sendLoopDesc prop_sendLoopBack
+            fullProp send2inARowDesc prop_send2inARow
   where
     cfg@FullTestConfig {..} = config
     fullProp :: String -> FullProperty -> Spec
@@ -79,7 +80,10 @@ spec =
             then (property :: FullPropertyRealMode a -> Property)
             else (property :: FullPropertyEmulation a -> Property)
     uniqueAdrDesc = "all users have unique addresses"
-    sendLoopDesc = "sending an amount from an address to itself does not change its balance"
+    sendLoopDesc = "sending an amount from an address to itself does not " ++
+                   "change its balance"
+    send2inARowDesc = "sending some coins from one address to another, and " ++
+                      "from it to another does not leave any along the way"
 
 setupLogging :: FullTestConfig -> IO ()
 setupLogging FullTestConfig{..} = do

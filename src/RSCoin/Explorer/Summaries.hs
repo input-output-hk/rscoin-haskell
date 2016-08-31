@@ -6,21 +6,26 @@
 module RSCoin.Explorer.Summaries
        ( ExtendedAddrId
 
+       , CoinsMapSummary
+       , cmsCoinsMap
+       , cmsCoinAmount
+       , mkCoinsMapSummary
+
        , TransactionSummary (..)
        , txSummaryToTx
 
-       , CoinsMapSummary
-       , mkCoinsMapSummary
-       , cmsCoinsMap
-       , cmsCoinAmount
+       , HBlockSummary (..)
        ) where
 
-import           Control.Lens  (makeLenses)
-import           Data.IntMap   (elems)
-import           Data.SafeCopy (base, deriveSafeCopy)
-import           GHC.Generics  (Generic)
+import           Control.Lens               (makeLenses)
+import           Data.IntMap                (elems)
+import           Data.SafeCopy              (base, deriveSafeCopy)
+import           Data.Time.Clock.POSIX      (POSIXTime)
+import           GHC.Generics               (Generic)
 
-import qualified RSCoin.Core   as C
+import           Serokell.Data.Memory.Units (Byte)
+
+import qualified RSCoin.Core                as C
 
 -- | This is extended version of CoinsMap from RSCoin.Core
 data CoinsMapSummary = CoinsMapSummary
@@ -31,10 +36,14 @@ data CoinsMapSummary = CoinsMapSummary
 $(makeLenses ''CoinsMapSummary)
 
 mkCoinsMapSummary :: C.CoinsMap -> CoinsMapSummary
-mkCoinsMapSummary coins = CoinsMapSummary coins  . sum . map C.getCoin $ elems coins
+mkCoinsMapSummary coins =
+    CoinsMapSummary coins  . sum . map C.getCoin . elems $ coins
 
 -- | This is extended version of AddrId from RSCoin.Core
 type ExtendedAddrId = (C.TransactionId, Int, C.Coin, Maybe C.Address)
+
+extendedAddrIdToAddrId :: ExtendedAddrId -> C.AddrId
+extendedAddrIdToAddrId (txId, idx, c, _) = (txId, idx, c)
 
 -- | This is extended version of Transaction from RSCoin.Core
 data TransactionSummary = TransactionSummary
@@ -46,7 +55,20 @@ data TransactionSummary = TransactionSummary
     } deriving (Show, Generic)
 
 txSummaryToTx :: TransactionSummary -> C.Transaction
-txSummaryToTx = undefined
+txSummaryToTx TransactionSummary {..} =
+    C.Transaction
+    { txInputs = map extendedAddrIdToAddrId txsInputs
+    , txOutputs = txsOutputs
+    }
 
-$(deriveSafeCopy 0 'base ''TransactionSummary)
+data HBlockSummary = HBlockSummary
+    { hbsHeight    :: !C.PeriodId
+    , hbsTimeStamp :: !POSIXTime
+    , hbsTxNumber  :: !Word
+    , hbsTotalSent :: !C.CoinAmount
+    , hbsSize      :: !Byte
+    } deriving (Show, Generic)
+
 $(deriveSafeCopy 0 'base ''CoinsMapSummary)
+$(deriveSafeCopy 0 'base ''TransactionSummary)
+$(deriveSafeCopy 0 'base ''HBlockSummary)

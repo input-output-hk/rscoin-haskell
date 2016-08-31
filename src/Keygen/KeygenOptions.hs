@@ -2,92 +2,68 @@
 
 module KeygenOptions
        ( KeyGenCommand (..)
-       , Options (..)
        , getOptions
        ) where
 
-import           Options.Applicative      (Parser, auto, command, execParser,
-                                           fullDesc, info, help, helper, long,
-                                           metavar, option, optional, progDesc,
-                                           short, subparser, (<>))
+import           Options.Applicative    (Parser, auto, command, execParser,
+                                         fullDesc, help, helper, info, long,
+                                         metavar, option, optional, progDesc,
+                                         short, subparser, (<>))
 
-import           Serokell.Util.OptParse   (strOption)
+import           Serokell.Util.OptParse (strOption)
 
+type Output = Maybe FilePath
 data KeyGenCommand = Single FilePath
                    | Batch Int FilePath FilePath
-                   | Derive FilePath
+                   | Derive FilePath Output
+                   | Sign FilePath FilePath Output
 
-data Options = Options
-    { cloCommand       :: KeyGenCommand
-    , cloPublicKeyPath :: Maybe FilePath
-    }
-
-commandParser :: Parser KeyGenCommand
-commandParser =
+optionsParser :: Parser KeyGenCommand
+optionsParser =
     subparser
-        (command
-             "single"
-              (info
-                   singleOpts
-                   (progDesc singleDesc)) <>
-        command
-            "batch"
-            (info
-                 batchOpts
-                 (progDesc batchDesc)) <>
-        command
-            "derive"
-            (info
-                 deriveOpts
-                 (progDesc deriveDesc)))
+        (command "single" (info singleOpts (progDesc singleDesc)) <>
+         command "batch" (info batchOpts (progDesc batchDesc)) <>
+         command "derive" (info deriveOpts (progDesc deriveDesc)) <>
+         command "sign" (info signOpts (progDesc signDesc)))
   where
-    singleOpts =
-        Single <$>
-        generatedKeys
+    singleOpts = Single <$> generatedKeys
     batchOpts =
         Batch <$>
         option
             auto
             (short 'n' <> long "key-number" <> help numKeyHelpStr <>
-             metavar "NUMBER OF KEYS") <*>
+             metavar "INTEGER") <*>
         generatedKeys <*>
         secretKey
-    deriveOpts =
-        Derive <$>
-        secretKey
-
+    deriveOpts = Derive <$> secretKey <*> output
+    signOpts = Sign <$> secretKey <*> publicKey <*> output
     generatedKeys =
         strOption
             (short 'k' <> long "keys-path" <> help genKeyHelpStr <>
-             metavar "PATH TO KEYS")
-
+             metavar "FILEPATH")
+    publicKey =
+        strOption
+            (short 'p' <> long "public-key-path" <> help pubKeyHelpStr <>
+             metavar "FILEPATH")
     secretKey =
         strOption
             (short 's' <> long "secret-key-path" <> help secKeyHelpStr <>
-             metavar "PATH TO SECRET KEY")
-
+             metavar "FILEPATH")
+    output = optional $ strOption
+         (short 'o' <> long "output" <> help outputDesc <>
+          metavar "FILEPATH")
     numKeyHelpStr = "Number of keys generated"
     genKeyHelpStr = "Path to generated keys and signatures"
     secKeyHelpStr = "Path to master secret key"
-    singleDesc    = "Generate a single pair of public and secret keys"
-    batchDesc     = "Generate array of public keys, secret keys and signatures"
-    deriveDesc    = "Derive public key from the given secret key"
+    pubKeyHelpStr = "Path to master public key"
+    singleDesc = "Generate a single pair of public and secret keys"
+    batchDesc = "Generate array of public keys, secret keys and signatures"
+    deriveDesc = "Derive public key from the given secret key"
+    signDesc = "Sign public key of A with secret key of B"
+    outputDesc = "Filepath to write output to. Default is usually " <>
+                 "some of inputs with .smth suffix"
 
-optionsParser :: Parser Options
-optionsParser =
-    Options <$> commandParser <*> publicKeyPath
-  where
-    publicKeyPath =
-        optional
-        (strOption
-            (short 'p' <> long "public-key-path" <> help pubKeyHelpStr <>
-             metavar "PATH TO PUBLIC KEY"))
-    pubKeyHelpStr = "Path to the Public key"
-
-
-getOptions :: IO Options
-getOptions = do
+getOptions :: IO KeyGenCommand
+getOptions =
     execParser $
-        info
-            (helper <*> optionsParser)
-            (fullDesc <> progDesc "RSCoin's keygen")
+    info (helper <*> optionsParser) (fullDesc <> progDesc "RSCoin's keygen")

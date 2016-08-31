@@ -10,7 +10,6 @@ import           Control.Monad             (unless)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Formatting                (build, int, sformat, (%))
 
-import           Serokell.Data.Variant     (Variant)
 import           Serokell.Util.Text        (listBuilderJSONIndent)
 
 import qualified RSCoin.Core               as C
@@ -51,7 +50,7 @@ handleGetTransaction st tId = do
                 tx
     tx <$ C.logDebug msg
 
-type HBlockSignature = C.Signature (C.PeriodId, C.WithMetadata C.HBlock Variant)
+type HBlockSignature = C.Signature (C.PeriodId, C.WithMetadata C.HBlock C.HBlockMetadata)
 
 handleNewHBlock
     :: WorkMode m
@@ -59,7 +58,7 @@ handleNewHBlock
     -> State
     -> C.PublicKey
     -> C.PeriodId
-    -> C.WithMetadata C.HBlock Variant
+    -> C.WithMetadata C.HBlock C.HBlockMetadata
     -> HBlockSignature
     -> ServerT m C.PeriodId
 handleNewHBlock ch st bankPublicKey newBlockId blkWithMeta@(C.WithMetadata{..}) sig = do

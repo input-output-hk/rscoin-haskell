@@ -34,7 +34,6 @@ import           Serokell.AcidState        (ExtendedState, closeExtendedState,
                                             openMemoryExtendedState,
                                             queryExtended, tidyExtendedState,
                                             updateExtended)
-import           Serokell.Data.Variant     (Variant)
 
 import qualified RSCoin.Core               as C
 
@@ -89,7 +88,7 @@ getTxSummary = ES.getTxSummary
 isAddressKnown :: C.Address -> Query ES.Storage Bool
 isAddressKnown = ES.isAddressKnown
 
-addHBlock :: C.PeriodId -> C.WithMetadata C.HBlock Variant -> Update ES.Storage ()
+addHBlock :: C.PeriodId -> C.WithMetadata C.HBlock C.HBlockMetadata -> Update ES.Storage ()
 addHBlock = ES.addHBlock
 
 $(makeAcidic ''ES.Storage

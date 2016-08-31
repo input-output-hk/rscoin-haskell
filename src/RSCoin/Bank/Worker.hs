@@ -14,14 +14,12 @@ import           Control.Monad            (when)
 import           Control.Monad.Catch      (SomeException, catch)
 import           Control.Monad.Extra      (unlessM)
 import           Control.Monad.Trans      (MonadIO (liftIO))
-import           Data.Bifunctor           (second)
 import           Data.IORef               (IORef, readIORef)
 import           Data.List                (sortOn)
 import           Data.Maybe               (fromMaybe)
 import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
 
-import           Serokell.Data.Variant    (toVariant)
 import           Serokell.Util.Exceptions ()
 
 import           RSCoin.Bank.AcidState    (GetExplorersAndPeriods (..),
@@ -120,7 +118,7 @@ sendBlockToExplorer
     => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m Bool
 sendBlockToExplorer sk st explorer pId = do
     blk <-
-        second toVariant . fromMaybe reportFatalError <$>
+        fromMaybe reportFatalError <$>
         query st (GetHBlockWithMetadata pId)
     let sendAndUpdate = do
             newExpectedPeriod <-

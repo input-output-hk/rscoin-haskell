@@ -74,7 +74,6 @@ import           RSCoin.Core                   (ActionLog, Address,
 import qualified RSCoin.Core                   as C
 
 import qualified RSCoin.Bank.Storage           as BS
-import           RSCoin.Bank.Types             (HBlockMetadata)
 
 type State = ExtendedState BS.Storage
 
@@ -122,7 +121,7 @@ getHBlock :: PeriodId -> Query BS.Storage (Maybe HBlock)
 getHBlock = view . BS.getHBlock
 
 getHBlockWithMetadata :: C.PeriodId
-                      -> Query BS.Storage (Maybe (C.WithMetadata C.HBlock HBlockMetadata))
+                      -> Query BS.Storage (Maybe (C.WithMetadata C.HBlock C.HBlockMetadata))
 getHBlockWithMetadata = view . BS.getHBlockWithMetadata
 
 getHBlocks :: PeriodId -> PeriodId -> Query BS.Storage [HBlock]

@@ -63,7 +63,6 @@ import           RSCoin.Bank.Storage.Storage   (Storage, addressesStorage,
                                                 mintettesStorage, periodId,
                                                 statisticsId, utxo)
 import qualified RSCoin.Bank.Strategies        as Strategies
-import           RSCoin.Bank.Types             (HBlockMetadata (..))
 
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
@@ -158,7 +157,7 @@ startNewPeriodDo timestamp sk 0 _ =
     startNewPeriodFinally metadata sk [] (const $ mkGenesisHBlock genAddr)
   where
     genAddr = C.Address $ C.derivePublicKey sk
-    metadata = HBlockMetadata timestamp C.genesisEmissionHash
+    metadata = C.HBlockMetadata timestamp C.genesisEmissionHash
 startNewPeriodDo timestamp sk pId results = do
     lastHBlock <- uses blocks (C.wmValue . head)
     curDpk <- use Q.getDpk
@@ -183,7 +182,7 @@ startNewPeriodDo timestamp sk pId results = do
             emissionTransaction : mergeTransactions mintettes filteredResults
     emissionId <- checkEmission $ C.txInputs emissionTransaction
     startNewPeriodFinally
-        (HBlockMetadata timestamp emissionId)
+        (C.HBlockMetadata timestamp emissionId)
         sk
         filteredResults
         (mkHBlock blockTransactions lastHBlock)
@@ -194,7 +193,7 @@ startNewPeriodDo timestamp sk pId results = do
 -- new block, add transactions to transaction resolving map. Return a
 -- list of mintettes that should update their utxo.
 startNewPeriodFinally
-    :: HBlockMetadata
+    :: C.HBlockMetadata
     -> SecretKey
     -> [(MintetteId, PeriodResult)]
     -> (C.AddressToTxStrategyMap -> SecretKey -> Dpk -> HBlock)

@@ -31,7 +31,6 @@ import qualified RSCoin.Core                   as C
 import qualified RSCoin.Bank.Storage.Addresses as AS
 import qualified RSCoin.Bank.Storage.Explorers as ES
 import qualified RSCoin.Bank.Storage.Mintettes as MS
-import           RSCoin.Bank.Types             (HBlockMetadata)
 
 -- | Storage contains all the data used by Bank.
 data Storage = Storage
@@ -47,7 +46,7 @@ data Storage = Storage
     , _periodId         :: !C.PeriodId
       -- | List of all blocks from the very beginning. Head of this
       -- list is the most recent block.
-    , _blocks           :: ![C.WithMetadata C.HBlock HBlockMetadata]
+    , _blocks           :: ![C.WithMetadata C.HBlock C.HBlockMetadata]
       -- | Utxo for all the transaction ever made.
     , _utxo             :: !C.Utxo
       -- | Used to make `DumpStatistics` endpoint private.

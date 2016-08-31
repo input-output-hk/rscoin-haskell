@@ -46,7 +46,6 @@ import           RSCoin.Bank.Storage.Storage   (Storage, addressesStorage,
                                                 blocks, explorersStorage,
                                                 mintettesStorage, periodId,
                                                 statisticsId, utxo)
-import           RSCoin.Bank.Types             (HBlockMetadata)
 
 type Query a = Getter Storage a
 
@@ -84,7 +83,7 @@ getHBlock :: C.PeriodId -> Query (Maybe C.HBlock)
 getHBlock pId = getHBlockWithMetadata pId . to (fmap C.wmValue)
 
 -- | Get higher-level block by periodId with metadata.
-getHBlockWithMetadata :: C.PeriodId -> Query (Maybe (C.WithMetadata C.HBlock HBlockMetadata))
+getHBlockWithMetadata :: C.PeriodId -> Query (Maybe (C.WithMetadata C.HBlock C.HBlockMetadata))
 getHBlockWithMetadata pId = blocks . to (\b -> b `atMay` (length b - pId - 1))
 
 -- | Given two indices `(a,b)` swap them so `a < b` if needed, then

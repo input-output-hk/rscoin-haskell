@@ -75,7 +75,7 @@ library
                      , RSCoin.Explorer.Channel
                      , RSCoin.Explorer.Server
                      , RSCoin.Explorer.Storage
-                     , RSCoin.Explorer.Summaries
+                     , RSCoin.Explorer.Extended
                      , RSCoin.Explorer.Web
                      , RSCoin.Explorer.Web.Aeson
                      , RSCoin.Explorer.Web.Servant

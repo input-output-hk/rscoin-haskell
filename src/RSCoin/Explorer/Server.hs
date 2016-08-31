@@ -18,8 +18,9 @@ import           RSCoin.Timed              (MonadRpc (getNodeContext), ServerT,
                                             serverTypeRestriction3)
 
 import           RSCoin.Explorer.AcidState (AddHBlock (..),
-                                            GetLastPeriodId (..), GetTx (..),
-                                            State, query, tidyState, update)
+                                            GetExpectedPeriodId (..),
+                                            GetTx (..), State, query, tidyState,
+                                            update)
 import           RSCoin.Explorer.Channel   (Channel, ChannelItem (..),
                                             writeChannel)
 import           RSCoin.Explorer.Error     (ExplorerError (EEInvalidBankSignature))
@@ -88,7 +89,7 @@ handleNewHBlock ch st bankPublicKey newBlockId blkWithMeta@(C.WithMetadata{..}) 
             ret (newBlockId + 1)
     unless (C.verify bankPublicKey sig (newBlockId, blkWithMeta)) $
         liftIO $ throwIO EEInvalidBankSignature
-    expectedPid <- maybe 0 succ <$> query st GetLastPeriodId
+    expectedPid <- query st GetExpectedPeriodId
     if expectedPid == newBlockId
         then upd
         else ret expectedPid

@@ -25,12 +25,12 @@ import           Servant                   ((:>), (:~>) (Nat), Capture,
 
 import qualified RSCoin.Core               as C
 
-import           RSCoin.Explorer.AcidState (GetTxSummary (..), State, query)
-import           RSCoin.Explorer.Summaries (TransactionSummary)
+import           RSCoin.Explorer.AcidState (GetTxExtended (..), State, query)
+import           RSCoin.Explorer.Extended  (TransactionExtended)
 import           RSCoin.Explorer.Web.Aeson ()
 
 type ExplorerApi =
-    "tx" :> Capture "txid" C.TransactionId :> Get '[JSON] TransactionSummary
+    "tx" :> Capture "txid" C.TransactionId :> Get '[JSON] TransactionExtended
 
 explorerApi :: Proxy ExplorerApi
 explorerApi = Proxy
@@ -53,9 +53,9 @@ convertHandler st act = do
     catcher :: WebError -> Handler a
     catcher NotFound = throwError err404
 
-handleGetTx :: C.TransactionId -> MyHandler TransactionSummary
+handleGetTx :: C.TransactionId -> MyHandler TransactionExtended
 handleGetTx i =
-    maybe (throwM NotFound) pure =<< flip query (GetTxSummary i) =<< ask
+    maybe (throwM NotFound) pure =<< flip query (GetTxExtended i) =<< ask
 
 servantServer :: ServerT ExplorerApi MyHandler
 servantServer = handleGetTx

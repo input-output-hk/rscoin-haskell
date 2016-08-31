@@ -16,29 +16,31 @@ module RSCoin.Explorer.AcidState
        , GetAddressBalance (..)
        , GetAddressTransactions (..)
        , GetAddressTxNumber (..)
-       , GetLastPeriodId (..)
+       , GetExpectedPeriodId (..)
        , GetTx (..)
-       , GetTxSummary (..)
+       , GetTxExtended (..)
        , IsAddressKnown (..)
+       , IsTransactionKnown (..)
 
        , AddHBlock (..)
        ) where
 
-import           Control.Monad.Trans       (MonadIO)
-import           Data.Acid                 (EventResult, EventState, Query,
-                                            QueryEvent, Update, UpdateEvent,
-                                            makeAcidic)
+import           Control.Monad.Trans      (MonadIO)
+import           Data.Acid                (EventResult, EventState, Query,
+                                           QueryEvent, Update, UpdateEvent,
+                                           makeAcidic)
 
-import           Serokell.AcidState        (ExtendedState, closeExtendedState,
-                                            openLocalExtendedState,
-                                            openMemoryExtendedState,
-                                            queryExtended, tidyExtendedState,
-                                            updateExtended)
+import           Serokell.AcidState       (ExtendedState, closeExtendedState,
+                                           openLocalExtendedState,
+                                           openMemoryExtendedState,
+                                           queryExtended, tidyExtendedState,
+                                           updateExtended)
 
-import qualified RSCoin.Core               as C
+import qualified RSCoin.Core              as C
 
-import qualified RSCoin.Explorer.Storage   as ES
-import           RSCoin.Explorer.Summaries (CoinsMapSummary, TransactionSummary)
+import           RSCoin.Explorer.Extended (CoinsMapExtended,
+                                           TransactionExtended)
+import qualified RSCoin.Explorer.Storage  as ES
 
 type State = ExtendedState ES.Storage
 
@@ -64,7 +66,7 @@ closeState = closeExtendedState
 tidyState :: MonadIO m => State -> m ()
 tidyState = tidyExtendedState
 
-getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, CoinsMapSummary)
+getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, CoinsMapExtended)
 getAddressBalance = ES.getAddressBalance
 
 getAddressTxNumber :: C.Address -> Query ES.Storage (C.PeriodId, Word)
@@ -73,31 +75,37 @@ getAddressTxNumber = ES.getAddressTxNumber
 getAddressTransactions
     :: C.Address
     -> (Word, Word)
-    -> Query ES.Storage (C.PeriodId, [(Word, TransactionSummary)])
+    -> Query ES.Storage (C.PeriodId, [(Word, TransactionExtended)])
 getAddressTransactions = ES.getAddressTransactions
 
-getLastPeriodId :: Query ES.Storage (Maybe C.PeriodId)
-getLastPeriodId = ES.getLastPeriodId
+getExpectedPeriodId :: Query ES.Storage C.PeriodId
+getExpectedPeriodId = ES.getExpectedPeriodId
 
 getTx :: C.TransactionId -> Query ES.Storage (Maybe C.Transaction)
 getTx = ES.getTx
 
-getTxSummary :: C.TransactionId -> Query ES.Storage (Maybe TransactionSummary)
-getTxSummary = ES.getTxSummary
+getTxExtended :: C.TransactionId -> Query ES.Storage (Maybe TransactionExtended)
+getTxExtended = ES.getTxExtended
 
 isAddressKnown :: C.Address -> Query ES.Storage Bool
 isAddressKnown = ES.isAddressKnown
 
-addHBlock :: C.PeriodId -> C.WithMetadata C.HBlock C.HBlockMetadata -> Update ES.Storage ()
+isTransactionKnown :: C.TransactionId -> Query ES.Storage Bool
+isTransactionKnown = ES.isTransactionKnown
+
+addHBlock :: C.PeriodId
+          -> C.WithMetadata C.HBlock C.HBlockMetadata
+          -> Update ES.Storage ()
 addHBlock = ES.addHBlock
 
 $(makeAcidic ''ES.Storage
              [ 'getAddressBalance
              , 'getAddressTxNumber
              , 'getAddressTransactions
-             , 'getLastPeriodId
+             , 'getExpectedPeriodId
              , 'getTx
-             , 'getTxSummary
+             , 'getTxExtended
              , 'isAddressKnown
+             , 'isTransactionKnown
              , 'addHBlock
              ])

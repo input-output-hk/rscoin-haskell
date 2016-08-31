@@ -15,7 +15,7 @@ import Pux.Html.Attributes (className) as A
 -- | A wrapper for strings which are used as CSS classes.
 newtype ClassName = ClassName String
 
-runClassName :: forall a. ClassName -> String
+runClassName :: ClassName -> String
 runClassName (ClassName s) = s
 
 className :: forall a. ClassName -> Attribute a

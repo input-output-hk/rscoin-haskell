@@ -9,56 +9,56 @@ module RSCoin.Explorer.Storage
        ( Storage
        , mkStorage
 
+         -- | Queries
        , Query
-       , addressExists
        , getAddressBalance
        , getAddressTxNumber
        , getAddressTransactions
        , getLastPeriodId
        , getTx
        , getTxSummary
+       , isAddressKnown
 
+         -- | Updates
        , Update
        , ExceptUpdate
        , addHBlock
 
        ) where
 
-import           Control.Lens                       (at, makeLenses, use, view,
-                                                     views, (%=), (.=), _3,
-                                                     _Just)
-import           Control.Monad                      (unless)
-import           Control.Monad.Catch                (MonadThrow (throwM))
-import           Control.Monad.Extra                (whenJustM)
-import           Control.Monad.Reader               (MonadReader)
-import           Control.Monad.State                (MonadState)
-import qualified Data.IntMap.Strict                 as I
-import           Data.List                          (foldl', genericDrop,
-                                                     genericLength, genericTake)
-import qualified Data.Map.Strict                    as M
-import           Data.Maybe                         (fromMaybe, isJust)
-import           Data.SafeCopy                      (base, deriveSafeCopy)
-import           Formatting                         (build, sformat, (%))
+import           Control.Lens              (at, makeLenses, use, view, views,
+                                            (%=), (+=), (.=), _Just)
+import           Control.Monad             (unless)
+import           Control.Monad.Catch       (MonadThrow (throwM))
+import           Control.Monad.Extra       (whenJustM)
+import           Control.Monad.Reader      (MonadReader)
+import           Control.Monad.State       (MonadState)
+import qualified Data.IntMap.Strict        as I
+import           Data.List                 (foldl', genericDrop, genericLength,
+                                            genericTake)
+import qualified Data.Map.Strict           as M
+import           Data.Maybe                (fromMaybe, isJust)
+import           Data.SafeCopy             (base, deriveSafeCopy)
+--import           Formatting                (build, sformat, (%))
 
-import qualified RSCoin.Core                        as C
+import qualified RSCoin.Core               as C
 
-import           RSCoin.Explorer.Error              (ExplorerError (..))
-import           RSCoin.Explorer.TransactionSummary (ExtendedAddrId,
-                                                     TransactionSummary (..),
-                                                     txSummaryToTx)
-
-$(deriveSafeCopy 0 'base ''TransactionSummary)
+import           RSCoin.Explorer.Error     (ExplorerError (..))
+import           RSCoin.Explorer.Summaries (CoinsMapSummary, ExtendedAddrId,
+                                            TransactionSummary (..),
+                                            cmsCoinAmount, cmsCoinsMap,
+                                            mkCoinsMapSummary, txSummaryToTx)
 
 data AddressData = AddressData
-    { _adBalance      :: C.CoinsMap
+    { _adBalance      :: CoinsMapSummary
     , _adTransactions :: [TransactionSummary]
     }
 
 mkAddressData :: AddressData
 mkAddressData =
     AddressData
-    { _adBalance = C.zeroCoinsMap
-    , _adTransactions = []
+    { _adBalance = mkCoinsMapSummary C.zeroCoinsMap
+    , _adTransactions = mempty
     }
 
 $(makeLenses ''AddressData)
@@ -78,8 +78,8 @@ data Storage = Storage
       -- | Mapping from transaction id to actual transaction with this
       -- id. Contains all transactions ever seen by this explorer.
       _transactionsMap :: !(M.Map C.TransactionId TransactionSummary)
-      -- | List off all emission hashes from the very beginning.
-    , _emissionHashes  :: ![C.TransactionId]
+ --     -- | List off all emission hashes from the very beginning.
+ --   -- , _emissionHashes  :: ![C.TransactionId]
       -- | Workaround
     , _txMapWorkaround :: !(M.Map C.TransactionId C.Transaction)
     }
@@ -95,7 +95,7 @@ mkStorage =
     { _addresses = M.empty
     , _lastPeriodId = Nothing
     , _transactionsMap = M.empty
-    , _emissionHashes = []
+    -- , _emissionHashes = []
     , _txMapWorkaround = M.empty
     }
 
@@ -106,10 +106,10 @@ addTimestamp q = (,) <$> (maybe 0 succ <$> getLastPeriodId) <*> q
 
 -- | Get amount of coins (as CoinsMap) available from given
 -- address. Result is timestamped with id of ongoing period.
-getAddressBalance :: C.Address -> Query (C.PeriodId, C.CoinsMap)
+getAddressBalance :: C.Address -> Query (C.PeriodId, CoinsMapSummary)
 getAddressBalance addr =
     addTimestamp $
-    views (addresses . at addr) (maybe C.zeroCoinsMap (view adBalance))
+    views (addresses . at addr) (maybe (mkCoinsMapSummary C.zeroCoinsMap) (view adBalance))
 
 -- | Get number of transactions refering to given address. Result is
 -- timestamped with id of ongoing period.
@@ -147,9 +147,9 @@ getTx = fmap (fmap txSummaryToTx) . getTxSummary
 getTxSummary :: C.TransactionId -> Query (Maybe TransactionSummary)
 getTxSummary i = view $ transactionsMap . at i
 
--- | Cheks whether address exists in storage
-addressExists :: C.Address -> Query Bool
-addressExists addr = fmap isJust . view $ addresses . at addr
+-- | Returns True iff Explorer knows something about this address.
+isAddressKnown :: C.Address -> Query Bool
+isAddressKnown addr = views (addresses . at addr) isJust
 
 type Update a = forall m. MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
@@ -157,8 +157,8 @@ type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 -- | Modify storage by applying given higher-level block. Period
 -- identifier is required to check that given HBlock is the next after
 -- last applied block.
-addHBlock :: C.PeriodId -> C.HBlock -> C.EmissionId -> ExceptUpdate ()
-addHBlock pId C.HBlock{..} emission = do
+addHBlock :: C.PeriodId -> C.WithMetadata C.HBlock ignore -> ExceptUpdate ()
+addHBlock pId (C.WithMetadata C.HBlock{..} _) = do
     expectedPid <- maybe 0 succ <$> use lastPeriodId
     unless (expectedPid == pId) $
         throwM
@@ -166,16 +166,16 @@ addHBlock pId C.HBlock{..} emission = do
             { pmExpectedPeriod = expectedPid
             , pmReceivedPeriod = pId
             }
-    addEmission emission
+    -- addEmission emission
     mapM_
         (\tx ->
               txMapWorkaround . at (C.hash tx) .= Just tx)
         hbTransactions
     mapM_ applyTransaction hbTransactions
     lastPeriodId .= Just pId
-  where
-    addEmission (Just e) = emissionHashes %= (e :)
-    addEmission _        = pure ()
+  -- where
+  --   addEmission (Just e) = emissionHashes %= (e :)
+  --   addEmission _        = pure ()
 
 applyTransaction :: C.Transaction -> ExceptUpdate ()
 applyTransaction tx@C.Transaction{..} = do
@@ -195,18 +195,16 @@ applyTransaction tx@C.Transaction{..} = do
         { txsId = txHash
         , txsInputs = summaryTxInputs
         , txsOutputs = txOutputs
-        , txsInputsSum = foldl'
+        , txsInputsSum = mkCoinsMapSummary $ foldl'
               (\m (_,_,c) ->
                     I.insertWith (+) (C.getC $ C.getColor c) c m)
               I.empty
               txInputs
-        , txsInputsTotal = sum $ map (C.getCoin . view _3) txInputs
-        , txsOutputsSum = foldl'
+        , txsOutputsSum = mkCoinsMapSummary $ foldl'
               (\m (_,c) ->
                     I.insertWith (+) (C.getC $ C.getColor c) c m)
               I.empty
               txOutputs
-        , txsOutputsTotal = sum $ map (C.getCoin . snd) txOutputs
         }
     -- TODO: use getTx that is already defined in this module
     -- We have to promote Query to Update
@@ -220,12 +218,13 @@ applyTransaction tx@C.Transaction{..} = do
                      -> ExceptUpdate ExtendedAddrId
     mkExtendedAddrId (txId,ind,c) addr
       | isJust addr = return (txId, ind, c, addr)
-      | otherwise = do
-          hasEmission <- elem txId <$> use emissionHashes
-          if hasEmission
-              then return (txId, ind, c, Nothing)
-              else throwM $ EEInternalError $
-                   sformat ("Invalid transaction id seen: " % build) txId
+      | otherwise = return (txId, ind, c, Nothing)
+          -- TODO: return this check during refactoring
+          -- hasEmission <- elem txId <$> use emissionHashes
+          -- if hasEmission
+          --     then return (txId, ind, c, Nothing)
+          --     else throwM $ EEInternalError $
+          --          sformat ("Invalid transaction id seen: " % build) txId
 
 applyTxInput :: TransactionSummary -> C.AddrId -> Update ()
 applyTxInput tx (oldTxId,idx,c) =
@@ -242,8 +241,9 @@ changeAddressData :: TransactionSummary -> C.Coin -> C.Address -> Update ()
 changeAddressData tx c addr = do
     ensureAddressExists addr
     addresses . at addr . _Just . adTransactions %= (tx :)
-    addresses . at addr . _Just . adBalance %=
-        I.insertWith (+) (C.getC $ C.getColor c) c
+    let aData = addresses . at addr . _Just . adBalance
+    aData . cmsCoinsMap %= I.insertWith (+) (C.getC $ C.getColor c) c
+    aData . cmsCoinAmount += C.getCoin c
 
 ensureAddressExists :: C.Address -> Update ()
 ensureAddressExists addr =

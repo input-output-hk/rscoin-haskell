@@ -17,7 +17,6 @@ module RSCoin.Bank.Storage.Storage
        , periodId
        , blocks
        , utxo
-       , emissionHashes
        , statisticsId
 
        ) where
@@ -27,13 +26,12 @@ import qualified Data.Map                      as MP
 import           Data.SafeCopy                 (base, deriveSafeCopy)
 import           Data.Typeable                 (Typeable)
 
-import           Serokell.Data.Variant         (Variant)
-
 import qualified RSCoin.Core                   as C
 
 import qualified RSCoin.Bank.Storage.Addresses as AS
 import qualified RSCoin.Bank.Storage.Explorers as ES
 import qualified RSCoin.Bank.Storage.Mintettes as MS
+import           RSCoin.Bank.Types             (HBlockMetadata)
 
 -- | Storage contains all the data used by Bank.
 data Storage = Storage
@@ -49,11 +47,9 @@ data Storage = Storage
     , _periodId         :: !C.PeriodId
       -- | List of all blocks from the very beginning. Head of this
       -- list is the most recent block.
-    , _blocks           :: ![C.WithMetadata C.HBlock Variant]
+    , _blocks           :: ![C.WithMetadata C.HBlock HBlockMetadata]
       -- | Utxo for all the transaction ever made.
     , _utxo             :: !C.Utxo
-      -- | List off all emission hashes from the very beginning.
-    , _emissionHashes   :: ![C.TransactionId]
       -- | Used to make `DumpStatistics` endpoint private.
     , _statisticsId     :: !Int
     } deriving (Typeable)
@@ -71,6 +67,5 @@ mkStorage =
     , _periodId = 0
     , _blocks = []
     , _utxo = MP.empty
-    , _emissionHashes = []
     , _statisticsId = 42
     }

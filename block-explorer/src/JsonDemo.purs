@@ -33,11 +33,12 @@ main = do
         key        = W.PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
         hash       = W.Hash "DldRwCblQ7Loqy6wYJnaodHl30d3j3eH+qtFzfEv46g="
         addr       = W.Address { getAddress:  key }
-        tx         = W.TransactionSummarySerializable {txId: hash, txInputs: [tuple4 hash 0 coin $ Just addr], txOutputs: [(Tuple addr coin)], txInputsSum: [Tuple 1 coin], txOutputsSum: [Tuple 1 coin], txInputsTotal: coinAmount, txOutputsTotal: coinAmount }
+        coinsMap   = W.CoinsMapSummarySerializable { cmCoinsMap: [Tuple 1 coin], cmCoinAmount: coinAmount }
+        tx         = W.TransactionSummarySerializable {txId: hash, txInputs: [tuple4 hash 0 coin $ Just addr], txOutputs: [(Tuple addr coin)], txInputsSum: coinsMap, txOutputsSum: coinsMap }
         err        = W.ParseError "error"
         introMsg   = W.IMAddressInfo addr
         aiMsg      = W.AIGetTransactions (Tuple 0 2)
-        outMsg     = W.OMTxNumber 8 10
+        outMsg     = W.OMTxNumber 8 "10"
         helper'    = do
             helper coin
             helper key

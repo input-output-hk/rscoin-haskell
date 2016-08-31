@@ -1,26 +1,57 @@
 module App.Routes where
 
-import Prelude (($), (<<<), (<>), show, class Eq, eq)
+import Prelude (($), (<<<), (<>), show, class Eq, eq, map, (/=), not)
 
 import Data.Functor ((<$), (<$>))
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, Maybe (..))
 import Data.Generic (gEq)
+import Data.String (joinWith)
+import Data.Array (catMaybes, null)
 
-import Control.Apply ((<*), (*>))
+import Data.I18N (Language (..), readBool, readLanguage)
+
+import Control.Apply ((<*), (*>), (<*>))
 import Control.Alternative ((<|>))
 
-import Pux.Router (end, router, lit, str)
+import Pux.Router (end, router, lit, str, param, Match)
 
 import App.RSCoin (Hash (..), TransactionId, Address (..), addressToString,
                    PublicKey (..)) as T
 
-data Route
+type QueryParams =
+    { color       :: Boolean
+    , colorOption :: Boolean
+    , language    :: Language
+    }
+
+noQueryParams :: QueryParams
+noQueryParams =
+    { color:       false
+    , colorOption: false
+    , language:    English
+    }
+
+data Route = Route Path QueryParams
+
+getPath :: Route -> Path
+getPath (Route p _) = p
+
+getQueryParams :: Route -> QueryParams
+getQueryParams (Route _ q) = q
+
+instance eqRoute :: Eq Route where
+    eq (Route p1 _) (Route p2 _) = eq p1 p2
+
+notFoundRoute :: Route
+notFoundRoute = Route NotFound noQueryParams
+
+data Path
     = Home
     | Transaction T.TransactionId
     | Address T.Address
     | NotFound
 
-instance eqRoute :: Eq Route where
+instance eqPath :: Eq Path where
     eq Home Home = true
     eq NotFound NotFound = true
     eq (Transaction tId1) (Transaction tId2) = eq tId1 tId2
@@ -28,13 +59,19 @@ instance eqRoute :: Eq Route where
     eq (Address addr1) (Address addr2) = gEq addr1 addr2
     eq _ _ = false
 
-match :: String -> Route
+toUrl :: Path -> String
+toUrl Home = homeUrl
+toUrl (Transaction tId) = txUrl tId
+toUrl (Address addr) = addressUrl addr
+toUrl NotFound = homeUrl
+
+match :: String -> Path
 match url = fromMaybe NotFound $ router url $
     Home <$ end
     <|>
-    Address <<< mkAddress <$> (lit addressLit *> str) <* end
-    <|>
     Transaction <<< T.Hash <$> (lit txLit *> str) <* end
+    <|>
+    Address <<< mkAddress <$> (lit addressLit *> str) <* end
   where
     mkAddress addr = T.Address {getAddress: T.PublicKey addr}
 

@@ -25,6 +25,7 @@ import           Servant                  ((:<|>) (..), (:>), (:~>) (Nat), Get,
 import           Serokell.Util.Exceptions (throwText)
 
 import qualified RSCoin.Core              as C
+import           RSCoin.Core.Aeson        ()
 import           RSCoin.Notary.AcidState  as S
 import           RSCoin.Notary.Error      (NotaryError)
 import qualified RSCoin.Notary.Server     as S

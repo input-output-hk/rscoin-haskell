@@ -10,6 +10,7 @@ import           Control.Monad             (unless)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Formatting                (build, int, sformat, (%))
 
+import           Serokell.Data.Variant     (Variant)
 import           Serokell.Util.Text        (listBuilderJSONIndent)
 
 import qualified RSCoin.Core               as C
@@ -50,26 +51,26 @@ handleGetTransaction st tId = do
                 tx
     tx <$ C.logDebug msg
 
+type HBlockSignature = C.Signature (C.PeriodId, C.WithMetadata C.HBlock Variant)
+
 handleNewHBlock
     :: WorkMode m
     => Channel
     -> State
     -> C.PublicKey
     -> C.PeriodId
-    -> (C.HBlock, C.EmissionId)
-    -> C.Signature (C.PeriodId, C.HBlock)
+    -> C.WithMetadata C.HBlock Variant
+    -> HBlockSignature
     -> ServerT m C.PeriodId
-handleNewHBlock ch st bankPublicKey newBlockId (newBlock,emission) sig = do
+handleNewHBlock ch st bankPublicKey newBlockId blkWithMeta@(C.WithMetadata{..}) sig = do
     C.logInfo $ sformat ("Received new block #" % int) newBlockId
-    unless (C.verify bankPublicKey sig (newBlockId, newBlock)) $
-        liftIO $ throwIO EEInvalidBankSignature
-    expectedPid <- maybe 0 succ <$> query st GetLastPeriodId
-    let ret p = do
+    let newBlock = wmValue
+        ret p = do
             C.logDebug $ sformat ("Now expected block is #" % int) p
             return p
         upd = do
             C.logDebug $ sformat ("HBlock hash: " % build) (C.hash newBlock)
-            C.logDebug $ sformat ("HBlock emission: " % build) emission
+            C.logDebug $ sformat ("HBlock metadata: " % build) wmMetadata
             C.logDebug $
                 sformat ("Transaction hashes: " % build) $
                 listBuilderJSONIndent 2 $
@@ -78,7 +79,7 @@ handleNewHBlock ch st bankPublicKey newBlockId (newBlock,emission) sig = do
             C.logDebug $
                 sformat ("Transactions: " % build) $
                 listBuilderJSONIndent 2 $ C.hbTransactions newBlock
-            update st (AddHBlock newBlockId newBlock emission)
+            update st (AddHBlock newBlockId blkWithMeta)
             writeChannel
                 ch
                 ChannelItem
@@ -86,6 +87,9 @@ handleNewHBlock ch st bankPublicKey newBlockId (newBlock,emission) sig = do
                 }
             tidyState st
             ret (newBlockId + 1)
+    unless (C.verify bankPublicKey sig (newBlockId, blkWithMeta)) $
+        liftIO $ throwIO EEInvalidBankSignature
+    expectedPid <- maybe 0 succ <$> query st GetLastPeriodId
     if expectedPid == newBlockId
         then upd
         else ret expectedPid

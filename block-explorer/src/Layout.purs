@@ -1,9 +1,10 @@
 module App.Layout where
 
-import Prelude                        (($), map, (<<<), pure, bind,
+import Prelude                        (($), map, (<<<), pure, bind, not,
                                        (==), flip, (<>), (/=), otherwise)
 
-import App.Routes                     (Route (..), addressUrl, txUrl, match) as R
+import App.Routes                     (Path (..), addressUrl, txUrl,
+                                       match) as R
 import App.Connection                 (Action (..), WEBSOCKET,
                                        introMessage, send) as C
 import App.Types                      (Address (..), IntroductoryMsg (..),
@@ -12,17 +13,18 @@ import App.Types                      (Address (..), IntroductoryMsg (..),
                                        OutcomingMsg (..),
                                        Action (..), State, SearchQuery (..),
                                        PublicKey (..), ServerError (..), Hash (..))
-import App.View.Address               (view) as Address
-import App.View.NotFound              (view) as NotFound
-import App.View.Transaction           (view) as Transaction
-import App.View.Header                (view) as Header
-import App.View.Alert                 (view) as Alert
+import App.CSS                        (veryLightGrey, styleSheet)
+import App.ViewNew.Address            (view) as Address
+import App.ViewNew.NotFound           (view) as NotFound
+import App.ViewNew.Transaction        (view) as Transaction
+import App.ViewNew.Header             (view) as Header
+import App.ViewNew.Alert              (view) as Alert
+import App.ViewNew.Footer             (view) as Footer
 
-import Serokell.Pux.Themes.Bootstrap3 (bootstrapCss, containerFluid)
-import Serokell.Pux.Html              (className)
-
-import Data.Maybe                     (Maybe(Nothing, Just), maybe, fromJust,
+import Data.Maybe                     (Maybe(Nothing, Just), maybe,
                                        isNothing, isJust)
+
+import Serokell.Data.Maybe            (unsafeFromJust)
 
 import Data.Tuple                     (Tuple (..), snd)
 import Data.Either                    (fromRight)
@@ -31,9 +33,12 @@ import Data.Array                     (filter, head)
 import Debug.Trace                    (traceAny)
 
 import Pux                            (EffModel, noEffects, onlyEffects)
-import Pux.Html                       (Html, div)
+import Pux.Html                       (Html, div, style, text)
+import Pux.Html.Attributes            (type_, id_, className)
 
 import Pux.Router                     (navigateTo) as R
+import Pux.CSS                        (style, backgroundColor) as CSS
+import CSS.Render                     (renderedSheet, render)
 
 import Control.Apply                  ((*>))
 import Control.Alternative            ((<|>))
@@ -61,7 +66,7 @@ update (PageView route@(R.Address addr)) state =
         ]
     }
   where
-    socket' = unsafePartial $ fromJust state.socket
+    socket' = unsafeFromJust state.socket
     onNewQueryDo action | state.queryInfo == Just (SQAddress addr) = pure Nop -- ignore
                         | otherwise = action
 update (PageView route@(R.Transaction tId)) state =
@@ -74,7 +79,7 @@ update (PageView route@(R.Transaction tId)) state =
         ]
     }
   where
-    socket' = unsafePartial $ fromJust state.socket
+    socket' = unsafeFromJust state.socket
     getTransaction =
         queryGetTx state.queryInfo
         <|>
@@ -87,8 +92,8 @@ update (PageView route@(R.Transaction tId)) state =
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
     \_ -> case unsafePartial $ fromRight msg of
-        OMBalance pId arr ->
-            { state: state { balance = arr, periodId = pId }
+        OMBalance pId coinsMap ->
+            { state: state { balance = Just coinsMap, periodId = pId }
             , effects:
                 [ do
                     C.send socket' <<< AIGetTransactions $ Tuple 0 txNum
@@ -119,13 +124,15 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                     pure Nop
                 ]
             }
+        OMTxNumber _ txNum ->
+            noEffects $ state { txNumber = Just txNum }
         OMError (ParseError e) ->
             noEffects $ state { error = Just $ "ParseError: " <> e }
         OMError (NotFound e) ->
             noEffects $ state { error = Just $ "NotFound: " <> e }
         _ -> noEffects state
   where
-    socket' = unsafePartial $ fromJust state.socket
+    socket' = unsafeFromJust state.socket
 update (SocketAction _) state = noEffects state
 update (SearchQueryChange sq) state = noEffects $ state { searchQuery = sq }
 update SearchButton state =
@@ -137,30 +144,40 @@ update SearchButton state =
             pure Nop
         ]
   where
-    socket' = unsafePartial $ fromJust state.socket
+    socket' = unsafeFromJust state.socket
     addr = Address { getAddress: PublicKey state.searchQuery }
     tId = Hash state.searchQuery
 update DismissError state = noEffects $ state { error = Nothing }
+update ColorToggle state =
+    noEffects $ state { colors = not state.colors }
+update (LanguageSet l) state =
+    noEffects $ state { language = l }
 update Nop state = noEffects state
 
 -- TODO: make safe version of bootstrap like
 -- https://github.com/slamdata/purescript-halogen-bootstrap/blob/master/src/Halogen/Themes/Bootstrap3.purs
 view :: State -> Html Action
 view state =
-    bootstrapCss
-        []
-        [ Header.view state
+    div
+        [ className "very-light-grey-background max-height" ]
+        [-- style
+         --   [ type_ "text/css" ]
+         --   [ text $ unsafePartial $ fromJust $ renderedSheet $ render styleSheet ]
+          Header.view state
         , Alert.view state
         , div
-            [ className containerFluid ]
+            [ className "container-fluid"
+            , id_ "page-content"
+            ]
             [ case state.route of
-                R.Home -> Address.view state
+                R.Home -> NotFound.view state
                 R.Address _ -> Address.view state
                 R.Transaction tId ->
-		            let
+                    let
                         queryGetTx (Just (SQTransaction tx)) = Just tx
                         queryGetTx _ = Nothing
-					in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
+                    in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
                 R.NotFound -> NotFound.view state
             ]
+        , Footer.view state
         ]

@@ -58,6 +58,7 @@ library
                      , RSCoin.User.Operations
                      , RSCoin.User.Wallet
   other-modules:       Paths_rscoin
+
                      , RSCoin.Bank.AcidState
                      , RSCoin.Bank.Launcher
                      , RSCoin.Bank.Server
@@ -68,18 +69,23 @@ library
                      , RSCoin.Bank.Storage.Queries
                      , RSCoin.Bank.Storage.Updates
                      , RSCoin.Bank.Strategies
+                     , RSCoin.Bank.Types
                      , RSCoin.Bank.Worker
+
                      , RSCoin.Explorer.AcidState
                      , RSCoin.Explorer.Channel
                      , RSCoin.Explorer.Server
                      , RSCoin.Explorer.Storage
-                     , RSCoin.Explorer.TransactionSummary
+                     , RSCoin.Explorer.Summaries
                      , RSCoin.Explorer.Web
+                     , RSCoin.Explorer.Web.Aeson
                      , RSCoin.Explorer.Web.Servant
                      , RSCoin.Explorer.Web.Sockets
-                     , RSCoin.Explorer.Web.Sockets.Types
                      , RSCoin.Explorer.Web.Sockets.App
+                     , RSCoin.Explorer.Web.Sockets.Types
+
                      , RSCoin.Notary.Web.Servant
+
                      , RSCoin.User.AcidState
                      , RSCoin.User.Cache
   build-depends:       acid-state

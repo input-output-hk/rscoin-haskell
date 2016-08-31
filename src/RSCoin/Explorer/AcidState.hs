@@ -14,32 +14,32 @@ module RSCoin.Explorer.AcidState
        , update
 
        , GetAddressBalance (..)
-       , GetAddressTxNumber (..)
        , GetAddressTransactions (..)
+       , GetAddressTxNumber (..)
        , GetLastPeriodId (..)
-       , AddressExists (..)
        , GetTx (..)
        , GetTxSummary (..)
+       , IsAddressKnown (..)
+
        , AddHBlock (..)
        ) where
 
-import           Control.Monad.Trans                (MonadIO)
-import           Data.Acid                          (EventResult, EventState,
-                                                     Query, QueryEvent, Update,
-                                                     UpdateEvent, makeAcidic)
+import           Control.Monad.Trans       (MonadIO)
+import           Data.Acid                 (EventResult, EventState, Query,
+                                            QueryEvent, Update, UpdateEvent,
+                                            makeAcidic)
 
-import           Serokell.AcidState                 (ExtendedState,
-                                                     closeExtendedState,
-                                                     openLocalExtendedState,
-                                                     openMemoryExtendedState,
-                                                     queryExtended,
-                                                     tidyExtendedState,
-                                                     updateExtended)
+import           Serokell.AcidState        (ExtendedState, closeExtendedState,
+                                            openLocalExtendedState,
+                                            openMemoryExtendedState,
+                                            queryExtended, tidyExtendedState,
+                                            updateExtended)
+import           Serokell.Data.Variant     (Variant)
 
-import qualified RSCoin.Core                        as C
+import qualified RSCoin.Core               as C
 
-import qualified RSCoin.Explorer.Storage            as ES
-import           RSCoin.Explorer.TransactionSummary (TransactionSummary)
+import qualified RSCoin.Explorer.Storage   as ES
+import           RSCoin.Explorer.Summaries (CoinsMapSummary, TransactionSummary)
 
 type State = ExtendedState ES.Storage
 
@@ -65,7 +65,7 @@ closeState = closeExtendedState
 tidyState :: MonadIO m => State -> m ()
 tidyState = tidyExtendedState
 
-getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, C.CoinsMap)
+getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, CoinsMapSummary)
 getAddressBalance = ES.getAddressBalance
 
 getAddressTxNumber :: C.Address -> Query ES.Storage (C.PeriodId, Word)
@@ -86,10 +86,10 @@ getTx = ES.getTx
 getTxSummary :: C.TransactionId -> Query ES.Storage (Maybe TransactionSummary)
 getTxSummary = ES.getTxSummary
 
-addressExists :: C.Address -> Query ES.Storage Bool
-addressExists = ES.addressExists
+isAddressKnown :: C.Address -> Query ES.Storage Bool
+isAddressKnown = ES.isAddressKnown
 
-addHBlock :: C.PeriodId -> C.HBlock -> C.EmissionId -> Update ES.Storage ()
+addHBlock :: C.PeriodId -> C.WithMetadata C.HBlock Variant -> Update ES.Storage ()
 addHBlock = ES.addHBlock
 
 $(makeAcidic ''ES.Storage
@@ -99,6 +99,6 @@ $(makeAcidic ''ES.Storage
              , 'getLastPeriodId
              , 'getTx
              , 'getTxSummary
-             , 'addressExists
+             , 'isAddressKnown
              , 'addHBlock
              ])

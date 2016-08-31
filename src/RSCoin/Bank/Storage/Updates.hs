@@ -34,7 +34,7 @@ import qualified Data.HashMap.Lazy             as M
 import qualified Data.HashSet                  as S
 import           Data.List                     (unfoldr)
 import qualified Data.Map                      as MP
-import           Data.Maybe                    (mapMaybe)
+import           Data.Maybe                    (fromMaybe, mapMaybe)
 import           Data.Time.Clock.POSIX         (POSIXTime)
 import           Safe                          (headMay)
 
@@ -45,7 +45,7 @@ import           RSCoin.Core                   (ActionLog, AddrId, Address (..),
                                                 Mintettes, NewPeriodData (..),
                                                 PeriodId, PeriodResult,
                                                 PublicKey, SecretKey,
-                                                Transaction (..),
+                                                Transaction (..), canonizeTx,
                                                 checkActionLog, checkLBlock,
                                                 computeOutputAddrids,
                                                 emissionHash, hash,
@@ -248,8 +248,7 @@ checkResult expectedPid lastHBlock (r,key,storedLog) = do
     dropEpoch = dropWhile (not . C.isCloseEpochEntry . fst) . drop 1
 
 -- | Perform coins allocation based on default allocation strategy
--- (hardcoded). Given the mintette's public keys it splits reward
--- among bank and mintettes.
+-- (hardcoded). The default strategy awards coins only to the bank.
 allocateCoins
     :: PublicKey
     -> [PublicKey]
@@ -257,10 +256,12 @@ allocateCoins
     -> PeriodId
     -> Transaction
 allocateCoins bankPk mintetteKeys goodResults pId =
-    Transaction
-    { txInputs = [(emissionHash pId, 0, inputValue)]
-    , txOutputs = (bankAddress, bankReward) : mintetteOutputs
-    }
+    fromMaybe (error "canonizeTx failed in allocateCoins") $
+    canonizeTx $
+        Transaction
+        { txInputs = [(emissionHash pId, 0, inputValue)]
+        , txOutputs = (bankAddress, bankReward) : mintetteOutputs
+        }
   where
     bankAddress = Address bankPk
     (bankReward,goodMintetteRewards) =

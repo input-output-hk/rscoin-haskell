@@ -14,10 +14,11 @@ module RSCoin.Explorer.Storage
        , getAddressBalance
        , getAddressTxNumber
        , getAddressTransactions
-       , getLastPeriodId
+       , getExpectedPeriodId
        , getTx
-       , getTxSummary
+       , getTxExtended
        , isAddressKnown
+       , isTransactionKnown
 
          -- | Updates
        , Update
@@ -26,38 +27,62 @@ module RSCoin.Explorer.Storage
 
        ) where
 
-import           Control.Lens              (at, makeLenses, use, view, views,
-                                            (%=), (+=), (.=), _Just)
-import           Control.Monad             (unless)
-import           Control.Monad.Catch       (MonadThrow (throwM))
-import           Control.Monad.Extra       (whenJustM)
-import           Control.Monad.Reader      (MonadReader)
-import           Control.Monad.State       (MonadState)
-import qualified Data.IntMap.Strict        as I
-import           Data.List                 (foldl', genericDrop, genericLength,
-                                            genericTake)
-import qualified Data.Map.Strict           as M
-import           Data.Maybe                (fromMaybe, isJust)
-import           Data.SafeCopy             (base, deriveSafeCopy)
---import           Formatting                (build, sformat, (%))
+import           Control.Applicative      (liftA2)
+import           Control.Lens             (at, ix, makeLenses, makeLensesFor,
+                                           preview, use, view, views, (%=),
+                                           (+=), (.=), _Just)
+import           Control.Monad            (unless)
+import           Control.Monad.Catch      (MonadThrow (throwM))
+import           Control.Monad.Extra      (ifM, whenJust)
+import           Control.Monad.Reader     (MonadReader, Reader, runReader)
+import           Control.Monad.State      (MonadState, gets)
+import qualified Data.HashMap.Strict      as HM
+import qualified Data.HashSet             as HS
+import qualified Data.IntMap.Strict       as I
+import           Data.List                (genericDrop, genericLength,
+                                           genericTake)
+import           Data.Maybe               (catMaybes, fromMaybe)
+import           Data.SafeCopy            (base, deriveSafeCopy)
+import qualified Data.Vector              as V
+import           Formatting               (build, sformat, (%))
 
-import qualified RSCoin.Core               as C
+import           Serokell.Util.Common     (enumerate)
 
-import           RSCoin.Explorer.Error     (ExplorerError (..))
-import           RSCoin.Explorer.Summaries (CoinsMapSummary, ExtendedAddrId,
-                                            TransactionSummary (..),
-                                            cmsCoinAmount, cmsCoinsMap,
-                                            mkCoinsMapSummary, txSummaryToTx)
+import qualified RSCoin.Core              as C
+
+import           RSCoin.Explorer.Error    (ExplorerError (..))
+import           RSCoin.Explorer.Extended (CoinsMapExtended, HBlockExtended,
+                                           TransactionExtended,
+                                           TransactionExtension (..), cmeTotal,
+                                           mkCoinsMapExtended, mkHBlockExtended,
+                                           mkTransactionExtension)
+
+$(makeLensesFor
+      [("wmValue", "wmVal"), ("wmMetadata", "wmExtension")]
+      ''C.WithMetadata)
+
+$(makeLensesFor [("hbTransactions", "hbTransactionsL")] ''C.HBlock)
+
+-- | TransactionIndex consists of two indices: the first one is the
+-- index of block containing this transaction, the second one is the
+-- index of transaction in this block. It's implementation detail of
+-- this storage.
+data TransactionIndex = TransactionIndex
+    { tiPeriod :: !C.PeriodId
+    , tiIdx    :: !Word
+    } deriving (Show)
+
+$(deriveSafeCopy 0 'base ''TransactionIndex)
 
 data AddressData = AddressData
-    { _adBalance      :: CoinsMapSummary
-    , _adTransactions :: [TransactionSummary]
+    { _adBalance      :: !CoinsMapExtended
+    , _adTransactions :: ![TransactionIndex]
     }
 
 mkAddressData :: AddressData
 mkAddressData =
     AddressData
-    { _adBalance = mkCoinsMapSummary C.zeroCoinsMap
+    { _adBalance = mkCoinsMapExtended C.zeroCoinsMap
     , _adTransactions = mempty
     }
 
@@ -65,23 +90,23 @@ $(makeLenses ''AddressData)
 
 $(deriveSafeCopy 0 'base ''AddressData)
 
--- TODO: store blocks, store transactions map more efficiently (see
--- `change-transcation-map` for example).
 data Storage = Storage
-    {
-      -- | State of all addresses ever seen by this explorer.
-      _addresses       :: !(M.Map C.Address AddressData)
-    ,
-      -- | PeriodId of last added HBlock.
-      _lastPeriodId    :: !(Maybe C.PeriodId)
-    ,
-      -- | Mapping from transaction id to actual transaction with this
-      -- id. Contains all transactions ever seen by this explorer.
-      _transactionsMap :: !(M.Map C.TransactionId TransactionSummary)
- --     -- | List off all emission hashes from the very beginning.
- --   -- , _emissionHashes  :: ![C.TransactionId]
-      -- | Workaround
-    , _txMapWorkaround :: !(M.Map C.TransactionId C.Transaction)
+    { -- | State of all addresses ever seen by this explorer.
+      _addresses       :: !(HM.HashMap C.Address AddressData)
+      -- | Extended higher level blocks received by this explorer from
+      -- the very beginning.
+    , _hBlocks         :: !(V.Vector HBlockExtended)
+      -- | Extensions of transactions. There is a trade-off between
+      -- memory usage and request processing time. They are not very
+      -- big, so we store them instead of recalculating every time.
+    , _txExtensions    :: !(V.Vector (V.Vector TransactionExtension))
+      -- | Mapping from transaction id to index of actual transaction
+      -- with this id. Contains all transactions ever seen by this
+      -- explorer. See TransactionIndex documentation also.
+    , _transactionsMap :: !(HM.HashMap C.TransactionId TransactionIndex)
+      -- | All emission hashes from the very beginning. It's only used
+      -- for checking purposes.
+    , _emissionHashes  :: !(HS.HashSet C.TransactionId)
     }
 
 $(makeLenses ''Storage)
@@ -92,24 +117,26 @@ $(deriveSafeCopy 0 'base ''Storage)
 mkStorage :: Storage
 mkStorage =
     Storage
-    { _addresses = M.empty
-    , _lastPeriodId = Nothing
-    , _transactionsMap = M.empty
-    -- , _emissionHashes = []
-    , _txMapWorkaround = M.empty
+    { _addresses = mempty
+    , _hBlocks = mempty
+    , _txExtensions = mempty
+    , _transactionsMap = mempty
+    , _emissionHashes = mempty
     }
 
 type Query a = forall m. MonadReader Storage m => m a
 
 addTimestamp :: Query a -> Query (C.PeriodId, a)
-addTimestamp q = (,) <$> (maybe 0 succ <$> getLastPeriodId) <*> q
+addTimestamp q = (,) <$> getExpectedPeriodId <*> q
 
 -- | Get amount of coins (as CoinsMap) available from given
 -- address. Result is timestamped with id of ongoing period.
-getAddressBalance :: C.Address -> Query (C.PeriodId, CoinsMapSummary)
+getAddressBalance :: C.Address -> Query (C.PeriodId, CoinsMapExtended)
 getAddressBalance addr =
     addTimestamp $
-    views (addresses . at addr) (maybe (mkCoinsMapSummary C.zeroCoinsMap) (view adBalance))
+    views
+        (addresses . at addr)
+        (maybe (mkCoinsMapExtended C.zeroCoinsMap) (view adBalance))
 
 -- | Get number of transactions refering to given address. Result is
 -- timestamped with id of ongoing period.
@@ -124,127 +151,125 @@ getAddressTxNumber addr =
 -- with id of ongoing period.
 getAddressTransactions :: C.Address
                        -> (Word, Word)
-                       -> Query (C.PeriodId, [(Word, TransactionSummary)])
+                       -> Query (C.PeriodId, [(Word, TransactionExtended)])
 getAddressTransactions addr indices =
     addTimestamp $
-    indexedSubList indices <$>
-    views (addresses . at addr) (maybe [] (view adTransactions))
+    indexedSubList indices . catMaybes <$>
+    (mapM txIdxToTxExtended =<<
+     views (addresses . at addr) (maybe [] (view adTransactions)))
 
 indexedSubList :: (Word, Word) -> [a] -> [(Word, a)]
-indexedSubList (lo,hi)
-  | hi <= lo = const []
-  | otherwise = zip [lo .. hi - 1] . genericTake (hi - lo) . genericDrop lo
+indexedSubList (lo, hi)
+    | hi <= lo = const []
+    | otherwise = zip [lo .. hi - 1] . genericTake (hi - lo) . genericDrop lo
 
--- | Get PeriodId of last added HBlock.
-getLastPeriodId :: Query (Maybe C.PeriodId)
-getLastPeriodId = view lastPeriodId
+-- | Get PeriodId of expected HBlock.
+getExpectedPeriodId :: Query C.PeriodId
+getExpectedPeriodId = views hBlocks length
+
+txIdxToTx :: TransactionIndex -> Query (Maybe C.Transaction)
+txIdxToTx TransactionIndex {..} =
+    preview $
+    hBlocks . ix tiPeriod . wmVal . hbTransactionsL . ix (fromIntegral tiIdx)
+
+txIdxToTxExtension :: TransactionIndex -> Query (Maybe TransactionExtension)
+txIdxToTxExtension TransactionIndex {..} =
+    preview $ txExtensions . ix tiPeriod . ix (fromIntegral tiIdx)
+
+txIdxToTxExtended :: TransactionIndex -> Query (Maybe TransactionExtended)
+txIdxToTxExtended idx =
+    liftA2 C.WithMetadata <$> txIdxToTx idx <*> txIdxToTxExtension idx
 
 -- | Get transaction with given id (if it can be found).
 getTx :: C.TransactionId -> Query (Maybe C.Transaction)
-getTx = fmap (fmap txSummaryToTx) . getTxSummary
+getTx = fmap (fmap C.wmValue) . getTxExtended
 
--- | Get summary of transaction with given id (if it can be found).
-getTxSummary :: C.TransactionId -> Query (Maybe TransactionSummary)
-getTxSummary i = view $ transactionsMap . at i
+-- | Get extended transaction with given id (if it can be found).
+getTxExtended :: C.TransactionId -> Query (Maybe TransactionExtended)
+getTxExtended i =
+    maybe (pure Nothing) txIdxToTxExtended =<< view (transactionsMap . at i)
 
--- | Returns True iff Explorer knows something about this address.
+-- | Returns True iff Explorer is aware of this address.
 isAddressKnown :: C.Address -> Query Bool
-isAddressKnown addr = views (addresses . at addr) isJust
+isAddressKnown addr = views addresses (HM.member addr)
+
+-- | Returns True iff Explorer is aware of this transaction.
+isTransactionKnown :: C.TransactionId -> Query Bool
+isTransactionKnown i = views transactionsMap (HM.member i)
 
 type Update a = forall m. MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
--- | Modify storage by applying given higher-level block. Period
+-- TODO: maybe move somewhere
+readerToState
+    :: MonadState s m
+    => Reader s a -> m a
+readerToState = gets . runReader
+
+-- | Modify storage by adding given higher-level block. Period
 -- identifier is required to check that given HBlock is the next after
 -- last applied block.
-addHBlock :: C.PeriodId -> C.WithMetadata C.HBlock ignore -> ExceptUpdate ()
-addHBlock pId (C.WithMetadata C.HBlock{..} _) = do
-    expectedPid <- maybe 0 succ <$> use lastPeriodId
+addHBlock :: C.PeriodId -> C.WithMetadata C.HBlock C.HBlockMetadata -> ExceptUpdate ()
+addHBlock pId blkWithMeta@(C.WithMetadata C.HBlock {..} C.HBlockMetadata {..}) = do
+    expectedPid <- readerToState getExpectedPeriodId
     unless (expectedPid == pId) $
         throwM
             EEPeriodMismatch
             { pmExpectedPeriod = expectedPid
             , pmReceivedPeriod = pId
             }
-    -- addEmission emission
-    mapM_
-        (\tx ->
-              txMapWorkaround . at (C.hash tx) .= Just tx)
-        hbTransactions
-    mapM_ applyTransaction hbTransactions
-    lastPeriodId .= Just pId
-  -- where
-  --   addEmission (Just e) = emissionHashes %= (e :)
-  --   addEmission _        = pure ()
+    let extendedBlk = mkHBlockExtended pId blkWithMeta
+    hBlocks %= flip V.snoc extendedBlk
+    emissionHashes %= HS.insert hbmEmission
+    mapM_ (addTxToMap pId) $ enumerate hbTransactions
+    extensions <- mapM (mkTxExtension pId) hbTransactions
+    txExtensions %= flip V.snoc (V.fromList extensions)
+    let extendedTxs = zipWith C.WithMetadata hbTransactions extensions
+    mapM_ applyTxToAddresses $
+        zip (map (TransactionIndex pId) [0 ..]) extendedTxs
 
-applyTransaction :: C.Transaction -> ExceptUpdate ()
-applyTransaction tx@C.Transaction{..} = do
-    txInputsSummaries <-
-        mapM
-            (\a ->
-                  mkExtendedAddrId a =<< inputToAddr a)
-            txInputs
-    let txSummary = mkTransactionSummary txInputsSummaries
-    transactionsMap . at txHash .= Just txSummary
-    mapM_ (applyTxInput txSummary) txInputs
-    mapM_ (applyTxOutput txSummary) txOutputs
+addTxToMap :: C.PeriodId -> (Word, C.Transaction) -> Update ()
+addTxToMap pId (txIdx, tx) = transactionsMap . at (C.hash tx) .= Just index
   where
-    txHash = C.hash tx
-    mkTransactionSummary summaryTxInputs =
-        TransactionSummary
-        { txsId = txHash
-        , txsInputs = summaryTxInputs
-        , txsOutputs = txOutputs
-        , txsInputsSum = mkCoinsMapSummary $ foldl'
-              (\m (_,_,c) ->
-                    I.insertWith (+) (C.getC $ C.getColor c) c m)
-              I.empty
-              txInputs
-        , txsOutputsSum = mkCoinsMapSummary $ foldl'
-              (\m (_,c) ->
-                    I.insertWith (+) (C.getC $ C.getColor c) c m)
-              I.empty
-              txOutputs
+    index =
+        TransactionIndex
+        { tiPeriod = pId
+        , tiIdx = txIdx
         }
-    -- TODO: use getTx that is already defined in this module
-    -- We have to promote Query to Update
-    inputToAddr
-        :: C.AddrId -> Update (Maybe C.Address)
-    inputToAddr (txId,idx,_) =
-        fmap (fst . (!! idx) . C.txOutputs) <$>
-        (use $ txMapWorkaround . at txId)
-    mkExtendedAddrId :: C.AddrId
-                     -> (Maybe C.Address)
-                     -> ExceptUpdate ExtendedAddrId
-    mkExtendedAddrId (txId,ind,c) addr
-      | isJust addr = return (txId, ind, c, addr)
-      | otherwise = return (txId, ind, c, Nothing)
-          -- TODO: return this check during refactoring
-          -- hasEmission <- elem txId <$> use emissionHashes
-          -- if hasEmission
-          --     then return (txId, ind, c, Nothing)
-          --     else throwM $ EEInternalError $
-          --          sformat ("Invalid transaction id seen: " % build) txId
 
-applyTxInput :: TransactionSummary -> C.AddrId -> Update ()
-applyTxInput tx (oldTxId,idx,c) =
-    whenJustM (use $ txMapWorkaround . at oldTxId) applyTxInputDo
+mkTxExtension :: C.PeriodId -> C.Transaction -> ExceptUpdate TransactionExtension
+mkTxExtension pId = mkTransactionExtension pId getTxChecked
   where
-    applyTxInputDo oldTx = do
-        let addr = fst $ C.txOutputs oldTx !! idx
-        changeAddressData tx (-c) addr
+    getTxChecked i = do
+        tx <- readerToState $ getTx i
+        let msg = sformat ("Invalid transaction id seen: " % build) i
+        case tx of
+            Nothing ->
+                ifM
+                    (HS.member i <$> use emissionHashes)
+                    (pure Nothing)
+                    (throwM $ EEIncorrectBlock pId msg)
+            justTx -> pure justTx
 
-applyTxOutput :: TransactionSummary -> (C.Address, C.Coin) -> Update ()
-applyTxOutput tx (addr,c) = changeAddressData tx c addr
+applyTxToAddresses :: (TransactionIndex, TransactionExtended) -> Update ()
+applyTxToAddresses (i, C.WithMetadata C.Transaction {..} TransactionExtension {..}) = do
+    mapM_ (applyTxInput i) $ zip txInputs teInputAddresses
+    mapM_ (applyTxOutput i) txOutputs
 
-changeAddressData :: TransactionSummary -> C.Coin -> C.Address -> Update ()
+applyTxInput :: TransactionIndex -> (C.AddrId, Maybe C.Address) -> Update ()
+applyTxInput i ((_, _, c), mAddr) = whenJust mAddr $ changeAddressData i (-c)
+
+applyTxOutput :: TransactionIndex -> (C.Address, C.Coin) -> Update ()
+applyTxOutput i (addr,c) = changeAddressData i c addr
+
+changeAddressData :: TransactionIndex -> C.Coin -> C.Address -> Update ()
 changeAddressData tx c addr = do
     ensureAddressExists addr
     addresses . at addr . _Just . adTransactions %= (tx :)
-    let aData = addresses . at addr . _Just . adBalance
-    aData . cmsCoinsMap %= I.insertWith (+) (C.getC $ C.getColor c) c
-    aData . cmsCoinAmount += C.getCoin c
+    let aBalance = addresses . at addr . _Just . adBalance
+    aBalance . wmVal  %= I.insertWith (+) (C.getC $ C.getColor c) c
+    aBalance . wmExtension . cmeTotal += C.getCoin c
 
 ensureAddressExists :: C.Address -> Update ()
 ensureAddressExists addr =
-    addresses %= M.alter (Just . fromMaybe mkAddressData) addr
+    addresses %= HM.alter (Just . fromMaybe mkAddressData) addr

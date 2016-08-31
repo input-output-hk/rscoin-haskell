@@ -22,7 +22,7 @@ import           Control.Monad                     (forever, unless)
 import           Control.Monad.Catch               (Handler (Handler),
                                                     SomeException, catches,
                                                     finally)
-import           Control.Monad.Extra               (ifM, maybeM, whenJust)
+import           Control.Monad.Extra               (ifM, whenJust)
 import           Control.Monad.Reader              (ReaderT, runReaderT)
 import           Control.Monad.State               (MonadState, State, runState)
 import           Control.Monad.Trans               (MonadIO (liftIO))
@@ -45,7 +45,6 @@ import qualified RSCoin.Explorer.AcidState         as DB
 import           RSCoin.Explorer.Channel           (Channel, ChannelItem (..),
                                                     readChannel)
 import qualified RSCoin.Explorer.Storage           as ES
-import           RSCoin.Explorer.Summaries         (TransactionSummary (txsOutputs))
 import           RSCoin.Explorer.Web.Sockets.Types (AddressInfoMsg (..),
                                                     ControlMsg (..),
                                                     ErrorableMsg,
@@ -157,7 +156,7 @@ onGetTransaction conn tId = do
     C.logDebug $ sformat ("Transaction " % build % " is requested") tId
     let errMsg = sformat ("Transaction " % build % " not found") tId
     send conn . maybe (OMError $ NotFound errMsg) OMTransaction =<<
-        query (DB.GetTxSummary tId)
+        query (DB.GetTxExtended tId)
     mainLoop conn Nothing
 
 receiveControlMessage
@@ -184,12 +183,13 @@ receiveControlMessage setAddressCB getTransactionCB errorCB msg =
                         (True <$ setAddressCB addr)
                         (pure False)
                 tryTransaction =
-                    either (const $ pure False) tryTransactionDo $ C.parseHash text
+                    either (const $ pure False) tryTransactionDo $
+                    C.parseHash text
                 tryTransactionDo txId =
-                    maybeM
+                    ifM
                         (pure False)
-                        (const $ True <$ getTransactionCB txId)
-                        (query (DB.GetTxSummary txId))
+                        (True <$ getTransactionCB txId)
+                        (query (DB.IsTransactionKnown txId))
             results <- sequence [tryAddress, tryTransaction]
             unless (or results) $ errorCB errMsg
 
@@ -266,8 +266,8 @@ sender channel =
            outputAddresses = S.fromList $ map fst outputs
            inputToAddr :: C.AddrId -> ServerMonad (Maybe C.Address)
            inputToAddr (txId, idx, _) =
-               fmap (fst . (!! idx) . txsOutputs) <$>
-               query (DB.GetTxSummary txId)
+               fmap (fst . (!! idx) . C.txOutputs) <$>
+               query (DB.GetTx txId)
        affectedAddresses <-
            mappend outputAddresses . S.fromList . catMaybes <$>
            mapM inputToAddr inputs

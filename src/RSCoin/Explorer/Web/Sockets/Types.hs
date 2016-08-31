@@ -16,10 +16,6 @@ module RSCoin.Explorer.Web.Sockets.Types
        , AddressInfoMsg (..)
        , IncomingMsg (..)
        , OutcomingMsg (..)
-
-         -- | Re-exports
-       , CoinsMapSummary
-       , TransactionSummary
        ) where
 
 import           Data.Aeson                (FromJSON, eitherDecode, encode)
@@ -33,7 +29,8 @@ import qualified Network.WebSockets        as WS
 import           Serokell.Aeson.Options    (defaultOptionsPS)
 
 import qualified RSCoin.Core               as C
-import           RSCoin.Explorer.Summaries (CoinsMapSummary, TransactionSummary)
+import           RSCoin.Explorer.Extended  (CoinsMapExtended,
+                                            TransactionExtended)
 import           RSCoin.Explorer.Web.Aeson ()
 
 -- | Run-time errors which may happen within this server.
@@ -129,7 +126,7 @@ data OutcomingMsg
       -- | Sent within `AddressInfo` session.
       OMBalance !C.Address
                 !C.PeriodId
-                !CoinsMapSummary
+                !CoinsMapExtended
     |
       -- | Sent within `AddressInfo` session. Contains number of
       -- transactions referencing address over given PeriodId.
@@ -138,13 +135,13 @@ data OutcomingMsg
                  !Word
     |
       -- | Sent in response to CMGetTransaction message.
-      OMTransaction !TransactionSummary
+      OMTransaction !TransactionExtended
     |
       -- | Sent within `AddressInfo` session. Has an indexed list of
       -- transactions referencing address over given PeriodId.
       OMTransactions !C.Address
                      !C.PeriodId
-                     ![(Word, TransactionSummary)]
+                     ![(Word, TransactionExtended)]
     deriving (Show,Generic)
 
 $(deriveToJSON defaultOptionsPS ''OutcomingMsg)

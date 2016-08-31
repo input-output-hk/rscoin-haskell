@@ -16,6 +16,7 @@ import           GHC.Generics              (Generic)
 import           Serokell.Aeson.Options    (defaultOptionsPS)
 
 import qualified RSCoin.Core               as C
+import           RSCoin.Core.AesonJS       ()
 import           RSCoin.Explorer.Summaries (CoinsMapSummary, ExtendedAddrId,
                                             TransactionSummary (..),
                                             cmsCoinAmount, cmsCoinsMap)

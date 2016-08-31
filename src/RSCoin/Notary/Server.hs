@@ -103,7 +103,7 @@ handlePublishTx
 handlePublishTx st tx addr sg =
     toServer $
     do update st $ AddSignedTransaction tx addr sg
-       res <- query st $ GetSignatures tx addr
+       res <- query st $ GetSignatures tx
        C.logDebug $
            sformat
                ("Getting signatures for tx " % build % ", addr " % build % ": " %
@@ -142,6 +142,7 @@ handleGetPeriodId st = toServer $ do
     C.logDebug $ sformat ("Getting periodId: " % int) res
     return res
 
+-- @TODO: remove 'C.Address' argument
 handleGetSignatures
     :: MonadIO m
     => NotaryState
@@ -150,7 +151,7 @@ handleGetSignatures
     -> ServerTE m [(C.Address, C.Signature C.Transaction)]
 handleGetSignatures st tx addr =
     toServer $
-    do res <- query st $ GetSignatures tx addr
+    do res <- query st $ GetSignatures tx
        C.logDebug $
            sformat
                ("Getting signatures for tx " % build % ", addr " % build % ": " %

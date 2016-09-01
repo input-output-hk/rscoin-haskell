@@ -28,7 +28,8 @@ import           System.Random           (Random)
 
 import qualified RSCoin.Bank             as B
 import           RSCoin.Core             (PublicKey, SecretKey,
-                                          WithNamedLogger (..), defaultPort, testingLoggerName)
+                                          WithNamedLogger (..), defaultPort,
+                                          testingLoggerName)
 import qualified RSCoin.Mintette         as M
 import qualified RSCoin.Notary           as N
 import qualified RSCoin.User             as U

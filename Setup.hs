@@ -21,7 +21,7 @@ main =
             system "stack $NIX_STACK exec -- rscoin-hs2purs" >>= printError
             -- FIXME: https://gitlab.serokell.io/rscoin/rscoin/commit/fc8d36123dba122a4ce41053e1881ea5e1873030#note_1193
             system
-                "cd block-explorer; PATH=$PATH:node_modules/.bin; npm install; npm run test; npm run build" >>=
+                "cd block-explorer; npm install; npm run build" >>=
                 printError
     printError ExitSuccess = return ()
     printError e = exitWith e

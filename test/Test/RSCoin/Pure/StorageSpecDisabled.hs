@@ -41,6 +41,7 @@ import qualified Test.RSCoin.Pure.BankState     as B
 import qualified Test.RSCoin.Pure.MintetteState as M
 import qualified Test.RSCoin.Pure.Update        as T
 
+-- @TODO: duplicate with Test.RSCoin.Full.Error
 data TestError
     = TestError Text
     deriving (Show, Typeable, Eq)
@@ -55,6 +56,9 @@ data RSCoinState = RSCoinState
     } deriving (Show)
 
 $(makeLenses ''RSCoinState)
+
+testNodeContext :: C.NodeContext
+testNodeContext = C.defaultNodeContextWithLogger C.testingLoggerName
 
 spec :: Spec
 spec =
@@ -120,9 +124,8 @@ instance CanUpdate StartNewPeriod where
                         (throwM $ TestError "No mintettes secret key")
                         (liftMintetteUpdate mId . flip M.finishPeriod pId)
                         mSk
---        (bankPk, genesisAddr) <- liftA2 (,) (^. C.bankPublicKey) (^. C.genesisAddress)
---                                 <$> getNodeContext
-        (bankPk, genesisAddr) <- error "I need pk and genessis address :("
+        (bankPk, genesisAddr) <-
+            liftA2 (,) (^. C.bankPublicKey) (^. C.genesisAddress) testNodeContext
         newPeriodData <-
             liftBankUpdate . B.startNewPeriod bankPk genesisAddr bankSk $ map Just periodResults
         newMintettes <- use $ bankState . B.bankStorage . B.getMintettes
@@ -197,14 +200,15 @@ instance Arbitrary RSCoinState where
         return . T.execUpdate (sequence_ . map doUpdate $ updates) $
             RSCoinState bank M.empty [genesisOutput] 0
       where
+        genesisAddress = testNodeContext ^. C.genesisAddress
         genesisOutput =
             ( bankSecretKey
-            , ( C.hash $ C.initialTx $ error "Can't get genesis :("
+            , ( C.hash $ C.initialTx genesisAddress
               , 0
               , C.genesisValue
               )
             )
-        bankSecretKey = undefined
+        bankSecretKey = C.testBankSecretKey
 
 -- TODO: there must be a better way to write this (in more lens style)
 liftBankUpdate :: T.Update B.BankError B.Storage a -> T.Update C.RSCoinError RSCoinState a

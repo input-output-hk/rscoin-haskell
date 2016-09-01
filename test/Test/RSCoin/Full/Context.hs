@@ -23,13 +23,12 @@ module Test.RSCoin.Full.Context
 import           Control.Concurrent.MVar (MVar)
 import           Control.Lens            (Getter, makeLenses, to, _1, _2)
 import           Control.Monad.Reader    (ReaderT)
-import           Control.Monad.Trans     (MonadIO, liftIO)
 import           Data.Word               (Word16, Word8)
 import           System.Random           (Random)
 
 import qualified RSCoin.Bank             as B
 import           RSCoin.Core             (PublicKey, SecretKey,
-                                          WithNamedLogger (..), defaultPort)
+                                          WithNamedLogger (..), defaultPort, testingLoggerName)
 import qualified RSCoin.Mintette         as M
 import qualified RSCoin.Notary           as N
 import qualified RSCoin.User             as U
@@ -91,8 +90,8 @@ $(makeLenses ''TestContext)
 
 type TestEnv m = ReaderT TestContext m
 
-instance MonadIO m => WithNamedLogger (TestEnv m) where
-    getLoggerName = liftIO $ getLoggerName
+instance Monad m => WithNamedLogger (TestEnv m) where
+    getLoggerName = pure testingLoggerName
 
 -- * Shortcuts
 

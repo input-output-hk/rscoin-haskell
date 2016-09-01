@@ -14,8 +14,8 @@ import App.Routes                  (Path (NotFound))
 import App.Connection              (Connection, Action) as C
 import App.RSCoin                  as RSCoin
 import App.RSCoin                  (Coin, Address,
-                                    TransactionSummarySerializable (..),
-                                    addressToString, CoinsMapSummarySerializable)
+                                    TransactionSummary (..),
+                                    addressToString, CoinsMapSummary)
 import Data.Color                  as Color
 import Data.I18N                   (Language (..))
 
@@ -35,11 +35,11 @@ data Action
 
 data SearchQuery
     = SQAddress Address
-    | SQTransaction TransactionSummarySerializable
+    | SQTransaction TransactionSummary
 
 queryToString :: SearchQuery -> String
 queryToString (SQAddress addr) = addressToString addr
-queryToString (SQTransaction (TransactionSummarySerializable tId)) = show tId.txId
+queryToString (SQTransaction (TransactionSummary tId)) = show tId.txsId
 
 instance eqSearchQeuery :: Eq SearchQuery where
     eq (SQAddress addr1) (SQAddress addr2) = gEq addr1 addr2
@@ -55,9 +55,9 @@ type State =
     , queryInfo        :: Maybe SearchQuery
     , isAuthenticated  :: Boolean
     , searchQuery      :: String
-    , balance          :: Maybe CoinsMapSummarySerializable
-    , txNumber         :: Maybe String
-    , transactions     :: Array TransactionSummarySerializable
+    , balance          :: Maybe CoinsMapSummary
+    , txNumber         :: Maybe Int
+    , transactions     :: Array TransactionSummary
     , periodId         :: Int
     , error            :: Maybe String
     , colors           :: Boolean

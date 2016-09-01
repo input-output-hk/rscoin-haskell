@@ -24,6 +24,13 @@ stripFieldPrefix = dropWhile (not <<< isUpper)
 dropPunctuation :: String -> String
 dropPunctuation = fromCharArray <<< filter (not <<< isPunctuation) <<< toCharArray
 
+-- TODO: use when argonaut adds labelFieldModifier
+dropLensUnderscore :: String -> String
+dropLensUnderscore = maybe' (\ _ -> unsafeCrashWith "dropLensUnderscore: undefined") (\{head:h, tail:t} -> dropUnderscore (singleton h) <> t ) <<< uncons
+  where
+    dropUnderscore "_" = ""
+    dropUnderscore x = x
+
 stripConstructorPrefix :: String -> String
 stripConstructorPrefix t =
     fromCharArray <<< maybe ts (flip drop ts <<< decrementSafe) $ findIndex isLower ts

@@ -3,7 +3,7 @@ module App.View.Transaction where
 import Prelude                        (($), map, show)
 
 import App.RSCoin                     (Coin(Coin), Color(Color),
-                                       TransactionSummarySerializable(TransactionSummarySerializable),
+                                       TransactionSummary(TransactionSummary),
                                        addressToString)
 import App.Types                      (Action, State)
 import App.Routes                     (txUrl, addressUrl)
@@ -18,8 +18,8 @@ import Data.Maybe                     (Maybe (..))
 import Serokell.Pux.Html              (classNames, className)
 import Serokell.Pux.Themes.Bootstrap3 as B
 
-view :: TransactionSummarySerializable -> State -> Html Action
-view (TransactionSummarySerializable tx) state =
+view :: TransactionSummary -> State -> Html Action
+view (TransactionSummary tx) state =
     div []
         []
 --          div
@@ -103,7 +103,7 @@ view (TransactionSummarySerializable tx) state =
 --           , td [] [ text $ show color.getC ]
 --           , td [] [ text $ show coin]
 --           ]
---    transactionRow (TransactionSummarySerializable t) =
+--    transactionRow (TransactionSummary t) =
 --        tr []
 --           [ td [] [ link (txUrl t.txId) [] [ text $ show t.txId ] ]
 --           , td [] [ text $ show $ length t.txInputs ]

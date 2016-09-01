@@ -3,7 +3,7 @@ module App.View.Address where
 import Prelude                        (($), map, show)
 
 import App.Types                       (Action, State, Coin(Coin), Color(Color),
-                                       TransactionSummarySerializable(TransactionSummarySerializable),
+                                       TransactionSummary(TransactionSummary),
                                        queryToString)
 import App.Routes                     (txUrl) as R
 
@@ -76,7 +76,7 @@ view state =
 --            , td [] [ text $ show color.getC ]
 --            , td [] [ text $ show coin]
 --            ]
---     transactionRow (TransactionSummarySerializable t) =
+--     transactionRow (TransactionSummary t) =
 --         tr []
 --            [ td [] [ link (R.txUrl t.txId) [] [ text $ show t.txId ] ]
 --            , td [] [ text $ show $ length t.txInputs ]

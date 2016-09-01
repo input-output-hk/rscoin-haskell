@@ -16,27 +16,27 @@ import Serokell.Pux.Themes.Bootstrap3 (alert, alertDanger, alertDismissible,
                                        close)
 
 view :: State -> Html Action
-view state =
-    case state.error of
-        Just e ->
-            div
-                [ classNames [alert, alertDanger, alertDismissible]
-                , role "alert"
-                ]
-                [ button
-                    [ type_ "button"
-                    , className close
-                    , data_ "dismiss" "alert"
-                    , aria "label" "Close"
-                    , onClick $ const DismissError
-                    ]
-                    [ span
-                        [ aria "hidden" "true" ]
-                        [ text "×" ]
-                    ]
-                , strong
-                    []
-                    [ text "Error! " ]
-                , text e
-                ]
-        Nothing -> div [] []
+view state = div [] []
+--    case state.error of
+--        Just e ->
+--            div
+--                [ classNames [alert, alertDanger, alertDismissible]
+--                , role "alert"
+--                ]
+--                [ button
+--                    [ type_ "button"
+--                    , className close
+--                    , data_ "dismiss" "alert"
+--                    , aria "label" "Close"
+--                    , onClick $ const DismissError
+--                    ]
+--                    [ span
+--                        [ aria "hidden" "true" ]
+--                        [ text "×" ]
+--                    ]
+--                , strong
+--                    []
+--                    [ text "Error! " ]
+--                , text e
+--                ]
+--        Nothing -> div [] []

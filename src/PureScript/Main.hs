@@ -44,5 +44,6 @@ hashBridge = typeName ^== "Hash" >> return psHash
 coinAmountBridge :: BridgePart
 coinAmountBridge = typeName ^== "CoinAmount" >> return psCoinAmount
 
+-- FIXME: we assume here that IntMap == Map Int Coin
 coinsMapBridge :: BridgePart
-coinsMapBridge = typeName ^== "SerializableCoinsMap" >> return psCoinsMap
+coinsMapBridge = typeName ^== "IntMap" >> return psCoinsMap

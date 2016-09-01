@@ -17,8 +17,11 @@ module RSCoin.Explorer.AcidState
        , GetAddressTransactions (..)
        , GetAddressTxNumber (..)
        , GetExpectedPeriodId (..)
+       , GetHBlocksExtended (..)
+       , GetHBlockExtended (..)
        , GetTx (..)
        , GetTxExtended (..)
+       , GetTxExtensions (..)
        , IsAddressKnown (..)
        , IsTransactionKnown (..)
 
@@ -38,8 +41,9 @@ import           Serokell.AcidState       (ExtendedState, closeExtendedState,
 
 import qualified RSCoin.Core              as C
 
-import           RSCoin.Explorer.Extended (CoinsMapExtended,
-                                           TransactionExtended)
+import           RSCoin.Explorer.Extended (CoinsMapExtended, HBlockExtended,
+                                           TransactionExtended,
+                                           TransactionExtension)
 import qualified RSCoin.Explorer.Storage  as ES
 
 type State = ExtendedState ES.Storage
@@ -87,6 +91,15 @@ getTx = ES.getTx
 getTxExtended :: C.TransactionId -> Query ES.Storage (Maybe TransactionExtended)
 getTxExtended = ES.getTxExtended
 
+getTxExtensions :: C.PeriodId -> Query ES.Storage [TransactionExtension]
+getTxExtensions = ES.getTxExtensions
+
+getHBlocksExtended :: (C.PeriodId, C.PeriodId) -> Query ES.Storage [(C.PeriodId, HBlockExtended)]
+getHBlocksExtended = ES.getHBlocksExtended
+
+getHBlockExtended :: C.PeriodId -> Query ES.Storage (Maybe HBlockExtended)
+getHBlockExtended = ES.getHBlockExtended
+
 isAddressKnown :: C.Address -> Query ES.Storage Bool
 isAddressKnown = ES.isAddressKnown
 
@@ -103,8 +116,11 @@ $(makeAcidic ''ES.Storage
              , 'getAddressTxNumber
              , 'getAddressTransactions
              , 'getExpectedPeriodId
+             , 'getHBlocksExtended
+             , 'getHBlockExtended
              , 'getTx
              , 'getTxExtended
+             , 'getTxExtensions
              , 'isAddressKnown
              , 'isTransactionKnown
              , 'addHBlock

@@ -18,7 +18,7 @@ import           Control.Concurrent.MVar           (MVar, modifyMVar, newMVar,
                                                     readMVar)
 import           Control.Lens                      (at, makeLenses, preuse, use,
                                                     view, (%=), (+=), (.=),
-                                                    (^.), (^?), _Just)
+                                                    (^.), _Just)
 import           Control.Monad                     (forever, join, unless)
 import           Control.Monad.Catch               (Handler (Handler),
                                                     SomeException, catches,
@@ -29,6 +29,7 @@ import           Control.Monad.State               (MonadState, State, runState)
 import           Control.Monad.Trans               (MonadIO (liftIO))
 import           Data.Acid                         (EventResult, EventState,
                                                     QueryEvent)
+import           Data.Bifunctor                    (second)
 import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (catMaybes, fromMaybe)
 import qualified Data.Set                          as S
@@ -38,6 +39,7 @@ import           Formatting                        (build, int, sformat, shown,
                                                     stext, (%))
 import qualified Network.WebSockets                as WS
 
+import           Serokell.Util.Common              (indexedSubList)
 import           Serokell.Util.Concurrent          (threadDelay)
 import           Serokell.Util.Text                (listBuilderJSON)
 
@@ -50,6 +52,7 @@ import qualified RSCoin.Explorer.Storage           as ES
 import           RSCoin.Explorer.Web.Sockets.Types (AddressInfoMsg (..),
                                                     ControlMsg (..),
                                                     ErrorableMsg,
+                                                    HBlockInfoMsg (..),
                                                     IncomingMsg (..),
                                                     OutcomingMsg (..),
                                                     ServerError (..))
@@ -57,14 +60,13 @@ import           RSCoin.Explorer.Web.Sockets.Types (AddressInfoMsg (..),
 type SessionId = Word
 
 data ClientContext = ClientContext
-    { _ccSendNewBlocks :: !Bool
-    , _ccAddress       :: !(Maybe C.Address)
-    , _ccHBlock        :: !(Maybe C.PeriodId)
-    , _ccConnection    :: !WS.Connection
+    { _ccAddress    :: !(Maybe C.Address)
+    , _ccHBlock     :: !(Maybe C.PeriodId)
+    , _ccConnection :: !WS.Connection
     }
 
 mkClientContext :: WS.Connection -> ClientContext
-mkClientContext = ClientContext False Nothing Nothing
+mkClientContext = ClientContext Nothing Nothing
 
 $(makeLenses ''ClientContext)
 
@@ -105,6 +107,13 @@ setClientAddress sessId addr = do
     csClients . at sessId . _Just . ccAddress .= addr
     whenJust addr $ subscribeAddr sessId
 
+setClientHBlock
+    :: MonadState ConnectionsState m
+    => SessionId -> Maybe C.PeriodId -> m ()
+setClientHBlock sessId pId = do
+    csClients . at sessId . _Just . ccHBlock .= pId
+    subscribeHBlocks sessId
+
 subscribeAddr
     :: MonadState ConnectionsState m
     => SessionId -> C.Address -> m ()
@@ -130,6 +139,11 @@ unsubscribeHBlocks
     :: MonadState ConnectionsState m
     => SessionId -> m ()
 unsubscribeHBlocks i = csHBlocksSubscribers %= S.delete i
+
+unsubscribeFully
+    :: MonadState ConnectionsState m
+    => SessionId -> m ()
+unsubscribeFully i = unsubscribeHBlocks i >> unsubscribeAddr i
 
 type ConnectionsVar = MVar ConnectionsState
 
@@ -202,6 +216,9 @@ myConnection sessId = (^. ccConnection) <$> myContext sessId
 myAddress :: SessionId -> ServerMonad (Maybe C.Address)
 myAddress sessId = (^. ccAddress) <$> myContext sessId
 
+myBlockId :: SessionId -> ServerMonad (Maybe C.PeriodId)
+myBlockId sessId = (^. ccHBlock) <$> myContext sessId
+
 onSetAddress :: SessionId -> C.Address -> ServerMonad ()
 onSetAddress sessId addr = do
     addrKnown <- query (DB.IsAddressKnown addr)
@@ -233,17 +250,59 @@ onGetTransaction sessId tId = do
     C.logDebug $ sformat ("Transaction " % build % " is requested") tId
     let errMsg = sformat ("Transaction " % build % " not found") tId
     conn <- myConnection sessId
-    modifyConnectionsState $ unsubscribeAddr sessId
-    send conn . maybe (OMError $ NotFound errMsg) OMTransaction =<<
+    modifyConnectionsState $ unsubscribeFully sessId
+    send conn . maybe (OMError $ NotFound errMsg) (OMTransaction tId) =<<
         query (DB.GetTxExtended tId)
     recvLoop sessId
 
-receiveControlMessage
-    :: (C.Address -> ServerMonad ())
-    -> (C.TransactionId -> ServerMonad ())
-    -> (Text -> ServerMonad ())
-    -> (ControlMsg -> ServerMonad ())
-receiveControlMessage setAddressCB getTransactionCB errorCB msg =
+onSetHBlock :: SessionId -> C.PeriodId -> ServerMonad ()
+onSetHBlock sessId pId = do
+    good <- ((pId >= 0) &&) . (pId <) <$> query DB.GetExpectedPeriodId
+    if good
+        then setAndLog
+        else reportBad
+    recvLoop sessId
+  where
+    setAndLog = do
+        modifyConnectionsState $ setClientHBlock sessId (Just pId)
+        C.logInfo $
+            sformat
+                ("Session about HBlock #" % int %
+                 " is established, session id is " %
+                 int)
+                pId
+                sessId
+    badIdMsg = sformat ("Invalid period id: " % int) pId
+    reportBad = do
+        C.logInfo $
+            sformat
+                ("Invalid HBlock is requested (" % build % "), sessiod id is " %
+                 int)
+                pId
+                sessId
+        conn <- myConnection sessId
+        send conn $ OMError $ NotFound $ badIdMsg
+
+onGetBlockchainHeight :: SessionId -> ServerMonad ()
+onGetBlockchainHeight sessId = do
+    C.logDebug "Blockchain height requested"
+    conn <- myConnection sessId
+    send conn . OMBlockchainHeight . pred =<< query DB.GetExpectedPeriodId
+    recvLoop sessId
+
+onGetBlocksOverview :: SessionId -> (C.PeriodId, C.PeriodId) -> ServerMonad ()
+onGetBlocksOverview sessId range = do
+    C.logDebug "Blocks overview requested"
+    conn <- myConnection sessId
+    send conn . OMBlocksOverview . map (second C.wmMetadata) =<<
+        query (DB.GetHBlocksExtended range)
+    recvLoop sessId
+
+receiveControlMessage :: SessionId
+                      -> (Text -> ServerMonad ())
+                      -> ControlMsg
+                      -> ServerMonad ()
+receiveControlMessage sessId errorCB msg =
     case msg of
         CMSetAddress addr -> setAddressCB addr
         CMGetTransaction txId -> getTransactionCB txId
@@ -271,6 +330,12 @@ receiveControlMessage setAddressCB getTransactionCB errorCB msg =
                         (query (DB.IsTransactionKnown txId))
             results <- sequence [tryAddress, tryTransaction]
             unless (or results) $ errorCB errMsg
+        CMSetHBlock pId -> onSetHBlock sessId pId
+        CMGetBlockchainHeight -> onGetBlockchainHeight sessId
+        CMGetBlocksOverview range -> onGetBlocksOverview sessId range
+  where
+    setAddressCB = onSetAddress sessId
+    getTransactionCB = onGetTransaction sessId
 
 sendNotFound :: SessionId -> Text -> ServerMonad ()
 sendNotFound sessId t = do
@@ -302,25 +367,50 @@ onAddressInfo sessId msg addr = do
                     lo
                     hi
                     addr
-            send conn . uncurry (OMTransactions addr) =<<
+            send conn . uncurry (OMAddrTransactions addr) =<<
                 query (DB.GetAddressTransactions addr indices)
+
+onHBlockInfo :: SessionId -> HBlockInfoMsg -> C.PeriodId -> ServerMonad ()
+onHBlockInfo sessId msg blkId = do
+    conn <- myConnection sessId
+    blkExtendedMaybe <- query (DB.GetHBlockExtended blkId)
+    let sendError =
+            send conn $
+            OMError $ NotFound $ sformat ("HBlock #" % int % " not found") blkId
+        proceed C.WithMetadata {wmValue = C.HBlock {..}
+                               ,wmMetadata = ext} = do
+            txExtensions <- query (DB.GetTxExtensions blkId)
+            case msg of
+                HIGetMetadata -> do
+                    send conn . OMBlockMetadata blkId $ ext
+                (HIGetTransactions indices) -> do
+                    send conn . OMBlockTransactions blkId $
+                        indexedSubList indices $
+                        zipWith C.WithMetadata hbTransactions txExtensions
+    maybe sendError proceed blkExtendedMaybe
 
 recvLoop :: SessionId -> ServerMonad ()
 recvLoop sessId = do
     conn <- myConnection sessId
     let onReceive (IMControl cm) = do
             receiveControlMessage
-                (onSetAddress sessId)
-                (onGetTransaction sessId)
+                sessId
                 (\e -> sendNotFound sessId e >> recvLoop sessId)
                 cm
         onReceive (IMAddrInfo am) = do
             addr <- myAddress sessId
             maybe onUnexpectedAddrInfo (onAddressInfo sessId am) addr
             recvLoop sessId
+        onReceive (IMHBlockInfo msg) = do
+            blkId <- myBlockId sessId
+            maybe onUnexpectedHBlockInfo (onHBlockInfo sessId msg) blkId
+            recvLoop sessId
         onUnexpectedAddrInfo =
             send conn . OMError . LogicError $
             "Received AddressInfo message while context doesn't store Address"
+        onUnexpectedHBlockInfo =
+            send conn . OMError . LogicError $
+            "Received HBlockInfo message while context doesn't store HBlock id"
     forever (recv conn "InputMsg" onReceive) `finally`
         modifyConnectionsState (finishSession sessId)
 
@@ -331,32 +421,10 @@ handler pendingConn = do
     C.logDebug "Accepted new connection"
     liftIO $ WS.forkPingThread conn 30
     sessId <- modifyConnectionsState $ startSession conn
-    recv conn "Control Message" $
-        receiveControlMessage
-            (onSetAddress sessId)
-            (onGetTransaction sessId)
-            (sendNotFound sessId)
+    recv conn "Control Message" $ receiveControlMessage sessId (sendNotFound sessId)
 
 sender :: Channel -> ServerMonad ()
-sender channel =
-    foreverSafe $
-    do ChannelItem {ciTransactions = txs} <- readChannel channel
-       C.logDebug "There is a new ChannelItem in Channel"
-       let inputs = concatMap C.txInputs txs
-           outputs = concatMap C.txOutputs txs
-           outputAddresses = S.fromList $ map fst outputs
-           inputToAddr :: C.AddrId -> ServerMonad (Maybe C.Address)
-           inputToAddr (txId, idx, _) =
-               fmap (fst . (!! idx) . C.txOutputs) <$>
-               query (DB.GetTx txId)
-       affectedAddresses <-
-           mappend outputAddresses . S.fromList . catMaybes <$>
-           mapM inputToAddr inputs
-       C.logDebug $
-           sformat
-               ("Affected addresses are: " % build)
-               (listBuilderJSON affectedAddresses)
-       mapM_ notifyAboutAddressUpdate affectedAddresses
+sender channel = foreverSafe $ onNewChannelItem =<< readChannel channel
   where
     foreverSafe :: ServerMonad () -> ServerMonad ()
     foreverSafe action = do
@@ -371,6 +439,25 @@ sender channel =
             [Handler catchConnectionError, Handler catchWhateverError]
         foreverSafe action
 
+onNewChannelItem :: ChannelItem -> ServerMonad ()
+onNewChannelItem ChannelItem {ciTransactions = txs} = do
+    C.logDebug "There is a new ChannelItem in Channel"
+    let inputs = concatMap C.txInputs txs
+        outputs = concatMap C.txOutputs txs
+        outputAddresses = S.fromList $ map fst outputs
+        inputToAddr :: C.AddrId -> ServerMonad (Maybe C.Address)
+        inputToAddr (txId, idx, _) =
+            fmap (fst . (!! idx) . C.txOutputs) <$> query (DB.GetTx txId)
+    affectedAddresses <-
+        mappend outputAddresses . S.fromList . catMaybes <$>
+        mapM inputToAddr inputs
+    C.logDebug $
+        sformat
+            ("Affected addresses are: " % build)
+            (listBuilderJSON affectedAddresses)
+    mapM_ notifyAboutAddressUpdate affectedAddresses
+    notifyAboutNewHBlock
+
 notifyAboutAddressUpdate :: C.Address -> ServerMonad ()
 notifyAboutAddressUpdate addr = do
     connectionsState <- liftIO . readMVar =<< view ssConnections
@@ -378,13 +465,20 @@ notifyAboutAddressUpdate addr = do
     msgTxNumber <-
         uncurry (OMTxNumber addr) <$> query (DB.GetAddressTxNumber addr)
     let sessIds =
-            fromMaybe S.empty $ connectionsState ^. csAddressSubscribers .
+            S.toList $ fromMaybe S.empty $ connectionsState ^.
+            csAddressSubscribers .
             at addr
-        idToConn i = connectionsState ^? csClients . at i . _Just . ccConnection
-        foldrStep sessId l = maybe l (: l) $ idToConn sessId
-        connections = S.foldr' foldrStep [] sessIds
-        sendToAll msg = mapM_ (flip send msg) connections
+    connections <- mapM myConnection sessIds
+    let sendToAll msg = mapM_ (flip send msg) connections
     mapM_ sendToAll [msgBalance, msgTxNumber]
+
+notifyAboutNewHBlock :: ServerMonad ()
+notifyAboutNewHBlock = do
+    connectionsState <- liftIO . readMVar =<< view ssConnections
+    let sessIds = S.toList $ connectionsState ^. csHBlocksSubscribers
+    connections <- mapM myConnection sessIds
+    msg <- OMNewBlock . pred <$> query DB.GetExpectedPeriodId
+    mapM_ (flip send msg) connections
 
 -- | Given access to Explorer's data base and channel, returns
 -- WebSockets server application.

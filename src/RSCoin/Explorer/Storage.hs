@@ -17,6 +17,9 @@ module RSCoin.Explorer.Storage
        , getExpectedPeriodId
        , getTx
        , getTxExtended
+       , getTxExtensions
+       , getHBlocksExtended
+       , getHBlockExtended
        , isAddressKnown
        , isTransactionKnown
 
@@ -39,14 +42,13 @@ import           Control.Monad.State      (MonadState, gets)
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
 import qualified Data.IntMap.Strict       as I
-import           Data.List                (genericDrop, genericLength,
-                                           genericTake)
+import           Data.List                (genericLength)
 import           Data.Maybe               (catMaybes, fromMaybe)
 import           Data.SafeCopy            (base, deriveSafeCopy)
 import qualified Data.Vector              as V
 import           Formatting               (build, sformat, (%))
 
-import           Serokell.Util.Common     (enumerate)
+import           Serokell.Util.Common     (enumerate, indexedSubList)
 
 import qualified RSCoin.Core              as C
 
@@ -158,11 +160,6 @@ getAddressTransactions addr indices =
     (mapM txIdxToTxExtended =<<
      views (addresses . at addr) (maybe [] (view adTransactions)))
 
-indexedSubList :: (Word, Word) -> [a] -> [(Word, a)]
-indexedSubList (lo, hi)
-    | hi <= lo = const []
-    | otherwise = zip [lo .. hi - 1] . genericTake (hi - lo) . genericDrop lo
-
 -- | Get PeriodId of expected HBlock.
 getExpectedPeriodId :: Query C.PeriodId
 getExpectedPeriodId = views hBlocks length
@@ -188,6 +185,19 @@ getTx = fmap (fmap C.wmValue) . getTxExtended
 getTxExtended :: C.TransactionId -> Query (Maybe TransactionExtended)
 getTxExtended i =
     maybe (pure Nothing) txIdxToTxExtended =<< view (transactionsMap . at i)
+
+-- | Get extensions of all transactions in given period.
+getTxExtensions :: C.PeriodId -> Query [TransactionExtension]
+getTxExtensions i =
+    V.toList . fromMaybe mempty <$> preview (txExtensions . ix i)
+
+-- | Get indexed list of extended HBlocks in given range.
+getHBlocksExtended :: (C.PeriodId, C.PeriodId) -> Query [(C.PeriodId, HBlockExtended)]
+getHBlocksExtended indices = indexedSubList indices . V.toList <$> view hBlocks
+
+-- | Get extended HBlock with given id (if it exists).
+getHBlockExtended :: C.PeriodId -> Query (Maybe HBlockExtended)
+getHBlockExtended blkId = (V.!? blkId) <$> view hBlocks
 
 -- | Returns True iff Explorer is aware of this address.
 isAddressKnown :: C.Address -> Query Bool

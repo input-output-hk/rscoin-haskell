@@ -18,7 +18,7 @@ import           Serokell.Aeson.Options   (defaultOptionsPS)
 
 -- import qualified RSCoin.Core              as C
 import           RSCoin.Core.AesonJS      ()
-import           RSCoin.Explorer.Extended (CoinsMapExtension,
+import           RSCoin.Explorer.Extended (CoinsMapExtension, HBlockExtension,
                                            TransactionExtension)
 
 $(deriveToJSON defaultOptionsPS ''CoinsMapExtension)
@@ -43,3 +43,4 @@ $(deriveToJSON defaultOptionsPS ''CoinsMapExtension)
 --     toEncoding = toEncoding . mkSerCoinsMapExtended
 
 $(deriveToJSON defaultOptionsPS ''TransactionExtension)
+$(deriveToJSON defaultOptionsPS ''HBlockExtension)

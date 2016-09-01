@@ -8,8 +8,7 @@ import           Data.Maybe                  (fromJust)
 import           Data.MessagePack            (MessagePack (..), pack, unpack)
 import           Test.Hspec                  (Spec, describe)
 import           Test.Hspec.QuickCheck       (prop)
-import           Test.QuickCheck             (Arbitrary (arbitrary), Gen, scale,
-                                              (===))
+import           Test.QuickCheck             ((===))
 
 import qualified RSCoin.Core                 as C
 import           RSCoin.Mintette.Error       (MintetteError)

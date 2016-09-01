@@ -3,7 +3,6 @@ module App.Connection
        , Connection
        , send
        , init
-       , introMessage
        , module WS
        ) where
 
@@ -28,7 +27,7 @@ import Data.Argonaut.Parser        (jsonParser)
 
 import Serokell.Aeson.Helper       (encodeJson, decodeJson)
 
-import App.RSCoin                  (OutcomingMsg, AddressInfoMsg, IntroductoryMsg)
+import App.RSCoin                  (OutcomingMsg, IncomingMsg)
 
 data Action
     = ConnectionOpened
@@ -51,13 +50,7 @@ init chan url = do
         S.send chan <<< ReceivedData $ jsonParser received >>= decodeJson
     pure connection
 
-introMessage :: forall eff. W.Connection -> IntroductoryMsg -> Aff (ws :: W.WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) Unit
-introMessage (W.Connection ws) value = liftEff do
-    log "onsend: Send introductory message"
-    traceAnyM value
-    ws.send <<< W.Message <<< printJson $ encodeJson value
-
-send :: forall eff. W.Connection -> AddressInfoMsg -> Aff (ws :: W.WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) Unit
+send :: forall eff. W.Connection -> IncomingMsg -> Aff (ws :: W.WEBSOCKET, err :: EXCEPTION, console :: CONSOLE | eff) Unit
 send (W.Connection ws) value = liftEff do
     log "onsend: Send message"
     traceAnyM value

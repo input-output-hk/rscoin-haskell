@@ -6,10 +6,11 @@ import Prelude                        (($), map, (<<<), pure, bind, not,
 import App.Routes                     (Path (..), addressUrl, txUrl,
                                        match) as R
 import App.Connection                 (Action (..), WEBSOCKET,
-                                       introMessage, send) as C
-import App.Types                      (Address (..), IntroductoryMsg (..),
+                                       send) as C
+import App.Types                      (Address (..), ControlMsg (..),
                                        AddressInfoMsg (..),
-                                       TransactionSummarySerializable (..),
+                                       IncomingMsg (..),
+                                       TransactionSummary (..),
                                        OutcomingMsg (..),
                                        Action (..), State, SearchQuery (..),
                                        PublicKey (..), ServerError (..), Hash (..))
@@ -58,9 +59,10 @@ update (PageView route@(R.Address addr)) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
-            if state.isAuthenticated
-                then C.send socket' $ AIChangeAddress addr
-                else C.introMessage socket' $ IMAddressInfo addr
+--            if state.isAuthenticated
+--                then C.send socket' $ ControlMsg $ CMChangeAddress addr
+--                else pure Nop -- C.send socket' $ IMAddressInfo addr
+            C.send socket' $ IMControl $ CMSetAddress addr
             pure Nop
         -- FIXME: if socket isn't opened open some error page
         ]
@@ -74,7 +76,7 @@ update (PageView route@(R.Transaction tId)) state =
     , effects:
         [ onNewQueryDo do
             when (isNothing getTransaction) $
-                C.introMessage socket' $ IMTransactionInfo tId
+                C.send socket' $ IMControl $ CMGetTransaction tId
             pure Nop
         ]
     }
@@ -83,53 +85,58 @@ update (PageView route@(R.Transaction tId)) state =
     getTransaction =
         queryGetTx state.queryInfo
         <|>
-        head (filter (\(TransactionSummarySerializable t) -> t.txId == tId) state.transactions)
-    queryGetTx (Just (SQTransaction tx@(TransactionSummarySerializable t)))
-        | t.txId == tId = Just tx
+        head (filter (\(TransactionSummary t) -> t.txsId == tId) state.transactions)
+    queryGetTx (Just (SQTransaction tx@(TransactionSummary t)))
+        | t.txsId == tId = Just tx
     queryGetTx _ = Nothing
     onNewQueryDo action | isJust getTransaction = pure Nop -- ignore
                         | otherwise = action
 update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
     \_ -> case unsafePartial $ fromRight msg of
-        OMBalance pId coinsMap ->
+        OMBalance addr pId coinsMap ->
             { state: state { balance = Just coinsMap, periodId = pId }
             , effects:
                 [ do
-                    C.send socket' <<< AIGetTransactions $ Tuple 0 txNum
-                    pure Nop
-                ]
-            }
-        OMTransactions _ arr ->
-            noEffects $ state { transactions = map snd arr }
-        OMTransaction tx@(TransactionSummarySerializable t) ->
-            { state: state { queryInfo = Just $ SQTransaction tx }
-            , effects:
-                [ do
-                    let expectedUrl = R.txUrl t.txId
-                    unless (state.route == R.match expectedUrl) $
-                        liftEff $ R.navigateTo expectedUrl
-                    pure Nop
-                ]
-            }
-        OMSessionEstablished addr ->
-            { state: state { queryInfo = Just $ SQAddress addr, isAuthenticated = true }
-            , effects:
-                [ do
-                    C.send socket' AIGetTxNumber
-                    C.send socket' AIGetBalance
+                    C.send socket' <<< IMAddrInfo <<< AIGetTransactions $ Tuple 0 txNum
                     let expectedUrl = R.addressUrl addr
                     unless (state.route == R.match expectedUrl) $
                         liftEff $ R.navigateTo expectedUrl
                     pure Nop
                 ]
             }
-        OMTxNumber _ txNum ->
+        OMTransactions _ _ arr ->
+            noEffects $ state { transactions = map snd arr }
+        OMTransaction tx@(TransactionSummary t) ->
+            { state: state { queryInfo = Just $ SQTransaction tx }
+            , effects:
+                [ do
+                    let expectedUrl = R.txUrl t.txsId
+                    unless (state.route == R.match expectedUrl) $
+                        liftEff $ R.navigateTo expectedUrl
+                    pure Nop
+                ]
+            }
+--        OMSessionEstablished addr ->
+--            { state: state { queryInfo = Just $ SQAddress addr, isAuthenticated = true }
+--            , effects:
+--                [ do
+--                    C.send socket' AIGetTxNumber
+--                    C.send socket' AIGetBalance
+--                    let expectedUrl = R.addressUrl addr
+--                    unless (state.route == R.match expectedUrl) $
+--                        liftEff $ R.navigateTo expectedUrl
+--                    pure Nop
+--                ]
+--            }
+        OMTxNumber _ _ txNum ->
             noEffects $ state { txNumber = Just txNum }
         OMError (ParseError e) ->
-            noEffects $ state { error = Just $ "ParseError: " <> e }
+            noEffects $ state { error = Just $ "ParseError: " <> e.peError }
         OMError (NotFound e) ->
             noEffects $ state { error = Just $ "NotFound: " <> e }
+        OMError (LogicError e) ->
+            noEffects $ state { error = Just $ "LogicError: " <> e }
         _ -> noEffects state
   where
     socket' = unsafeFromJust state.socket
@@ -138,15 +145,14 @@ update (SearchQueryChange sq) state = noEffects $ state { searchQuery = sq }
 update SearchButton state =
     onlyEffects state $
         [ do
-            if state.isAuthenticated
-                then C.send socket' $ AIChangeInfo addr tId
-                else C.introMessage socket' $ IMInfo addr tId
+           -- if state.isAuthenticated
+           --     then C.send socket' $ IMControl $ CMSmart state.searchQuery
+           --     else C.send socket' $ IMInfo addr tId
+            C.send socket' $ IMControl $ CMSmart state.searchQuery
             pure Nop
         ]
   where
     socket' = unsafeFromJust state.socket
-    addr = Address { getAddress: PublicKey state.searchQuery }
-    tId = Hash state.searchQuery
 update DismissError state = noEffects $ state { error = Nothing }
 update ColorToggle state =
     noEffects $ state { colors = not state.colors }

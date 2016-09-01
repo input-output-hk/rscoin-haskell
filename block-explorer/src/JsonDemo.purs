@@ -33,12 +33,15 @@ main = do
         key        = W.PublicKey "YblQ7+YCmxU/4InsOwSGH4Mm37zGjgy7CLrlWlnHdnM="
         hash       = W.Hash "DldRwCblQ7Loqy6wYJnaodHl30d3j3eH+qtFzfEv46g="
         addr       = W.Address { getAddress:  key }
-        coinsMap   = W.CoinsMapSummarySerializable { cmCoinsMap: [Tuple 1 coin], cmCoinAmount: coinAmount }
-        tx         = W.TransactionSummarySerializable {txId: hash, txInputs: [tuple4 hash 0 coin $ Just addr], txOutputs: [(Tuple addr coin)], txInputsSum: coinsMap, txOutputsSum: coinsMap }
-        err        = W.ParseError "error"
-        introMsg   = W.IMAddressInfo addr
+        coinsMap   = W.CoinsMapSummary { _cmsCoinsMap: [Tuple 1 coin], _cmsCoinAmount: coinAmount }
+        tx         = W.TransactionSummary {txsId: hash, txsInputs: [tuple4 hash 0 coin $ Just addr], txsOutputs: [(Tuple addr coin)], txsInputsSum: coinsMap, txsOutputsSum: coinsMap }
+        err        = W.LogicError "error"
+        setAddr    = W.CMSetAddress addr
+        getTx      = W.CMGetTransaction hash
+        smart      = W.CMSmart "bla"
         aiMsg      = W.AIGetTransactions (Tuple 0 2)
-        outMsg     = W.OMTxNumber 8 "10"
+        -- TODO: finish this list
+        outMsg     = W.OMTxNumber addr 8 8
         helper'    = do
             helper coin
             helper key
@@ -46,7 +49,9 @@ main = do
             helper addr
             helper tx
             helper err
-            helper introMsg
+            helper setAddr
+            helper getTx
+            helper smart
             helper aiMsg
             helper outMsg
     helper'

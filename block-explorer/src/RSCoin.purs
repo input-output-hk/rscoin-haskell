@@ -1,6 +1,6 @@
 module App.RSCoin
        ( module P
-       , module S
+       , module E
        , module T
        , newAddress
        , emptyAddress
@@ -11,7 +11,8 @@ module App.RSCoin
 import Prelude                           (show, ($))
 
 import RSCoin.Core.Primitives            as P
-import RSCoin.Explorer.Web.Sockets.Types as S
+import RSCoin.Explorer.Web.Sockets.Types as E
+import RSCoin.Explorer.Summaries         as E
 import Data.Types                        as T
 
 newAddress :: String -> P.Address

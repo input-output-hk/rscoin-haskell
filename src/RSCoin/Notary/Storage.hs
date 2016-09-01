@@ -44,7 +44,7 @@ import           RSCoin.Core            (AddrId, Address (..), HBlock (..),
                                          PeriodId, PublicKey, Signature,
                                          Transaction (..), Utxo,
                                          computeOutputAddrids,
-                                         validateSignature, validateSum, verify)
+                                         validateSignature, validateTxSum, verify)
 import           RSCoin.Core.Strategy   (AddressToTxStrategyMap,
                                          AllocationAddress, AllocationInfo (..),
                                          AllocationStrategy (..), MSAddress,
@@ -266,7 +266,7 @@ addSignedTransaction tx addr (sigAddr,sig) = do
       where
         f = Just . S.insert (addr, tx) . fromMaybe S.empty
     checkTransactionValidity =
-        unless (validateSum tx) $
+        unless (validateTxSum tx) $
         throwM $
         NEInvalidArguments $
         sformat ("Transaction doesn't pass valitidy check: " % build) tx

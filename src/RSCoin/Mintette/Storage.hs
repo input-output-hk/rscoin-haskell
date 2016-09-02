@@ -393,7 +393,7 @@ checkIsActive = do
     unless v $ throwM MEInactive
 
 checkTxSum :: C.Transaction -> ExceptUpdate ()
-checkTxSum tx = unless (C.validateTxSum tx) $ throwM MEInvalidTxSums
+checkTxSum tx = unless (C.validateTxPure tx) $ throwM MEInvalidTxSums
 
 checkPeriodId :: PeriodId -> ExceptUpdate ()
 checkPeriodId received = do

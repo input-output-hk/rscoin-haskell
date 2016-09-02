@@ -249,18 +249,6 @@ onGetTransaction :: SessionId -> C.TransactionId -> ServerMonad ()
 onGetTransaction sessId tId = do
     C.logDebug $ sformat ("Transaction " % build % " is requested") tId
     let errMsg = sformat ("Transaction " % build % " not found") tId
-<<<<<<< HEAD
-    send conn . maybe (OMError $ NotFound errMsg) OMTransaction =<<
-        query (DB.GetTxExtended tId)
-    mainLoop conn Nothing
-
-receiveControlMessage
-    :: (C.Address -> ServerMonad ())
-    -> (C.TransactionId -> ServerMonad ())
-    -> (Text -> ServerMonad ())
-    -> (ControlMsg -> ServerMonad ())
-receiveControlMessage setAddressCB getTransactionCB errorCB msg =
-=======
     conn <- myConnection sessId
     modifyConnectionsState $ unsubscribeFully sessId
     send conn . maybe (OMError $ NotFound errMsg) (OMTransaction tId) =<<
@@ -315,7 +303,6 @@ receiveControlMessage :: SessionId
                       -> ControlMsg
                       -> ServerMonad ()
 receiveControlMessage sessId errorCB msg =
->>>>>>> master
     case msg of
         CMSetAddress addr -> setAddressCB addr
         CMGetTransaction txId -> getTransactionCB txId

@@ -90,8 +90,6 @@ getTx = ES.getTx
 
 getTxExtended :: C.TransactionId -> Query ES.Storage (Maybe TransactionExtended)
 getTxExtended = ES.getTxExtended
-<<<<<<< HEAD
-=======
 
 getTxExtensions :: C.PeriodId -> Query ES.Storage [TransactionExtension]
 getTxExtensions = ES.getTxExtensions
@@ -101,7 +99,6 @@ getHBlocksExtended = ES.getHBlocksExtended
 
 getHBlockExtended :: C.PeriodId -> Query ES.Storage (Maybe HBlockExtended)
 getHBlockExtended = ES.getHBlockExtended
->>>>>>> master
 
 isAddressKnown :: C.Address -> Query ES.Storage Bool
 isAddressKnown = ES.isAddressKnown

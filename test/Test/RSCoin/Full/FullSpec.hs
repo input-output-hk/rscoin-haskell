@@ -47,16 +47,9 @@ instance Default FullTestConfig where
         , ftcBankSeverity = def
         , ftcMintetteSeverity = def
         , ftcUserSeverity = def
-        , ftcTestingSeverity = Just Info
+        , ftcTestingSeverity = Just Warning
         , ftcRealMode = False
         }
-
-config :: FullTestConfig
-config =
-    def
-    { ftcGlobalSeverity = Warning
-    , ftcRealMode = False
-    }
 
 spec :: Spec
 spec =
@@ -64,7 +57,7 @@ spec =
         describe "Full RSCoin" $ do
             fullProp "all users have unique addresses" prop_uniqueAddresses
   where
-    cfg@FullTestConfig {..} = config
+    cfg@FullTestConfig {..} = def
     fullProp :: String -> FullProperty -> Spec
     fullProp propDescr = prop propDescr . propConverter
     propConverter :: FullProperty -> Property

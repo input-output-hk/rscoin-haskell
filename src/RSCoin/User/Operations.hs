@@ -442,10 +442,10 @@ constructTransaction st TransactionData{..} = do
             { txInputs = inputAddrids
             , txOutputs = outputs ++ map (tdOutputAddress, ) tdOutputCoins
             }
-    when (not (null tdOutputCoins) && not (C.validateSum outTr)) $
+    when (not (null tdOutputCoins) && not (C.validateTxPure outTr)) $
         commitError $
         sformat ("Your transaction doesn't pass validity check: " % build) outTr
-    when (null tdOutputCoins && not (C.validateSum outTr)) $
+    when (null tdOutputCoins && not (C.validateTxPure outTr)) $
         commitError $
         sformat
             ("Our code is broken and our auto-generated transaction is invalid: " % build)

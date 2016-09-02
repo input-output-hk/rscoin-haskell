@@ -45,7 +45,7 @@ import           RSCoin.Core                   (ActionLog, AddrId, Address (..),
                                                 Mintettes, NewPeriodData (..),
                                                 PeriodId, PeriodResult,
                                                 PublicKey, SecretKey,
-                                                Transaction (..),
+                                                Transaction (..), canonizeTx,
                                                 checkActionLog, checkLBlock,
                                                 computeOutputAddrids,
                                                 emissionHash, hash,
@@ -251,8 +251,7 @@ checkResult expectedPid lastHBlock (r,key,storedLog) = do
     dropEpoch = dropWhile (not . C.isCloseEpochEntry . fst) . drop 1
 
 -- | Perform coins allocation based on default allocation strategy
--- (hardcoded). Given the mintette's public keys it splits reward
--- among bank and mintettes.
+-- (hardcoded). The default strategy awards coins only to the bank.
 allocateCoins
     :: PublicKey
     -> [PublicKey]
@@ -266,7 +265,7 @@ allocateCoins _ _ goodResults pId strategy
           pId
           (map (view _3) . map snd $ goodResults) = Nothing
 allocateCoins bankPk mintetteKeys goodResults pId strategy =
-    Just $ Transaction
+    canonizeTx $ Transaction
     { txInputs = [(emissionHash pId, 0, inputValue)]
     , txOutputs = (bankAddress, bankReward) : mintetteOutputs
     }

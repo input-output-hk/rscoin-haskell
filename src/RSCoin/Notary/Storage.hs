@@ -43,7 +43,7 @@ import           Formatting             (build, sformat, (%))
 import           RSCoin.Core            (Address (..), HBlock (..), PeriodId,
                                          PublicKey, Signature, Transaction (..),
                                          Utxo, computeOutputAddrids,
-                                         validateSignature, validateSum, verify)
+                                         validateSignature, validateTxPure, verify)
 import           RSCoin.Core.Strategy   (AddressToTxStrategyMap,
                                          AllocationAddress, AllocationInfo (..),
                                          AllocationStrategy (..), MSAddress,
@@ -243,7 +243,7 @@ addSignedTransaction tx@Transaction{..} msAddr (partyAddr, sig) = do
     txPool %= HM.alter (Just . HM.insert partyAddr sig . fromMaybe HM.empty) tx
   where
     checkTransactionValidity =
-        unless (validateSum tx) $
+        unless (validateTxPure tx) $
             throwM $ NEInvalidArguments $ sformat
                 ("Transaction doesn't pass valitidy check: " % build)
                 tx

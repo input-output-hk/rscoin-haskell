@@ -34,7 +34,7 @@ import           Control.Applicative      (liftA2)
 import           Control.Lens             (at, ix, makeLenses, makeLensesFor,
                                            preview, use, view, views, (%=),
                                            (+=), (.=), _Just)
-import           Control.Monad            (unless)
+import           Control.Monad            (unless, forM_)
 import           Control.Monad.Catch      (MonadThrow (throwM))
 import           Control.Monad.Extra      (ifM, whenJust)
 import           Control.Monad.Reader     (MonadReader, Reader, runReader)
@@ -230,7 +230,7 @@ addHBlock pId blkWithMeta@(C.WithMetadata C.HBlock {..} C.HBlockMetadata {..}) =
             }
     let extendedBlk = mkHBlockExtended pId blkWithMeta
     hBlocks %= flip V.snoc extendedBlk
-    emissionHashes %= HS.insert hbmEmission
+    forM_ hbmEmission (\em -> emissionHashes %= HS.insert em)
     mapM_ (addTxToMap pId) $ enumerate hbTransactions
     extensions <- mapM (mkTxExtension pId) hbTransactions
     txExtensions %= flip V.snoc (V.fromList extensions)

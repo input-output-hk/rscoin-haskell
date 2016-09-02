@@ -5,6 +5,8 @@
 module RSCoin.Bank.Strategies
        ( AllocateCoinsF
        , AllocateCoinsStrategy (..)
+       , allStrategies
+       , defaultStrategy
        , allocateCoins
        ) where
 
@@ -18,33 +20,42 @@ import qualified RSCoin.Core as C
 -- transfered to bank's address. The second value is a list, where
 -- i-th element specifies how much coins should be transfered to i-th
 -- Mintette's address.
-type AllocateCoinsF = C.PeriodId -> [C.ActionLog] -> (C.Coin, [C.Coin])
+type AllocateCoinsF = C.PeriodId -> [C.ActionLog] -> Maybe (C.Coin, [C.Coin])
 
 -- | This data type lists all existing strategies for coins
 -- allocation.
 data AllocateCoinsStrategy =
-    AllocateCoinsDefault  -- ^ Default strategy generates `C.periodReward`
-                          -- coins and awards them only to the bank.
+    AllocateCoinsDefault     -- ^ Default strategy generates `C.periodReward`
+                             -- coins and awards them only to the bank.
   | AllocateCoinsToMintettes -- ^ This strategy ignores mintettes
                              -- whose log is completely empty, generates
                              -- `C.periodReward` coins and distributes
                              -- them among bank and participating
                              -- mintettes evenly (bank may get slightly
                              -- more because of rounding)
+  | NoCoinsAllocation
+  deriving (Show,Read,Eq,Ord,Enum)
+
+allStrategies :: [AllocateCoinsStrategy]
+allStrategies = enumFrom AllocateCoinsDefault
+
+defaultStrategy :: AllocateCoinsStrategy
+defaultStrategy = NoCoinsAllocation
 
 allocateCoins :: AllocateCoinsStrategy -> AllocateCoinsF
-allocateCoins AllocateCoinsDefault = allocateCoinsDefault
+allocateCoins AllocateCoinsDefault     = allocateCoinsDefault
 allocateCoins AllocateCoinsToMintettes = allocateCoinsToMintettes
+allocateCoins NoCoinsAllocation        = const $ const Nothing
 
 allocateCoinsDefault :: AllocateCoinsF
-allocateCoinsDefault _ actionLogs = (bankReward, mintetteRewards)
+allocateCoinsDefault _ actionLogs = Just (bankReward, mintetteRewards)
   where
     mintetteCnt = length actionLogs
     mintetteRewards = replicate mintetteCnt 0
     bankReward = C.periodReward
 
 allocateCoinsToMintettes :: AllocateCoinsF
-allocateCoinsToMintettes _ actionLogs = (bankReward, mintetteRewards)
+allocateCoinsToMintettes _ actionLogs = Just (bankReward, mintetteRewards)
   where
     mintetteCnt = length actionLogs
     awarded =

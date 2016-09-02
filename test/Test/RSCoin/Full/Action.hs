@@ -94,7 +94,7 @@ newtype PartToSend = PartToSend
 
 applyPartToSend :: PartToSend -> C.Coin -> C.Coin
 applyPartToSend (PartToSend p) coin =
-    coin { C.getCoin = C.CoinAmount (toRational p) * C.getCoin coin
+    coin { C.getCoin = realToFrac $ p * realToFrac (C.getCoin coin)
          }
 
 -- | How much values of each color to send.

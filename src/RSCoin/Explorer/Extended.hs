@@ -23,18 +23,18 @@ module RSCoin.Explorer.Extended
        , mkHBlockExtended
        ) where
 
-import           Control.Lens               (makeLenses, view, _2, _3)
-import           Data.Bifunctor             (second)
-import           Data.IntMap                (elems)
-import           Data.List                  (genericLength)
-import           Data.SafeCopy              (base, deriveSafeCopy)
-import           Data.Time.Clock.POSIX      (POSIXTime)
-import           GHC.Generics               (Generic)
-import           Safe                       (atMay)
+import           Control.Lens          (makeLenses, view, _2, _3)
+import           Data.Bifunctor        (second)
+import           Data.IntMap           (elems)
+import           Data.List             (genericLength)
+import           Data.SafeCopy         (base, deriveSafeCopy)
+import           Data.Time.Clock.POSIX (POSIXTime)
+import           GHC.Generics          (Generic)
+import           Safe                  (atMay)
 
-import           Serokell.Data.Memory.Units (Byte)
+-- import           Serokell.Data.Memory.Units (Byte)
 
-import qualified RSCoin.Core                as C
+import qualified RSCoin.Core           as C
 
 -- | Extension of CoinsMap.
 data CoinsMapExtension = CoinsMapExtension
@@ -85,7 +85,7 @@ data HBlockExtension = HBlockExtension
     , hbeTimestamp :: !POSIXTime
     , hbeTxNumber  :: !Word
     , hbeTotalSent :: !C.CoinAmount
-    , hbeSize      :: !Byte
+    -- , hbeSize      :: !Byte
     } deriving (Show, Generic)
 
 mkHBlockExtension :: C.PeriodId
@@ -98,12 +98,12 @@ mkHBlockExtension pId C.WithMetadata {wmValue = C.HBlock {..}
     , hbeTimestamp = hbmTimestamp
     , hbeTxNumber = genericLength hbTransactions
     , hbeTotalSent = totalSent
-    , hbeSize = size
+    -- , hbeSize = size
     }
   where
     totalSent =
         sum . map (C.getCoin . view _2) . concatMap C.txOutputs $ hbTransactions
-    size = undefined
+    -- size = undefined
 
 type HBlockExtended = C.WithMetadata C.HBlock HBlockExtension
 

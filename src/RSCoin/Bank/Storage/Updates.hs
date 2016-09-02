@@ -34,7 +34,7 @@ import qualified Data.HashMap.Lazy             as M
 import qualified Data.HashSet                  as S
 import           Data.List                     (unfoldr)
 import qualified Data.Map                      as MP
-import           Data.Maybe                    (fromMaybe, mapMaybe)
+import           Data.Maybe                    (mapMaybe, isNothing, fromJust)
 import           Data.Time.Clock.POSIX         (POSIXTime)
 import           Safe                          (headMay)
 
@@ -157,7 +157,7 @@ startNewPeriodDo timestamp sk 0 _ =
     startNewPeriodFinally metadata sk [] (const $ mkGenesisHBlock genAddr)
   where
     genAddr = C.Address $ C.derivePublicKey sk
-    metadata = C.HBlockMetadata timestamp C.genesisEmissionHash
+    metadata = C.HBlockMetadata timestamp [C.genesisEmissionHash]
 startNewPeriodDo timestamp sk pId results = do
     lastHBlock <- uses blocks (C.wmValue . head)
     curDpk <- use Q.getDpk
@@ -173,16 +173,20 @@ startNewPeriodDo timestamp sk pId results = do
         filteredResults =
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
         emissionTransaction =
-            allocateCoins (C.derivePublicKey sk) keys filteredResults pId
+            allocateCoins (C.derivePublicKey sk)
+                          keys filteredResults pId Strategies.defaultStrategy
         checkEmission [(tid,_,_)] = return tid
         checkEmission _ =
             throwM $
             BEInternal "Emission transaction should have one transaction hash"
+        basicTransactions = mergeTransactions mintettes filteredResults
         blockTransactions =
-            emissionTransaction : mergeTransactions mintettes filteredResults
-    emissionId <- checkEmission $ C.txInputs emissionTransaction
+            maybe basicTransactions (: basicTransactions) emissionTransaction
+    emissionIds <- maybe (return [])
+                         (\emtx -> (\x -> [x]) <$> checkEmission (C.txInputs emtx))
+                         emissionTransaction
     startNewPeriodFinally
-        (C.HBlockMetadata timestamp emissionId)
+        (C.HBlockMetadata timestamp emissionIds)
         sk
         filteredResults
         (mkHBlock blockTransactions lastHBlock)
@@ -253,19 +257,23 @@ allocateCoins
     -> [PublicKey]
     -> [(MintetteId, PeriodResult)]
     -> PeriodId
-    -> Transaction
-allocateCoins bankPk mintetteKeys goodResults pId =
-    fromMaybe (error "canonizeTx failed in allocateCoins") $
-    canonizeTx $
-        Transaction
-        { txInputs = [(emissionHash pId, 0, inputValue)]
-        , txOutputs = (bankAddress, bankReward) : mintetteOutputs
-        }
+    -> Strategies.AllocateCoinsStrategy
+    -> Maybe Transaction
+allocateCoins _ _ goodResults pId strategy
+    | isNothing $
+          (Strategies.allocateCoins strategy)
+          pId
+          (map (view _3) . map snd $ goodResults) = Nothing
+allocateCoins bankPk mintetteKeys goodResults pId strategy =
+    canonizeTx $ Transaction
+    { txInputs = [(emissionHash pId, 0, inputValue)]
+    , txOutputs = (bankAddress, bankReward) : mintetteOutputs
+    }
   where
     bankAddress = Address bankPk
     (bankReward,goodMintetteRewards) =
-        Strategies.allocateCoins
-            Strategies.AllocateCoinsDefault
+        fromJust $
+        (Strategies.allocateCoins strategy)
             pId
             (map (view _3) . map snd $ goodResults)
     inputValue = sum (bankReward : goodMintetteRewards)

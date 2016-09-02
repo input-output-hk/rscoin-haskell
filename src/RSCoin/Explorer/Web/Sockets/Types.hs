@@ -14,6 +14,7 @@ module RSCoin.Explorer.Web.Sockets.Types
        , ErrorableMsg
        , ControlMsg (..)
        , AddressInfoMsg (..)
+       , HBlockInfoMsg (..)
        , IncomingMsg (..)
        , OutcomingMsg (..)
        ) where
@@ -29,7 +30,7 @@ import qualified Network.WebSockets        as WS
 import           Serokell.Aeson.Options    (defaultOptionsPS)
 
 import qualified RSCoin.Core               as C
-import           RSCoin.Explorer.Extended  (CoinsMapExtended,
+import           RSCoin.Explorer.Extended  (CoinsMapExtended, HBlockExtension,
                                             TransactionExtended)
 import           RSCoin.Explorer.Web.Aeson ()
 
@@ -49,23 +50,32 @@ type ErrorableMsg msg = Either Text msg
 -- particular, server and client start communication with message of
 -- this type.
 data ControlMsg
-    =
-      -- | SetAddress sets context of connection to given
-      -- address. After that client can send `AddressInfoMsg` to get
-      -- information about this address. Also client gets subscribed
-      -- to notifications about this address.
-      CMSetAddress !C.Address
-    |
-      -- | GetTransaction resets context of connection and
+     -- | SetAddress modifies context of connection setting address to
+     -- the given one.  After that client can send `AddressInfoMsg` to
+     -- get information about this address. Also client gets
+     -- subscribed to notifications about this address.
+    = CMSetAddress !C.Address
+      -- | GetTransaction requests transaction with given id and
       -- unsubscribes client from all notifications, because
-      -- information about transaction doesn't change (in our model).
-      CMGetTransaction !C.TransactionId
-    |
+      -- information about transaction doesn't change (in our
+      -- model). It shouldn't exist here, only in HTTP.
+    | CMGetTransaction !C.TransactionId
       -- | This is special message which means that server has to
       -- determine whether given string is address or id of
       -- transaction and behave as CMGetTransaction or CMSetAddress.
-      CMSmart !Text
-    deriving (Show,Generic)
+    | CMSmart !Text
+      -- | SetHBlock modifies context of connection setting HBlock to
+      -- the given one. After that client can send `HBlockInfoMsg` and
+      -- gets subscribed to notifications about new HBlocks.
+    | CMSetHBlock !C.PeriodId
+      -- | GetBlockchainHeight requests height of blockchain. It shouldn't exist
+      -- here, only in HTTP.
+    | CMGetBlockchainHeight
+      -- | GetBlocksOverview requests overview (i. e. HBLockExtension)
+      -- of some blocks. Indices are (lo, hi) and mean periods in
+      -- range [lo, hi). It shouldn't exist here, only in HTTP.
+    | CMGetBlocksOverview !(C.PeriodId, C.PeriodId)
+    deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''ControlMsg)
 
@@ -78,8 +88,8 @@ instance WS.WebSocketsData (ErrorableMsg ControlMsg) where
     fromLazyByteString = customDecode
     toLazyByteString = error "Attempt to serialize ControlMsg is illegal"
 
--- | Within communication started with AddressInfo message client can
--- send messages defined by this type.
+-- | After using SetAddress control message client can send messages
+-- defined by this type.
 data AddressInfoMsg
     =
       -- | GetBalance message requests balance of address associated
@@ -105,10 +115,26 @@ instance WS.WebSocketsData (ErrorableMsg AddressInfoMsg) where
     fromLazyByteString = customDecode
     toLazyByteString = error "Attempt to serialize AddressInfoMsg is illegal"
 
+-- | After using SetHBlock control message client can send messages
+-- defined by this type.
+data HBlockInfoMsg
+     -- | GetMetadata message requests metadata of block associated
+     -- with connection.
+    = HIGetMetadata
+      -- | GetTransactions message requests transactions stored in
+      -- block associated with connection. Arguments (lo, hi) are
+      -- indices, transactions with indices in range [lo, hi) are
+      -- returned.
+    | HIGetTransactions !(Word, Word)
+    deriving (Show, Generic)
+
+$(deriveJSON defaultOptionsPS ''HBlockInfoMsg)
+
 -- | IncomingMsg aggregates all types of messages which server can receive.
 data IncomingMsg
     = IMControl !ControlMsg
     | IMAddrInfo !AddressInfoMsg
+    | IMHBlockInfo !HBlockInfoMsg
     deriving (Show,Generic)
 
 $(deriveJSON defaultOptionsPS ''IncomingMsg)
@@ -119,30 +145,40 @@ instance WS.WebSocketsData (ErrorableMsg IncomingMsg) where
 
 -- | This type contains all possible messages sent by this server.
 data OutcomingMsg
-    =
-      -- | Sent in case of error.
-      OMError !ServerError
-    |
+     -- | Sent in case of error.
+    = OMError !ServerError
       -- | Sent within `AddressInfo` session.
-      OMBalance !C.Address
+    | OMBalance !C.Address
                 !C.PeriodId
                 !CoinsMapExtended
-    |
       -- | Sent within `AddressInfo` session. Contains number of
       -- transactions referencing address over given PeriodId.
-      OMTxNumber !C.Address
+    | OMTxNumber !C.Address
                  !C.PeriodId
                  !Word
-    |
       -- | Sent in response to CMGetTransaction message.
-      OMTransaction !TransactionExtended
-    |
+    | OMTransaction !C.TransactionId
+                    !TransactionExtended
       -- | Sent within `AddressInfo` session. Has an indexed list of
       -- transactions referencing address over given PeriodId.
-      OMTransactions !C.Address
-                     !C.PeriodId
-                     ![(Word, TransactionExtended)]
-    deriving (Show,Generic)
+    | OMAddrTransactions !C.Address
+                         !C.PeriodId
+                         ![(Word, TransactionExtended)]
+      -- | Sent within `HBlockInfo` session. Has metadata associated
+      -- with block and index of block.
+    | OMBlockMetadata !C.PeriodId
+                      !HBlockExtension
+      -- | Sent within `HBlockInfo` session. Has an indexed list of
+      -- transactions in block, as well as index of block.
+    | OMBlockTransactions !C.PeriodId
+                          ![(Word, TransactionExtended)]
+      -- | Sent in response to CMGetBlockchainHeight message.
+    | OMBlockchainHeight !C.PeriodId
+      -- | Sent in response to CMGetBlocksOverview message.
+    | OMBlocksOverview ![(C.PeriodId, HBlockExtension)]
+      -- | Signals about new HBlock with given id.
+    | OMNewBlock !C.PeriodId
+    deriving (Show, Generic)
 
 $(deriveToJSON defaultOptionsPS ''OutcomingMsg)
 

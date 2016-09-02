@@ -52,16 +52,9 @@ instance Default FullTestConfig where
         , ftcBankSeverity = def
         , ftcMintetteSeverity = def
         , ftcUserSeverity = def
-        , ftcTestingSeverity = Just Info
+        , ftcTestingSeverity = Just Warning
         , ftcRealMode = False
         }
-
-config :: FullTestConfig
-config =
-    def
-    { ftcGlobalSeverity = Warning
-    , ftcRealMode = False
-    }
 
 spec :: Spec
 spec =
@@ -71,7 +64,7 @@ spec =
             fullProp sendLoopDesc prop_sendLoopBack
             fullProp send2inARowDesc prop_send2inARow
   where
-    cfg@FullTestConfig {..} = config
+    cfg@FullTestConfig {..} = def
     fullProp :: String -> FullProperty -> Spec
     fullProp propDescr = prop propDescr . propConverter
     propConverter :: FullProperty -> Property

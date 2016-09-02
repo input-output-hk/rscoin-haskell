@@ -4,7 +4,6 @@
 module Test.RSCoin.Local.Arbitrary () where
 
 import           Data.DeriveTH         (derive, makeArbitrary)
-import           Data.Text             (Text, pack)
 import           Test.QuickCheck       (Arbitrary (..), choose)
 
 import           RSCoin.Core.Arbitrary ()

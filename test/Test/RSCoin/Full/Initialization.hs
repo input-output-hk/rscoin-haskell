@@ -18,7 +18,7 @@ import qualified Data.IntMap.Strict         as M
 import           Data.IORef                 (newIORef)
 import           Data.List                  (genericLength)
 import           Data.Maybe                 (fromMaybe)
-import Data.Optional (Optional (Default))
+import           Data.Optional              (Optional (Default))
 import           Formatting                 (build, sformat, (%))
 import           Test.QuickCheck            (NonEmptyList (..))
 
@@ -53,7 +53,6 @@ periodDelta :: Second
 periodDelta = defaultPeriodDelta
 
 -- | Start all servers/workers and create TestContext.
--- FIXME: we probably need to closeState here
 mkTestContext
     :: WorkMode m
     => MintetteNumber -> UserNumber -> Scenario -> m TestContext
@@ -92,7 +91,7 @@ mkTestContext mNum uNum scen = do
 
 -- | Finish everything that's going on in TestEnv.
 finishTest :: WorkMode m => TestEnv m ()
-finishTest = () <$ (liftIO . flip tryPutMVar () =<< view isActive) --FIXME: close state?
+finishTest = () <$ (liftIO . flip tryPutMVar () =<< view isActive)
 
 runBank
     :: WorkMode m
@@ -110,7 +109,6 @@ runBank v b = do
             (b ^. state)
     workWhileMVarEmpty v $
         B.runExplorerWorker periodDelta mainIsBusy (b ^. secretKey) (b ^. state)
-    -- FIXME: close state `finally`
 
 runMintettes
     :: WorkMode m

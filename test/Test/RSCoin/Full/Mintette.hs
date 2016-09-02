@@ -29,7 +29,6 @@ initialization conf v m = do
                 Nothing -> M.serve
                 Just s  -> FM.serve s
     workWhileMVarEmpty v $ runner <$> view port <*> view state <*> view secretKey $ m
-    -- FIXME: close state
     workWhileMVarEmpty v $
         M.runWorker <$> view secretKey <*> view state $ m
 

@@ -27,7 +27,7 @@ import Data.Argonaut.Parser        (jsonParser)
 
 import Serokell.Aeson.Helper       (encodeJson, decodeJson)
 
-import App.RSCoin                  (OutcomingMsg, IncomingMsg)
+import App.RSCoin                  (OutcomingMsg, IncomingMsg (..))
 
 data Action
     = ConnectionOpened
@@ -54,4 +54,7 @@ send :: forall eff. W.Connection -> IncomingMsg -> Aff (ws :: W.WEBSOCKET, err :
 send (W.Connection ws) value = liftEff do
     log "onsend: Send message"
     traceAnyM value
-    ws.send <<< W.Message <<< printJson $ encodeJson value
+    ws.send <<< W.Message <<< printJson $ encodeIncomingMsg value
+  where
+    encodeIncomingMsg (IMControl msg) = encodeJson msg
+    encodeIncomingMsg (IMAddrInfo msg) = encodeJson msg

@@ -7,7 +7,6 @@ import Pux.Html.Attributes (className)
 
 import Data.I18N (languageCode, Language, getTranslation, Translation)
 
--- TODO: we should move this function to helpers
 ttext :: forall a. Language -> (Translation -> String) -> Html a
 ttext = ttextClass ""
 

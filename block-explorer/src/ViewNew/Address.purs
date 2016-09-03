@@ -54,7 +54,7 @@ view state =
                                     [ link
                                         (R.toUrl state.route)
                                         [ id_ "address-link" ]
-                                        [ text queryInfo ]
+                                        [ text $ fromMaybe "" $ map queryToString state.queryInfo ]
                                     ]
                                 ]
                             , tr
@@ -72,7 +72,7 @@ view state =
                                         , src adaSymbolDarkPath
                                         ]
                                         []
-                                    , text "213,12"
+                                    , text $ fromMaybe
                                     , div
                                         [ className "pull-right" ]
                                         [ label
@@ -535,4 +535,3 @@ view state =
         ]
   where
     ttext' = ttext state.language
-    queryInfo = fromMaybe "" $ map queryToString state.queryInfo

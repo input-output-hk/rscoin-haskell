@@ -51,6 +51,8 @@ import Control.Monad.Eff.Class        (liftEff)
 
 import Partial.Unsafe                 (unsafePartial)
 
+import JsonDemo as JsonDemo
+
 txNum :: Int
 txNum = 15
 
@@ -176,7 +178,7 @@ view state =
             , id_ "page-content"
             ]
             [ case state.route of
-                R.Home -> NotFound.view state
+                R.Home -> Address.view $ state { queryInfo = Just $ SQAddress JsonDemo.addr, transactions = [JsonDemo.tx, JsonDemo.tx], txNumber = Just 11 } -- NotFound.view state
                 R.Address _ -> Address.view state
                 R.Transaction tId ->
                     let

@@ -35,10 +35,26 @@ body {
 
 /* language fonts */
 
+/* page wrap */
+
 html, body, #app, .max-height,
 .pux-devtool, .pux-devtool-app-container, div [data-reactroot] {
     height: 100%;
 }
+
+#page-content {
+    min-height: 100%;
+    margin-bottom: -72px;
+    padding-top: 72px;
+}
+
+#page-content:after {
+    content: "";
+    display: block;
+    height: 72px;
+}
+
+/* page wrap */
 
 .logo-header {
     margin: 24px;
@@ -210,18 +226,6 @@ html, body, #app, .max-height,
     overflow-y: scroll;
     overflow-x: hidden;
     height: 100px;
-}
-
-#page-content {
-    min-height: 100%;
-    margin-bottom: -72px;
-    padding-top: 72px;
-}
-
-#page-content:after {
-    content: "";
-    display: block;
-    height: 72px;
 }
 
 .dark-red-color {

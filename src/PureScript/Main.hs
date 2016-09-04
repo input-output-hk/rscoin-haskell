@@ -1,14 +1,24 @@
-import           Data.Proxy                         (Proxy (..))
-import           Language.PureScript.Bridge         (BridgePart, buildBridge,
-                                                     defaultBridge, mkSumType,
-                                                     typeName, writePSTypes,
-                                                     (<|>), (^==))
-import           Language.PureScript.Bridge.PSTypes (psInt)
-import qualified RSCoin.Core.Primitives             as Prim
-import qualified RSCoin.Explorer.WebTypes           as EWT
+{-# LANGUAGE DeriveGeneric #-}
 
-import           PSTypes                            (psCoinAmount, psCoinsMap,
-                                                     psHash, psPublicKey)
+import           Data.Proxy                                (Proxy (..))
+import           Language.PureScript.Bridge                (BridgePart,
+                                                            buildBridge,
+                                                            defaultBridge,
+                                                            mkSumType, typeName,
+                                                            writePSTypes, (<|>),
+                                                            (^==))
+
+import           GHC.Generics                              (Generic)
+
+import           Language.PureScript.Bridge.PSTypes        (psInt)
+import           Language.PureScript.Bridge.TypeParameters (A, B)
+import qualified RSCoin.Core.Primitives                    as Prim
+import qualified RSCoin.Explorer.WebTypes                  as EWT
+
+import           PSTypes                                   (psCoinAmount,
+                                                            psHash, psIntMap,
+                                                            psPublicKey,
+                                                            psWithMetadata)
 
 main :: IO ()
 main =
@@ -29,13 +39,20 @@ main =
         , mkSumType (Proxy :: Proxy EWT.TransactionExtended)
         , mkSumType (Proxy :: Proxy EWT.HBlockExtended)
 
+        , mkSumType (Proxy :: Proxy (WithMetadata A B))
+
         , mkSumType (Proxy :: Proxy Prim.Color)
         , mkSumType (Proxy :: Proxy Prim.Coin)
         , mkSumType (Proxy :: Proxy Prim.Address)]
   where
     customBridge =
         defaultBridge <|> publicKeyBridge <|> wordBridge <|> hashBridge <|>
-        coinAmountBridge <|> coinsMapBridge
+        coinAmountBridge <|> intMapBridge <|> withMetadataBridge
+
+data WithMetadata value metadata = WithMetadata
+    { wmValue    :: value
+    , wmMetadata :: metadata
+    } deriving (Show, Eq, Generic)
 
 publicKeyBridge :: BridgePart
 publicKeyBridge = typeName ^== "PublicKey" >> return psPublicKey
@@ -49,6 +66,10 @@ hashBridge = typeName ^== "Hash" >> return psHash
 coinAmountBridge :: BridgePart
 coinAmountBridge = typeName ^== "CoinAmount" >> return psCoinAmount
 
--- FIXME: we assume here that IntMap == Map Int Coin
-coinsMapBridge :: BridgePart
-coinsMapBridge = typeName ^== "IntMap" >> return psCoinsMap
+intMapBridge :: BridgePart
+intMapBridge = typeName ^== "IntMap" >> psIntMap
+
+-- TODO: this can be handled better but I can't make it work
+-- https://hackage.haskell.org/package/purescript-bridge-0.6.0.1/docs/Language-PureScript-Bridge-TypeParameters.html
+withMetadataBridge :: BridgePart
+withMetadataBridge = typeName ^== "WithMetadata" >> psWithMetadata

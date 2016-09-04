@@ -1,11 +1,20 @@
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module PSTypes
        ( psPublicKey
        , psHash
        , psCoinAmount
-       , psCoinsMap
+       , psIntMap
+       , psWithMetadata
        ) where
 
 import           Language.PureScript.Bridge.TypeInfo (PSType, TypeInfo (..))
+
+import           Language.PureScript.Bridge.Builder  (BridgeData,
+                                                      psTypeParameters)
+
+import           Control.Monad.Reader.Class
 
 psPublicKey :: PSType
 psPublicKey = TypeInfo "" "Data.Types" "PublicKey" []
@@ -16,13 +25,19 @@ psHash = TypeInfo "" "Data.Types" "Hash" []
 psCoinAmount :: PSType
 psCoinAmount = TypeInfo "" "Data.Types" "CoinAmount" []
 
--- FIXME: there must be a way to do this more elegantly but currently we don't have time
--- NOTE: we can implement this using custom `Generic` or even better custom toJson/fromJson in Data.Types
-psCoinsMap :: PSType
-psCoinsMap =
-    TypeInfo "purescript-prim" "Prim" "Array"
+psIntMap :: MonadReader BridgeData m => m PSType
+psIntMap = do
+    -- NOTE: this is safe because we expect IntMap to be haskells IntMap which
+    -- has one type paramater, thus it should typecheck
+    -- TODO: add typePackage and typeModule checkers
+    t <- head <$> psTypeParameters
+    pure $ TypeInfo "purescript-prim" "Prim" "Array"
         [ TypeInfo "purescript-tuples" "Data.Tuple" "Tuple"
              [ TypeInfo "purescript-prim" "Prim" "Int" []
-             , TypeInfo "" "RSCoin.Core.Primitives" "Coin" []
+             , t
              ]
         ]
+
+psWithMetadata :: MonadReader BridgeData m => m PSType
+psWithMetadata =
+    TypeInfo "" "RSCoin.Core.Types" "WithMetadata" <$> psTypeParameters

@@ -13,6 +13,7 @@ import           GHC.Generics                              (Generic)
 import           Language.PureScript.Bridge.PSTypes        (psInt)
 import           Language.PureScript.Bridge.TypeParameters (A, B)
 import qualified RSCoin.Core.Primitives                    as Prim
+import qualified RSCoin.Core.Types                         as CT
 import qualified RSCoin.Explorer.WebTypes                  as EWT
 
 import           PSTypes                                   (psCoinAmount,
@@ -39,7 +40,7 @@ main =
         , mkSumType (Proxy :: Proxy EWT.TransactionExtended)
         , mkSumType (Proxy :: Proxy EWT.HBlockExtended)
 
-        , mkSumType (Proxy :: Proxy (WithMetadata A B))
+        , mkSumType (Proxy :: Proxy (CT.WithMetadata A B))
 
         , mkSumType (Proxy :: Proxy Prim.Color)
         , mkSumType (Proxy :: Proxy Prim.Coin)
@@ -47,7 +48,7 @@ main =
   where
     customBridge =
         defaultBridge <|> publicKeyBridge <|> wordBridge <|> hashBridge <|>
-        coinAmountBridge <|> intMapBridge <|> withMetadataBridge
+        coinAmountBridge <|> intMapBridge -- <|> withMetadataBridge
 
 data WithMetadata value metadata = WithMetadata
     { wmValue    :: value

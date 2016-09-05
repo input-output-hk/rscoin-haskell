@@ -41,15 +41,14 @@ import           Serokell.Util            (indexModulo, indexModuloMay,
                                            pairBuilder)
 
 import qualified RSCoin.Core              as C
-import           RSCoin.Timed             (Millisecond, WorkMode, after,
-                                           getNodeContext, invoke, ms)
 import qualified RSCoin.User              as U
+import           RSCoin.Util.Timed        (Millisecond, after, invoke, ms)
 
 import           Test.RSCoin.Full.Context (TestEnv, buser, state, users)
 import           Test.RSCoin.Full.Error   (TestError (TestError))
 
 class Action a where
-    doAction :: WorkMode m => a -> TestEnv m ()
+    doAction :: C.WorkMode m => a -> TestEnv m ()
 
 data SomeAction =
     forall a. (Action a, Show a, Buildable a) => SomeAction a
@@ -205,7 +204,7 @@ instance Buildable UserAction where
     build (UpdateBlockchain _) = "update someone's blockchain"
 
 toAddress
-    :: WorkMode m
+    :: C.WorkMode m
     => ToAddress -> TestEnv m C.Address
 toAddress =
     either return $
@@ -214,17 +213,17 @@ toAddress =
         publicAddresses <-
             U.query userState .
             U.GetOwnedDefaultAddresses . view C.genesisAddress =<<
-            getNodeContext
+            C.getNodeContext
         return $ publicAddresses `indexModulo` addressIndex
 
 toInputs
-    :: WorkMode m
+    :: C.WorkMode m
     => UserIndex -> FromAddresses -> TestEnv m Inputs
 toInputs userIndex (getNonEmpty -> fromIndexes) = do
     userState <- getUserState userIndex
     allAddresses <-
         U.query userState . U.GetOwnedDefaultAddresses . view C.genesisAddress =<<
-        getNodeContext
+        C.getNodeContext
     addressesAmount <- mapM (U.getAmount userState) allAddresses
     when (null addressesAmount) $
         throwM $ TestError "No public addresses in this user"
@@ -239,7 +238,7 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
         fromIndexes
 
 getUserState
-    :: WorkMode m
+    :: C.WorkMode m
     => UserIndex -> TestEnv m U.UserState
 getUserState Nothing =
     view $ buser . state

@@ -23,9 +23,8 @@ import qualified RSCoin.Core             as C
 import qualified RSCoin.Explorer         as E
 import qualified RSCoin.Mintette         as M
 import qualified RSCoin.Notary           as N
-import           RSCoin.Timed            (ContextArgument (CADefault),
-                                          Millisecond, runRealModeUntrusted)
 import qualified RSCoin.User             as U
+import           RSCoin.Util.Timed       (Millisecond)
 
 import           Config                  (DeployConfig (..), readDeployConfig)
 
@@ -55,8 +54,8 @@ data CommonParams = CommonParams
     , cpRebuild :: !Bool
     } deriving (Show)
 
-contextArgument :: ContextArgument
-contextArgument = CADefault
+contextArgument :: C.ContextArgument
+contextArgument = C.CADefault
 
 bankSecretKey :: C.SecretKey
 bankSecretKey = C.testBankSecretKey
@@ -163,7 +162,7 @@ setupBankUser CommonParams{..} = do
         skPath = workingDir </> "secret-key"
     Cherepakha.mkdir workingDirDeprecated
     C.writeSecretKey skPath bankSecretKey
-    runRealModeUntrusted C.userLoggerName contextArgument $
+    C.runRealModeUntrusted C.userLoggerName contextArgument $
         bracket (U.openState cpRebuild dbDir) U.closeState $
         \st ->
              U.initState st addressesNum $ Just skPath

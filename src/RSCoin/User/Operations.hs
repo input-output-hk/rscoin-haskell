@@ -71,8 +71,8 @@ import           Serokell.Util          (listBuilderJSON, listBuilderJSONIndent,
                                          pairBuilder)
 
 import qualified RSCoin.Core            as C
-import           RSCoin.Timed           (MonadRpc (getNodeContext), WorkMode,
-                                         for, sec, wait)
+import           RSCoin.Util.Timed      (for, sec, wait)
+
 import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Cache      (UserCache)
 import           RSCoin.User.Error      (UserError (..), UserLogicError,
@@ -96,7 +96,7 @@ commitError e = do
     throwM . InputProcessingError $ e
 
 -- | Checks address id (should be in [0..length allAddrs)) to be so
-checkAddressId :: (WorkMode m, Integral n) => A.UserState -> n -> m ()
+checkAddressId :: (C.WorkMode m, Integral n) => A.UserState -> n -> m ()
 checkAddressId st ix = do
     accounts <- getAllPublicAddresses st
     let notInRange i = i >= genericLength accounts || i < 0
@@ -108,7 +108,7 @@ checkAddressId st ix = do
 
 -- | Updates wallet to given blockchain height assuming that it's in
 -- previous height state already.
-updateToBlockHeight :: WorkMode m => A.UserState -> C.PeriodId -> m ()
+updateToBlockHeight :: C.WorkMode m => A.UserState -> C.PeriodId -> m ()
 updateToBlockHeight st newHeight = do
     walletHeight <- A.query st A.GetLastBlockId
     when (walletHeight >= newHeight) $
@@ -126,7 +126,7 @@ updateToBlockHeight st newHeight = do
 -- wasn't updated. Does throw exception when update is not possible
 -- due to some error. Thus 'False' return means that blockchain wasn't
 -- updated and it's ok (already at max height)
-updateBlockchain :: WorkMode m => A.UserState -> Bool -> m Bool
+updateBlockchain :: C.WorkMode m => A.UserState -> Bool -> m Bool
 updateBlockchain st verbose = do
     walletHeight <- A.query st A.GetLastBlockId
     verboseSay $
@@ -162,7 +162,7 @@ updateBlockchain st verbose = do
     verboseSay t = when verbose $ liftIO $ TIO.putStrLn t
 
 -- | Gets amount of coins on user address
-getAmount :: WorkMode m => A.UserState -> C.Address -> m C.CoinsMap
+getAmount :: C.WorkMode m => A.UserState -> C.Address -> m C.CoinsMap
 getAmount st address = do
     -- try to update, but silently fail if net is down
     (_ :: Either SomeException Bool) <- try $ updateBlockchain st False
@@ -170,27 +170,27 @@ getAmount st address = do
 
 -- | Gets current amount on all accounts user posesses. Boolean flag
 -- stands for "if update blockchain inside"
-getUserTotalAmount :: WorkMode m => Bool -> A.UserState -> m C.CoinsMap
+getUserTotalAmount :: C.WorkMode m => Bool -> A.UserState -> m C.CoinsMap
 getUserTotalAmount upd st = do
-    genAddr <- view C.genesisAddress <$> getNodeContext
+    genAddr <- view C.genesisAddress <$> C.getNodeContext
     addrs <- A.query st $ A.GetOwnedDefaultAddresses genAddr
     when upd $ void $ updateBlockchain st False
     C.mergeCoinsMaps <$> mapM (getAmountNoUpdate st) addrs
 
 -- | Get amount without storage update
 getAmountNoUpdate
-    :: WorkMode m
+    :: C.WorkMode m
     => A.UserState -> C.Address -> m C.CoinsMap
 getAmountNoUpdate st address = do
-    genAddr <- view C.genesisAddress <$> getNodeContext
+    genAddr <- view C.genesisAddress <$> C.getNodeContext
     C.coinsToMap . map (view _3) <$> A.query st (A.GetOwnedAddrIds genAddr address)
 
 -- | Gets amount of coins on user address, chosen by id (∈ 1..n, where
 -- n is the number of accounts stored in wallet)
-getAmountByIndex :: WorkMode m => A.UserState -> Int -> m C.CoinsMap
+getAmountByIndex :: C.WorkMode m => A.UserState -> Int -> m C.CoinsMap
 getAmountByIndex st idx = do
     void $ updateBlockchain st False
-    genAddr <- view C.genesisAddress <$> getNodeContext
+    genAddr <- view C.genesisAddress <$> C.getNodeContext
     addr <- flip atMay idx <$> A.query st (A.GetOwnedDefaultAddresses genAddr)
     maybe
         (throwM $
@@ -199,15 +199,15 @@ getAmountByIndex st idx = do
         addr
 
 -- | Returns list of public addresses available
-getAllPublicAddresses :: WorkMode m => A.UserState -> m [C.Address]
+getAllPublicAddresses :: C.WorkMode m => A.UserState -> m [C.Address]
 getAllPublicAddresses st = do
-    genAddr <- view C.genesisAddress <$> getNodeContext
+    genAddr <- view C.genesisAddress <$> C.getNodeContext
     A.query st $ A.GetOwnedAddresses genAddr
 
-genesisAddressIndex :: WorkMode m => A.UserState -> m (Maybe Word)
+genesisAddressIndex :: C.WorkMode m => A.UserState -> m (Maybe Word)
 genesisAddressIndex st = do
     addrList <- getAllPublicAddresses st
-    genAddr <- view C.genesisAddress <$> getNodeContext
+    genAddr <- view C.genesisAddress <$> C.getNodeContext
     return $ fromIntegral <$> elemIndex genAddr addrList
 
 -- | Returns transaction history that wallet holds
@@ -229,7 +229,7 @@ hasSecretKey st = fmap (isJust . join) . A.query st . A.GetSecretKey
 -- | Same as addAddress, but queries blockchain automatically and
 -- queries transactions that affect this address
 importAddress
-    :: WorkMode m
+    :: C.WorkMode m
     => A.UserState
     -> (Maybe C.SecretKey, C.PublicKey)
     -> Int
@@ -275,10 +275,10 @@ importAddress st (skMaybe,pk) fromH = do
                         in first : (splitEvery n rest)
 
 -- | Deletes an address. Accepts an index in [0..length addresses)
-deleteUserAddress :: (WorkMode m) => A.UserState -> Int -> m ()
+deleteUserAddress :: (C.WorkMode m) => A.UserState -> Int -> m ()
 deleteUserAddress st ix = do
     checkAddressId st ix
-    genAddr <- view C.genesisAddress <$> getNodeContext
+    genAddr <- view C.genesisAddress <$> C.getNodeContext
     addresses <- A.query st $ A.GetOwnedAddresses genAddr
     A.update st $ A.DeleteAddress $ addresses !! ix
 
@@ -286,7 +286,7 @@ deleteUserAddress st ix = do
 -- spend coins from accounts that have the least amount of money.
 -- Supports uncolored coins only (by design)
 submitTransactionFromAll
-    :: WorkMode m
+    :: C.WorkMode m
     => A.UserState
     -> Maybe UserCache
     -> C.Address
@@ -294,7 +294,7 @@ submitTransactionFromAll
     -> m C.Transaction
 submitTransactionFromAll st maybeCache addressTo amount =
     assert (C.getColor amount == 0) $
-    do genAddr <- view C.genesisAddress <$> getNodeContext
+    do genAddr <- view C.genesisAddress <$> C.getNodeContext
        addrs <- A.query st $ A.GetOwnedDefaultAddresses genAddr
        (indicesWithCoins :: [(Word, C.Coin)]) <-
            filter (not . C.isNegativeCoin . snd) <$>
@@ -351,7 +351,7 @@ data TransactionData = TransactionData
 
 -- | Forms transaction out of user input and sends it to the net.
 submitTransaction
-    :: WorkMode m
+    :: C.WorkMode m
     => A.UserState
     -> Maybe UserCache
     -> TransactionData
@@ -362,7 +362,7 @@ submitTransaction = submitTransactionRetry 1
 -- occurs, waits for 1 sec, then retries up to given amout of tries.
 submitTransactionRetry
     :: forall m.
-       WorkMode m
+       C.WorkMode m
     => Word               -- ^ Number of retries
     -> A.UserState  -- ^ RSCoin user state (acid)
     -> Maybe UserCache    -- ^ Optional cache to decrease number of RPC
@@ -380,7 +380,7 @@ submitTransactionRetry tries st maybeCache td@TransactionData{..}
       tx <$ sendTransactionRetry tries st maybeCache tx signatures
 
 constructTransaction
-    :: forall m . WorkMode m
+    :: forall m . C.WorkMode m
     => A.UserState -> TransactionData -> m C.Transaction
 constructTransaction st TransactionData{..} = do
     () <$ updateBlockchain st False
@@ -405,7 +405,7 @@ constructTransaction st TransactionData{..} = do
              ", that's not.") $
         head $ filter (not . C.isPositiveCoin) $ concatMap snd tdInputsMerged
     forM_ (map fst tdInputsMerged) $ checkAddressId st
-    genAddr <- view C.genesisAddress <$> getNodeContext
+    genAddr <- view C.genesisAddress <$> C.getNodeContext
     accounts <- A.query st $ A.GetOwnedAddresses genAddr
     let accInputs :: [(C.Address, I.IntMap C.Coin)]
         accInputs =
@@ -454,7 +454,7 @@ constructTransaction st TransactionData{..} = do
 
 -- | Get empty signature bundle for passing into `signTransactionLocally`
 getEmptySignatureBundle
-    :: forall m . WorkMode m
+    :: forall m . C.WorkMode m
     => A.UserState -> C.Transaction -> m SignatureBundle
 getEmptySignatureBundle st C.Transaction{..} = do
     rawBundle <- mapM
@@ -482,7 +482,7 @@ getEmptySignatureBundle st C.Transaction{..} = do
 -- empty ([]) though having a skeleton of it -- map from addrids to
 -- (address,strategy,[]),strategy,[]).
 signTransactionLocally
-    :: forall m . WorkMode m
+    :: forall m . C.WorkMode m
     => A.UserState -> C.Transaction -> SignatureBundle -> m SignatureBundle
 signTransactionLocally st transaction emptySB = do
     let addridsResolved = map (\(a,b) -> (a, b ^. _1)) $ M.assocs emptySB
@@ -513,7 +513,7 @@ signTransactionLocally st transaction emptySB = do
 -- make signature map afterwards. The second is inputs of
 -- transaction, third is change outputs
 submitTransactionMapper
-    :: WorkMode m
+    :: C.WorkMode m
     => A.UserState
     -> [C.Coin]
     -> C.Address
@@ -521,7 +521,7 @@ submitTransactionMapper
     -> C.CoinsMap
     -> m (Maybe ([C.AddrId], [(C.Address, C.Coin)]))
 submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
-    genAddr <- view C.genesisAddress <$> getNodeContext
+    genAddr <- view C.genesisAddress <$> C.getNodeContext
     (addrids :: [C.AddrId]) <- A.query st (A.GetOwnedAddrIds genAddr address)
     let -- Pairs of chosen addrids and change for each color
         chosenMap0
@@ -547,7 +547,7 @@ submitTransactionMapper st outputCoin outputAddr address requestedCoins = do
 
 sendTransactionRetry
     :: forall m.
-       WorkMode m
+       C.WorkMode m
     => Word
     -> A.UserState
     -> Maybe UserCache
@@ -578,7 +578,7 @@ sendTransactionRetry tries st maybeCache tx signatures
 
 sendTransactionDo
     :: forall m.
-       WorkMode m
+       C.WorkMode m
     => A.UserState
     -> Maybe UserCache
     -> C.Transaction
@@ -639,14 +639,14 @@ isRetriableException e
 -- | Find in wallet user address which is party in multisignature addres.
 findPartyAddress
     :: forall m .
-       WorkMode m
+       C.WorkMode m
     => A.UserState
     -> HashSet C.AllocationAddress
     -> m (C.Address, C.SecretKey)
 findPartyAddress st userAddrs = do
     defaultAddresses <-
         A.query st . A.GetOwnedDefaultAddresses . view C.genesisAddress =<<
-        getNodeContext
+        C.getNodeContext
     let partyCandidates =
             filter (`elem` defaultAddresses) $
             map C._address $ HS.toList userAddrs
@@ -672,14 +672,14 @@ findPartyAddress st userAddrs = do
 -- | Verify that trust party address occurs in party set without user addresses.
 verifyTrustEntry
     :: forall m .
-       WorkMode m
+       C.WorkMode m
     => A.UserState
     -> HashSet C.AllocationAddress
     -> m ()
 verifyTrustEntry st strategyParties = do
     -- @TODO: remove duplicate code with 'findPartyAddress'
     defaultAddresses <- A.query st . A.GetOwnedDefaultAddresses . view C.genesisAddress
-                        =<< getNodeContext
+                        =<< C.getNodeContext
     let partyCandidates = filter (`elem` defaultAddresses)
                           $ map C._address
                           $ HS.toList strategyParties
@@ -690,12 +690,12 @@ verifyTrustEntry st strategyParties = do
 -- | Get list of all allocation address in which user participates.
 retrieveAllocationsList
     :: forall m .
-       WorkMode m
+       C.WorkMode m
     => A.UserState
     -> Maybe C.Address
     -> m ()
 retrieveAllocationsList st mTrustPartyAddress = do
-    genAddr         <- view C.genesisAddress <$> getNodeContext
+    genAddr         <- view C.genesisAddress <$> C.getNodeContext
     addressesWithSk <- filterM (hasSecretKey st) =<< A.query st (A.GetOwnedAddresses genAddr)
     userAllocInfos  <- concatMapM (C.queryNotaryMyMSAllocations . C.UserAlloc) addressesWithSk
     trustAllocInfos <- case mTrustPartyAddress of
@@ -705,7 +705,7 @@ retrieveAllocationsList st mTrustPartyAddress = do
     A.update st $ A.UpdateAllocationStrategies $ M.fromList allInfos
 
 -- | Get pending transaction given an index i ∈ [0..txs.length)
-getPendingTransaction :: WorkMode m => A.UserState -> Int -> m C.Transaction
+getPendingTransaction :: C.WorkMode m => A.UserState -> Int -> m C.Transaction
 getPendingTransaction st ix = do
     txs <- A.query st A.GetPendingTxs
     let l = length txs

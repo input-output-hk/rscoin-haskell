@@ -26,6 +26,11 @@ import           Serokell.Util.Text        (listBuilderJSON,
                                             show')
 
 import qualified RSCoin.Core               as C
+import           RSCoin.Util.Rpc           (ServerT, serverTypeRestriction0,
+                                            serverTypeRestriction1,
+                                            serverTypeRestriction2,
+                                            serverTypeRestriction3)
+
 import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
                                             GetBlocks (..), GetLogs (..),
@@ -35,13 +40,8 @@ import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
 import           RSCoin.Mintette.AcidState (State, query, update)
 import           RSCoin.Mintette.Error     (MintetteError (..),
                                             logMintetteError)
-import           RSCoin.Timed              (ServerT, WorkMode,
-                                            serverTypeRestriction0,
-                                            serverTypeRestriction1,
-                                            serverTypeRestriction2,
-                                            serverTypeRestriction3)
 
-serve :: WorkMode m => Int -> State -> C.SecretKey -> m ()
+serve :: C.WorkMode m => Int -> State -> C.SecretKey -> m ()
 serve port st sk = do
     idr1 <- serverTypeRestriction1
     idr2 <- serverTypeRestriction1
@@ -75,7 +75,7 @@ serve port st sk = do
 
 type ServerTE m a = ServerT m (Either T.Text a)
 
-toServer :: WorkMode m => m a -> ServerTE m a
+toServer :: C.WorkMode m => m a -> ServerTE m a
 toServer action = lift $ (Right <$> action) `catch` handler
   where
     handler (e :: MintetteError) = do
@@ -83,7 +83,7 @@ toServer action = lift $ (Right <$> action) `catch` handler
         return $ Left $ show' e
 
 handlePeriodFinished
-    :: WorkMode m
+    :: C.WorkMode m
     => C.SecretKey -> State -> C.PeriodId -> ServerTE m C.PeriodResult
 handlePeriodFinished sk st pId =
     toServer $
@@ -110,7 +110,7 @@ handlePeriodFinished sk st pId =
        return res
 
 handleNewPeriod
-    :: WorkMode m
+    :: C.WorkMode m
     => State -> C.NewPeriodData -> ServerTE m ()
 handleNewPeriod st npd =
     toServer $
@@ -129,7 +129,7 @@ handleNewPeriod st npd =
                curUtxo curPset
 
 handleCheckTx
-    :: WorkMode m
+    :: C.WorkMode m
     => C.SecretKey
     -> State
     -> C.Transaction
@@ -154,7 +154,7 @@ handleCheckTx sk st tx addrId sg =
        return res
 
 handleCheckTxBatch
-    :: WorkMode m
+    :: C.WorkMode m
     => C.SecretKey
     -> State
     -> C.Transaction
@@ -178,13 +178,13 @@ handleCheckTxBatch sk st tx sigs =
        C.logInfo "Returning confirmations"-- TODO add logging
        return res
   where
-    try' :: (WorkMode m) => m a -> m (Either T.Text a)
+    try' :: (C.WorkMode m) => m a -> m (Either T.Text a)
     try' action = do
         (res :: Either MintetteError a) <- try action
         return $ first show' res
 
 handleCommitTx
-    :: WorkMode m
+    :: C.WorkMode m
     => C.SecretKey
     -> State
     -> C.Transaction
@@ -200,7 +200,7 @@ handleCommitTx sk st tx cc =
        return res
 
 handleGetMintettePeriod
-    :: WorkMode m
+    :: C.WorkMode m
     => State -> ServerTE m (Maybe C.PeriodId)
 handleGetMintettePeriod st =
     toServer $
@@ -218,7 +218,7 @@ handleGetMintettePeriod st =
 
 -- Dumping Mintette state
 
-handleGetUtxo :: WorkMode m => State -> ServerTE m C.Utxo
+handleGetUtxo :: C.WorkMode m => State -> ServerTE m C.Utxo
 handleGetUtxo st =
     toServer $
     do C.logDebug "Getting utxo"
@@ -227,7 +227,7 @@ handleGetUtxo st =
        return curUtxo
 
 handleGetBlocks
-    :: WorkMode m
+    :: C.WorkMode m
     => State -> C.PeriodId -> ServerTE m (Maybe [C.LBlock])
 handleGetBlocks st pId =
     toServer $
@@ -238,7 +238,7 @@ handleGetBlocks st pId =
        return res
 
 handleGetLogs
-    :: WorkMode m
+    :: C.WorkMode m
     => State -> C.PeriodId -> ServerTE m (Maybe C.ActionLog)
 handleGetLogs st pId =
     toServer $

@@ -19,14 +19,15 @@ import           Options.Generic
 import           Serokell.Util.Bench             (ElapsedTime, measureTime_)
 import           Serokell.Util.Concurrent        (threadDelay)
 
-import           RSCoin.Core                     (Address, PublicKey, SecretKey,
+import           RSCoin.Core                     (Address,
+                                                  ContextArgument (CADefault),
+                                                  PublicKey, SecretKey,
                                                   Severity (..),
                                                   defaultPeriodDelta,
                                                   initLoggerByName, initLogging,
                                                   keyGen, logInfo,
                                                   mintetteLoggerName,
-                                                  nakedLoggerName)
-import           RSCoin.Timed                    (ContextArgument (CADefault),
+                                                  nakedLoggerName,
                                                   runRealModeUntrusted)
 
 import           Bench.RSCoin.FilePathUtils      (tempBenchDirectory)

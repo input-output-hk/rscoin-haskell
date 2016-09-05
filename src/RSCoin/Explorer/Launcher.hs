@@ -16,13 +16,13 @@ import           Network.Wai                          (Middleware)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
-import           RSCoin.Core                          (SecretKey, Severity (..),
+import           RSCoin.Core                          (ContextArgument (..),
+                                                       RealMode, SecretKey,
+                                                       Severity (..), WorkMode,
                                                        explorerLoggerName,
-                                                       initLoggerByName)
-import           RSCoin.Timed                         (ContextArgument (..),
-                                                       MsgPackRpc, WorkMode,
-                                                       fork_,
+                                                       initLoggerByName,
                                                        runRealModeUntrusted)
+import           RSCoin.Util.Timed                    (fork_)
 
 import           RSCoin.Explorer.AcidState            (State, closeState,
                                                        openState)
@@ -33,7 +33,7 @@ import qualified RSCoin.Explorer.Web                  as Web
 explorerWrapperReal :: Bool
                     -> FilePath
                     -> ContextArgument
-                    -> (State -> MsgPackRpc a)
+                    -> (State -> RealMode a)
                     -> IO a
 explorerWrapperReal deleteIfExists storagePath ca =
     runRealModeUntrusted explorerLoggerName ca .

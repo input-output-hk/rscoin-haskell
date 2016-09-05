@@ -18,7 +18,7 @@ import           RSCoin.Mintette.Acidic           (GetUtxoPset (..))
 import           RSCoin.Mintette.AcidState        (State, query, update)
 import           RSCoin.Mintette.Error            (MintetteError)
 import qualified RSCoin.Mintette.Server           as OMS
-import           RSCoin.Timed                     (ServerT, WorkMode,
+import           RSCoin.Util.Rpc                  (ServerT,
                                                    serverTypeRestriction0,
                                                    serverTypeRestriction1,
                                                    serverTypeRestriction2,
@@ -29,7 +29,7 @@ import           Test.RSCoin.Full.Mintette.Config (MintetteConfig)
 
 -- | Serve as mintette according to mintette config provided
 serve
-    :: WorkMode m
+    :: C.WorkMode m
     => MintetteConfig -> Int -> State -> C.SecretKey -> m ()
 serve conf port st sk = do
     idr1 <- serverTypeRestriction1
@@ -56,7 +56,7 @@ serve conf port st sk = do
             idr7 $ OMS.handleGetLogs st
         ]
 
-toServer :: WorkMode m => IO a -> ServerT m a
+toServer :: C.WorkMode m => IO a -> ServerT m a
 toServer action = liftIO $ action `catch` handler
   where
     handler (e :: MintetteError) = do
@@ -64,7 +64,7 @@ toServer action = liftIO $ action `catch` handler
         throwIO e
 
 handleCheckTx
-    :: WorkMode m
+    :: C.WorkMode m
     => C.SecretKey
     -> State
     -> MintetteConfig
@@ -95,7 +95,7 @@ handleCheckTx sk st conf tx addrId sg =
         return $ Just res
 
 handleCommitTx
-    :: WorkMode m
+    :: C.WorkMode m
     => C.SecretKey
     -> State
     -> MintetteConfig

@@ -26,15 +26,15 @@ import           Data.Maybe                (fromJust, isNothing)
 import           Data.Time.Units           (TimeUnit)
 import           Formatting                (int, sformat, (%))
 
-import           RSCoin.Core               (Explorer, Mintette, PeriodId,
-                                            PublicKey, SecretKey, sign)
+import           RSCoin.Core               (ContextArgument (..), Explorer,
+                                            Mintette, PeriodId, PublicKey,
+                                            RealMode, SecretKey, WorkMode,
+                                            runRealModeBank, sign)
 import           RSCoin.Core.Communication (getBlockchainHeight,
                                             getMintettePeriod, getStatisticsId,
                                             sendBankLocalControlRequest)
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
-import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
-                                            WorkMode, for, fork_, ms,
-                                            runRealModeBank, wait)
+import           RSCoin.Util.Timed         (for, fork_, ms, wait)
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
                                             AddMintette (AddMintette), State,
@@ -47,7 +47,7 @@ bankWrapperReal :: SecretKey
                 -> Bool
                 -> FilePath
                 -> ContextArgument
-                -> (State -> MsgPackRpc a)
+                -> (State -> RealMode a)
                 -> IO a
 bankWrapperReal bankSk deleteIfExists storagePath ca =
     runRealModeBank ca bankSk .

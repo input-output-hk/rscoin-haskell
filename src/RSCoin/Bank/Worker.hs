@@ -22,20 +22,21 @@ import           Formatting               (build, int, sformat, (%))
 
 import           Serokell.Util.Exceptions ()
 
+import           RSCoin.Core              (defaultPeriodDelta, sign)
+import qualified RSCoin.Core              as C
+import           RSCoin.Util.Timed        (Second, for, ms, repeatForever, sec,
+                                           tu, wait)
+
 import           RSCoin.Bank.AcidState    (GetExplorersAndPeriods (..),
                                            GetHBlockWithMetadata (..),
                                            GetPeriodId (..),
                                            SetExplorerPeriod (..), State,
                                            SuspendExplorer (..), query, update)
-import           RSCoin.Core              (defaultPeriodDelta, sign)
-import qualified RSCoin.Core              as C
-import           RSCoin.Timed             (Second, WorkMode, for, ms,
-                                           repeatForever, sec, tu, wait)
 
 -- | Start worker which runs appropriate action when a period
 -- finishes. Default period length is used.
 runWorkerDefaultPeriod
-    :: WorkMode m
+    :: C.WorkMode m
     => C.SecretKey -> State -> m ()
 runWorkerDefaultPeriod = runWorker defaultPeriodDelta
 
@@ -44,7 +45,7 @@ runWorkerDefaultPeriod = runWorker defaultPeriodDelta
 -- and another worker (which communicates with explorers).
 -- Its value is True is empty iff this worker is doing something now.
 runWorker
-    :: (TimeUnit t, WorkMode m)
+    :: (TimeUnit t, C.WorkMode m)
     => t -> C.SecretKey -> State -> m ()
 runWorker periodDelta bankSK st =
     repeatForever (tu periodDelta) handler worker
@@ -62,7 +63,7 @@ runWorker periodDelta bankSK st =
 
 -- | Start worker which sends data to explorers.
 runExplorerWorker
-    :: (TimeUnit t, WorkMode m)
+    :: (TimeUnit t, C.WorkMode m)
     => t -> IORef Bool -> C.SecretKey -> State -> m ()
 runExplorerWorker periodDelta mainIsBusy sk st =
     foreverSafe $
@@ -88,18 +89,18 @@ runExplorerWorker periodDelta mainIsBusy sk st =
         wait $ for 10 sec
     shortWait = wait $ for 10 ms
     -- It would be much more elegant to use MVar here, but it's not
-    -- supported by WorkMode
+    -- supported by C.WorkMode
     waitUntilPredicate predicate =
         unlessM predicate $ shortWait >> waitUntilPredicate predicate
 
 communicateWithExplorers
-    :: WorkMode m
+    :: C.WorkMode m
     => C.SecretKey -> State -> C.PeriodId -> [(C.Explorer, C.PeriodId)] -> m [Bool]
 communicateWithExplorers sk st blocksNumber =
     mapM (communicateWithExplorer sk st blocksNumber) . sortOn (negate . snd)
 
 communicateWithExplorer
-    :: WorkMode m
+    :: C.WorkMode m
     => C.SecretKey -> State -> C.PeriodId -> (C.Explorer, C.PeriodId) -> m Bool
 communicateWithExplorer sk st blocksNumber (explorer,expectedPeriod)
   | blocksNumber == expectedPeriod = return True
@@ -114,7 +115,7 @@ communicateWithExplorer sk st blocksNumber (explorer,expectedPeriod)
                expectedPeriod)
 
 sendBlockToExplorer
-    :: WorkMode m
+    :: C.WorkMode m
     => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m Bool
 sendBlockToExplorer sk st explorer pId = do
     blk <-

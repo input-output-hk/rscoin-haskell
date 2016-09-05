@@ -11,13 +11,13 @@ import           Data.Time.Units            (TimeUnit)
 import           System.FilePath            ((</>))
 
 import qualified RSCoin.Bank                as B
-import           RSCoin.Core                (Mintette (Mintette), PublicKey,
+import           RSCoin.Core                (ContextArgument (CADefault),
+                                             Mintette (Mintette), PublicKey,
                                              SecretKey, Severity (Warning),
                                              defaultEpochDelta, defaultPort,
                                              localhost, testBankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
-import           RSCoin.Timed               (ContextArgument (CADefault))
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath)
 

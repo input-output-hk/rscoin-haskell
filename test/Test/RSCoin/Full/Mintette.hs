@@ -11,7 +11,7 @@ import           Control.Lens                     (view)
 
 import qualified RSCoin.Core                      as C
 import qualified RSCoin.Mintette                  as M
-import           RSCoin.Timed                     (WorkMode, workWhileMVarEmpty)
+import           RSCoin.Util.Timed                (workWhileMVarEmpty)
 
 import           Test.RSCoin.Full.Context         (MintetteInfo, port,
                                                    secretKey, state)
@@ -20,10 +20,10 @@ import           Test.RSCoin.Full.Mintette.Config (MintetteConfig,
 import qualified Test.RSCoin.Full.Mintette.Server as FM
 
 initialization
-    :: (WorkMode m)
+    :: C.WorkMode m
     => Maybe MintetteConfig -> MVar () -> MintetteInfo -> m ()
 initialization conf v m = do
-    let runner :: (WorkMode m) => Int -> M.State -> C.SecretKey -> m ()
+    let runner :: C.WorkMode m => Int -> M.State -> C.SecretKey -> m ()
         runner =
             case conf of
                 Nothing -> M.serve
@@ -33,12 +33,12 @@ initialization conf v m = do
         M.runWorker <$> view secretKey <*> view state $ m
 
 defaultMintetteInit
-    :: (WorkMode m)
+    :: C.WorkMode m
     => MVar () -> MintetteInfo -> m ()
 defaultMintetteInit = initialization Nothing
 
 malfunctioningMintetteInit
-    :: (WorkMode m)
+    :: C.WorkMode m
     => MVar () -> MintetteInfo -> m ()
 malfunctioningMintetteInit =
     initialization (Just malfunctioningConfig)

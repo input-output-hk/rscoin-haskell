@@ -27,9 +27,7 @@ import           Data.Word               (Word16, Word8)
 import           System.Random           (Random)
 
 import qualified RSCoin.Bank             as B
-import           RSCoin.Core             (PublicKey, SecretKey,
-                                          WithNamedLogger (..), defaultPort,
-                                          testingLoggerName)
+import           RSCoin.Core             (PublicKey, SecretKey, defaultPort)
 import qualified RSCoin.Mintette         as M
 import qualified RSCoin.Notary           as N
 import qualified RSCoin.User             as U
@@ -90,9 +88,6 @@ data TestContext = TestContext
 $(makeLenses ''TestContext)
 
 type TestEnv m = ReaderT TestContext m
-
-instance Monad m => WithNamedLogger (TestEnv m) where
-    getLoggerName = pure testingLoggerName
 
 -- * Shortcuts
 

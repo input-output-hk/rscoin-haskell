@@ -30,6 +30,9 @@ import qualified Data.Text                     as T
 import           Data.Time.Units               (Second)
 import           Formatting                    (build, int, sformat, (%))
 
+import           Serokell.Util.Text            (listBuilderJSON, pairBuilder)
+
+import qualified RSCoin.Core                   as C
 import           RSCoin.Core.CheckConfirmation (verifyCheckConfirmation)
 import qualified RSCoin.Core.Communication     as CC
 import           RSCoin.Core.Crypto            (Signature, verify)
@@ -42,14 +45,13 @@ import           RSCoin.Core.Types             (CheckConfirmation,
                                                 CheckConfirmations,
                                                 CommitAcknowledgment (..),
                                                 Mintette, MintetteId, PeriodId)
-import           RSCoin.Timed                  (WorkMode)
-import           RSCoin.Timed.MonadTimed       (for, ms, sec, timeout, wait)
+
 import           RSCoin.User.Cache             (UserCache, getOwnersByAddrid,
                                                 getOwnersByTx,
                                                 invalidateUserCache)
 import           RSCoin.User.Error             (UserLogicError (..))
+import           RSCoin.Util.Timed             (for, ms, sec, timeout, wait)
 
-import           Serokell.Util.Text            (listBuilderJSON, pairBuilder)
 
 -- | SignatureBundle is a datatype that represents signatures needed
 -- to prove that address owners are OK with transaction spending money
@@ -73,7 +75,7 @@ joinBundles (a,s,signs1) (_,_,signs2) = (a,s,nub $ signs1 ++ signs2)
 -- | Gets signatures that can't be retrieved locally (for strategies
 -- other than local).
 getExtraSignatures
-    :: WorkMode m
+    :: C.WorkMode m
     => Transaction                   -- ^ Transaction to confirm addrid from
     -> M.Map Address AddressSignInfo -- ^ For each address in tx input we provide
                                      -- info about strategy, addrids that reperesent
@@ -119,7 +121,7 @@ getExtraSignatures tx requests time = do
     -- 2. After our signature commit signatures became ready
     -- Returns (Left addr) if Notary should be polled for transaction tx
     -- and addr `addr` and sigs are not ready
-    perform :: WorkMode m
+    perform :: C.WorkMode m
             => Address
             -> m (Either Address (Bool, (Address, [(Address, Signature Transaction)])))
     perform addr = do
@@ -143,7 +145,7 @@ type Owner = (Mintette,MintetteId)
 -- given. If transaction is confirmed, just returns. If it's not
 -- confirmed, the MajorityFailedToCommit is thrown.
 validateTransaction
-    :: WorkMode m
+    :: C.WorkMode m
     => Maybe UserCache -- ^ User cache
     -> Transaction     -- ^ Transaction to send
     -> SignatureBundle -- ^ Signatures for local addresses with default strategy
@@ -163,7 +165,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle periodId = do
             assocs = M.assocs orig
         in M.fromList [ (b, map fst $ filter ((b `elem`) . snd) assocs)
                       | b <- allElems ]
-    retrieveOwners :: (WorkMode m) => AddrId -> m [(Mintette,MintetteId)]
+    retrieveOwners :: (C.WorkMode m) => AddrId -> m [(Mintette,MintetteId)]
     retrieveOwners addrid = do
         owns <- getOwnersByAddrid cache periodId addrid
         when (null owns) $
@@ -171,7 +173,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle periodId = do
             MajorityRejected $
             sformat ("Addrid " % build % " doesn't have owners") addrid
         return owns
-    getConfirmations :: (WorkMode m) => m CheckConfirmations
+    getConfirmations :: (C.WorkMode m) => m CheckConfirmations
     getConfirmations = do
         -- Get the mapping from addrids to owners it has
         (requests :: M.Map AddrId [Owner]) <- M.fromList <$>
@@ -229,7 +231,7 @@ validateTransaction cache tx@Transaction{..} signatureBundle periodId = do
                 M.assocs revConfirmations
         return checkConfirmations
     commitBundle
-        :: WorkMode m
+        :: C.WorkMode m
         => CheckConfirmations -> m ()
     commitBundle bundle = do
         owns <- getOwnersByTx cache periodId tx
@@ -263,6 +265,6 @@ validateTransaction cache tx@Transaction{..} signatureBundle periodId = do
     sndFromLeft :: (a, Either T.Text b) -> (a, T.Text)
     sndFromLeft (a,b) = (a, fromLeft' b)
     invalidateCache
-        :: WorkMode m
+        :: C.WorkMode m
         => m ()
     invalidateCache = liftIO $ maybe (return ()) invalidateUserCache cache

@@ -21,10 +21,12 @@ import           Control.Lens                      (at, makeLenses, preuse, use,
                                                     (^.), _Just)
 import           Control.Monad                     (forever, join, unless)
 import           Control.Monad.Catch               (Handler (Handler),
-                                                    SomeException, catches,
-                                                    finally, throwM)
+                                                    MonadCatch, MonadMask,
+                                                    MonadThrow, SomeException,
+                                                    catches, finally, throwM)
 import           Control.Monad.Extra               (ifM, whenJust, whenJustM)
-import           Control.Monad.Reader              (ReaderT, runReaderT)
+import           Control.Monad.Reader              (MonadReader, ReaderT,
+                                                    runReaderT)
 import           Control.Monad.State               (MonadState, State, runState)
 import           Control.Monad.Trans               (MonadIO (liftIO))
 import           Data.Acid                         (EventResult, EventState,
@@ -171,14 +173,16 @@ modifyConnectionsStateDo var st =
 
 $(makeLenses ''ServerState)
 
-type ServerMonad = ReaderT ServerState IO
+newtype ServerMonad a = ServerMonad
+    { getServerMonad :: ReaderT ServerState IO a
+    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask, MonadReader ServerState)
+
+instance C.WithNamedLogger ServerMonad where
+    getLoggerName = pure wsLoggerName
 
 modifyConnectionsState :: State ConnectionsState a -> ServerMonad a
 modifyConnectionsState st =
     flip modifyConnectionsStateDo st =<< view ssConnections
-
-instance C.WithNamedLogger ServerMonad where
-    getLoggerName = pure wsLoggerName
 
 send
     :: MonadIO m
@@ -493,5 +497,6 @@ mkWsApp channel st =
                { _ssDataBase = st
                , _ssConnections = connections
                }
-           app pc = runReaderT (handler pc) ss
-       app <$ forkIO (runReaderT (sender channel) ss)
+           runServerMonad = flip runReaderT ss . getServerMonad
+           app pc = runServerMonad (handler pc)
+       app <$ forkIO (runServerMonad (sender channel))

@@ -14,9 +14,10 @@ import qualified Data.Text.IO              as TIO
 import           Data.Time.Units           (TimeUnit)
 import           Formatting                (int, sformat, stext, (%))
 
-import           RSCoin.Core               (SecretKey, mintetteLoggerName)
-import           RSCoin.Timed              (ContextArgument (..), MsgPackRpc,
-                                            fork_, runRealModeUntrusted)
+import           RSCoin.Core               (ContextArgument (..), RealMode,
+                                            SecretKey, mintetteLoggerName,
+                                            runRealModeUntrusted)
+import           RSCoin.Util.Timed         (fork_)
 
 import           RSCoin.Mintette.Acidic    (GetPeriodId (..), closeState,
                                             getStatistics, openMemState,
@@ -28,7 +29,7 @@ import           RSCoin.Mintette.Worker    (runWorkerWithDelta)
 mintetteWrapperReal :: Bool
                     -> Maybe FilePath
                     -> ContextArgument
-                    -> (State -> MsgPackRpc a)
+                    -> (State -> RealMode a)
                     -> IO a
 mintetteWrapperReal deleteIfExists dbPath ca action = do
     let openAction = maybe openMemState (openState deleteIfExists) dbPath

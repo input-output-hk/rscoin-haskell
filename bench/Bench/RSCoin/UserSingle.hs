@@ -24,11 +24,11 @@ import           System.Directory         (doesFileExist, removeFile)
 
 import           Serokell.Util.Bench      (getWallTime)
 
-import           RSCoin.Core              (Address (..), keyGen, logDebug,
-                                           logInfo, testBankSecretKey)
-import           RSCoin.Timed             (MsgPackRpc, Second, for, fork,
-                                           killThread, sec, wait)
+import           RSCoin.Core              (Address (..), RealMode, keyGen,
+                                           logDebug, logInfo, testBankSecretKey)
 import qualified RSCoin.User              as U
+import           RSCoin.Util.Timed        (Second, for, fork, killThread, sec,
+                                           wait)
 
 import           Bench.RSCoin.UserCommons (executeTransaction)
 
@@ -67,7 +67,7 @@ writeFileStats status startTime txNum dumpFile = do
                             txNum
     liftIO $ TIO.appendFile dumpFile rowStats
 
-dumpWorker :: IORef Word -> Second -> FilePath -> MsgPackRpc ()
+dumpWorker :: IORef Word -> Second -> FilePath -> RealMode ()
 dumpWorker countRef startTime dumpFile = forever $ do
     wait $ for dumpPeriod sec
     curTxNum <- liftIO $ readIORef countRef
@@ -79,7 +79,7 @@ runSingleUser :: Maybe Word
               -> Word
               -> FilePath
               -> U.UserState
-              -> MsgPackRpc ()
+              -> RealMode ()
 runSingleUser logIntervalMaybe txNum dumpFile st = do
     -- clear file before printing results in it
     liftIO $ whenM (doesFileExist dumpFile) $ removeFile dumpFile
@@ -106,7 +106,7 @@ runSingleSuperUser :: Maybe Word
                    -> Word
                    -> FilePath
                    -> U.UserState
-                   -> MsgPackRpc ()
+                   -> RealMode ()
 runSingleSuperUser logInterval txNum dumpFile bankUserState = do
     let additionalBankAddreses = 0
 

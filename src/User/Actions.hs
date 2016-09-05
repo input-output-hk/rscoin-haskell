@@ -46,14 +46,13 @@ import qualified Graphics.UI.Gtk         as G
 import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
 import           GUI.RSCoin.GUI          (startGUI)
 import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
-import           RSCoin.Timed            (for, ms, wait)
+import           RSCoin.Util.Timed       (for, ms, wait)
 #endif
 
 import qualified RSCoin.Core             as C
 import           RSCoin.Core.Aeson       ()
 import           RSCoin.Core.Strategy    (AllocationAddress (..),
                                           PartyAddress (..))
-import           RSCoin.Timed            (WorkMode, getNodeContext)
 import qualified RSCoin.User             as U
 import           RSCoin.User.Error       (eWrap)
 import           RSCoin.User.Operations  (TransactionData (..))
@@ -62,7 +61,7 @@ import qualified UserOptions             as O
 
 initializeStorage
     :: forall (m :: * -> *).
-       (WorkMode m)
+       (C.WorkMode m)
     => U.UserState
     -> O.UserOptions
     -> m ()
@@ -73,7 +72,7 @@ initializeStorage st O.UserOptions{..} =
     bankKeyPath False _ = Nothing
 
 processCommand
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState -> O.UserCommand -> O.UserOptions -> m ()
 #if GtkGui
 processCommand st O.StartGUI opts = processStartGUI st opts
@@ -82,7 +81,7 @@ processCommand st command _       = processCommandNoOpts st command
 
 -- | Processes command line user command
 processCommandNoOpts
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState -> O.UserCommand -> m ()
 processCommandNoOpts st O.ListAddresses =
     processListAddresses st
@@ -124,13 +123,13 @@ processCommandNoOpts st (O.Dump command) =
     eWrap $ dumpCommand st command
 
 processListAddresses
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState -> m ()
 processListAddresses st =
     eWrap $
     do res <- U.updateBlockchain st False
        unless res $ C.logInfo "Successfully updated blockchain."
-       genAddr <- (^. C.genesisAddress) <$> getNodeContext
+       genAddr <- (^. C.genesisAddress) <$> C.getNodeContext
        addresses <- U.query st $ U.GetOwnedAddresses genAddr
        (wallets :: [(C.PublicKey, C.TxStrategy, [C.Coin], Bool)]) <-
            mapM (\addr -> do
@@ -150,7 +149,7 @@ processListAddresses st =
   where
     spaces = "                                                   "
     formatAddressEntry
-        :: (WorkMode m)
+        :: (C.WorkMode m)
         => (Integer, (C.PublicKey, C.TxStrategy, [C.Coin], Bool))
         -> m ()
     formatAddressEntry (i, (key, strategy, coins, hasSecret)) = do
@@ -165,7 +164,7 @@ processListAddresses st =
         case strategy of
             C.DefaultStrategy -> return ()
             C.MOfNStrategy m allowed -> do
-                genAddr <- (^. C.genesisAddress) <$> getNodeContext
+                genAddr <- (^. C.genesisAddress) <$> C.getNodeContext
                 liftIO $ do
                     TIO.putStrLn $ sformat
                          ("    This is a multisig address ("%int%"/"%int%") controlled by keys: ")
@@ -179,7 +178,7 @@ processListAddresses st =
                             allowedAddr
 
 formTransactionPayload
-    :: (WorkMode m)
+    :: (C.WorkMode m)
     => [(Word, Int64, Int)] -> T.Text -> [(Int64, Int)] -> m TransactionData
 formTransactionPayload inputs outputAddrStr outputCoins = eWrap $ do
     unless (isJust outputAddr) $
@@ -203,7 +202,7 @@ formTransactionPayload inputs outputAddrStr outputCoins = eWrap $ do
          }
 
 processFormTransaction
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState -> [(Word, Int64, Int)] -> T.Text -> [(Int64, Int)] -> m ()
 processFormTransaction st inputs outputAddrStr outputCoins =
     eWrap $
@@ -214,7 +213,7 @@ processFormTransaction st inputs outputAddrStr outputCoins =
            C.hash tx
 
 processMultisigAddress
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState
     -> Int
     -> [T.Text]
@@ -258,7 +257,7 @@ processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigT
         msPublicKey
   where
     parseTextAddresses
-        :: WorkMode m
+        :: C.WorkMode m
         => [T.Text] -> m [C.Address]
     parseTextAddresses textAddrs = do
         let partiesAddrs = mapMaybe (fmap C.Address . C.constructPublicKey) textAddrs
@@ -271,7 +270,7 @@ processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigT
                        parsed
         return partiesAddrs
 
-processListPendingTxs :: (MonadIO m, WorkMode m) => U.UserState -> m ()
+processListPendingTxs :: (MonadIO m, C.WorkMode m) => U.UserState -> m ()
 processListPendingTxs st = do
     addrs <- U.getAllPublicAddresses st
     C.logInfo "Querying notary to update the list of pending transactions"
@@ -310,7 +309,7 @@ processListPendingTxs st = do
                          ]
 
 processSendPendingTx
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState -> Int -> m ()
 processSendPendingTx st ix0 = do
     tx <- U.getPendingTransaction st $ ix0 - 1
@@ -320,7 +319,7 @@ processSendPendingTx st ix0 = do
     U.sendTransactionRetry 3 st Nothing tx signatures
 
 processPendingToCold
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState -> Int -> FilePath -> m ()
 processPendingToCold st ix0 path = do
     tx <- U.getPendingTransaction st $ ix0 - 1
@@ -330,7 +329,7 @@ processPendingToCold st ix0 path = do
         ("Your transaction data has been written to the '" % string % "'") path
 
 processUpdateBlockchain
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState -> m ()
 processUpdateBlockchain st =
     eWrap $
@@ -341,7 +340,7 @@ processUpdateBlockchain st =
                else "Successfully updated blockchain."
 
 processConfirmAllocation
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState
     -> Int
     -> Maybe String
@@ -396,7 +395,7 @@ processConfirmAllocation st i mHot mMasterPkText mMasterSlaveSigText =
 -- | Boolean flags stands for "show blacklist?". Default -- false,
 -- show whitelist.
 processListAllocation
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState
     -> Maybe T.Text
     -> Bool
@@ -424,7 +423,7 @@ processListAllocation st mTrustAddrText blacklist = eWrap $ do
 -- | Blacklists and whitelists allocations. Bool true mean
 -- "blacklist". False -- "whitelist".
 processBlackWhiteListing
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState -> Bool -> Int -> m ()
 processBlackWhiteListing st blacklist ix =
     eWrap $
@@ -450,7 +449,7 @@ processBlackWhiteListing st blacklist ix =
 -- | Forms transaction, its related empty signature bundle and dumps
 -- it to the file
 processColdFormTransaction
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState
     -> [(Word, Int64, Int)]
     -> T.Text
@@ -468,7 +467,7 @@ processColdFormTransaction st inputs outputAddrStr outputCoins path = eWrap $ do
 -- | Signs transaction from given file and writes output into new file with
 -- @.signed@ extension with new signature bundle.
 processColdSignTransaction
-    :: WorkMode m
+    :: C.WorkMode m
     => U.UserState
     -> FilePath
     -> m ()
@@ -491,7 +490,7 @@ processColdSignTransaction st bundlePath = eWrap $ do
                             signedPath
 
 processColdSendTransaction
-    :: WorkMode m
+    :: C.WorkMode m
     => U.UserState
     -> FilePath
     -> m ()
@@ -502,7 +501,7 @@ processColdSendTransaction st bundlePath = eWrap $ do
     U.sendTransactionRetry 2 st Nothing tx sigBundle
 
 processImportAddress
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState
     -> Maybe FilePath
     -> FilePath
@@ -516,7 +515,7 @@ processImportAddress st skPathMaybe pkPath heightFrom = do
     C.logInfo "Finished, your address successfully added"
 
 processExportAddress
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState
     -> Int
     -> FilePath
@@ -556,7 +555,7 @@ processExportAddress st ix0 filepath = do
                 (S.size parties)
 
 processDeleteAddress
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     => U.UserState -> Int -> Bool -> m ()
 processDeleteAddress st ix0 force =
     eWrap $
@@ -593,7 +592,7 @@ processDeleteAddress st ix0 force =
 
 #if GtkGui
 processStartGUI
-    :: (MonadIO m, WorkMode m)
+    :: (MonadIO m, C.WorkMode m)
     -> U.UserState
     -> O.UserOptions
     -> m ()
@@ -621,7 +620,7 @@ processStartGUI st opts@O.UserOptions{..} = do
 #endif
 
 dumpCommand
-    :: WorkMode m
+    :: C.WorkMode m
     => U.UserState -> O.DumpCommand -> m ()
 dumpCommand _ O.DumpMintettes = void C.getMintettes
 dumpCommand _ O.DumpAddresses = void C.getAddresses
@@ -635,6 +634,5 @@ dumpCommand _ (O.DumpMintetteBlocks mId pId) =
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =
     C.logInfo . show' . (`genericIndex` (idx - 1)) =<<
-    (\ctx ->
-          U.query st (U.GetOwnedAddresses (ctx ^. C.genesisAddress))) =<<
-    getNodeContext
+    (\ctx -> U.query st (U.GetOwnedAddresses (ctx ^. C.genesisAddress))) =<<
+    C.getNodeContext

@@ -13,8 +13,7 @@ import           Formatting                (build, int, sformat, (%))
 import           Serokell.Util.Text        (listBuilderJSONIndent)
 
 import qualified RSCoin.Core               as C
-import           RSCoin.Timed              (MonadRpc (getNodeContext), ServerT,
-                                            WorkMode, serverTypeRestriction1,
+import           RSCoin.Util.Rpc           (ServerT, serverTypeRestriction1,
                                             serverTypeRestriction3)
 
 import           RSCoin.Explorer.AcidState (AddHBlock (..),
@@ -26,12 +25,12 @@ import           RSCoin.Explorer.Channel   (Channel, ChannelItem (..),
 import           RSCoin.Explorer.Error     (ExplorerError (EEInvalidBankSignature))
 
 serve
-    :: WorkMode m
+    :: C.WorkMode m
     => Int -> Channel -> State -> C.SecretKey -> m ()
 serve port ch st _ = do
     idr1 <- serverTypeRestriction3
     idr2 <- serverTypeRestriction1
-    bankPublicKey <- (^. C.bankPublicKey) <$> getNodeContext
+    bankPublicKey <- (^. C.bankPublicKey) <$> C.getNodeContext
     C.serve
         port
         [ C.method (C.RSCExplorer C.EMNewBlock) $
@@ -40,7 +39,7 @@ serve port ch st _ = do
           idr2 $ handleGetTransaction st]
 
 handleGetTransaction
-    :: WorkMode m
+    :: C.WorkMode m
     => State -> C.TransactionId -> ServerT m (Maybe C.Transaction)
 handleGetTransaction st tId = do
     tx <- query st (GetTx tId)
@@ -54,7 +53,7 @@ handleGetTransaction st tId = do
 type HBlockSignature = C.Signature (C.PeriodId, C.WithMetadata C.HBlock C.HBlockMetadata)
 
 handleNewHBlock
-    :: WorkMode m
+    :: C.WorkMode m
     => Channel
     -> State
     -> C.PublicKey

@@ -12,13 +12,13 @@ import           Control.Monad.Trans       (liftIO)
 import           Data.Time.Units           (TimeUnit)
 import           Formatting                (build, sformat, shown, (%))
 
-import           RSCoin.Core               (SecretKey, defaultEpochDelta,
-                                            logError)
+import           RSCoin.Core               (SecretKey, WorkMode,
+                                            defaultEpochDelta, logError)
 import           RSCoin.Mintette.Acidic    (FinishEpoch (..))
 import           RSCoin.Mintette.AcidState (State, update)
 import           RSCoin.Mintette.Error     (isMEInactive)
 
-import           RSCoin.Timed              (WorkMode, repeatForever, tu)
+import           RSCoin.Util.Timed         (repeatForever, tu)
 
 -- | Start worker which updates state when epoch finishes. Default
 -- epoch length is used.

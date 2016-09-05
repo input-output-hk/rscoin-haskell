@@ -12,16 +12,17 @@ import           Network.Wai                          (Middleware)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
-import           RSCoin.Core                          (PeriodId, PublicKey,
+import           RSCoin.Core                          (ContextArgument (..),
+                                                       PeriodId, PublicKey,
                                                        Severity (..),
-                                                       notaryLoggerName)
+                                                       notaryLoggerName,
+                                                       runRealModeUntrusted)
+import           RSCoin.Util.Timed                    (fork_)
+
 import           RSCoin.Notary.AcidState              (NotaryState, closeState,
                                                        openMemState, openState)
 import           RSCoin.Notary.Server                 (serveNotary)
 import           RSCoin.Notary.Web.Servant            (servantApp)
-import           RSCoin.Timed                         (ContextArgument (..),
-                                                       fork_,
-                                                       runRealModeUntrusted)
 
 launchNotaryReal :: Severity
                  -> Bool

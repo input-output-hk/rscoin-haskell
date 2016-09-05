@@ -29,6 +29,17 @@ import           Formatting                 (build, int, sformat, stext, (%))
 import           Serokell.Util.Bench        (measureTime_)
 import           Serokell.Util.Text         (listBuilderJSON, mapBuilder, show')
 
+import           RSCoin.Core                (ActionLog, AddressToTxStrategyMap,
+                                             Explorers, HBlock, MintetteId,
+                                             Mintettes, PeriodId, PublicKey,
+                                             SecretKey, getNodeContext,
+                                             logDebug, logError, logInfo)
+import qualified RSCoin.Core                as C
+import qualified RSCoin.Core.NodeConfig     as NC
+import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
+                                                   checkLocalControlRequest)
+import qualified RSCoin.Util.Rpc            as Rpc
+
 import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),
                                              CheckAndBumpStatisticsId (..),
@@ -45,31 +56,21 @@ import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              getStatistics, query, tidyState,
                                              update)
 import           RSCoin.Bank.Error          (BankError (BEInconsistentResponse))
-import           RSCoin.Core                (ActionLog, AddressToTxStrategyMap,
-                                             Explorers, HBlock, MintetteId,
-                                             Mintettes, PeriodId, PublicKey,
-                                             SecretKey, logDebug, logError,
-                                             logInfo)
-import qualified RSCoin.Core                as C
-import qualified RSCoin.Core.NodeConfig     as NC
-import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
-                                                   checkLocalControlRequest)
-import qualified RSCoin.Timed               as T
 
 serve
-    :: T.WorkMode m
+    :: C.WorkMode m
     => State -> SecretKey -> IORef Bool -> m ()
 serve st bankSK isPeriodChanging = do
-    idr1 <- T.serverTypeRestriction0
-    idr2 <- T.serverTypeRestriction0
-    idr3 <- T.serverTypeRestriction0
-    idr4 <- T.serverTypeRestriction1
-    idr5 <- T.serverTypeRestriction3
-    idr6 <- T.serverTypeRestriction0
-    idr7 <- T.serverTypeRestriction0
-    idr8 <- T.serverTypeRestriction1
+    idr1 <- Rpc.serverTypeRestriction0
+    idr2 <- Rpc.serverTypeRestriction0
+    idr3 <- Rpc.serverTypeRestriction0
+    idr4 <- Rpc.serverTypeRestriction1
+    idr5 <- Rpc.serverTypeRestriction3
+    idr6 <- Rpc.serverTypeRestriction0
+    idr7 <- Rpc.serverTypeRestriction0
+    idr8 <- Rpc.serverTypeRestriction1
     (bankPK,bankPort) <-
-        liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort) <$> T.getNodeContext
+        liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort) <$> getNodeContext
     C.serve
         bankPort
         [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
@@ -83,20 +84,20 @@ serve st bankSK isPeriodChanging = do
         , C.method (C.RSCBank C.LocalControlRequest) $
           idr8 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging]
 
-type ServerTE m a = T.ServerT m (Either T.Text a)
+type ServerTE m a = Rpc.ServerT m (Either T.Text a)
 
-toServer :: T.WorkMode m => m a -> ServerTE m a
+toServer :: C.WorkMode m => m a -> ServerTE m a
 toServer action = lift $ (Right <$> action) `catch` handler
   where
     handler (e :: BankError) = do
         logError $ show' e
         return $ Left $ show' e
 
--- toServer' :: T.WorkMode m => IO a -> T.ServerT m a
+-- toServer' :: C.WorkMode m => IO a -> T.ServerT m a
 -- toServer' = toServer . liftIO
 
 serveGetAddresses
-    :: T.WorkMode m
+    :: C.WorkMode m
     => State -> ServerTE m AddressToTxStrategyMap
 serveGetAddresses st =
     toServer $
@@ -106,7 +107,7 @@ serveGetAddresses st =
        return mts
 
 serveGetMintettes
-    :: T.WorkMode m
+    :: C.WorkMode m
     => State -> ServerTE m Mintettes
 serveGetMintettes st =
     toServer $
@@ -114,18 +115,18 @@ serveGetMintettes st =
        logDebug $ sformat ("Getting list of mintettes: " % build) mts
        return mts
 
-serveGetHeight :: T.WorkMode m => State -> ServerTE m PeriodId
+serveGetHeight :: C.WorkMode m => State -> ServerTE m PeriodId
 serveGetHeight st =
     toServer $
     do pId <- query st GetPeriodId
        logDebug $ sformat ("Getting blockchain height: " % build) pId
        return pId
 
-serveGetStatisticsId :: T.WorkMode m => State -> ServerTE m PeriodId
+serveGetStatisticsId :: C.WorkMode m => State -> ServerTE m PeriodId
 serveGetStatisticsId st = toServer $ query st GetStatisticsId
 
 serveGetHBlocks
-    :: T.WorkMode m
+    :: C.WorkMode m
     => State -> [PeriodId] -> ServerTE m [HBlock]
 serveGetHBlocks st (nub -> periodIds) =
     toServer $
@@ -145,7 +146,7 @@ serveGetHBlocks st (nub -> periodIds) =
        return $ map fst blocks
 
 getPeriodResults
-    :: T.WorkMode m
+    :: C.WorkMode m
     => C.Mintettes -> C.PeriodId -> m [Maybe C.PeriodResult]
 getPeriodResults mts pId = do
     res <- liftIO $ newIORef []
@@ -162,7 +163,7 @@ getPeriodResults mts pId = do
                ("Error occurred in communicating with mintette " % build) e
            modifyIORef res (Nothing :)
 
-onPeriodFinished :: T.WorkMode m => SecretKey -> State -> m ()
+onPeriodFinished :: C.WorkMode m => SecretKey -> State -> m ()
 onPeriodFinished sk st = do
     mintettes <- query st GetMintettes
     pId <- query st GetPeriodId
@@ -222,7 +223,7 @@ onPeriodFinished sk st = do
         C.announceNewPeriodsToNotary pId' hblocks hblocksSig
 
 serveFinishPeriod
-    :: T.WorkMode m
+    :: C.WorkMode m
     => State
     -> SecretKey
     -> IORef Bool
@@ -237,7 +238,7 @@ serveFinishPeriod st bankSK isPeriodChanging = do
     logInfo $ sformat ("Finishing period took " % build) t
 
 serveDumpStatistics
-    :: T.WorkMode m
+    :: C.WorkMode m
     => State -> Int -> m ()
 serveDumpStatistics st sId = do
     good <- update st $ CheckAndBumpStatisticsId sId
@@ -248,7 +249,7 @@ serveDumpStatistics st sId = do
                    pId =<< getStatistics st
 
 serveLocalControlRequest
-    :: T.WorkMode m
+    :: C.WorkMode m
     => State
     -> PublicKey
     -> SecretKey
@@ -282,7 +283,7 @@ serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest = do
 -- Dumping Bank state
 
 serveGetLogs
-    :: T.WorkMode m
+    :: C.WorkMode m
     => State -> MintetteId -> Int -> Int -> ServerTE m (Maybe ActionLog)
 serveGetLogs st m from to =
     toServer $
@@ -294,7 +295,7 @@ serveGetLogs st m from to =
        return mLogs
 
 serveGetExplorers
-    :: T.WorkMode m
+    :: C.WorkMode m
     => State -> ServerTE m Explorers
 serveGetExplorers st =
     toServer $

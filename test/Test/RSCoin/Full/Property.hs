@@ -22,7 +22,7 @@ module Test.RSCoin.Full.Property
 
 import           Control.Monad.Catch             (onException)
 import           Control.Monad.Reader            (ask, runReaderT)
-import           Control.Monad.Trans             (MonadIO, lift, liftIO)
+import           Control.Monad.Trans             (MonadIO, lift)
 import           Formatting                      (build, sformat, (%))
 import           System.Random                   (StdGen)
 import           Test.QuickCheck                 (Gen, Property,
@@ -33,12 +33,14 @@ import           Test.QuickCheck.Monadic         (PropertyM, assert, monadic,
 
 import           Serokell.Util                   (listBuilderJSONIndent)
 
-import           RSCoin.Core                     (WithNamedLogger (..),
-                                                  logDebug, testingLoggerName)
-import           RSCoin.Timed                    (ContextArgument (CADefault),
-                                                  Delays, MsgPackRpc, PureRpc,
-                                                  WorkMode, runEmulationMode,
-                                                  runRealModeUntrusted)
+import           RSCoin.Core                     (ContextArgument (CADefault),
+                                                  EmulationMode, RealMode,
+                                                  WithNamedLogger (..),
+                                                  WorkMode, logDebug,
+                                                  runEmulationMode,
+                                                  runRealModeUntrusted,
+                                                  testingLoggerName)
+import           RSCoin.Util.Rpc                 (Delays)
 
 import           Test.RSCoin.Full.Action         (Action (doAction))
 import           Test.RSCoin.Full.Context        (MintetteNumber,
@@ -48,17 +50,18 @@ import           Test.RSCoin.Full.Gen            (genValidActions)
 import           Test.RSCoin.Full.Initialization (finishTest, mkTestContext)
 
 type FullProperty m = TestEnv (PropertyM m)
-type FullPropertyEmulation = FullProperty (PureRpc IO)
-type FullPropertyRealMode = FullProperty MsgPackRpc
+type FullPropertyEmulation = FullProperty EmulationMode
+type FullPropertyRealMode = FullProperty RealMode
 
-launchPure :: StdGen -> Delays -> PureRpc IO a -> IO a
+launchPure :: StdGen -> Delays -> EmulationMode a -> IO a
 launchPure gen = runEmulationMode (Just gen)
 
-launchReal :: MsgPackRpc a -> IO a
+launchReal :: RealMode a -> IO a
 launchReal = runRealModeUntrusted testingLoggerName CADefault
 
-instance MonadIO m => WithNamedLogger (PropertyM m) where
-    getLoggerName = liftIO $ getLoggerName
+instance (WithNamedLogger m, MonadIO m) =>
+         WithNamedLogger (PropertyM m) where
+    getLoggerName = lift getLoggerName
 
 toPropertyM
     :: WorkMode m

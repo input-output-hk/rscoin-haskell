@@ -67,7 +67,7 @@ import           Serokell.AcidState   (ExtendedState, closeExtendedState,
 import qualified RSCoin.Core          as C
 import           RSCoin.Core.Crypto   (keyGen)
 import           RSCoin.Core.Strategy (AllocationInfo, MSAddress)
-import           RSCoin.Timed         (MonadRpc (getNodeContext), WorkMode)
+
 import           RSCoin.User.Logic    (getBlockchainHeight)
 import           RSCoin.User.Wallet   (TxHStatus, TxHistoryRecord,
                                        WalletStorage)
@@ -200,7 +200,7 @@ $(makeAcidic
 -- also loads secret bank key from ~/.rscoin/bankPrivateKey and adds
 -- it to known addresses (public key is hardcoded in
 -- RSCoin.Core.Constants).
-initState :: WorkMode m => UserState -> Int -> Maybe FilePath -> m ()
+initState :: C.WorkMode m => UserState -> Int -> Maybe FilePath -> m ()
 initState st n (Just skPath) = do
     sk <- liftIO $ C.readSecretKey skPath
     initStateBank st n sk
@@ -214,9 +214,9 @@ initState st n Nothing = do
 -- | This function is is similar to the previous one, but is intended to
 -- be used in tests/benchmark, where bank's secret key is embeded and
 -- is not contained in file.
-initStateBank :: WorkMode m => UserState -> Int -> C.SecretKey -> m ()
+initStateBank :: C.WorkMode m => UserState -> Int -> C.SecretKey -> m ()
 initStateBank st n sk = do
-    genAdr <- (^. C.genesisAddress) <$> getNodeContext
+    genAdr <- (^. C.genesisAddress) <$> C.getNodeContext
     liftIO $ do
        let bankAddress = (sk, C.getAddress genAdr)
        unless (W.validateKeyPair genAdr sk) $

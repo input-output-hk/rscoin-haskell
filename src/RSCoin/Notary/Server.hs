@@ -26,6 +26,12 @@ import           Serokell.Util.Text      (pairBuilder, show')
 
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
+import           RSCoin.Util.Rpc         (serverTypeRestriction0,
+                                          serverTypeRestriction1,
+                                          serverTypeRestriction2,
+                                          serverTypeRestriction3,
+                                          serverTypeRestriction5)
+
 import           RSCoin.Notary.AcidState (AddSignedTransaction (..),
                                           AllocateMSAddress (..),
                                           AnnounceNewPeriods (..),
@@ -37,12 +43,6 @@ import           RSCoin.Notary.AcidState (AddSignedTransaction (..),
                                           RemoveCompleteMSAddresses (..), query,
                                           tidyState, update)
 import           RSCoin.Notary.Error     (NotaryError (..))
-import           RSCoin.Timed            (MonadRpc (getNodeContext), WorkMode,
-                                          serverTypeRestriction0,
-                                          serverTypeRestriction1,
-                                          serverTypeRestriction2,
-                                          serverTypeRestriction3,
-                                          serverTypeRestriction5)
 
 type ServerTE m a = m (Either Text a)
 
@@ -55,7 +55,7 @@ toServer action = liftIO $ (Right <$> action) `catch` handler
 
 -- | Run Notary server which will process incoming sing requests.
 serveNotary
-    :: WorkMode m
+    :: C.WorkMode m
     => NotaryState
     -> m ()
 serveNotary notaryState = do
@@ -70,7 +70,7 @@ serveNotary notaryState = do
     idr9 <- serverTypeRestriction1
 
     (bankPublicKey, notaryPort) <- liftA2 (,) (^. C.bankPublicKey) (^. C.notaryPort)
-                                   <$> getNodeContext
+                                   <$> C.getNodeContext
     P.serve
         notaryPort
         [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1

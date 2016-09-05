@@ -5,8 +5,6 @@ import           Control.Monad.Trans (MonadIO)
 import qualified Data.Text           as T
 
 import qualified RSCoin.Core         as C
-import           RSCoin.Timed        (ContextArgument (CACustomLocation, CADefault),
-                                      runRealModeUntrusted)
 import qualified RSCoin.User         as U
 import qualified RSCoin.User.Wallet  as W
 
@@ -19,9 +17,9 @@ main = do
     C.initLogging logSeverity
     let ctxArg =
             if defaultContext
-                then CADefault
-                else CACustomLocation configPath
-    runRealModeUntrusted C.userLoggerName ctxArg $
+                then C.CADefault
+                else C.CACustomLocation configPath
+    C.runRealModeUntrusted C.userLoggerName ctxArg $
         bracket (U.openState rebuildDB walletPath) U.closeState $
         \st -> do
             C.logDebug $

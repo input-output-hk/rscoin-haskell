@@ -18,7 +18,6 @@ import           Control.Lens           (view, _1)
 import           Control.Monad.Trans    (MonadIO (liftIO))
 
 import qualified RSCoin.Core            as C
-import           RSCoin.Timed           (WorkMode)
 
 data CacheData = CacheData
     { cdMintettes :: (C.PeriodId, C.Mintettes)
@@ -46,7 +45,7 @@ invalidateUserCache
 invalidateUserCache = liftIO . atomically . flip writeTVar nullCacheData
 
 getMintettesList
-    :: WorkMode m
+    :: C.WorkMode m
     => Maybe UserCache -> C.PeriodId -> m [C.Mintette]
 getMintettesList maybeCache p =
     maybe loadAndCache return =<< tryCache maybeCache
@@ -74,7 +73,7 @@ getMintettesList maybeCache p =
         return loaded
 
 getOwnersByTxId
-    :: WorkMode m
+    :: C.WorkMode m
     => Maybe UserCache -> C.PeriodId -> C.TransactionId -> m [(C.Mintette, C.MintetteId)]
 getOwnersByTxId maybeCache p tId = toOwners <$> getMintettesList maybeCache p
   where
@@ -85,7 +84,7 @@ getOwnersByTxId maybeCache p tId = toOwners <$> getMintettesList maybeCache p
         C.owners mts tId
 
 getOwnersByTx
-    :: WorkMode m
+    :: C.WorkMode m
     => Maybe UserCache
     -> C.PeriodId
     -> C.Transaction
@@ -93,7 +92,7 @@ getOwnersByTx
 getOwnersByTx cache p = getOwnersByTxId cache p . C.hash
 
 getOwnersByAddrid
-    :: WorkMode m
+    :: C.WorkMode m
     => Maybe UserCache
     -> C.PeriodId
     -> C.AddrId

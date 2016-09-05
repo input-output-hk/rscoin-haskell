@@ -21,24 +21,24 @@ import           System.FilePath            ((</>))
 
 import           RSCoin.Core                (Address (..), BankLocalControlRequest (FinishPeriod),
                                              Coin (..), CoinAmount (..), Color,
-                                             genesisAddress,
-                                             getBlockchainHeight, keyGen,
-                                             logDebug, logInfo,
+                                             ContextArgument (CADefault),
+                                             RealMode, RealMode, genesisAddress,
+                                             getBlockchainHeight,
+                                             getNodeContext, keyGen, logDebug,
+                                             logInfo, runRealModeUntrusted,
                                              sendBankLocalControlRequest, sign,
                                              userLoggerName)
 import           RSCoin.Core.NodeConfig     (testBankSecretKey)
-import           RSCoin.Timed               (ContextArgument (CADefault),
-                                             MsgPackRpc, for, getNodeContext,
-                                             runRealModeUntrusted, sec, wait)
 import qualified RSCoin.User                as U
 import           RSCoin.User.Operations     (TransactionData (..),
                                              submitTransactionRetry)
+import           RSCoin.Util.Timed          (for, sec, wait)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath, walletPathPrefix)
 
 userThread
     :: FilePath
-    -> (Word -> U.UserState -> MsgPackRpc a)
+    -> (Word -> U.UserState -> RealMode a)
     -> Word
     -> IO a
 userThread benchDir userAction userId
@@ -46,7 +46,7 @@ userThread benchDir userAction userId
 
 userThreadWithPath
     :: FilePath
-    -> (Word -> U.UserState -> MsgPackRpc a)
+    -> (Word -> U.UserState -> RealMode a)
     -> Word
     -> Optional FilePath
     -> IO a
@@ -58,12 +58,12 @@ userThreadWithPath benchDir userAction userId (defaultTo
     runRealModeUntrusted userLoggerName CADefault $
     bracket (U.openState False walletPath) U.closeState (userAction userId)
 
-queryMyAddress :: U.UserState -> Address -> MsgPackRpc Address
+queryMyAddress :: U.UserState -> Address -> RealMode Address
 queryMyAddress userState =
     fmap head . U.query userState . U.GetOwnedDefaultAddresses
 
 -- | Create user with 1 address and return it.
-initializeUser :: Word -> U.UserState -> MsgPackRpc Address
+initializeUser :: Word -> U.UserState -> RealMode Address
 initializeUser userId userState = do
     let userAddressesNumber = 1
     logDebug $ sformat ("Initializing user " % int % "…") userId
@@ -77,7 +77,7 @@ executeTransaction :: U.UserState
                    -> Color
                    -> Rational
                    -> Address
-                   -> MsgPackRpc ()
+                   -> RealMode ()
 executeTransaction userState cache coinColor coinAmount addrToSend =
     () <$ submitTransactionRetry maxRetries userState (Just cache) td
   where
@@ -87,14 +87,14 @@ executeTransaction userState cache coinColor coinAmount addrToSend =
     td = TransactionData inputMoneyInfo addrToSend outputMoney
 
 -- | Finishes current bank period.
-finishBankPeriod :: MsgPackRpc ()
+finishBankPeriod :: RealMode ()
 finishBankPeriod = do
     currentPeriodId <- getBlockchainHeight
     let signature    = sign testBankSecretKey currentPeriodId
     sendBankLocalControlRequest $ FinishPeriod signature
 
 -- | Create user in `bankMode` and send coins to every user.
-initializeBank :: Word -> [Address] -> U.UserState -> MsgPackRpc ()
+initializeBank :: Word -> [Address] -> U.UserState -> RealMode ()
 initializeBank coinsNum userAddresses bankUserState = do
     logInfo "Initializaing user in bankMode…"
     let additionalBankAddreses = 0
@@ -116,7 +116,7 @@ initializeBank coinsNum userAddresses bankUserState = do
 benchUserTransactions :: Word
                       -> Word
                       -> U.UserState
-                      -> MsgPackRpc ()
+                      -> RealMode ()
 benchUserTransactions txNum userId userState = do
     let loggingStep = txNum `div` 5
     addr <- Address . snd <$> liftIO keyGen

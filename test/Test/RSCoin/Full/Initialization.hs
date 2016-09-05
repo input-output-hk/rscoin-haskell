@@ -25,15 +25,15 @@ import           Test.QuickCheck            (NonEmptyList (..))
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
-                                             defaultPeriodDelta,
+                                             WorkMode, defaultPeriodDelta,
                                              derivePublicKey, keyGen, localhost,
                                              logDebug, logInfo,
                                              testBankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
-import           RSCoin.Timed               (Second, WorkMode, for, ms, sec,
-                                             wait, workWhileMVarEmpty)
 import qualified RSCoin.User                as U
+import           RSCoin.Util.Timed          (Second, for, ms, sec, wait,
+                                             workWhileMVarEmpty)
 
 import           Test.RSCoin.Full.Action    (Coloring (Coloring),
                                              PartsToSend (PartsToSend),

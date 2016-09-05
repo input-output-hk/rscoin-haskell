@@ -20,16 +20,16 @@ import           Test.QuickCheck           (Arbitrary (arbitrary), Property,
                                             property)
 
 import           RSCoin.Core               (CoinsMap, Color (..), Severity (..),
-                                            bankLoggerName, grey,
+                                            WorkMode, bankLoggerName,
+                                            getNodeContext, grey,
                                             initLoggerByName, initLogging,
                                             mintetteLoggerName,
                                             testingLoggerName, userLoggerName)
-import           RSCoin.Timed              (MonadRpc (getNodeContext), WorkMode)
 import qualified RSCoin.User               as U
 
 import           Test.QuickCheck           (NonEmptyList (..))
-import           Test.RSCoin.Full.Action   (getUserState, UserAction (..),
-                                            PartsToSend (..))
+import           Test.RSCoin.Full.Action   (PartsToSend (..), UserAction (..),
+                                            getUserState)
 import           Test.RSCoin.Full.Property (FullPropertyEmulation,
                                             FullPropertyRealMode, assertFP,
                                             doActionFP, pickFP, runTestEnvFP,

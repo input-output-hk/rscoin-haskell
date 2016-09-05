@@ -1,5 +1,12 @@
 {-# LANGUAGE DeriveGeneric #-}
 
+module Main
+       ( main
+       , wmValue
+       , wmMetadata
+       , withMetadataBridge
+       ) where
+
 import           Data.Proxy                                (Proxy (..))
 import           Language.PureScript.Bridge                (BridgePart,
                                                             buildBridge,

@@ -23,7 +23,7 @@ psHash :: PSType
 psHash = TypeInfo "" "Data.Types" "Hash" []
 
 psCoinAmount :: PSType
-psCoinAmount = TypeInfo "" "Data.Types" "CoinAmount" []
+psCoinAmount = TypeInfo "" "Data.Types" "CoinAmount, Bla" []
 
 psIntMap :: MonadReader BridgeData m => m PSType
 psIntMap = do

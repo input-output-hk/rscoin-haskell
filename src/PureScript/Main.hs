@@ -36,9 +36,9 @@ main =
         , mkSumType (Proxy :: Proxy EWT.CoinsMapExtension)
         , mkSumType (Proxy :: Proxy EWT.TransactionExtension)
         , mkSumType (Proxy :: Proxy EWT.HBlockExtension)
-        , mkSumType (Proxy :: Proxy EWT.CoinsMapExtended)
-        , mkSumType (Proxy :: Proxy EWT.TransactionExtended)
-        , mkSumType (Proxy :: Proxy EWT.HBlockExtended)
+--        , mkSumType (Proxy :: Proxy EWT.CoinsMapExtended)
+--        , mkSumType (Proxy :: Proxy EWT.TransactionExtended)
+--        , mkSumType (Proxy :: Proxy EWT.HBlockExtended)
 
         , mkSumType (Proxy :: Proxy (CT.WithMetadata A B))
 

@@ -34,7 +34,7 @@ import           Control.Applicative      (liftA2)
 import           Control.Lens             (at, ix, makeLenses, makeLensesFor,
                                            preview, use, view, views, (%=),
                                            (+=), (.=), _Just)
-import           Control.Monad            (unless, forM_)
+import           Control.Monad            (forM_, unless)
 import           Control.Monad.Catch      (MonadThrow (throwM))
 import           Control.Monad.Extra      (ifM, whenJust)
 import           Control.Monad.Reader     (MonadReader, Reader, runReader)

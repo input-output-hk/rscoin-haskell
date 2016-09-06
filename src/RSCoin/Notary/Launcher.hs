@@ -12,12 +12,12 @@ import           Network.Wai                          (Middleware)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
+import           Control.TimeWarp.Timed               (fork_)
 import           RSCoin.Core                          (ContextArgument (..),
                                                        PeriodId, PublicKey,
                                                        Severity (..),
                                                        notaryLoggerName,
                                                        runRealModeUntrusted)
-import           RSCoin.Util.Timed                    (fork_)
 
 import           RSCoin.Notary.AcidState              (NotaryState, closeState,
                                                        openMemState, openState)

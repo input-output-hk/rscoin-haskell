@@ -24,13 +24,13 @@ import           Formatting              (build, int, sformat, shown, (%))
 
 import           Serokell.Util.Text      (pairBuilder, show')
 
-import qualified RSCoin.Core             as C
-import qualified RSCoin.Core.Protocol    as P
-import           RSCoin.Util.Rpc         (serverTypeRestriction0,
+import           Control.TimeWarp.Rpc    (serverTypeRestriction0,
                                           serverTypeRestriction1,
                                           serverTypeRestriction2,
                                           serverTypeRestriction3,
                                           serverTypeRestriction5)
+import qualified RSCoin.Core             as C
+import qualified RSCoin.Core.Protocol    as P
 
 import           RSCoin.Notary.AcidState (AddSignedTransaction (..),
                                           AllocateMSAddress (..),

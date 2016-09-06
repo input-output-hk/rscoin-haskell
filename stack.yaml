@@ -27,6 +27,10 @@ packages:
     git: https://github.com/serokell/acid-state.git
     commit: ad77e909bcd46c3e44eeca558eb8a6f1ff3600eb
   extra-dep: true
+- location:
+    git: https://github.com/serokell/time-warp.git
+    commit: 0735958621c5a379fd98839564c62e7b60711f88
+  extra-dep: true
 
 nix:
     enable: false

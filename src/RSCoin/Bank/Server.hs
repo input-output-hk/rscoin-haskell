@@ -29,6 +29,7 @@ import           Formatting                 (build, int, sformat, stext, (%))
 import           Serokell.Util.Bench        (measureTime_)
 import           Serokell.Util.Text         (listBuilderJSON, mapBuilder, show')
 
+import qualified Control.TimeWarp.Rpc       as Rpc
 import           RSCoin.Core                (ActionLog, AddressToTxStrategyMap,
                                              Explorers, HBlock, MintetteId,
                                              Mintettes, PeriodId, PublicKey,
@@ -38,7 +39,6 @@ import qualified RSCoin.Core                as C
 import qualified RSCoin.Core.NodeConfig     as NC
 import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
                                                    checkLocalControlRequest)
-import qualified RSCoin.Util.Rpc            as Rpc
 
 import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),

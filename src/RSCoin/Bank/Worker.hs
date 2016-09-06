@@ -22,10 +22,10 @@ import           Formatting               (build, int, sformat, (%))
 
 import           Serokell.Util.Exceptions ()
 
+import           Control.TimeWarp.Timed   (Second, for, ms, repeatForever, sec,
+                                           tu, wait)
 import           RSCoin.Core              (defaultPeriodDelta, sign)
 import qualified RSCoin.Core              as C
-import           RSCoin.Util.Timed        (Second, for, ms, repeatForever, sec,
-                                           tu, wait)
 
 import           RSCoin.Bank.AcidState    (GetExplorersAndPeriods (..),
                                            GetHBlockWithMetadata (..),

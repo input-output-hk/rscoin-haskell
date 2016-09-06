@@ -14,10 +14,10 @@ import qualified Data.Text.IO              as TIO
 import           Data.Time.Units           (TimeUnit)
 import           Formatting                (int, sformat, stext, (%))
 
+import           Control.TimeWarp.Timed    (fork_)
 import           RSCoin.Core               (ContextArgument (..), RealMode,
                                             SecretKey, mintetteLoggerName,
                                             runRealModeUntrusted)
-import           RSCoin.Util.Timed         (fork_)
 
 import           RSCoin.Mintette.Acidic    (GetPeriodId (..), closeState,
                                             getStatistics, openMemState,

@@ -133,6 +133,7 @@ library
                      , text-format
                      , time
                      , time-units >= 1.0.0
+                     , time-warp
                      , transformers >= 0.4.2.0
                      , transformers-base
                      , tuple >= 0.3.0.2
@@ -355,6 +356,7 @@ executable rscoin-deploy
                      , temporary
                      , text
                      , time-units >= 1.0.0
+                     , time-warp
                      , turtle
                      , yaml
   hs-source-dirs:      src/Deploy
@@ -436,6 +438,7 @@ test-suite rscoin-test
                      , text >= 1.2.2.0
                      , text-format
                      , time-units >= 1.0.0
+                     , time-warp
                      , transformers >= 0.4.2.0
                      , unordered-containers >= 0.2.7.1
                      , vector >= 0.11.0.0
@@ -477,6 +480,7 @@ benchmark rscoin-bench-local
                      , text
                      , text-format
                      , time-units
+                     , time-warp
                      , transformers
                      , unordered-containers >= 0.2.7.1
   hs-source-dirs:      bench
@@ -515,6 +519,7 @@ benchmark rscoin-bench-single-user
                      , text
                      , text-format
                      , time-units
+                     , time-warp
                      , transformers
   hs-source-dirs:      bench
   default-language:    Haskell2010
@@ -552,6 +557,7 @@ benchmark rscoin-bench-only-users
                      , text
                      , text-format
                      , time-units
+                     , time-warp
                      , transformers
   hs-source-dirs:      bench
   default-language:    Haskell2010
@@ -594,6 +600,7 @@ benchmark rscoin-bench-remote
                      , temporary
                      , text
                      , text-format
+                     , time-warp
                      , turtle
                      , yaml
   hs-source-dirs:      bench

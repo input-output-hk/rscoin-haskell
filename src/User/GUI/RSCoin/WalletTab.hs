@@ -108,9 +108,9 @@ createWalletModel view = do
               else "deposit"]
     statusSetter node =
         [ G.cellText := case wStatus node of
-              U.TxHConfirmed -> sid "Confirmed"
+              U.TxHConfirmed   -> sid "Confirmed"
               U.TxHUnconfirmed -> "Unconfirmed"
-              U.TxHRejected -> "Rejected" ]
+              U.TxHRejected    -> "Rejected" ]
     heightSetter node = [G.cellText := show (wHeight node)]
     addrSetter node = [G.cellText := wAddress node]
     amountSetter node = [G.cellText := showSigned (wAmount node)]
@@ -120,9 +120,9 @@ createWalletModel view = do
 
 
 instance Buildable TxHStatus where
-    build TxHConfirmed = B.fromString "Confirmed"
+    build TxHConfirmed   = B.fromString "Confirmed"
     build TxHUnconfirmed = B.fromString "Unconfirmed"
-    build TxHRejected = B.fromString "Rejected"
+    build TxHRejected    = B.fromString "Rejected"
 
 buildTransactionIndent :: C.Transaction -> B.Builder
 buildTransactionIndent C.Transaction{..} =
@@ -194,7 +194,7 @@ toNodeMapper confPath st gst txhr@U.TxHistoryRecord{..} = do
     addrs <- U.getAllAddresses st C.defaultNodeContext
     let amountDiff = C.getAmount $ getTransactionAmount addrs eTx
         isIncome = amountDiff > 0
-        headMaybe [] = Nothing
+        headMaybe []    = Nothing
         headMaybe (x:_) = Just x
         firstFromAddress = headMaybe $ filter (`notElem` addrs) $ mapMaybe fst $ vtInputs eTx
         outputs = (map fst $ vtOutputs eTx)

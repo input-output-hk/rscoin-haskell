@@ -18,7 +18,7 @@ import           RSCoin.Mintette.Acidic    (FinishEpoch (..))
 import           RSCoin.Mintette.AcidState (State, update)
 import           RSCoin.Mintette.Error     (isMEInactive)
 
-import           RSCoin.Util.Timed         (repeatForever, tu)
+import           Control.TimeWarp.Timed    (repeatForever, tu)
 
 -- | Start worker which updates state when epoch finishes. Default
 -- epoch length is used.

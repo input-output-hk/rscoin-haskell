@@ -25,11 +25,11 @@ import           Serokell.Util.Text        (listBuilderJSON,
                                             listBuilderJSONIndent, pairBuilder,
                                             show')
 
-import qualified RSCoin.Core               as C
-import           RSCoin.Util.Rpc           (ServerT, serverTypeRestriction0,
+import           Control.TimeWarp.Rpc      (ServerT, serverTypeRestriction0,
                                             serverTypeRestriction1,
                                             serverTypeRestriction2,
                                             serverTypeRestriction3)
+import qualified RSCoin.Core               as C
 
 import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),

@@ -24,11 +24,11 @@ import           System.Directory         (doesFileExist, removeFile)
 
 import           Serokell.Util.Bench      (getWallTime)
 
+import           Control.TimeWarp.Timed   (Second, for, fork, killThread, sec,
+                                           wait)
 import           RSCoin.Core              (Address (..), RealMode, keyGen,
                                            logDebug, logInfo, testBankSecretKey)
 import qualified RSCoin.User              as U
-import           RSCoin.Util.Timed        (Second, for, fork, killThread, sec,
-                                           wait)
 
 import           Bench.RSCoin.UserCommons (executeTransaction)
 

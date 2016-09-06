@@ -22,6 +22,8 @@ import           Data.Optional              (Optional (Default))
 import           Formatting                 (build, sformat, (%))
 import           Test.QuickCheck            (NonEmptyList (..))
 
+import           Control.TimeWarp.Timed     (Second, for, ms, sec, wait,
+                                             workWhileMVarEmpty)
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
@@ -32,8 +34,6 @@ import           RSCoin.Core                (Color (..), Mintette (..),
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import qualified RSCoin.User                as U
-import           RSCoin.Util.Timed          (Second, for, ms, sec, wait,
-                                             workWhileMVarEmpty)
 
 import           Test.RSCoin.Full.Action    (Coloring (Coloring),
                                              PartsToSend (PartsToSend),

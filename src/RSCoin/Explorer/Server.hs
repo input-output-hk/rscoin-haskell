@@ -12,9 +12,9 @@ import           Formatting                (build, int, sformat, (%))
 
 import           Serokell.Util.Text        (listBuilderJSONIndent)
 
-import qualified RSCoin.Core               as C
-import           RSCoin.Util.Rpc           (ServerT, serverTypeRestriction1,
+import           Control.TimeWarp.Rpc      (ServerT, serverTypeRestriction1,
                                             serverTypeRestriction3)
+import qualified RSCoin.Core               as C
 
 import           RSCoin.Explorer.AcidState (AddHBlock (..),
                                             GetExpectedPeriodId (..),

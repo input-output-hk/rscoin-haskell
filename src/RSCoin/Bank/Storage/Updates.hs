@@ -34,7 +34,7 @@ import qualified Data.HashMap.Lazy             as M
 import qualified Data.HashSet                  as S
 import           Data.List                     (unfoldr)
 import qualified Data.Map                      as MP
-import           Data.Maybe                    (mapMaybe, isNothing, fromJust)
+import           Data.Maybe                    (fromJust, isNothing, mapMaybe)
 import           Data.Time.Clock.POSIX         (POSIXTime)
 import           Safe                          (headMay)
 

@@ -13,16 +13,16 @@ import           Formatting                       (build, sformat, (%))
 
 import           Serokell.Util.Text               (show')
 
+import           Control.TimeWarp.Rpc             (ServerT,
+                                                   serverTypeRestriction0,
+                                                   serverTypeRestriction1,
+                                                   serverTypeRestriction2,
+                                                   serverTypeRestriction3)
 import qualified RSCoin.Core                      as C
 import           RSCoin.Mintette.Acidic           (GetUtxoPset (..))
 import           RSCoin.Mintette.AcidState        (State, query, update)
 import           RSCoin.Mintette.Error            (MintetteError)
 import qualified RSCoin.Mintette.Server           as OMS
-import           RSCoin.Util.Rpc                  (ServerT,
-                                                   serverTypeRestriction0,
-                                                   serverTypeRestriction1,
-                                                   serverTypeRestriction2,
-                                                   serverTypeRestriction3)
 
 import qualified Test.RSCoin.Full.Mintette.Acidic as MA
 import           Test.RSCoin.Full.Mintette.Config (MintetteConfig)

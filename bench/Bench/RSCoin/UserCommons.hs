@@ -19,6 +19,7 @@ import           Data.Optional              (Optional, defaultTo, empty)
 import           Formatting                 (int, sformat, (%))
 import           System.FilePath            ((</>))
 
+import           Control.TimeWarp.Timed     (for, sec, wait)
 import           RSCoin.Core                (Address (..), BankLocalControlRequest (FinishPeriod),
                                              Coin (..), CoinAmount (..), Color,
                                              ContextArgument (CADefault),
@@ -32,7 +33,6 @@ import           RSCoin.Core.NodeConfig     (testBankSecretKey)
 import qualified RSCoin.User                as U
 import           RSCoin.User.Operations     (TransactionData (..),
                                              submitTransactionRetry)
-import           RSCoin.Util.Timed          (for, sec, wait)
 
 import           Bench.RSCoin.FilePathUtils (dbFormatPath, walletPathPrefix)
 

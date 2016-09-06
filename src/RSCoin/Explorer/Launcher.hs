@@ -16,13 +16,13 @@ import           Network.Wai                          (Middleware)
 import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
+import           Control.TimeWarp.Timed               (fork_)
 import           RSCoin.Core                          (ContextArgument (..),
                                                        RealMode, SecretKey,
                                                        Severity (..), WorkMode,
                                                        explorerLoggerName,
                                                        initLoggerByName,
                                                        runRealModeUntrusted)
-import           RSCoin.Util.Timed                    (fork_)
 
 import           RSCoin.Explorer.AcidState            (State, closeState,
                                                        openState)

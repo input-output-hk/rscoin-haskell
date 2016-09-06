@@ -40,9 +40,9 @@ import           Serokell.Util            (indexModulo, indexModuloMay,
                                            listBuilderJSON, mapBuilder,
                                            pairBuilder)
 
+import           Control.TimeWarp.Timed   (Millisecond, after, invoke, ms)
 import qualified RSCoin.Core              as C
 import qualified RSCoin.User              as U
-import           RSCoin.Util.Timed        (Millisecond, after, invoke, ms)
 
 import           Test.RSCoin.Full.Context (TestEnv, buser, state, users)
 import           Test.RSCoin.Full.Error   (TestError (TestError))

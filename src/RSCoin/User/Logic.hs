@@ -46,11 +46,11 @@ import           RSCoin.Core.Types             (CheckConfirmation,
                                                 CommitAcknowledgment (..),
                                                 Mintette, MintetteId, PeriodId)
 
+import           Control.TimeWarp.Timed        (for, ms, sec, timeout, wait)
 import           RSCoin.User.Cache             (UserCache, getOwnersByAddrid,
                                                 getOwnersByTx,
                                                 invalidateUserCache)
 import           RSCoin.User.Error             (UserLogicError (..))
-import           RSCoin.Util.Timed             (for, ms, sec, timeout, wait)
 
 
 -- | SignatureBundle is a datatype that represents signatures needed

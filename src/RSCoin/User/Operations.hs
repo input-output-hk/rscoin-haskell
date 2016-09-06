@@ -70,8 +70,8 @@ import           Safe                   (atMay)
 import           Serokell.Util          (listBuilderJSON, listBuilderJSONIndent,
                                          pairBuilder)
 
+import           Control.TimeWarp.Timed (for, sec, wait)
 import qualified RSCoin.Core            as C
-import           RSCoin.Util.Timed      (for, sec, wait)
 
 import qualified RSCoin.User.AcidState  as A
 import           RSCoin.User.Cache      (UserCache)

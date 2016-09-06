@@ -33,6 +33,7 @@ import           Test.QuickCheck.Monadic         (PropertyM, assert, monadic,
 
 import           Serokell.Util                   (listBuilderJSONIndent)
 
+import           Control.TimeWarp.Rpc            (Delays)
 import           RSCoin.Core                     (ContextArgument (CADefault),
                                                   EmulationMode, RealMode,
                                                   WithNamedLogger (..),
@@ -40,7 +41,6 @@ import           RSCoin.Core                     (ContextArgument (CADefault),
                                                   runEmulationMode,
                                                   runRealModeUntrusted,
                                                   testingLoggerName)
-import           RSCoin.Util.Rpc                 (Delays)
 
 import           Test.RSCoin.Full.Action         (Action (doAction))
 import           Test.RSCoin.Full.Context        (MintetteNumber,

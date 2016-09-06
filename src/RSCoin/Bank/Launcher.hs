@@ -26,6 +26,7 @@ import           Data.Maybe                (fromJust, isNothing)
 import           Data.Time.Units           (TimeUnit)
 import           Formatting                (int, sformat, (%))
 
+import           Control.TimeWarp.Timed    (for, fork_, ms, wait)
 import           RSCoin.Core               (ContextArgument (..), Explorer,
                                             Mintette, PeriodId, PublicKey,
                                             RealMode, SecretKey, WorkMode,
@@ -34,7 +35,6 @@ import           RSCoin.Core.Communication (getBlockchainHeight,
                                             getMintettePeriod, getStatisticsId,
                                             sendBankLocalControlRequest)
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
-import           RSCoin.Util.Timed         (for, fork_, ms, wait)
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
                                             AddMintette (AddMintette), State,

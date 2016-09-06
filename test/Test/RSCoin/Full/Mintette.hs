@@ -9,9 +9,9 @@ module Test.RSCoin.Full.Mintette
 import           Control.Concurrent.MVar          (MVar)
 import           Control.Lens                     (view)
 
+import           Control.TimeWarp.Timed           (workWhileMVarEmpty)
 import qualified RSCoin.Core                      as C
 import qualified RSCoin.Mintette                  as M
-import           RSCoin.Util.Timed                (workWhileMVarEmpty)
 
 import           Test.RSCoin.Full.Context         (MintetteInfo, port,
                                                    secretKey, state)

@@ -41,12 +41,12 @@ import           Serokell.Util.Text      (pairBuilder, show')
 #if GtkGui
 import           Control.Exception       (SomeException)
 import           Control.Monad.Catch     (bracket, catch)
+import           Control.TimeWarp.Timed  (for, ms, wait)
 import qualified Data.Acid               as ACID
 import qualified Graphics.UI.Gtk         as G
 import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
 import           GUI.RSCoin.GUI          (startGUI)
 import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
-import           RSCoin.Util.Timed       (for, ms, wait)
 #endif
 
 import qualified RSCoin.Core             as C

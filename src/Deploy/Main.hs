@@ -18,13 +18,13 @@ import           System.FilePath         ((</>))
 import           System.IO.Temp          (withTempDirectory)
 import qualified Turtle                  as Cherepakha
 
+import           Control.TimeWarp.Timed  (Millisecond)
 import qualified RSCoin.Bank             as B
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Explorer         as E
 import qualified RSCoin.Mintette         as M
 import qualified RSCoin.Notary           as N
 import qualified RSCoin.User             as U
-import           RSCoin.Util.Timed       (Millisecond)
 
 import           Config                  (DeployConfig (..), readDeployConfig)
 

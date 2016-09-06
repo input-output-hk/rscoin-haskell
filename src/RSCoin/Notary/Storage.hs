@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE Rank2Types       #-}
 {-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE ViewPatterns     #-}
 
 -- | Storage for Notary's data.
 
@@ -43,9 +44,11 @@ import           Formatting             (build, sformat, (%))
 import           RSCoin.Core            (Address (..), HBlock (..), PeriodId,
                                          PublicKey, Signature, Transaction (..),
                                          Utxo, computeOutputAddrids,
-                                         validateSignature, validateTxPure, verify)
+                                         validateSignature, validateTxPure,
+                                         verify)
 import           RSCoin.Core.Strategy   (AddressToTxStrategyMap,
-                                         AllocationAddress, AllocationInfo (..),
+                                         AllocationAddress (..),
+                                         AllocationInfo (..),
                                          AllocationStrategy (..), MSAddress,
                                          PartyAddress (..), TxStrategy (..),
                                          allParties, allocateTxFromAlloc,
@@ -144,6 +147,7 @@ type MaybePKSignature = Maybe (PublicKey, Signature PublicKey)
 
 -- | Allocate new multisignature address by chosen strategy and
 -- given chain of certificates.
+-- TODO: split into 2 functions -- initialize and confirm
 allocateMSAddress
     :: MSAddress                     -- ^ New multisig address itself
     -> PartyAddress                  -- ^ Address of party who call this
@@ -186,17 +190,28 @@ allocateMSAddress
       when (_sigNumber > HS.size _allParties) $
           throwM $ NEInvalidStrategy
               "number of signatures to sign tx is greater then number of members"
-      unless (partyToAllocation argPartyAddress `HS.member` _allParties) $
-          throwM $ NEInvalidArguments "party address not in set of addresses"
       whenM (uses addresses $ M.member msAddr) $
         throwM $ NEInvalidArguments $ sformat
             ("ms address " % build % " already registered; please, regenerate new") msAddr
 
+      let allocAddress = partyToAllocation argPartyAddress
+      -- TODO: this need to refactored a lot but requires argument changing
+      case argPartyAddress of
+          TrustParty{..} -> case mMasterSlavePair of
+              Nothing -> throwM $ NEInvalidArguments "trust didn't provide master key"
+              Just (TrustAlloc . Address -> masterAlloc, _) ->
+                  unless (masterAlloc `HS.member` _allParties) $
+                    throwM $ NEInvalidArguments $ sformat
+                        ("master key is not a trust member of strategy")
+          UserParty{..}  ->
+              unless (allocAddress `HS.member` _allParties) $
+                throwM $ NEInvalidArguments $ sformat
+                  ("user address " % build % " is not a member of strategy")
+                  argPartyAddress
+
       guardMaxAttemps partyAddr
 
       mMSAddressInfo <- uses allocationStrategyPool $ HM.lookup msAddr
-      let allocAddress = partyToAllocation argPartyAddress
-
       case mMSAddressInfo of
           Nothing -> do
               pId <- use periodId

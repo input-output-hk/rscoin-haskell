@@ -21,7 +21,7 @@ packages:
     - msgpack-rpc
 - location:
     git: https://github.com/eskimor/purescript-bridge.git
-    commit: 278e7e3ed0f6ceeab7e25c17c64404b920fc82ef
+    commit: 8b6e3960dd86a517f5fd37ec648957b220818396
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git

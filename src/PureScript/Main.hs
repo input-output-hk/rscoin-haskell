@@ -1,10 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module Main
        ( main
-       , wmValue
-       , wmMetadata
-       , withMetadataBridge
        ) where
 
 import           Data.Proxy                                (Proxy (..))
@@ -15,8 +10,6 @@ import           Language.PureScript.Bridge                (BridgePart,
                                                             writePSTypes, (<|>),
                                                             (^==))
 
-import           GHC.Generics                              (Generic)
-
 import           Language.PureScript.Bridge.PSTypes        (psInt)
 import           Language.PureScript.Bridge.TypeParameters (A, B)
 import qualified RSCoin.Core.Primitives                    as Prim
@@ -25,8 +18,7 @@ import qualified RSCoin.Explorer.WebTypes                  as EWT
 
 import           PSTypes                                   (psCoinAmount,
                                                             psHash, psIntMap,
-                                                            psPublicKey,
-                                                            psWithMetadata)
+                                                            psPublicKey)
 
 main :: IO ()
 main =
@@ -43,9 +35,6 @@ main =
         , mkSumType (Proxy :: Proxy EWT.CoinsMapExtension)
         , mkSumType (Proxy :: Proxy EWT.TransactionExtension)
         , mkSumType (Proxy :: Proxy EWT.HBlockExtension)
---        , mkSumType (Proxy :: Proxy EWT.CoinsMapExtended)
---        , mkSumType (Proxy :: Proxy EWT.TransactionExtended)
---        , mkSumType (Proxy :: Proxy EWT.HBlockExtended)
 
         , mkSumType (Proxy :: Proxy (CT.WithMetadata A B))
 
@@ -55,12 +44,7 @@ main =
   where
     customBridge =
         defaultBridge <|> publicKeyBridge <|> wordBridge <|> hashBridge <|>
-        coinAmountBridge <|> intMapBridge -- <|> withMetadataBridge
-
-data WithMetadata value metadata = WithMetadata
-    { wmValue    :: value
-    , wmMetadata :: metadata
-    } deriving (Show, Eq, Generic)
+        coinAmountBridge <|> intMapBridge
 
 publicKeyBridge :: BridgePart
 publicKeyBridge = typeName ^== "PublicKey" >> return psPublicKey
@@ -76,8 +60,3 @@ coinAmountBridge = typeName ^== "CoinAmount" >> return psCoinAmount
 
 intMapBridge :: BridgePart
 intMapBridge = typeName ^== "IntMap" >> psIntMap
-
--- TODO: this can be handled better but I can't make it work
--- https://hackage.haskell.org/package/purescript-bridge-0.6.0.1/docs/Language-PureScript-Bridge-TypeParameters.html
-withMetadataBridge :: BridgePart
-withMetadataBridge = typeName ^== "WithMetadata" >> psWithMetadata

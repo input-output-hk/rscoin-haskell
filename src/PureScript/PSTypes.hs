@@ -6,7 +6,6 @@ module PSTypes
        , psHash
        , psCoinAmount
        , psIntMap
-       , psWithMetadata
        ) where
 
 import           Language.PureScript.Bridge.TypeInfo (PSType, TypeInfo (..))
@@ -23,7 +22,7 @@ psHash :: PSType
 psHash = TypeInfo "" "Data.Types" "Hash" []
 
 psCoinAmount :: PSType
-psCoinAmount = TypeInfo "" "Data.Types" "CoinAmount, Bla" []
+psCoinAmount = TypeInfo "" "Data.Types" "CoinAmount" []
 
 psIntMap :: MonadReader BridgeData m => m PSType
 psIntMap = do
@@ -37,7 +36,3 @@ psIntMap = do
              , t
              ]
         ]
-
-psWithMetadata :: MonadReader BridgeData m => m PSType
-psWithMetadata =
-    TypeInfo "" "RSCoin.Core.Types" "WithMetadata" <$> psTypeParameters

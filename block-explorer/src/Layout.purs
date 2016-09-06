@@ -10,10 +10,11 @@ import App.Connection                 (Action (..), WEBSOCKET,
 import App.Types                      (Address (..), ControlMsg (..),
                                        AddressInfoMsg (..),
                                        IncomingMsg (..),
-                                       TransactionSummary (..),
+                                       TransactionExtended,
                                        OutcomingMsg (..),
                                        Action (..), State, SearchQuery (..),
-                                       PublicKey (..), ServerError (..), Hash (..))
+                                       PublicKey (..), ServerError (..), Hash (..),
+                                       getTransactionId)
 import App.CSS                        (veryLightGrey, styleSheet)
 import App.ViewNew.Address            (view) as Address
 import App.ViewNew.NotFound           (view) as NotFound
@@ -87,9 +88,9 @@ update (PageView route@(R.Transaction tId)) state =
     getTransaction =
         queryGetTx state.queryInfo
         <|>
-        head (filter (\(TransactionSummary t) -> t.txsId == tId) state.transactions)
-    queryGetTx (Just (SQTransaction tx@(TransactionSummary t)))
-        | t.txsId == tId = Just tx
+        head (filter ((==) tId <<< getTransactionId) state.transactions)
+    queryGetTx (Just (SQTransaction tx))
+        | getTransactionId tx == tId = Just tx
     queryGetTx _ = Nothing
     onNewQueryDo action | isJust getTransaction = pure Nop -- ignore
                         | otherwise = action
@@ -107,13 +108,13 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                     pure Nop
                 ]
             }
-        OMTransactions _ _ arr ->
+        OMAddrTransactions _ _ arr ->
             noEffects $ state { transactions = map snd arr }
-        OMTransaction tx@(TransactionSummary t) ->
+        OMTransaction _ tx ->
             { state: state { queryInfo = Just $ SQTransaction tx }
             , effects:
                 [ do
-                    let expectedUrl = R.txUrl t.txsId
+                    let expectedUrl = R.txUrl $ getTransactionId tx
                     unless (state.route == R.match expectedUrl) $
                         liftEff $ R.navigateTo expectedUrl
                     pure Nop
@@ -178,7 +179,7 @@ view state =
             , id_ "page-content"
             ]
             [ case state.route of
-                R.Home -> Address.view $ state { queryInfo = Just $ SQAddress JsonDemo.addr, transactions = [JsonDemo.tx, JsonDemo.tx], txNumber = Just 11 } -- NotFound.view state
+                R.Home -> NotFound.view state
                 R.Address _ -> Address.view state
                 R.Transaction tId ->
                     let

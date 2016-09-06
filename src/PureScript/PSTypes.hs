@@ -6,6 +6,7 @@ module PSTypes
        , psHash
        , psCoinAmount
        , psIntMap
+       , psPosixTime
        ) where
 
 import           Language.PureScript.Bridge.TypeInfo (PSType, TypeInfo (..))
@@ -36,3 +37,6 @@ psIntMap = do
              , t
              ]
         ]
+
+psPosixTime :: PSType
+psPosixTime = TypeInfo "purescript-datetime" "Data.DateTime.Instant" "Instant" []

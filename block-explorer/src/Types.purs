@@ -8,14 +8,15 @@ module App.Types
        , queryToString
        ) where
 
-import Prelude                     (show, class Eq)
+import Prelude                     (show, class Eq, ($))
 
 import App.Routes                  (Path (NotFound))
 import App.Connection              (Connection, Action) as C
 import App.RSCoin                  as RSCoin
 import App.RSCoin                  (Coin, Address,
-                                    TransactionSummary (..),
-                                    addressToString, CoinsMapSummary)
+                                    TransactionExtended,
+                                    getTransactionId,
+                                    addressToString, CoinsMapExtended)
 import Data.Color                  as Color
 import Data.I18N                   (Language (..))
 
@@ -35,11 +36,11 @@ data Action
 
 data SearchQuery
     = SQAddress Address
-    | SQTransaction TransactionSummary
+    | SQTransaction TransactionExtended
 
 queryToString :: SearchQuery -> String
 queryToString (SQAddress addr) = addressToString addr
-queryToString (SQTransaction (TransactionSummary tId)) = show tId.txsId
+queryToString (SQTransaction t) = show $ getTransactionId t
 
 instance eqSearchQeuery :: Eq SearchQuery where
     eq (SQAddress addr1) (SQAddress addr2) = gEq addr1 addr2
@@ -55,9 +56,9 @@ type State =
     , queryInfo        :: Maybe SearchQuery
     , isAuthenticated  :: Boolean
     , searchQuery      :: String
-    , balance          :: Maybe CoinsMapSummary
+    , balance          :: Maybe CoinsMapExtended
     , txNumber         :: Maybe Int
-    , transactions     :: Array TransactionSummary
+    , transactions     :: Array TransactionExtended
     , periodId         :: Int
     , error            :: Maybe String
     , colors           :: Boolean

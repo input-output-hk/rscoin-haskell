@@ -3,7 +3,7 @@ module App.ViewNew.Transaction where
 import Prelude                        (($), map, show)
 
 import App.RSCoin                     (Coin(Coin), Color(Color),
-                                       TransactionSummary(..),
+                                       TransactionExtended,
                                        addressToString)
 import App.Types                      (Action, State)
 import App.Routes                     (txUrl, addressUrl)
@@ -17,8 +17,8 @@ import Data.Tuple.Nested              (uncurry2, uncurry4)
 import Data.Array                     (length)
 import Data.Maybe                     (Maybe (..))
 
-view :: TransactionSummary -> State -> Html Action
-view (TransactionSummary tx) state =
+view :: TransactionExtended -> State -> Html Action
+view _ state =
     div []
         []
 --          div

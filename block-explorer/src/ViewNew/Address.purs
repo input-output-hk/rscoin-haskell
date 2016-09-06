@@ -3,7 +3,6 @@ module App.ViewNew.Address where
 import Prelude                        (($), map, show, (<<<), const, (<>))
 
 import App.Types                       (Action (..), State, Coin(Coin), Color(Color),
-                                       TransactionSummary(TransactionSummary),
                                        queryToString)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
@@ -72,7 +71,7 @@ view state =
                                         , src adaSymbolDarkPath
                                         ]
                                         []
-                                    , text $ fromMaybe
+                                    -- , text $ fromMaybe
                                     , div
                                         [ className "pull-right" ]
                                         [ label

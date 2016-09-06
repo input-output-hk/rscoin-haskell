@@ -18,6 +18,7 @@ import qualified RSCoin.Explorer.WebTypes                  as EWT
 
 import           PSTypes                                   (psCoinAmount,
                                                             psHash, psIntMap,
+                                                            psPosixTime,
                                                             psPublicKey)
 
 main :: IO ()
@@ -29,6 +30,7 @@ main =
         [ mkSumType (Proxy :: Proxy EWT.ServerError)
         , mkSumType (Proxy :: Proxy EWT.ControlMsg)
         , mkSumType (Proxy :: Proxy EWT.AddressInfoMsg)
+        , mkSumType (Proxy :: Proxy EWT.HBlockInfoMsg)
         , mkSumType (Proxy :: Proxy EWT.IncomingMsg)
         , mkSumType (Proxy :: Proxy EWT.OutcomingMsg)
 
@@ -38,25 +40,29 @@ main =
 
         , mkSumType (Proxy :: Proxy (CT.WithMetadata A B))
 
+        , mkSumType (Proxy :: Proxy Prim.Transaction)
         , mkSumType (Proxy :: Proxy Prim.Color)
         , mkSumType (Proxy :: Proxy Prim.Coin)
         , mkSumType (Proxy :: Proxy Prim.Address)]
   where
     customBridge =
         defaultBridge <|> publicKeyBridge <|> wordBridge <|> hashBridge <|>
-        coinAmountBridge <|> intMapBridge
+        coinAmountBridge <|> intMapBridge <|> posixTimeBridge
 
 publicKeyBridge :: BridgePart
-publicKeyBridge = typeName ^== "PublicKey" >> return psPublicKey
+publicKeyBridge = typeName ^== "PublicKey" >> pure psPublicKey
 
 wordBridge :: BridgePart
-wordBridge = typeName ^== "Word" >> return psInt
+wordBridge = typeName ^== "Word" >> pure psInt
 
 hashBridge :: BridgePart
-hashBridge = typeName ^== "Hash" >> return psHash
+hashBridge = typeName ^== "Hash" >> pure psHash
 
 coinAmountBridge :: BridgePart
 coinAmountBridge = typeName ^== "CoinAmount" >> return psCoinAmount
 
 intMapBridge :: BridgePart
 intMapBridge = typeName ^== "IntMap" >> psIntMap
+
+posixTimeBridge :: BridgePart
+posixTimeBridge = typeName ^== "NominalDiffTime" >> pure psPosixTime

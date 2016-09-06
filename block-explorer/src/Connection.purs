@@ -58,3 +58,4 @@ send (W.Connection ws) value = liftEff do
   where
     encodeIncomingMsg (IMControl msg) = encodeJson msg
     encodeIncomingMsg (IMAddrInfo msg) = encodeJson msg
+    encodeIncomingMsg (IMHBlockInfo msg) = encodeJson msg

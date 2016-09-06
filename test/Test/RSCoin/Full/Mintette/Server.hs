@@ -38,7 +38,6 @@ serve conf port st sk = do
     idr4 <- serverTypeRestriction2
     idr5 <- serverTypeRestriction0
     idr6 <- serverTypeRestriction1
-    idr7 <- serverTypeRestriction1
     C.serve port
         [ C.method (C.RSCMintette C.PeriodFinished) $
             idr1 $ OMS.handlePeriodFinished sk st
@@ -50,10 +49,8 @@ serve conf port st sk = do
             idr4 $ handleCommitTx sk st conf
         , C.method (C.RSCDump C.GetMintetteUtxo) $
             idr5 $ OMS.handleGetUtxo st
-        , C.method (C.RSCDump C.GetMintetteBlocks) $
-            idr6 $ OMS.handleGetBlocks st
         , C.method (C.RSCDump C.GetMintetteLogs) $
-            idr7 $ OMS.handleGetLogs st
+            idr6 $ OMS.handleGetLogs st
         ]
 
 toServer :: C.WorkMode m => IO a -> ServerT m a

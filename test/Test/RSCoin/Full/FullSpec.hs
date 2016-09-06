@@ -14,21 +14,19 @@ import           Control.Monad.Trans         (lift)
 
 import           Data.IntMap                 (fromList, (!))
 import           Data.List                   (nub)
-import           Test.Hspec                  (Spec, before, describe, runIO)
+import           Test.Hspec                  (Spec, before, describe)
 import           Test.Hspec.QuickCheck       (prop)
 import           Test.QuickCheck             (Arbitrary (arbitrary), Property,
                                               property)
 
-import           RSCoin.Core                 (CoinsMap, Color (..),
-                                              WorkMode, bankLoggerName,
-                                              getNodeContext, grey,
-                                              initLoggerByName, initLogging,
-                                              mintetteLoggerName,
+import           RSCoin.Core                 (CoinsMap, Color (..), WorkMode,
+                                              bankLoggerName, getNodeContext,
+                                              grey, initLoggerByName,
+                                              initLogging, mintetteLoggerName,
                                               testingLoggerName, userLoggerName)
 import qualified RSCoin.User                 as U
 
 import           System.IO.Unsafe            (unsafePerformIO)
-import           TestOptions                 (FullTestConfig (..), testTVar)
 import           Test.QuickCheck             (NonEmptyList (..))
 import           Test.RSCoin.Full.Action     (PartsToSend (..), UserAction (..),
                                               getUserState)
@@ -37,6 +35,7 @@ import           Test.RSCoin.Full.Property   (FullPropertyEmulation,
                                               doActionFP, pickFP, runTestEnvFP,
                                               runWorkModeFP)
 import qualified Test.RSCoin.Full.Property   as FP (FullProperty)
+import           TestOptions                 (FullTestConfig (..), testTVar)
 
 spec :: Spec
 spec = do

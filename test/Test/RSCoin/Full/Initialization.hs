@@ -11,7 +11,7 @@ module Test.RSCoin.Full.Initialization
 import           Control.Concurrent.MVar    (MVar, newEmptyMVar, tryPutMVar)
 import           Control.Exception          (assert)
 import           Control.Lens               (view, (^.))
-import           Control.Monad              (replicateM, forM_)
+import           Control.Monad              (forM_, replicateM)
 import           Control.Monad.Reader       (runReaderT)
 import           Control.Monad.Trans        (MonadIO (liftIO))
 import qualified Data.IntMap.Strict         as M
@@ -23,19 +23,20 @@ import           Data.Optional              (Optional (Default))
 import           Formatting                 (build, sformat, (%))
 import           Test.QuickCheck            (NonEmptyList (..))
 
-import           Control.TimeWarp.Timed     (Second, for, ms, sec, wait,
-                                             workWhileMVarEmpty)
 import           Control.TimeWarp.Logging   (LoggerName (..), modifyLoggerName,
                                              setLoggerName)
+import           Control.TimeWarp.Timed     (Second, for, ms, sec, wait,
+                                             workWhileMVarEmpty)
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
-                                             WorkMode, defaultPeriodDelta,
+                                             WorkMode, bankLoggerName,
+                                             defaultPeriodDelta,
                                              derivePublicKey, keyGen, localhost,
-                                             logDebug, logInfo, logError,
-                                             testBankSecretKey, bankLoggerName,
-                                             mintetteLoggerName, 
-                                             notaryLoggerName)
+                                             logDebug, logInfo,
+                                             mintetteLoggerName,
+                                             notaryLoggerName,
+                                             testBankSecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import qualified RSCoin.User                as U
@@ -101,14 +102,14 @@ finishTest = () <$ (liftIO . flip tryPutMVar () =<< view isActive)
 runBank
     :: WorkMode m
     => MVar () -> BankInfo -> m ()
-runBank v b = 
-    setLoggerName bankLoggerName $ 
+runBank v b =
+    setLoggerName bankLoggerName $
       do
         mainIsBusy <- liftIO $ newIORef False
         -- TODO: this code is a modified version of launchBank. Invent
         -- smth to share code
-        workWhileMVarEmpty v $ 
-            modifyLoggerName (<> "server") $ 
+        workWhileMVarEmpty v $
+            modifyLoggerName (<> "server") $
                 B.serve (b ^. state) (b ^. secretKey) mainIsBusy
         wait $ for 10 ms
         workWhileMVarEmpty v $
@@ -119,23 +120,23 @@ runBank v b =
                     (b ^. state)
         workWhileMVarEmpty v $
             modifyLoggerName (<> "explorer-worker") $
-                B.runExplorerWorker 
-                    periodDelta 
-                    mainIsBusy 
-                    (b ^. secretKey) 
+                B.runExplorerWorker
+                    periodDelta
+                    mainIsBusy
+                    (b ^. secretKey)
                     (b ^. state)
 
 runMintettes
     :: WorkMode m
     => MVar () -> [MintetteInfo] -> Scenario -> m ()
-runMintettes v mts scen = 
+runMintettes v mts scen =
     setLoggerName mintetteLoggerName $
         case scen of
-            DefaultScenario -> 
+            DefaultScenario ->
                 withEnumedLogger_ (TM.defaultMintetteInit v) mts
             (MalfunctioningMintettes d) -> do
                 let (other,normal) = splitAt (partSize d) mts
-                withEnumedLogger_ (TM.defaultMintetteInit v) normal  
+                withEnumedLogger_ (TM.defaultMintetteInit v) normal
                 modifyLoggerName (<> "mulfunctioned") $
                     withEnumedLogger_ (TM.malfunctioningMintetteInit v) other
             _ -> error "Test.Action.runMintettes not implemented"
@@ -150,8 +151,8 @@ runMintettes v mts scen =
 runNotary
     :: WorkMode m
     => MVar () -> NotaryInfo -> m ()
-runNotary v n = 
-    workWhileMVarEmpty v $ 
+runNotary v n =
+    workWhileMVarEmpty v $
         setLoggerName notaryLoggerName $
             N.serveNotary (n ^. state)
 

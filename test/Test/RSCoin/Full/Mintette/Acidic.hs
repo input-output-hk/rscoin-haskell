@@ -61,12 +61,12 @@ $(makeAcidic ''OMS.Storage
              [
              -- Original
                'OMA.getUtxoPset
-             , 'OMA.previousMintetteId
+             , 'OMA.getPreviousMintetteId
              , 'OMA.finishPeriod
              , 'OMA.startPeriod
              , 'OMA.finishEpoch
-             , 'OMA.getBlocks
              , 'OMA.getLogs
+
              -- New
              , 'checkNotDoubleSpent
              , 'commitTx

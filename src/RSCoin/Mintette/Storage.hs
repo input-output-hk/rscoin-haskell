@@ -9,159 +9,163 @@
 
 module RSCoin.Mintette.Storage
        (
-         -- | Type and constructor
+         -- * Type and constructor
          Storage
        , mkStorage
 
-         -- | Lenses
+         -- * Lenses
        , addresses
        , actionLogs
+       , curMintetteId
        , dpk
-       , invMintetteId
        , logHeads
        , logSize
        , lBlocks
        , mintettes
-       , mintetteId
+       , periodId
+       , prevMintetteId
        , pset
        , txset
        , utxo
        , utxoAdded
        , utxoDeleted
 
-         -- | Something excellent
+         -- * Queries
+       , getCurMintetteId
+       , getLogs
+       , getPeriodId
+       , getPrevMintetteId
+       , getUtxoPset
+
+         -- * Updates
        , checkNotDoubleSpent
        , commitTx
        , finishPeriod
        , startPeriod
        , finishEpoch
-       , previousMintetteId
-       , getUtxoPset
-       , getBlocks
-       , getLogs
-       , getPeriodId
 
-       -- | Other helper methods
+       -- * Other helper methods
        , checkIsActive
        , checkTxSum
-       , logHead
+       , getLogHead
        , pushLogEntry
        , checkPeriodId
-       , periodId
+       , readerToState
        ) where
 
-import           Control.Applicative        ((<|>))
-import           Control.Lens               (Getter, at, makeLenses, to, use,
-                                             uses, view, views, (%=), (+=),
-                                             (.=), (<>=), (<~), (^.), _1)
-import           Control.Monad              (unless, when)
-import           Control.Monad.Catch        (MonadThrow (throwM))
-import           Control.Monad.Extra        (whenJust)
-import           Control.Monad.Reader.Class (MonadReader)
-import           Control.Monad.State.Class  (MonadState)
-import qualified Data.Map                   as M
-import           Data.Maybe                 (fromJust, fromMaybe, isJust,
-                                             isNothing)
-import qualified Data.Set                   as S
-import           Data.Tuple.Curry           (uncurryN)
-import           Safe                       (atMay, headMay)
+import           Control.Applicative   ((<|>))
+import           Control.Lens          (at, makeLenses, to, use, uses, view,
+                                        views, (%=), (+=), (.=), (<>=), (<~),
+                                        (^.), _1)
+import           Control.Monad         (unless, when)
+import           Control.Monad.Catch   (MonadThrow (throwM))
+import           Control.Monad.Extra   (unlessM, whenJust)
+import           Control.Monad.Reader  (MonadReader, Reader, runReader)
+import           Control.Monad.State   (MonadState, gets)
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.Map.Strict       as M
+import           Data.Maybe            (fromJust, fromMaybe, isJust, isNothing)
+import qualified Data.Set              as S
+import           Data.Tuple.Curry      (uncurryN)
+import           Safe                  (atMay, headMay)
 
-import           RSCoin.Core                (ActionLog, ActionLogHeads,
-                                             AddressToTxStrategyMap,
-                                             HBlock (..), HBlockHash, LBlock,
-                                             MintetteId, Mintettes, PeriodId,
-                                             Pset, SecretKey, TxStrategy (..),
-                                             Utxo, computeOutputAddrids,
-                                             derivePublicKey, hbTransactions,
-                                             isOwner, isStrategyCompleted,
-                                             mkCheckConfirmation, mkLBlock,
-                                             owners, sign,
-                                             verifyCheckConfirmation)
-import qualified RSCoin.Core                as C
-import           RSCoin.Mintette.Error      (MintetteError (..))
+import           RSCoin.Core           (ActionLog, ActionLogHeads,
+                                        AddressToTxStrategyMap, HBlock (..),
+                                        HBlockHash, LBlock, MintetteId,
+                                        Mintettes, PeriodId, Pset, SecretKey,
+                                        TxStrategy (..), Utxo,
+                                        computeOutputAddrids, derivePublicKey,
+                                        hbTransactions, isOwner,
+                                        isStrategyCompleted,
+                                        mkCheckConfirmation, mkLBlock, owners,
+                                        sign, verifyCheckConfirmation)
+import qualified RSCoin.Core           as C
+import           RSCoin.Mintette.Error (MintetteError (..))
 
 data Storage = Storage
-    { _utxo          :: !Utxo                    -- ^ Unspent transaction outputs
-    , _utxoDeleted   :: !Utxo                    -- ^ Entries, deleted from utxo
-    , _utxoAdded     :: !Utxo                    -- ^ Entries, added to utxo
-    , _pset          :: !Pset                    -- ^ Set of checked transactions
-    , _txset         :: !(S.Set C.Transaction)   -- ^ List of transaction sealing into ledger
-    , _lBlocks       :: ![[LBlock]]              -- ^ Blocks are stored per period
-    , _actionLogs    :: ![ActionLog]             -- ^ Logs are stored per period
-    , _logSize       :: !Int                     -- ^ Total size of actionLogs
-    , _mintettes     :: !Mintettes               -- ^ Mintettes for current period
-    , _mintetteId    :: !(Maybe MintetteId)      -- ^ Id for current period
-    , _invMintetteId :: !(Maybe MintetteId)      -- ^ Invariant for mintetteId
-    , _dpk           :: !C.Dpk                   -- ^ DPK for current period
-    , _logHeads      :: !ActionLogHeads          -- ^ All known heads of logs
-    , _lastBankHash  :: !(Maybe HBlockHash)      -- ^ Hash of the last HBlock
-    , _addresses     :: !AddressToTxStrategyMap  -- ^ Complete list of system's addresses
-                                                 -- accompanied with their strategies.
-                                                 -- Should be up-to-date with
-                                                 -- Bank::Storage::_addresses (updates are
-                                                 -- propagated via HBlocks)
+    { _utxo           :: !Utxo                    -- ^ Unspent transaction outputs
+    , _utxoDeleted    :: !Utxo                    -- ^ Entries, deleted from utxo
+    , _utxoAdded      :: !Utxo                    -- ^ Entries, added to utxo
+    , _periodId       :: !PeriodId                -- ^ Id of ongoing period
+    , _pset           :: !Pset                    -- ^ Set of checked transactions
+    , _txset          :: !(S.Set C.Transaction)   -- ^ List of transaction sealing into ledger
+    , _lBlocks        :: ![LBlock]                -- ^ Blocks are stored only for current period
+    , _actionLogs     :: ![ActionLog]             -- ^ Logs are stored per period
+    , _logSize        :: !Int                     -- ^ Total size of actionLogs
+    , _mintettes      :: !Mintettes               -- ^ Mintettes for current period
+    , _curMintetteId  :: !(Maybe MintetteId)      -- ^ Id for current period
+    , _prevMintetteId :: !(Maybe MintetteId)      -- ^ Id for previous period
+    , _dpk            :: !C.Dpk                   -- ^ DPK for current period
+    , _logHeads       :: !ActionLogHeads          -- ^ All known heads of logs
+    , _lastBankHash   :: !(Maybe HBlockHash)      -- ^ Hash of the last HBlock
+    , _addresses      :: !AddressToTxStrategyMap  -- ^ Complete list of system's addresses
+                                                  -- accompanied with their strategies.
+                                                  -- Should be up-to-date with
+                                                  -- Bank::Storage::_addresses (updates are
+                                                  -- propagated via HBlocks)
     }
 
 $(makeLenses ''Storage)
 
--- | Make storage for the 0-th period.
+-- | Make initial storage for the 0-th period.
 mkStorage :: Storage
 mkStorage =
     Storage
-    { _utxo = M.empty
-    , _utxoDeleted = M.empty
-    , _utxoAdded = M.empty
-    , _pset = M.empty
-    , _txset = S.empty
-    , _lBlocks = [[]]
-    , _actionLogs = [[]]
+    { _utxo = mempty
+    , _utxoDeleted = mempty
+    , _utxoAdded = mempty
+    , _periodId = 0
+    , _pset = mempty
+    , _txset = mempty
+    , _lBlocks = mempty
+    , _actionLogs = [mempty]
     , _logSize = 0
-    , _mintettes = []
-    , _mintetteId = Nothing
-    , _invMintetteId = Nothing
-    , _dpk = []
-    , _logHeads = M.empty
+    , _mintettes = mempty
+    , _curMintetteId = Nothing
+    , _prevMintetteId = Nothing
+    , _dpk = mempty
+    , _logHeads = mempty
     , _lastBankHash = Nothing
-    , _addresses = M.empty
+    , _addresses = mempty
     }
 
-type Query a = Getter Storage a
+type Query a = forall m . MonadReader Storage m => m a
 
-logHead :: Query (Maybe (C.ActionLogEntry, C.ActionLogEntryHash))
-logHead = actionLogs . to f
+getLogHead :: Query (Maybe (C.ActionLogEntry, C.ActionLogEntryHash))
+getLogHead = views actionLogs f
   where
     f = foldr ((<|>) . headMay) Nothing
 
-periodId :: Query PeriodId
-periodId = lBlocks . to (pred . length)
-
 isActive :: Query Bool
-isActive = mintetteId . to isJust
+isActive = views curMintetteId isJust
 
--- Dumping Mintette state
+getLogs :: PeriodId -> Query (Maybe ActionLog)
+getLogs pId = views actionLogs (\b -> b `atMay` (length b - pId - 1))
 
-getBlocks :: (MonadReader Storage m) => PeriodId -> m (Maybe [LBlock])
-getBlocks pId = view $ lBlocks . to (\b -> b `atMay` (length b - pId - 1))
+getPeriodId :: Query PeriodId
+getPeriodId = view periodId
 
-getLogs :: (MonadReader Storage m) => PeriodId -> m (Maybe ActionLog)
-getLogs pId =
-    view $ actionLogs . to (\b -> b `atMay` (length b - pId - 1))
-
-getPeriodId :: (MonadReader Storage m) => m PeriodId
-getPeriodId = views lBlocks $ pred . length
-
-getUtxoPset :: (MonadReader Storage m) => m (Utxo, Pset)
+getUtxoPset :: Query (Utxo, Pset)
 getUtxoPset = (,) <$> view utxo <*> view pset
 
-previousMintetteId :: (MonadReader Storage m) => m (Maybe MintetteId)
-previousMintetteId = view invMintetteId
+getCurMintetteId :: Query (Maybe MintetteId)
+getCurMintetteId = view curMintetteId
+
+getPrevMintetteId :: Query (Maybe MintetteId)
+getPrevMintetteId = view prevMintetteId
 
 type Update a = forall m . MonadState Storage m => m a
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
 
+-- TODO: maybe move somewhere
+readerToState
+    :: MonadState s m
+    => Reader s a -> m a
+readerToState = gets . runReader
+
 -- | Validate structure of transaction, check input AddrId for
 -- double spent and signature, update state if everything is valid.
--- Result is True iff everything is valid.
+-- MintetteError is thrown if something is invalid.
 checkNotDoubleSpent :: C.SecretKey
                     -> C.Transaction
                     -> C.AddrId
@@ -172,33 +176,29 @@ checkNotDoubleSpent sk tx addrId sg = do
     checkTxSum tx
     unless (addrId `elem` C.txInputs tx) $
         throwM $ MEInconsistentRequest "AddrId is not part of inputs"
-    inPset <- M.lookup addrId <$> use pset
+    inPset <- HM.lookup addrId <$> use pset
     maybe notInPsetCase inPsetCase inPset
   where
     inPsetCase storedTx
-      | storedTx == tx = finishCheck
-      | otherwise = throwM $ MENotUnspent addrId
+        | storedTx == tx = finishCheck
+        | otherwise = throwM $ MENotUnspent addrId
     notInPsetCase = do
-          addr <- M.lookup addrId <$> use utxo
-          maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
+        addr <- HM.lookup addrId <$> use utxo
+        maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
     checkSignaturesAndFinish addr = do
-          strategy <- uses addresses $ fromMaybe DefaultStrategy . M.lookup addr
-          if isStrategyCompleted strategy addr sg tx
-             then finishCheck
-             else throwM MEInvalidSignature
+        strategy <- uses addresses $ fromMaybe DefaultStrategy . M.lookup addr
+        unless (isStrategyCompleted strategy addr sg tx) $
+            throwM MEInvalidSignature
+        finishCheck
     finishCheck = do
         pushLogEntry $ C.QueryEntry tx
-        utxoEntry <- uses utxo (M.lookup addrId)
-        utxo %= M.delete addrId
-        whenJust
-            utxoEntry
-            (\e ->
-                  utxoDeleted %= M.insert addrId e)
-        pset %= M.insert addrId tx
-        hsh <- uses logHead (snd . fromJust)
+        utxoEntry <- uses utxo (HM.lookup addrId)
+        utxo %= HM.delete addrId
+        whenJust utxoEntry (\e -> utxoDeleted %= HM.insert addrId e)
+        pset %= HM.insert addrId tx
+        hsh <- snd . fromJust <$> readerToState getLogHead
         logSz <- use logSize
-        pId <- use periodId
-        return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1) pId
+        mkCheckConfirmation sk tx addrId (hsh, logSz - 1) <$> use periodId
 
 -- | Check that transaction is valid and whether it falls within
 -- mintette's remit.  If it's true, add transaction to storage and
@@ -207,17 +207,17 @@ commitTx :: C.SecretKey
          -> C.Transaction
          -> C.CheckConfirmations
          -> ExceptUpdate C.CommitAcknowledgment
-commitTx sk tx@C.Transaction{..} bundle = do
+commitTx sk tx@C.Transaction {..} bundle = do
     checkIsActive
     checkTxSum tx
     mts <- use mintettes
-    mId <- fromJust <$> use mintetteId
-    unless (C.isOwner mts (C.hash tx) mId) $ throwM $
+    mintetteId <- fromJust <$> use curMintetteId
+    unless (C.isOwner mts (C.hash tx) mintetteId) $ throwM $
         MEInconsistentRequest "I'm not an owner!"
     curDpk <- use dpk
     isConfirmed <- and <$> mapM (checkInputConfirmed mts curDpk) txInputs
     res <- commitTxChecked isConfirmed sk tx bundle
-    mapM_ (updateLogHeads curDpk) $ M.assocs bundle
+    mapM_ (updateLogHeads curDpk) $ M.toList bundle
     return res
   where
     checkInputConfirmed mts curDpk addrid = do
@@ -232,18 +232,13 @@ commitTx sk tx@C.Transaction{..} bundle = do
                 M.lookup (owner, addrid) bundle
             filtered = filter ownerConfirmed addridOwners
         return (length filtered > length addridOwners `div` 2)
-    verifyDpk curDpk ownerId C.CheckConfirmation{..} =
-        maybe
-            False
-            (\(k,_) ->
-                  ccMintetteKey == k) $
-        curDpk `atMay`
-        ownerId
-    updateLogHeads curDpk ((mId,_),C.CheckConfirmation{..}) =
+    verifyDpk curDpk ownerId C.CheckConfirmation {..} =
+        maybe False (\(k, _) -> ccMintetteKey == k) $ curDpk `atMay` ownerId
+    updateLogHeads curDpk ((mId, _), C.CheckConfirmation {..}) =
         maybe (return ()) (updateLogHeadsDo mId ccHead . fst) $ curDpk `atMay`
         mId
     updateLogHeadsDo mId lh pk = do
-        myId <- fromJust <$> use mintetteId
+        myId <- fromJust <$> use curMintetteId
         unless (mId == myId) $ logHeads . at pk .= Just lh
 
 commitTxChecked
@@ -255,11 +250,12 @@ commitTxChecked
 commitTxChecked False _ _ _ = throwM MENotConfirmed
 commitTxChecked True sk tx bundle = do
     pushLogEntry $ C.CommitEntry tx bundle
-    utxo <>= M.fromList (computeOutputAddrids tx)
-    utxoAdded <>= M.fromList (computeOutputAddrids tx)
+    let toAddIntoUtxo = HM.fromList (computeOutputAddrids tx)
+    utxo <>= toAddIntoUtxo
+    utxoAdded <>= toAddIntoUtxo
     txset %= S.insert tx
     let pk = derivePublicKey sk
-    hsh <- uses logHead (snd . fromJust)
+    hsh <- snd . fromJust <$> readerToState getLogHead
     logSz <- use logSize
     let logChainHead = (hsh, logSz)
     return $ C.CommitAcknowledgment pk (sign sk (tx, logChainHead)) logChainHead
@@ -271,91 +267,88 @@ finishPeriod sk pId = do
     checkIsActive
     checkPeriodId pId
     finishEpoch sk
-    mintetteId .= Nothing
-    (pId, , ) <$> use (lBlocks . to head) <*> use (actionLogs . to head)
+    prevMintetteId <~ use curMintetteId
+    curMintetteId .= Nothing
+    blocksRes <- use lBlocks
+    lBlocks .= mempty
+    (pId, blocksRes, ) <$> use (actionLogs . to head)
 
 -- | Start new period. False return value indicates that mintette
 -- didn't start the period because it received some other index, so
 -- `setNewIndex` should be called and then `startPeriod` again.
 startPeriod :: C.NewPeriodData -> ExceptUpdate ()
-startPeriod C.NewPeriodData{..} = do
+startPeriod C.NewPeriodData {..} = do
     lastPeriodId <- use periodId
     when (lastPeriodId >= npdPeriodId) $
         throwM $ MEPeriodMismatch (lastPeriodId + 1) npdPeriodId
-    alreadyActive <- use isActive
+    alreadyActive <- readerToState isActive
     when alreadyActive discardCurrentPeriod
     -- we don't check if new mid /= old one, because there is
     -- Nothing == Nothing situation at the very start
-    whenJust
-        npdNewIdPayload
-        (uncurryN onMintetteIdChanged)
-    invMId <- use invMintetteId
-    when (isNothing npdNewIdPayload && isNothing invMId) $
+    prevMId <- use prevMintetteId
+    when (isNothing npdNewIdPayload && isNothing prevMId) $
         throwM $
         MEInternal "Bank didn't send us utxo, but we're waiting for it."
-    lBlocks %= (replicate (npdPeriodId - lastPeriodId) [] ++)
+    maybe
+        (curMintetteId <~ use prevMintetteId)
+        (uncurryN onMintetteIdChanged)
+        npdNewIdPayload
     actionLogs %= (replicate (npdPeriodId - lastPeriodId) [] ++)
     mintettes .= npdMintettes
-    mintetteId <~ use invMintetteId
-    mId <- use invMintetteId
-    addresses %= M.union (hbAddresses npdHBlock)
+    newMintetteId <- uses curMintetteId fromJust
+    addresses <>= hbAddresses npdHBlock
     dpk .= npdDpk
-    pset .= M.empty
+    pset .= mempty
     unless (isJust npdNewIdPayload) $
         do let blockTransactions :: [C.Transaction]
                blockTransactions = hbTransactions npdHBlock
                blockOutputs :: C.Utxo
                blockOutputs =
-                   M.fromList $
+                   HM.fromList $
                    concatMap computeOutputAddrids blockTransactions
                blockInputs :: S.Set C.AddrId
-               blockInputs =
-                   S.fromList $ concatMap C.txInputs blockTransactions
+               blockInputs = S.fromList $ concatMap C.txInputs blockTransactions
            -- those are transactions that we approved, but didn't go
            -- into blockchain, so they should still be in utxo
            deletedNotInBlockchain :: C.Utxo <-
                uses
                    utxoDeleted
-                   (M.filterWithKey $
-                    \k _ ->
-                         (k `S.notMember` blockInputs))
+                   (HM.filterWithKey $ \k _ -> (k `S.notMember` blockInputs))
            -- those are transactions that were commited but for some
            -- reason bank rejected LBlock and they didn't go into
            -- blockchain
            addedNotInBlockchain :: C.Utxo <-
                uses
                    utxoAdded
-                   (M.filterWithKey $
-                    \k _ ->
-                         (k `M.notMember` blockOutputs))
+                   (HM.filterWithKey $
+                    \k _ -> (not $ k `HM.member` blockOutputs))
            deleted <- use utxoDeleted
            -- bank can (and in fact it does) insert in HBlock transactions
            -- that didn't pass through mintette (like fee allocation).
            let miscTransactions :: C.Utxo
                miscTransactions =
-                   M.filterWithKey
+                   HM.filterWithKey
                        (\k _ ->
-                             k `M.notMember` deleted &&
-                             isOwner npdMintettes (k ^. _1) (fromJust mId))
+                             not (k `HM.member` deleted) &&
+                             isOwner npdMintettes (k ^. _1) newMintetteId)
                        blockOutputs -- just for verbosity
            utxo <>= deletedNotInBlockchain
-           utxo %= (`M.difference` addedNotInBlockchain)
+           utxo %= (`HM.difference` addedNotInBlockchain)
            utxo <>= miscTransactions
-    utxoDeleted .= M.empty
-    utxoAdded .= M.empty
+    utxoDeleted .= mempty
+    utxoAdded .= mempty
     lastBankHash .= Just (C.hbHash npdHBlock)
-
--- | Update mintette id, set new utxo. Utxo should be correct. No
--- correct checks are made here, so the server should make his best.
--- It also doesn't set the mintetteId field, only invMintetteId, so
--- startPeriod should be called after.
-onMintetteIdChanged :: MintetteId -> Utxo -> AddressToTxStrategyMap -> Update ()
-onMintetteIdChanged newMid newUtxo newAddrs  = do
-    utxoDeleted .= M.empty
-    utxoAdded .= M.empty
-    utxo .= newUtxo
-    addresses .= newAddrs
-    invMintetteId .= Just newMid
+  where
+    onMintetteIdChanged :: MintetteId
+                        -> Utxo
+                        -> AddressToTxStrategyMap
+                        -> Update ()
+    onMintetteIdChanged newMId newUtxo newAddrs = do
+        utxoDeleted .= mempty
+        utxoAdded .= mempty
+        utxo .= newUtxo
+        addresses .= newAddrs
+        curMintetteId .= Just newMId
 
 -- | This function creates new LBlock with transactions from txset
 -- and adds CloseEpochEntry to log.
@@ -364,33 +357,29 @@ finishEpoch :: SecretKey -> ExceptUpdate ()
 finishEpoch sk = do
     checkIsActive
     txList <- S.toList <$> use txset
-    finishEpochList sk txList
+    finishEpochDo sk txList
 
-finishEpochList :: C.SecretKey -> [C.Transaction] -> Update ()
-finishEpochList _ [] = return ()
-finishEpochList sk txList = do
+finishEpochDo :: C.SecretKey -> [C.Transaction] -> Update ()
+finishEpochDo _ [] = return ()
+finishEpochDo sk txList = do
     heads <- use logHeads
-    prevRecord <- fromJust <$> use logHead
+    prevRecord <- fromJust <$> readerToState getLogHead
     prevHBlockHash <- fromJust <$> use lastBankHash
     let lBlock = mkLBlock txList sk prevHBlockHash heads prevRecord
-    topBlocks <- head <$> use lBlocks
-    let newTopBlocks = lBlock : topBlocks
-    lBlocks %= (\l -> newTopBlocks : tail l)
+    lBlocks %= (lBlock :)
     pushLogEntry $ C.CloseEpochEntry heads
-    txset .= S.empty
+    txset .= mempty
 
 pushLogEntry :: C.ActionLogEntry -> Update ()
 pushLogEntry entry = do
-    prev <- use logHead
+    prev <- readerToState getLogHead
     topLog <- uses actionLogs head
     let newTopLog = C.actionLogNext prev entry : topLog
     actionLogs %= (\l -> newTopLog : tail l)
     logSize += 1
 
 checkIsActive :: ExceptUpdate ()
-checkIsActive = do
-    v <- use isActive
-    unless v $ throwM MEInactive
+checkIsActive = unlessM (readerToState isActive) $ throwM MEInactive
 
 checkTxSum :: C.Transaction -> ExceptUpdate ()
 checkTxSum tx = unless (C.validateTxPure tx) $ throwM MEInvalidTxSums
@@ -402,7 +391,7 @@ checkPeriodId received = do
 
 discardCurrentPeriod :: Update ()
 discardCurrentPeriod = do
-    mintettes .= []
-    invMintetteId .= Nothing
-    mintetteId .= Nothing
-    dpk .= []
+    mintettes .= mempty
+    prevMintetteId .= Nothing
+    curMintetteId .= Nothing
+    dpk .= mempty

@@ -8,12 +8,11 @@ module RSCoin.Mintette.AcidState
        , query
        , update
 
-       , getBlocks
        , getLogs
        , getPeriodId
        , getStorage
        , getUtxoPset
-       , previousMintetteId
+       , getPreviousMintetteId
 
        , checkNotDoubleSpent
        , commitTx
@@ -33,10 +32,10 @@ import           Serokell.AcidState      (ExtendedState, queryExtended,
 
 import           RSCoin.Core             (ActionLog, AddrId, Address,
                                           CheckConfirmation, CheckConfirmations,
-                                          CommitAcknowledgment, LBlock,
-                                          MintetteId, NewPeriodData, PeriodId,
-                                          PeriodResult, Pset, SecretKey,
-                                          Signature, Transaction, Utxo)
+                                          CommitAcknowledgment, MintetteId,
+                                          NewPeriodData, PeriodId, PeriodResult,
+                                          Pset, SecretKey, Signature,
+                                          Transaction, Utxo)
 
 import qualified RSCoin.Mintette.Storage as MS
 
@@ -57,9 +56,6 @@ update = updateExtended
 getUtxoPset :: Query MS.Storage (Utxo,Pset)
 getUtxoPset = MS.getUtxoPset
 
-getBlocks :: PeriodId -> Query MS.Storage (Maybe [LBlock])
-getBlocks = MS.getBlocks
-
 getLogs :: PeriodId -> Query MS.Storage (Maybe ActionLog)
 getLogs = MS.getLogs
 
@@ -69,8 +65,8 @@ getPeriodId = MS.getPeriodId
 getStorage :: Query MS.Storage MS.Storage
 getStorage = ask
 
-previousMintetteId :: Query MS.Storage (Maybe MintetteId)
-previousMintetteId = MS.previousMintetteId
+getPreviousMintetteId :: Query MS.Storage (Maybe MintetteId)
+getPreviousMintetteId = MS.getPrevMintetteId
 
 checkNotDoubleSpent
     :: SecretKey

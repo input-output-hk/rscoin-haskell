@@ -33,7 +33,7 @@ module RSCoin.Bank.Storage.Queries
        ) where
 
 import           Control.Lens                  (Getter, to)
-import qualified Data.Map                      as MP
+import qualified Data.HashMap.Strict           as HM
 import           Safe                          (atMay)
 
 import           RSCoin.Core                   (PeriodId)
@@ -55,7 +55,7 @@ getAddresses = addressesStorage . AS.getAddresses
 
 -- | Resolves addrid into address using local utxo
 getAddressFromUtxo :: C.AddrId -> Query (Maybe C.Address)
-getAddressFromUtxo addrId = utxo . to (MP.lookup addrId)
+getAddressFromUtxo addrId = utxo . to (HM.lookup addrId)
 
 -- | Returns mintettes list
 getMintettes :: Query C.Mintettes

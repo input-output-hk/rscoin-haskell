@@ -30,7 +30,7 @@ import           Control.Monad.Except          (ExceptT, runExceptT)
 import           Control.Monad.State           (MonadState, State, execState,
                                                 runState)
 import           Data.Bifunctor                (first)
-import qualified Data.HashMap.Lazy             as M
+import qualified Data.HashMap.Strict           as HM
 import qualified Data.HashSet                  as S
 import           Data.List                     (unfoldr)
 import qualified Data.Map                      as MP
@@ -221,8 +221,8 @@ updateUtxo :: [Transaction] -> ExceptUpdate ()
 updateUtxo newTxs = do
     let shouldBeAdded = concatMap computeOutputAddrids newTxs
         shouldBeDeleted = concatMap txInputs newTxs
-    utxo %= MP.union (MP.fromList shouldBeAdded)
-    forM_ shouldBeDeleted (\d -> utxo %= MP.delete d)
+    utxo %= HM.union (HM.fromList shouldBeAdded)
+    forM_ shouldBeDeleted (\d -> utxo %= HM.delete d)
 
 -- | Process a check over PeriodResult to filter them, includes checks
 -- regarding pid and action logs check
@@ -286,13 +286,13 @@ allocateCoins bankPk mintetteKeys goodResults pId strategy =
 -- from mintettes.
 mergeTransactions :: Mintettes -> [(MintetteId, PeriodResult)] -> [Transaction]
 mergeTransactions mts goodResults =
-    M.foldrWithKey appendTxChecked [] txMap
+    HM.foldrWithKey appendTxChecked [] txMap
   where
-    txMap :: M.HashMap Transaction (S.HashSet MintetteId)
-    txMap = foldr insertResult M.empty goodResults
+    txMap :: HM.HashMap Transaction (S.HashSet MintetteId)
+    txMap = foldr insertResult mempty goodResults
     insertResult (mintId, (_, blks, _)) m = foldr (insertBlock mintId) m blks
     insertBlock mintId blk m = foldr (insertTx mintId) m (lbTransactions blk)
-    insertTx mintId tx m = M.insertWith S.union tx (S.singleton mintId) m
+    insertTx mintId tx m = HM.insertWith S.union tx (S.singleton mintId) m
     appendTxChecked :: Transaction
                     -> S.HashSet MintetteId
                     -> [Transaction]
@@ -311,21 +311,22 @@ mergeTransactions mts goodResults =
 formPayload :: [a] -> [MintetteId] -> ExceptUpdate (MP.Map MintetteId C.Utxo)
 formPayload mintettes' changedId = do
     curUtxo <- use utxo
-    let payload = MP.foldlWithKey' gatherPayload MP.empty curUtxo
-        gatherPayload :: MP.Map MintetteId C.Utxo
-                      -> AddrId
-                      -> Address
-                      -> MP.Map MintetteId C.Utxo
-        gatherPayload prev addrid@(txhash,_,_) address =
+    let payload = HM.foldlWithKey' gatherPayload mempty curUtxo
+        gatherPayload
+            :: MP.Map MintetteId C.Utxo
+            -> AddrId
+            -> Address
+            -> MP.Map MintetteId C.Utxo
+        gatherPayload prev addrid@(txhash, _, _) address =
             MP.unionWith
-                MP.union
+                mappend
                 prev
-                (MP.fromListWith MP.union $
+                (MP.fromListWith mappend $
                  mapMaybe
                      (\changed ->
                            if changed `elem` owners mintettes' txhash
-                               then Just (changed, MP.singleton addrid address)
-                               else Just (changed, MP.empty))
+                               then Just (changed, HM.singleton addrid address)
+                               else Just (changed, mempty))
                      changedId)
     return payload
 

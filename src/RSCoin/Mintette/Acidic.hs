@@ -15,13 +15,12 @@ module RSCoin.Mintette.Acidic
        , tidyState
 
        , GetUtxoPset (..)
-       , PreviousMintetteId (..)
+       , GetPreviousMintetteId (..)
        , CheckNotDoubleSpent (..)
        , CommitTx (..)
        , FinishPeriod (..)
        , StartPeriod (..)
        , FinishEpoch (..)
-       , GetBlocks (..)
        , GetLogs (..)
        , GetPeriodId (..)
        ) where
@@ -59,8 +58,7 @@ tidyState = tidyExtendedState
 
 $(makeAcidic ''MS.Storage
              [ 'S.getUtxoPset
-             , 'S.previousMintetteId
-             , 'S.getBlocks
+             , 'S.getPreviousMintetteId
              , 'S.getLogs
              , 'S.getPeriodId
 

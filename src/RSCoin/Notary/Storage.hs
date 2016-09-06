@@ -113,16 +113,16 @@ $(makeLenses ''Storage)
 emptyNotaryStorage :: Storage
 emptyNotaryStorage =
     Storage
-    { _txPool                 = HM.empty
-    , _allocationStrategyPool = HM.empty
-    , _discardMSAddresses     = IM.empty
-    , _discardTransactions    = IM.empty
+    { _txPool                 = mempty
+    , _allocationStrategyPool = mempty
+    , _discardMSAddresses     = mempty
+    , _discardTransactions    = mempty
     , _allocationEndurance    = defaultAllocationEndurance
     , _transactionEndurance   = defaultTransactionEndurance
-    , _periodStats            = HM.empty
-    , _addresses              = M.empty
-    , _utxo                   = M.empty
-    , _masterKeys             = []
+    , _periodStats            = mempty
+    , _addresses              = mempty
+    , _utxo                   = mempty
+    , _masterKeys             = mempty
     , _periodId               = -1
     }
 
@@ -266,7 +266,7 @@ addSignedTransaction tx@Transaction{..} msAddr (partyAddr, sig) = do
     -- User should repeat transaction after some timeout
     checkAddrIdsKnown = do
         curUtxo <- use utxo
-        unless (all (`M.member` curUtxo) txInputs) $
+        unless (all (`HM.member` curUtxo) txInputs) $
             use periodId >>= throwM . NEAddrIdNotInUtxo
 --    checkAddrRelativeToTx = do
 --        s <- HM.lookupDefault S.empty addr <$> use unspentAddresses
@@ -346,9 +346,9 @@ announceNewPeriod HBlock{..} = do
 
         let txOuts = computeOutputAddrids tx
         forM_ txInputs $ \addrId ->
-            utxo %= M.delete addrId
+            utxo %= HM.delete addrId
         forM_ txOuts   $ \(addrId, addr) ->
-            utxo %= M.insert addrId addr
+            utxo %= HM.insert addrId addr
 
 -- =============
 -- QUERY SECTION
@@ -426,6 +426,6 @@ pollPendingTxs parties = do
               -> HashSet Transaction
     partyFold addrIdResolve txSet tx@Transaction{..} =
         if any (`elem` parties)
-           $ mapMaybe (`M.lookup` addrIdResolve) txInputs
+           $ mapMaybe (`HM.lookup` addrIdResolve) txInputs
         then HS.insert tx txSet
         else txSet

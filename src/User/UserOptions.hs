@@ -101,7 +101,6 @@ data DumpCommand
     | DumpPeriod
     | DumpLogs MintetteId Int Int
     | DumpMintetteUtxo MintetteId
-    | DumpMintetteBlocks MintetteId PeriodId
     | DumpMintetteLogs MintetteId PeriodId
     | DumpAddress Word
     deriving (Show)
@@ -272,20 +271,6 @@ userCommandParser =
                        (metavar "MINTETTE_ID" <>
                         help "Dump utxo of mintette with this id."))
                   (progDesc "Dump utxo of corresponding mintette.")) <>
-         command
-             "dump-mintette-blocks"
-             (info
-                  (fmap Dump . DumpMintetteBlocks <$>
-                   argument
-                       auto
-                       (metavar "MINTETTE_ID" <>
-                        help "Dump blocks of mintette with this id.") <*>
-                   argument
-                       auto
-                       (metavar "PERIOD_ID" <>
-                        help "Dump blocks with this period id."))
-                  (progDesc
-                       "Dump blocks of corresponding mintette and periodId.")) <>
          command
              "dump-mintette-logs"
              (info

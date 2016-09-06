@@ -16,6 +16,7 @@ import           Control.Lens                     (at, use, uses, view, (%=),
 import           Control.Monad                    (unless, when)
 import           Control.Monad.Catch              (MonadThrow (throwM))
 import           Control.Monad.State.Class        (MonadState)
+import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as M
 import           Data.Maybe                       (fromJust, fromMaybe, isJust)
 import qualified Data.Set                         as S
@@ -34,10 +35,11 @@ import qualified RSCoin.Core                      as C
 import           RSCoin.Mintette.Error            (MintetteError (..))
 import           RSCoin.Mintette.Storage          (Storage, addresses,
                                                    checkIsActive, checkTxSum,
-                                                   dpk, logHead, logHeads,
-                                                   logSize, mintetteId,
-                                                   mintettes, periodId, pset,
-                                                   pushLogEntry, txset, utxo,
+                                                   curMintetteId, dpk,
+                                                   getLogHead, logHeads,
+                                                   logSize, mintettes, periodId,
+                                                   pset, pushLogEntry,
+                                                   readerToState, txset, utxo,
                                                    utxoAdded, utxoDeleted)
 
 import           Test.RSCoin.Full.Mintette.Config (MintetteConfig (..))
@@ -61,13 +63,13 @@ checkNotDoubleSpent conf sk tx addrId sg = do
         unless (ignoreSumCheckTx conf) $ checkTxSum tx
         unless (addrId `elem` txInputs tx || ignoreAddridInTxCheckTx conf) $
             throwM $ MEInconsistentRequest "AddrId is not part of inputs"
-        inPset <- M.lookup addrId <$> use pset
+        inPset <- HM.lookup addrId <$> use pset
         maybe notInPsetCase inPsetCase inPset
     inPsetCase storedTx
       | storedTx == tx = finishCheck
       | otherwise = throwM $ MENotUnspent addrId
     notInPsetCase = do
-          addr <- M.lookup addrId <$> use utxo
+          addr <- HM.lookup addrId <$> use utxo
           maybe (throwM $ MENotUnspent addrId) checkSignaturesAndFinish addr
     checkSignaturesAndFinish addr = do
            strategy <- uses addresses $ fromMaybe DefaultStrategy . M.lookup addr
@@ -77,16 +79,16 @@ checkNotDoubleSpent conf sk tx addrId sg = do
     finishCheck
       | updateUtxoCheckTx conf = do
         pushLogEntry $ C.QueryEntry tx
-        utxoEntry <- uses utxo (M.lookup addrId)
-        utxo %= M.delete addrId
+        utxoEntry <- uses utxo (HM.lookup addrId)
+        utxo %= HM.delete addrId
         when (isJust utxoEntry)
-             (utxoDeleted %= M.insert addrId (fromJust utxoEntry))
-        pset %= M.insert addrId tx
+             (utxoDeleted %= HM.insert addrId (fromJust utxoEntry))
+        pset %= HM.insert addrId tx
         finalize
       | otherwise = finalize
     finalize = do
         pId <- use periodId
-        hsh <- uses logHead (snd . fromJust)
+        hsh <- snd . fromJust <$> readerToState getLogHead
         logSz <- use logSize
         if inverseCheckTx conf
         then throwM $ MENotUnspent addrId
@@ -104,7 +106,7 @@ commitTx conf sk tx@Transaction{..} bundle = do
     unless (checkActive conf) checkIsActive
     checkTxSum tx
     mts <- use mintettes
-    mId <- fromJust <$> use mintetteId
+    mId <- fromJust <$> use curMintetteId
     unless (C.isOwner mts (C.hash tx) mId) $ throwM $
         MEInconsistentRequest "I'm not an owner!"
     curDpk <- use dpk
@@ -139,7 +141,7 @@ commitTx conf sk tx@Transaction{..} bundle = do
         maybe (return ()) (updateLogHeadsDo mId ccHead . fst) $ curDpk `atMay`
         mId
     updateLogHeadsDo mId lh pk = do
-        myId <- fromJust <$> use mintetteId
+        myId <- fromJust <$> use curMintetteId
         unless (mId == myId) $ logHeads . at pk .= Just lh
 
 commitTxChecked
@@ -153,11 +155,11 @@ commitTxChecked _ False _ _ _ = throwM MENotConfirmed
 commitTxChecked conf True sk tx bundle = do
     pushLogEntry $ C.CommitEntry tx bundle
     when (updateUtxoCommitTx conf) $ do
-        utxo <>= M.fromList (computeOutputAddrids tx)
-        utxoAdded <>= M.fromList (computeOutputAddrids tx)
+        utxo <>= HM.fromList (computeOutputAddrids tx)
+        utxoAdded <>= HM.fromList (computeOutputAddrids tx)
         txset %= S.insert tx
     let pk = derivePublicKey sk
-    hsh <- uses logHead (snd . fromJust)
+    hsh <- snd . fromJust <$> readerToState getLogHead
     logSz <- use logSize
     let logChainHead = (hsh, logSz)
     return $ C.CommitAcknowledgment pk (sign sk (tx, logChainHead)) logChainHead

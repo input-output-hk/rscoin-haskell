@@ -22,7 +22,6 @@ module RSCoin.Bank.Storage.Storage
        ) where
 
 import           Control.Lens                  (makeLenses)
-import qualified Data.Map                      as MP
 import           Data.SafeCopy                 (base, deriveSafeCopy)
 import           Data.Typeable                 (Typeable)
 
@@ -64,7 +63,7 @@ mkStorage =
     , _explorersStorage = ES.mkExplorersStorage
     , _addressesStorage = AS.mkAddressesStorage
     , _periodId = 0
-    , _blocks = []
-    , _utxo = MP.empty
+    , _blocks = mempty
+    , _utxo = mempty
     , _statisticsId = 42
     }

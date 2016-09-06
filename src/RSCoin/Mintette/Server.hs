@@ -5,12 +5,14 @@
 
 module RSCoin.Mintette.Server
        ( serve
+
        , handlePeriodFinished
        , handleNewPeriod
        , handleCheckTx
+       , handleCheckTxBatch
        , handleCommitTx
+       , handleGetMintettePeriod
        , handleGetUtxo
-       , handleGetBlocks
        , handleGetLogs
        ) where
 
@@ -33,10 +35,10 @@ import qualified RSCoin.Core               as C
 
 import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
-                                            GetBlocks (..), GetLogs (..),
-                                            GetPeriodId (..), GetUtxoPset (..),
-                                            PreviousMintetteId (..),
-                                            StartPeriod (..), tidyState)
+                                            GetLogs (..), GetPeriodId (..),
+                                            GetPreviousMintetteId (..),
+                                            GetUtxoPset (..), StartPeriod (..),
+                                            tidyState)
 import           RSCoin.Mintette.AcidState (State, query, update)
 import           RSCoin.Mintette.Error     (MintetteError (..),
                                             logMintetteError)
@@ -51,7 +53,6 @@ serve port st sk = do
     idr6 <- serverTypeRestriction0
     idr7 <- serverTypeRestriction0
     idr8 <- serverTypeRestriction1
-    idr9 <- serverTypeRestriction1
     C.serve port
         [ C.method (C.RSCMintette C.PeriodFinished) $
             idr1 $ handlePeriodFinished sk st
@@ -67,10 +68,8 @@ serve port st sk = do
             idr6 $ handleGetMintettePeriod st
         , C.method (C.RSCDump C.GetMintetteUtxo) $
             idr7 $ handleGetUtxo st
-        , C.method (C.RSCDump C.GetMintetteBlocks) $
-            idr8 $ handleGetBlocks st
         , C.method (C.RSCDump C.GetMintetteLogs) $
-            idr9 $ handleGetLogs st
+            idr8 $ handleGetLogs st
         ]
 
 type ServerTE m a = ServerT m (Either T.Text a)
@@ -114,7 +113,7 @@ handleNewPeriod
     => State -> C.NewPeriodData -> ServerTE m ()
 handleNewPeriod st npd =
     toServer $
-    do prevMid <- query st PreviousMintetteId
+    do prevMid <- query st GetPreviousMintetteId
        C.logInfo $
            sformat
                ("New period has just started, I am mintette #" % build %
@@ -225,17 +224,6 @@ handleGetUtxo st =
        (curUtxo,_) <- query st GetUtxoPset
        C.logDebug $ sformat ("Corrent utxo is: " % build) curUtxo
        return curUtxo
-
-handleGetBlocks
-    :: C.WorkMode m
-    => State -> C.PeriodId -> ServerTE m (Maybe [C.LBlock])
-handleGetBlocks st pId =
-    toServer $
-    do res <- query st $ GetBlocks pId
-       C.logDebug $
-            sformat ("Getting blocks for periodId " % int % ": " % build)
-                pId (listBuilderJSONIndent 2 <$> res)
-       return res
 
 handleGetLogs
     :: C.WorkMode m

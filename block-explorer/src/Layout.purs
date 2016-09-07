@@ -93,7 +93,7 @@ update (PageView route) state = noEffects $ state { route = route }
 update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
     \_ -> case unsafePartial $ fromRight msg of
         OMBalance addr pId coinsMap ->
-            { state: state { balance = Just coinsMap, periodId = pId }
+            { state: state { balance = Just coinsMap, periodId = pId, queryInfo = Just (SQAddress addr) }
             , effects:
                 [ do
                     C.send socket' <<< IMAddrInfo <<< AIGetTransactions $ Tuple 0 txNum
@@ -103,8 +103,8 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                     pure Nop
                 ]
             }
-        OMAddrTransactions _ _ arr ->
-            noEffects $ state { transactions = map snd arr }
+        OMAddrTransactions addr _ arr ->
+            noEffects $ state { transactions = map snd arr, queryInfo = Just (SQAddress addr) }
         OMTransaction _ tx ->
             { state: state { queryInfo = Just $ SQTransaction tx }
             , effects:
@@ -115,10 +115,10 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                     pure Nop
                 ]
             }
-        OMTxNumber _ _ txNum ->
-            noEffects $ state { txNumber = Just txNum }
+        OMTxNumber addr _ txNum ->
+            noEffects $ state { txNumber = Just txNum, queryInfo = Just (SQAddress addr) }
         OMError (ParseError e) ->
-            noEffects $ state { error = Just $ "ParseError: " <> e.peError }
+            noEffects $ state { error = Just $ "ParseError: " <> e.peTypeName <> " : " <> e.peError }
         OMError (NotFound e) ->
             noEffects $ state { error = Just $ "NotFound: " <> e }
         OMError (LogicError e) ->

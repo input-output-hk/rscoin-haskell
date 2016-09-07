@@ -2,8 +2,9 @@ module App.ViewNew.Address where
 
 import Prelude                        (($), map, show, (<<<), const, (<>))
 
-import App.Types                       (Action (..), State, Coin(Coin), Color(Color),
-                                       queryToString)
+import App.Types                       (Action (..), State, Coin(..), Color(Color),
+                                       queryToString, getBalance, colorToString,
+                                       getCoins, coinToColor)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
@@ -71,7 +72,7 @@ view state =
                                         , src adaSymbolDarkPath
                                         ]
                                         []
-                                    -- , text $ fromMaybe
+                                    , text $ fromMaybe "0" $ map (show <<< getBalance) state.balance
                                     , div
                                         [ className "pull-right" ]
                                         [ label
@@ -98,11 +99,8 @@ view state =
                     ]
                 , div
                     [ className "col-xs-4 no-padding-only-left" ]
-                    [ -- @sasha: this is from http://getbootstrap.com/javascript/#markup
-                      -- and from http://getbootstrap.com/components/#nav-tabs
-                      ul
-                        [ className "nav nav-pills" -- try experimenting with either nav-tabs or nav-pills classes .. I think nav-pills would require less overrides to match our style. There is laso nav-justified if we want to use it
-                        -- we could even use fade effect if it looks good to you http://getbootstrap.com/javascript/#fade-effect
+                    [ ul
+                        [ className "nav nav-pills"
                         , role "tablist"
                         , id_ "tabs"
                         ]
@@ -147,72 +145,7 @@ view state =
                                     [ className "table no-margin" ]
                                     [ tbody
                                         [ id_ "color-table" ]
-                                        [ tr
-                                            []
-                                            [ td [] [ text "Red" ]
-                                            , td
-                                                []
-                                                [ img
-                                                    [ id_ "ada-symbol"
-                                                    , src adaSymbolDarkPath
-                                                    ]
-                                                    []
-                                                , text "71,2929"
-                                                ]
-                                            ]
-                                        , tr
-                                            []
-                                            [ td [] [ text "Blue" ]
-                                            , td
-                                                []
-                                                [ img
-                                                    [ id_ "ada-symbol"
-                                                    , src adaSymbolDarkPath
-                                                    ]
-                                                    []
-                                                , text "71,2929"
-                                                ]
-                                            ]
-                                        , tr
-                                            []
-                                            [ td [] [ text "Blue" ]
-                                            , td
-                                                []
-                                                [ img
-                                                    [ id_ "ada-symbol"
-                                                    , src adaSymbolDarkPath
-                                                    ]
-                                                    []
-                                                , text "71,2929"
-                                                ]
-                                            ]
-                                        , tr
-                                            []
-                                            [ td [] [ text "Blue" ]
-                                            , td
-                                                []
-                                                [ img
-                                                    [ id_ "ada-symbol"
-                                                    , src adaSymbolDarkPath
-                                                    ]
-                                                    []
-                                                , text "71,2929"
-                                                ]
-                                            ]
-                                        , tr
-                                            []
-                                            [ td [] [ text "Blue" ]
-                                            , td
-                                                []
-                                                [ img
-                                                    [ id_ "ada-symbol"
-                                                    , src adaSymbolDarkPath
-                                                    ]
-                                                    []
-                                                , text "71,2929"
-                                                ]
-                                            ]
-                                        ]
+                                        $ fromMaybe [] $ map (map colorTableItem <<< getCoins) state.balance
                                     ]
                                 ]
                             ]
@@ -534,3 +467,18 @@ view state =
         ]
   where
     ttext' = ttext state.language
+    colorTableItem coin@(Coin c) =
+        tr
+            []
+            [ td [] [ text <<< colorToString $ coinToColor coin ]
+            , td
+                []
+                [ img
+                    [ id_ "ada-symbol"
+                    , src adaSymbolDarkPath
+                    ]
+                    []
+                , text <<< show $ c.getCoin
+                ]
+            ]
+

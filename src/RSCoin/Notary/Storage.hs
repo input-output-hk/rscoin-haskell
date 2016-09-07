@@ -67,11 +67,11 @@ data Storage = Storage
       -- collected signatures.
       _txPool                 :: !(HashMap Transaction TxPoolSignatureBundle)
 
-      -- | Mapping between address and a set of unspent addrids, owned by it.
-      -- Basically it is just Utxo^(-1).
-      -- @TODO: replace 'Set' with 'HashSet'
-      -- @TODO: do we need it?
-      -- , _unspentAddresses       :: !(HashMap Address (Set AddrId))
+--      -- | Mapping between address and a set of unspent addrids, owned by it.
+--      -- Basically it is just Utxo^(-1).
+--      -- @TODO: replace 'Set' with 'HashSet'
+--      -- @TODO: do we need it?
+--      -- , _unspentAddresses       :: !(HashMap Address (Set AddrId))
 
       -- | Mapping from newly allocated multisignature addresses. This Map is
       -- used only during multisignature address allocation process.

@@ -12,7 +12,6 @@ import           Control.Concurrent.STM.TVar (readTVarIO)
 import           Control.Monad.Extra         (whenJust)
 import           Control.Monad.Trans         (lift)
 
-import           Data.Default                (Default (def))
 import           Data.IntMap                 (fromList, (!))
 import           Data.List                   (nub)
 import           Test.Hspec                  (Spec, before, describe, runIO)
@@ -28,6 +27,7 @@ import           RSCoin.Core                 (CoinsMap, Color (..),
                                               testingLoggerName, userLoggerName)
 import qualified RSCoin.User                 as U
 
+import           System.IO.Unsafe            (unsafePerformIO)
 import           TestOptions                 (FullTestConfig (..), testTVar)
 import           Test.QuickCheck             (NonEmptyList (..))
 import           Test.RSCoin.Full.Action     (PartsToSend (..), UserAction (..),
@@ -40,12 +40,13 @@ import qualified Test.RSCoin.Full.Property   as FP (FullProperty)
 
 spec :: Spec
 spec = do
-    runIO setupLogging $ do
+    before (setupLogging cfg)$ do
         describe "Full RSCoin" $ do
             fullProp uniqueAdrDesc prop_uniqueAddresses
             fullProp sendLoopDesc prop_sendLoopBack
             fullProp send2inARowDesc prop_send2inARow
   where
+    cfg@FullTestConfig{..} = unsafePerformIO $ readTVarIO testTVar
     fullProp :: String -> FullProperty -> Spec
     fullProp propDescr = prop propDescr . propConverter
     propConverter :: FullProperty -> Property
@@ -59,9 +60,8 @@ spec = do
     send2inARowDesc = "sending some coins from one address to another, and " ++
                       "from it to another does not leave any along the way"
 
-setupLogging :: IO ()
-setupLogging = do
-    cfg@FullTestConfig{..} <- readTVarIO testTVar
+setupLogging :: FullTestConfig -> IO ()
+setupLogging FullTestConfig{..} = do
     initLogging ftcGlobalSeverity
     whenJust ftcBankSeverity $ flip initLoggerByName bankLoggerName
     whenJust ftcMintetteSeverity $ flip initLoggerByName mintetteLoggerName

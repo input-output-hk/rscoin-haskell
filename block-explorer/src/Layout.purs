@@ -118,7 +118,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         OMTxNumber _ _ txNum ->
             noEffects $ state { txNumber = Just txNum }
         OMError (ParseError e) ->
-            noEffects $ state { error = Just $ "ParseError: " <> e.peError }
+            noEffects $ state { error = Just $ "ParseError: " <> e.peTypeName <> " : " <> e.peError }
         OMError (NotFound e) ->
             noEffects $ state { error = Just $ "NotFound: " <> e }
         OMError (LogicError e) ->

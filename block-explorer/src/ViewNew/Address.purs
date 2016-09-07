@@ -1,6 +1,6 @@
 module App.ViewNew.Address where
 
-import Prelude                        (($), map, show, (<<<), const, (<>))
+import Prelude                        (($), map, show, (<<<), const, (<>), id, not)
 
 import App.Types                       (Action (..), State, Coin(..), Color(Color),
                                        queryToString, getBalance, colorToString,
@@ -10,7 +10,7 @@ import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
                                        adaSymbolDarkPath, transactionArrowGreenPath,
                                        transactionArrowRedPath)
-import App.Common.Html                (ttext, ttextUpper)
+import App.Common.Html                (ttext, ttextUpper, visible)
 
 import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span,
                                        table, div, small, h3, td, img, ul, li,
@@ -25,7 +25,10 @@ import Pux.CSS                        (style, backgroundColor, padding, px,
 
 import Data.Tuple.Nested              (uncurry2)
 import Data.Array                     (length)
+import Data.Array.Partial             (tail)
 import Data.Maybe                     (fromMaybe)
+
+import Partial.Unsafe                 (unsafePartial)
 
 view :: State -> Html Action
 view state =
@@ -99,6 +102,7 @@ view state =
                     ]
                 , div
                     [ className "col-xs-4 no-padding-only-left" ]
+                    $ removeHeadIfColors $
                     [ ul
                         [ className "nav nav-pills"
                         , role "tablist"
@@ -106,7 +110,7 @@ view state =
                         ]
                         [ li
                             [ role "presentation"
-                            , className "active"
+                            , className ""
                             ]
                             [ a
                                 [ href "#color-balance"
@@ -119,7 +123,7 @@ view state =
                             ]
                         , li
                             [ role "presentation"
-                            , className ""
+                            , className "active"
                             ]
                             [ a
                                 [ href "#qr-code"
@@ -133,9 +137,10 @@ view state =
                         ]
                     , div
                         [ className "tab-content" ]
+                        $ removeHeadIfColors $
                         [ div
                             [ role "tabpanel"
-                            , className "tab-pane active"
+                            , className "tab-pane"
                             , id_ "color-balance"
                             , aria "labelledby" "color-balance-tab"
                             ]
@@ -151,7 +156,7 @@ view state =
                             ]
                         , div
                             [ role "tabpanel"
-                            , className "tab-pane"
+                            , className "tab-pane active"
                             , id_ "qr-code"
                             , aria "labelledby" "qr-code-tab"
                             ]
@@ -166,6 +171,7 @@ view state =
                                             [ td
                                                 [ id_ "qr-code-cell" ]
                                                 [ img
+                                                    -- FIXME: please check this api. Is it safe to use it? Maybe we shouldn't trust this third party for this functionality?
                                                     [ src $ "https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=" <> fromMaybe "Error" (map queryToString state.queryInfo)
                                                     , id_ "qr-code-img"
                                                     ]
@@ -481,4 +487,8 @@ view state =
                 , text <<< show $ c.getCoin
                 ]
             ]
-
+    removeHeadIfColors =
+        if state.colors
+            then unsafePartial tail
+            else id
+    colorsActive f = if f state.colors then "colors" else ""

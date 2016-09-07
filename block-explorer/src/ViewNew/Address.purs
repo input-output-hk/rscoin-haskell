@@ -166,7 +166,7 @@ view state =
                                             [ td
                                                 [ id_ "qr-code-cell" ]
                                                 [ img
-                                                    [ src "http://www.appcoda.com/wp-content/uploads/2013/12/qrcode.jpg"
+                                                    [ src $ "https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=" <> fromMaybe "Error" (map queryToString state.queryInfo)
                                                     , id_ "qr-code-img"
                                                     ]
                                                     []

@@ -25,14 +25,17 @@ import           Test.QuickCheck            (NonEmptyList (..))
 
 import           Control.TimeWarp.Timed     (Second, for, ms, sec, wait,
                                              workWhileMVarEmpty)
-import           Control.TimeWarp.Logging   (LoggerName (..), modifyLoggerName)
+import           Control.TimeWarp.Logging   (LoggerName (..), modifyLoggerName,
+                                             setLoggerName)
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
                                              WorkMode, defaultPeriodDelta,
                                              derivePublicKey, keyGen, localhost,
-                                             logDebug, logInfo,
-                                             testBankSecretKey)
+                                             logDebug, logInfo, logError,
+                                             testBankSecretKey, bankLoggerName,
+                                             mintetteLoggerName, 
+                                             notaryLoggerName)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import qualified RSCoin.User                as U
@@ -99,7 +102,7 @@ runBank
     :: WorkMode m
     => MVar () -> BankInfo -> m ()
 runBank v b = 
-    modifyLoggerName (<> "bank") $ 
+    setLoggerName bankLoggerName $ 
       do
         mainIsBusy <- liftIO $ newIORef False
         -- TODO: this code is a modified version of launchBank. Invent
@@ -115,7 +118,7 @@ runBank v b =
                     (b ^. secretKey)
                     (b ^. state)
         workWhileMVarEmpty v $
-            modifyLoggerName (<> "explorer-walker") $
+            modifyLoggerName (<> "explorer-worker") $
                 B.runExplorerWorker 
                     periodDelta 
                     mainIsBusy 
@@ -126,7 +129,7 @@ runMintettes
     :: WorkMode m
     => MVar () -> [MintetteInfo] -> Scenario -> m ()
 runMintettes v mts scen = 
-    modifyLoggerName (<> "mintette") $
+    setLoggerName mintetteLoggerName $
         case scen of
             DefaultScenario -> 
                 withEnumedLogger_ (TM.defaultMintetteInit v) mts
@@ -147,7 +150,10 @@ runMintettes v mts scen =
 runNotary
     :: WorkMode m
     => MVar () -> NotaryInfo -> m ()
-runNotary v n = workWhileMVarEmpty v $ N.serveNotary (n ^. state)
+runNotary v n = 
+    workWhileMVarEmpty v $ 
+        setLoggerName notaryLoggerName $
+            N.serveNotary (n ^. state)
 
 addMintetteToBank
     :: (MonadIO m, WithNamedLogger m)

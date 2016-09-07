@@ -11,19 +11,21 @@ module Test.RSCoin.Full.Initialization
 import           Control.Concurrent.MVar    (MVar, newEmptyMVar, tryPutMVar)
 import           Control.Exception          (assert)
 import           Control.Lens               (view, (^.))
-import           Control.Monad              (replicateM)
+import           Control.Monad              (replicateM, forM_)
 import           Control.Monad.Reader       (runReaderT)
 import           Control.Monad.Trans        (MonadIO (liftIO))
 import qualified Data.IntMap.Strict         as M
 import           Data.IORef                 (newIORef)
 import           Data.List                  (genericLength)
 import           Data.Maybe                 (fromMaybe)
+import           Data.Monoid                ((<>))
 import           Data.Optional              (Optional (Default))
 import           Formatting                 (build, sformat, (%))
 import           Test.QuickCheck            (NonEmptyList (..))
 
 import           Control.TimeWarp.Timed     (Second, for, ms, sec, wait,
                                              workWhileMVarEmpty)
+import           Control.TimeWarp.Logging   (LoggerName (..), modifyLoggerName)
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
@@ -96,34 +98,51 @@ finishTest = () <$ (liftIO . flip tryPutMVar () =<< view isActive)
 runBank
     :: WorkMode m
     => MVar () -> BankInfo -> m ()
-runBank v b = do
-    mainIsBusy <- liftIO $ newIORef False
-    -- TODO: this code is a modified version of launchBank. Invent
-    -- smth to share code
-    workWhileMVarEmpty v $ B.serve (b ^. state) (b ^. secretKey) mainIsBusy
-    wait $ for 10 ms
-    workWhileMVarEmpty v $
-        B.runWorker
-            periodDelta
-            (b ^. secretKey)
-            (b ^. state)
-    workWhileMVarEmpty v $
-        B.runExplorerWorker periodDelta mainIsBusy (b ^. secretKey) (b ^. state)
+runBank v b = 
+    modifyLoggerName (<> "bank") $ 
+      do
+        mainIsBusy <- liftIO $ newIORef False
+        -- TODO: this code is a modified version of launchBank. Invent
+        -- smth to share code
+        workWhileMVarEmpty v $ 
+            modifyLoggerName (<> "server") $ 
+                B.serve (b ^. state) (b ^. secretKey) mainIsBusy
+        wait $ for 10 ms
+        workWhileMVarEmpty v $
+            modifyLoggerName (<> "worker") $
+                B.runWorker
+                    periodDelta
+                    (b ^. secretKey)
+                    (b ^. state)
+        workWhileMVarEmpty v $
+            modifyLoggerName (<> "explorer-walker") $
+                B.runExplorerWorker 
+                    periodDelta 
+                    mainIsBusy 
+                    (b ^. secretKey) 
+                    (b ^. state)
 
 runMintettes
     :: WorkMode m
     => MVar () -> [MintetteInfo] -> Scenario -> m ()
-runMintettes v mts scen = do
-    case scen of
-        DefaultScenario -> mapM_ (TM.defaultMintetteInit v) mts
-        (MalfunctioningMintettes d) -> do
-            let (other,normal) = (take (partSize d) mts, drop (partSize d) mts)
-            mapM_ (TM.defaultMintetteInit v) normal
-            mapM_ (TM.malfunctioningMintetteInit v) other
-        _ -> error "Test.Action.runMintettes not implemented"
+runMintettes v mts scen = 
+    modifyLoggerName (<> "mintette") $
+        case scen of
+            DefaultScenario -> 
+                withEnumedLogger_ (TM.defaultMintetteInit v) mts
+            (MalfunctioningMintettes d) -> do
+                let (other,normal) = splitAt (partSize d) mts
+                withEnumedLogger_ (TM.defaultMintetteInit v) normal  
+                modifyLoggerName (<> "mulfunctioned") $
+                    withEnumedLogger_ (TM.malfunctioningMintetteInit v) other
+            _ -> error "Test.Action.runMintettes not implemented"
   where
     partSize :: Double -> Int
     partSize d = assert (d >= 0 && d <= 1) $ floor $ genericLength mts * d
+
+    withEnumedLogger_ :: WorkMode m => (a -> m b) -> [a] -> m ()
+    withEnumedLogger_ f l = forM_ (zip [1::Int ..] l) $
+        \(no, e) -> modifyLoggerName (<> LoggerName (show no)) $ f e
 
 runNotary
     :: WorkMode m

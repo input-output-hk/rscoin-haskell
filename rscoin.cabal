@@ -389,7 +389,8 @@ executable rscoin-json-demo
 
 test-suite rscoin-test
   main-is:             Test.hs
-  other-modules:       Test.RSCoin.Full.Action
+  other-modules:       TestOptions
+                     , Test.RSCoin.Full.Action
                      , Test.RSCoin.Full.Constants
                      , Test.RSCoin.Full.Context
                      , Test.RSCoin.Full.Error
@@ -430,6 +431,7 @@ test-suite rscoin-test
                      , msgpack >= 1.0.0
                      , mtl
                      , optional-args
+                     , optparse-applicative
                      , QuickCheck >= 2.8.1
                      , safe
                      , safecopy

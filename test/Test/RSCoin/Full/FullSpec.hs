@@ -5,7 +5,8 @@
 -- | HSpec specification of full rscoin.
 
 module Test.RSCoin.Full.FullSpec
-       ( spec
+       ( FullTestConfig (..)
+       , spec
        ) where
 
 import           Control.Monad.Extra       (whenJust)

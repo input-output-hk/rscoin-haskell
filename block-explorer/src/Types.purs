@@ -54,7 +54,6 @@ type State =
     , socketReady      :: Boolean
     , pendingActions   :: Array Action
     , queryInfo        :: Maybe SearchQuery
-    , isAuthenticated  :: Boolean
     , searchQuery      :: String
     , balance          :: Maybe CoinsMapExtended
     , txNumber         :: Maybe Int
@@ -72,7 +71,6 @@ init =
     , socketReady:      false
     , pendingActions:   []
     , queryInfo:        Nothing
-    , isAuthenticated:  false
     , searchQuery:      ""
     , balance:          Nothing
     , txNumber:         Nothing

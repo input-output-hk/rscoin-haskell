@@ -5,4 +5,4 @@ period: 30000
 epoch: 5000
 globalSeverity: Warning
 notarySeverity: Info
-explorerSeverity: Info
+explorerSeverity: Debug

@@ -52,8 +52,6 @@ import Control.Monad.Eff.Class        (liftEff)
 
 import Partial.Unsafe                 (unsafePartial)
 
-import JsonDemo as JsonDemo
-
 txNum :: Int
 txNum = 15
 
@@ -62,9 +60,6 @@ update (PageView route@(R.Address addr)) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
---            if state.isAuthenticated
---                then C.send socket' $ ControlMsg $ CMChangeAddress addr
---                else pure Nop -- C.send socket' $ IMAddressInfo addr
             C.send socket' $ IMControl $ CMSetAddress addr
             pure Nop
         -- FIXME: if socket isn't opened open some error page
@@ -120,18 +115,6 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                     pure Nop
                 ]
             }
---        OMSessionEstablished addr ->
---            { state: state { queryInfo = Just $ SQAddress addr, isAuthenticated = true }
---            , effects:
---                [ do
---                    C.send socket' AIGetTxNumber
---                    C.send socket' AIGetBalance
---                    let expectedUrl = R.addressUrl addr
---                    unless (state.route == R.match expectedUrl) $
---                        liftEff $ R.navigateTo expectedUrl
---                    pure Nop
---                ]
---            }
         OMTxNumber _ _ txNum ->
             noEffects $ state { txNumber = Just txNum }
         OMError (ParseError e) ->
@@ -148,9 +131,6 @@ update (SearchQueryChange sq) state = noEffects $ state { searchQuery = sq }
 update SearchButton state =
     onlyEffects state $
         [ do
-           -- if state.isAuthenticated
-           --     then C.send socket' $ IMControl $ CMSmart state.searchQuery
-           --     else C.send socket' $ IMInfo addr tId
             C.send socket' $ IMControl $ CMSmart state.searchQuery
             pure Nop
         ]

@@ -38,13 +38,13 @@ instance genericHash :: Generic Hash where
     fromSpine (SString s) = Just $ Hash s
     fromSpine _ = Nothing
 
-newtype CoinAmount = CoinAmount String
+newtype CoinAmount = CoinAmount Number
 
-instance showRational :: Show CoinAmount where
-    show (CoinAmount s) = s
+instance showCoinAmount :: Show CoinAmount where
+    show (CoinAmount s) = show s
 
 instance genericCoinAmount :: Generic CoinAmount where
-    toSpine (CoinAmount s) = SString s
-    toSignature _ = SigString
-    fromSpine (SString s) = Just $ CoinAmount s
+    toSpine (CoinAmount s) = SNumber s
+    toSignature _ = SigNumber
+    fromSpine (SNumber s) = Just $ CoinAmount s
     fromSpine _ = Nothing

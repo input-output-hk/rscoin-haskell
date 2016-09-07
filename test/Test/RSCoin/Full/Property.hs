@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE StandaloneDeriving  #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 -- | This module defines data type and some helpers to facilitate
@@ -28,8 +29,8 @@ import           System.Random                   (StdGen)
 import           Test.QuickCheck                 (Gen, Property,
                                                   Testable (property),
                                                   ioProperty)
-import           Test.QuickCheck.Monadic         (PropertyM, assert, monadic,
-                                                  pick)
+import           Test.QuickCheck.Monadic         (PropertyM (..), assert,
+                                                  monadic, pick)
 
 import           Serokell.Util                   (listBuilderJSONIndent)
 
@@ -62,6 +63,9 @@ launchReal = runRealModeUntrusted testingLoggerName CADefault
 instance (WithNamedLogger m, MonadIO m) =>
          WithNamedLogger (PropertyM m) where
     getLoggerName = lift getLoggerName
+
+    modifyLoggerName how (MkPropertyM m) = MkPropertyM $
+        \c -> modifyLoggerName how <$> m c
 
 toPropertyM
     :: WorkMode m

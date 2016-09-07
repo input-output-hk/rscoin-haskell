@@ -180,6 +180,8 @@ newtype ServerMonad a = ServerMonad
 instance C.WithNamedLogger ServerMonad where
     getLoggerName = pure wsLoggerName
 
+    modifyLoggerName = const id
+
 modifyConnectionsState :: State ConnectionsState a -> ServerMonad a
 modifyConnectionsState st =
     flip modifyConnectionsStateDo st =<< view ssConnections

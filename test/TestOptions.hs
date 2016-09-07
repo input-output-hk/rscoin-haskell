@@ -1,25 +1,44 @@
 -- | Command line options for tests
 
 module TestOptions
-       ( --TestOptions (..),
-         TestVar
+       ( FullTestConfig (..)
+       , TestVar
+       , testTVar
        , getOptions
        ) where
 
-import           Control.Concurrent.STM.TVar (TVar)
+import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
+import           Data.Default                (Default (def))
 import           Options.Applicative         (Parser, (<>), auto, execParser, fullDesc,
                                               help, helper, info, long, metavar, option,
                                               progDesc, short, switch)
-import           Test.RSCoin.Full.FullSpec   (FullTestConfig (..))
+import           RSCoin.Core                 (Severity (..))
+import           System.IO.Unsafe            (unsafePerformIO)
 
-{-data TestOptions = TestOptions
-    { cloGlobalSeverity :: Severity
-    , cloBankSeverity   :: Maybe Severity
-    , cloMintetteSeverity :: Maybe Severity
-    , cloUserSeverity     :: Maybe Severity
-    , cloTestingSeverity  :: Maybe Severity
-    , cloRealMode         :: Bool
-    } deriving Show-}
+data FullTestConfig = FullTestConfig
+    { ftcGlobalSeverity   :: !Severity
+    , ftcBankSeverity     :: !(Maybe Severity)
+    , ftcMintetteSeverity :: !(Maybe Severity)
+    , ftcUserSeverity     :: !(Maybe Severity)
+    , ftcTestingSeverity  :: !(Maybe Severity)
+    , ftcRealMode         :: !Bool
+    } deriving (Show)
+
+instance Default FullTestConfig where
+    def =
+        FullTestConfig
+        { ftcGlobalSeverity = Warning
+        , ftcBankSeverity = def
+        , ftcMintetteSeverity = def
+        , ftcUserSeverity = def
+        , ftcTestingSeverity = Just Warning
+        , ftcRealMode = False
+        }
+
+type TestVar = TVar FullTestConfig
+
+testTVar :: TestVar
+testTVar = unsafePerformIO (newTVarIO def)
 
 optionsParser :: Parser FullTestConfig
 optionsParser =
@@ -59,5 +78,3 @@ getOptions = do
         info
             (helper <*> optionsParser)
             (fullDesc <> progDesc "RSCoin's testing framework")
-
-type TestVar = TVar FullTestConfig

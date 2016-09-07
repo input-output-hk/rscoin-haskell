@@ -5,67 +5,47 @@
 -- | HSpec specification of full rscoin.
 
 module Test.RSCoin.Full.FullSpec
-       ( FullTestConfig (..)
-       , spec
+       ( spec
        ) where
 
-import           Control.Monad.Extra       (whenJust)
-import           Control.Monad.Trans       (lift)
+import           Control.Concurrent.STM.TVar (readTVarIO)
+import           Control.Monad.Extra         (whenJust)
+import           Control.Monad.Trans         (lift)
 
-import           Data.Default              (Default (def))
-import           Data.IntMap               (fromList, (!))
-import           Data.List                 (nub)
-import           Test.Hspec                (Spec, before, describe)
-import           Test.Hspec.QuickCheck     (prop)
-import           Test.QuickCheck           (Arbitrary (arbitrary), Property,
-                                            property)
+import           Data.Default                (Default (def))
+import           Data.IntMap                 (fromList, (!))
+import           Data.List                   (nub)
+import           Test.Hspec                  (Spec, before, describe, runIO)
+import           Test.Hspec.QuickCheck       (prop)
+import           Test.QuickCheck             (Arbitrary (arbitrary), Property,
+                                              property)
 
-import           RSCoin.Core               (CoinsMap, Color (..), Severity (..),
-                                            WorkMode, bankLoggerName,
-                                            getNodeContext, grey,
-                                            initLoggerByName, initLogging,
-                                            mintetteLoggerName,
-                                            testingLoggerName, userLoggerName)
-import qualified RSCoin.User               as U
+import           RSCoin.Core                 (CoinsMap, Color (..),
+                                              WorkMode, bankLoggerName,
+                                              getNodeContext, grey,
+                                              initLoggerByName, initLogging,
+                                              mintetteLoggerName,
+                                              testingLoggerName, userLoggerName)
+import qualified RSCoin.User                 as U
 
-import           Test.QuickCheck           (NonEmptyList (..))
-import           Test.RSCoin.Full.Action   (PartsToSend (..), UserAction (..),
-                                            getUserState)
-import           Test.RSCoin.Full.Property (FullPropertyEmulation,
-                                            FullPropertyRealMode, assertFP,
-                                            doActionFP, pickFP, runTestEnvFP,
-                                            runWorkModeFP)
-import qualified Test.RSCoin.Full.Property as FP (FullProperty)
-
-data FullTestConfig = FullTestConfig
-    { ftcGlobalSeverity   :: !Severity
-    , ftcBankSeverity     :: !(Maybe Severity)
-    , ftcMintetteSeverity :: !(Maybe Severity)
-    , ftcUserSeverity     :: !(Maybe Severity)
-    , ftcTestingSeverity  :: !(Maybe Severity)
-    , ftcRealMode         :: !Bool
-    } deriving (Show)
-
-instance Default FullTestConfig where
-    def =
-        FullTestConfig
-        { ftcGlobalSeverity = Warning
-        , ftcBankSeverity = def
-        , ftcMintetteSeverity = def
-        , ftcUserSeverity = def
-        , ftcTestingSeverity = Just Warning
-        , ftcRealMode = False
-        }
+import           TestOptions                 (FullTestConfig (..), testTVar)
+import           Test.QuickCheck             (NonEmptyList (..))
+import           Test.RSCoin.Full.Action     (PartsToSend (..), UserAction (..),
+                                              getUserState)
+import           Test.RSCoin.Full.Property   (FullPropertyEmulation,
+                                              FullPropertyRealMode, assertFP,
+                                              doActionFP, pickFP, runTestEnvFP,
+                                              runWorkModeFP)
+import qualified Test.RSCoin.Full.Property   as FP (FullProperty)
 
 spec :: Spec
-spec =
-    before (setupLogging cfg) $ do
+spec = do
+    runIO setupLogging $ do
         describe "Full RSCoin" $ do
             fullProp uniqueAdrDesc prop_uniqueAddresses
             fullProp sendLoopDesc prop_sendLoopBack
             fullProp send2inARowDesc prop_send2inARow
   where
-    cfg@FullTestConfig {..} = def
     fullProp :: String -> FullProperty -> Spec
     fullProp propDescr = prop propDescr . propConverter
     propConverter :: FullProperty -> Property
@@ -79,8 +59,9 @@ spec =
     send2inARowDesc = "sending some coins from one address to another, and " ++
                       "from it to another does not leave any along the way"
 
-setupLogging :: FullTestConfig -> IO ()
-setupLogging FullTestConfig{..} = do
+setupLogging :: IO ()
+setupLogging = do
+    cfg@FullTestConfig{..} <- readTVarIO testTVar
     initLogging ftcGlobalSeverity
     whenJust ftcBankSeverity $ flip initLoggerByName bankLoggerName
     whenJust ftcMintetteSeverity $ flip initLoggerByName mintetteLoggerName

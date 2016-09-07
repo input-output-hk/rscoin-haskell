@@ -239,6 +239,7 @@ onSetAddress sessId addr = do
                  int)
                 addr
                 sessId
+        notifyAboutAddressUpdate sessId addr
     unknownAddrMsg = sformat ("Address not found: " % build) addr
     reportUnknown = do
         C.logInfo $
@@ -459,11 +460,21 @@ onNewChannelItem ChannelItem {ciTransactions = txs} = do
         sformat
             ("Affected addresses are: " % build)
             (listBuilderJSON affectedAddresses)
-    mapM_ notifyAboutAddressUpdate affectedAddresses
+    mapM_ notifyAllAboutAddressUpdate affectedAddresses
     notifyAboutNewHBlock
 
-notifyAboutAddressUpdate :: C.Address -> ServerMonad ()
-notifyAboutAddressUpdate addr = do
+notifyAboutAddressUpdate :: SessionId -> C.Address -> ServerMonad ()
+notifyAboutAddressUpdate sessId addr = do
+    msgBalance <- uncurry (OMBalance addr) <$> query (DB.GetAddressBalance addr)
+    msgTxNumber <-
+        uncurry (OMTxNumber addr) <$> query (DB.GetAddressTxNumber addr)
+    connection <- myConnection sessId
+    mapM_ (send connection) [msgBalance, msgTxNumber]
+
+-- TODO: notifyAllAbout ~ mapM notifyAbout sessionIds
+-- but I left this version because it is more optimized (@gromak ?)
+notifyAllAboutAddressUpdate :: C.Address -> ServerMonad ()
+notifyAllAboutAddressUpdate addr = do
     connectionsState <- liftIO . readMVar =<< view ssConnections
     msgBalance <- uncurry (OMBalance addr) <$> query (DB.GetAddressBalance addr)
     msgTxNumber <-

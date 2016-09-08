@@ -39,6 +39,7 @@ type TestVar = TVar FullTestConfig
 
 testTVar :: TestVar
 testTVar = unsafePerformIO (newTVarIO def)
+{-# NOINLINE testTVar #-}
 
 optionsParser :: Parser FullTestConfig
 optionsParser =

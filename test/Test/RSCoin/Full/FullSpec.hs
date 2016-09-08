@@ -59,6 +59,7 @@ spec = do
                    "change its balance"
     send2inARowDesc = "sending some coins from one address to another, and " ++
                       "from it to another does not leave any along the way"
+{-# NOINLINE spec#-}
 
 setupLogging :: FullTestConfig -> IO ()
 setupLogging FullTestConfig{..} = do

@@ -13,6 +13,8 @@ module RSCoin.Explorer.Extended
        , cmeTotal
        , mkCoinsMapExtended
 
+       , Timestamp
+
        , TransactionExtension (..)
        , TransactionExtended
        , mkTransactionExtension
@@ -50,6 +52,8 @@ mkCoinsMapExtended coins =
     C.WithMetadata coins . CoinsMapExtension . sum . map C.getCoin . elems $
     coins
 
+type Timestamp = POSIXTime
+
 -- | Extension of Transaction.
 data TransactionExtension = TransactionExtension
     { teId             :: !C.TransactionId
@@ -57,6 +61,7 @@ data TransactionExtension = TransactionExtension
     , teInputAddresses :: ![Maybe C.Address]
     , teInputsSum      :: !CoinsMapExtended
     , teOutputsSum     :: !CoinsMapExtended
+    , teTimestamp      :: !Timestamp
     } deriving (Show, Generic)
 
 type TransactionExtended = C.WithMetadata C.Transaction TransactionExtension
@@ -65,13 +70,15 @@ mkTransactionExtension
     :: forall m.
        Monad m
     => C.PeriodId
+    -> Timestamp
     -> (C.TransactionId -> m (Maybe C.Transaction))
     -> C.Transaction
     -> m TransactionExtension
-mkTransactionExtension pId getTx tx@C.Transaction {..} =
+mkTransactionExtension pId timestamp getTx tx@C.Transaction {..} =
     TransactionExtension (C.hash tx) pId <$> mapM getAddress txInputs <*>
     pure inputsSum <*>
-    pure outputsSum
+    pure outputsSum <*>
+    pure timestamp
   where
     getAddress :: C.AddrId -> m (Maybe C.Address)
     getAddress (txId, idx, _) = do
@@ -82,7 +89,7 @@ mkTransactionExtension pId getTx tx@C.Transaction {..} =
 -- | Extension of HBlock.
 data HBlockExtension = HBlockExtension
     { hbeHeight    :: !C.PeriodId
-    , hbeTimestamp :: !POSIXTime
+    , hbeTimestamp :: !Timestamp
     , hbeTxNumber  :: !Word
     , hbeTotalSent :: !C.CoinAmount
     -- , hbeSize      :: !Byte

@@ -54,7 +54,7 @@ import qualified RSCoin.Core              as C
 
 import           RSCoin.Explorer.Error    (ExplorerError (..))
 import           RSCoin.Explorer.Extended (CoinsMapExtended, HBlockExtended,
-                                           TransactionExtended,
+                                           Timestamp, TransactionExtended,
                                            TransactionExtension (..), cmeTotal,
                                            mkCoinsMapExtended, mkHBlockExtended,
                                            mkTransactionExtension)
@@ -232,7 +232,7 @@ addHBlock pId blkWithMeta@(C.WithMetadata C.HBlock {..} C.HBlockMetadata {..}) =
     hBlocks %= flip V.snoc extendedBlk
     forM_ hbmEmission (\em -> emissionHashes %= HS.insert em)
     mapM_ (addTxToMap pId) $ enumerate hbTransactions
-    extensions <- mapM (mkTxExtension pId) hbTransactions
+    extensions <- mapM (mkTxExtension pId hbmTimestamp) hbTransactions
     txExtensions %= flip V.snoc (V.fromList extensions)
     let extendedTxs = zipWith C.WithMetadata hbTransactions extensions
     mapM_ applyTxToAddresses $
@@ -247,8 +247,8 @@ addTxToMap pId (txIdx, tx) = transactionsMap . at (C.hash tx) .= Just index
         , tiIdx = txIdx
         }
 
-mkTxExtension :: C.PeriodId -> C.Transaction -> ExceptUpdate TransactionExtension
-mkTxExtension pId = mkTransactionExtension pId getTxChecked
+mkTxExtension :: C.PeriodId -> Timestamp -> C.Transaction -> ExceptUpdate TransactionExtension
+mkTxExtension pId timestamp = mkTransactionExtension pId timestamp getTxChecked
   where
     getTxChecked i = do
         tx <- readerToState $ getTx i

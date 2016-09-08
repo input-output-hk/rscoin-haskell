@@ -293,7 +293,7 @@ submitTransactionFromAll
     -> C.Coin
     -> m C.Transaction
 submitTransactionFromAll st maybeCache addressTo amount =
-    assert (C.getColor amount == 0) $
+    assert (C.coinColor amount == 0) $
     do genAddr <- view C.genesisAddress <$> C.getNodeContext
        addrs <- A.query st $ A.GetOwnedDefaultAddresses genAddr
        (indicesWithCoins :: [(Word, C.Coin)]) <-

@@ -204,7 +204,7 @@ sendInitialCoins ctx = do
     allColors = [minColor .. maxColor]
     nonZeroColors = filter (/= 0) allColors
     coloring =
-        Just . Coloring . M.fromList . map ((, recip (genericLength allColors)) . getC) $
+        Just . Coloring . M.fromList . map ((, recip (genericLength allColors)) . getColor) $
         nonZeroColors
     actions genesisIdx =
         map

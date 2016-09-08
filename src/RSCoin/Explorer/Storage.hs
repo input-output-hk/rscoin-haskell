@@ -277,8 +277,8 @@ changeAddressData tx c addr = do
     ensureAddressExists addr
     addresses . at addr . _Just . adTransactions %= (tx :)
     let aBalance = addresses . at addr . _Just . adBalance
-    aBalance . wmVal  %= I.insertWith (+) (C.getC $ C.getColor c) c
-    aBalance . wmExtension . cmeTotal += C.getCoin c
+    aBalance . wmVal  %= I.insertWith (+) (C.getColor $ C.coinColor c) c
+    aBalance . wmExtension . cmeTotal += C.coinAmount c
 
 ensureAddressExists :: C.Address -> Update ()
 ensureAddressExists addr =

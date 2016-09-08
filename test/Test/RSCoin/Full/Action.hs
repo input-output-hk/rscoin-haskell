@@ -93,7 +93,7 @@ newtype PartToSend = PartToSend
 
 applyPartToSend :: PartToSend -> C.Coin -> C.Coin
 applyPartToSend (PartToSend p) coin =
-    coin { C.getCoin = realToFrac $ p * realToFrac (C.getCoin coin)
+    coin { C.coinAmount = realToFrac $ p * realToFrac (C.coinAmount coin)
          }
 
 -- | How much values of each color to send.
@@ -132,15 +132,15 @@ calculateOutputCoins (C.coinsToMap -> inputs) (Coloring coloring) =
     C.coinsToList $
     C.mergeCoinsMaps [inputs, addedCoins] `C.subtractCoinsMap` usedCoins
   where
-    greyCoins = maybe 0 C.getCoin $ M.lookup 0 inputs
+    greyCoins = maybe 0 C.coinAmount $ M.lookup 0 inputs
     addedCoins = M.mapWithKey multiply coloring
     multiply color part =
         C.Coin
-        { C.getColor = C.Color color
-        , C.getCoin = C.CoinAmount (toRational part) * greyCoins
+        { C.coinColor = C.Color color
+        , C.coinAmount = C.CoinAmount (toRational part) * greyCoins
         }
     usedCoins =
-        C.coinsToMap [C.Coin 0 . sum . map C.getCoin . M.elems $ addedCoins]
+        C.coinsToMap [C.Coin 0 . sum . map C.coinAmount . M.elems $ addedCoins]
 
 instance Buildable Coloring where
     build = mapBuilder . M.assocs . getColoring

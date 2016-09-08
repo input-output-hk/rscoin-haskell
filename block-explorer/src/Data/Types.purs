@@ -3,14 +3,14 @@ module Data.Types
        , Hash (..)
        , CoinAmount (..)
        , TransactionId
+       , NominalDiffTime (..)
        ) where
 
 import Prelude
 
 import Data.Generic (class Generic)
 
-import Data.Maybe (Maybe (..))
-import Data.Time  (Second)
+import Data.Time.Duration  (Seconds)
 
 -- NOTE: these newtype wrappers and instances can/will be auto generated
 --
@@ -40,3 +40,7 @@ instance showCoinAmount :: Show CoinAmount where
     show (CoinAmount s) = show s
 
 derive instance genericCoinAmount :: Generic CoinAmount
+
+newtype NominalDiffTime = NominalDiffTime Seconds
+
+derive instance genericNominalDiffTime :: Generic NominalDiffTime

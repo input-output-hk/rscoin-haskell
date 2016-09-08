@@ -7,7 +7,8 @@ import App.Types                       (Action (..), State, Coin(..), Color(Colo
                                        getBalance, colorToString, addressToString,
                                        getCoins, coinToColor, WithMetadata (..),
                                        Transaction (..), TransactionExtension (..),
-                                       searchQueryAddress, isTransactionIncome)
+                                       searchQueryAddress, isTransactionIncome,
+                                       nominalDiffTimeToDateTime)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
@@ -32,7 +33,6 @@ import Data.Array.Partial             (tail)
 import Data.Maybe                     (Maybe (..), fromMaybe)
 import Data.Functor                   ((<$>))
 import Data.Generic                   (gEq)
-import Data.DateTime.Instant          (toDateTime)
 import Serokell.Data.DateTime         (prettyDate)
 
 import Partial.Unsafe                 (unsafePartial)
@@ -309,7 +309,7 @@ view state =
                     [ div
                         [ className "pull-left"
                         , id_ "transaction-date" ]
-                        [ text $ prettyDate $ toDateTime te.teTimestamp ]
+                        [ text $ fromMaybe "Date error" $ prettyDate <$> nominalDiffTimeToDateTime te.teTimestamp ]
                     , button
                         [ className $ moneyFlow tran <> "-button pull-right" ]
                         [ img

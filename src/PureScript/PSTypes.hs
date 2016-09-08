@@ -39,4 +39,4 @@ psIntMap = do
         ]
 
 psPosixTime :: PSType
-psPosixTime = TypeInfo "purescript-datetime" "Data.DateTime.Instant" "Instant" []
+psPosixTime = TypeInfo "" "Data.Types" "NominalDiffTime" []

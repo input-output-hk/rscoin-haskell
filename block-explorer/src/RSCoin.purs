@@ -14,6 +14,7 @@ module App.RSCoin
        , coinToColor
        , isTransactionIncome
        , isTransactionExtensionOutcome
+       , nominalDiffTimeToDateTime
        ) where
 
 import Prelude                           (show, ($), map, (<<<))
@@ -27,6 +28,10 @@ import Data.Types                        as T
 import Data.Tuple (Tuple, snd, fst)
 import Data.Maybe (Maybe (..))
 import Data.Foldable (elem)
+
+import Data.Time.Duration    (Seconds, fromDuration)
+import Data.DateTime         (DateTime)
+import Data.DateTime.Instant (instant, toDateTime)
 
 type CoinsMap = Array (Tuple Int C.Coin)
 type CoinsMapExtended = C.WithMetadata CoinsMap E.CoinsMapExtension
@@ -63,3 +68,7 @@ isTransactionIncome addr (C.Transaction t) =
 isTransactionExtensionOutcome :: C.Address -> E.TransactionExtension -> Boolean
 isTransactionExtensionOutcome addr (E.TransactionExtension te) =
     elem (Just $ getPublicKey addr) <<< map (map getPublicKey) $ te.teInputAddresses
+
+nominalDiffTimeToDateTime :: T.NominalDiffTime -> Maybe DateTime
+nominalDiffTimeToDateTime (T.NominalDiffTime s) =
+    map toDateTime <<< instant $ fromDuration s

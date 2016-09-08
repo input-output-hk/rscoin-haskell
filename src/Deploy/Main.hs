@@ -71,8 +71,9 @@ startMintette CommonParams{..} idx = do
         dbDir = workingDir </> "mintette-db"
     Cherepakha.mkdir workingDirDeprecated
     (sk,pk) <- C.keyGen
-    let start =
-            M.launchMintetteReal cpRebuild cpEpoch port sk (Just dbDir) contextArgument
+    let env = M.mkRuntimeEnv 1000000000 sk
+        start =
+            M.launchMintetteReal cpRebuild cpEpoch port env (Just dbDir) contextArgument
     (, pk) <$> forkIO start
 
 startExplorer

@@ -40,11 +40,12 @@ import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
                                             GetUtxoPset (..), StartPeriod (..),
                                             tidyState)
 import           RSCoin.Mintette.AcidState (State, query, update)
+import           RSCoin.Mintette.Env       (RuntimeEnv)
 import           RSCoin.Mintette.Error     (MintetteError (..),
                                             logMintetteError)
 
-serve :: C.WorkMode m => Int -> State -> C.SecretKey -> m ()
-serve port st sk = do
+serve :: C.WorkMode m => Int -> State -> RuntimeEnv -> m ()
+serve port st env = do
     idr1 <- serverTypeRestriction1
     idr2 <- serverTypeRestriction1
     idr3 <- serverTypeRestriction3
@@ -55,15 +56,15 @@ serve port st sk = do
     idr8 <- serverTypeRestriction1
     C.serve port
         [ C.method (C.RSCMintette C.PeriodFinished) $
-            idr1 $ handlePeriodFinished sk st
+            idr1 $ handlePeriodFinished env st
         , C.method (C.RSCMintette C.AnnounceNewPeriod) $
-            idr2 $ handleNewPeriod st
+            idr2 $ handleNewPeriod env st
         , C.method (C.RSCMintette C.CheckTx) $
-            idr3 $ handleCheckTx sk st
+            idr3 $ handleCheckTx env st
         , C.method (C.RSCMintette C.CheckTxBatch) $
-            idr4 $ handleCheckTxBatch sk st
+            idr4 $ handleCheckTxBatch env st
         , C.method (C.RSCMintette C.CommitTx) $
-            idr5 $ handleCommitTx sk st
+            idr5 $ handleCommitTx env st
         , C.method (C.RSCMintette C.GetMintettePeriod) $
             idr6 $ handleGetMintettePeriod st
         , C.method (C.RSCDump C.GetMintetteUtxo) $
@@ -83,8 +84,8 @@ toServer action = lift $ (Right <$> action) `catch` handler
 
 handlePeriodFinished
     :: C.WorkMode m
-    => C.SecretKey -> State -> C.PeriodId -> ServerTE m C.PeriodResult
-handlePeriodFinished sk st pId =
+    => RuntimeEnv -> State -> C.PeriodId -> ServerTE m C.PeriodResult
+handlePeriodFinished env st pId =
     toServer $
     do (curUtxo,curPset) <- query st GetUtxoPset
        C.logDebug $
@@ -93,7 +94,7 @@ handlePeriodFinished sk st pId =
                "\nCurrent pset is: " % build)
                curUtxo curPset
        C.logInfo $ sformat ("Period " % int % " has just finished!") pId
-       res@(_,blks,lgs) <- update st $ FinishPeriod sk pId
+       res@(_,blks,lgs) <- update st $ FinishPeriod pId env
        C.logInfo $
            sformat
                ("Here is PeriodResult:\n Blocks: " % build %
@@ -110,8 +111,8 @@ handlePeriodFinished sk st pId =
 
 handleNewPeriod
     :: C.WorkMode m
-    => State -> C.NewPeriodData -> ServerTE m ()
-handleNewPeriod st npd =
+    => RuntimeEnv -> State -> C.NewPeriodData -> ServerTE m ()
+handleNewPeriod env st npd =
     toServer $
     do prevMid <- query st GetPreviousMintetteId
        C.logInfo $
@@ -119,7 +120,7 @@ handleNewPeriod st npd =
                ("New period has just started, I am mintette #" % build %
                 " (prevId).\nHere is new period data:\n " % build)
                prevMid npd
-       update st $ StartPeriod npd
+       update st $ StartPeriod npd env
        (curUtxo,curPset) <- query st GetUtxoPset
        C.logDebug $
            sformat
@@ -129,13 +130,13 @@ handleNewPeriod st npd =
 
 handleCheckTx
     :: C.WorkMode m
-    => C.SecretKey
+    => RuntimeEnv
     -> State
     -> C.Transaction
     -> C.AddrId
     -> [(C.Address, C.Signature C.Transaction)]
     -> ServerTE m C.CheckConfirmation
-handleCheckTx sk st tx addrId sg =
+handleCheckTx env st tx addrId sg =
     toServer $
     do C.logDebug $
            sformat ("Checking addrid (" % build % ") from transaction: " % build)
@@ -145,7 +146,7 @@ handleCheckTx sk st tx addrId sg =
            sformat
                ("My current utxo is: " % build % "\nCurrent pset is: " % build)
                curUtxo curPset
-       res <- update st $ CheckNotDoubleSpent sk tx addrId sg
+       res <- update st $ CheckNotDoubleSpent tx addrId sg env
        C.logInfo $
             sformat ("Confirmed addrid (" % build % ") from transaction: " % build)
                 addrId tx
@@ -154,12 +155,12 @@ handleCheckTx sk st tx addrId sg =
 
 handleCheckTxBatch
     :: C.WorkMode m
-    => C.SecretKey
+    => RuntimeEnv
     -> State
     -> C.Transaction
     -> M.Map C.AddrId [(C.Address, C.Signature C.Transaction)]
     -> ServerTE m (M.Map C.AddrId (Either T.Text C.CheckConfirmation))
-handleCheckTxBatch sk st tx sigs =
+handleCheckTxBatch env st tx sigs =
     toServer $
     do C.logDebug $ sformat
            ("Checking addrids " % build % "of transaction: " % build)
@@ -172,7 +173,7 @@ handleCheckTxBatch sk st tx sigs =
        res <- M.fromList <$>
            mapM (\(addrId, sig) ->
                   (addrId,) <$>
-                  try' (update st $ CheckNotDoubleSpent sk tx addrId sig))
+                  try' (update st $ CheckNotDoubleSpent tx addrId sig env))
            (M.assocs sigs)
        C.logInfo "Returning confirmations"-- TODO add logging
        return res
@@ -184,17 +185,17 @@ handleCheckTxBatch sk st tx sigs =
 
 handleCommitTx
     :: C.WorkMode m
-    => C.SecretKey
+    => RuntimeEnv
     -> State
     -> C.Transaction
     -> C.CheckConfirmations
     -> ServerTE m C.CommitAcknowledgment
-handleCommitTx sk st tx cc =
+handleCommitTx env st tx cc =
     toServer $
     do C.logDebug $
            sformat ("There is an attempt to commit transaction (" % build % ").") tx
        C.logDebug $ sformat ("Here are confirmations: " % build) cc
-       res <- update st $ CommitTx sk tx cc
+       res <- update st $ CommitTx tx cc env
        C.logInfo $ sformat ("Successfully committed transaction " % build) tx
        return res
 

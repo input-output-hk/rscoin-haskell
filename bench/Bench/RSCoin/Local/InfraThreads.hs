@@ -37,8 +37,14 @@ bankThread periodDelta benchDir =
         testBankSecretKey
 
 mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
-mintetteThread mintetteId benchDir secretKey =
-    M.launchMintetteReal False defaultEpochDelta port secretKey dbPath CADefault
+mintetteThread mintetteId benchDir sk =
+    M.launchMintetteReal
+        False
+        defaultEpochDelta
+        port
+        (M.mkRuntimeEnv 100000 sk)
+        dbPath
+        CADefault
   where
     port = defaultPort + mintetteId
     dbPath = Just $ benchDir </> dbFormatPath "mintette-db" mintetteId

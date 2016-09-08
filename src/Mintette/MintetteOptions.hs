@@ -27,10 +27,11 @@ data Command
     | DumpStatistics
 
 data ServeOptions = ServeOptions
-    { cloPort          :: Int
-    , cloEpochDelta    :: Integer
-    , cloSecretKeyPath :: FilePath
-    , cloAutoCreateKey :: Bool
+    { cloPort            :: Int
+    , cloEpochDelta      :: Integer
+    , cloSecretKeyPath   :: FilePath
+    , cloAutoCreateKey   :: Bool
+    , cloActionLogsLimit :: Word
     }
 
 data Options = Options
@@ -72,7 +73,8 @@ commandParser defaultSKPath =
             (long "auto-create-sk" <>
              help
                  ("If the \"sk\" is pointing to non-existing " <>
-                  "file, generate a keypair"))
+                  "file, generate a keypair")) <*>
+        option auto (long "action-logs-limit" <> value 10000 <> showDefault)
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
 optionsParser defaultSKPath configDir defaultConfigPath =

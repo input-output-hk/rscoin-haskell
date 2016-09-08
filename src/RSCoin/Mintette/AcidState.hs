@@ -1,5 +1,8 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TypeFamilies           #-}
 
 -- | Wrap Storage into AcidState.
 
@@ -7,6 +10,8 @@ module RSCoin.Mintette.AcidState
        ( State
        , query
        , update
+
+       , ConvertUpdateInEnv (..)
 
        , getLogs
        , getPeriodId
@@ -21,11 +26,10 @@ module RSCoin.Mintette.AcidState
        , startPeriod
        ) where
 
-import           Control.Monad.Reader    (ask)
+import           Control.Monad.Reader    (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans     (MonadIO)
 import           Data.Acid               (EventResult, EventState, Query,
                                           QueryEvent, Update, UpdateEvent)
-import           Data.SafeCopy           (base, deriveSafeCopy)
 
 import           Serokell.AcidState      (ExtendedState, queryExtended,
                                           updateExtended)
@@ -34,14 +38,12 @@ import           RSCoin.Core             (ActionLog, AddrId, Address,
                                           CheckConfirmation, CheckConfirmations,
                                           CommitAcknowledgment, MintetteId,
                                           NewPeriodData, PeriodId, PeriodResult,
-                                          Pset, SecretKey, Signature,
-                                          Transaction, Utxo)
+                                          Pset, Signature, Transaction, Utxo)
 
+import           RSCoin.Mintette.Env     (RuntimeEnv)
 import qualified RSCoin.Mintette.Storage as MS
 
 type State = ExtendedState MS.Storage
-
-$(deriveSafeCopy 0 'base ''MS.Storage)
 
 query
     :: (EventState event ~ MS.Storage, QueryEvent event, MonadIO m)
@@ -68,25 +70,43 @@ getStorage = ask
 getPreviousMintetteId :: Query MS.Storage (Maybe MintetteId)
 getPreviousMintetteId = MS.getPrevMintetteId
 
+class ConvertUpdateInEnv a b  | b -> a where
+    convertUpdateInEnv :: a -> b
+
+instance ConvertUpdateInEnv (ReaderT env (Update storage) a) (env -> Update storage a) where
+    convertUpdateInEnv = runReaderT
+
+instance ConvertUpdateInEnv (arg1 -> ReaderT env (Update storage) a) (arg1 -> env -> Update storage a) where
+    convertUpdateInEnv f = runReaderT . f
+
+instance ConvertUpdateInEnv (arg1 -> arg2 -> ReaderT env (Update storage) a) (arg1 -> arg2 -> env -> Update storage a) where
+    convertUpdateInEnv f a = runReaderT . f a
+
+instance ConvertUpdateInEnv (arg1 -> arg2 -> arg3 -> ReaderT env (Update storage) a) (arg1 -> arg2 -> arg3 -> env -> Update storage a) where
+    convertUpdateInEnv f a b = runReaderT . f a b
+
+instance ConvertUpdateInEnv (arg1 -> arg2 -> arg3 -> arg4 -> ReaderT env (Update storage) a) (arg1 -> arg2 -> arg3 -> arg4 -> env -> Update storage a) where
+    convertUpdateInEnv f a b c = runReaderT . f a b c
+
 checkNotDoubleSpent
-    :: SecretKey
-    -> Transaction
+    :: Transaction
     -> AddrId
-    -> [(Address, Signature Transaction)]
+    -> [(Address, Signature Transaction)] -> RuntimeEnv
     -> Update MS.Storage CheckConfirmation
-checkNotDoubleSpent = MS.checkNotDoubleSpent
+checkNotDoubleSpent = convertUpdateInEnv MS.checkNotDoubleSpent
 
-commitTx :: SecretKey
-         -> Transaction
-         -> CheckConfirmations
-         -> Update MS.Storage CommitAcknowledgment
-commitTx = MS.commitTx
+commitTx
+    :: Transaction
+    -> CheckConfirmations
+    -> RuntimeEnv
+    -> Update MS.Storage CommitAcknowledgment
+commitTx = convertUpdateInEnv MS.commitTx
 
-finishPeriod :: SecretKey -> PeriodId -> Update MS.Storage PeriodResult
-finishPeriod = MS.finishPeriod
+finishPeriod :: PeriodId -> RuntimeEnv -> Update MS.Storage PeriodResult
+finishPeriod = convertUpdateInEnv MS.finishPeriod
 
-startPeriod :: NewPeriodData -> Update MS.Storage ()
-startPeriod = MS.startPeriod
+startPeriod :: NewPeriodData -> RuntimeEnv -> Update MS.Storage ()
+startPeriod = convertUpdateInEnv MS.startPeriod
 
-finishEpoch :: SecretKey -> Update MS.Storage ()
-finishEpoch = MS.finishEpoch
+finishEpoch :: RuntimeEnv -> Update MS.Storage ()
+finishEpoch = convertUpdateInEnv MS.finishEpoch

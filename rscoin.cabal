@@ -38,6 +38,7 @@ library
                      , RSCoin.Mintette
                      , RSCoin.Mintette.Acidic
                      , RSCoin.Mintette.AcidState
+                     , RSCoin.Mintette.Env
                      , RSCoin.Mintette.Error
                      , RSCoin.Mintette.Launcher
                      , RSCoin.Mintette.Server

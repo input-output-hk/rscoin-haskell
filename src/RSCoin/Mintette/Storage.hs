@@ -31,6 +31,7 @@ module RSCoin.Mintette.Storage
        , utxoDeleted
 
          -- * Queries
+       , Query
        , getCurMintetteId
        , getLogs
        , getPeriodId
@@ -38,6 +39,10 @@ module RSCoin.Mintette.Storage
        , getUtxoPset
 
          -- * Updates
+       , Update
+       , UpdateInEnv
+       , ExceptUpdate
+       , ExceptUpdateInEnv
        , checkNotDoubleSpent
        , commitTx
        , finishPeriod
@@ -60,11 +65,12 @@ import           Control.Lens          (at, makeLenses, to, use, uses, view,
 import           Control.Monad         (unless, when)
 import           Control.Monad.Catch   (MonadThrow (throwM))
 import           Control.Monad.Extra   (unlessM, whenJust)
-import           Control.Monad.Reader  (MonadReader, Reader, runReader)
+import           Control.Monad.Reader  (MonadReader, Reader, ReaderT, runReader)
 import           Control.Monad.State   (MonadState, gets)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Map.Strict       as M
 import           Data.Maybe            (fromJust, fromMaybe, isJust, isNothing)
+import           Data.SafeCopy         (base, deriveSafeCopy)
 import qualified Data.Set              as S
 import           Data.Tuple.Curry      (uncurryN)
 import           Safe                  (atMay, headMay)
@@ -72,7 +78,7 @@ import           Safe                  (atMay, headMay)
 import           RSCoin.Core           (ActionLog, ActionLogHeads,
                                         AddressToTxStrategyMap, HBlock (..),
                                         HBlockHash, LBlock, MintetteId,
-                                        Mintettes, PeriodId, Pset, SecretKey,
+                                        Mintettes, PeriodId, Pset,
                                         TxStrategy (..), Utxo,
                                         computeOutputAddrids, derivePublicKey,
                                         hbTransactions, isOwner,
@@ -80,6 +86,9 @@ import           RSCoin.Core           (ActionLog, ActionLogHeads,
                                         mkCheckConfirmation, mkLBlock, owners,
                                         sign, verifyCheckConfirmation)
 import qualified RSCoin.Core           as C
+
+import           RSCoin.Mintette.Env   (RuntimeEnv, reActionLogsLimit,
+                                        reSecretKey)
 import           RSCoin.Mintette.Error (MintetteError (..))
 
 data Storage = Storage
@@ -106,6 +115,7 @@ data Storage = Storage
     }
 
 $(makeLenses ''Storage)
+$(deriveSafeCopy 0 'base ''Storage)
 
 -- | Make initial storage for the 0-th period.
 mkStorage :: Storage
@@ -154,8 +164,14 @@ getCurMintetteId = view curMintetteId
 getPrevMintetteId :: Query (Maybe MintetteId)
 getPrevMintetteId = view prevMintetteId
 
-type Update a = forall m . MonadState Storage m => m a
-type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
+type Update a = forall m. MonadState Storage m =>
+                          m a
+type UpdateInEnv a = forall m. MonadState Storage m =>
+                               ReaderT RuntimeEnv m a
+type ExceptUpdate a = forall m. (MonadThrow m, MonadState Storage m) =>
+                                m a
+type ExceptUpdateInEnv a = forall m. (MonadThrow m, MonadState Storage m) =>
+                               ReaderT RuntimeEnv m a
 
 -- TODO: maybe move somewhere
 readerToState
@@ -166,12 +182,11 @@ readerToState = gets . runReader
 -- | Validate structure of transaction, check input AddrId for
 -- double spent and signature, update state if everything is valid.
 -- MintetteError is thrown if something is invalid.
-checkNotDoubleSpent :: C.SecretKey
-                    -> C.Transaction
+checkNotDoubleSpent :: C.Transaction
                     -> C.AddrId
                     -> [(C.Address, C.Signature C.Transaction)]
-                    -> ExceptUpdate C.CheckConfirmation
-checkNotDoubleSpent sk tx addrId sg = do
+                    -> ExceptUpdateInEnv C.CheckConfirmation
+checkNotDoubleSpent tx addrId sg = do
     checkIsActive
     checkTxSum tx
     unless (addrId `elem` C.txInputs tx) $
@@ -198,16 +213,16 @@ checkNotDoubleSpent sk tx addrId sg = do
         pset %= HM.insert addrId tx
         hsh <- snd . fromJust <$> readerToState getLogHead
         logSz <- use logSize
+        sk <- view reSecretKey
         mkCheckConfirmation sk tx addrId (hsh, logSz - 1) <$> use periodId
 
 -- | Check that transaction is valid and whether it falls within
 -- mintette's remit.  If it's true, add transaction to storage and
 -- return signed confirmation.
-commitTx :: C.SecretKey
-         -> C.Transaction
+commitTx :: C.Transaction
          -> C.CheckConfirmations
-         -> ExceptUpdate C.CommitAcknowledgment
-commitTx sk tx@C.Transaction {..} bundle = do
+         -> ExceptUpdateInEnv C.CommitAcknowledgment
+commitTx tx@C.Transaction {..} bundle = do
     checkIsActive
     checkTxSum tx
     mts <- use mintettes
@@ -216,7 +231,7 @@ commitTx sk tx@C.Transaction {..} bundle = do
         MEInconsistentRequest "I'm not an owner!"
     curDpk <- use dpk
     isConfirmed <- and <$> mapM (checkInputConfirmed mts curDpk) txInputs
-    res <- commitTxChecked isConfirmed sk tx bundle
+    res <- commitTxChecked isConfirmed tx bundle
     mapM_ (updateLogHeads curDpk) $ M.toList bundle
     return res
   where
@@ -243,17 +258,17 @@ commitTx sk tx@C.Transaction {..} bundle = do
 
 commitTxChecked
     :: Bool
-    -> C.SecretKey
     -> C.Transaction
     -> C.CheckConfirmations
-    -> ExceptUpdate C.CommitAcknowledgment
-commitTxChecked False _ _ _ = throwM MENotConfirmed
-commitTxChecked True sk tx bundle = do
+    -> ExceptUpdateInEnv C.CommitAcknowledgment
+commitTxChecked False _ _ = throwM MENotConfirmed
+commitTxChecked True tx bundle = do
     pushLogEntry $ C.CommitEntry tx bundle
     let toAddIntoUtxo = HM.fromList (computeOutputAddrids tx)
     utxo <>= toAddIntoUtxo
     utxoAdded <>= toAddIntoUtxo
     txset %= S.insert tx
+    sk <- view reSecretKey
     let pk = derivePublicKey sk
     hsh <- snd . fromJust <$> readerToState getLogHead
     logSz <- use logSize
@@ -262,11 +277,11 @@ commitTxChecked True sk tx bundle = do
 
 -- | Finish ongoing period, returning its result.
 -- Do nothing if period id is not an expected one.
-finishPeriod :: C.SecretKey -> C.PeriodId -> ExceptUpdate C.PeriodResult
-finishPeriod sk pId = do
+finishPeriod :: C.PeriodId -> ExceptUpdateInEnv C.PeriodResult
+finishPeriod pId = do
     checkIsActive
     checkPeriodId pId
-    finishEpoch sk
+    finishEpoch
     prevMintetteId <~ use curMintetteId
     curMintetteId .= Nothing
     blocksRes <- use lBlocks
@@ -276,8 +291,9 @@ finishPeriod sk pId = do
 -- | Start new period. False return value indicates that mintette
 -- didn't start the period because it received some other index, so
 -- `setNewIndex` should be called and then `startPeriod` again.
-startPeriod :: C.NewPeriodData -> ExceptUpdate ()
+startPeriod :: C.NewPeriodData -> ExceptUpdateInEnv ()
 startPeriod C.NewPeriodData {..} = do
+    _ <- view reActionLogsLimit
     lastPeriodId <- use periodId
     when (lastPeriodId >= npdPeriodId) $
         throwM $ MEPeriodMismatch (lastPeriodId + 1) npdPeriodId
@@ -353,18 +369,19 @@ startPeriod C.NewPeriodData {..} = do
 -- | This function creates new LBlock with transactions from txset
 -- and adds CloseEpochEntry to log.
 -- It does nothing if txset is empty.
-finishEpoch :: SecretKey -> ExceptUpdate ()
-finishEpoch sk = do
+finishEpoch :: ExceptUpdateInEnv ()
+finishEpoch = do
     checkIsActive
     txList <- S.toList <$> use txset
-    finishEpochDo sk txList
+    finishEpochDo txList
 
-finishEpochDo :: C.SecretKey -> [C.Transaction] -> Update ()
-finishEpochDo _ [] = return ()
-finishEpochDo sk txList = do
+finishEpochDo :: [C.Transaction] -> UpdateInEnv ()
+finishEpochDo [] = return ()
+finishEpochDo txList = do
     heads <- use logHeads
     prevRecord <- fromJust <$> readerToState getLogHead
     prevHBlockHash <- fromJust <$> use lastBankHash
+    sk <- view reSecretKey
     let lBlock = mkLBlock txList sk prevHBlockHash heads prevRecord
     lBlocks %= (lBlock :)
     pushLogEntry $ C.CloseEpochEntry heads

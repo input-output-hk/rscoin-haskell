@@ -12,27 +12,28 @@ import           Control.Monad.Trans       (liftIO)
 import           Data.Time.Units           (TimeUnit)
 import           Formatting                (build, sformat, shown, (%))
 
-import           RSCoin.Core               (SecretKey, WorkMode,
-                                            defaultEpochDelta, logError)
+import           Control.TimeWarp.Timed    (repeatForever, tu)
+
+import           RSCoin.Core               (WorkMode, defaultEpochDelta,
+                                            logError)
 import           RSCoin.Mintette.Acidic    (FinishEpoch (..))
 import           RSCoin.Mintette.AcidState (State, update)
+import           RSCoin.Mintette.Env       (RuntimeEnv)
 import           RSCoin.Mintette.Error     (isMEInactive)
-
-import           Control.TimeWarp.Timed    (repeatForever, tu)
 
 -- | Start worker which updates state when epoch finishes. Default
 -- epoch length is used.
-runWorker :: WorkMode m => SecretKey -> State -> m ()
+runWorker :: WorkMode m => RuntimeEnv -> State -> m ()
 runWorker = runWorkerWithDelta defaultEpochDelta
 
 -- | Start worker which updates state when epoch finishes. Epoch
 -- length is passed as argument.
 runWorkerWithDelta
     :: (Show t, Num t, Integral t, TimeUnit t, WorkMode m)
-    => t -> SecretKey -> State -> m ()
-runWorkerWithDelta epochDelta sk st =
+    => t -> RuntimeEnv -> State -> m ()
+runWorkerWithDelta epochDelta env st =
     repeatForever (tu epochDelta) handler $
-    liftIO $ onEpochFinished sk st
+    liftIO $ onEpochFinished env st
   where
     restartDelay = epochDelta `div` 3
     handler e = do
@@ -45,5 +46,5 @@ runWorkerWithDelta epochDelta sk st =
                 e
         return $ tu restartDelay
 
-onEpochFinished :: SecretKey -> State -> IO ()
-onEpochFinished sk st = update st $ FinishEpoch sk
+onEpochFinished :: RuntimeEnv -> State -> IO ()
+onEpochFinished env st = update st $ FinishEpoch env

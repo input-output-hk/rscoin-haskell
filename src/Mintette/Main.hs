@@ -24,22 +24,22 @@ main = do
         Opts.DumpStatistics  -> mainDumpStatistics ctxArg opts
 
 mainServe :: M.ContextArgument -> Opts.ServeOptions -> Opts.Options -> IO ()
-mainServe ctxArg Opts.ServeOptions{..} Opts.Options{..} = do
+mainServe ctxArg Opts.ServeOptions {..} Opts.Options {..} = do
     skEither <- try $ readSecretKey cloSecretKeyPath
     sk <-
         case skEither of
             Left (_ :: SomeException)
-              | cloAutoCreateKey -> do
-                  putStrLn $
-                      "Generating and putting secret keys into: " ++
-                      cloSecretKeyPath
-                  let fpSecret = cloSecretKeyPath
-                  let fpPublic = cloSecretKeyPath <> ".pub"
-                  (sk,pk) <- keyGen
-                  writePublicKey fpPublic pk
-                  writeSecretKey fpSecret sk
-                  putStrLn "Wrote a keypar on the disk"
-                  return sk
+                | cloAutoCreateKey -> do
+                    putStrLn $
+                        "Generating and putting secret keys into: " ++
+                        cloSecretKeyPath
+                    let fpSecret = cloSecretKeyPath
+                    let fpPublic = cloSecretKeyPath <> ".pub"
+                    (sk, pk) <- keyGen
+                    writePublicKey fpPublic pk
+                    writeSecretKey fpSecret sk
+                    putStrLn "Wrote a keypar on the disk"
+                    return sk
             Left err -> throwM err
             Right sk -> return sk
     let dbPath =
@@ -47,7 +47,8 @@ mainServe ctxArg Opts.ServeOptions{..} Opts.Options{..} = do
                 then Nothing
                 else Just cloPath
         epochDelta = fromInteger cloEpochDelta :: Second
-    M.launchMintetteReal cloRebuildDB epochDelta cloPort sk dbPath ctxArg
+        env = M.mkRuntimeEnv cloActionLogsLimit sk
+    M.launchMintetteReal cloRebuildDB epochDelta cloPort env dbPath ctxArg
 
 mainDumpStatistics :: M.ContextArgument -> Opts.Options -> IO ()
 mainDumpStatistics ctxArg Opts.Options {..} = do

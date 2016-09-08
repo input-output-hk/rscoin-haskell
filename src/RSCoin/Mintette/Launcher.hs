@@ -16,13 +16,14 @@ import           Formatting                (int, sformat, stext, (%))
 
 import           Control.TimeWarp.Timed    (fork_)
 import           RSCoin.Core               (ContextArgument (..), RealMode,
-                                            SecretKey, mintetteLoggerName,
+                                            mintetteLoggerName,
                                             runRealModeUntrusted)
 
 import           RSCoin.Mintette.Acidic    (GetPeriodId (..), closeState,
                                             getStatistics, openMemState,
                                             openState)
 import           RSCoin.Mintette.AcidState (State, query)
+import           RSCoin.Mintette.Env       (RuntimeEnv)
 import           RSCoin.Mintette.Server    (serve)
 import           RSCoin.Mintette.Worker    (runWorkerWithDelta)
 
@@ -38,12 +39,12 @@ mintetteWrapperReal deleteIfExists dbPath ca action = do
 
 launchMintetteReal
     :: (Show t, Num t, Integral t, TimeUnit t)
-    => Bool -> t -> Int -> SecretKey -> Maybe FilePath -> ContextArgument -> IO ()
-launchMintetteReal deleteIfExists epochDelta port sk dbPath ctxArg =
+    => Bool -> t -> Int -> RuntimeEnv -> Maybe FilePath -> ContextArgument -> IO ()
+launchMintetteReal deleteIfExists epochDelta port env dbPath ctxArg =
     mintetteWrapperReal deleteIfExists dbPath ctxArg $
     \st -> do
-        fork_ $ runWorkerWithDelta epochDelta sk st
-        serve port st sk
+        fork_ $ runWorkerWithDelta epochDelta env st
+        serve port st env
 
 dumpStorageStatistics :: Bool -> FilePath -> ContextArgument -> IO ()
 dumpStorageStatistics deleteIfExists dbPath ctxArg =

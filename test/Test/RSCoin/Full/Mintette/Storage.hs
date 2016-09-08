@@ -15,6 +15,7 @@ import           Control.Lens                     (at, use, uses, view, (%=),
                                                    (.=), (<>=), _1)
 import           Control.Monad                    (unless, when)
 import           Control.Monad.Catch              (MonadThrow (throwM))
+import           Control.Monad.Reader             (ReaderT)
 import           Control.Monad.State.Class        (MonadState)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as M
@@ -32,6 +33,7 @@ import           RSCoin.Core                      (AddrId, SecretKey,
                                                    sign,
                                                    verifyCheckConfirmation)
 import qualified RSCoin.Core                      as C
+import           RSCoin.Mintette.Env              (RuntimeEnv, reSecretKey)
 import           RSCoin.Mintette.Error            (MintetteError (..))
 import           RSCoin.Mintette.Storage          (Storage, addresses,
                                                    checkIsActive, checkTxSum,
@@ -45,17 +47,17 @@ import           RSCoin.Mintette.Storage          (Storage, addresses,
 import           Test.RSCoin.Full.Mintette.Config (MintetteConfig (..))
 
 type ExceptUpdate a = forall m . (MonadThrow m, MonadState Storage m) => m a
+type ExceptUpdateInEnv a = forall m . (MonadThrow m, MonadState Storage m) => ReaderT RuntimeEnv m a
 
 -- | Validate structure of transaction, check input AddrId for
 -- double spent and signature, update state if everything is valid.
 -- Result is True iff everything is valid.
 checkNotDoubleSpent :: MintetteConfig
-                    -> SecretKey
                     -> Transaction
                     -> AddrId
                     -> [(C.Address, C.Signature C.Transaction)]
-                    -> ExceptUpdate C.CheckConfirmation
-checkNotDoubleSpent conf sk tx addrId sg = do
+                    -> ExceptUpdateInEnv C.CheckConfirmation
+checkNotDoubleSpent conf tx addrId sg = do
     unless (checkActive conf) checkIsActive
     if ignoreCheckTx conf then finalize else verify
   where
@@ -90,6 +92,7 @@ checkNotDoubleSpent conf sk tx addrId sg = do
         pId <- use periodId
         hsh <- snd . fromJust <$> readerToState getLogHead
         logSz <- use logSize
+        sk <- view reSecretKey
         if inverseCheckTx conf
         then throwM $ MENotUnspent addrId
         else return $ mkCheckConfirmation sk tx addrId (hsh, logSz - 1) pId
@@ -98,11 +101,10 @@ checkNotDoubleSpent conf sk tx addrId sg = do
 -- mintette's remit.  If it's true, add transaction to storage and
 -- return signed confirmation.
 commitTx :: MintetteConfig
-         -> SecretKey
          -> Transaction
          -> C.CheckConfirmations
-         -> ExceptUpdate C.CommitAcknowledgment
-commitTx conf sk tx@Transaction{..} bundle = do
+         -> ExceptUpdateInEnv C.CommitAcknowledgment
+commitTx conf tx@Transaction{..} bundle = do
     unless (checkActive conf) checkIsActive
     checkTxSum tx
     mts <- use mintettes
@@ -111,6 +113,7 @@ commitTx conf sk tx@Transaction{..} bundle = do
         MEInconsistentRequest "I'm not an owner!"
     curDpk <- use dpk
     isConfirmed <- and <$> mapM (checkInputConfirmed mts curDpk) txInputs
+    sk <- view reSecretKey
     res <- commitTxChecked conf isConfirmed sk tx bundle
     mapM_ (updateLogHeads curDpk) $ M.assocs bundle
     return res

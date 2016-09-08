@@ -7,6 +7,7 @@ module RSCoin.Mintette
 
 import           RSCoin.Mintette.Acidic    as Exports
 import           RSCoin.Mintette.AcidState as Exports
+import           RSCoin.Mintette.Env       as Exports
 import           RSCoin.Mintette.Error     as Exports
 import           RSCoin.Mintette.Launcher  as Exports
 import           RSCoin.Mintette.Server    as Exports

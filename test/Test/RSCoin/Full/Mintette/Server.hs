@@ -21,6 +21,7 @@ import           Control.TimeWarp.Rpc             (ServerT,
 import qualified RSCoin.Core                      as C
 import           RSCoin.Mintette.Acidic           (GetUtxoPset (..))
 import           RSCoin.Mintette.AcidState        (State, query, update)
+import           RSCoin.Mintette.Env              (RuntimeEnv)
 import           RSCoin.Mintette.Error            (MintetteError)
 import qualified RSCoin.Mintette.Server           as OMS
 
@@ -30,8 +31,8 @@ import           Test.RSCoin.Full.Mintette.Config (MintetteConfig)
 -- | Serve as mintette according to mintette config provided
 serve
     :: C.WorkMode m
-    => MintetteConfig -> Int -> State -> C.SecretKey -> m ()
-serve conf port st sk = do
+    => MintetteConfig -> Int -> State -> RuntimeEnv -> m ()
+serve conf port st env = do
     idr1 <- serverTypeRestriction1
     idr2 <- serverTypeRestriction1
     idr3 <- serverTypeRestriction3
@@ -40,13 +41,13 @@ serve conf port st sk = do
     idr6 <- serverTypeRestriction1
     C.serve port
         [ C.method (C.RSCMintette C.PeriodFinished) $
-            idr1 $ OMS.handlePeriodFinished sk st
+            idr1 $ OMS.handlePeriodFinished env st
         , C.method (C.RSCMintette C.AnnounceNewPeriod) $
-            idr2 $ OMS.handleNewPeriod st
+            idr2 $ OMS.handleNewPeriod env st
         , C.method (C.RSCMintette C.CheckTx) $
-            idr3 $ handleCheckTx sk st conf
+            idr3 $ handleCheckTx env st conf
         , C.method (C.RSCMintette C.CommitTx) $
-            idr4 $ handleCommitTx sk st conf
+            idr4 $ handleCommitTx env st conf
         , C.method (C.RSCDump C.GetMintetteUtxo) $
             idr5 $ OMS.handleGetUtxo st
         , C.method (C.RSCDump C.GetMintetteLogs) $
@@ -62,14 +63,14 @@ toServer action = liftIO $ action `catch` handler
 
 handleCheckTx
     :: C.WorkMode m
-    => C.SecretKey
+    => RuntimeEnv
     -> State
     -> MintetteConfig
     -> C.Transaction
     -> C.AddrId
     -> [(C.Address, C.Signature C.Transaction)]
     -> ServerT m (Maybe C.CheckConfirmation)
-handleCheckTx sk st conf tx addrId sg =
+handleCheckTx env st conf tx addrId sg =
     toServer $
     do C.logDebug $
            sformat ("Checking addrid (" % build % ") from transaction: " % build) addrId tx
@@ -78,7 +79,7 @@ handleCheckTx sk st conf tx addrId sg =
            sformat
                ("My current utxo is: " % build % "\nCurrent pset is: " % build)
                curUtxo curPset
-       res <- try $ update st $ MA.CheckNotDoubleSpent conf sk tx addrId sg
+       res <- try $ update st $ MA.CheckNotDoubleSpent conf tx addrId sg env
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do
@@ -93,18 +94,18 @@ handleCheckTx sk st conf tx addrId sg =
 
 handleCommitTx
     :: C.WorkMode m
-    => C.SecretKey
+    => RuntimeEnv
     -> State
     -> MintetteConfig
     -> C.Transaction
     -> C.CheckConfirmations
     -> ServerT m (Maybe C.CommitAcknowledgment)
-handleCommitTx sk st conf tx cc =
+handleCommitTx env st conf tx cc =
     toServer $
     do C.logDebug $
            sformat ("There is an attempt to commit transaction (" % build % ")") tx
        C.logDebug $ sformat ("Here are confirmations: " % build) cc
-       res <- try $ update st $ MA.CommitTx conf sk tx cc
+       res <- try $ update st $ MA.CommitTx conf tx cc env
        either onError onSuccess res
   where
     onError (e :: MintetteError) = do

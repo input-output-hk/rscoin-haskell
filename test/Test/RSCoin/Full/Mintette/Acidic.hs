@@ -22,10 +22,10 @@ import           RSCoin.Core                       (AddrId, Address,
                                                     CheckConfirmation,
                                                     CheckConfirmations,
                                                     CommitAcknowledgment,
-                                                    SecretKey, Signature,
-                                                    Transaction)
+                                                    Signature, Transaction)
 import           RSCoin.Mintette.AcidState         (State)
 import qualified RSCoin.Mintette.AcidState         as OMA
+import           RSCoin.Mintette.Env               (RuntimeEnv)
 import qualified RSCoin.Mintette.Storage           as OMS
 
 import           Test.RSCoin.Full.Mintette.Config  (MintetteConfig)
@@ -42,20 +42,20 @@ tidyState = tidyExtendedState
 
 checkNotDoubleSpent
     :: MintetteConfig
-    -> SecretKey
     -> Transaction
     -> AddrId
     -> [(Address, Signature Transaction)]
+    -> RuntimeEnv
     -> Update OMS.Storage CheckConfirmation
-checkNotDoubleSpent = MS.checkNotDoubleSpent
+checkNotDoubleSpent = OMA.convertUpdateInEnv MS.checkNotDoubleSpent
 
 commitTx
     :: MintetteConfig
-    -> SecretKey
     -> Transaction
     -> CheckConfirmations
+    -> RuntimeEnv
     -> Update OMS.Storage CommitAcknowledgment
-commitTx = MS.commitTx
+commitTx = OMA.convertUpdateInEnv MS.commitTx
 
 $(makeAcidic ''OMS.Storage
              [

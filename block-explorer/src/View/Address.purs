@@ -38,6 +38,7 @@ import Serokell.Data.DateTime         (prettyDate)
 
 import Partial.Unsafe                 (unsafePartial)
 
+-- TODO: pass Address here as we did with Transaction.view !
 view :: State -> Html Action
 view state =
     div

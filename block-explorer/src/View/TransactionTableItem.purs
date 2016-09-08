@@ -7,7 +7,7 @@ import App.Types                       (Action (..), State, Coin(..), Color(Colo
                                        getBalance, colorToString, addressToString,
                                        getCoins, coinToColor, WithMetadata (..),
                                        Transaction (..), TransactionExtension (..),
-                                       searchQueryAddress, isTransactionIncome,
+                                       searchQueryAddress, isTransactionExtensionOutcome,
                                        nominalDiffTimeToDateTime, TransactionExtended,
                                        SearchQuery)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
@@ -39,7 +39,7 @@ import Serokell.Data.DateTime         (prettyDate)
 import Partial.Unsafe                 (unsafePartial)
 
 transactionTableItem :: Boolean -> Maybe SearchQuery -> TransactionExtended -> forall a. Array (Html a)
-transactionTableItem colors queryInfo (WithMetadata {wmValue: tran@(Transaction t), wmMetadata: TransactionExtension te}) =
+transactionTableItem colors queryInfo (WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(TransactionExtension te)}) =
     let addressLink mAddr =
             div
                 [ className "text-center addressLink" ]
@@ -52,9 +52,9 @@ transactionTableItem colors queryInfo (WithMetadata {wmValue: tran@(Transaction 
                     Nothing -> text "Emission"
                 ]
         moneyFlow tx =
-            case flip isTransactionIncome tx <$> searchAddress of
-                Just true -> "income"
-                _ -> "outcome"
+            case flip isTransactionExtensionOutcome tx <$> searchAddress of
+                Just true -> "outcome"
+                _ -> "income"
     in
         [ div
             [ className "row transaction-header no-margin" ]
@@ -72,7 +72,7 @@ transactionTableItem colors queryInfo (WithMetadata {wmValue: tran@(Transaction 
                     , id_ "transaction-date" ]
                     [ text $ fromMaybe "Date error" $ prettyDate <$> nominalDiffTimeToDateTime te.teTimestamp ]
                 , button
-                    [ className $ moneyFlow tran <> "-button pull-right" ]
+                    [ className $ moneyFlow tranE <> "-button pull-right" ]
                     [ img
                         [ id_ "ada-symbol"
                         , src adaSymbolPath

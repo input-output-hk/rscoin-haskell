@@ -7,19 +7,25 @@ import Data.Maybe (Maybe (..))
 -- import Data.Enum (class Enum, enumFromTo)
 
 type Translation =
-    { _nativeName    :: String
-    , _code          :: String
-    , aboutUs        :: String
-    , contacts       :: String
-    , privacyPolicy  :: String
-    , termsOfService :: String
-    , address        :: String
-    , transactions   :: String
-    , finalBalance   :: String
-    , colorBalance   :: String
-    , qrCode         :: String
-    , to             :: String
-    , notFound       :: String
+    { _nativeName      :: String
+    , _code            :: String
+    , aboutUs          :: String
+    , contacts         :: String
+    , privacyPolicy    :: String
+    , termsOfService   :: String
+    , address          :: String
+    , transaction      :: String
+    , transactions     :: String
+    , finalBalance     :: String
+    , colorBalance     :: String
+    , qrCode           :: String
+    , to               :: String
+    , notFound         :: String
+    , receivedTime     :: String
+    , totalInput       :: String
+    , totalOutput      :: String
+    , includedInBlocks :: String
+    , summary          :: String
     }
 
 data Language
@@ -43,12 +49,18 @@ getTranslation lang@English =
     , privacyPolicy: "Privacy Policy"
     , termsOfService: "Terms of Service"
     , address: "Address"
+    , transaction: "Transaction"
     , transactions: "Transactions"
     , finalBalance: "Final balance"
     , colorBalance: "Color balance"
     , qrCode: "QR code"
     , to: "to"
     , notFound: "Not Found"
+    , receivedTime: "Received Time"
+    , totalInput: "Total Input"
+    , totalOutput: "Total Output"
+    , includedInBlocks: "Included In Blocks"
+    , summary: "Summary"
     }
 getTranslation lang@Japanese =
     { _nativeName: languageNativeName lang
@@ -58,12 +70,18 @@ getTranslation lang@Japanese =
     , privacyPolicy: "個人情報保護方針"
     , termsOfService: "利用規約"
     , address: "アドレス"
+    , transaction: "?"
     , transactions: "トランザクション"
     , finalBalance: "最終残高"
     , colorBalance: "各色の残高"
     , qrCode: "QRコード"
     , to: "に"
     , notFound: "見つかりません"
+    , receivedTime: "?"
+    , totalInput: "?"
+    , totalOutput: "?"
+    , includedInBlocks: "?"
+    , summary: "?"
     }
 getTranslation lang@Russian =
     { _nativeName: languageNativeName lang
@@ -73,12 +91,18 @@ getTranslation lang@Russian =
     , privacyPolicy: "политика конфиденциальности"
     , termsOfService: "Условия использования"
     , address: "Адрес"
+    , transaction: "?"
     , transactions: "операции"
     , finalBalance: "Окончательный баланс"
     , colorBalance: "Цветовой баланс"
     , qrCode: "QR код"
     , to: "к"
     , notFound: "не обнаружена"
+    , receivedTime: "?"
+    , totalInput: "?"
+    , totalOutput: "?"
+    , includedInBlocks: "?"
+    , summary: "?"
     }
 
 allLanguages :: Array Language

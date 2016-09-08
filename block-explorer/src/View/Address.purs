@@ -32,6 +32,8 @@ import Data.Array.Partial             (tail)
 import Data.Maybe                     (Maybe (..), fromMaybe)
 import Data.Functor                   ((<$>))
 import Data.Generic                   (gEq)
+import Data.DateTime.Instant          (toDateTime)
+import Serokell.Data.DateTime         (prettyDate)
 
 import Partial.Unsafe                 (unsafePartial)
 
@@ -307,7 +309,7 @@ view state =
                     [ div
                         [ className "pull-left"
                         , id_ "transaction-date" ]
-                        [ text "2016-07-08 11:56:48" ] -- FIXME: dates!
+                        [ text $ prettyDate $ toDateTime te.teTimestamp ]
                     , button
                         [ className $ moneyFlow tran <> "-button pull-right" ]
                         [ img

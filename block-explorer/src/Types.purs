@@ -6,6 +6,7 @@ module App.Types
        , init
        , State
        , queryToString
+       , searchQueryAddress
        ) where
 
 import Prelude                     (show, class Eq, ($))
@@ -47,6 +48,10 @@ instance eqSearchQeuery :: Eq SearchQuery where
     -- TODO: use `eq tId.txId tId2.txId` here to optimize
     eq (SQTransaction tId1) (SQTransaction tId2) = gEq tId1 tId2
     eq _ _ = false
+
+searchQueryAddress :: SearchQuery -> Maybe Address
+searchQueryAddress (SQAddress addr) = Just addr
+searchQueryAddress _ = Nothing
 
 type State =
     { route            :: Path

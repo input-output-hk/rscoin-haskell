@@ -461,17 +461,26 @@ td {
     margin: 10px 0px;
 }
 
-#transaction-addresses-table tr, td {
+#transaction-addresses-table tr, td, #transaction-addresses-table tr td > div {
     padding: 8px 24px !important;
     height: 28px !important;
     line-height: 12px !important;
 }
 
-#spanned-cell {
-    vertical-align: middle;
+.fix-tx-table tr td {
+    padding: 0 !important;
 }
 
-#money-amount {
+#transaction-addresses-table tr td,  #spanned-cell {
+    vertical-align: middle;
+    text-align: middle;
+}
+
+.addressLink {
+    min-width: 280px;
+}
+
+#money-amount, .money-amount {
     text-align: right;
 }
 

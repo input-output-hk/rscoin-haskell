@@ -1,10 +1,13 @@
 module App.ViewNew.Address where
 
-import Prelude                        (($), map, show, (<<<), const, (<>), id, not)
+import Prelude                        (($), map, show, (<<<), const, (<>), id,
+                                       join, not, flip, otherwise, map, (=<<))
 
 import App.Types                       (Action (..), State, Coin(..), Color(Color),
-                                       queryToString, getBalance, colorToString,
-                                       getCoins, coinToColor)
+                                       getBalance, colorToString, addressToString,
+                                       getCoins, coinToColor, WithMetadata (..),
+                                       Transaction (..), TransactionExtension (..),
+                                       searchQueryAddress, isTransactionIncome)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
@@ -23,10 +26,12 @@ import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
 
-import Data.Tuple.Nested              (uncurry2)
-import Data.Array                     (length)
+import Data.Tuple                     (fst, snd)
+import Data.Array                     (length, null)
 import Data.Array.Partial             (tail)
-import Data.Maybe                     (fromMaybe)
+import Data.Maybe                     (Maybe (..), fromMaybe)
+import Data.Functor                   ((<$>))
+import Data.Generic                   (gEq)
 
 import Partial.Unsafe                 (unsafePartial)
 
@@ -57,7 +62,7 @@ view state =
                                     [ link
                                         (R.toUrl state.route)
                                         [ id_ "address-link" ]
-                                        [ text $ fromMaybe "" $ map queryToString state.queryInfo ]
+                                        [ text $ fromMaybe "" $ addressToString <$> searchAddress ]
                                     ]
                                 ]
                             , tr
@@ -75,7 +80,7 @@ view state =
                                         , src adaSymbolDarkPath
                                         ]
                                         []
-                                    , text $ fromMaybe "0" $ map (show <<< getBalance) state.balance
+                                    , text $ fromMaybe "0" $ show <<< getBalance <$> state.balance
                                     , div
                                         [ className "pull-right" ]
                                         [ label
@@ -150,7 +155,7 @@ view state =
                                     [ className "table no-margin" ]
                                     [ tbody
                                         [ id_ "color-table" ]
-                                        $ fromMaybe [] $ map (map colorTableItem <<< getCoins) state.balance
+                                        $ fromMaybe [] $ map colorTableItem <<< getCoins <$> state.balance
                                     ]
                                 ]
                             ]
@@ -172,7 +177,7 @@ view state =
                                                 [ id_ "qr-code-cell" ]
                                                 [ img
                                                     -- FIXME: please check this api. Is it safe to use it? Maybe we shouldn't trust this third party for this functionality?
-                                                    [ src $ "https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=" <> fromMaybe "Error" (map queryToString state.queryInfo)
+                                                    [ src $ "https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=" <> fromMaybe "Error" (addressToString <$> searchAddress)
                                                     , id_ "qr-code-img"
                                                     ]
                                                     []
@@ -201,238 +206,14 @@ view state =
                 ]
             , div
                 [ id_ "info-table-margins" ]
+                -- NOTE: =<< == foldMap == concatMap
+                $ (=<<) transactionTableItem state.transactions
+                <>
                 [ div
-                    [ className "row transaction-header no-margin" ]
-                    [ div
-                        [ className "col-xs-8 no-padding"
-                        , id_ "transaction-hash" ]
-                        [ a
-                            [ id_ "link" ]
-                            [ text "6a3b06baa79d555d1bf7caac383deb4dbcb37e957fb270c0147cbd75b9a8d3a6" ]
-                        ]
-                    , div
-                        [ className "col-xs-4 no-padding-only-left" ]
-                        [ div
-                            [ className "pull-left"
-                            , id_ "transaction-date" ]
-                            [ text "2016-07-08 11:56:48" ]
-                        , button
-                            [ className "income-button pull-right" ]
-                            [ img
-                                [ id_ "ada-symbol"
-                                , src adaSymbolPath
-                                ]
-                                []
-                            , text "213,128,124,000"
-                            ]
-                        ]
-                    ]
-                , div
                     [ className "row transaction-body no-margin" ]
                     [ div
                         [ className "col-xs-8 no-padding-only-right" ]
-                        [ table
-                            [ className "table"
-                            , id_ "transaction-addresses-table" ]
-                            [ tbody
-                                []
-                                [ tr
-                                    []
-                                    [ td
-                                        []
-                                        [ a
-                                            [ id_ "link"]
-                                            [ text "13dXD6C4KQVqnZGFTmuZzrVjWkH9pgc9Ng" ]
-                                        ]
-                                    , td
-                                        [ rowSpan 3
-                                        , id_ "spanned-cell" ]
-                                        [ img
-                                            [ id_ "transaction-arrow"
-                                            , src transactionArrowGreenPath
-                                            ]
-                                            []
-                                        ]
-                                    , td
-                                        [ rowSpan 3
-                                        , id_ "spanned-cell" ]
-                                        [ text "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9" ]
-                                    ]
-                                , tr
-                                    []
-                                    [ td
-                                        []
-                                        [ a
-                                            [ id_ "link"]
-                                            [ text "zrVjWkH9pgc9Ng13dXD6C4KQVqnZGFTmuZ" ]
-                                        ]
-                                    ]
-                                , tr
-                                    []
-                                    [ td
-                                        []
-                                        [ a
-                                            [ id_ "link"]
-                                            [ text "gc9Ng13dXD6C4KQVqnZGFTmuZzrVjWkH9p" ]
-                                        ]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    , div
-                        [ className "col-xs-4 no-padding-only-left" ]
-                        [ table
-                            [ className "table"
-                            , id_ "transaction-addresses-table" ]
-                            [ tbody
-                                []
-                                [ tr
-                                    []
-                                    [ td [] [ text "Red" ]
-                                    , td
-                                        [ id_ "money-amount" ]
-                                        [ img
-                                            [ id_ "ada-symbol"
-                                            , src adaSymbolDarkPath
-                                            ]
-                                            []
-                                        , text "71,2929"
-                                        ]
-                                    ]
-                                , tr
-                                    []
-                                    [ td [] [ text "Blue" ]
-                                    , td
-                                        [ id_ "money-amount" ]
-                                        [ img
-                                            [ id_ "ada-symbol"
-                                            , src adaSymbolDarkPath
-                                            ]
-                                            []
-                                        , text "71,2929"
-                                        ]
-                                    ]
-                                , tr
-                                    []
-                                    [ td [] [ text "Blue" ]
-                                    , td
-                                        [ id_ "money-amount" ]
-                                        [ img
-                                            [ id_ "ada-symbol"
-                                            , src adaSymbolDarkPath
-                                            ]
-                                            []
-                                        , text "71,2929"
-                                        ]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                , div
-                    [ className "row transaction-header no-margin" ]
-                    [ div
-                        [ className "col-xs-8 no-padding"
-                        , id_ "transaction-hash" ]
-                        [ a
-                            [ id_ "link" ]
-                            [ text "6a3b06baa79d555d1bf7caac383deb4dbcb37e957fb270c0147cbd75b9a8d3a6" ]
-                        ]
-                    , div
-                        [ className "col-xs-4 no-padding-only-left" ]
-                        [ div
-                            [ className "pull-left"
-                            , id_ "transaction-date" ]
-                            [ text "2016-07-08 11:56:48" ]
-                        , button
-                            [ className "outcome-button pull-right" ]
-                            [ img
-                                [ id_ "ada-symbol"
-                                , src adaSymbolPath
-                                ]
-                                []
-                            , text "-124,000"
-                            ]
-                        ]
-                    ]
-                , div
-                    [ className "row transaction-body no-margin" ]
-                    [ div
-                        [ className "col-xs-8 no-padding-only-right" ]
-                        [ table
-                            [ className "table"
-                            , id_ "transaction-addresses-table" ]
-                            [ tbody
-                                []
-                                [ tr
-                                    []
-                                    [ td
-                                        [ rowSpan 2
-                                        , id_ "spanned-cell" ]
-                                        [ text "1NPj2Y8yswHLuw8Yr1FDdobKAW6WVkUZy9" ]
-                                    , td
-                                        [ rowSpan 2
-                                        , id_ "spanned-cell" ]
-                                        [ img
-                                            [ id_ "transaction-arrow"
-                                            , src transactionArrowRedPath
-                                            ]
-                                            []
-                                        ]
-                                    , td
-                                        []
-                                        [ a
-                                            [ id_ "link"]
-                                            [ text "13dXD6C4KQVqnZGFTmuZzrVjWkH9pgc9Ng" ]
-                                        ]
-                                    ]
-                                , tr
-                                    []
-                                    [ td
-                                        []
-                                        [ a
-                                            [ id_ "link"]
-                                            [ text "zrVjWkH9pgc9Ng13dXD6C4KQVqnZGFTmuZ" ]
-                                        ]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    , div
-                        [ className "col-xs-4 no-padding-only-left" ]
-                        [ table
-                            [ className "table"
-                            , id_ "transaction-addresses-table" ]
-                            [ tbody
-                                []
-                                [ tr
-                                    []
-                                    [ td [] [ text "Red" ]
-                                    , td
-                                        [ id_ "money-amount" ]
-                                        [ img
-                                            [ id_ "ada-symbol"
-                                            , src adaSymbolDarkPath
-                                            ]
-                                            []
-                                        , text "-71,2929"
-                                        ]
-                                    ]
-                                , tr
-                                    []
-                                    [ td [] [ text "Blue" ]
-                                    , td
-                                        [ id_ "money-amount" ]
-                                        [ img
-                                            [ id_ "ada-symbol"
-                                            , src adaSymbolDarkPath
-                                            ]
-                                            []
-                                        , text "-71,2929"
-                                        ]
-                                    ]
-                                ]
-                            ]
+                        [
                         ]
                     ]
                 , div
@@ -460,14 +241,14 @@ view state =
                         , id_ "navigation-arrow" ]
                         []
                     ]
-                    , div
-                        [ className "font-light" ]
-                        [
-                --, button
-                --    [ id_ "expand-button"
-                --    ]
-                --    [ text "expand-button" ]
-                        ]
+                , div
+                    [ className "font-light" ]
+                    [
+            --, button
+            --    [ id_ "expand-button"
+            --    ]
+            --    [ text "expand-button" ]
+                    ]
                 ]
             ]
         ]
@@ -476,9 +257,11 @@ view state =
     colorTableItem coin@(Coin c) =
         tr
             []
-            [ td [] [ text <<< colorToString $ coinToColor coin ]
-            , td
+            [ visible td state.colors $ td
                 []
+                [ text <<< colorToString $ coinToColor coin ]
+            , td
+                [ className "money-amount" ]
                 [ img
                     [ id_ "ada-symbol"
                     , src adaSymbolDarkPath
@@ -491,4 +274,88 @@ view state =
         if state.colors
             then unsafePartial tail
             else id
-    colorsActive f = if f state.colors then "colors" else ""
+    colorsActive f = if f state.colors then "active" else ""
+    searchAddress = join $ map searchQueryAddress state.queryInfo
+    moneyFlow tx =
+        case flip isTransactionIncome tx <$> searchAddress of
+            Just true -> "income"
+            _ -> "outcome"
+    transactionTableItem (WithMetadata {wmValue: tran@(Transaction t), wmMetadata: TransactionExtension te}) =
+        let addressLink mAddr =
+                div
+                    [ className "text-center addressLink" ]
+                    [ case mAddr of
+                        Just addr | mAddr `gEq` searchAddress ->
+                                        a
+                                            [ id_ "link"]
+                                            [ text $ addressToString addr ]
+                                  | otherwise -> text $ addressToString addr
+                        Nothing -> text "Emission"
+                    ]
+        in
+            [ div
+                [ className "row transaction-header no-margin" ]
+                [ div
+                    [ className "col-xs-8 no-padding"
+                    , id_ "transaction-hash" ]
+                    [ a
+                        [ id_ "link" ]
+                        [ text $ show te.teId ]
+                    ]
+                , div
+                    [ className "col-xs-4 no-padding-only-left" ]
+                    [ div
+                        [ className "pull-left"
+                        , id_ "transaction-date" ]
+                        [ text "2016-07-08 11:56:48" ] -- FIXME: dates!
+                    , button
+                        [ className $ moneyFlow tran <> "-button pull-right" ]
+                        [ img
+                            [ id_ "ada-symbol"
+                            , src adaSymbolPath
+                            ]
+                            []
+                        , text $ show $ getBalance te.teOutputsSum
+                        ]
+                    ]
+                ]
+            , div
+                [ className "row transaction-body no-margin" ]
+                [ div
+                    [ className "col-xs-8 no-padding-only-right" ]
+                    [ table
+                        [ className "table fix-tx-table"
+                        , id_ "transaction-addresses-table" ]
+                        [ tbody
+                            []
+                            [ tr
+                                []
+                                [ td [] $ map addressLink $
+                                    if null te.teInputAddresses
+                                        then [Nothing]
+                                        else te.teInputAddresses
+                                , td
+                                    []
+                                    [ img
+                                        [ id_ "transaction-arrow"
+                                        , src transactionArrowGreenPath
+                                        ]
+                                        []
+                                    ]
+                                , td [] $ map (addressLink <<< Just <<< fst) t.txOutputs
+                                ]
+                            ]
+                        ]
+                    ]
+                , div
+                    [ className "col-xs-4 no-padding-only-left" ]
+                    [ table
+                        [ className "table"
+                        , id_ "transaction-addresses-table" ]
+                        [ tbody
+                            []
+                            $ map (colorTableItem <<< snd) t.txOutputs
+                        ]
+                    ]
+                ]
+            ]

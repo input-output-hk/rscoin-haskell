@@ -8,12 +8,15 @@ module Data.Types
 import Prelude
 
 import Data.Generic (class Generic, GenericSpine (..), GenericSignature (..))
+
 import Data.Maybe (Maybe (..))
 
 -- NOTE: these newtype wrappers and instances can/will be auto generated
 --
 -- TODO: we can ditch this module using unwrapNewtypes option, read http://www.purescript.org/learn/generic/
 newtype PublicKey = PublicKey String
+
+derive instance eqPublicKey :: Eq PublicKey
 
 instance showPublicKey :: Show PublicKey where
     show (PublicKey s) = s

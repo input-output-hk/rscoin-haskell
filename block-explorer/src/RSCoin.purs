@@ -12,9 +12,11 @@ module App.RSCoin
        , emptyAddress
        , addressToString
        , coinToColor
+       , isTransactionIncome
+       , isTransactionExtensionOutcome
        ) where
 
-import Prelude                           (show, ($), map)
+import Prelude                           (show, ($), map, (<<<))
 
 import RSCoin.Core.Primitives            as C
 import RSCoin.Core.Types                 as C
@@ -22,7 +24,9 @@ import RSCoin.Explorer.Web.Sockets.Types as E
 import RSCoin.Explorer.Extended          as E
 import Data.Types                        as T
 
-import Data.Tuple (Tuple, snd)
+import Data.Tuple (Tuple, snd, fst)
+import Data.Maybe (Maybe (..))
+import Data.Foldable (elem)
 
 type CoinsMap = Array (Tuple Int C.Coin)
 type CoinsMapExtended = C.WithMetadata CoinsMap E.CoinsMapExtension
@@ -44,7 +48,18 @@ emptyAddress :: C.Address
 emptyAddress = newAddress ""
 
 addressToString :: C.Address -> String
-addressToString (C.Address obj) = show obj.getAddress
+addressToString = show <<< getPublicKey
+
+getPublicKey :: C.Address -> T.PublicKey
+getPublicKey (C.Address obj) = obj.getAddress
 
 coinToColor :: C.Coin -> Int
 coinToColor (C.Coin {getColor: C.Color c}) = c.getC
+
+isTransactionIncome :: C.Address -> C.Transaction -> Boolean
+isTransactionIncome addr (C.Transaction t) =
+    elem (getPublicKey addr) <<< map (getPublicKey <<< fst) $ t.txOutputs
+
+isTransactionExtensionOutcome :: C.Address -> E.TransactionExtension -> Boolean
+isTransactionExtensionOutcome addr (E.TransactionExtension te) =
+    elem (Just $ getPublicKey addr) <<< map (map getPublicKey) $ te.teInputAddresses

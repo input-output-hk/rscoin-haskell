@@ -109,15 +109,14 @@ view state =
                     ]
                 , div
                     [ className "col-xs-4 no-padding-only-left" ]
-                    $ removeHeadIfColors $
                     [ ul
                         [ className "nav nav-pills"
                         , role "tablist"
                         , id_ "tabs"
                         ]
-                        [ li
+                        [ visible li state.colors $ li
                             [ role "presentation"
-                            , className ""
+                            , className $ colorsActive id
                             ]
                             [ a
                                 [ href "#color-balance"
@@ -130,7 +129,7 @@ view state =
                             ]
                         , li
                             [ role "presentation"
-                            , className "active"
+                            , className $ colorsActive not
                             ]
                             [ a
                                 [ href "#qr-code"
@@ -144,10 +143,9 @@ view state =
                         ]
                     , div
                         [ className "tab-content" ]
-                        $ removeHeadIfColors $
-                        [ div
+                        [ visible div state.colors $ div
                             [ role "tabpanel"
-                            , className "tab-pane"
+                            , className $ "tab-pane " <> colorsActive id
                             , id_ "color-balance"
                             , aria "labelledby" "color-balance-tab"
                             ]
@@ -163,7 +161,7 @@ view state =
                             ]
                         , div
                             [ role "tabpanel"
-                            , className "tab-pane active"
+                            , className $ "tab-pane " <> colorsActive not
                             , id_ "qr-code"
                             , aria "labelledby" "qr-code-tab"
                             ]
@@ -272,10 +270,6 @@ view state =
                 , text <<< show $ c.getCoin
                 ]
             ]
-    removeHeadIfColors =
-        if state.colors
-            then unsafePartial tail
-            else id
     colorsActive f = if f state.colors then "active" else ""
     searchAddress = join $ map searchQueryAddress state.queryInfo
     moneyFlow tx =

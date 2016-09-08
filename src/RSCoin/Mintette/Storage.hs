@@ -68,6 +68,7 @@ import           Control.Monad.Extra   (unlessM, whenJust)
 import           Control.Monad.Reader  (MonadReader, Reader, ReaderT, runReader)
 import           Control.Monad.State   (MonadState, gets)
 import qualified Data.HashMap.Strict   as HM
+import           Data.List             (genericTake)
 import qualified Data.Map.Strict       as M
 import           Data.Maybe            (fromJust, fromMaybe, isJust, isNothing)
 import           Data.SafeCopy         (base, deriveSafeCopy)
@@ -150,7 +151,9 @@ isActive :: Query Bool
 isActive = views curMintetteId isJust
 
 getLogs :: PeriodId -> Query (Maybe ActionLog)
-getLogs pId = views actionLogs (\b -> b `atMay` (length b - pId - 1))
+getLogs pId = do
+    curPeriodId <- getPeriodId
+    views actionLogs (\b -> b `atMay` (curPeriodId - pId))
 
 getPeriodId :: Query PeriodId
 getPeriodId = view periodId
@@ -293,7 +296,6 @@ finishPeriod pId = do
 -- `setNewIndex` should be called and then `startPeriod` again.
 startPeriod :: C.NewPeriodData -> ExceptUpdateInEnv ()
 startPeriod C.NewPeriodData {..} = do
-    _ <- view reActionLogsLimit
     lastPeriodId <- use periodId
     when (lastPeriodId >= npdPeriodId) $
         throwM $ MEPeriodMismatch (lastPeriodId + 1) npdPeriodId
@@ -310,6 +312,8 @@ startPeriod C.NewPeriodData {..} = do
         (uncurryN onMintetteIdChanged)
         npdNewIdPayload
     actionLogs %= (replicate (npdPeriodId - lastPeriodId) [] ++)
+    actionLogsLimit <- view reActionLogsLimit
+    actionLogs %= genericTake actionLogsLimit
     mintettes .= npdMintettes
     newMintetteId <- uses curMintetteId fromJust
     addresses <>= hbAddresses npdHBlock

@@ -74,7 +74,7 @@ commandParser defaultSKPath =
              help
                  ("If the \"sk\" is pointing to non-existing " <>
                   "file, generate a keypair")) <*>
-        option auto (long "action-logs-limit" <> value 10000 <> showDefault)
+        option auto (long "action-logs-limit" <> value 100000 <> showDefault)
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
 optionsParser defaultSKPath configDir defaultConfigPath =

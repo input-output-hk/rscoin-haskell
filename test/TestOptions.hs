@@ -1,14 +1,18 @@
+{-# LANGUAGE TemplateHaskell #-}
 -- | Command line options for tests
 
 module TestOptions
        ( FullTestConfig (..)
        , TestVar
-       , testTVar
        , getOptions
+       , testTVar
+       , readTestConfig
        ) where
 
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
+import qualified Data.Aeson.TH               as A
 import           Data.Default                (Default (def))
+import qualified Data.Yaml                   as Y
 import           Options.Applicative         (Parser, (<>), auto, execParser, fullDesc,
                                               help, helper, info, long, metavar, option,
                                               progDesc, short, switch)
@@ -22,7 +26,7 @@ data FullTestConfig = FullTestConfig
     , ftcUserSeverity     :: !(Maybe Severity)
     , ftcTestingSeverity  :: !(Maybe Severity)
     , ftcRealMode         :: !Bool
-    } deriving (Show)
+    } deriving Show
 
 instance Default FullTestConfig where
     def =
@@ -34,6 +38,11 @@ instance Default FullTestConfig where
         , ftcTestingSeverity = Just Warning
         , ftcRealMode = False
         }
+
+readTestConfig :: FilePath -> IO FullTestConfig
+readTestConfig fp =
+    either (error . ("[FATAL] Failed to parse config: " ++) . show) id <$>
+    Y.decodeFileEither fp
 
 type TestVar = TVar FullTestConfig
 
@@ -79,3 +88,6 @@ getOptions = do
         info
             (helper <*> optionsParser)
             (fullDesc <> progDesc "RSCoin's testing framework")
+
+$(A.deriveJSON A.defaultOptions ''Severity)
+$(A.deriveJSON A.defaultOptions ''FullTestConfig)

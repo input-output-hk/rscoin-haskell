@@ -6,6 +6,6 @@ import qualified TestOptions            as Opts
 
 main :: IO ()
 main = do
-    testConfig <- Opts.getOptions
-    _ <- atomically $ writeTVar Opts.testTVar testConfig
+    testConfig <- Opts.readTestConfig "test.cfg"
+    atomically $ writeTVar Opts.testTVar testConfig
     hspec spec

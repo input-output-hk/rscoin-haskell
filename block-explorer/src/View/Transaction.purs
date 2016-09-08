@@ -1,4 +1,4 @@
-module App.ViewNew.Transaction where
+module App.View.Transaction where
 
 import Prelude                        (($), map, show)
 

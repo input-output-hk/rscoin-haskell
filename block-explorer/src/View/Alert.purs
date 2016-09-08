@@ -1,4 +1,4 @@
-module App.ViewNew.Alert where
+module App.View.Alert where
 
 import Prelude                        (const, ($), (==), (<<<))
 

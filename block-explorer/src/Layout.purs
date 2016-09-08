@@ -16,12 +16,12 @@ import App.Types                      (Address (..), ControlMsg (..),
                                        PublicKey (..), ServerError (..), Hash (..),
                                        getTransactionId)
 import App.CSS                        (veryLightGrey, styleSheet)
-import App.ViewNew.Address            (view) as Address
-import App.ViewNew.NotFound           (view) as NotFound
-import App.ViewNew.Transaction        (view) as Transaction
-import App.ViewNew.Header             (view) as Header
-import App.ViewNew.Alert              (view) as Alert
-import App.ViewNew.Footer             (view) as Footer
+import App.View.Address               (view) as Address
+import App.View.NotFound              (view) as NotFound
+import App.View.Transaction           (view) as Transaction
+import App.View.Header                (view) as Header
+import App.View.Alert                 (view) as Alert
+import App.View.Footer                (view) as Footer
 
 import Data.Maybe                     (Maybe(Nothing, Just), maybe,
                                        isNothing, isJust)

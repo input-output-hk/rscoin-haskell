@@ -1,4 +1,4 @@
-module App.ViewNew.Header where
+module App.View.Header where
 
 import Prelude                        (const, ($), (==), (<<<), bind, (<>))
 

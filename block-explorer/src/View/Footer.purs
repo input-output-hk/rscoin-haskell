@@ -1,4 +1,4 @@
-module App.ViewNew.Footer where
+module App.View.Footer where
 
 import Prelude                        (const, ($), (==), (<<<), bind, (<>), (#),
                                        show, map)

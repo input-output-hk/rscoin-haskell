@@ -1,4 +1,4 @@
-module App.ViewNew.Address where
+module App.View.Address where
 
 import Prelude                        (($), map, show, (<<<), const, (<>), id,
                                        join, not, flip, otherwise, map, (=<<))

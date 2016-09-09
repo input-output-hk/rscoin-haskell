@@ -1,7 +1,7 @@
 module App.Layout where
 
 import Prelude                        (($), map, (<<<), pure, bind, not,
-                                       (==), flip, (<>), (/=), otherwise)
+                                       (==), flip, (<>), (/=), otherwise, (+), (-))
 
 import App.Routes                     (Path (..), addressUrl, txUrl,
                                        match) as R
@@ -32,7 +32,7 @@ import Serokell.Data.Maybe            (unsafeFromJust)
 import Data.Tuple                     (Tuple (..), snd)
 import Data.Either                    (fromRight)
 import Data.Generic                   (gShow)
-import Data.Array                     (filter, head)
+import Data.Array                     (filter, head, reverse)
 import Debug.Trace                    (traceAny)
 
 import Pux                            (EffModel, noEffects, onlyEffects)
@@ -56,14 +56,30 @@ import Partial.Unsafe                 (unsafePartial)
 txNum :: Int
 txNum = 15
 
+blocksNum :: Int
+blocksNum = 4
+
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
+update (PageView route@R.Home) state =
+    { state: state { route = route }
+    , effects:
+        [ onNewQueryDo do
+            -- C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple 0 blocksNum
+            C.send socket' $ IMControl CMGetBlockchainHeight
+            pure Nop
+        ]
+    }
+  where
+    socket' = unsafeFromJust state.socket
+    -- TODO: update other `onNewQuery` with this function!
+    onNewQueryDo action | state.route == route = pure Nop -- ignore
+                        | otherwise = action
 update (PageView route@(R.Address addr)) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
             C.send socket' $ IMControl $ CMSetAddress addr
             pure Nop
-        -- FIXME: if socket isn't opened open some error page
         ]
     }
   where
@@ -118,6 +134,18 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             }
         OMTxNumber addr _ txNum ->
             noEffects $ state { txNumber = Just txNum, queryInfo = Just (SQAddress addr) }
+        OMBlocksOverview blocks ->
+            { state: state { blocks = reverse $ map snd blocks }
+            , effects:
+                [ -- TODO
+                ]
+            }
+        OMBlockchainHeight pId ->
+            onlyEffects state $
+                [ do
+                    C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple (pId - blocksNum) (pId + 1)
+                    pure Nop
+                ]
         OMError (ParseError e) ->
             noEffects $ state { error = Just $ "ParseError: " <> e.peTypeName <> " : " <> e.peError }
         OMError (NotFound e) ->

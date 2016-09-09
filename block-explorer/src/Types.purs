@@ -16,6 +16,7 @@ import App.Connection              (Connection, Action) as C
 import App.RSCoin                  as RSCoin
 import App.RSCoin                  (Coin, Address,
                                     TransactionExtended,
+                                    HBlockExtension,
                                     getTransactionId,
                                     addressToString, CoinsMapExtended)
 import Data.Color                  as Color
@@ -63,6 +64,7 @@ type State =
     , balance          :: Maybe CoinsMapExtended
     , txNumber         :: Maybe Int
     , transactions     :: Array TransactionExtended
+    , blocks           :: Array HBlockExtension
     , periodId         :: Int
     , error            :: Maybe String
     , colors           :: Boolean
@@ -80,6 +82,7 @@ init =
     , balance:          Nothing
     , txNumber:         Nothing
     , transactions:     []
+    , blocks:           []
     , periodId:         0
     , error:            Nothing
     , colors:           false

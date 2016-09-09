@@ -8,7 +8,8 @@ import App.Types                       (Action (..), State, Coin(..), Color(Colo
                                        getCoins, coinToColor, WithMetadata (..),
                                        Transaction (..), TransactionExtension (..),
                                        searchQueryAddress, isTransactionIncome,
-                                       nominalDiffTimeToDateTime, TransactionExtended)
+                                       nominalDiffTimeToDateTime, TransactionExtended,
+                                       HBlockExtension (..))
 import App.View.TransactionTableItem  (transactionTableItem)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
@@ -44,14 +45,41 @@ view state =
         []
         [ div
             [ className "row light-grey-background" ]
-            [
+            [ div
+                [ id_ "section-title"
+                ]
+                [ ttextUpper state.language _.summary ]
+            , div
+                [ className "row"
+                , id_ "info-table-margins" ]
+                [ div
+                    [ className "col-xs-12" ]
+                    [ table
+                        [ className "table table-striped fix-table-padding striped-dark" ]
+                        [ thead
+                            []
+                            [ tr
+                                []
+                                [ th [] [ ttext' _.height ]
+                                , th [] [ ttext' _.age ]
+                                , th [] [ ttext' _.transactions ]
+                                , th [] [ ttext' _.totalSent ]
+                                ]
+                            ]
+                        , tbody
+                            [ id_ "info-table" ]
+                            $ map blockTableItem state.blocks
+                        ]
+
+                    ]
+                ]
             ]
         , div
             [ className "row" ]
             [ div
                 [ id_ "section-title"
                 ]
-                [ ttextUpper state.language _.summary ]
+                [ ttextUpper state.language _.transactionsFeed ]
             , div
                 [ className "row"
                 , id_ "info-table-margins" ]
@@ -61,8 +89,7 @@ view state =
                         [ className "table table-striped" ]
                         [ tbody
                             [ id_ "info-table" ]
-                            [
-                            ]
+                            $ map transactionsFeedItem state.transactions
                         ]
 
                     ]
@@ -71,19 +98,47 @@ view state =
         ]
   where
     ttext' = ttext state.language
---    colorTableItem coin@(Coin c) =
---        tr
---            []
---            [ visible td state.colors $ td
---                []
---                [ text <<< colorToString $ coinToColor coin ]
---            , td
---                [ className "money-amount" ]
---                [ img
---                    [ id_ "ada-symbol"
---                    , src adaSymbolDarkPath
---                    ]
---                    []
---                , text <<< show $ c.getCoin
---                ]
---            ]
+    blockTableItem block@(HBlockExtension hbe) =
+        tr
+            []
+            [ td
+                []
+                [ text $ show hbe.hbeHeight ]
+            , td -- FIXME: this is not age, it is time now!
+                []
+                [ text $ fromMaybe "Date error" $ prettyDate <$> nominalDiffTimeToDateTime hbe.hbeTimestamp ]
+            , td
+                []
+                [ text $ show hbe.hbeTxNumber ]
+            , td
+                []
+                [ img
+                    [ id_ "ada-symbol"
+                    , src adaSymbolDarkPath
+                    ]
+                    []
+                , text $ show hbe.hbeTotalSent
+                ]
+            ]
+    transactionsFeedItem (WithMetadata {wmMetadata: TransactionExtension te}) =
+        tr
+            []
+            [ td
+                []
+                [ link (R.txUrl te.teId)
+                    [ id_ "link" ]
+                    [ text $ show te.teId ]
+                ]
+            , td
+                []
+                [ text $ fromMaybe "Date error" $ prettyDate <$> nominalDiffTimeToDateTime te.teTimestamp ]
+            , td
+                []
+                [ img
+                    [ id_ "ada-symbol"
+                    , src adaSymbolDarkPath
+                    ]
+                    []
+                , text $ show $ getBalance te.teOutputsSum
+                ]
+            ]

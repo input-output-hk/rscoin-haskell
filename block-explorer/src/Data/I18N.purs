@@ -26,6 +26,11 @@ type Translation =
     , totalOutput      :: String
     , includedInBlocks :: String
     , summary          :: String
+    , currentBlocks    :: String
+    , transactionsFeed :: String
+    , height           :: String
+    , age              :: String
+    , totalSent        :: String
     }
 
 data Language
@@ -61,6 +66,11 @@ getTranslation lang@English =
     , totalOutput: "Total Output"
     , includedInBlocks: "Included In Blocks"
     , summary: "Summary"
+    , currentBlocks: "Current Blocks"
+    , transactionsFeed: "Transactions Feed"
+    , height: "Height"
+    , age: "Age"
+    , totalSent: "Total Sent"
     }
 getTranslation lang@Japanese =
     { _nativeName: languageNativeName lang
@@ -82,6 +92,11 @@ getTranslation lang@Japanese =
     , totalOutput: "アウトプット合計"
     , includedInBlocks: "ブロックに含む"
     , summary: "要約"
+    , currentBlocks: "?"
+    , transactionsFeed: "?"
+    , height: "?"
+    , age: "?"
+    , totalSent: "?"
     }
 getTranslation lang@Russian =
     { _nativeName: languageNativeName lang
@@ -103,6 +118,11 @@ getTranslation lang@Russian =
     , totalOutput: "?"
     , includedInBlocks: "?"
     , summary: "?"
+    , currentBlocks: "?"
+    , transactionsFeed: "?"
+    , height: "?"
+    , age: "?"
+    , totalSent: "?"
     }
 
 allLanguages :: Array Language

@@ -623,3 +623,15 @@ input:checked + .slider:before {
 }
 
 /* override bootstrap table-striped */
+
+.striped-dark > tbody > tr:nth-of-type(2n) {
+    background-color: #e6e6e6 !important;
+}
+
+th {
+    border: 0 !important;
+}
+
+.fix-table-padding tr td {
+    padding: 8px !important;
+}

@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
@@ -40,11 +41,12 @@ import           Control.Monad.Catch      (MonadThrow (throwM))
 import           Control.Monad.Extra      (ifM, whenJust)
 import           Control.Monad.Reader     (MonadReader, Reader, runReader)
 import           Control.Monad.State      (MonadState, gets)
+import           Data.Foldable            (foldr')
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
 import qualified Data.IntMap.Strict       as I
 import           Data.List                (genericLength)
-import           Data.Maybe               (catMaybes, fromMaybe, maybeToList)
+import           Data.Maybe               (catMaybes, fromMaybe)
 import           Data.SafeCopy            (base, deriveSafeCopy)
 import qualified Data.Vector              as V
 import           Formatting               (build, sformat, (%))
@@ -196,8 +198,19 @@ getTxExtensions i =
 getTxsGlobal :: (Word, Word) -> Query (C.PeriodId, [(Word, TransactionExtended)])
 getTxsGlobal range =
     addTimestamp $
-    (indexedSubList range . maybeToList) <$>
-    txIdxToTxExtended (TransactionIndex 0 0)
+    (indexedSubList range . catMaybes . V.toList) <$>
+    (mapM txIdxToTxExtended =<< getRecentTxsIndices (snd range))
+
+getRecentTxsIndices :: Word -> Query (V.Vector TransactionIndex)
+getRecentTxsIndices n =
+    V.reverse .
+    foldr' step [] .
+    V.zip [0 ..] . fmap (genericLength . C.hbTransactions . C.wmValue) <$>
+    view hBlocks
+  where
+    step (blkIdx, blkTxsLen) res
+        | V.length res >= fromIntegral n = res
+        | otherwise = fmap (TransactionIndex blkIdx) [0 .. blkTxsLen] `mappend` res
 
 -- | Get indexed list of extended HBlocks in given range.
 getHBlocksExtended :: (C.PeriodId, C.PeriodId) -> Query [(C.PeriodId, HBlockExtended)]

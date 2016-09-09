@@ -7,6 +7,7 @@
 
 module RSCoin.Notary.Web.Servant
         ( servantApp
+        , AllocateMSInput (..)
         ) where
 
 import           Control.Monad            (void)

@@ -64,7 +64,7 @@ update (PageView route@R.Home) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
-            C.sendControl socket' CMGetBlockchainHeight
+            C.send socket' $ IMControl CMGetBlockchainHeight
             pure Nop
         ]
     }
@@ -77,7 +77,7 @@ update (PageView route@(R.Address addr)) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
-            C.sendControl socket' $ CMSetAddress addr
+            C.send socket' $ IMControl $ CMSetAddress addr
             pure Nop
         ]
     }
@@ -90,7 +90,7 @@ update (PageView route@(R.Transaction tId)) state =
     , effects:
         [ onNewQueryDo do
             when (isNothing getTransaction) $
-                C.sendControl socket' $ CMGetTransaction tId
+                C.send socket' $ IMControl $ CMGetTransaction tId
             pure Nop
         ]
     }
@@ -142,7 +142,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         OMBlockchainHeight pId ->
             onlyEffects state $
                 [ do
-                    C.sendControl socket' $ CMGetBlocksOverview $ Tuple (pId - blocksNum) (pId + 1)
+                    C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple (pId - blocksNum) (pId + 1)
                     pure Nop
                 ]
         OMError (ParseError e) ->
@@ -159,7 +159,7 @@ update (SearchQueryChange sq) state = noEffects $ state { searchQuery = sq }
 update SearchButton state =
     onlyEffects state $
         [ do
-            C.sendControl socket' $ CMSmart state.searchQuery
+            C.send socket' $ IMControl $ CMSmart state.searchQuery
             pure Nop
         ]
   where

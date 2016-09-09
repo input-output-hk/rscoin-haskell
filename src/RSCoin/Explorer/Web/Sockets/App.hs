@@ -433,11 +433,17 @@ handler :: WS.PendingConnection -> ServerMonad ()
 handler pendingConn = do
     C.logDebug "There is a new pending connection"
     conn <- liftIO $ WS.acceptRequest pendingConn
-    C.logDebug "Accepted new connection"
-    liftIO $ WS.forkPingThread conn 30
-    sessId <- modifyConnectionsState $ startSession conn
-    recv conn "Control Message" $
-        receiveControlMessage sessId (sendNotFound sessId)
+    recv conn "Control Message" $ onControlMsg conn
+  where
+    onControlMsg conn (IMControl cm) = do
+        C.logDebug "Accepted new connection"
+        liftIO $ WS.forkPingThread conn 30
+        sessId <- modifyConnectionsState $ startSession conn
+        receiveControlMessage sessId (sendNotFound sessId) cm
+    onControlMsg conn msg = do
+        let e = sformat ("Expected IMControl msg but got " % shown % " .") msg
+        C.logDebug e
+        send conn . OMError $ LogicError e
 
 sender :: Channel -> ServerMonad ()
 sender channel = foreverSafe $ onNewChannelItem =<< readChannel channel

@@ -45,7 +45,7 @@ transactionTableItem colors queryInfo (WithMetadata {wmValue: tran@(Transaction 
                 [ className "text-center addressLink" ]
                 [ case mAddr of
                     Just addr | mAddr `gEq` searchAddress ->
-                                    a
+                                    link (R.addressUrl addr)
                                         [ id_ "link"]
                                         [ text $ addressToString addr ]
                                 | otherwise -> text $ addressToString addr
@@ -61,7 +61,7 @@ transactionTableItem colors queryInfo (WithMetadata {wmValue: tran@(Transaction 
             [ div
                 [ className "col-xs-8 no-padding"
                 , id_ "transaction-hash" ]
-                [ a
+                [ link (R.txUrl te.teId)
                     [ id_ "link" ]
                     [ text $ show te.teId ]
                 ]

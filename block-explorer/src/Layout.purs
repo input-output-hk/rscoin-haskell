@@ -188,7 +188,11 @@ view state =
             ]
             [ case state.route of
                 R.Home -> BlockInfo.view state
-                R.Address _ -> Address.view state
+                R.Address addr ->
+                    let
+                        queryGetAddr (Just (SQAddress addr)) = Just addr
+                        queryGetAddr _ = Nothing
+                    in  maybe (NotFound.view state) (flip Address.view state) $ queryGetAddr state.queryInfo
                 R.Transaction tId ->
                     let
                         queryGetTx (Just (SQTransaction tx)) = Just tx

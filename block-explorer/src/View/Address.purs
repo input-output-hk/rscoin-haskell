@@ -8,7 +8,7 @@ import App.Types                       (Action (..), State, Coin(..), Color(Colo
                                        getCoins, coinToColor, WithMetadata (..),
                                        Transaction (..), TransactionExtension (..),
                                        searchQueryAddress, isTransactionIncome,
-                                       nominalDiffTimeToDateTime)
+                                       nominalDiffTimeToDateTime, Address)
 import App.View.TransactionTableItem  (transactionTableItem)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
@@ -38,9 +38,8 @@ import Serokell.Data.DateTime         (prettyDate)
 
 import Partial.Unsafe                 (unsafePartial)
 
--- TODO: pass Address here as we did with Transaction.view !
-view :: State -> Html Action
-view state =
+view :: Address -> State -> Html Action
+view addr state =
     div
         []
         [ div
@@ -66,7 +65,7 @@ view state =
                                     [ link
                                         (R.toUrl state.route)
                                         [ id_ "address-link" ]
-                                        [ text $ fromMaybe "" $ addressToString <$> searchAddress ]
+                                        [ text $ addressToString addr ]
                                     ]
                                 ]
                             , tr
@@ -179,7 +178,7 @@ view state =
                                                 [ id_ "qr-code-cell" ]
                                                 [ img
                                                     -- FIXME: please check this api. Is it safe to use it? Maybe we shouldn't trust this third party for this functionality?
-                                                    [ src $ "https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=" <> fromMaybe "Error" (addressToString <$> searchAddress)
+                                                    [ src $ "https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=" <> addressToString addr
                                                     , id_ "qr-code-img"
                                                     ]
                                                     []
@@ -209,7 +208,7 @@ view state =
             , div
                 [ id_ "info-table-margins" ]
                 -- NOTE: =<< == foldMap == concatMap
-                $ (=<<) (transactionTableItem state.colors state.queryInfo) state.transactions
+                $ (=<<) (transactionTableItem state.colors $ Just addr) state.transactions
                 <>
                 [ div
                     [ className "row transaction-body no-margin" ]
@@ -273,4 +272,3 @@ view state =
                 ]
             ]
     colorsActive f = if f state.colors then "active" else ""
-    searchAddress = join $ map searchQueryAddress state.queryInfo

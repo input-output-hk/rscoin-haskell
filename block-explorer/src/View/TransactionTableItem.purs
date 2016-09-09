@@ -9,7 +9,7 @@ import App.Types                       (Action (..), State, Coin(..), Color(Colo
                                        Transaction (..), TransactionExtension (..),
                                        searchQueryAddress, isTransactionExtensionOutcome,
                                        nominalDiffTimeToDateTime, TransactionExtended,
-                                       SearchQuery)
+                                       SearchQuery, Address)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
@@ -38,21 +38,21 @@ import Serokell.Data.DateTime         (prettyDate)
 
 import Partial.Unsafe                 (unsafePartial)
 
-transactionTableItem :: Boolean -> Maybe SearchQuery -> TransactionExtended -> forall a. Array (Html a)
-transactionTableItem colors queryInfo (WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(TransactionExtension te)}) =
-    let addressLink mAddr =
+transactionTableItem :: Boolean -> Maybe Address -> TransactionExtended -> forall a. Array (Html a)
+transactionTableItem colors mAddr (WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(TransactionExtension te)}) =
+    let addressLink mAddr' =
             div
                 [ className "text-center addressLink" ]
-                [ case mAddr of
-                    Just addr | mAddr `gEq` searchAddress ->
+                [ case mAddr' of
+                    Just addr | mAddr `gEq` mAddr' -> text $ addressToString addr
+                               | otherwise ->
                                     link (R.addressUrl addr)
                                         [ id_ "link"]
                                         [ text $ addressToString addr ]
-                                | otherwise -> text $ addressToString addr
                     Nothing -> text "Emission"
                 ]
         moneyFlow tx =
-            case flip isTransactionExtensionOutcome tx <$> searchAddress of
+            case flip isTransactionExtensionOutcome tx <$> mAddr of
                 Just true -> "outcome"
                 _ -> "income"
     in
@@ -139,4 +139,3 @@ transactionTableItem colors queryInfo (WithMetadata {wmValue: tran@(Transaction 
                 , text <<< show $ c.getCoin
                 ]
             ]
-    searchAddress = join $ map searchQueryAddress queryInfo

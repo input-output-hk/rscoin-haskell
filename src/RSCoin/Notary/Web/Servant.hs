@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -17,6 +19,7 @@ import           Control.Monad.Reader     (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans      (liftIO)
 import           Data.Tuple.Curry         (Curry, uncurryN)
 import           Formatting               (build, sformat)
+import           GHC.Generics             (Generic)
 import           Network.Wai              (Application)
 import           Servant                  ((:<|>) (..), (:>), (:~>) (Nat), Get,
                                            Handler, Header, Headers, JSON, Post,
@@ -42,6 +45,7 @@ data AllocateMSInput = AllocateMSInput
     , signature      :: C.Signature (C.MSAddress, C.AllocationStrategy)
     , trustSignature :: Maybe (C.PublicKey, C.Signature C.PublicKey)
     }
+  deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''AllocateMSInput)
 

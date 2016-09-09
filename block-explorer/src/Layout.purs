@@ -18,6 +18,7 @@ import App.Types                      (Address (..), ControlMsg (..),
 import App.CSS                        (veryLightGrey, styleSheet)
 import App.View.Address               (view) as Address
 import App.View.NotFound              (view) as NotFound
+import App.View.BlockInfo             (view) as BlockInfo
 import App.View.Transaction           (view) as Transaction
 import App.View.Header                (view) as Header
 import App.View.Alert                 (view) as Alert
@@ -159,7 +160,7 @@ view state =
             , id_ "page-content"
             ]
             [ case state.route of
-                R.Home -> NotFound.view state
+                R.Home -> BlockInfo.view state
                 R.Address _ -> Address.view state
                 R.Transaction tId ->
                     let

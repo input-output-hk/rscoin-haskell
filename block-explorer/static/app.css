@@ -611,3 +611,15 @@ input:checked + .slider:before {
 #expand-button:hover {
     opacity: 1;
 }
+
+/* override bootstrap table-striped */
+
+.table-striped > tbody > tr:nth-of-type(2n+1) {
+    background-color: inherit !important;
+}
+
+.table-striped > tbody > tr:nth-of-type(2n) {
+    background-color: #f2f2f2 !important;
+}
+
+/* override bootstrap table-striped */

@@ -55,7 +55,7 @@ view state =
                 [ div
                     [ className "col-xs-8 no-padding-only-right" ]
                     [ table
-                        [ className "table" ]
+                        [ className "table table-striped" ]
                         [ tbody
                             [ id_ "info-table" ]
                             [ tr
@@ -70,7 +70,7 @@ view state =
                                     ]
                                 ]
                             , tr
-                                [ className "light-grey-background" ]
+                                []
                                 [ td [] [ ttext' _.transactions ]
                                 , td [] [ text $ show $ fromMaybe 0 state.txNumber ]
                                 ]

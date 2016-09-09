@@ -67,7 +67,7 @@ view teFull@(WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(Tra
                 [ div
                     [ className "col-xs-8 no-padding-only-right" ]
                     [ table
-                        [ className "table" ]
+                        [ className "table table-striped" ]
                         [ tbody
                             [ id_ "info-table" ]
                             [ tr
@@ -76,7 +76,7 @@ view teFull@(WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(Tra
                                 , td [] [ text $ fromMaybe "Date error" $ prettyDate <$> nominalDiffTimeToDateTime te.teTimestamp ]
                                 ]
                             , tr
-                                [ className "light-grey-background" ]
+                                []
                                 [ td [] [ ttext' _.includedInBlocks ]
                                 , td [] [ text $ show $ te.tePeriodId ]
                                 ]
@@ -94,7 +94,7 @@ view teFull@(WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(Tra
                                     ]
                                 ]
                             , tr
-                                [ className "light-grey-background" ]
+                                []
                                 [ td [] [ ttext' _.totalOutput ]
                                 , td
                                     []

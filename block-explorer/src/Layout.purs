@@ -6,7 +6,7 @@ import Prelude                        (($), map, (<<<), pure, bind, not,
 import App.Routes                     (Path (..), addressUrl, txUrl,
                                        match) as R
 import App.Connection                 (Action (..), WEBSOCKET,
-                                       send) as C
+                                       send, sendControl) as C
 import App.Types                      (Address (..), ControlMsg (..),
                                        AddressInfoMsg (..),
                                        IncomingMsg (..),
@@ -64,8 +64,7 @@ update (PageView route@R.Home) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
-            -- C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple 0 blocksNum
-            C.send socket' $ IMControl CMGetBlockchainHeight
+            C.sendControl socket' CMGetBlockchainHeight
             pure Nop
         ]
     }
@@ -78,7 +77,7 @@ update (PageView route@(R.Address addr)) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
-            C.send socket' $ IMControl $ CMSetAddress addr
+            C.sendControl socket' $ CMSetAddress addr
             pure Nop
         ]
     }
@@ -91,7 +90,7 @@ update (PageView route@(R.Transaction tId)) state =
     , effects:
         [ onNewQueryDo do
             when (isNothing getTransaction) $
-                C.send socket' $ IMControl $ CMGetTransaction tId
+                C.sendControl socket' $ CMGetTransaction tId
             pure Nop
         ]
     }
@@ -143,7 +142,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         OMBlockchainHeight pId ->
             onlyEffects state $
                 [ do
-                    C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple (pId - blocksNum) (pId + 1)
+                    C.sendControl socket' $ CMGetBlocksOverview $ Tuple (pId - blocksNum) (pId + 1)
                     pure Nop
                 ]
         OMError (ParseError e) ->
@@ -160,7 +159,7 @@ update (SearchQueryChange sq) state = noEffects $ state { searchQuery = sq }
 update SearchButton state =
     onlyEffects state $
         [ do
-            C.send socket' $ IMControl $ CMSmart state.searchQuery
+            C.sendControl socket' $ CMSmart state.searchQuery
             pure Nop
         ]
   where

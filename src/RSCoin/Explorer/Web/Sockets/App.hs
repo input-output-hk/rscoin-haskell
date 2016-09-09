@@ -332,9 +332,9 @@ receiveControlMessage sessId errorCB msg =
                     C.parseHash text
                 tryTransactionDo txId =
                     ifM
-                        (pure False)
-                        (True <$ getTransactionCB txId)
                         (query (DB.IsTransactionKnown txId))
+                        (True <$ getTransactionCB txId)
+                        (pure False)
             results <- sequence [tryAddress, tryTransaction]
             unless (or results) $ errorCB errMsg
         CMSetHBlock pId -> onSetHBlock sessId pId

@@ -319,6 +319,7 @@ startPeriod C.NewPeriodData {..} = do
     addresses <>= hbAddresses npdHBlock
     dpk .= npdDpk
     pset .= mempty
+    periodId += 1
     unless (isJust npdNewIdPayload) $
         do let blockTransactions :: [C.Transaction]
                blockTransactions = hbTransactions npdHBlock

@@ -10,7 +10,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/serokell-core.git
-    commit: afc6f36b6e8e2eb85bcb27bb8d856fec7cf927b6
+    commit: 45e2e86027c4b04494773e3388b5d2d37ec4ba12
   extra-dep: true
 - location:
     git: https://github.com/serokell/msgpack-haskell.git

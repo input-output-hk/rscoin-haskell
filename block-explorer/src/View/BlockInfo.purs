@@ -72,6 +72,13 @@ view state =
                         ]
 
                     ]
+                , div
+                    [ className "font-light text-center" ]
+                    [ button
+                        [ id_ "expand-button"
+                        ]
+                        [ ttext' _.expand ]
+                    ]
                 ]
             ]
         , div

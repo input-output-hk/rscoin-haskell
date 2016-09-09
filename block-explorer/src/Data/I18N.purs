@@ -31,6 +31,7 @@ type Translation =
     , height           :: String
     , age              :: String
     , totalSent        :: String
+    , expand           :: String
     }
 
 data Language
@@ -71,6 +72,7 @@ getTranslation lang@English =
     , height: "Height"
     , age: "Age"
     , totalSent: "Total Sent"
+    , expand: "Expand"
     }
 getTranslation lang@Japanese =
     { _nativeName: languageNativeName lang
@@ -97,6 +99,7 @@ getTranslation lang@Japanese =
     , height: "?"
     , age: "?"
     , totalSent: "?"
+    , expand: "?"
     }
 getTranslation lang@Russian =
     { _nativeName: languageNativeName lang
@@ -123,6 +126,7 @@ getTranslation lang@Russian =
     , height: "?"
     , age: "?"
     , totalSent: "?"
+    , expand: "?"
     }
 
 allLanguages :: Array Language

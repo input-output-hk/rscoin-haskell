@@ -242,14 +242,6 @@ view addr state =
                         , id_ "navigation-arrow" ]
                         []
                     ]
-                , div
-                    [ className "font-light" ]
-                    [
-            --, button
-            --    [ id_ "expand-button"
-            --    ]
-            --    [ text "expand-button" ]
-                    ]
                 ]
             ]
         ]

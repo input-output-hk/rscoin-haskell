@@ -57,7 +57,10 @@ txNum :: Int
 txNum = 15
 
 blocksNum :: Int
-blocksNum = 4
+blocksNum = 5
+
+txGlobalNum :: Int
+txGlobalNum = 5
 
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
 update (PageView route@R.Home) state =
@@ -134,15 +137,14 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         OMTxNumber addr _ txNum ->
             noEffects $ state { txNumber = Just txNum, queryInfo = Just (SQAddress addr) }
         OMBlocksOverview blocks ->
-            { state: state { blocks = reverse $ map snd blocks }
-            , effects:
-                [ -- TODO
-                ]
-            }
+            noEffects $ state { blocks = reverse $ map snd blocks }
+        OMTransactionsGlobal _ txs ->
+            noEffects $ state { transactions = map snd txs }
         OMBlockchainHeight pId ->
             onlyEffects state $
                 [ do
                     C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple (pId - blocksNum) (pId + 1)
+                    --C.send socket' $ IMControl $ CMGetTransactionsGlobal $ Tuple 0 txGlobalNum
                     pure Nop
                 ]
         OMError (ParseError e) ->

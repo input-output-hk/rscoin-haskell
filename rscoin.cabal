@@ -52,6 +52,7 @@ library
                      , RSCoin.Notary.Launcher
                      , RSCoin.Notary.Server
                      , RSCoin.Notary.Storage
+                     , RSCoin.Notary.Web.Servant
 
                      , RSCoin.User
                      , RSCoin.User.Error
@@ -83,8 +84,6 @@ library
                      , RSCoin.Explorer.Web.Sockets
                      , RSCoin.Explorer.Web.Sockets.App
                      , RSCoin.Explorer.Web.Sockets.Types
-
-                     , RSCoin.Notary.Web.Servant
 
                      , RSCoin.User.AcidState
                      , RSCoin.User.Cache

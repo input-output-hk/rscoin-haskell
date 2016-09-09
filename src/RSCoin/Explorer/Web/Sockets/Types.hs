@@ -75,6 +75,11 @@ data ControlMsg
       -- of some blocks. Indices are (lo, hi) and mean periods in
       -- range [lo, hi). It shouldn't exist here, only in HTTP.
     | CMGetBlocksOverview !(C.PeriodId, C.PeriodId)
+      -- | GetRecentTransactions requests transactions from global
+      -- history. Low indices mean the most recent transactions,
+      -- interval is half-opened ([lo, hi)). Probably it will also be
+      -- moved into HTTP.
+    | CMGetTransactionsGlobal !(Word, Word)
     deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''ControlMsg)
@@ -178,6 +183,9 @@ data OutcomingMsg
     | OMBlocksOverview ![(C.PeriodId, HBlockExtension)]
       -- | Signals about new HBlock with given id.
     | OMNewBlock !C.PeriodId
+      -- | Sent in response to CMGetTransactionsGlobal message.
+    | OMTransactionsGlobal !C.PeriodId
+                           ![(Word, TransactionExtended)]
     deriving (Show, Generic)
 
 $(deriveToJSON defaultOptionsPS ''OutcomingMsg)

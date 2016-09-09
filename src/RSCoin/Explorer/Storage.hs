@@ -15,11 +15,12 @@ module RSCoin.Explorer.Storage
        , getAddressTxNumber
        , getAddressTransactions
        , getExpectedPeriodId
+       , getHBlocksExtended
+       , getHBlockExtended
        , getTx
        , getTxExtended
        , getTxExtensions
-       , getHBlocksExtended
-       , getHBlockExtended
+       , getTxsGlobal
        , isAddressKnown
        , isTransactionKnown
 
@@ -43,7 +44,7 @@ import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
 import qualified Data.IntMap.Strict       as I
 import           Data.List                (genericLength)
-import           Data.Maybe               (catMaybes, fromMaybe)
+import           Data.Maybe               (catMaybes, fromMaybe, maybeToList)
 import           Data.SafeCopy            (base, deriveSafeCopy)
 import qualified Data.Vector              as V
 import           Formatting               (build, sformat, (%))
@@ -190,6 +191,13 @@ getTxExtended i =
 getTxExtensions :: C.PeriodId -> Query [TransactionExtension]
 getTxExtensions i =
     V.toList . fromMaybe mempty <$> preview (txExtensions . ix i)
+
+-- | Get transactions within given range from global history.
+getTxsGlobal :: (Word, Word) -> Query (C.PeriodId, [(Word, TransactionExtended)])
+getTxsGlobal range =
+    addTimestamp $
+    (indexedSubList range . maybeToList) <$>
+    txIdxToTxExtended (TransactionIndex 0 0)
 
 -- | Get indexed list of extended HBlocks in given range.
 getHBlocksExtended :: (C.PeriodId, C.PeriodId) -> Query [(C.PeriodId, HBlockExtended)]

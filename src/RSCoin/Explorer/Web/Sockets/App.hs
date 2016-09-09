@@ -305,6 +305,13 @@ onGetBlocksOverview sessId range = do
         query (DB.GetHBlocksExtended range)
     recvLoop sessId
 
+onGetTransactionsGlobal :: SessionId -> (Word, Word) -> ServerMonad ()
+onGetTransactionsGlobal sessId range = do
+    C.logDebug "Transactions from global history requested"
+    conn <- myConnection sessId
+    send conn . uncurry OMTransactionsGlobal =<< query (DB.GetTxsGlobal range)
+    recvLoop sessId
+
 receiveControlMessage :: SessionId
                       -> (Text -> ServerMonad ())
                       -> ControlMsg
@@ -340,6 +347,7 @@ receiveControlMessage sessId errorCB msg =
         CMSetHBlock pId -> onSetHBlock sessId pId
         CMGetBlockchainHeight -> onGetBlockchainHeight sessId
         CMGetBlocksOverview range -> onGetBlocksOverview sessId range
+        CMGetTransactionsGlobal range -> onGetTransactionsGlobal sessId range
   where
     setAddressCB = onSetAddress sessId
     getTransactionCB = onGetTransaction sessId
@@ -425,17 +433,11 @@ handler :: WS.PendingConnection -> ServerMonad ()
 handler pendingConn = do
     C.logDebug "There is a new pending connection"
     conn <- liftIO $ WS.acceptRequest pendingConn
-    recv conn "Control Message" $ onControlMsg conn
-  where
-    onControlMsg conn (IMControl cm) = do
-        C.logDebug "Accepted new connection"
-        liftIO $ WS.forkPingThread conn 30
-        sessId <- modifyConnectionsState $ startSession conn
-        receiveControlMessage sessId (sendNotFound sessId) cm
-    onControlMsg conn msg = do
-        let e = sformat ("Expected IMControl msg but got " % shown % " .") msg
-        C.logDebug e
-        send conn . OMError $ LogicError e
+    C.logDebug "Accepted new connection"
+    liftIO $ WS.forkPingThread conn 30
+    sessId <- modifyConnectionsState $ startSession conn
+    recv conn "Control Message" $
+        receiveControlMessage sessId (sendNotFound sessId)
 
 sender :: Channel -> ServerMonad ()
 sender channel = foreverSafe $ onNewChannelItem =<< readChannel channel

@@ -22,6 +22,7 @@ module RSCoin.Explorer.AcidState
        , GetTx (..)
        , GetTxExtended (..)
        , GetTxExtensions (..)
+       , GetTxsGlobal (..)
        , IsAddressKnown (..)
        , IsTransactionKnown (..)
 
@@ -94,6 +95,9 @@ getTxExtended = ES.getTxExtended
 getTxExtensions :: C.PeriodId -> Query ES.Storage [TransactionExtension]
 getTxExtensions = ES.getTxExtensions
 
+getTxsGlobal :: (Word, Word) -> Query ES.Storage (C.PeriodId, [(Word, TransactionExtended)])
+getTxsGlobal = ES.getTxsGlobal
+
 getHBlocksExtended :: (C.PeriodId, C.PeriodId) -> Query ES.Storage [(C.PeriodId, HBlockExtended)]
 getHBlocksExtended = ES.getHBlocksExtended
 
@@ -121,6 +125,7 @@ $(makeAcidic ''ES.Storage
              , 'getTx
              , 'getTxExtended
              , 'getTxExtensions
+             , 'getTxsGlobal
              , 'isAddressKnown
              , 'isTransactionKnown
              , 'addHBlock

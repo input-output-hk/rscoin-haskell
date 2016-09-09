@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeOperators         #-}
 
 module RSCoin.Notary.Web.Servant
@@ -22,22 +23,26 @@ import           Servant                  ((:<|>) (..), (:>), (:~>) (Nat), Get,
                                            StdMethod (OPTIONS), Verb, addHeader,
                                            enter, err500, serve)
 
+import           Data.Aeson.TH            (deriveJSON)
 import           Serokell.Util.Exceptions (throwText)
 
 import qualified RSCoin.Core              as C
-import           RSCoin.Core.Aeson        ()
+import           RSCoin.Core.AesonJS      ()
 import           RSCoin.Notary.AcidState  as S
 import           RSCoin.Notary.Error      (NotaryError)
 import qualified RSCoin.Notary.Server     as S
+import           Serokell.Aeson.Options   (defaultOptionsPS)
 
 
-type AllocateMSInput =
-    ( C.Address
-    , C.PartyAddress
-    , C.AllocationStrategy
-    , C.Signature (C.MSAddress, C.AllocationStrategy)
-    , Maybe (C.PublicKey, C.Signature C.PublicKey)
-    )
+data AllocateMSInput = AllocateMSInput
+    { msAddress      :: C.Address
+    , partyAddress   :: C.PartyAddress
+    , strategy       :: C.AllocationStrategy
+    , signature      :: C.Signature (C.MSAddress, C.AllocationStrategy)
+    , trustSignature :: Maybe (C.PublicKey, C.Signature C.PublicKey)
+    }
+
+$(deriveJSON defaultOptionsPS ''AllocateMSInput)
 
 type Options = Verb 'OPTIONS 200
 
@@ -65,10 +70,11 @@ type MyHandler = ReaderT S.NotaryState IO
 servantServer :: ServerT NotaryApi MyHandler
 servantServer =
     return preHeaders
-    :<|> (\arg -> do void $ method S.handleAllocateMultisig arg
+    :<|> (\arg -> do void $ method S.handleAllocateMultisig $ amsInputToTuple arg
                      return $ addHeader "*" ())
     :<|> (method0 (\st -> fromRightWithFail =<< S.handleGetPeriodId st))
   where
+    amsInputToTuple (AllocateMSInput {..}) = (msAddress, partyAddress, strategy, signature, trustSignature)
     fromRightWithFail (Left t)  = throwText t
     fromRightWithFail (Right a) = return a
     preHeaders = addHeader "*" $

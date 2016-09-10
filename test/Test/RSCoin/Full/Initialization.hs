@@ -139,7 +139,7 @@ runMintettes forkTmp mts scen =
                 let (other,normal) = splitAt (partSize d) mts
                 withEnumedLogger_ (TM.defaultMintetteInit forkTmp) normal
                 modifyLoggerName (<> "mulfunctioned") $
-                    withEnumedLogger_ (TM.malfunctioningMintetteInit forkTmp) 
+                    withEnumedLogger_ (TM.malfunctioningMintetteInit forkTmp)
                         other
             _ -> error "Test.Action.runMintettes not implemented"
   where

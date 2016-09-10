@@ -51,9 +51,8 @@ import           Control.Monad          (filterM, forM_, join, unless, void,
 import           Control.Monad.Catch    (MonadThrow, catch, throwM, try)
 import           Control.Monad.Extra    (concatMapM, whenJust)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Data.Foldable          (toList)
 import           Data.Function          (on)
-import           Data.HashSet           (HashSet)
-import qualified Data.HashSet           as HS hiding (HashSet)
 import qualified Data.IntMap.Strict     as I
 import           Data.List              (elemIndex, foldl1', genericIndex,
                                          genericLength, groupBy, nub, sortOn)
@@ -638,10 +637,10 @@ isRetriableException e
 
 -- | Find in wallet user address which is party in multisignature addres.
 findPartyAddress
-    :: forall m .
+    :: forall m f . Foldable f =>
        C.WorkMode m
     => A.UserState
-    -> HashSet C.AllocationAddress
+    -> f C.AllocationAddress
     -> m (C.Address, C.SecretKey)
 findPartyAddress st userAddrs = do
     defaultAddresses <-
@@ -649,7 +648,7 @@ findPartyAddress st userAddrs = do
         C.getNodeContext
     let partyCandidates =
             filter (`elem` defaultAddresses) $
-            map C._address $ HS.toList userAddrs
+            map C._address $ toList userAddrs
     userPartyAddr <-
         case partyCandidates of
             [] -> commitError "User is not one of --uaddr"
@@ -671,10 +670,10 @@ findPartyAddress st userAddrs = do
 
 -- | Verify that trust party address occurs in party set without user addresses.
 verifyTrustEntry
-    :: forall m .
+    :: forall m f . Foldable f =>
        C.WorkMode m
     => A.UserState
-    -> HashSet C.AllocationAddress
+    -> f C.AllocationAddress
     -> m ()
 verifyTrustEntry st strategyParties = do
     -- @TODO: remove duplicate code with 'findPartyAddress'
@@ -682,7 +681,7 @@ verifyTrustEntry st strategyParties = do
                         =<< C.getNodeContext
     let partyCandidates = filter (`elem` defaultAddresses)
                           $ map C._address
-                          $ HS.toList strategyParties
+                          $ toList strategyParties
     unless (null partyCandidates) $ commitError
         "Addresses from wallet are not allowed to be parties with trust"
 

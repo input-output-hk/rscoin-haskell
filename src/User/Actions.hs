@@ -23,7 +23,6 @@ import           Data.Bifunctor          (bimap, first, second)
 import qualified Data.ByteString.Lazy    as BS
 import           Data.Char               (isSpace)
 import           Data.Function           (on)
-import qualified Data.HashSet            as HS
 import           Data.Int                (Int64)
 import           Data.List               (genericIndex, groupBy, intersperse)
 import qualified Data.Map                as M
@@ -228,8 +227,8 @@ processMultisigAddress st m textUAddrs textTAddrs mMasterPkText mMasterSlaveSigT
     userAddrs       <- map UserAlloc  <$> parseTextAddresses textUAddrs
     trustAddrs      <- map TrustAlloc <$> parseTextAddresses textTAddrs
     let partiesAddrs = userAddrs ++ trustAddrs
-    let partySet     = HS.fromList partiesAddrs
-    when (m > HS.size partySet) $
+    let partySet     = S.fromList partiesAddrs
+    when (m > S.size partySet) $
         U.commitError "Parameter m should be less than length of list"
 
     (userPartyAddr, userSk) <- U.findPartyAddress st partySet

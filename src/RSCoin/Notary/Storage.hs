@@ -39,6 +39,7 @@ import           Data.IntMap.Strict     (IntMap)
 import qualified Data.IntMap.Strict     as IM hiding (IntMap)
 import qualified Data.Map.Strict        as M hiding (Map)
 import           Data.Maybe             (fromJust, fromMaybe, mapMaybe)
+import qualified Data.Set               as S
 import           Formatting             (build, sformat, (%))
 
 import           RSCoin.Core            (Address (..), HBlock (..), PeriodId,
@@ -183,11 +184,11 @@ allocateMSAddress
       unless (verify slavePk requestSig signedData) $
           throwM $ NEUnrelatedSignature $ sformat
               ("(msAddr, strategy) not signed with proper sk for pk: " % build) slavePk
-      when (HS.size _allParties < 2) $
+      when (S.size _allParties < 2) $
           throwM $ NEInvalidStrategy "multisignature address should have at least two members"
       when (_sigNumber <= 0) $
           throwM $ NEInvalidStrategy "number of signatures to sign tx should be positive"
-      when (_sigNumber > HS.size _allParties) $
+      when (_sigNumber > S.size _allParties) $
           throwM $ NEInvalidStrategy
               "number of signatures to sign tx is greater then number of members"
       whenM (uses addresses $ M.member msAddr) $
@@ -200,11 +201,11 @@ allocateMSAddress
           TrustParty{..} -> case mMasterSlavePair of
               Nothing -> throwM $ NEInvalidArguments "trust didn't provide master key"
               Just (TrustAlloc . Address -> masterAlloc, _) ->
-                  unless (masterAlloc `HS.member` _allParties) $
+                  unless (masterAlloc `S.member` _allParties) $
                     throwM $ NEInvalidArguments $ sformat
                         ("master key is not a trust member of strategy")
           UserParty{..}  ->
-              unless (allocAddress `HS.member` _allParties) $
+              unless (allocAddress `S.member` _allParties) $
                 throwM $ NEInvalidArguments $ sformat
                   ("user address " % build % " is not a member of strategy")
                   argPartyAddress
@@ -382,7 +383,7 @@ queryCompleteMSAdresses :: Query Storage [(MSAddress, TxStrategy)]
 queryCompleteMSAdresses = queryMSAddressesHelper
     allocationStrategyPool
     (\ainfo ->
-          ainfo^.allocationStrategy.allParties.to HS.size ==
+          ainfo^.allocationStrategy.allParties.to S.size ==
           ainfo^.currentConfirmations.to HM.size)
     (allocateTxFromAlloc . _allocationStrategy)
 
@@ -390,7 +391,7 @@ queryCompleteMSAdresses = queryMSAddressesHelper
 queryMyMSRequests :: AllocationAddress -> Query Storage [(MSAddress, AllocationInfo)]
 queryMyMSRequests allocAddress = queryMSAddressesHelper
     allocationStrategyPool
-    (\ainfo -> ainfo^.allocationStrategy.allParties.to (HS.member allocAddress))
+    (\ainfo -> ainfo^.allocationStrategy.allParties.to (S.member allocAddress))
     id
 
 ---------------

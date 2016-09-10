@@ -9,7 +9,6 @@ module Test.RSCoin.Full.Mintette
 import           Control.Concurrent.MVar          (MVar)
 import           Control.Lens                     (view, (^.))
 
-import           Control.TimeWarp.Timed           (workWhileMVarEmpty)
 import qualified RSCoin.Core                      as C
 import qualified RSCoin.Mintette                  as M
 
@@ -21,8 +20,8 @@ import qualified Test.RSCoin.Full.Mintette.Server as FM
 
 initialization
     :: C.WorkMode m
-    => Maybe MintetteConfig -> MVar () -> MintetteInfo -> m ()
-initialization conf v m = do
+    => Maybe MintetteConfig -> (m () -> m ()) -> MintetteInfo -> m ()
+initialization conf forkTmp m = do
     let runner
             :: C.WorkMode m
             => Int -> M.State -> M.RuntimeEnv -> m ()
@@ -31,16 +30,16 @@ initialization conf v m = do
             case conf of
                 Nothing -> M.serve
                 Just s  -> FM.serve s
-    workWhileMVarEmpty v $ runner <$> view port <*> view state <*> pure env $ m
-    workWhileMVarEmpty v $ M.runWorker env <$> view state $ m
+    forkTmp $ runner <$> view port <*> view state <*> pure env $ m
+    forkTmp $ M.runWorker env <$> view state $ m
 
 defaultMintetteInit
     :: C.WorkMode m
-    => MVar () -> MintetteInfo -> m ()
+    => (m () -> m ()) -> MintetteInfo -> m ()
 defaultMintetteInit = initialization Nothing
 
 malfunctioningMintetteInit
     :: C.WorkMode m
-    => MVar () -> MintetteInfo -> m ()
+    => (m () -> m ()) -> MintetteInfo -> m ()
 malfunctioningMintetteInit =
     initialization (Just malfunctioningConfig)

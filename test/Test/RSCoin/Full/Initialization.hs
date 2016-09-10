@@ -8,7 +8,7 @@ module Test.RSCoin.Full.Initialization
        , bankUserAddressesCount, userAddressesCount
        ) where
 
-import           Control.Concurrent.MVar    (MVar, newEmptyMVar, tryPutMVar)
+import           Control.Concurrent.MVar    (newEmptyMVar, tryPutMVar)
 import           Control.Exception          (assert)
 import           Control.Lens               (view, (^.))
 import           Control.Monad              (forM_, replicateM)
@@ -26,7 +26,7 @@ import           Test.QuickCheck            (NonEmptyList (..))
 import           Control.TimeWarp.Logging   (LoggerName (..), modifyLoggerName,
                                              setLoggerName)
 import           Control.TimeWarp.Timed     (Second, for, ms, sec, wait,
-                                             workWhileMVarEmpty)
+                                             workWhileMVarEmpty', interval)
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
@@ -70,14 +70,15 @@ mkTestContext mNum uNum scen = do
     uinfos <-
         replicateM (fromIntegral uNum) $ UserInfo <$> liftIO U.openMemState
     isActiveVar <- liftIO newEmptyMVar
+    let forkTmp = workWhileMVarEmpty' (interval 100 ms) isActiveVar
     logInfo "Initializing system…"
-    runMintettes isActiveVar minfos scen
+    runMintettes forkTmp minfos scen
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     mapM_ (addMintetteToBank binfo) minfos
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
-    runNotary isActiveVar ninfo
+    runNotary forkTmp ninfo
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
-    runBank isActiveVar binfo
+    runBank forkTmp binfo
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     initBUser buinfo bankSk
     mapM_ initUser uinfos
@@ -101,24 +102,24 @@ finishTest = () <$ (liftIO . flip tryPutMVar () =<< view isActive)
 
 runBank
     :: WorkMode m
-    => MVar () -> BankInfo -> m ()
-runBank v b =
+    => (m () -> m ()) -> BankInfo -> m ()
+runBank forkTmp b =
     setLoggerName bankLoggerName $
       do
         mainIsBusy <- liftIO $ newIORef False
         -- TODO: this code is a modified version of launchBank. Invent
         -- smth to share code
-        workWhileMVarEmpty v $
+        forkTmp $
             modifyLoggerName (<> "server") $
                 B.serve (b ^. state) (b ^. secretKey) mainIsBusy
         wait $ for 10 ms
-        workWhileMVarEmpty v $
+        forkTmp $
             modifyLoggerName (<> "worker") $
                 B.runWorker
                     periodDelta
                     (b ^. secretKey)
                     (b ^. state)
-        workWhileMVarEmpty v $
+        forkTmp $
             modifyLoggerName (<> "explorer-worker") $
                 B.runExplorerWorker
                     periodDelta
@@ -128,17 +129,18 @@ runBank v b =
 
 runMintettes
     :: WorkMode m
-    => MVar () -> [MintetteInfo] -> Scenario -> m ()
-runMintettes v mts scen =
+    => (m () -> m ()) -> [MintetteInfo] -> Scenario -> m ()
+runMintettes forkTmp mts scen =
     setLoggerName mintetteLoggerName $
         case scen of
             DefaultScenario ->
-                withEnumedLogger_ (TM.defaultMintetteInit v) mts
+                withEnumedLogger_ (TM.defaultMintetteInit forkTmp) mts
             (MalfunctioningMintettes d) -> do
                 let (other,normal) = splitAt (partSize d) mts
-                withEnumedLogger_ (TM.defaultMintetteInit v) normal
+                withEnumedLogger_ (TM.defaultMintetteInit forkTmp) normal
                 modifyLoggerName (<> "mulfunctioned") $
-                    withEnumedLogger_ (TM.malfunctioningMintetteInit v) other
+                    withEnumedLogger_ (TM.malfunctioningMintetteInit forkTmp) 
+                        other
             _ -> error "Test.Action.runMintettes not implemented"
   where
     partSize :: Double -> Int
@@ -150,9 +152,9 @@ runMintettes v mts scen =
 
 runNotary
     :: WorkMode m
-    => MVar () -> NotaryInfo -> m ()
-runNotary v n =
-    workWhileMVarEmpty v $
+    => (m () -> m ()) -> NotaryInfo -> m ()
+runNotary forkTmp n =
+    forkTmp $
         setLoggerName notaryLoggerName $
             N.serveNotary (n ^. state)
 

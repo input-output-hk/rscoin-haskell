@@ -144,7 +144,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             onlyEffects state $
                 [ do
                     C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple (pId - blocksNum) (pId + 1)
-                    --C.send socket' $ IMControl $ CMGetTransactionsGlobal $ Tuple 0 txGlobalNum
+                    C.send socket' $ IMControl $ CMGetTransactionsGlobal $ Tuple 0 txGlobalNum
                     pure Nop
                 ]
         OMError (ParseError e) ->

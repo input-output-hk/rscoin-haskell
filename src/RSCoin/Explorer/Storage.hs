@@ -211,7 +211,7 @@ getRecentTxsIndices n = do
         V.zip [0 .. blocksNumber] $ blocksTxsLengths
   where
     step (blkIdx, blkTxsLen) res
-        | V.length res >= fromIntegral n = res
+        | blkTxsLen == 0 || V.length res >= fromIntegral n = res
         | otherwise = fmap (TransactionIndex blkIdx) [0 .. blkTxsLen] `mappend` res
 
 -- | Get indexed list of extended HBlocks in given range.

@@ -202,11 +202,13 @@ getTxsGlobal range =
     (mapM txIdxToTxExtended =<< getRecentTxsIndices (snd range))
 
 getRecentTxsIndices :: Word -> Query (V.Vector TransactionIndex)
-getRecentTxsIndices n =
-    V.reverse .
-    foldr' step [] .
-    V.zip [0 ..] . fmap (genericLength . C.hbTransactions . C.wmValue) <$>
-    view hBlocks
+getRecentTxsIndices n = do
+    blocks <- view hBlocks
+    let blocksNumber = V.length blocks
+        blocksTxsLengths = fmap (genericLength . C.hbTransactions . C.wmValue) blocks
+    pure $ V.reverse .
+        foldr' step [] .
+        V.zip [0 .. blocksNumber] $ blocksTxsLengths
   where
     step (blkIdx, blkTxsLen) res
         | V.length res >= fromIntegral n = res

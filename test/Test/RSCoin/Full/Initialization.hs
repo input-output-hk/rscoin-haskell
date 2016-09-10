@@ -70,7 +70,7 @@ mkTestContext mNum uNum scen = do
     uinfos <-
         replicateM (fromIntegral uNum) $ UserInfo <$> liftIO U.openMemState
     isActiveVar <- liftIO newEmptyMVar
-    let forkTmp = workWhileMVarEmpty' (interval 100 ms) isActiveVar
+    let forkTmp = workWhileMVarEmpty' (interval 500 ms) isActiveVar
     logInfo "Initializing system…"
     runMintettes forkTmp minfos scen
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)

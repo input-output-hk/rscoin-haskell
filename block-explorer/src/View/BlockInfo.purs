@@ -91,14 +91,21 @@ view state =
                 [ className "row"
                 , id_ "info-table-margins" ]
                 [ div
-                    [ className "col-xs-8 no-padding-only-right" ]
+                    [ className "col-xs-12" ]
                     [ table
-                        [ className "table table-striped" ]
+                        [ className "table table-striped fix-table-padding" ]
                         [ tbody
                             [ id_ "info-table" ]
                             $ map transactionsFeedItem state.transactions
                         ]
 
+                    ]
+                , div
+                    [ className "font-light text-center" ]
+                    [ button
+                        [ id_ "expand-button"
+                        ]
+                        [ ttext' _.expand ]
                     ]
                 ]
             ]

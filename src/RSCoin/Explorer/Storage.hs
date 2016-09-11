@@ -32,7 +32,7 @@ module RSCoin.Explorer.Storage
 
        ) where
 
-import           Control.Applicative      (liftA2)
+import           Control.Applicative      (liftA2, (<|>))
 import           Control.Lens             (at, ix, makeLenses, makeLensesFor,
                                            preview, use, view, views, (%=),
                                            (+=), (.=), _Just)
@@ -255,7 +255,8 @@ addHBlock pId blkWithMeta@(C.WithMetadata C.HBlock {..} C.HBlockMetadata {..}) =
     hBlocks %= flip V.snoc extendedBlk
     forM_ hbmEmission (\em -> emissionHashes %= HS.insert em)
     mapM_ (addTxToMap pId) $ enumerate hbTransactions
-    extensions <- mapM (mkTxExtension pId hbmTimestamp) hbTransactions
+    let newTxs = HM.fromList $ map (\tx -> (C.hash tx, tx)) hbTransactions
+    extensions <- mapM (mkTxExtension newTxs pId hbmTimestamp) hbTransactions
     txExtensions %= flip V.snoc (V.fromList extensions)
     let extendedTxs = zipWith C.WithMetadata hbTransactions extensions
     mapM_ applyTxToAddresses $
@@ -270,12 +271,19 @@ addTxToMap pId (txIdx, tx) = transactionsMap . at (C.hash tx) .= Just index
         , tiIdx = txIdx
         }
 
-mkTxExtension :: C.PeriodId -> Timestamp -> C.Transaction -> ExceptUpdate TransactionExtension
-mkTxExtension pId timestamp = mkTransactionExtension pId timestamp getTxChecked
+mkTxExtension
+    :: HM.HashMap C.TransactionId C.Transaction
+    -> C.PeriodId
+    -> Timestamp
+    -> C.Transaction
+    -> ExceptUpdate TransactionExtension
+mkTxExtension newTxs pId timestamp = mkTransactionExtension pId timestamp getTxChecked
   where
     getTxChecked i = do
-        tx <- readerToState $ getTx i
+        oldTx <- readerToState $ getTx i
         let msg = sformat ("Invalid transaction id seen: " % build) i
+            newTx = HM.lookup i newTxs
+            tx = oldTx <|> newTx
         case tx of
             Nothing ->
                 ifM

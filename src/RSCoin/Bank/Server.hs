@@ -16,6 +16,7 @@ import           Control.Monad.Catch        (SomeException, bracket_, catch,
                                              throwM)
 import           Control.Monad.Trans        (lift, liftIO)
 
+import           Data.Binary                (Binary)
 import           Data.IORef                 (IORef, atomicWriteIORef,
                                              modifyIORef, newIORef, readIORef)
 import           Data.List                  (nub, (\\))
@@ -73,18 +74,20 @@ serve st bankSK isPeriodChanging = do
         liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort) <$> getNodeContext
     C.serve
         bankPort
-        [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
-        , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight st
+        [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes bankSK st
+        , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight bankSK st
         , C.method (C.RSCBank C.GetStatisticsId) $
-          idr3 $ serveGetStatisticsId st
-        , C.method (C.RSCBank C.GetHBlocks) $ idr4 $ serveGetHBlocks st
-        , C.method (C.RSCDump C.GetLogs) $ idr5 $ serveGetLogs st
-        , C.method (C.RSCBank C.GetAddresses) $ idr6 $ serveGetAddresses st
-        , C.method (C.RSCBank C.GetExplorers) $ idr7 $ serveGetExplorers st
+          idr3 $ serveGetStatisticsId bankSK st
+        , C.method (C.RSCBank C.GetHBlocks) $ idr4 $ serveGetHBlocks bankSK st
+        , C.method (C.RSCDump C.GetLogs) $ idr5 $ serveGetLogs bankSK st
+        , C.method (C.RSCBank C.GetAddresses) $ idr6 $ serveGetAddresses bankSK st
+        , C.method (C.RSCBank C.GetExplorers) $ idr7 $ serveGetExplorers bankSK st
         , C.method (C.RSCBank C.LocalControlRequest) $
           idr8 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging]
 
 type ServerTE m a = Rpc.ServerT m (Either T.Text a)
+
+type ServerTESigned m a = ServerTE m (C.WithSignature a)
 
 toServer :: C.WorkMode m => m a -> ServerTE m a
 toServer action = lift $ (Right <$> action) `catch` handler
@@ -93,14 +96,21 @@ toServer action = lift $ (Right <$> action) `catch` handler
         logError $ show' e
         return $ Left $ show' e
 
--- toServer' :: C.WorkMode m => IO a -> T.ServerT m a
--- toServer' = toServer . liftIO
+signHandler
+    :: (Binary a, Functor m)
+    => C.SecretKey -> ServerTE m a -> ServerTESigned m a
+signHandler sk = fmap (fmap (C.mkWithSignature sk))
+
+toServerSigned
+    :: (C.WorkMode m, Binary a)
+    => C.SecretKey -> m a -> ServerTESigned m a
+toServerSigned sk = signHandler sk . toServer
 
 serveGetAddresses
     :: C.WorkMode m
-    => State -> ServerTE m AddressToTxStrategyMap
-serveGetAddresses st =
-    toServer $
+    => C.SecretKey -> State -> ServerTESigned m AddressToTxStrategyMap
+serveGetAddresses sk st =
+    toServerSigned sk $
     do mts <- query st GetAddresses
        logDebug $
           sformat ("Getting list of addresses: " % build) $ mapBuilder $ M.toList mts
@@ -108,28 +118,32 @@ serveGetAddresses st =
 
 serveGetMintettes
     :: C.WorkMode m
-    => State -> ServerTE m Mintettes
-serveGetMintettes st =
-    toServer $
+    => C.SecretKey -> State -> ServerTESigned m Mintettes
+serveGetMintettes sk st =
+    toServerSigned sk $
     do mts <- query st GetMintettes
        logDebug $ sformat ("Getting list of mintettes: " % build) mts
        return mts
 
-serveGetHeight :: C.WorkMode m => State -> ServerTE m PeriodId
-serveGetHeight st =
-    toServer $
+serveGetHeight
+    :: C.WorkMode m
+    => C.SecretKey -> State -> ServerTESigned m PeriodId
+serveGetHeight sk st =
+    toServerSigned sk $
     do pId <- query st GetPeriodId
        logDebug $ sformat ("Getting blockchain height: " % build) pId
        return pId
 
-serveGetStatisticsId :: C.WorkMode m => State -> ServerTE m PeriodId
-serveGetStatisticsId st = toServer $ query st GetStatisticsId
+serveGetStatisticsId
+    :: C.WorkMode m
+    => C.SecretKey -> State -> ServerTESigned m PeriodId
+serveGetStatisticsId sk st = toServerSigned sk $ query st GetStatisticsId
 
 serveGetHBlocks
     :: C.WorkMode m
-    => State -> [PeriodId] -> ServerTE m [HBlock]
-serveGetHBlocks st (nub -> periodIds) =
-    toServer $
+    => C.SecretKey -> State -> [PeriodId] -> ServerTESigned m [HBlock]
+serveGetHBlocks sk st (nub -> periodIds) =
+    toServerSigned sk $
     do logDebug $
            sformat ("Getting higher-level blocks in range: " % build) $
            listBuilderJSON periodIds
@@ -284,9 +298,9 @@ serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest = do
 
 serveGetLogs
     :: C.WorkMode m
-    => State -> MintetteId -> Int -> Int -> ServerTE m (Maybe ActionLog)
-serveGetLogs st m from to =
-    toServer $
+    => C.SecretKey -> State -> MintetteId -> Int -> Int -> ServerTESigned m (Maybe ActionLog)
+serveGetLogs sk st m from to =
+    toServerSigned sk $
     do mLogs <- query st (GetLogs m from to)
        logDebug $
            sformat ("Getting action logs of mintette " % build %
@@ -296,9 +310,9 @@ serveGetLogs st m from to =
 
 serveGetExplorers
     :: C.WorkMode m
-    => State -> ServerTE m Explorers
-serveGetExplorers st =
-    toServer $
+    => C.SecretKey -> State -> ServerTESigned m Explorers
+serveGetExplorers sk st =
+    toServerSigned sk $
     do curPeriod <- query st GetPeriodId
        map fst . filter ((== curPeriod) . snd) <$>
            query st GetExplorersAndPeriods

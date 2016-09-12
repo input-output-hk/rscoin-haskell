@@ -49,7 +49,7 @@ instance Arbitrary PartsToSend where
         PartsToSend . M.fromList <$>
             mapM
                 (\color ->
-                      (C.getC color, ) <$> arbitrary)
+                      (C.getColor color, ) <$> arbitrary)
                 colors
 
 genWaitAction :: a -> Gen (WaitAction a)
@@ -58,7 +58,7 @@ genWaitAction a =
     pure a -- at most 15 seconds
 
 genColor :: Gen C.Color
-genColor = C.Color <$> choose (C.getC minColor, C.getC maxColor)
+genColor = C.Color <$> choose (C.getColor minColor, C.getColor maxColor)
 
 instance Arbitrary Coloring where
     arbitrary = do
@@ -68,7 +68,7 @@ instance Arbitrary Coloring where
         let s = sum parts
             multiplier = targetSum / s
         return .
-            Coloring . M.fromListWith (+) . zip (map C.getC colors) . map (* multiplier) $
+            Coloring . M.fromListWith (+) . zip (map C.getColor colors) . map (* multiplier) $
             parts
 
 genUserIndex :: UserNumber -> Gen UserIndex

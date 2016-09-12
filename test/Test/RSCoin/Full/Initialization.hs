@@ -36,7 +36,8 @@ import           RSCoin.Core                (Color (..), Mintette (..),
                                              logDebug, logInfo,
                                              mintetteLoggerName,
                                              notaryLoggerName,
-                                             testBankSecretKey)
+                                             testBankSecretKey,
+                                             testNotarySecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import qualified RSCoin.User                as U
@@ -154,8 +155,8 @@ runNotary
     => (m () -> m ()) -> NotaryInfo -> m ()
 runNotary forkTmp n =
     forkTmp $
-        setLoggerName notaryLoggerName $
-            N.serveNotary (n ^. state)
+    setLoggerName notaryLoggerName $
+    N.serveNotary testNotarySecretKey (n ^. state)
 
 addMintetteToBank
     :: (MonadIO m, WithNamedLogger m)

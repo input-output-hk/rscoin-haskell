@@ -103,7 +103,7 @@ startExplorer severity CommonParams{..} idx = do
 startNotary :: Maybe C.Severity
             -> CommonParams
             -> IO ThreadId
-startNotary severity CommonParams{..} = do
+startNotary severity CommonParams {..} = do
     let workingDir = cpBaseDir </> "notary-workspace"
         workingDirDeprecated = toDeprecatedFilePath workingDir
         dbDir = workingDir </> "notary-db"
@@ -111,6 +111,7 @@ startNotary severity CommonParams{..} = do
             N.launchNotaryReal
                 (fromMaybe C.Warning severity)
                 cpRebuild
+                C.testNotarySecretKey
                 (Just dbDir)
                 contextArgument
                 8090

@@ -15,7 +15,8 @@ import           RSCoin.Core                (ContextArgument (CADefault),
                                              Mintette (Mintette), PublicKey,
                                              SecretKey, Severity (Warning),
                                              defaultEpochDelta, defaultPort,
-                                             localhost, testBankSecretKey)
+                                             localhost, testBankSecretKey,
+                                             testNotarySecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 
@@ -51,7 +52,16 @@ mintetteThread mintetteId benchDir sk =
 
 notaryThread :: FilePath -> IO ()
 notaryThread benchDir =
-    N.launchNotaryReal Warning False dbPath B.CADefault webPort [] Default Default
+    N.launchNotaryReal
+        Warning
+        False
+        testNotarySecretKey
+        dbPath
+        B.CADefault
+        webPort
+        []
+        Default
+        Default
   where
     webPort = defaultPort - 1
     dbPath = Just $ benchDir </> "notary-db"

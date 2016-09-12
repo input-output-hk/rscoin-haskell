@@ -16,7 +16,8 @@ import           Serokell.Util.OptParse (strOption)
 
 import           RSCoin.Core            (PeriodId, Severity (Error),
                                          configDirectory,
-                                         defaultConfigurationPath)
+                                         defaultConfigurationPath,
+                                         defaultSecretKeyPath)
 import           RSCoin.Notary.Defaults (defaultAllocationEndurance,
                                          defaultTransactionEndurance)
 
@@ -31,10 +32,12 @@ data Options = Options
     , cliTxAlive        :: PeriodId
     , cloDefaultContext :: Bool
     , cloRebuildDB      :: Bool
+    , cloSkPath         :: FilePath
+    , cloAutoCreateKey  :: Bool
     } deriving Show
 
-optionsParser :: FilePath -> FilePath -> Parser Options
-optionsParser configDir defaultConfigPath =
+optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
+optionsParser defaultSKPath configDir defaultConfigPath =
     Options <$>
     strOption
         (long "path" <> value (configDir </> "notary-db") <> showDefault <>
@@ -79,13 +82,24 @@ optionsParser configDir defaultConfigPath =
              [ short 'r'
              , long "rebuild-db"
              , help
-                   ("Erase database if it already exists")])
+                   ("Erase database if it already exists")]) <*>
+    strOption
+        (short 'k' <> long "secret-key" <> help "Path to bank secret key" <>
+         value defaultSKPath <>
+         showDefault <>
+         metavar "FILEPATH") <*>
+    switch
+        (long "auto-create-sk" <>
+         help
+             ("If the \"sk\" is pointing to non-existing " <>
+              "file, generate a keypair"))
 
 getOptions :: IO Options
 getOptions = do
+    defaultSKPath <- defaultSecretKeyPath
     configDir <- configDirectory
     defaultConfigPath <- defaultConfigurationPath
     execParser $
         info
-            (helper <*> optionsParser configDir defaultConfigPath)
+            (helper <*> optionsParser defaultSKPath configDir defaultConfigPath)
             (fullDesc <> progDesc "RSCoin's Notary")

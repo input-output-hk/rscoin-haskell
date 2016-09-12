@@ -77,7 +77,7 @@ servantServer =
     return preHeaders
     :<|> (\arg -> do void $ method S.handleAllocateMultisig $ amsInputToTuple arg
                      return $ addHeader "*" ())
-    :<|> (method0 (\st -> fromRightWithFail =<< S.handleGetPeriodId st))
+    :<|> (method0 (\st -> fromRightWithFail =<< S.handleGetPeriodIdUnsigned st))
   where
     amsInputToTuple (AllocateMSInput {..}) = (msAddress, partyAddress, strategy, signature, trustSignature)
     fromRightWithFail (Left t)  = throwText t

@@ -15,7 +15,7 @@ import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 import           Control.TimeWarp.Timed               (fork_)
 import           RSCoin.Core                          (ContextArgument (..),
                                                        PeriodId, PublicKey,
-                                                       Severity (..),
+                                                       SecretKey, Severity (..),
                                                        notaryLoggerName,
                                                        runRealModeUntrusted)
 
@@ -24,18 +24,21 @@ import           RSCoin.Notary.AcidState              (NotaryState, closeState,
 import           RSCoin.Notary.Server                 (serveNotary)
 import           RSCoin.Notary.Web.Servant            (servantApp)
 
-launchNotaryReal :: Severity
-                 -> Bool
-                 -> Maybe FilePath
-                 -> ContextArgument
-                 -> Int
-                 -> [PublicKey]
-                 -> Optional PeriodId
-                 -> Optional PeriodId
-                 -> IO ()
+launchNotaryReal
+    :: Severity
+    -> Bool
+    -> SecretKey
+    -> Maybe FilePath
+    -> ContextArgument
+    -> Int
+    -> [PublicKey]
+    -> Optional PeriodId
+    -> Optional PeriodId
+    -> IO ()
 launchNotaryReal
     logSeverity
     deleteIfExists
+    sk
     dbPath
     ca
     webPort
@@ -47,7 +50,7 @@ launchNotaryReal
     runRealModeUntrusted notaryLoggerName ca $
         bracket (openAction trustedKeys allocationEndurance transactionEndurance) closeState $
         \st -> do
-            fork_ $ serveNotary st
+            fork_ $ serveNotary sk st
             launchWeb webPort logSeverity st
 
 loggingMiddleware :: Severity -> Middleware

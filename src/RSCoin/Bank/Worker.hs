@@ -86,7 +86,7 @@ runExplorerWorker mainIsBusy sk st =
     handler (e :: SomeException) = do
         C.logError $ sformat ("Error occurred inside ExplorerWorker: " % build) e
         wait $ for 10 sec
-    shortWait = wait $ for 10 ms
+    shortWait = wait $ for 200 ms
     -- It would be much more elegant to use MVar here, but it's not
     -- supported by C.WorkMode
     waitUntilPredicate predicate =

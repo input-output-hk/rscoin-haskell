@@ -6,7 +6,6 @@ module Test.RSCoin.Full.Mintette
        , malfunctioningMintetteInit
        ) where
 
-import           Control.Concurrent.MVar          (MVar)
 import           Control.Lens                     (view, (^.))
 
 import qualified RSCoin.Core                      as C

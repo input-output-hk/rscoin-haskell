@@ -25,8 +25,8 @@ import           Test.QuickCheck            (NonEmptyList (..))
 
 import           Control.TimeWarp.Logging   (LoggerName (..), modifyLoggerName,
                                              setLoggerName)
-import           Control.TimeWarp.Timed     (Second, for, ms, sec, wait,
-                                             workWhileMVarEmpty', interval)
+import           Control.TimeWarp.Timed     (Second, for, interval, ms, sec,
+                                             wait, workWhileMVarEmpty')
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
@@ -122,7 +122,6 @@ runBank forkTmp b =
         forkTmp $
             modifyLoggerName (<> "explorer-worker") $
                 B.runExplorerWorker
-                    periodDelta
                     mainIsBusy
                     (b ^. secretKey)
                     (b ^. state)

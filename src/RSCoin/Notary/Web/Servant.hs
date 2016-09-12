@@ -12,7 +12,6 @@ module RSCoin.Notary.Web.Servant
         , AllocateMSInput (..)
         ) where
 
-import           Control.Monad            (void)
 import           Control.Monad.Catch      (catch)
 import           Control.Monad.Except     (throwError)
 import           Control.Monad.Reader     (ReaderT, ask, runReaderT)
@@ -75,7 +74,7 @@ type MyHandler = ReaderT S.NotaryState IO
 servantServer :: ServerT NotaryApi MyHandler
 servantServer =
     return preHeaders
-    :<|> (\arg -> do void $ method S.handleAllocateMultisig $ amsInputToTuple arg
+    :<|> (\arg -> do method (S.handleAllocateMultisig id) $ amsInputToTuple arg
                      return $ addHeader "*" ())
     :<|> (method0 (\st -> fromRightWithFail =<< S.handleGetPeriodId st))
   where
@@ -93,9 +92,9 @@ servantServer =
 convertHandler :: forall a . S.NotaryState -> MyHandler a -> Handler a
 convertHandler st act = liftIO (runReaderT act st) `catch` handler
   where
+    -- TODO error handling, respond with appropriate 4xx status
     handler (e :: NotaryError) = do
         C.logError $ sformat build e
-        -- @TODO improve errors (they should actually mean smth)
         throwError err500
 
 servantApp :: S.NotaryState -> Application

@@ -86,7 +86,7 @@ serveNotary notaryState = do
         , P.method (P.RSCNotary P.RemoveCompleteMS)           $ idr6
             $ handleRemoveCompleteMS notaryState bankPublicKey
         , P.method (P.RSCNotary P.AllocateMultisig)           $ idr7
-            $ handleAllocateMultisig notaryState
+            $ handleAllocateMultisig toServer notaryState
         , P.method (P.RSCNotary P.QueryMyAllocMS)             $ idr8
             $ handleQueryMyAllocationMS notaryState
         , P.method (P.RSCNotary P.PollPendingTransactions)    $ idr9
@@ -182,15 +182,15 @@ handleRemoveCompleteMS st bankPublicKey addresses signedAddrs = toServer $ do
     update st $ RemoveCompleteMSAddresses bankPublicKey addresses signedAddrs
 
 handleAllocateMultisig
-    :: MonadIO m
-    => NotaryState
+    :: (IO () -> t)
+    -> NotaryState
     -> C.Address
     -> C.PartyAddress
     -> C.AllocationStrategy
     -> C.Signature (C.MSAddress, C.AllocationStrategy)
     -> Maybe (C.PublicKey, C.Signature C.PublicKey)
-    -> ServerTE m ()
-handleAllocateMultisig st msAddr partyAddr allocStrat signature mMasterCheck = toServer $ do
+    -> t
+handleAllocateMultisig handler st msAddr partyAddr allocStrat signature mMasterCheck = handler $ do
     C.logDebug "Begining allocation MS address..."
     C.logDebug $
         sformat ("SigPair: " % build % ", Chain: " % build) signature (pairBuilder <$> mMasterCheck)

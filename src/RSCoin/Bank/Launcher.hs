@@ -70,7 +70,7 @@ launchBank periodDelta bankSk st = do
     fork_ $ serve st bankSk isPeriodChanging
     wait $ for 1 ms
     fork_ $ runWorker periodDelta bankSk st
-    runExplorerWorker periodDelta isPeriodChanging bankSk st
+    runExplorerWorker isPeriodChanging bankSk st
 
 -- | Adds mintette directly into bank's state
 addMintetteInPlace :: ContextArgument

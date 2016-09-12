@@ -17,13 +17,13 @@ import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Data.IORef               (IORef, readIORef)
 import           Data.List                (sortOn)
 import           Data.Maybe               (fromMaybe)
-import           Data.Time.Units          (TimeUnit, convertUnit)
+import           Data.Time.Units          (TimeUnit)
 import           Formatting               (build, int, sformat, (%))
 
 import           Serokell.Util.Exceptions ()
 
-import           Control.TimeWarp.Timed   (Second, for, ms, repeatForever, sec,
-                                           tu, wait)
+import           Control.TimeWarp.Timed   (for, ms, repeatForever, sec, tu,
+                                           wait)
 import           RSCoin.Core              (defaultPeriodDelta, sign)
 import qualified RSCoin.Core              as C
 
@@ -63,19 +63,18 @@ runWorker periodDelta bankSK st =
 
 -- | Start worker which sends data to explorers.
 runExplorerWorker
-    :: (TimeUnit t, C.WorkMode m)
-    => t -> IORef Bool -> C.SecretKey -> State -> m ()
-runExplorerWorker periodDelta mainIsBusy sk st =
+    :: (C.WorkMode m)
+    => IORef Bool -> C.SecretKey -> State -> m ()
+runExplorerWorker mainIsBusy sk st =
     foreverSafe $
     do waitUntilPredicate (fmap not . liftIO $ readIORef mainIsBusy)
        blocksNumber <- query st GetPeriodId
        explorersAndPeriods <- query st GetExplorersAndPeriods
        let outdated = filter ((/= blocksNumber) . snd) explorersAndPeriods
            explorers = map fst explorersAndPeriods
-           -- if all explorers are up-to-date, let's wait for this
-           -- interval, because most likely nothing will change
-           interval :: Second = (convertUnit periodDelta) `div` 25
-       when (null outdated) $ wait (for interval sec)
+        -- if all explorers are up-to-date, it doesn't make sense to
+        -- do anything until period finish.
+       when (null outdated) $ waitUntilPredicate (liftIO $ readIORef mainIsBusy)
        failedExplorers <-
            map fst . filter (not . snd) . zip explorers <$>
            communicateWithExplorers sk st blocksNumber outdated

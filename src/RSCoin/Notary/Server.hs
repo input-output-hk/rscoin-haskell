@@ -15,7 +15,7 @@ module RSCoin.Notary.Server
         ) where
 
 import           Control.Applicative     (liftA2)
-import           Control.Lens            ((^.))
+import           Control.Lens            (view, (^.))
 import           Control.Monad           (unless)
 import           Control.Monad.Catch     (MonadCatch, catch, throwM)
 import           Control.Monad.Trans     (MonadIO)
@@ -76,7 +76,7 @@ serveNotary
 serveNotary sk notaryState = do
     idr1 <- serverTypeRestriction3
     idr2 <- serverTypeRestriction2
-    idr3 <- serverTypeRestriction3
+    idr3 <- serverTypeRestriction1
     idr4 <- serverTypeRestriction0
     idr5 <- serverTypeRestriction0
     idr6 <- serverTypeRestriction2
@@ -93,7 +93,7 @@ serveNotary sk notaryState = do
         , P.method (P.RSCNotary P.GetSignatures)              $ idr2
             $ handleGetSignatures sk notaryState
         , P.method (P.RSCNotary P.AnnounceNewPeriodsToNotary) $ idr3
-            $ handleAnnounceNewPeriods notaryState bankPublicKey
+            $ handleAnnounceNewPeriods notaryState
         , P.method (P.RSCNotary P.GetNotaryPeriod)            $ idr4
             $ handleGetPeriodId sk notaryState
         , P.method (P.RSCNotary P.QueryCompleteMS)            $ idr5
@@ -130,20 +130,19 @@ handlePublishTx sk st tx addr sg =
        return res
 
 handleAnnounceNewPeriods
-    :: (C.WithNamedLogger m, MonadIO m, MonadCatch m)
+    :: (C.WithNamedLogger m, MonadIO m, MonadCatch m, C.WithNodeContext m)
     => NotaryState
-    -> C.PublicKey
-    -> C.PeriodId
-    -> [C.HBlock]
-    -> C.Signature [C.HBlock]
+    -> C.WithSignature (C.PeriodId, [C.HBlock])
     -> ServerTE m ()
-handleAnnounceNewPeriods st bankPk pId hblocks hblocksSig = toServer $ do
+handleAnnounceNewPeriods st signed = toServer $ do
 --    DEBUG
 --    outdatedAllocs <- query st OutdatedAllocs
 --    C.logDebug $ sformat ("All discard info: " % shown) outdatedAllocs
-    unless (C.verify bankPk hblocksSig hblocks) $
+    bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+    unless (C.verifyWithSignature bankPublicKey signed) $
         throwM NEInvalidSignature
 
+    let (pId, hblocks) = C.wsValue signed
     update st $ AnnounceNewPeriods pId hblocks
     tidyState st
     C.logDebug $ sformat ("New period announcement, hblocks " % build % " from periodId " % int)

@@ -5,15 +5,15 @@ module RSCoin.Explorer.Server
        ) where
 
 import           Control.Exception         (throwIO)
-import           Control.Lens              ((^.))
+import           Control.Lens              (view)
 import           Control.Monad             (unless)
 import           Control.Monad.Trans       (MonadIO (liftIO))
 import           Formatting                (build, int, sformat, (%))
 
 import           Serokell.Util.Text        (listBuilderJSONIndent)
 
-import           Control.TimeWarp.Rpc      (ServerT, serverTypeRestriction1,
-                                            serverTypeRestriction3)
+import           Control.TimeWarp.Rpc      (ServerT, serverTypeRestriction1)
+
 import qualified RSCoin.Core               as C
 
 import           RSCoin.Explorer.AcidState (AddHBlock (..),
@@ -28,13 +28,12 @@ serve
     :: C.WorkMode m
     => Int -> Channel -> State -> C.SecretKey -> m ()
 serve port ch st _ = do
-    idr1 <- serverTypeRestriction3
+    idr1 <- serverTypeRestriction1
     idr2 <- serverTypeRestriction1
-    bankPublicKey <- (^. C.bankPublicKey) <$> C.getNodeContext
     C.serve
         port
         [ C.method (C.RSCExplorer C.EMNewBlock) $
-          idr1 $ handleNewHBlock ch st bankPublicKey
+          idr1 $ handleNewHBlock ch st
         , C.method (C.RSCExplorer C.EMGetTransaction) $
           idr2 $ handleGetTransaction st]
 
@@ -50,18 +49,15 @@ handleGetTransaction st tId = do
                 tx
     tx <$ C.logDebug msg
 
-type HBlockSignature = C.Signature (C.PeriodId, C.WithMetadata C.HBlock C.HBlockMetadata)
+type HBlockSigned = C.WithSignature (C.PeriodId, C.WithMetadata C.HBlock C.HBlockMetadata)
 
 handleNewHBlock
     :: C.WorkMode m
     => Channel
     -> State
-    -> C.PublicKey
-    -> C.PeriodId
-    -> C.WithMetadata C.HBlock C.HBlockMetadata
-    -> HBlockSignature
+    -> HBlockSigned
     -> ServerT m C.PeriodId
-handleNewHBlock ch st bankPublicKey newBlockId blkWithMeta@(C.WithMetadata{..}) sig = do
+handleNewHBlock ch st signed@(C.WithSignature (newBlockId, blkWithMeta@C.WithMetadata {..}) _) = do
     C.logInfo $ sformat ("Received new block #" % int) newBlockId
     let newBlock = wmValue
         ret p = do
@@ -81,12 +77,11 @@ handleNewHBlock ch st bankPublicKey newBlockId blkWithMeta@(C.WithMetadata{..}) 
             update st (AddHBlock newBlockId blkWithMeta)
             writeChannel
                 ch
-                ChannelItem
-                { ciTransactions = C.hbTransactions newBlock
-                }
+                ChannelItem {ciTransactions = C.hbTransactions newBlock}
             tidyState st
             ret (newBlockId + 1)
-    unless (C.verify bankPublicKey sig (newBlockId, blkWithMeta)) $
+    bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+    unless (C.verifyWithSignature bankPublicKey signed) $
         liftIO $ throwIO EEInvalidBankSignature
     expectedPid <- query st GetExpectedPeriodId
     if expectedPid == newBlockId

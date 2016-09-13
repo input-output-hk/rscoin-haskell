@@ -16,7 +16,9 @@ module RSCoin.Mintette.Server
        , handleGetLogs
        ) where
 
-import           Control.Monad.Catch       (catch, try)
+import           Control.Lens              (view)
+import           Control.Monad             (unless)
+import           Control.Monad.Catch       (catch, throwM, try)
 import           Control.Monad.Trans       (lift)
 import           Data.Bifunctor            (first)
 import qualified Data.Map                  as M
@@ -84,37 +86,51 @@ toServer action = lift $ (Right <$> action) `catch` handler
 
 handlePeriodFinished
     :: C.WorkMode m
-    => RuntimeEnv -> State -> C.PeriodId -> ServerTE m C.PeriodResult
-handlePeriodFinished env st pId =
+    => RuntimeEnv
+    -> State
+    -> C.WithSignature C.PeriodId
+    -> ServerTE m C.PeriodResult
+handlePeriodFinished env st signed =
     toServer $
-    do (curUtxo,curPset) <- query st GetUtxoPset
+    do bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+       unless (C.verifyWithSignature bankPublicKey signed) $
+           throwM MEInvalidBankSignature
+       let pId = C.wsValue signed
+       (curUtxo, curPset) <- query st GetUtxoPset
        C.logDebug $
            sformat
-               ("Before period end utxo is: " % build %
-               "\nCurrent pset is: " % build)
-               curUtxo curPset
+               ("Before period end utxo is: " % build % "\nCurrent pset is: " %
+                build)
+               curUtxo
+               curPset
        C.logInfo $ sformat ("Period " % int % " has just finished!") pId
-       res@(_,blks,lgs) <- update st $ FinishPeriod pId env
+       res@(_, blks, lgs) <- update st $ FinishPeriod pId env
        C.logInfo $
            sformat
-               ("Here is PeriodResult:\n Blocks: " % build %
-                "\n Logs: " % build % "\n")
-               (listBuilderJSONIndent 2 blks) lgs
+               ("Here is PeriodResult:\n Blocks: " % build % "\n Logs: " % build %
+                "\n")
+               (listBuilderJSONIndent 2 blks)
+               lgs
        (curUtxo', curPset') <- query st GetUtxoPset
        C.logDebug $
            sformat
-               ("After period end utxo is: " % build %
-                "\nCurrent pset is: " % build)
-               curUtxo' curPset'
+               ("After period end utxo is: " % build % "\nCurrent pset is: " %
+                build)
+               curUtxo'
+               curPset'
        tidyState st
        return res
 
 handleNewPeriod
     :: C.WorkMode m
-    => RuntimeEnv -> State -> C.NewPeriodData -> ServerTE m ()
-handleNewPeriod env st npd =
+    => RuntimeEnv -> State -> C.WithSignature C.NewPeriodData -> ServerTE m ()
+handleNewPeriod env st signed =
     toServer $
-    do prevMid <- query st GetPreviousMintetteId
+    do bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+       unless (C.verifyWithSignature bankPublicKey signed) $
+           throwM MEInvalidBankSignature
+       let npd = C.wsValue signed
+       prevMid <- query st GetPreviousMintetteId
        C.logInfo $
            sformat
                ("New period has just started, I am mintette #" % build %

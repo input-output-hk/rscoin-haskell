@@ -511,32 +511,31 @@ onNewChannelItem ChannelItem {ciTransactions = txs} = do
         sformat
             ("Affected addresses are: " % build)
             (listBuilderJSON affectedAddresses)
-    mapM_ notifyAllAboutAddressUpdate affectedAddresses
+    mapM_ notifySubscribersAboutAddressUpdate affectedAddresses
     notifyAboutNewHBlock
+
+mkNotificationMessages :: C.Address -> ServerMonad [OutcomingMsg]
+mkNotificationMessages addr = do
+    msgBalance <- uncurry (OMBalance addr) <$> query (DB.GetAddressBalance addr)
+    msgTxNumber <-
+        uncurry (OMTxNumber addr) <$> query (DB.GetAddressTxNumber addr)
+    return [msgBalance, msgTxNumber]
 
 notifyAboutAddressUpdate :: SessionId -> C.Address -> ServerMonad ()
 notifyAboutAddressUpdate sessId addr = do
-    msgBalance <- uncurry (OMBalance addr) <$> query (DB.GetAddressBalance addr)
-    msgTxNumber <-
-        uncurry (OMTxNumber addr) <$> query (DB.GetAddressTxNumber addr)
     connection <- myConnection sessId
-    mapM_ (send connection) [msgBalance, msgTxNumber]
+    mapM_ (send connection) =<< mkNotificationMessages addr
 
--- TODO: notifyAllAbout ~ mapM notifyAbout sessionIds
--- but I left this version because it is more optimized (@gromak ?)
-notifyAllAboutAddressUpdate :: C.Address -> ServerMonad ()
-notifyAllAboutAddressUpdate addr = do
+notifySubscribersAboutAddressUpdate :: C.Address -> ServerMonad ()
+notifySubscribersAboutAddressUpdate addr = do
     connectionsState <- liftIO . readMVar =<< view ssConnections
-    msgBalance <- uncurry (OMBalance addr) <$> query (DB.GetAddressBalance addr)
-    msgTxNumber <-
-        uncurry (OMTxNumber addr) <$> query (DB.GetAddressTxNumber addr)
     let sessIds =
             S.toList $ fromMaybe S.empty $ connectionsState ^.
             csAddressSubscribers .
             at addr
     connections <- mapM myConnection sessIds
     let sendToAll msg = mapM_ (flip send msg) connections
-    mapM_ sendToAll [msgBalance, msgTxNumber]
+    mapM_ sendToAll =<< mkNotificationMessages addr
 
 notifyAboutNewHBlock :: ServerMonad ()
 notifyAboutNewHBlock = do

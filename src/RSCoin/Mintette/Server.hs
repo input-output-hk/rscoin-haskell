@@ -19,6 +19,7 @@ module RSCoin.Mintette.Server
 import           Control.Lens              (view)
 import           Control.Monad             (unless)
 import           Control.Monad.Catch       (catch, throwM, try)
+import           Control.Monad.Extra       (unlessM)
 import           Control.Monad.Trans       (lift)
 import           Data.Bifunctor            (first)
 import qualified Data.Map                  as M
@@ -237,8 +238,10 @@ handleGetMintettePeriod st =
 handleGetUtxo :: C.WorkMode m => State -> ServerTE m C.Utxo
 handleGetUtxo st =
     toServer $
-    do C.logDebug "Getting utxo"
-       (curUtxo,_) <- query st GetUtxoPset
+    do unlessM C.isTestRun $
+           throwM $ C.BadRequest "getMintetteUtxo is only available in test run"
+       C.logDebug "Getting utxo"
+       (curUtxo, _) <- query st GetUtxoPset
        C.logDebug $ sformat ("Corrent utxo is: " % build) curUtxo
        return curUtxo
 

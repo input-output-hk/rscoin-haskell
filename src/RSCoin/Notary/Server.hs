@@ -16,7 +16,7 @@ module RSCoin.Notary.Server
 
 import           Control.Applicative     (liftA2)
 import           Control.Lens            (view, (^.))
-import           Control.Monad           (unless)
+import           Control.Monad           (unless, when)
 import           Control.Monad.Catch     (MonadCatch, catch, throwM)
 import           Control.Monad.Trans     (MonadIO)
 import           Data.Binary             (Binary)
@@ -242,5 +242,7 @@ handlePollPendingTxs
     -> ServerTESigned m [C.Transaction]
 handlePollPendingTxs sk st parties =
     toServerSigned sk $
-    do C.logDebug "Polling pending txs..."
+    do when (length parties > C.pollTransactionsLimit) $
+           throwM $ C.BadRequest "too many addresses given"
+       C.logDebug "Polling pending txs..."
        query st $ PollPendingTxs parties

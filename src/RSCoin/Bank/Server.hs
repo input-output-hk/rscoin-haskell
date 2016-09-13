@@ -161,14 +161,14 @@ serveGetHBlocks sk st (nub -> periodIds) =
 
 getPeriodResults
     :: C.WorkMode m
-    => C.Mintettes -> C.PeriodId -> m [Maybe C.PeriodResult]
-getPeriodResults mts pId = do
+    => C.SecretKey -> C.Mintettes -> C.PeriodId -> m [Maybe C.PeriodResult]
+getPeriodResults sk mts pId = do
     res <- liftIO $ newIORef []
     mapM_ (f res) mts
     liftIO $ reverse <$> readIORef res
   where
     f res mintette =
-        (C.sendPeriodFinished mintette pId >>=
+        (C.sendPeriodFinished mintette sk pId >>=
          liftIO . modifyIORef res . (:) . Just) `catch`
         handler res
     handler res (e :: SomeException) =
@@ -185,7 +185,7 @@ onPeriodFinished sk st = do
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     initializeMultisignatureAddresses  -- init here to see them in next period
-    periodResults <- getPeriodResults mintettes pId
+    periodResults <- getPeriodResults sk mintettes pId
     timestamp <- liftIO getPOSIXTime
     newPeriodData <- update st $ StartNewPeriod timestamp sk periodResults
     tidyState st
@@ -195,7 +195,7 @@ onPeriodFinished sk st = do
         else do
             mapM_
                 (\(m,mId) ->
-                      C.announceNewPeriod m (newPeriodData !! mId) `catch`
+                      C.announceNewPeriod m sk (newPeriodData !! mId) `catch`
                       handlerAnnouncePeriodM)
                 (zip newMintettes [0 ..])
             C.logInfo $
@@ -233,8 +233,7 @@ onPeriodFinished sk st = do
         pId     <- C.getNotaryPeriod
         pId'    <- query st GetPeriodId
         hblocks <- query st (GetHBlocks pId pId')
-        let hblocksSig = C.sign sk hblocks
-        C.announceNewPeriodsToNotary pId' hblocks hblocksSig
+        C.announceNewPeriodsToNotary sk pId' hblocks
 
 serveFinishPeriod
     :: C.WorkMode m

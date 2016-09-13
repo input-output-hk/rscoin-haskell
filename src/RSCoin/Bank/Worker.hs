@@ -117,12 +117,9 @@ sendBlockToExplorer
     :: C.WorkMode m
     => C.SecretKey -> State -> C.Explorer -> C.PeriodId -> m Bool
 sendBlockToExplorer sk st explorer pId = do
-    blk <-
-        fromMaybe reportFatalError <$>
-        query st (GetHBlockWithMetadata pId)
+    blk <- fromMaybe reportFatalError <$> query st (GetHBlockWithMetadata pId)
     let sendAndUpdate = do
-            newExpectedPeriod <-
-                C.announceNewBlock explorer pId blk (C.sign sk (pId, blk))
+            newExpectedPeriod <- C.announceNewBlock explorer sk pId blk
             update st $ SetExplorerPeriod explorer newExpectedPeriod
     (True <$ sendAndUpdate) `catch` handler
   where

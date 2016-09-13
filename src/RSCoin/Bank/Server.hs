@@ -139,7 +139,9 @@ serveGetHBlocks
     => C.SecretKey -> State -> [PeriodId] -> ServerTESigned m [HBlock]
 serveGetHBlocks sk st (nub -> periodIds) =
     toServerSigned sk $
-    do logDebug $
+    do when (length periodIds > C.blocksQueryLimit) $
+           throwM $ C.BadRequest "too many blocks requested"
+       logDebug $
            sformat ("Getting higher-level blocks in range: " % build) $
            listBuilderJSON periodIds
        blocks <-
@@ -149,8 +151,7 @@ serveGetHBlocks sk st (nub -> periodIds) =
        when (gotIndices /= periodIds) $
            throwM $
            BEInconsistentResponse $
-           sformat
-               ("Couldn't get blocks for the following periods: " % build) $
+           sformat ("Couldn't get blocks for the following periods: " % build) $
            listBuilderJSON (periodIds \\ gotIndices)
        return $ map fst blocks
 

@@ -80,11 +80,9 @@ import           RSCoin.User.Logic      (SignatureBundle, getExtraSignatures,
                                          joinBundles, validateTransaction)
 import qualified RSCoin.User.Wallet     as W
 
--- | This constant is emphirical number of hblocks that can be fetched
--- at once without problems on bank side (too big amount of hblock
--- leads to timeouts).
+-- Maximum number of blocks requested by user at once.
 deltaMax :: Int
-deltaMax = 20
+deltaMax = 4 * C.blocksQueryLimit `div` 5
 
 walletInitialized :: MonadIO m => A.UserState -> m Bool
 walletInitialized st = A.query st A.IsInitialized

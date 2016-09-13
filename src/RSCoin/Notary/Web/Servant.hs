@@ -12,29 +12,34 @@ module RSCoin.Notary.Web.Servant
         , AllocateMSInput (..)
         ) where
 
-import           Control.Monad.Catch      (catch)
-import           Control.Monad.Except     (throwError)
-import           Control.Monad.Reader     (ReaderT, ask, runReaderT)
-import           Control.Monad.Trans      (liftIO)
-import           Data.Tuple.Curry         (Curry, uncurryN)
-import           Formatting               (build, sformat)
-import           GHC.Generics             (Generic)
-import           Network.Wai              (Application)
-import           Servant                  ((:<|>) (..), (:>), (:~>) (Nat), Get,
-                                           Handler, Header, Headers, JSON, Post,
-                                           Proxy (Proxy), ReqBody, ServerT,
-                                           StdMethod (OPTIONS), Verb, addHeader,
-                                           enter, err500, serve)
+import           Control.Monad.Catch                  (catch)
+import           Control.Monad.Except                 (throwError)
+import           Control.Monad.Reader                 (ReaderT, ask, runReaderT)
+import           Control.Monad.Trans                  (liftIO)
+import           Data.Tuple.Curry                     (Curry, uncurryN)
+import           Formatting                           (build, sformat)
+import           GHC.Generics                         (Generic)
+import           Network.Wai                          (Application)
+import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
+import           Servant                              ((:<|>) (..), (:>),
+                                                       (:~>) (Nat), Get,
+                                                       Handler, Header, Headers,
+                                                       JSON, Post,
+                                                       Proxy (Proxy), ReqBody,
+                                                       ServerT,
+                                                       StdMethod (OPTIONS),
+                                                       Verb, addHeader, enter,
+                                                       err500, serve)
 
-import           Data.Aeson.TH            (deriveJSON)
-import           Serokell.Util.Exceptions (throwText)
+import           Data.Aeson.TH                        (deriveJSON)
+import           Serokell.Util.Exceptions             (throwText)
 
-import qualified RSCoin.Core              as C
-import           RSCoin.Core.AesonJS      ()
-import           RSCoin.Notary.AcidState  as S
-import           RSCoin.Notary.Error      (NotaryError)
-import qualified RSCoin.Notary.Server     as S
-import           Serokell.Aeson.Options   (defaultOptionsPS)
+import qualified RSCoin.Core                          as C
+import           RSCoin.Core.AesonJS                  ()
+import           RSCoin.Notary.AcidState              as S
+import           RSCoin.Notary.Error                  (NotaryError)
+import qualified RSCoin.Notary.Server                 as S
+import           Serokell.Aeson.Options               (defaultOptionsPS)
 
 
 data AllocateMSInput = AllocateMSInput
@@ -98,7 +103,7 @@ convertHandler st act = liftIO (runReaderT act st) `catch` handler
         throwError err500
 
 servantApp :: S.NotaryState -> Application
-servantApp st = serve notaryApi $ enter nat servantServer
+servantApp st = logStdoutDev $ serve notaryApi $ enter nat servantServer
   where
     nat :: MyHandler :~> Handler
     nat = Nat $ convertHandler st

@@ -273,7 +273,7 @@ processListPendingTxs :: (MonadIO m, C.WorkMode m) => U.UserState -> m ()
 processListPendingTxs st = do
     addrs <- U.getAllPublicAddresses st
     C.logInfo "Querying notary to update the list of pending transactions"
-    txs0 <- C.pollPendingTransactions addrs
+    txs0 <- C.pollPendingTransactionsNoLimit addrs
     U.update st $ U.UpdatePendingTxs $ S.fromList txs0
     txs <- U.query st U.GetPendingTxs
     if null txs

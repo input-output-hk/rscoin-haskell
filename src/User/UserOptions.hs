@@ -97,7 +97,6 @@ data DumpCommand
     = DumpHBlocks PeriodId PeriodId
     | DumpHBlock PeriodId
     | DumpMintettes
-    | DumpAddresses
     | DumpPeriod
     | DumpMintetteUtxo MintetteId
     | DumpMintetteLogs MintetteId PeriodId
@@ -232,11 +231,6 @@ userCommandParser =
                        (metavar "ID" <>
                         help "Dump block with specific periodId"))
                   (progDesc "Dump Bank high level block.")) <>
-         command
-             "dump-addresses"
-             (info
-                  (pure $ Dump DumpAddresses)
-                  (progDesc "Dump list of addresses.")) <>
          command
              "dump-mintettes"
              (info

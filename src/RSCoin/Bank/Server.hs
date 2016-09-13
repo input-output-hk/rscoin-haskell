@@ -20,7 +20,6 @@ import           Data.Binary                (Binary)
 import           Data.IORef                 (IORef, atomicWriteIORef,
                                              modifyIORef, newIORef, readIORef)
 import           Data.List                  (nub, (\\))
-import qualified Data.Map.Strict            as M
 import           Data.Maybe                 (catMaybes)
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as TIO
@@ -28,12 +27,11 @@ import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, int, sformat, stext, (%))
 
 import           Serokell.Util.Bench        (measureTime_)
-import           Serokell.Util.Text         (listBuilderJSON, mapBuilder, show')
+import           Serokell.Util.Text         (listBuilderJSON, show')
 
 import qualified Control.TimeWarp.Rpc       as Rpc
-import           RSCoin.Core                (AddressToTxStrategyMap, Explorers,
-                                             HBlock, Mintettes, PeriodId,
-                                             PublicKey, SecretKey,
+import           RSCoin.Core                (Explorers, HBlock, Mintettes,
+                                             PeriodId, PublicKey, SecretKey,
                                              getNodeContext, logDebug, logError,
                                              logInfo)
 import qualified RSCoin.Core                as C
@@ -44,7 +42,6 @@ import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
 import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),
                                              CheckAndBumpStatisticsId (..),
-                                             GetAddresses (..),
                                              GetExplorersAndPeriods (..),
                                              GetHBlock (..), GetHBlocks (..),
                                              GetMintettes (..),
@@ -66,7 +63,7 @@ serve st bankSK isPeriodChanging = do
     idr2 <- Rpc.serverTypeRestriction0
     idr3 <- Rpc.serverTypeRestriction0
     idr4 <- Rpc.serverTypeRestriction1
-    idr5 <- Rpc.serverTypeRestriction0
+    -- idr5 <- Rpc.serverTypeRestriction0
     idr6 <- Rpc.serverTypeRestriction0
     idr7 <- Rpc.serverTypeRestriction1
     (bankPK,bankPort) <-
@@ -78,7 +75,7 @@ serve st bankSK isPeriodChanging = do
         , C.method (C.RSCBank C.GetStatisticsId) $
           idr3 $ serveGetStatisticsId bankSK st
         , C.method (C.RSCBank C.GetHBlocks) $ idr4 $ serveGetHBlocks bankSK st
-        , C.method (C.RSCBank C.GetAddresses) $ idr5 $ serveGetAddresses bankSK st
+        -- , C.method (C.RSCBank C.GetAddresses) $ idr5 $ serveGetAddresses bankSK st
         , C.method (C.RSCBank C.GetExplorers) $ idr6 $ serveGetExplorers bankSK st
         , C.method (C.RSCBank C.LocalControlRequest) $
           idr7 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging]
@@ -104,15 +101,15 @@ toServerSigned
     => C.SecretKey -> m a -> ServerTESigned m a
 toServerSigned sk = signHandler sk . toServer
 
-serveGetAddresses
-    :: C.WorkMode m
-    => C.SecretKey -> State -> ServerTESigned m AddressToTxStrategyMap
-serveGetAddresses sk st =
-    toServerSigned sk $
-    do mts <- query st GetAddresses
-       logDebug $
-          sformat ("Getting list of addresses: " % build) $ mapBuilder $ M.toList mts
-       return mts
+-- serveGetAddresses
+--     :: C.WorkMode m
+--     => C.SecretKey -> State -> ServerTESigned m AddressToTxStrategyMap
+-- serveGetAddresses sk st =
+--     toServerSigned sk $
+--     do mts <- query st GetAddresses
+--        logDebug $
+--           sformat ("Getting list of addresses: " % build) $ mapBuilder $ M.toList mts
+--        return mts
 
 serveGetMintettes
     :: C.WorkMode m

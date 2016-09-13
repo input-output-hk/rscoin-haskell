@@ -31,11 +31,11 @@ import           Serokell.Util.Bench        (measureTime_)
 import           Serokell.Util.Text         (listBuilderJSON, mapBuilder, show')
 
 import qualified Control.TimeWarp.Rpc       as Rpc
-import           RSCoin.Core                (ActionLog, AddressToTxStrategyMap,
-                                             Explorers, HBlock, MintetteId,
-                                             Mintettes, PeriodId, PublicKey,
-                                             SecretKey, getNodeContext,
-                                             logDebug, logError, logInfo)
+import           RSCoin.Core                (AddressToTxStrategyMap, Explorers,
+                                             HBlock, Mintettes, PeriodId,
+                                             PublicKey, SecretKey,
+                                             getNodeContext, logDebug, logError,
+                                             logInfo)
 import qualified RSCoin.Core                as C
 import qualified RSCoin.Core.NodeConfig     as NC
 import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
@@ -47,7 +47,7 @@ import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              GetAddresses (..),
                                              GetExplorersAndPeriods (..),
                                              GetHBlock (..), GetHBlocks (..),
-                                             GetLogs (..), GetMintettes (..),
+                                             GetMintettes (..),
                                              GetPeriodId (..),
                                              GetStatisticsId (..),
                                              RemoveExplorer (..),
@@ -66,10 +66,9 @@ serve st bankSK isPeriodChanging = do
     idr2 <- Rpc.serverTypeRestriction0
     idr3 <- Rpc.serverTypeRestriction0
     idr4 <- Rpc.serverTypeRestriction1
-    idr5 <- Rpc.serverTypeRestriction3
+    idr5 <- Rpc.serverTypeRestriction0
     idr6 <- Rpc.serverTypeRestriction0
-    idr7 <- Rpc.serverTypeRestriction0
-    idr8 <- Rpc.serverTypeRestriction1
+    idr7 <- Rpc.serverTypeRestriction1
     (bankPK,bankPort) <-
         liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort) <$> getNodeContext
     C.serve
@@ -79,11 +78,10 @@ serve st bankSK isPeriodChanging = do
         , C.method (C.RSCBank C.GetStatisticsId) $
           idr3 $ serveGetStatisticsId bankSK st
         , C.method (C.RSCBank C.GetHBlocks) $ idr4 $ serveGetHBlocks bankSK st
-        , C.method (C.RSCDump C.GetLogs) $ idr5 $ serveGetLogs bankSK st
-        , C.method (C.RSCBank C.GetAddresses) $ idr6 $ serveGetAddresses bankSK st
-        , C.method (C.RSCBank C.GetExplorers) $ idr7 $ serveGetExplorers bankSK st
+        , C.method (C.RSCBank C.GetAddresses) $ idr5 $ serveGetAddresses bankSK st
+        , C.method (C.RSCBank C.GetExplorers) $ idr6 $ serveGetExplorers bankSK st
         , C.method (C.RSCBank C.LocalControlRequest) $
-          idr8 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging]
+          idr7 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging]
 
 type ServerTE m a = Rpc.ServerT m (Either T.Text a)
 
@@ -292,20 +290,6 @@ serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest = do
                 ("Control request " % build % " executed successfully")
                 controlRequest
 
-
--- Dumping Bank state
-
-serveGetLogs
-    :: C.WorkMode m
-    => C.SecretKey -> State -> MintetteId -> Int -> Int -> ServerTESigned m (Maybe ActionLog)
-serveGetLogs sk st m from to =
-    toServerSigned sk $
-    do mLogs <- query st (GetLogs m from to)
-       logDebug $
-           sformat ("Getting action logs of mintette " % build %
-                    " with range of entries " % int % " to " % int % ": " % build)
-                   m from to mLogs
-       return mLogs
 
 serveGetExplorers
     :: C.WorkMode m

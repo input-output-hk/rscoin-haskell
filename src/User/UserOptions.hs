@@ -99,7 +99,6 @@ data DumpCommand
     | DumpMintettes
     | DumpAddresses
     | DumpPeriod
-    | DumpLogs MintetteId Int Int
     | DumpMintetteUtxo MintetteId
     | DumpMintetteLogs MintetteId PeriodId
     | DumpAddress Word
@@ -246,21 +245,6 @@ userCommandParser =
          command
              "dump-period"
              (info (pure $ Dump DumpPeriod) (progDesc "Dump last period.")) <>
-         command
-             "dump-logs"
-             (info
-                  (fmap Dump $
-                   DumpLogs <$>
-                   argument
-                       auto
-                       (metavar "MINTETTE_ID" <>
-                        help "Dump logs of mintette with this id.") <*>
-                   argument
-                       auto
-                       (metavar "FROM" <> help "Dump from which entry.") <*>
-                   argument auto (metavar "TO" <> help "Dump to which entry."))
-                  (progDesc
-                       "Dump action logs of corresponding mintette, range or entries.")) <>
          command
              "dump-mintette-utxo"
              (info

@@ -17,7 +17,7 @@ module RSCoin.Mintette.Server
        ) where
 
 import           Control.Lens              (view)
-import           Control.Monad             (unless)
+import           Control.Monad             (unless, when)
 import           Control.Monad.Catch       (catch, throwM, try)
 import           Control.Monad.Extra       (unlessM)
 import           Control.Monad.Trans       (lift)
@@ -181,23 +181,32 @@ handleCheckTxBatch
 handleCheckTxBatch env st tx sigs =
     toServer $
     do C.guardTransactionValidity tx
-       C.logDebug $ sformat
-           ("Checking addrids " % build % "of transaction: " % build)
-           (listBuilderJSON $ M.keys sigs) tx
-       (curUtxo,curPset) <- query st GetUtxoPset
+       when (M.size sigs > length (C.txInputs tx)) $
+           throwM $ C.BadRequest "Size of batch is more than number of inputs"
+       C.logDebug $
+           sformat
+               ("Checking addrids " % build % "of transaction: " % build)
+               (listBuilderJSON $ M.keys sigs)
+               tx
+       (curUtxo, curPset) <- query st GetUtxoPset
        C.logDebug $
            sformat
                ("My current utxo is: " % build % "\nCurrent pset is: " % build)
-               curUtxo curPset
-       res <- M.fromList <$>
-           mapM (\(addrId, sig) ->
-                  (addrId,) <$>
-                  try' (update st $ CheckNotDoubleSpent tx addrId sig env))
-           (M.assocs sigs)
-       C.logInfo "Returning confirmations"-- TODO add logging
+               curUtxo
+               curPset
+       res <-
+           M.fromList <$>
+           mapM
+               (\(addrId, sig) ->
+                     (addrId, ) <$>
+                     try' (update st $ CheckNotDoubleSpent tx addrId sig env))
+               (M.assocs sigs)
+       C.logInfo "Returning confirmations" -- TODO add logging
        return res
   where
-    try' :: (C.WorkMode m) => m a -> m (Either T.Text a)
+    try'
+        :: (C.WorkMode m)
+        => m a -> m (Either T.Text a)
     try' action = do
         (res :: Either MintetteError a) <- try action
         return $ first show' res

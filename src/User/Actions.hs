@@ -458,10 +458,8 @@ processColdFormTransaction
 processColdFormTransaction st inputs outputAddrStr outputCoins path = eWrap $ do
     td <- formTransactionPayload inputs outputAddrStr outputCoins
     txs <- U.constructTransactions st td
-    -- FIXME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    let tx = head txs
-    emptyBundle <- U.getEmptySignatureBundle st tx
-    liftIO $ BS.writeFile path $ encode (tx, M.assocs emptyBundle)
+    emptyBundles <- mapM (U.getEmptySignatureBundle st) txs
+    liftIO $ BS.writeFile path $ encode (txs, fmap M.assocs emptyBundles)
     C.logInfo $ sformat
         ("Your transaction data has been written to the '" % string % "'") path
 
@@ -473,19 +471,17 @@ processColdSignTransaction
     -> FilePath
     -> m ()
 processColdSignTransaction st bundlePath = eWrap $ do
-    (tx, sigAssocs) :: (C.Transaction, [(C.AddrId, U.SignatureValue)]) <-
+    (txs, sigAssocses) :: ([C.Transaction], [[(C.AddrId, U.SignatureValue)]]) <-
         liftIO $ (fromJust . decode) <$> BS.readFile bundlePath
-    let sigBundle = M.fromList sigAssocs
-    updatedSigBundle <- U.signTransactionLocally st tx sigBundle
---    updatedSigBundle <- forM sigAssocs $ \(addrId, (msAddr, C.MOfNStrategy m p, signatures)) -> do
---        (userAddr, userSk) <- U.findPartyAddress st $ HS.fromList $ map C.UserAlloc $ S.toList p
---        pure (addrId, (msAddr, C.MOfNStrategy m p, (userAddr, C.sign userSk tx) : signatures))
+    let sigBundles = fmap M.fromList sigAssocses
+    updatedSigBundles <- mapM (uncurry (U.signTransactionLocally st)) $
+        zip txs sigBundles
     -- @TODO: not efficient check
-    if sigBundle == updatedSigBundle
+    if sigBundles == updatedSigBundles
     then C.logInfo "No transactions have been signed"
     else do
         let signedPath = bundlePath <> ".signed"
-        liftIO $ BS.writeFile signedPath $ encode (tx, M.assocs updatedSigBundle)
+        liftIO $ BS.writeFile signedPath $ encode (txs, fmap M.assocs updatedSigBundles)
         C.logInfo $ sformat ("Some transactions have been succesfully " %
                              "signed, signed file is '" % string % "'")
                             signedPath
@@ -496,10 +492,10 @@ processColdSendTransaction
     -> FilePath
     -> m ()
 processColdSendTransaction st bundlePath = eWrap $ do
-    (tx, sigAssocs) :: (C.Transaction, [(C.AddrId, U.SignatureValue)]) <-
+    (txs, sigAssocses) :: ([C.Transaction], [[(C.AddrId, U.SignatureValue)]]) <-
         liftIO $ (fromJust . decode) <$> BS.readFile bundlePath
-    let sigBundle = M.fromList sigAssocs
-    U.sendTransactionRetry 2 st Nothing tx sigBundle
+    let sigBundles = fmap M.fromList sigAssocses
+    mapM_ (uncurry (U.sendTransactionRetry 2 st Nothing)) $ zip txs sigBundles
 
 processImportAddress
     :: (MonadIO m, C.WorkMode m)

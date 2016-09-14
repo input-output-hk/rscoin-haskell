@@ -457,7 +457,6 @@ splitTransactionChunkSize = C.maxTxSize `div` 2
 
 -- IMPORTANT: this function assumes that all outputs have the same address (which is true now).
 -- It fixes transaction with too big size.
--- TODO: optimize by grouping outputs.
 splitTransaction :: C.Transaction -> [C.Transaction]
 splitTransaction tx
     | C.validateTxSize tx = [tx]
@@ -475,7 +474,9 @@ splitTransactionDo C.Transaction {..} i = C.Transaction inputs outputs
     maxIdx = min ((i + 1) * splitTransactionChunkSize - 1) (length txInputs - 1)
     inputs = sublist minIdx maxIdx txInputs
     outputAddr = head $ map fst txOutputs
-    outputs = map (outputAddr, ) . map (view _3) $ inputs
+    outputCoinsList = map (view _3) inputs
+    outputCoinsMap = C.coinsToMap outputCoinsList
+    outputs = map (outputAddr, ) . map snd . I.toList $ outputCoinsMap
 
 signAndSendTransaction
     :: C.WorkMode m

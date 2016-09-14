@@ -25,6 +25,7 @@ import           RSCoin.Core            (Severity (Error), configDirectory,
 data Command
     = Serve ServeOptions
     | DumpStatistics
+    | CreatePermissionKeypair
 
 data ServeOptions = ServeOptions
     { cloPort            :: Int
@@ -50,7 +51,11 @@ commandParser defaultSKPath =
         (command "serve" (info serveOpts (progDesc "Serve users and others")) <>
          command
              "dump-statistics"
-             (info (pure DumpStatistics) (progDesc "Dump statistics")))
+             (info (pure DumpStatistics) (progDesc "Dump statistics")) <>
+         command
+             "create-permission-keypair"
+             -- TODO: option to override the generated keypair location
+             (info (pure CreatePermissionKeypair) (progDesc "Generates mintette permission keypair")))
   where
     serveOpts =
         fmap Serve $

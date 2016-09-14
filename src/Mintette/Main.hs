@@ -6,7 +6,8 @@ import           Data.Monoid         ((<>))
 import           Data.Time.Units     (Second)
 
 import           RSCoin.Core         (initLogging, keyGen, readSecretKey,
-                                      writePublicKey, writeSecretKey)
+                                      writePublicKey, writeSecretKey,
+                                      defaultSecretKeyPath, SecretKey)
 import qualified RSCoin.Mintette     as M
 
 import qualified MintetteOptions     as Opts
@@ -21,25 +22,15 @@ main = do
                 else M.CACustomLocation cloConfigPath
     case cloCommand of
         Opts.Serve serveOpts -> mainServe ctxArg serveOpts opts
-        Opts.DumpStatistics  -> mainDumpStatistics ctxArg opts
+        Opts.DumpStatistics -> mainDumpStatistics ctxArg opts
+        Opts.CreatePermissionKeypair -> mainCreatePermissionKeypair ctxArg opts
 
 mainServe :: M.ContextArgument -> Opts.ServeOptions -> Opts.Options -> IO ()
 mainServe ctxArg Opts.ServeOptions {..} Opts.Options {..} = do
     skEither <- try $ readSecretKey cloSecretKeyPath
     sk <-
         case skEither of
-            Left (_ :: SomeException)
-                | cloAutoCreateKey -> do
-                    putStrLn $
-                        "Generating and putting secret keys into: " ++
-                        cloSecretKeyPath
-                    let fpSecret = cloSecretKeyPath
-                    let fpPublic = cloSecretKeyPath <> ".pub"
-                    (sk, pk) <- keyGen
-                    writePublicKey fpPublic pk
-                    writeSecretKey fpSecret sk
-                    putStrLn "Wrote a keypar on the disk"
-                    return sk
+            Left (_ :: SomeException) | cloAutoCreateKey -> getOrCreateKeypair cloSecretKeyPath
             Left err -> throwM err
             Right sk -> return sk
     let dbPath =
@@ -53,3 +44,22 @@ mainServe ctxArg Opts.ServeOptions {..} Opts.Options {..} = do
 mainDumpStatistics :: M.ContextArgument -> Opts.Options -> IO ()
 mainDumpStatistics ctxArg Opts.Options {..} = do
     M.dumpStorageStatistics cloRebuildDB cloPath ctxArg
+
+mainCreatePermissionKeypair :: M.ContextArgument -> Opts.Options -> IO ()
+mainCreatePermissionKeypair ctxArg Opts.Options {..} = do
+    directory <- defaultSecretKeyPath
+    _ <- getOrCreateKeypair directory
+    return ()
+
+-- TODO: should this go to RSCoin.Core.Crypto.Signing?
+getOrCreateKeypair :: FilePath -> IO SecretKey
+getOrCreateKeypair directory = do
+    let fpSecret = directory
+    let fpPublic = directory <> ".pub"
+    putStrLn $ "Generating secret key at " ++ fpSecret
+    putStrLn $ "Generating public key at " ++ fpPublic
+    (sk, pk) <- keyGen
+    writePublicKey fpPublic pk
+    writeSecretKey fpSecret sk
+    putStrLn "Done."
+    return sk

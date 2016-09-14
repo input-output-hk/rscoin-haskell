@@ -118,7 +118,8 @@ handlePublishTx
     -> ServerTESigned m [(C.Address, C.Signature C.Transaction)]
 handlePublishTx sk st tx addr sg =
     toServerSigned sk $
-    do update st $ AddSignedTransaction tx addr sg
+    do C.guardTransactionValidity tx
+       update st $ AddSignedTransaction tx addr sg
        res <- query st $ GetSignatures tx
        C.logDebug $
            sformat
@@ -172,7 +173,8 @@ handleGetSignatures
     -> ServerTESigned m [(C.Address, C.Signature C.Transaction)]
 handleGetSignatures sk st tx addr =
     toServerSigned sk $
-    do res <- query st $ GetSignatures tx
+    do C.guardTransactionValidity tx
+       res <- query st $ GetSignatures tx
        C.logDebug $
            sformat
                ("Getting signatures for tx " % build % ", addr " % build % ": " %

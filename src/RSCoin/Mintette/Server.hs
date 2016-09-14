@@ -155,7 +155,8 @@ handleCheckTx
     -> ServerTE m C.CheckConfirmation
 handleCheckTx env st tx addrId sg =
     toServer $
-    do C.logDebug $
+    do C.guardTransactionValidity tx
+       C.logDebug $
            sformat ("Checking addrid (" % build % ") from transaction: " % build)
                addrId tx
        (curUtxo,curPset) <- query st GetUtxoPset
@@ -179,7 +180,8 @@ handleCheckTxBatch
     -> ServerTE m (M.Map C.AddrId (Either T.Text C.CheckConfirmation))
 handleCheckTxBatch env st tx sigs =
     toServer $
-    do C.logDebug $ sformat
+    do C.guardTransactionValidity tx
+       C.logDebug $ sformat
            ("Checking addrids " % build % "of transaction: " % build)
            (listBuilderJSON $ M.keys sigs) tx
        (curUtxo,curPset) <- query st GetUtxoPset
@@ -209,7 +211,8 @@ handleCommitTx
     -> ServerTE m C.CommitAcknowledgment
 handleCommitTx env st tx cc =
     toServer $
-    do C.logDebug $
+    do C.guardTransactionValidity tx
+       C.logDebug $
            sformat ("There is an attempt to commit transaction (" % build % ").") tx
        C.logDebug $ sformat ("Here are confirmations: " % build) cc
        res <- update st $ CommitTx tx cc env

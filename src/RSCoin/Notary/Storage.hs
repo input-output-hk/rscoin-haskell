@@ -40,13 +40,13 @@ import qualified Data.IntMap.Strict     as IM hiding (IntMap)
 import qualified Data.Map.Strict        as M hiding (Map)
 import           Data.Maybe             (fromJust, fromMaybe, mapMaybe)
 import qualified Data.Set               as S
-import           Formatting             (build, sformat, (%))
+import           Formatting             (build, int, sformat, (%))
 
 import           RSCoin.Core            (Address (..), HBlock (..), PeriodId,
                                          PublicKey, Signature, Transaction (..),
                                          Utxo, computeOutputAddrids,
-                                         validateSignature, validateTxPure,
-                                         verify)
+                                         maxStrategySize, validateSignature,
+                                         validateTxPure, verify)
 import           RSCoin.Core.Strategy   (AddressToTxStrategyMap,
                                          AllocationAddress (..),
                                          AllocationInfo (..),
@@ -184,6 +184,10 @@ allocateMSAddress
       unless (verify slavePk requestSig signedData) $
           throwM $ NEUnrelatedSignature $ sformat
               ("(msAddr, strategy) not signed with proper sk for pk: " % build) slavePk
+      when (S.size _allParties > maxStrategySize) $
+          throwM $ NEInvalidStrategy
+              (sformat ("multisignature address can't have more than " % int % " parties")
+               maxStrategySize)
       when (S.size _allParties < 2) $
           throwM $ NEInvalidStrategy "multisignature address should have at least two members"
       when (_sigNumber <= 0) $

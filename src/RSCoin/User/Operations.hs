@@ -31,7 +31,7 @@ module RSCoin.User.Operations
        , submitTransactionFromAll
        , TransactionInput
        , TransactionData (..)
-       , constructTransaction
+       , constructTransactions
        , getEmptySignatureBundle
        , signTransactionLocally
        , submitTransaction
@@ -288,7 +288,7 @@ submitTransactionFromAll
     -> Maybe UserCache
     -> C.Address
     -> C.Coin
-    -> m C.Transaction
+    -> m [C.Transaction]
 submitTransactionFromAll st maybeCache addressTo amount =
     assert (C.coinColor amount == 0) $
     do genAddr <- view C.genesisAddress <$> C.getNodeContext
@@ -352,7 +352,7 @@ submitTransaction
     => A.UserState
     -> Maybe UserCache
     -> TransactionData
-    -> m C.Transaction
+    -> m [C.Transaction]
 submitTransaction = submitTransactionRetry 1
 
 -- | Forms transaction out of user input and sends it. If failure
@@ -360,41 +360,38 @@ submitTransaction = submitTransactionRetry 1
 submitTransactionRetry
     :: forall m.
        C.WorkMode m
-    => Word               -- ^ Number of retries
-    -> A.UserState  -- ^ RSCoin user state (acid)
-    -> Maybe UserCache    -- ^ Optional cache to decrease number of RPC
+    => Word               -- ^ Number of retries.
+    -> A.UserState        -- ^ User's wallet.
+    -> Maybe UserCache    -- ^ Optional cache to decrease number of RPC.
     -> TransactionData    -- ^ Transaction description.
-    -> m C.Transaction
-submitTransactionRetry tries st maybeCache td@TransactionData{..}
-  | tries < 1 =
-      error
-          "User.Operations.submitTransactionRetry shouldn't be called with tries < 1"
-  | null tdInputs = commitError "you should enter at least one source input"
-  | otherwise = do
-      tx <- constructTransaction st td
-      emptyBundle <- getEmptySignatureBundle st tx
-      signatures <- signTransactionLocally st tx emptyBundle
-      tx <$ sendTransactionRetry tries st maybeCache tx signatures
+    -> m [C.Transaction]  -- ^ Submitted transaction is returned.
+submitTransactionRetry tries st maybeCache td@TransactionData {..}
+    | tries < 1 =
+        error
+            "User.Operations.submitTransactionRetry shouldn't be called with tries < 1"
+    | null tdInputs = commitError "you should enter at least one source input"
+    | otherwise = do
+        txs <- constructTransactions st td
+        txs <$ mapM_ (signAndSendTransaction tries st maybeCache) txs
 
-constructTransaction
+constructTransactions
     :: forall m . C.WorkMode m
-    => A.UserState -> TransactionData -> m C.Transaction
-constructTransaction st TransactionData{..} = do
+    => A.UserState -> TransactionData -> m [C.Transaction]
+constructTransactions st TransactionData {..} = do
     () <$ updateBlockchain st False
     C.logInfo $
         sformat
-            ("Form a transaction from " % build % ", to " % build % ", amount " % build)
-            (listBuilderJSONIndent 2 $ map
-                  (\(a,b) ->
-                        pairBuilder (a, listBuilderJSON b))
-                  tdInputs)
+            ("Form a transaction from " % build % ", to " % build % ", amount " %
+             build)
+            (listBuilderJSONIndent 2 $
+             map (\(a, b) -> pairBuilder (a, listBuilderJSON b)) tdInputs)
             tdOutputAddress
             (listBuilderJSONIndent 2 tdOutputCoins)
     -- If there are multiple
     let tdInputsMerged :: [TransactionInput]
-        tdInputsMerged = map (foldr1 (\(a,b) (_,d) -> (a, b++d))) $
-                         groupBy ((==) `on` fst) $
-                         sortOn fst tdInputs
+        tdInputsMerged =
+            map (foldr1 (\(a, b) (_, d) -> (a, b ++ d))) $
+            groupBy ((==) `on` fst) $ sortOn fst tdInputs
     unless (all C.isPositiveCoin $ concatMap snd tdInputsMerged) $
         commitError $
         sformat
@@ -408,7 +405,7 @@ constructTransaction st TransactionData{..} = do
         accInputs =
             map ((accounts `genericIndex`) *** C.coinsToMap) tdInputsMerged
         hasEnoughFunds :: (C.Address, C.CoinsMap) -> m Bool
-        hasEnoughFunds (acc,coinsMap) = do
+        hasEnoughFunds (acc, coinsMap) = do
             amountMap <- getAmountNoUpdate st acc
             let sufficient =
                     all
@@ -433,21 +430,60 @@ constructTransaction st TransactionData{..} = do
             accInputs
     when (any isNothing txPieces) $
         commitError "Couldn't form transaction. Not enough funds."
-    let (inputAddrids,outputs) = foldl1' mappend $ map fromJust txPieces
-        outTr =
+    let (inputAddrids, outputs) = foldl1' mappend $ map fromJust txPieces
+        outTx =
             C.Transaction
             { txInputs = inputAddrids
             , txOutputs = outputs ++ map (tdOutputAddress, ) tdOutputCoins
             }
-    when (not (null tdOutputCoins) && not (C.validateTxPure outTr)) $
-        commitError $
-        sformat ("Your transaction doesn't pass validity check: " % build) outTr
-    when (null tdOutputCoins && not (C.validateTxPure outTr)) $
-        commitError $
-        sformat
-            ("Our code is broken and our auto-generated transaction is invalid: " % build)
-            outTr
-    return outTr
+        outTxs = splitTransaction outTx
+    forM_ outTxs $
+        \tx -> do
+            when (not (null tdOutputCoins) && not (C.validateTxPure tx)) $
+                commitError $
+                sformat
+                    ("Your transaction doesn't pass validity check: " % build)
+                    tx
+            when (null tdOutputCoins && not (C.validateTxPure tx)) $
+                commitError $
+                sformat
+                    ("Our code is broken and our auto-generated transaction is invalid: " %
+                     build)
+                    tx
+    return outTxs
+
+splitTransactionChunkSize :: Int
+splitTransactionChunkSize = C.maxTxSize `div` 2
+
+-- IMPORTANT: this function assumes that all outputs have the same address (which is true now).
+-- It fixes transaction with too big size.
+-- TODO: optimize by grouping outputs.
+splitTransaction :: C.Transaction -> [C.Transaction]
+splitTransaction tx
+    | C.validateTxSize tx = [tx]
+    | otherwise =
+        let chunksNum = (length (C.txInputs tx) - 1) `div` splitTransactionChunkSize
+        in map (splitTransactionDo tx) [0 .. chunksNum]
+
+sublist :: Int -> Int -> [a] -> [a]
+sublist minIdx maxIdx = drop minIdx . take (maxIdx + 1)
+
+splitTransactionDo :: C.Transaction -> Int -> C.Transaction
+splitTransactionDo C.Transaction {..} i = C.Transaction inputs outputs
+  where
+    minIdx = i * splitTransactionChunkSize
+    maxIdx = min ((i + 1) * splitTransactionChunkSize - 1) (length txInputs - 1)
+    inputs = sublist minIdx maxIdx txInputs
+    outputAddr = head $ map fst txOutputs
+    outputs = map (outputAddr, ) . map (view _3) $ inputs
+
+signAndSendTransaction
+    :: C.WorkMode m
+    => Word -> A.UserState -> Maybe UserCache -> C.Transaction -> m ()
+signAndSendTransaction tries st maybeCache tx =
+    getEmptySignatureBundle st tx >>=
+    signTransactionLocally st tx >>=
+    sendTransactionRetry tries st maybeCache tx
 
 -- | Get empty signature bundle for passing into `signTransactionLocally`
 getEmptySignatureBundle

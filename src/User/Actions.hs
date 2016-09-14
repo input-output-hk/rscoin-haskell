@@ -35,7 +35,7 @@ import qualified Data.Text.IO            as TIO
 import           Formatting              (build, int, sformat, stext, string,
                                           (%))
 
-import           Serokell.Util.Text      (pairBuilder, show')
+import           Serokell.Util.Text      (listBuilderJSON, pairBuilder, show')
 
 #if GtkGui
 import           Control.Exception       (SomeException)
@@ -206,10 +206,10 @@ processFormTransaction
 processFormTransaction st inputs outputAddrStr outputCoins =
     eWrap $
     do td <- formTransactionPayload inputs outputAddrStr outputCoins
-       tx <- U.submitTransactionRetry 2 st Nothing td
+       txs <- U.submitTransactionRetry 2 st Nothing td
        C.logInfo $
-           sformat ("Successfully submitted transaction with hash: " % build) $
-           C.hash tx
+           sformat ("Successfully submitted transactions with hashes: " % build) $
+           listBuilderJSON $ map C.hash txs
 
 processMultisigAddress
     :: (MonadIO m, C.WorkMode m)
@@ -457,7 +457,9 @@ processColdFormTransaction
     -> m ()
 processColdFormTransaction st inputs outputAddrStr outputCoins path = eWrap $ do
     td <- formTransactionPayload inputs outputAddrStr outputCoins
-    tx <- U.constructTransaction st td
+    txs <- U.constructTransactions st td
+    -- FIXME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    let tx = head txs
     emptyBundle <- U.getEmptySignatureBundle st tx
     liftIO $ BS.writeFile path $ encode (tx, M.assocs emptyBundle)
     C.logInfo $ sformat

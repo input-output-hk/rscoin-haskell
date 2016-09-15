@@ -11,7 +11,7 @@ module RSCoin.Bank.Server
 
 import           Control.Applicative        (liftA2)
 import           Control.Lens               ((^.))
-import           Control.Monad              (forM_, when)
+import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (SomeException, bracket_, catch,
                                              throwM)
 import           Control.Monad.Trans        (lift, liftIO)
@@ -265,29 +265,28 @@ serveLocalControlRequest
     -> IORef Bool
     -> PT.BankLocalControlRequest
     -> ServerTE m ()
-serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest = do
-    periodId <- query st GetPeriodId
-    if not (PT.checkLocalControlRequest periodId bankPK controlRequest) then
-        toServer $ throwM $
-        BEInconsistentResponse $
-        sformat
-            ("Tried to execute control request " % build %
-             " with *invalid* signature")
-            controlRequest
-    else toServer $ do
-        logInfo $ sformat ("Executing control request: " % build) controlRequest
-        case controlRequest of
-            PT.AddMintette m pk _         -> update st (AddMintette m pk)
-            PT.AddExplorer e pid _        -> update st (AddExplorer e pid)
-            PT.RemoveMintette host port _ -> update st (RemoveMintette host port)
-            PT.RemoveExplorer host port _ -> update st (RemoveExplorer host port)
-            PT.FinishPeriod _             -> serveFinishPeriod st bankSK isPeriodChanging
-            PT.DumpStatistics sId _       -> serveDumpStatistics st sId
-        logInfo $
-            sformat
-                ("Control request " % build % " executed successfully")
-                controlRequest
-
+serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest =
+    toServer $
+    do periodId <- query st GetPeriodId
+       unless (PT.checkLocalControlRequest periodId bankPK controlRequest) $
+           throwM $
+           BEInconsistentResponse $
+           sformat
+               ("Tried to execute control request " % build %
+                " with *invalid* signature")
+               controlRequest
+       logInfo $ sformat ("Executing control request: " % build) controlRequest
+       case controlRequest of
+           PT.AddMintette m pk _ -> update st (AddMintette m pk)
+           PT.AddExplorer e pid _ -> update st (AddExplorer e pid)
+           PT.RemoveMintette host port _ -> update st (RemoveMintette host port)
+           PT.RemoveExplorer host port _ -> update st (RemoveExplorer host port)
+           PT.FinishPeriod _ -> serveFinishPeriod st bankSK isPeriodChanging
+           PT.DumpStatistics sId _ -> serveDumpStatistics st sId
+       logInfo $
+           sformat
+               ("Control request " % build % " executed successfully")
+               controlRequest
 
 serveGetExplorers
     :: C.WorkMode m

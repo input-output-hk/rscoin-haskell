@@ -13,14 +13,14 @@ module RSCoin.Notary.Web.Servant
        ) where
 
 import           Control.Lens                         (makeLenses, view)
-import           Control.Monad.Catch                  (MonadThrow, catch)
+import           Control.Monad.Catch                  (MonadThrow)
+import qualified Control.Monad.Catch                  as CMC
 import           Control.Monad.Except                 (throwError)
 import           Control.Monad.Reader                 (ReaderT, runReaderT)
 import           Control.Monad.Trans                  (liftIO)
 
 import           Data.Aeson.TH                        (deriveJSON)
 import           Data.Text                            (Text)
-import           Formatting                           (build, sformat)
 import           GHC.Generics                         (Generic)
 import           Network.MessagePack.Server           (runServerT)
 import           Network.Wai                          (Application)
@@ -35,7 +35,9 @@ import           Servant                              ((:<|>) (..), (:>),
                                                        Verb, addHeader, enter,
                                                        err500, serve)
 
-import           Serokell.Util.Exceptions             (throwText)
+import           Serokell.Util.Exceptions             (TextException (..),
+                                                       throwText)
+import           Serokell.Util.Text                   (show')
 
 import qualified RSCoin.Core                          as C
 import           RSCoin.Core.AesonJS                  ()
@@ -123,12 +125,17 @@ servantServer =
         fromRightWithFail res
 
 convertHandler :: S.NotaryState -> C.NodeContext -> NotaryServantHandler a -> Handler a
-convertHandler st nodeCtx act = liftIO (runReaderT act servantContext) `catch` handler
+convertHandler st nodeCtx act =
+    liftIO (runReaderT act servantContext) `CMC.catches`
+    [CMC.Handler notaryErrorHandler, CMC.Handler textExceptionHandler]
+-- TODO error handling, respond with appropriate 4xx status
   where
-    -- TODO error handling, respond with appropriate 4xx status
     servantContext = NotaryServantContext st nodeCtx
-    handler (e :: NotaryError) = do
-        C.logError $ sformat build e
+    notaryErrorHandler (e :: NotaryError) = do
+        C.logError $ show' e
+        throwError err500
+    textExceptionHandler (TextException t) = do
+        C.logError t
         throwError err500
 
 servantApp :: S.NotaryState -> C.NodeContext -> Application

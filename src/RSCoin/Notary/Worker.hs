@@ -20,8 +20,8 @@ import           RSCoin.Notary.AcidState   (AnnounceNewPeriods (..),
                                             SetSynchronization (..), query,
                                             update)
 
--- | This worker queries Bank each period to see if notary and bank periods matches.
--- If they are not same than Notary stops serving requests until he become updated.
+-- | This worker queries Bank each period to see if notary and bank periods match.
+-- If they are not same then Notary stops serving requests until he becomes updated.
 runFetchWorker
     :: WorkMode m
     => NotaryState
@@ -43,7 +43,7 @@ runFetchWorker st =
             runStorageUpdate st (max 0 notaryPid) bankPid
             logInfo "Notary updated his storage!"
         else
-            logDebug "Notary storagy is syncronized"
+            logDebug "Notary storagy is synchronized"
 
         update st $ SetSynchronization True
 

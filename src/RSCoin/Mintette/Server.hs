@@ -168,7 +168,7 @@ handleCheckTx env st tx addrId sg =
        C.logInfo $
             sformat ("Confirmed addrid (" % build % ") from transaction: " % build)
                 addrId tx
-       C.logInfo $ sformat ("Confirmation: " % build) res
+       C.logDebug $ sformat ("Confirmation: " % build) res
        return res
 
 handleCheckTxBatch
@@ -201,7 +201,9 @@ handleCheckTxBatch env st tx sigs =
                      (addrId, ) <$>
                      try' (update st $ CheckNotDoubleSpent tx addrId sig env))
                (M.assocs sigs)
-       C.logInfo "Returning confirmations" -- TODO add logging
+       C.logInfo $
+           sformat ("Confirmed addrids: " % build) $
+           listBuilderJSON $ M.keys sigs
        return res
   where
     try'
@@ -254,7 +256,7 @@ handleGetUtxo st =
            throwM $ C.BadRequest "getMintetteUtxo is only available in test run"
        C.logDebug "Getting utxo"
        (curUtxo, _) <- query st GetUtxoPset
-       C.logDebug $ sformat ("Corrent utxo is: " % build) curUtxo
+       C.logDebug $ sformat ("Current utxo is: " % build) curUtxo
        return curUtxo
 
 handleGetLogs

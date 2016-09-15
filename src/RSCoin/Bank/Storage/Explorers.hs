@@ -30,7 +30,7 @@ import qualified Data.Map             as M
 import           Data.SafeCopy        (base, deriveSafeCopy)
 import           Formatting           (int, sformat, string, (%))
 
-import           RSCoin.Bank.Error    (BankError (BEInconsistentResponse))
+import           RSCoin.Bank.Error    (BankError (BEBadRequest))
 import qualified RSCoin.Core          as C
 
 data ExplorersStorage = ExplorersStorage
@@ -78,7 +78,7 @@ removeExplorer host port = do
     expls <- uses esExplorers M.keys
     let res = find (\C.Explorer{..} -> explorerHost == host &&
                                        explorerPort == port) expls
-    maybe (throwError $ BEInconsistentResponse $
+    maybe (throwError $ BEBadRequest $
            sformat ("Explorer with host " % string % " and port " % int %
                     " is not in the storage, can't remove") host port)
           (\explorer -> esExplorers %= M.delete explorer)

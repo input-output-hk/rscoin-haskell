@@ -53,7 +53,7 @@ import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              StartNewPeriod (..), State,
                                              getStatistics, query, tidyState,
                                              update)
-import           RSCoin.Bank.Error          (BankError (BEInconsistentResponse))
+import           RSCoin.Bank.Error          (BankError (BEBadRequest))
 
 serve
     :: C.WorkMode m
@@ -150,7 +150,7 @@ serveGetHBlocks sk st (nub -> periodIds) =
        let gotIndices = map snd blocks
        when (gotIndices /= periodIds) $
            throwM $
-           BEInconsistentResponse $
+           BEBadRequest $
            sformat ("Couldn't get blocks for the following periods: " % build) $
            listBuilderJSON (periodIds \\ gotIndices)
        return $ map fst blocks
@@ -270,7 +270,7 @@ serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest =
     do periodId <- query st GetPeriodId
        unless (PT.checkLocalControlRequest periodId bankPK controlRequest) $
            throwM $
-           BEInconsistentResponse $
+           BEBadRequest $
            sformat
                ("Tried to execute control request " % build %
                 " with *invalid* signature")

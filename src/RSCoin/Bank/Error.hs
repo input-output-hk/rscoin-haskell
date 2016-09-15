@@ -15,8 +15,8 @@ import           RSCoin.Core.Error   (rscExceptionFromException,
                                       rscExceptionToException)
 
 data BankError
-    = BEInternal Text                     -- ^ Should not happen.
-    | BEInconsistentResponse Text         -- ^ Inconsistency detected.
+    = BEInternal Text    -- ^ Should not happen. Some invariant is broken.
+    | BEBadRequest Text  -- ^ Someone requested something bad.
     deriving (Show, Typeable, Eq)
 
 instance Exception BankError where
@@ -24,15 +24,15 @@ instance Exception BankError where
     fromException = rscExceptionFromException
 
 instance Buildable BankError where
-    build (BEInternal m)               = "internal error: " <> build m
-    build (BEInconsistentResponse msg) = build msg
+    build (BEInternal m)     = "internal error: " <> build m
+    build (BEBadRequest msg) = build msg
 
 instance MessagePack BankError where
-    toObject (BEInternal text)             = toObject (0::Int, text)
-    toObject (BEInconsistentResponse text) = toObject (1::Int, text)
+    toObject (BEInternal text)   = toObject (0::Int, text)
+    toObject (BEBadRequest text) = toObject (1::Int, text)
     fromObject obj = do
         (i,payload) <- fromObject obj
         case (i :: Int) of
             0 -> BEInternal <$> fromObject payload
-            1 -> BEInconsistentResponse <$> fromObject payload
+            1 -> BEBadRequest <$> fromObject payload
             _ -> Nothing

@@ -30,6 +30,7 @@ module RSCoin.Bank.AcidState
          -- | Updates
        , AddAddress (..)
        , AddMintette (..)
+       , PermitMintette (..)
        , AddExplorer (..)
        , RemoveMintette (..)
        , RemoveExplorer (..)
@@ -139,6 +140,9 @@ addAddress = BS.addAddress
 addMintette :: Mintette -> PublicKey -> Update BS.Storage ()
 addMintette = BS.addMintette
 
+permitMintette :: PublicKey -> Update BS.Storage ()
+permitMintette = BS.permitMintette
+
 addExplorer :: Explorer -> PeriodId -> Update BS.Storage ()
 addExplorer = BS.addExplorer
 
@@ -184,6 +188,7 @@ $(makeAcidic ''BS.Storage
              , 'addAddress
              , 'addMintette
              , 'addExplorer
+             , 'permitMintette
              , 'removeMintette
              , 'removeExplorer
              , 'setExplorerPeriod

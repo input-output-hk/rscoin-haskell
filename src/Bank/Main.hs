@@ -47,6 +47,9 @@ main = do
             let m = Mintette host port
             k <- readPk pk
             B.addMintetteReq ca bankSecretKey m k
+        Opts.PermitMintette pk -> do
+            k <- readPk pk
+            B.permitMintetteReq ca bankSecretKey k
         Opts.AddExplorer name port pk pId -> do
             k <- readPk pk
             let e =

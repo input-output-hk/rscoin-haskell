@@ -16,6 +16,7 @@ module RSCoin.Bank.Storage.Mintettes
 
        , Update
        , addMintette
+       , permitMintette
        , removeMintette
        , updateMintettes
 
@@ -28,6 +29,7 @@ import           Control.Monad.Except (ExceptT, MonadError (throwError))
 import           Control.Monad.State  (State)
 import           Data.List            (delete, find, nub, (\\))
 import qualified Data.Map             as M
+import qualified Data.Set             as Set
 import           Data.SafeCopy        (base, deriveSafeCopy)
 import           Formatting           (build, sformat, (%))
 
@@ -51,7 +53,11 @@ data MintettesStorage = MintettesStorage
     ,
       -- | List of mintettes which were added in current period and
       -- will become active for the next period.
+      -- TODO: should be a set for sake of simplicity
       _msPendingMintettes  :: ![(C.Mintette, C.PublicKey)]
+    ,
+      -- | Set of permissions for adding mintettes
+      _msPermittedMintettes :: !(Set.Set C.PublicKey)
     ,
       -- | Mintettes that should be excluded in the next period
       _msMintettesToRemove :: !C.Mintettes
@@ -76,6 +82,7 @@ mkMintettesStorage =
     MintettesStorage
     { _msMintettes = []
     , _msPendingMintettes = []
+    , _msPermittedMintettes = Set.empty
     , _msMintettesToRemove = []
     , _msDpk = []
     , _msDeadMintettes = M.empty
@@ -105,6 +112,11 @@ addMintette m k = do
         sformat ("Mintette " % build % " is already added, won't add.") m
     msMintettesToRemove %= delete m
     msPendingMintettes %= ((m, k) :)
+
+-- | Add mintette public key to the storage
+permitMintette :: C.PublicKey -> ExceptUpdate ()
+permitMintette k = do
+    msPermittedMintettes %= Set.insert k
 
 -- | Unstages a mintette from being in a next period. Is canceled by
 -- `addMintette` and vice versa

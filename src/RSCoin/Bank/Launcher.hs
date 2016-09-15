@@ -12,6 +12,7 @@ module RSCoin.Bank.Launcher
        , addMintetteInPlace
        , addExplorerInPlace
        , addMintetteReq
+       , permitMintetteReq
        , addExplorerReq
        , removeMintetteReq
        , removeExplorerReq
@@ -37,6 +38,7 @@ import           RSCoin.Core.Communication (getBlockchainHeight,
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
+                                            PermitMintette (PermitMintette),
                                             AddMintette (AddMintette), State,
                                             closeState, openState, update)
 import           RSCoin.Bank.Error         (BankError (BEBadRequest))
@@ -116,6 +118,12 @@ addMintetteReq ca bankSk m k = do
                      " is old & incosistent.")
             mPid bankPid
         sendBankLocalControlRequest (P.AddMintette m k proof)
+
+-- | Permit mintette's owner public key for later addition
+permitMintetteReq :: ContextArgument -> SecretKey -> PublicKey -> IO ()
+permitMintetteReq ca bankSk pk = do
+    let proof = sign bankSk pk
+    wrapRequest ca bankSk $ P.PermitMintette pk proof
 
 -- | Add explorer to Bank inside IO Monad.
 addExplorerReq :: ContextArgument -> SecretKey -> Explorer -> PeriodId -> IO ()

@@ -24,6 +24,7 @@ import           RSCoin.Core            (Severity (Error), configDirectory,
 data Command
     = Serve
     | AddMintette String Int T.Text
+    | PermitMintette T.Text
     | AddExplorer String Int T.Text Int
     | RemoveMintette String Int
     | RemoveExplorer String Int
@@ -52,6 +53,9 @@ commandParser =
          command
              "add-mintette"
              (info addMintetteOpts (progDesc "Add given mintette to database")) <>
+         command
+             "permit-mintette"
+             (info permitMintetteOpts (progDesc "Permit mintette given a public key")) <>
          command
              "add-explorer"
              (info addExplorerOpts (progDesc "Add given explorer to database")) <>
@@ -82,6 +86,11 @@ commandParser =
     serveOpts = pure Serve
     addMintetteOpts =
         AddMintette <$> mHost <*> mPort <*>
+        strOption
+            (long "key" <> help "Mintette's public key" <>
+             metavar "PUBLIC KEY STRING")
+    permitMintetteOpts =
+        PermitMintette <$>
         strOption
             (long "key" <> help "Mintette's public key" <>
              metavar "PUBLIC KEY STRING")

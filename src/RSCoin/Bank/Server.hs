@@ -41,6 +41,7 @@ import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
 
 import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),
+                                             PermitMintette (..),
                                              CheckAndBumpStatisticsId (..),
                                              GetExplorersAndPeriods (..),
                                              GetHBlock (..), GetHBlocks (..),
@@ -283,6 +284,7 @@ serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest =
        logInfo $ sformat ("Executing control request: " % build) controlRequest
        case controlRequest of
            PT.AddMintette m pk _ -> update st (AddMintette m pk)
+           PT.PermitMintette pk _ -> update st (PermitMintette pk)
            PT.AddExplorer e pid _ -> update st (AddExplorer e pid)
            PT.RemoveMintette host port _ -> update st (RemoveMintette host port)
            PT.RemoveExplorer host port _ -> update st (RemoveExplorer host port)

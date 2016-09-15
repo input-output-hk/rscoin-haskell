@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE Rank2Types       #-}
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE ViewPatterns     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Storage for Notary's data.
 
@@ -187,7 +188,7 @@ allocateMSAddress
       when (S.size _allParties > maxStrategySize) $
           throwM $ NEInvalidStrategy
               (sformat ("multisignature address can't have more than " % int % " parties")
-               maxStrategySize)
+               (maxStrategySize :: Word))
       when (S.size _allParties < 2) $
           throwM $ NEInvalidStrategy "multisignature address should have at least two members"
       when (_sigNumber <= 0) $

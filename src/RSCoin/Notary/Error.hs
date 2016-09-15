@@ -30,6 +30,7 @@ data NotaryError
     | NEStrategyNotSupported Text  -- ^ Address's strategy is not supported, with name provided
     | NEUnrelatedSignature Text    -- ^ Signature doesn't correspond to any of address' parties
     | NEInvalidStrategy Text       -- ^ Provided strategy is invalid
+    | NENotUpdated Text            -- ^ Notary Storage is not updated according to Banks one
     deriving (Eq, Show, Typeable, Data)
 
 instance Exception NotaryError where
@@ -45,7 +46,9 @@ instance Buildable NotaryError where
     build (NEStrategyNotSupported s) = bprint ("NEStrategyNotSupported, strategy " % stext) s
     build (NEUnrelatedSignature msg) = bprint ("NEUnrelatedSignature: " % stext) msg
     build (NEInvalidStrategy msg)    = bprint ("NEInvalidStrategy: " % stext) msg
+    build (NENotUpdated msg)         = bprint ("NENotUpdated: " % stext) msg
 
+-- TODO: remove this function and use one from our MessagePack (also rename)
 toObj
     :: MessagePack a
     => (Int, a) -> Object
@@ -60,6 +63,7 @@ instance MessagePack NotaryError where
     toObject (NEStrategyNotSupported s) = toObj (5, s)
     toObject (NEUnrelatedSignature msg) = toObj (6, msg)
     toObject (NEInvalidStrategy msg)    = toObj (7, msg)
+    toObject (NENotUpdated msg)         = toObj (8, msg)
 
     fromObject obj = do
         (i, payload) <- fromObject obj
@@ -72,4 +76,5 @@ instance MessagePack NotaryError where
             5 -> NEStrategyNotSupported <$> fromObject payload
             6 -> NEUnrelatedSignature   <$> fromObject payload
             7 -> NEInvalidStrategy      <$> fromObject payload
+            8 -> NENotUpdated           <$> fromObject payload
             _ -> Nothing

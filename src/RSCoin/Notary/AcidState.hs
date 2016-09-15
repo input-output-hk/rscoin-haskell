@@ -11,6 +11,7 @@ module RSCoin.Notary.AcidState
        , AddSignedTransaction (..)
        , AllocateMSAddress (..)
        , AnnounceNewPeriods (..)
+       , CheckIfSynchronized (..)
        , GetPeriodId (..)
        , GetSignatures (..)
        , OutdatedAllocs (..)
@@ -19,6 +20,7 @@ module RSCoin.Notary.AcidState
        , QueryCompleteMSAdresses (..)
        , QueryMyMSRequests (..)
        , RemoveCompleteMSAddresses (..)
+       , SetSynchronization (..)
 
          -- * Encapsulations
        , closeState
@@ -111,6 +113,7 @@ $(makeAcidic ''Storage
              [ 'S.addSignedTransaction
              , 'S.allocateMSAddress
              , 'S.announceNewPeriods
+             , 'S.checkIfSynchronized
              , 'S.getPeriodId
              , 'S.getSignatures
              , 'S.outdatedAllocs
@@ -119,4 +122,5 @@ $(makeAcidic ''Storage
              , 'S.queryCompleteMSAdresses
              , 'S.queryMyMSRequests
              , 'S.removeCompleteMSAddresses
+             , 'S.setSynchronization
              ])

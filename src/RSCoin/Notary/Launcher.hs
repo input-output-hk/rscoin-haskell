@@ -1,9 +1,9 @@
 -- | Launch Notary stuff.
 
 module RSCoin.Notary.Launcher
-        ( ContextArgument (..)
-        , launchNotaryReal
-        ) where
+       ( ContextArgument (..)
+       , launchNotaryReal
+       ) where
 
 import           Control.Monad.Catch                  (bracket)
 import           Control.Monad.Trans                  (MonadIO, liftIO)
@@ -14,8 +14,10 @@ import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
 import           Control.TimeWarp.Timed               (fork_)
 import           RSCoin.Core                          (ContextArgument (..),
-                                                       PeriodId, PublicKey,
-                                                       SecretKey, Severity (..),
+                                                       NodeContext, PeriodId,
+                                                       PublicKey, SecretKey,
+                                                       Severity (..),
+                                                       getNodeContext,
                                                        notaryLoggerName,
                                                        runRealModeUntrusted)
 
@@ -23,6 +25,7 @@ import           RSCoin.Notary.AcidState              (NotaryState, closeState,
                                                        openMemState, openState)
 import           RSCoin.Notary.Server                 (serveNotary)
 import           RSCoin.Notary.Web.Servant            (servantApp)
+import           RSCoin.Notary.Worker                 (runFetchWorker)
 
 launchNotaryReal
     :: Severity
@@ -51,7 +54,8 @@ launchNotaryReal
         bracket (openAction trustedKeys allocationEndurance transactionEndurance) closeState $
         \st -> do
             fork_ $ serveNotary sk st
-            launchWeb webPort logSeverity st
+            fork_ $ runFetchWorker st
+            launchWeb webPort logSeverity st =<< getNodeContext
 
 loggingMiddleware :: Severity -> Middleware
 loggingMiddleware Debug = logStdoutDev
@@ -60,6 +64,10 @@ loggingMiddleware _     = id
 
 launchWeb
     :: MonadIO m
-    => Int -> Severity -> NotaryState -> m ()
-launchWeb port sev st =
-    liftIO . run port . loggingMiddleware sev . servantApp $ st
+    => Int
+    -> Severity
+    -> NotaryState
+    -> NodeContext
+    -> m ()
+launchWeb port sev st nodeCtx =
+    liftIO $ run port $ loggingMiddleware sev $ servantApp st nodeCtx

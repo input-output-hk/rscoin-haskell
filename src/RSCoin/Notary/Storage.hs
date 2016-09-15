@@ -11,15 +11,17 @@ module RSCoin.Notary.Storage
        , addSignedTransaction
        , allocateMSAddress
        , announceNewPeriods
+       , checkIfSynchronized
        , emptyNotaryStorage
        , getPeriodId
        , getSignatures
+       , outdatedAllocs
        , pollPendingTxs
        , queryAllMSAdresses
        , queryCompleteMSAdresses
        , queryMyMSRequests
        , removeCompleteMSAddresses
-       , outdatedAllocs
+       , setSynchronization
        ) where
 
 import           Control.Lens           (Getter, Lens', at, makeLenses, to, use,
@@ -108,6 +110,9 @@ data Storage = Storage
 
       -- | Last periodId, known to Notary.
     , _periodId               :: !PeriodId
+
+      -- | This flag is @True@ if 'Notary' has up-to-date 'Storage'.
+    , _isSynchronized         :: !Bool
     } deriving (Show)
 
 $(makeLenses ''Storage)
@@ -126,6 +131,7 @@ emptyNotaryStorage =
     , _utxo                   = mempty
     , _masterKeys             = mempty
     , _periodId               = -1
+    , _isSynchronized         = False
     }
 
 -- ==============
@@ -317,7 +323,6 @@ removeOutdatedInfo pId enduranceLens discardLens poolLens = do
             whenJust mInfoList $ \infoList -> forM_ infoList $ \info ->
                 poolLens %= HM.delete info
 
-
 -- | Announce HBlocks, not yet known to Notary.
 announceNewPeriods :: PeriodId -- ^ periodId of latest hblock
                    -> [HBlock] -- ^ blocks, head corresponds to the latest block
@@ -412,9 +417,6 @@ getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> view addresses
 getSignatures :: Transaction -> Query Storage [(Address, Signature Transaction)]
 getSignatures tx = HM.toList . (HM.lookupDefault HM.empty tx) <$> view txPool
 
--- | Get last known periodId of Notary (interface for bank).
-getPeriodId :: Query Storage PeriodId
-getPeriodId = view periodId
 
 -- | Collect all pending multisignature transactions which have one of
 -- party is a member of given list.
@@ -435,3 +437,17 @@ pollPendingTxs parties = do
            $ mapMaybe (`HM.lookup` addrIdResolve) txInputs
         then HS.insert tx txSet
         else txSet
+
+------------------
+-- storage getters
+------------------
+
+-- | Get last known periodId of Notary (interface for bank).
+getPeriodId :: Query Storage PeriodId
+getPeriodId = view periodId
+
+checkIfSynchronized :: Query Storage Bool
+checkIfSynchronized = view isSynchronized
+
+setSynchronization :: Bool -> Update Storage ()
+setSynchronization isUpdated = isSynchronized .= isUpdated

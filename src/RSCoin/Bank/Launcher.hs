@@ -121,8 +121,7 @@ addMintetteReq ca bankSk m k = do
 addExplorerReq :: ContextArgument -> SecretKey -> Explorer -> PeriodId -> IO ()
 addExplorerReq ca bankSk e pId = do
     let proof = sign bankSk (e, pId)
-        e' = e {explorerHost = "asdasdasdasd"}
-    wrapRequest ca bankSk $ P.AddExplorer e' pId proof
+    wrapRequest ca bankSk $ P.AddExplorer e pId proof
 
 -- | Sends a request to remove mintette
 removeMintetteReq :: ContextArgument -> SecretKey -> String -> Int -> IO ()

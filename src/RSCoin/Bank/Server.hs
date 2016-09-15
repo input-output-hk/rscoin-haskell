@@ -178,9 +178,10 @@ onPeriodFinished sk st = do
     mintettes <- query st GetMintettes
     pId <- query st GetPeriodId
     C.logInfo $ sformat ("Period " % int % " has just finished!") pId
+    -- init here to see them in next period
+    initializeMultisignatureAddresses `catch` handlerInitializeMS
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
-    initializeMultisignatureAddresses  -- init here to see them in next period
     periodResults <- getPeriodResults sk mintettes pId
     timestamp <- liftIO getPOSIXTime
     newPeriodData <- update st $ StartNewPeriod timestamp sk periodResults
@@ -214,6 +215,10 @@ onPeriodFinished sk st = do
     handlerAnnouncePeriodsN (e :: SomeException) =
         C.logWarning $
         sformat ("Error occurred in communicating with Notary: " % build) e
+    -- TODO: catch appropriate exception according to protocol implementation
+    handlerInitializeMS (e :: SomeException) =
+        C.logWarning $
+        sformat ("Error occurred in initializing MS addresses: " % build) e
     initializeMultisignatureAddresses = do
         newMSAddresses <- C.queryNotaryCompleteMSAddresses
         forM_ newMSAddresses $ \(msAddr, strategy) -> do

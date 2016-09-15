@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Explorer Server.
 
 module RSCoin.Explorer.Server
@@ -7,10 +9,12 @@ module RSCoin.Explorer.Server
 import           Control.Exception         (throwIO)
 import           Control.Lens              (view)
 import           Control.Monad             (unless)
-import           Control.Monad.Trans       (MonadIO (liftIO))
+import           Control.Monad.Catch       (catch)
+import           Control.Monad.Trans       (MonadIO (liftIO), lift)
+import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
 
-import           Serokell.Util.Text        (listBuilderJSONIndent)
+import           Serokell.Util.Text        (listBuilderJSONIndent, show')
 
 import           Control.TimeWarp.Rpc      (ServerT, serverTypeRestriction1)
 
@@ -37,17 +41,27 @@ serve port ch st _ = do
         , C.method (C.RSCExplorer C.EMGetTransaction) $
           idr2 $ handleGetTransaction st]
 
+type ServerTE m a = ServerT m (Either T.Text a)
+
+toServer :: C.WorkMode m => m a -> ServerTE m a
+toServer action = lift $ (Right <$> action) `catch` handler
+  where
+    handler (e :: ExplorerError) = do
+        C.logWarning $ show' e
+        return $ Left $ show' e
+
 handleGetTransaction
     :: C.WorkMode m
-    => State -> C.TransactionId -> ServerT m (Maybe C.Transaction)
-handleGetTransaction st tId = do
-    tx <- query st (GetTx tId)
-    let msg =
-            sformat
-                ("Getting transaction with id " % build % ": " % build)
-                tId
-                tx
-    tx <$ C.logDebug msg
+    => State -> C.TransactionId -> ServerTE m (Maybe C.Transaction)
+handleGetTransaction st tId =
+    toServer $
+    do tx <- query st (GetTx tId)
+       let msg =
+               sformat
+                   ("Getting transaction with id " % build % ": " % build)
+                   tId
+                   tx
+       tx <$ C.logDebug msg
 
 type HBlockSigned = C.WithSignature (C.PeriodId, C.WithMetadata C.HBlock C.HBlockMetadata)
 
@@ -56,34 +70,35 @@ handleNewHBlock
     => Channel
     -> State
     -> HBlockSigned
-    -> ServerT m C.PeriodId
-handleNewHBlock ch st signed@(C.WithSignature (newBlockId, blkWithMeta@C.WithMetadata {..}) _) = do
-    C.logInfo $ sformat ("Received new block #" % int) newBlockId
-    let newBlock = wmValue
-        ret p = do
-            C.logDebug $ sformat ("Now expected block is #" % int) p
-            return p
-        upd = do
-            C.logDebug $ sformat ("HBlock hash: " % build) (C.hash newBlock)
-            C.logDebug $ sformat ("HBlock metadata: " % build) wmMetadata
-            C.logDebug $
-                sformat ("Transaction hashes: " % build) $
-                listBuilderJSONIndent 2 $
-                map (C.hash :: C.Transaction -> C.Hash C.Transaction) $
-                C.hbTransactions newBlock
-            C.logDebug $
-                sformat ("Transactions: " % build) $
-                listBuilderJSONIndent 2 $ C.hbTransactions newBlock
-            update st (AddHBlock newBlockId blkWithMeta)
-            writeChannel
-                ch
-                ChannelItem {ciTransactions = C.hbTransactions newBlock}
-            tidyState st
-            ret (newBlockId + 1)
-    bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
-    unless (C.verifyWithSignature bankPublicKey signed) $
-        liftIO $ throwIO EEInvalidBankSignature
-    expectedPid <- query st GetExpectedPeriodId
-    if expectedPid == newBlockId
-        then upd
-        else ret expectedPid
+    -> ServerTE m C.PeriodId
+handleNewHBlock ch st signed@(C.WithSignature (newBlockId, blkWithMeta@C.WithMetadata {..}) _) =
+    toServer $
+    do C.logInfo $ sformat ("Received new block #" % int) newBlockId
+       let newBlock = wmValue
+           ret p = do
+               C.logDebug $ sformat ("Now expected block is #" % int) p
+               return p
+           upd = do
+               C.logDebug $ sformat ("HBlock hash: " % build) (C.hash newBlock)
+               C.logDebug $ sformat ("HBlock metadata: " % build) wmMetadata
+               C.logDebug $
+                   sformat ("Transaction hashes: " % build) $
+                   listBuilderJSONIndent 2 $
+                   map (C.hash :: C.Transaction -> C.Hash C.Transaction) $
+                   C.hbTransactions newBlock
+               C.logDebug $
+                   sformat ("Transactions: " % build) $
+                   listBuilderJSONIndent 2 $ C.hbTransactions newBlock
+               update st (AddHBlock newBlockId blkWithMeta)
+               writeChannel
+                   ch
+                   ChannelItem {ciTransactions = C.hbTransactions newBlock}
+               tidyState st
+               ret (newBlockId + 1)
+       bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+       unless (C.verifyWithSignature bankPublicKey signed) $
+           liftIO $ throwIO EEInvalidBankSignature
+       expectedPid <- query st GetExpectedPeriodId
+       if expectedPid == newBlockId
+           then upd
+           else ret expectedPid

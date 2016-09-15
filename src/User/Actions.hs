@@ -12,50 +12,52 @@ module Actions
        , initializeStorage
        ) where
 
-import           Control.Applicative     (liftA2)
-import           Control.Lens            ((^.))
-import           Control.Monad           (forM_, join, unless, void, when)
-import           Control.Monad.IO.Class  (MonadIO)
-import           Control.Monad.Trans     (liftIO)
+import           Control.Applicative      (liftA2)
+import           Control.Lens             ((^.))
+import           Control.Monad            (forM_, join, unless, void, when)
+import           Control.Monad.Catch      (MonadThrow)
+import           Control.Monad.Trans      (MonadIO (liftIO))
 
-import           Data.Aeson              (decode, encode)
-import           Data.Bifunctor          (bimap, first, second)
-import qualified Data.ByteString.Lazy    as BS
-import           Data.Char               (isSpace)
-import           Data.Function           (on)
-import           Data.Int                (Int64)
-import           Data.List               (genericIndex, groupBy, intersperse)
-import qualified Data.Map                as M
-import           Data.Maybe              (fromJust, fromMaybe, isJust, mapMaybe)
-import           Data.Monoid             ((<>))
-import qualified Data.Set                as S hiding (Set)
-import qualified Data.Text               as T
-import qualified Data.Text.Buildable     as B (Buildable (build))
-import qualified Data.Text.IO            as TIO
-import           Formatting              (build, int, sformat, stext, string,
-                                          (%))
+import           Data.Aeson               (decode, encode)
+import           Data.Bifunctor           (bimap, first, second)
+import qualified Data.ByteString.Lazy     as BS
+import           Data.Char                (isSpace)
+import           Data.Function            (on)
+import           Data.Int                 (Int64)
+import           Data.List                (genericIndex, groupBy, intersperse)
+import qualified Data.Map                 as M
+import           Data.Maybe               (fromJust, fromMaybe, isJust,
+                                           mapMaybe)
+import           Data.Monoid              ((<>))
+import qualified Data.Set                 as S hiding (Set)
+import qualified Data.Text                as T
+import qualified Data.Text.Buildable      as B (Buildable (build))
+import qualified Data.Text.IO             as TIO
+import           Formatting               (build, int, sformat, stext, string,
+                                           (%))
 
-import           Serokell.Util.Text      (pairBuilder, show')
+import           Serokell.Util.Exceptions (throwText)
+import           Serokell.Util.Text       (listBuilderJSON, pairBuilder, show')
 
 #if GtkGui
-import           Control.Exception       (SomeException)
-import           Control.Monad.Catch     (bracket, catch)
-import           Control.TimeWarp.Timed  (for, ms, wait)
-import qualified Data.Acid               as ACID
-import qualified Graphics.UI.Gtk         as G
-import           GUI.RSCoin.ErrorMessage (reportSimpleErrorNoWindow)
-import           GUI.RSCoin.GUI          (startGUI)
-import           GUI.RSCoin.GUIAcid      (emptyGUIAcid)
+import           Control.Exception        (SomeException)
+import           Control.Monad.Catch      (bracket, catch)
+import           Control.TimeWarp.Timed   (for, ms, wait)
+import qualified Data.Acid                as ACID
+import qualified Graphics.UI.Gtk          as G
+import           GUI.RSCoin.ErrorMessage  (reportSimpleErrorNoWindow)
+import           GUI.RSCoin.GUI           (startGUI)
+import           GUI.RSCoin.GUIAcid       (emptyGUIAcid)
 #endif
 
-import qualified RSCoin.Core             as C
-import           RSCoin.Core.Aeson       ()
-import           RSCoin.Core.Strategy    (AllocationAddress (..),
-                                          PartyAddress (..))
-import qualified RSCoin.User             as U
-import           RSCoin.User.Error       (eWrap)
-import           RSCoin.User.Operations  (TransactionData (..))
-import qualified UserOptions             as O
+import qualified RSCoin.Core              as C
+import           RSCoin.Core.Aeson        ()
+import           RSCoin.Core.Strategy     (AllocationAddress (..),
+                                           PartyAddress (..))
+import qualified RSCoin.User              as U
+import           RSCoin.User.Error        (eWrap)
+import           RSCoin.User.Operations   (TransactionData (..))
+import qualified UserOptions              as O
 
 
 initializeStorage
@@ -206,10 +208,10 @@ processFormTransaction
 processFormTransaction st inputs outputAddrStr outputCoins =
     eWrap $
     do td <- formTransactionPayload inputs outputAddrStr outputCoins
-       tx <- U.submitTransactionRetry 2 st Nothing td
+       txs <- U.submitTransactionRetry 2 st Nothing td
        C.logInfo $
-           sformat ("Successfully submitted transaction with hash: " % build) $
-           C.hash tx
+           sformat ("Successfully submitted transactions with hashes: " % build) $
+           listBuilderJSON $ map C.hash txs
 
 processMultisigAddress
     :: (MonadIO m, C.WorkMode m)
@@ -273,7 +275,7 @@ processListPendingTxs :: (MonadIO m, C.WorkMode m) => U.UserState -> m ()
 processListPendingTxs st = do
     addrs <- U.getAllPublicAddresses st
     C.logInfo "Querying notary to update the list of pending transactions"
-    txs0 <- C.pollPendingTransactions addrs
+    txs0 <- C.pollPendingTransactionsNoLimit addrs
     U.update st $ U.UpdatePendingTxs $ S.fromList txs0
     txs <- U.query st U.GetPendingTxs
     if null txs
@@ -307,11 +309,18 @@ processListPendingTxs st = do
                          , "\n}"
                          ]
 
+validateTxThrow :: MonadThrow m => C.Transaction -> m ()
+validateTxThrow tx
+    | C.validateTxPure tx = pure ()
+    | otherwise =
+        throwText $ sformat ("Can't validate transaction: " % build) tx
+
 processSendPendingTx
     :: (MonadIO m, C.WorkMode m)
     => U.UserState -> Int -> m ()
 processSendPendingTx st ix0 = do
     tx <- U.getPendingTransaction st $ ix0 - 1
+    validateTxThrow tx
     emptyBundle <- U.getEmptySignatureBundle st tx
     signatures <- U.signTransactionLocally st tx emptyBundle
     C.logInfo "Collecting signatures & sending"
@@ -457,9 +466,9 @@ processColdFormTransaction
     -> m ()
 processColdFormTransaction st inputs outputAddrStr outputCoins path = eWrap $ do
     td <- formTransactionPayload inputs outputAddrStr outputCoins
-    tx <- U.constructTransaction st td
-    emptyBundle <- U.getEmptySignatureBundle st tx
-    liftIO $ BS.writeFile path $ encode (tx, M.assocs emptyBundle)
+    txs <- U.constructTransactions st td
+    emptyBundles <- mapM (U.getEmptySignatureBundle st) txs
+    liftIO $ BS.writeFile path $ encode (txs, fmap M.assocs emptyBundles)
     C.logInfo $ sformat
         ("Your transaction data has been written to the '" % string % "'") path
 
@@ -471,19 +480,17 @@ processColdSignTransaction
     -> FilePath
     -> m ()
 processColdSignTransaction st bundlePath = eWrap $ do
-    (tx, sigAssocs) :: (C.Transaction, [(C.AddrId, U.SignatureValue)]) <-
+    (txs, sigAssocses) :: ([C.Transaction], [[(C.AddrId, U.SignatureValue)]]) <-
         liftIO $ (fromJust . decode) <$> BS.readFile bundlePath
-    let sigBundle = M.fromList sigAssocs
-    updatedSigBundle <- U.signTransactionLocally st tx sigBundle
---    updatedSigBundle <- forM sigAssocs $ \(addrId, (msAddr, C.MOfNStrategy m p, signatures)) -> do
---        (userAddr, userSk) <- U.findPartyAddress st $ HS.fromList $ map C.UserAlloc $ S.toList p
---        pure (addrId, (msAddr, C.MOfNStrategy m p, (userAddr, C.sign userSk tx) : signatures))
+    let sigBundles = fmap M.fromList sigAssocses
+    updatedSigBundles <- mapM (uncurry (U.signTransactionLocally st)) $
+        zip txs sigBundles
     -- @TODO: not efficient check
-    if sigBundle == updatedSigBundle
+    if sigBundles == updatedSigBundles
     then C.logInfo "No transactions have been signed"
     else do
         let signedPath = bundlePath <> ".signed"
-        liftIO $ BS.writeFile signedPath $ encode (tx, M.assocs updatedSigBundle)
+        liftIO $ BS.writeFile signedPath $ encode (txs, fmap M.assocs updatedSigBundles)
         C.logInfo $ sformat ("Some transactions have been succesfully " %
                              "signed, signed file is '" % string % "'")
                             signedPath
@@ -494,10 +501,11 @@ processColdSendTransaction
     -> FilePath
     -> m ()
 processColdSendTransaction st bundlePath = eWrap $ do
-    (tx, sigAssocs) :: (C.Transaction, [(C.AddrId, U.SignatureValue)]) <-
+    (txs, sigAssocses) :: ([C.Transaction], [[(C.AddrId, U.SignatureValue)]]) <-
         liftIO $ (fromJust . decode) <$> BS.readFile bundlePath
-    let sigBundle = M.fromList sigAssocs
-    U.sendTransactionRetry 2 st Nothing tx sigBundle
+    let sigBundles = fmap M.fromList sigAssocses
+    mapM_ validateTxThrow txs
+    mapM_ (uncurry (U.sendTransactionRetry 2 st Nothing)) $ zip txs sigBundles
 
 processImportAddress
     :: (MonadIO m, C.WorkMode m)
@@ -622,11 +630,10 @@ dumpCommand
     :: C.WorkMode m
     => U.UserState -> O.DumpCommand -> m ()
 dumpCommand _ O.DumpMintettes = void C.getMintettes
-dumpCommand _ O.DumpAddresses = void C.getAddresses
+-- dumpCommand _ O.DumpAddresses = void C.getAddresses
 dumpCommand _ O.DumpPeriod = void C.getBlockchainHeight
 dumpCommand _ (O.DumpHBlocks from to) = void $ C.getBlocksByHeight from to
 dumpCommand _ (O.DumpHBlock pId) = void $ C.getBlockByHeight pId
-dumpCommand _ (O.DumpLogs mId from to) = void $ C.getLogs mId from to
 dumpCommand _ (O.DumpMintetteUtxo mId) = void $ C.getMintetteUtxo mId
 dumpCommand _ (O.DumpMintetteLogs mId pId) = void $ C.getMintetteLogs mId pId
 dumpCommand st (O.DumpAddress idx) =

@@ -24,7 +24,8 @@ import           Control.Monad.Catch               (Handler (Handler),
                                                     MonadCatch, MonadMask,
                                                     MonadThrow, SomeException,
                                                     catches, finally, throwM)
-import           Control.Monad.Extra               (ifM, whenJust, whenJustM)
+import           Control.Monad.Extra               (ifM, whenJust, whenJustM,
+                                                    whenM)
 import           Control.Monad.Reader              (MonadReader, ReaderT,
                                                     runReaderT)
 import           Control.Monad.State               (MonadState, State, runState)
@@ -225,6 +226,25 @@ myAddress sessId = (^. ccAddress) <$> myContext sessId
 myBlockId :: SessionId -> ServerMonad (Maybe C.PeriodId)
 myBlockId sessId = (^. ccHBlock) <$> myContext sessId
 
+checkLimit
+    :: (Integral n, Ord n)
+    => SessionId -> Word -> (n, n) -> Text -> ServerMonad Bool
+checkLimit sessId limit (lo, hi) unitsName
+    | lo >= hi = pure True
+    | fromIntegral (hi - lo) <= limit = pure True
+    | otherwise = do
+        let msg =
+                sformat
+                    ("please request no more than " % int % " " % stext %
+                     " (you requested " %
+                     int %
+                     ")")
+                    limit
+                    unitsName
+                    (hi - lo)
+        conn <- myConnection sessId
+        False <$ send conn (OMError $ LimitExceededError msg)
+
 onSetAddress :: SessionId -> C.Address -> ServerMonad ()
 onSetAddress sessId addr = do
     addrKnown <- query (DB.IsAddressKnown addr)
@@ -297,19 +317,28 @@ onGetBlockchainHeight sessId = do
     send conn . OMBlockchainHeight . pred =<< query DB.GetExpectedPeriodId
     recvLoop sessId
 
+blocksOverviewLimit :: Num a => a
+blocksOverviewLimit = 40
+
 onGetBlocksOverview :: SessionId -> (C.PeriodId, C.PeriodId) -> ServerMonad ()
 onGetBlocksOverview sessId range = do
     C.logDebug "Blocks overview requested"
-    conn <- myConnection sessId
-    send conn . OMBlocksOverview . map (second C.wmMetadata) =<<
-        query (DB.GetHBlocksExtended range)
+    whenM (checkLimit sessId blocksOverviewLimit range "block metadatas") $
+        do conn <- myConnection sessId
+           send conn . OMBlocksOverview . map (second C.wmMetadata) =<<
+               query (DB.GetHBlocksExtended range)
     recvLoop sessId
+
+transactionsLimit :: Num a => a
+transactionsLimit = 80
 
 onGetTransactionsGlobal :: SessionId -> (Word, Word) -> ServerMonad ()
 onGetTransactionsGlobal sessId range = do
     C.logDebug "Transactions from global history requested"
-    conn <- myConnection sessId
-    send conn . uncurry OMTransactionsGlobal =<< query (DB.GetTxsGlobal range)
+    whenM (checkLimit sessId transactionsLimit range "transactions") $
+        do conn <- myConnection sessId
+           send conn . uncurry OMTransactionsGlobal =<<
+               query (DB.GetTxsGlobal range)
     recvLoop sessId
 
 receiveControlMessage :: SessionId
@@ -382,7 +411,8 @@ onAddressInfo sessId msg addr = do
                     lo
                     hi
                     addr
-            send conn . uncurry (OMAddrTransactions addr) =<<
+            whenM (checkLimit sessId transactionsLimit indices "transactions") $
+                send conn . uncurry (OMAddrTransactions addr) =<<
                 query (DB.GetAddressTransactions addr indices)
 
 onHBlockInfo :: SessionId -> HBlockInfoMsg -> C.PeriodId -> ServerMonad ()
@@ -392,16 +422,20 @@ onHBlockInfo sessId msg blkId = do
     let sendError =
             send conn $
             OMError $ NotFound $ sformat ("HBlock #" % int % " not found") blkId
-        proceed C.WithMetadata {wmValue = C.HBlock {..}
-                               ,wmMetadata = ext} = do
+        proceed C.WithMetadata {wmValue = C.HBlock {..}, wmMetadata = ext} = do
             txExtensions <- query (DB.GetTxExtensions blkId)
             case msg of
-                HIGetMetadata -> do
-                    send conn . OMBlockMetadata blkId $ ext
-                (HIGetTransactions indices) -> do
+                HIGetMetadata -> send conn . OMBlockMetadata blkId $ ext
+                (HIGetTransactions indices) ->
+                    whenM
+                        (checkLimit
+                             sessId
+                             transactionsLimit
+                             indices
+                             "transactions") $
                     send conn . OMBlockTransactions blkId $
-                        indexedSubList indices $
-                        zipWith C.WithMetadata hbTransactions txExtensions
+                    indexedSubList indices $
+                    zipWith C.WithMetadata hbTransactions txExtensions
     maybe sendError proceed blkExtendedMaybe
 
 recvLoop :: SessionId -> ServerMonad ()
@@ -477,32 +511,31 @@ onNewChannelItem ChannelItem {ciTransactions = txs} = do
         sformat
             ("Affected addresses are: " % build)
             (listBuilderJSON affectedAddresses)
-    mapM_ notifyAllAboutAddressUpdate affectedAddresses
+    mapM_ notifySubscribersAboutAddressUpdate affectedAddresses
     notifyAboutNewHBlock
+
+mkNotificationMessages :: C.Address -> ServerMonad [OutcomingMsg]
+mkNotificationMessages addr = do
+    msgBalance <- uncurry (OMBalance addr) <$> query (DB.GetAddressBalance addr)
+    msgTxNumber <-
+        uncurry (OMTxNumber addr) <$> query (DB.GetAddressTxNumber addr)
+    return [msgBalance, msgTxNumber]
 
 notifyAboutAddressUpdate :: SessionId -> C.Address -> ServerMonad ()
 notifyAboutAddressUpdate sessId addr = do
-    msgBalance <- uncurry (OMBalance addr) <$> query (DB.GetAddressBalance addr)
-    msgTxNumber <-
-        uncurry (OMTxNumber addr) <$> query (DB.GetAddressTxNumber addr)
     connection <- myConnection sessId
-    mapM_ (send connection) [msgBalance, msgTxNumber]
+    mapM_ (send connection) =<< mkNotificationMessages addr
 
--- TODO: notifyAllAbout ~ mapM notifyAbout sessionIds
--- but I left this version because it is more optimized (@gromak ?)
-notifyAllAboutAddressUpdate :: C.Address -> ServerMonad ()
-notifyAllAboutAddressUpdate addr = do
+notifySubscribersAboutAddressUpdate :: C.Address -> ServerMonad ()
+notifySubscribersAboutAddressUpdate addr = do
     connectionsState <- liftIO . readMVar =<< view ssConnections
-    msgBalance <- uncurry (OMBalance addr) <$> query (DB.GetAddressBalance addr)
-    msgTxNumber <-
-        uncurry (OMTxNumber addr) <$> query (DB.GetAddressTxNumber addr)
     let sessIds =
             S.toList $ fromMaybe S.empty $ connectionsState ^.
             csAddressSubscribers .
             at addr
     connections <- mapM myConnection sessIds
     let sendToAll msg = mapM_ (flip send msg) connections
-    mapM_ sendToAll [msgBalance, msgTxNumber]
+    mapM_ sendToAll =<< mkNotificationMessages addr
 
 notifyAboutNewHBlock :: ServerMonad ()
 notifyAboutNewHBlock = do

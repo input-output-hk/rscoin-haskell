@@ -40,7 +40,8 @@ data ServerError
                  , peError    :: !Text}
     | NotFound !Text
     | LogicError !Text
-     deriving (Show, Generic)
+    | LimitExceededError !Text
+    deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''ServerError)
 

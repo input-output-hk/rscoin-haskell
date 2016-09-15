@@ -11,15 +11,15 @@ module RSCoin.Bank.Server
 
 import           Control.Applicative        (liftA2)
 import           Control.Lens               ((^.))
-import           Control.Monad              (forM_, when)
+import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (SomeException, bracket_, catch,
                                              throwM)
 import           Control.Monad.Trans        (lift, liftIO)
 
+import           Data.Binary                (Binary)
 import           Data.IORef                 (IORef, atomicWriteIORef,
                                              modifyIORef, newIORef, readIORef)
 import           Data.List                  (nub, (\\))
-import qualified Data.Map.Strict            as M
 import           Data.Maybe                 (catMaybes)
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as TIO
@@ -27,14 +27,13 @@ import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, int, sformat, stext, (%))
 
 import           Serokell.Util.Bench        (measureTime_)
-import           Serokell.Util.Text         (listBuilderJSON, mapBuilder, show')
+import           Serokell.Util.Text         (listBuilderJSON, show')
 
 import qualified Control.TimeWarp.Rpc       as Rpc
-import           RSCoin.Core                (ActionLog, AddressToTxStrategyMap,
-                                             Explorers, HBlock, MintetteId,
-                                             Mintettes, PeriodId, PublicKey,
-                                             SecretKey, getNodeContext,
-                                             logDebug, logError, logInfo)
+import           RSCoin.Core                (Explorers, HBlock, Mintettes,
+                                             PeriodId, PublicKey, SecretKey,
+                                             getNodeContext, logDebug, logError,
+                                             logInfo)
 import qualified RSCoin.Core                as C
 import qualified RSCoin.Core.NodeConfig     as NC
 import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
@@ -43,10 +42,9 @@ import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
 import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),
                                              CheckAndBumpStatisticsId (..),
-                                             GetAddresses (..),
                                              GetExplorersAndPeriods (..),
                                              GetHBlock (..), GetHBlocks (..),
-                                             GetLogs (..), GetMintettes (..),
+                                             GetMintettes (..),
                                              GetPeriodId (..),
                                              GetStatisticsId (..),
                                              RemoveExplorer (..),
@@ -55,7 +53,7 @@ import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              StartNewPeriod (..), State,
                                              getStatistics, query, tidyState,
                                              update)
-import           RSCoin.Bank.Error          (BankError (BEInconsistentResponse))
+import           RSCoin.Bank.Error          (BankError (BEBadRequest))
 
 serve
     :: C.WorkMode m
@@ -65,26 +63,26 @@ serve st bankSK isPeriodChanging = do
     idr2 <- Rpc.serverTypeRestriction0
     idr3 <- Rpc.serverTypeRestriction0
     idr4 <- Rpc.serverTypeRestriction1
-    idr5 <- Rpc.serverTypeRestriction3
+    -- idr5 <- Rpc.serverTypeRestriction0
     idr6 <- Rpc.serverTypeRestriction0
-    idr7 <- Rpc.serverTypeRestriction0
-    idr8 <- Rpc.serverTypeRestriction1
+    idr7 <- Rpc.serverTypeRestriction1
     (bankPK,bankPort) <-
         liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort) <$> getNodeContext
     C.serve
         bankPort
-        [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes st
-        , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight st
+        [ C.method (C.RSCBank C.GetMintettes) $ idr1 $ serveGetMintettes bankSK st
+        , C.method (C.RSCBank C.GetBlockchainHeight) $ idr2 $ serveGetHeight bankSK st
         , C.method (C.RSCBank C.GetStatisticsId) $
-          idr3 $ serveGetStatisticsId st
-        , C.method (C.RSCBank C.GetHBlocks) $ idr4 $ serveGetHBlocks st
-        , C.method (C.RSCDump C.GetLogs) $ idr5 $ serveGetLogs st
-        , C.method (C.RSCBank C.GetAddresses) $ idr6 $ serveGetAddresses st
-        , C.method (C.RSCBank C.GetExplorers) $ idr7 $ serveGetExplorers st
+          idr3 $ serveGetStatisticsId bankSK st
+        , C.method (C.RSCBank C.GetHBlocks) $ idr4 $ serveGetHBlocks bankSK st
+        -- , C.method (C.RSCBank C.GetAddresses) $ idr5 $ serveGetAddresses bankSK st
+        , C.method (C.RSCBank C.GetExplorers) $ idr6 $ serveGetExplorers bankSK st
         , C.method (C.RSCBank C.LocalControlRequest) $
-          idr8 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging]
+          idr7 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging]
 
 type ServerTE m a = Rpc.ServerT m (Either T.Text a)
+
+type ServerTESigned m a = ServerTE m (C.WithSignature a)
 
 toServer :: C.WorkMode m => m a -> ServerTE m a
 toServer action = lift $ (Right <$> action) `catch` handler
@@ -93,44 +91,57 @@ toServer action = lift $ (Right <$> action) `catch` handler
         logError $ show' e
         return $ Left $ show' e
 
--- toServer' :: C.WorkMode m => IO a -> T.ServerT m a
--- toServer' = toServer . liftIO
+signHandler
+    :: (Binary a, Functor m)
+    => C.SecretKey -> ServerTE m a -> ServerTESigned m a
+signHandler sk = fmap (fmap (C.mkWithSignature sk))
 
-serveGetAddresses
-    :: C.WorkMode m
-    => State -> ServerTE m AddressToTxStrategyMap
-serveGetAddresses st =
-    toServer $
-    do mts <- query st GetAddresses
-       logDebug $
-          sformat ("Getting list of addresses: " % build) $ mapBuilder $ M.toList mts
-       return mts
+toServerSigned
+    :: (C.WorkMode m, Binary a)
+    => C.SecretKey -> m a -> ServerTESigned m a
+toServerSigned sk = signHandler sk . toServer
+
+-- serveGetAddresses
+--     :: C.WorkMode m
+--     => C.SecretKey -> State -> ServerTESigned m AddressToTxStrategyMap
+-- serveGetAddresses sk st =
+--     toServerSigned sk $
+--     do mts <- query st GetAddresses
+--        logDebug $
+--           sformat ("Getting list of addresses: " % build) $ mapBuilder $ M.toList mts
+--        return mts
 
 serveGetMintettes
     :: C.WorkMode m
-    => State -> ServerTE m Mintettes
-serveGetMintettes st =
-    toServer $
+    => C.SecretKey -> State -> ServerTESigned m Mintettes
+serveGetMintettes sk st =
+    toServerSigned sk $
     do mts <- query st GetMintettes
        logDebug $ sformat ("Getting list of mintettes: " % build) mts
        return mts
 
-serveGetHeight :: C.WorkMode m => State -> ServerTE m PeriodId
-serveGetHeight st =
-    toServer $
+serveGetHeight
+    :: C.WorkMode m
+    => C.SecretKey -> State -> ServerTESigned m PeriodId
+serveGetHeight sk st =
+    toServerSigned sk $
     do pId <- query st GetPeriodId
        logDebug $ sformat ("Getting blockchain height: " % build) pId
        return pId
 
-serveGetStatisticsId :: C.WorkMode m => State -> ServerTE m PeriodId
-serveGetStatisticsId st = toServer $ query st GetStatisticsId
+serveGetStatisticsId
+    :: C.WorkMode m
+    => C.SecretKey -> State -> ServerTESigned m PeriodId
+serveGetStatisticsId sk st = toServerSigned sk $ query st GetStatisticsId
 
 serveGetHBlocks
     :: C.WorkMode m
-    => State -> [PeriodId] -> ServerTE m [HBlock]
-serveGetHBlocks st (nub -> periodIds) =
-    toServer $
-    do logDebug $
+    => C.SecretKey -> State -> [PeriodId] -> ServerTESigned m [HBlock]
+serveGetHBlocks sk st (nub -> periodIds) =
+    toServerSigned sk $
+    do when (length periodIds > C.blocksQueryLimit) $
+           throwM $ C.BadRequest "too many blocks requested"
+       logDebug $
            sformat ("Getting higher-level blocks in range: " % build) $
            listBuilderJSON periodIds
        blocks <-
@@ -139,22 +150,21 @@ serveGetHBlocks st (nub -> periodIds) =
        let gotIndices = map snd blocks
        when (gotIndices /= periodIds) $
            throwM $
-           BEInconsistentResponse $
-           sformat
-               ("Couldn't get blocks for the following periods: " % build) $
+           BEBadRequest $
+           sformat ("Couldn't get blocks for the following periods: " % build) $
            listBuilderJSON (periodIds \\ gotIndices)
        return $ map fst blocks
 
 getPeriodResults
     :: C.WorkMode m
-    => C.Mintettes -> C.PeriodId -> m [Maybe C.PeriodResult]
-getPeriodResults mts pId = do
+    => C.SecretKey -> C.Mintettes -> C.PeriodId -> m [Maybe C.PeriodResult]
+getPeriodResults sk mts pId = do
     res <- liftIO $ newIORef []
     mapM_ (f res) mts
     liftIO $ reverse <$> readIORef res
   where
     f res mintette =
-        (C.sendPeriodFinished mintette pId >>=
+        (C.sendPeriodFinished mintette sk pId >>=
          liftIO . modifyIORef res . (:) . Just) `catch`
         handler res
     handler res (e :: SomeException) =
@@ -168,10 +178,11 @@ onPeriodFinished sk st = do
     mintettes <- query st GetMintettes
     pId <- query st GetPeriodId
     C.logInfo $ sformat ("Period " % int % " has just finished!") pId
+    -- init here to see them in next period
+    initializeMultisignatureAddresses `catch` handlerInitializeMS
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
-    initializeMultisignatureAddresses  -- init here to see them in next period
-    periodResults <- getPeriodResults mintettes pId
+    periodResults <- getPeriodResults sk mintettes pId
     timestamp <- liftIO getPOSIXTime
     newPeriodData <- update st $ StartNewPeriod timestamp sk periodResults
     tidyState st
@@ -181,7 +192,7 @@ onPeriodFinished sk st = do
         else do
             mapM_
                 (\(m,mId) ->
-                      C.announceNewPeriod m (newPeriodData !! mId) `catch`
+                      C.announceNewPeriod m sk (newPeriodData !! mId) `catch`
                       handlerAnnouncePeriodM)
                 (zip newMintettes [0 ..])
             C.logInfo $
@@ -204,6 +215,10 @@ onPeriodFinished sk st = do
     handlerAnnouncePeriodsN (e :: SomeException) =
         C.logWarning $
         sformat ("Error occurred in communicating with Notary: " % build) e
+    -- TODO: catch appropriate exception according to protocol implementation
+    handlerInitializeMS (e :: SomeException) =
+        C.logWarning $
+        sformat ("Error occurred in initializing MS addresses: " % build) e
     initializeMultisignatureAddresses = do
         newMSAddresses <- C.queryNotaryCompleteMSAddresses
         forM_ newMSAddresses $ \(msAddr, strategy) -> do
@@ -219,8 +234,7 @@ onPeriodFinished sk st = do
         pId     <- C.getNotaryPeriod
         pId'    <- query st GetPeriodId
         hblocks <- query st (GetHBlocks pId pId')
-        let hblocksSig = C.sign sk hblocks
-        C.announceNewPeriodsToNotary pId' hblocks hblocksSig
+        C.announceNewPeriodsToNotary sk pId' hblocks
 
 serveFinishPeriod
     :: C.WorkMode m
@@ -256,49 +270,34 @@ serveLocalControlRequest
     -> IORef Bool
     -> PT.BankLocalControlRequest
     -> ServerTE m ()
-serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest = do
-    periodId <- query st GetPeriodId
-    if not (PT.checkLocalControlRequest periodId bankPK controlRequest) then
-        toServer $ throwM $
-        BEInconsistentResponse $
-        sformat
-            ("Tried to execute control request " % build %
-             " with *invalid* signature")
-            controlRequest
-    else toServer $ do
-        logInfo $ sformat ("Executing control request: " % build) controlRequest
-        case controlRequest of
-            PT.AddMintette m pk _         -> update st (AddMintette m pk)
-            PT.AddExplorer e pid _        -> update st (AddExplorer e pid)
-            PT.RemoveMintette host port _ -> update st (RemoveMintette host port)
-            PT.RemoveExplorer host port _ -> update st (RemoveExplorer host port)
-            PT.FinishPeriod _             -> serveFinishPeriod st bankSK isPeriodChanging
-            PT.DumpStatistics sId _       -> serveDumpStatistics st sId
-        logInfo $
-            sformat
-                ("Control request " % build % " executed successfully")
-                controlRequest
-
-
--- Dumping Bank state
-
-serveGetLogs
-    :: C.WorkMode m
-    => State -> MintetteId -> Int -> Int -> ServerTE m (Maybe ActionLog)
-serveGetLogs st m from to =
+serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest =
     toServer $
-    do mLogs <- query st (GetLogs m from to)
-       logDebug $
-           sformat ("Getting action logs of mintette " % build %
-                    " with range of entries " % int % " to " % int % ": " % build)
-                   m from to mLogs
-       return mLogs
+    do periodId <- query st GetPeriodId
+       unless (PT.checkLocalControlRequest periodId bankPK controlRequest) $
+           throwM $
+           BEBadRequest $
+           sformat
+               ("Tried to execute control request " % build %
+                " with *invalid* signature")
+               controlRequest
+       logInfo $ sformat ("Executing control request: " % build) controlRequest
+       case controlRequest of
+           PT.AddMintette m pk _ -> update st (AddMintette m pk)
+           PT.AddExplorer e pid _ -> update st (AddExplorer e pid)
+           PT.RemoveMintette host port _ -> update st (RemoveMintette host port)
+           PT.RemoveExplorer host port _ -> update st (RemoveExplorer host port)
+           PT.FinishPeriod _ -> serveFinishPeriod st bankSK isPeriodChanging
+           PT.DumpStatistics sId _ -> serveDumpStatistics st sId
+       logInfo $
+           sformat
+               ("Control request " % build % " executed successfully")
+               controlRequest
 
 serveGetExplorers
     :: C.WorkMode m
-    => State -> ServerTE m Explorers
-serveGetExplorers st =
-    toServer $
+    => C.SecretKey -> State -> ServerTESigned m Explorers
+serveGetExplorers sk st =
+    toServerSigned sk $
     do curPeriod <- query st GetPeriodId
        map fst . filter ((== curPeriod) . snd) <$>
            query st GetExplorersAndPeriods

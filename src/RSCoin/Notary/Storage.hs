@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE Rank2Types       #-}
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE ViewPatterns     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Storage for Notary's data.
 
@@ -10,15 +11,17 @@ module RSCoin.Notary.Storage
        , addSignedTransaction
        , allocateMSAddress
        , announceNewPeriods
+       , checkIfSynchronized
        , emptyNotaryStorage
        , getPeriodId
        , getSignatures
+       , outdatedAllocs
        , pollPendingTxs
        , queryAllMSAdresses
        , queryCompleteMSAdresses
        , queryMyMSRequests
        , removeCompleteMSAddresses
-       , outdatedAllocs
+       , setSynchronization
        ) where
 
 import           Control.Lens           (Getter, Lens', at, makeLenses, to, use,
@@ -40,13 +43,13 @@ import qualified Data.IntMap.Strict     as IM hiding (IntMap)
 import qualified Data.Map.Strict        as M hiding (Map)
 import           Data.Maybe             (fromJust, fromMaybe, mapMaybe)
 import qualified Data.Set               as S
-import           Formatting             (build, sformat, (%))
+import           Formatting             (build, int, sformat, (%))
 
 import           RSCoin.Core            (Address (..), HBlock (..), PeriodId,
                                          PublicKey, Signature, Transaction (..),
                                          Utxo, computeOutputAddrids,
-                                         validateSignature, validateTxPure,
-                                         verify)
+                                         maxStrategySize, validateSignature,
+                                         validateTxPure, verify)
 import           RSCoin.Core.Strategy   (AddressToTxStrategyMap,
                                          AllocationAddress (..),
                                          AllocationInfo (..),
@@ -107,6 +110,9 @@ data Storage = Storage
 
       -- | Last periodId, known to Notary.
     , _periodId               :: !PeriodId
+
+      -- | This flag is @True@ if 'Notary' has up-to-date 'Storage'.
+    , _isSynchronized         :: !Bool
     } deriving (Show)
 
 $(makeLenses ''Storage)
@@ -125,6 +131,7 @@ emptyNotaryStorage =
     , _utxo                   = mempty
     , _masterKeys             = mempty
     , _periodId               = -1
+    , _isSynchronized         = False
     }
 
 -- ==============
@@ -184,6 +191,10 @@ allocateMSAddress
       unless (verify slavePk requestSig signedData) $
           throwM $ NEUnrelatedSignature $ sformat
               ("(msAddr, strategy) not signed with proper sk for pk: " % build) slavePk
+      when (S.size _allParties > maxStrategySize) $
+          throwM $ NEInvalidStrategy
+              (sformat ("multisignature address can't have more than " % int % " parties")
+               (maxStrategySize :: Word))
       when (S.size _allParties < 2) $
           throwM $ NEInvalidStrategy "multisignature address should have at least two members"
       when (_sigNumber <= 0) $
@@ -312,7 +323,6 @@ removeOutdatedInfo pId enduranceLens discardLens poolLens = do
             whenJust mInfoList $ \infoList -> forM_ infoList $ \info ->
                 poolLens %= HM.delete info
 
-
 -- | Announce HBlocks, not yet known to Notary.
 announceNewPeriods :: PeriodId -- ^ periodId of latest hblock
                    -> [HBlock] -- ^ blocks, head corresponds to the latest block
@@ -407,9 +417,6 @@ getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> view addresses
 getSignatures :: Transaction -> Query Storage [(Address, Signature Transaction)]
 getSignatures tx = HM.toList . (HM.lookupDefault HM.empty tx) <$> view txPool
 
--- | Get last known periodId of Notary (interface for bank).
-getPeriodId :: Query Storage PeriodId
-getPeriodId = view periodId
 
 -- | Collect all pending multisignature transactions which have one of
 -- party is a member of given list.
@@ -430,3 +437,17 @@ pollPendingTxs parties = do
            $ mapMaybe (`HM.lookup` addrIdResolve) txInputs
         then HS.insert tx txSet
         else txSet
+
+------------------
+-- storage getters
+------------------
+
+-- | Get last known periodId of Notary (interface for bank).
+getPeriodId :: Query Storage PeriodId
+getPeriodId = view periodId
+
+checkIfSynchronized :: Query Storage Bool
+checkIfSynchronized = view isSynchronized
+
+setSynchronization :: Bool -> Update Storage ()
+setSynchronization isUpdated = isSynchronized .= isUpdated

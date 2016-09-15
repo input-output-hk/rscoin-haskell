@@ -27,7 +27,7 @@ import           Data.Time.Units           (TimeUnit)
 import           Formatting                (int, sformat, (%))
 
 import           Control.TimeWarp.Timed    (for, fork_, ms, wait)
-import           RSCoin.Core               (ContextArgument (..), Explorer,
+import           RSCoin.Core               (ContextArgument (..), Explorer (..),
                                             Mintette, PeriodId, PublicKey,
                                             RealMode, SecretKey, WorkMode,
                                             runRealModeBank, sign)
@@ -39,7 +39,7 @@ import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
                                             AddMintette (AddMintette), State,
                                             closeState, openState, update)
-import           RSCoin.Bank.Error         (BankError (BEInconsistentResponse))
+import           RSCoin.Bank.Error         (BankError (BEBadRequest))
 import           RSCoin.Bank.Server        (serve)
 import           RSCoin.Bank.Worker        (runExplorerWorker, runWorker)
 
@@ -70,7 +70,7 @@ launchBank periodDelta bankSk st = do
     fork_ $ serve st bankSk isPeriodChanging
     wait $ for 1 ms
     fork_ $ runWorker periodDelta bankSk st
-    runExplorerWorker periodDelta isPeriodChanging bankSk st
+    runExplorerWorker isPeriodChanging bankSk st
 
 -- | Adds mintette directly into bank's state
 addMintetteInPlace :: ContextArgument
@@ -105,11 +105,11 @@ addMintetteReq ca bankSk m k = do
         bankPid <- getBlockchainHeight
         mintettePid <- getMintettePeriod m
         when (isNothing mintettePid) $
-            throwM $ BEInconsistentResponse
+            throwM $ BEBadRequest
             "Mintette didn't respond on ping request."
         let mPid = fromJust mintettePid
         when (mPid /= (-1) && mPid > bankPid) $
-            throwM $ BEInconsistentResponse $
+            throwM $ BEBadRequest $
             sformat ("Mintette had period id " % int %
                      " while bank's is " % int %
                      ". Check out, maybe mintette's state" %

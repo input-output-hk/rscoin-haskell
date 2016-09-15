@@ -119,4 +119,4 @@ prop_send2inARow = do
     assertFP $ (amount3' ! gr) - (amount3 ! gr) == 50
     assertFP $ amount2' == amount2
   where
-    gr = getC grey
+    gr = getColor grey

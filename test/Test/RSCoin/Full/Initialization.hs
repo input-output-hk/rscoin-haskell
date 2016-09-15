@@ -25,8 +25,8 @@ import           Test.QuickCheck            (NonEmptyList (..))
 
 import           Control.TimeWarp.Logging   (LoggerName (..), modifyLoggerName,
                                              setLoggerName)
-import           Control.TimeWarp.Timed     (Second, for, ms, sec, wait,
-                                             workWhileMVarEmpty', interval)
+import           Control.TimeWarp.Timed     (Second, for, interval, ms, sec,
+                                             wait, workWhileMVarEmpty')
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
@@ -36,7 +36,8 @@ import           RSCoin.Core                (Color (..), Mintette (..),
                                              logDebug, logInfo,
                                              mintetteLoggerName,
                                              notaryLoggerName,
-                                             testBankSecretKey)
+                                             testBankSecretKey,
+                                             testNotarySecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 import qualified RSCoin.User                as U
@@ -122,7 +123,6 @@ runBank forkTmp b =
         forkTmp $
             modifyLoggerName (<> "explorer-worker") $
                 B.runExplorerWorker
-                    periodDelta
                     mainIsBusy
                     (b ^. secretKey)
                     (b ^. state)
@@ -155,8 +155,8 @@ runNotary
     => (m () -> m ()) -> NotaryInfo -> m ()
 runNotary forkTmp n =
     forkTmp $
-        setLoggerName notaryLoggerName $
-            N.serveNotary (n ^. state)
+    setLoggerName notaryLoggerName $
+    N.serveNotary testNotarySecretKey (n ^. state)
 
 addMintetteToBank
     :: (MonadIO m, WithNamedLogger m)
@@ -206,7 +206,7 @@ sendInitialCoins ctx = do
     allColors = [minColor .. maxColor]
     nonZeroColors = filter (/= 0) allColors
     coloring =
-        Just . Coloring . M.fromList . map ((, recip (genericLength allColors)) . getC) $
+        Just . Coloring . M.fromList . map ((, recip (genericLength allColors)) . getColor) $
         nonZeroColors
     actions genesisIdx =
         map

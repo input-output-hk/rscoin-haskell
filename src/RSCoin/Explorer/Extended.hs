@@ -49,7 +49,7 @@ type CoinsMapExtended = C.WithMetadata C.CoinsMap CoinsMapExtension
 
 mkCoinsMapExtended :: C.CoinsMap -> CoinsMapExtended
 mkCoinsMapExtended coins =
-    C.WithMetadata coins . CoinsMapExtension . sum . map C.getCoin . elems $
+    C.WithMetadata coins . CoinsMapExtension . sum . map C.coinAmount . elems $
     coins
 
 type Timestamp = POSIXTime
@@ -109,7 +109,7 @@ mkHBlockExtension pId C.WithMetadata {wmValue = C.HBlock {..}
     }
   where
     totalSent =
-        sum . map (C.getCoin . view _2) . concatMap C.txOutputs $ hbTransactions
+        sum . map (C.coinAmount . view _2) . concatMap C.txOutputs $ hbTransactions
     -- size = undefined
 
 type HBlockExtended = C.WithMetadata C.HBlock HBlockExtension

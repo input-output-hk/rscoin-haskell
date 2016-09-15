@@ -31,7 +31,7 @@ import qualified Data.Map             as M
 import           Data.SafeCopy        (base, deriveSafeCopy)
 import           Formatting           (build, sformat, (%))
 
-import           RSCoin.Bank.Error    (BankError (BEInconsistentResponse))
+import           RSCoin.Bank.Error    (BankError (BEBadRequest))
 import qualified RSCoin.Core          as C
 
 -- | DeadMintetteState represents state of mintette which was removed
@@ -101,7 +101,7 @@ addMintette :: C.Mintette -> C.PublicKey -> ExceptUpdate ()
 addMintette m k = do
     isAdded <- (||) <$> uses msDpk (\dpk -> k `elem` map fst dpk)
                     <*> uses msPendingMintettes ((m `elem`) . map fst)
-    when isAdded $ throwError $ BEInconsistentResponse $
+    when isAdded $ throwError $ BEBadRequest $
         sformat ("Mintette " % build % " is already added, won't add.") m
     msMintettesToRemove %= delete m
     msPendingMintettes %= ((m, k) :)
@@ -112,7 +112,7 @@ removeMintette :: C.Mintette -> ExceptUpdate ()
 removeMintette m = do
     isAdded <- (||) <$> uses msMintettes (m `elem`)
                     <*> uses msPendingMintettes ((m `elem`) . map fst)
-    unless isAdded $ throwError $ BEInconsistentResponse $
+    unless isAdded $ throwError $ BEBadRequest $
         sformat ("Mintette " % build % " is not in the storage, can't remove") m
     e <- uses msPendingMintettes $ find ((== m) . fst)
     maybe (msMintettesToRemove %= nub . (m:))

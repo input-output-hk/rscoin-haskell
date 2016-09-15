@@ -36,6 +36,7 @@ data MintetteError
     | MENotConfirmed                      -- ^ Can't deduce that transaction was confirmed.
     | MEAlreadyActive                     -- ^ Can't start new period because mintette
                                           -- is already active.
+    | MEInvalidBankSignature              -- ^ Bank's signature can't be verified.
     deriving (Show, Typeable, Eq)
 
 instance Exception MintetteError where
@@ -57,6 +58,7 @@ instance B.Buildable MintetteError where
     build MEInvalidSignature = "failed to verify signature"
     build MENotConfirmed = "transaction doesn't have enough confirmations"
     build MEAlreadyActive = "can't start new period when period is active"
+    build MEInvalidBankSignature = "bank's signature can't be verified"
 
 toObj
     :: MessagePack a
@@ -73,6 +75,7 @@ instance MessagePack MintetteError where
     toObject MEInvalidSignature        = toObj (6, ())
     toObject MENotConfirmed            = toObj (7, ())
     toObject MEAlreadyActive           = toObj (8, ())
+    toObject MEInvalidBankSignature    = toObj (9, ())
     fromObject obj = do
         (i,payload) <- fromObject obj
         case (i :: Int) of
@@ -85,6 +88,7 @@ instance MessagePack MintetteError where
             6 -> pure MEInvalidSignature
             7 -> pure MENotConfirmed
             8 -> pure MEAlreadyActive
+            9 -> pure MEInvalidBankSignature
             _ -> Nothing
 
 isMEInactive :: SomeException -> Bool

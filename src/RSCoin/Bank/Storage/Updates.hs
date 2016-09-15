@@ -127,7 +127,7 @@ startNewPeriod timestamp sk results = do
     mintettes <- use Q.getMintettes
     unless (length mintettes == length results) $
         throwM $
-        BEInconsistentResponse
+        BEInternal
             "Length of results is different from the length of mintettes"
     pId <- use periodId
     changedMintetteIx <- startNewPeriodDo timestamp sk pId results
@@ -165,7 +165,7 @@ startNewPeriodDo timestamp sk pId results = do
     let keys = map fst curDpk
     unless (length keys == length results) $
         throwM $
-        BEInconsistentResponse
+        BEInternal
             "Length of keys is different from the length of results"
     mintettes <- use Q.getMintettes
     let checkedResults =

@@ -8,7 +8,7 @@ module RSCoin.Notary.Defaults
 
 -- | Maximum allowed number of attempts to allocate MS address per period.
 allocationAttemptsLimit :: Int
-allocationAttemptsLimit = 100500
+allocationAttemptsLimit = 5
 
 -- | Time interval in periods to keep alive allocation requests (~2 hours)
 defaultAllocationEndurance :: Int

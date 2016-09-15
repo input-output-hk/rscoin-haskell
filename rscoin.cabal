@@ -53,6 +53,7 @@ library
                      , RSCoin.Notary.Server
                      , RSCoin.Notary.Storage
                      , RSCoin.Notary.Web.Servant
+                     , RSCoin.Notary.Worker
 
                      , RSCoin.User
                      , RSCoin.User.Error
@@ -127,6 +128,7 @@ library
                      , safecopy
                      , serokell-core
                      , servant-server
+                     , split
                      , stm >= 2.4.4
                      , template-haskell
                      , text >= 1.2.2.0

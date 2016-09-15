@@ -16,7 +16,10 @@ module RSCoin.Mintette.Server
        , handleGetLogs
        ) where
 
-import           Control.Monad.Catch       (catch, try)
+import           Control.Lens              (view)
+import           Control.Monad             (unless, when)
+import           Control.Monad.Catch       (catch, throwM, try)
+import           Control.Monad.Extra       (unlessM)
 import           Control.Monad.Trans       (lift)
 import           Data.Bifunctor            (first)
 import qualified Data.Map                  as M
@@ -84,37 +87,51 @@ toServer action = lift $ (Right <$> action) `catch` handler
 
 handlePeriodFinished
     :: C.WorkMode m
-    => RuntimeEnv -> State -> C.PeriodId -> ServerTE m C.PeriodResult
-handlePeriodFinished env st pId =
+    => RuntimeEnv
+    -> State
+    -> C.WithSignature C.PeriodId
+    -> ServerTE m C.PeriodResult
+handlePeriodFinished env st signed =
     toServer $
-    do (curUtxo,curPset) <- query st GetUtxoPset
+    do bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+       unless (C.verifyWithSignature bankPublicKey signed) $
+           throwM MEInvalidBankSignature
+       let pId = C.wsValue signed
+       (curUtxo, curPset) <- query st GetUtxoPset
        C.logDebug $
            sformat
-               ("Before period end utxo is: " % build %
-               "\nCurrent pset is: " % build)
-               curUtxo curPset
+               ("Before period end utxo is: " % build % "\nCurrent pset is: " %
+                build)
+               curUtxo
+               curPset
        C.logInfo $ sformat ("Period " % int % " has just finished!") pId
-       res@(_,blks,lgs) <- update st $ FinishPeriod pId env
+       res@(_, blks, lgs) <- update st $ FinishPeriod pId env
        C.logInfo $
            sformat
-               ("Here is PeriodResult:\n Blocks: " % build %
-                "\n Logs: " % build % "\n")
-               (listBuilderJSONIndent 2 blks) lgs
+               ("Here is PeriodResult:\n Blocks: " % build % "\n Logs: " % build %
+                "\n")
+               (listBuilderJSONIndent 2 blks)
+               lgs
        (curUtxo', curPset') <- query st GetUtxoPset
        C.logDebug $
            sformat
-               ("After period end utxo is: " % build %
-                "\nCurrent pset is: " % build)
-               curUtxo' curPset'
+               ("After period end utxo is: " % build % "\nCurrent pset is: " %
+                build)
+               curUtxo'
+               curPset'
        tidyState st
        return res
 
 handleNewPeriod
     :: C.WorkMode m
-    => RuntimeEnv -> State -> C.NewPeriodData -> ServerTE m ()
-handleNewPeriod env st npd =
+    => RuntimeEnv -> State -> C.WithSignature C.NewPeriodData -> ServerTE m ()
+handleNewPeriod env st signed =
     toServer $
-    do prevMid <- query st GetPreviousMintetteId
+    do bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+       unless (C.verifyWithSignature bankPublicKey signed) $
+           throwM MEInvalidBankSignature
+       let npd = C.wsValue signed
+       prevMid <- query st GetPreviousMintetteId
        C.logInfo $
            sformat
                ("New period has just started, I am mintette #" % build %
@@ -138,7 +155,8 @@ handleCheckTx
     -> ServerTE m C.CheckConfirmation
 handleCheckTx env st tx addrId sg =
     toServer $
-    do C.logDebug $
+    do C.guardTransactionValidity tx
+       C.logDebug $
            sformat ("Checking addrid (" % build % ") from transaction: " % build)
                addrId tx
        (curUtxo,curPset) <- query st GetUtxoPset
@@ -150,7 +168,7 @@ handleCheckTx env st tx addrId sg =
        C.logInfo $
             sformat ("Confirmed addrid (" % build % ") from transaction: " % build)
                 addrId tx
-       C.logInfo $ sformat ("Confirmation: " % build) res
+       C.logDebug $ sformat ("Confirmation: " % build) res
        return res
 
 handleCheckTxBatch
@@ -162,23 +180,35 @@ handleCheckTxBatch
     -> ServerTE m (M.Map C.AddrId (Either T.Text C.CheckConfirmation))
 handleCheckTxBatch env st tx sigs =
     toServer $
-    do C.logDebug $ sformat
-           ("Checking addrids " % build % "of transaction: " % build)
-           (listBuilderJSON $ M.keys sigs) tx
-       (curUtxo,curPset) <- query st GetUtxoPset
+    do C.guardTransactionValidity tx
+       when (M.size sigs > length (C.txInputs tx)) $
+           throwM $ C.BadRequest "Size of batch is more than number of inputs"
+       C.logDebug $
+           sformat
+               ("Checking addrids " % build % "of transaction: " % build)
+               (listBuilderJSON $ M.keys sigs)
+               tx
+       (curUtxo, curPset) <- query st GetUtxoPset
        C.logDebug $
            sformat
                ("My current utxo is: " % build % "\nCurrent pset is: " % build)
-               curUtxo curPset
-       res <- M.fromList <$>
-           mapM (\(addrId, sig) ->
-                  (addrId,) <$>
-                  try' (update st $ CheckNotDoubleSpent tx addrId sig env))
-           (M.assocs sigs)
-       C.logInfo "Returning confirmations"-- TODO add logging
+               curUtxo
+               curPset
+       res <-
+           M.fromList <$>
+           mapM
+               (\(addrId, sig) ->
+                     (addrId, ) <$>
+                     try' (update st $ CheckNotDoubleSpent tx addrId sig env))
+               (M.assocs sigs)
+       C.logInfo $
+           sformat ("Confirmed addrids: " % build) $
+           listBuilderJSON $ M.keys sigs
        return res
   where
-    try' :: (C.WorkMode m) => m a -> m (Either T.Text a)
+    try'
+        :: (C.WorkMode m)
+        => m a -> m (Either T.Text a)
     try' action = do
         (res :: Either MintetteError a) <- try action
         return $ first show' res
@@ -192,7 +222,8 @@ handleCommitTx
     -> ServerTE m C.CommitAcknowledgment
 handleCommitTx env st tx cc =
     toServer $
-    do C.logDebug $
+    do C.guardTransactionValidity tx
+       C.logDebug $
            sformat ("There is an attempt to commit transaction (" % build % ").") tx
        C.logDebug $ sformat ("Here are confirmations: " % build) cc
        res <- update st $ CommitTx tx cc env
@@ -221,9 +252,11 @@ handleGetMintettePeriod st =
 handleGetUtxo :: C.WorkMode m => State -> ServerTE m C.Utxo
 handleGetUtxo st =
     toServer $
-    do C.logDebug "Getting utxo"
-       (curUtxo,_) <- query st GetUtxoPset
-       C.logDebug $ sformat ("Corrent utxo is: " % build) curUtxo
+    do unlessM C.isTestRun $
+           throwM $ C.BadRequest "getMintetteUtxo is only available in test run"
+       C.logDebug "Getting utxo"
+       (curUtxo, _) <- query st GetUtxoPset
+       C.logDebug $ sformat ("Current utxo is: " % build) curUtxo
        return curUtxo
 
 handleGetLogs

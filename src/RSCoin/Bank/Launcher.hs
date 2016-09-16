@@ -38,7 +38,6 @@ import           RSCoin.Core.Communication (getBlockchainHeight,
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
-                                            PermitMintette (PermitMintette),
                                             AddMintette (AddMintette), State,
                                             closeState, openState, update)
 import           RSCoin.Bank.Error         (BankError (BEBadRequest))

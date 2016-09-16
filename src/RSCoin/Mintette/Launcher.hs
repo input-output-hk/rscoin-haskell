@@ -52,7 +52,7 @@ addToBank :: Bool -> FilePath -> ContextArgument -> SecretKey -> String -> Int -
 addToBank deleteIfExists dbPath ctxArg mintetteSK host port = do
     mintetteWrapperReal deleteIfExists (Just dbPath) ctxArg impl
       where
-        impl st = do
+        impl _ = do
           CC.addMintetteUsingPermission mintetteSK host port
 
 dumpStorageStatistics :: Bool -> FilePath -> ContextArgument -> IO ()

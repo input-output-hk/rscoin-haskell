@@ -57,7 +57,7 @@ mainDumpStatistics ctxArg Opts.Options {..} = do
     M.dumpStorageStatistics cloRebuildDB cloPath ctxArg
 
 mainCreatePermissionKeypair :: M.ContextArgument -> Opts.Options -> IO ()
-mainCreatePermissionKeypair ctxArg Opts.Options {..} = do
+mainCreatePermissionKeypair _ Opts.Options {..} = do
     directory <- defaultSecretKeyPath
     _ <- createKeypair directory
     return ()

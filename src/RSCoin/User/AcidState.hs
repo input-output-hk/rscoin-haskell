@@ -47,10 +47,9 @@ module RSCoin.User.AcidState
        , InitWallet (..)
        ) where
 
-import           Control.Exception    (throw, throwIO)
+import           Control.Exception    (throwIO)
 import           Control.Lens         ((^.))
 import           Control.Monad        (replicateM, unless)
-import           Control.Monad.Catch  (MonadThrow, throwM)
 import           Control.Monad.Trans  (MonadIO (liftIO))
 import           Data.Acid            (EventResult, EventState, QueryEvent,
                                        UpdateEvent, makeAcidic)
@@ -88,9 +87,6 @@ update
     :: (EventState event ~ WalletStorage, UpdateEvent event, MonadIO m)
     => UserState -> event -> m (EventResult event)
 update = updateExtended
-
-instance MonadThrow (A.Query WalletStorage) where
-    throwM = throw
 
 -- | Opens ACID state. If not there, it returns unitialized
 -- unoperatable storage.

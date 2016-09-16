@@ -10,7 +10,8 @@ module RSCoin.Notary.Storage
        ( Storage (_allocationEndurance, _masterKeys, _transactionEndurance)
        , addSignedTransaction
        , allocateMSAddress
-       , announceNewPeriods
+       , announceNewPeriod
+       , batchUpdatePeriods
        , checkIfSynchronized
        , emptyNotaryStorage
        , getPeriodId
@@ -115,7 +116,7 @@ data Storage = Storage
     , _isSynchronized         :: !Bool
     } deriving (Show)
 
-$(makeLenses ''Storage)
+makeLenses ''Storage
 
 emptyNotaryStorage :: Storage
 emptyNotaryStorage =
@@ -130,7 +131,7 @@ emptyNotaryStorage =
     , _addresses              = mempty
     , _utxo                   = mempty
     , _masterKeys             = mempty
-    , _periodId               = -1
+    , _periodId               = 0
     , _isSynchronized         = False
     }
 
@@ -300,6 +301,46 @@ addSignedTransaction tx@Transaction{..} msAddr (partyAddr, sig) = do
 -- handle period end
 --------------------
 
+-- | Update Notary 'Storage' with last known to Bank HBlock.
+-- This function checks if Notary really has all previous HBlocks.
+-- And if he doesn't: throws exceptions.
+updateWithLastHBlock
+    :: PeriodId
+    -> HBlock
+    -> Update Storage ()
+updateWithLastHBlock bankPid HBlock{..} = do
+    pid <- use periodId
+    when (bankPid /= pid + 1) $ do
+        isSynchronized .= False
+        throwM $ NENotUpdated $ sformat
+            ("Got period id " % int % " but Notary period is " % int)
+            bankPid
+            pid
+
+    isSynchronized .= True
+    addresses      %= M.union hbAddresses
+    periodStats    .= HM.empty
+    periodId       .= bankPid
+    forM_ hbTransactions processPublishedTransacion
+  where
+    processPublishedTransacion tx@Transaction{..} = do
+        txPool %= HM.delete tx
+
+        let txOuts = computeOutputAddrids tx
+        forM_ txInputs $ \addrId ->
+            utxo %= HM.delete addrId
+        forM_ txOuts   $ \(addrId, addr) ->
+            utxo %= HM.insert addrId addr
+
+-- | Announce HBlocks, not yet known to Notary.
+batchUpdatePeriods
+    :: PeriodId           -- ^ Last period id; i.e. id of head of HBlocks
+    -> [HBlock]           -- ^ Blocks; head corresponds to the latest block
+    -> Update Storage ()
+batchUpdatePeriods lastPid hBlocks = do
+    let indexedBlocks = zip [lastPid, lastPid - 1 ..] hBlocks
+    mapM_ (uncurry updateWithLastHBlock) $ reverse indexedBlocks
+
 -- | Clear all outdated information from `discard*` Maps.
 removeOutdatedInfo
     :: (Eq info, Hashable info)
@@ -323,43 +364,24 @@ removeOutdatedInfo pId enduranceLens discardLens poolLens = do
             whenJust mInfoList $ \infoList -> forM_ infoList $ \info ->
                 poolLens %= HM.delete info
 
--- | Announce HBlocks, not yet known to Notary.
-announceNewPeriods :: PeriodId -- ^ periodId of latest hblock
-                   -> [HBlock] -- ^ blocks, head corresponds to the latest block
-                   -> Update Storage ()
-announceNewPeriods pId' blocks = do
-    pId <- use periodId
-    mapM_ announceNewPeriod $ reverse $ take (pId' - pId) blocks
-    periodId .= pId'
+-- | Annouce new period to Notary from Bank.
+announceNewPeriod :: PeriodId -> HBlock -> Update Storage ()
+announceNewPeriod lastPid hb = do
+    updateWithLastHBlock lastPid hb
 
-    -- discard old MS address allocation requests
+    -- Discard old MS address allocation requests
     removeOutdatedInfo
-        pId
+        lastPid
         allocationEndurance
         discardMSAddresses
         allocationStrategyPool
 
-    -- discard old pending transactions
+    -- Discard old pending transactions
     removeOutdatedInfo
-        pId
+        lastPid
         transactionEndurance
         discardTransactions
         txPool
-
-announceNewPeriod :: HBlock -> Update Storage ()
-announceNewPeriod HBlock{..} = do
-    addresses   %= M.union hbAddresses
-    periodStats .= HM.empty
-    forM_ hbTransactions processPublishedTransacion
-  where
-    processPublishedTransacion tx@Transaction{..} = do
-        txPool %= HM.delete tx
-
-        let txOuts = computeOutputAddrids tx
-        forM_ txInputs $ \addrId ->
-            utxo %= HM.delete addrId
-        forM_ txOuts   $ \(addrId, addr) ->
-            utxo %= HM.insert addrId addr
 
 -- =============
 -- QUERY SECTION
@@ -438,9 +460,9 @@ pollPendingTxs parties = do
         then HS.insert tx txSet
         else txSet
 
-------------------
--- storage getters
-------------------
+------------------------
+-- storage miscellaneous
+------------------------
 
 -- | Get last known periodId of Notary (interface for bank).
 getPeriodId :: Query Storage PeriodId

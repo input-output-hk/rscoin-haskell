@@ -5,7 +5,7 @@
 module RSCoin.Notary.Server
        ( serveNotary
        , handlePublishTx
-       , handleAnnounceNewPeriods
+       , handleAnnounceNewPeriod
        , handleGetPeriodId
        , handleGetPeriodIdUnsigned
        , handleGetSignatures
@@ -36,7 +36,7 @@ import qualified RSCoin.Core.Protocol    as P
 
 import           RSCoin.Notary.AcidState (AddSignedTransaction (..),
                                           AllocateMSAddress (..),
-                                          AnnounceNewPeriods (..),
+                                          AnnounceNewPeriod (..),
                                           CheckIfSynchronized (..),
                                           GetPeriodId (..), GetSignatures (..),
                                           NotaryState, PollPendingTxs (..),
@@ -106,7 +106,7 @@ serveNotary sk st = do
         , P.method (P.RSCNotary P.GetSignatures)              $ idr2
             $ handleGetSignatures sk st
         , P.method (P.RSCNotary P.AnnounceNewPeriodsToNotary) $ idr3
-            $ handleAnnounceNewPeriods st
+            $ handleAnnounceNewPeriod st
         , P.method (P.RSCNotary P.GetNotaryPeriod)            $ idr4
             $ handleGetPeriodId sk st
         , P.method (P.RSCNotary P.QueryCompleteMS)            $ idr5
@@ -143,12 +143,12 @@ handlePublishTx sk st tx addr sg =
                res
        return res
 
-handleAnnounceNewPeriods
+handleAnnounceNewPeriod
     :: C.WorkMode m
     => NotaryState
-    -> C.WithSignature (C.PeriodId, [C.HBlock])
+    -> C.WithSignature (C.PeriodId, C.HBlock)
     -> ServerTE m ()
-handleAnnounceNewPeriods st signed = toServer st $ do
+handleAnnounceNewPeriod st signed = toServer st $ do
 --    DEBUG
 --    outdatedAllocs <- query st OutdatedAllocs
 --    C.logDebug $ sformat ("All discard info: " % shown) outdatedAllocs
@@ -156,11 +156,11 @@ handleAnnounceNewPeriods st signed = toServer st $ do
     unless (C.verifyWithSignature bankPublicKey signed) $
         throwM NEInvalidSignature
 
-    let (pId, hblocks) = C.wsValue signed
-    update st $ AnnounceNewPeriods pId hblocks
+    let (pId, hblock) = C.wsValue signed
+    update st $ AnnounceNewPeriod pId hblock
     tidyState st
-    C.logDebug $ sformat ("New period announcement, hblocks " % build % " from periodId " % int)
-        hblocks
+    C.logDebug $ sformat ("New period announcement, hblock " % build % " from periodId " % int)
+        hblock
         pId
 
 handleGetPeriodId

@@ -10,7 +10,8 @@ module RSCoin.Notary.AcidState
          -- * acid-state query and update data types
        , AddSignedTransaction (..)
        , AllocateMSAddress (..)
-       , AnnounceNewPeriods (..)
+       , AnnounceNewPeriod (..)
+       , BatchUpdatePeriods (..)
        , CheckIfSynchronized (..)
        , GetPeriodId (..)
        , GetSignatures (..)
@@ -112,7 +113,8 @@ tidyState = tidyExtendedState
 $(makeAcidic ''Storage
              [ 'S.addSignedTransaction
              , 'S.allocateMSAddress
-             , 'S.announceNewPeriods
+             , 'S.announceNewPeriod
+             , 'S.batchUpdatePeriods
              , 'S.checkIfSynchronized
              , 'S.getPeriodId
              , 'S.getSignatures

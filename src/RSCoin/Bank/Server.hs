@@ -14,6 +14,7 @@ import           Control.Lens               ((^.))
 import           Control.Monad              (forM_, unless, when)
 import           Control.Monad.Catch        (SomeException, bracket_, catch,
                                              throwM)
+import           Control.Monad.Extra        (whenJust)
 import           Control.Monad.Trans        (lift, liftIO)
 
 import           Data.Binary                (Binary)
@@ -44,8 +45,7 @@ import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),
                                              CheckAndBumpStatisticsId (..),
                                              GetExplorersAndPeriods (..),
-                                             GetHBlock (..), GetHBlocks (..),
-                                             GetMintettes (..),
+                                             GetHBlock (..), GetMintettes (..),
                                              GetPeriodId (..),
                                              GetStatisticsId (..),
                                              RemoveExplorer (..),
@@ -252,8 +252,10 @@ onPeriodFinished sk st = do
     mintettes <- query st GetMintettes
     pId <- query st GetPeriodId
     C.logInfo $ sformat ("Period " % int % " has just finished!") pId
-    -- init here to see them in next period
+
+    -- Init is here to see MS addresses in next period
     initializeMultisignatureAddresses `catch` handlerInitializeMS
+
     -- Mintettes list is empty before the first period, so we'll simply
     -- get [] here in this case (and it's fine).
     periodResults <- getPeriodResults sk mintettes pId
@@ -305,10 +307,9 @@ onPeriodFinished sk st = do
         let signedMsAddrs = C.sign sk msAddrs
         C.removeNotaryCompleteMSAddresses msAddrs signedMsAddrs
     announceNewPeriodsToNotary = do
-        pId     <- C.getNotaryPeriod
-        pId'    <- query st GetPeriodId
-        hblocks <- query st (GetHBlocks pId pId')
-        C.announceNewPeriodsToNotary sk pId' hblocks
+        pId    <- query st GetPeriodId
+        mHBlock <- query st (GetHBlock pId)
+        whenJust mHBlock $ \hBlock -> C.announceNewPeriodToNotary sk pId hBlock
 
 serveFinishPeriod
     :: C.WorkMode m

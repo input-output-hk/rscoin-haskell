@@ -8,14 +8,15 @@ import           Control.Monad             (forM_)
 import           Data.List.Split           (chunksOf)
 import           Formatting                (build, int, sformat, (%))
 
-import           Control.TimeWarp.Timed    (repeatForever, sec, tu)
+import           Control.TimeWarp.Timed    (for, ms, repeatForever, sec, tu,
+                                            wait)
 import           Serokell.Util.Exceptions  ()
 
 import           RSCoin.Core               (PeriodId, WorkMode, logDebug,
                                             logError, logInfo, logWarning)
 import qualified RSCoin.Core.Communication as CC
 
-import           RSCoin.Notary.AcidState   (AnnounceNewPeriods (..),
+import           RSCoin.Notary.AcidState   (BatchUpdatePeriods (..),
                                             GetPeriodId (..), NotaryState,
                                             SetSynchronization (..), query,
                                             update)
@@ -26,24 +27,27 @@ runFetchWorker
     :: WorkMode m
     => NotaryState
     -> m ()
-runFetchWorker st =
-    repeatForever (tu $ sec 20) handler fetchWorker  -- TODO: use not magic constant
+runFetchWorker st = do
+    wait $ for 500 ms  -- Short wait to make rscoin-deploy happy
+    repeatForever (tu $ sec 30) handler fetchWorker  -- TODO: use not magic constant
   where
     fetchWorker = do
         logDebug "Fetching HBlocks..."
-        notaryPid  <- query st GetPeriodId
-        bankHeight <- CC.getBlockchainHeight
-        let bankPid = bankHeight - 1
+
+        -- TODO: atomicity problems?
+        notaryPid <- query st GetPeriodId
+        bankPid   <- CC.getBlockchainHeight
+        logDebug $ sformat ("Notary's pid " % int % "; bank's " % int)
+            notaryPid
+            bankPid
 
         if notaryPid /= bankPid then do
             update st $ SetSynchronization False
-            logWarning $ sformat ("Notary pid " % int % " not equals to bank " % int)
-                notaryPid
-                bankPid
-            runStorageUpdate st (max 0 notaryPid) bankPid
-            logInfo "Notary updated his storage!"
+            logWarning "Notary is not synched!"
+            runStorageUpdate st notaryPid (bankPid - 1)
+            logInfo "Notary updated his storage"
         else
-            logDebug "Notary storagy is synchronized"
+            logDebug "Notary storage is synchronized"
 
         update st $ SetSynchronization True
 
@@ -67,4 +71,4 @@ runStorageUpdate st from to = do
     forM_ fetchBatches $ \pids -> do
         let lastBatchPid = last pids
         newHBlocks <- CC.getBlocksByHeight (head pids) lastBatchPid
-        update st $ AnnounceNewPeriods lastBatchPid newHBlocks
+        update st $ BatchUpdatePeriods lastBatchPid newHBlocks

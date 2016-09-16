@@ -27,6 +27,7 @@ import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, int, sformat, stext, (%))
 
 import           Serokell.Util.Bench        (measureTime_)
+import           Serokell.Util.Exceptions   (throwText)
 import           Serokell.Util.Text         (listBuilderJSON, show')
 
 import qualified Control.TimeWarp.Rpc       as Rpc
@@ -194,8 +195,32 @@ getPeriodResult
     => C.SecretKey -> C.Mintette -> C.PeriodId -> m (Maybe C.PeriodResult)
 getPeriodResult sk mintette pId = (Just <$> getPeriodResultDo) `catch` handler
   where
+    maxLegalBlocksNumber = 1000
+    maxSafeBlocksNumber = 100
+    maxLegalActionLogSize = 50000
+    maxSafeActionLogSize = 10000
     getPeriodResultDo = do
         pr@C.PeriodResult {..} <- C.sendPeriodFinished mintette sk pId
+        let warnBlocks =
+                C.logWarning $
+                sformat
+                    ("Mintette " % build % " claims that he has " % int %
+                     " blocks")
+                    mintette
+                    prBlocksNumber
+            warnLogs =
+                C.logWarning $
+                sformat
+                    ("Mintette " % build % " claims that he has " % int %
+                     " action logs")
+                    mintette
+                    prActionLogSize
+        when (prBlocksNumber > maxLegalBlocksNumber) $
+            warnBlocks >> throwText "Too many blocks"
+        when (prBlocksNumber > maxSafeBlocksNumber) warnBlocks
+        when (prActionLogSize > maxLegalActionLogSize) $
+            warnLogs >> throwText "Too many logs"
+        when (prActionLogSize > maxSafeActionLogSize) $ warnLogs
         extraBlocks <- concat <$> getExtraBlocksFromMintette sk mintette pId pr
         extraLogs <- concat <$> getExtraLogFromMintette sk mintette pId pr
         return
@@ -205,6 +230,7 @@ getPeriodResult sk mintette pId = (Just <$> getPeriodResultDo) `catch` handler
             , ..
             }
     -- TODO: catch appropriate exception according to protocol implementation
+    -- TextException must be caught also.
     handler (e :: SomeException) = do
         C.logWarning $
             sformat ("Error occurred in communicating with mintette " % build) e

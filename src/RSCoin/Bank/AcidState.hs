@@ -17,6 +17,7 @@ module RSCoin.Bank.AcidState
 
          -- | Queries
        , GetMintettes (..)
+       , GetPermittedMintettes (..)
        , GetAddresses (..)
        , GetExplorers (..)
        , GetExplorersAndPeriods (..)
@@ -49,6 +50,7 @@ import           Data.Acid                     (EventResult, EventState, Query,
                                                 makeAcidic)
 import           Data.Maybe                    (fromMaybe)
 import           Data.Text                     (Text)
+import qualified Data.Set                      as Set
 import           Data.Time.Clock.POSIX         (POSIXTime)
 import           Formatting                    (bprint, stext, (%))
 import           Safe                          (headMay)
@@ -108,6 +110,9 @@ getAddresses = view BS.getAddresses
 
 getMintettes :: Query BS.Storage Mintettes
 getMintettes = view BS.getMintettes
+
+getPermittedMintettes :: Query BS.Storage (Set.Set PublicKey)
+getPermittedMintettes = view BS.getPermittedMintettes
 
 getExplorers :: Query BS.Storage Explorers
 getExplorers = view BS.getExplorers
@@ -173,6 +178,7 @@ checkAndBumpStatisticsId = BS.checkAndBumpStatisticsId
 
 $(makeAcidic ''BS.Storage
              [ 'getMintettes
+             , 'getPermittedMintettes
              , 'getAddresses
              , 'getExplorers
              , 'getExplorersAndPeriods

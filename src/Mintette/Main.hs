@@ -24,13 +24,14 @@ main = do
         Opts.Serve serveOpts -> mainServe ctxArg serveOpts opts
         Opts.DumpStatistics -> mainDumpStatistics ctxArg opts
         Opts.CreatePermissionKeypair -> mainCreatePermissionKeypair ctxArg opts
+        Opts.AddToBank addToBankOpts -> mainAddToBank ctxArg addToBankOpts opts
 
 mainServe :: M.ContextArgument -> Opts.ServeOptions -> Opts.Options -> IO ()
 mainServe ctxArg Opts.ServeOptions {..} Opts.Options {..} = do
     skEither <- try $ readSecretKey cloSecretKeyPath
     sk <-
         case skEither of
-            Left (_ :: SomeException) | cloAutoCreateKey -> getOrCreateKeypair cloSecretKeyPath
+            Left (_ :: SomeException) | cloAutoCreateKey -> createKeypair cloSecretKeyPath
             Left err -> throwM err
             Right sk -> return sk
     let dbPath =
@@ -41,6 +42,16 @@ mainServe ctxArg Opts.ServeOptions {..} Opts.Options {..} = do
         env = M.mkRuntimeEnv cloActionLogsLimit sk
     M.launchMintetteReal cloRebuildDB epochDelta cloPort env dbPath ctxArg
 
+mainAddToBank :: M.ContextArgument -> Opts.AddToBankOptions -> Opts.Options -> IO ()
+mainAddToBank ctxArg Opts.AddToBankOptions {..} Opts.Options {..} = do
+    skEither <- try $ readSecretKey cloSecretKeyPath_
+    sk <-
+        case skEither of
+            Left (_ :: SomeException) | cloAutoCreateKey_ -> createKeypair cloSecretKeyPath_
+            Left err -> throwM err
+            Right sk -> return sk
+    M.addToBank cloRebuildDB cloPath ctxArg sk cloMintetteHost cloMintettePort
+
 mainDumpStatistics :: M.ContextArgument -> Opts.Options -> IO ()
 mainDumpStatistics ctxArg Opts.Options {..} = do
     M.dumpStorageStatistics cloRebuildDB cloPath ctxArg
@@ -48,12 +59,12 @@ mainDumpStatistics ctxArg Opts.Options {..} = do
 mainCreatePermissionKeypair :: M.ContextArgument -> Opts.Options -> IO ()
 mainCreatePermissionKeypair ctxArg Opts.Options {..} = do
     directory <- defaultSecretKeyPath
-    _ <- getOrCreateKeypair directory
+    _ <- createKeypair directory
     return ()
 
 -- TODO: should this go to RSCoin.Core.Crypto.Signing?
-getOrCreateKeypair :: FilePath -> IO SecretKey
-getOrCreateKeypair directory = do
+createKeypair :: FilePath -> IO SecretKey
+createKeypair directory = do
     let fpSecret = directory
     let fpPublic = directory <> ".pub"
     putStrLn $ "Generating secret key at " ++ fpSecret

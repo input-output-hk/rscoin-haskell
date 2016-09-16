@@ -11,6 +11,7 @@ module RSCoin.Bank.Storage.Mintettes
 
        , Query
        , getMintettes
+       , getPermittedMintettes
        , getDpk
        , getActionLogs
 
@@ -93,6 +94,9 @@ type Query a = Getter MintettesStorage a
 
 getMintettes :: Query C.Mintettes
 getMintettes = msMintettes
+
+getPermittedMintettes :: Query (Set.Set C.PublicKey)
+getPermittedMintettes = msPermittedMintettes
 
 getDpk :: Query C.Dpk
 getDpk = msDpk

@@ -4,6 +4,7 @@ module MintetteOptions
        ( Command (..)
        , Options (..)
        , ServeOptions (..)
+       , AddToBankOptions (..)
 
        , getOptions
        ) where
@@ -26,6 +27,7 @@ data Command
     = Serve ServeOptions
     | DumpStatistics
     | CreatePermissionKeypair
+    | AddToBank AddToBankOptions
 
 data ServeOptions = ServeOptions
     { cloPort            :: Int
@@ -33,6 +35,13 @@ data ServeOptions = ServeOptions
     , cloSecretKeyPath   :: FilePath
     , cloAutoCreateKey   :: Bool
     , cloActionLogsLimit :: Word
+    }
+
+data AddToBankOptions = AddToBankOptions
+    { cloMintetteHost     :: String
+    , cloMintettePort     :: Int
+    , cloSecretKeyPath_   :: FilePath
+    , cloAutoCreateKey_   :: Bool
     }
 
 data Options = Options
@@ -55,8 +64,27 @@ commandParser defaultSKPath =
          command
              "create-permission-keypair"
              -- TODO: option to override the generated keypair location
-             (info (pure CreatePermissionKeypair) (progDesc "Generates mintette permission keypair")))
+             (info (pure CreatePermissionKeypair) (progDesc "Generates mintette permission keypair")) <>
+         command
+             "add-to-bank"
+             (info addToBankOpts (progDesc "Adds mintette to the bank given the bank has mintette public key permitted")))
   where
+    addToBankOpts =
+      fmap AddToBank $
+      AddToBankOptions
+      <$> strOption (short 'h' <> long "host")
+      <*> option auto (short 'p' <> long "port")
+      <*> strOption
+            (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <>
+             help "Path to the secret key" <>
+             showDefault <>
+             metavar "FILEPATH")
+      <*> switch
+            (long "auto-create-sk" <>
+             help
+                 ("If the \"sk\" is pointing to non-existing " <>
+                  "file, generate a keypair"))
+
     serveOpts =
         fmap Serve $
         ServeOptions <$>

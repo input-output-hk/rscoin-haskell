@@ -6,6 +6,7 @@ module RSCoin.Mintette.Launcher
        , dumpStorageStatistics
        , launchMintetteReal
        , mintetteWrapperReal
+       , addToBank
        ) where
 
 import           Control.Monad.Catch       (bracket)
@@ -17,7 +18,8 @@ import           Formatting                (int, sformat, stext, (%))
 import           Control.TimeWarp.Timed    (fork_)
 import           RSCoin.Core               (ContextArgument (..), RealMode,
                                             mintetteLoggerName,
-                                            runRealModeUntrusted)
+                                            runRealModeUntrusted, SecretKey)
+import qualified RSCoin.Core.Communication as CC
 
 import           RSCoin.Mintette.Acidic    (GetPeriodId (..), closeState,
                                             getStatistics, openMemState,
@@ -45,6 +47,13 @@ launchMintetteReal deleteIfExists epochDelta port env dbPath ctxArg =
     \st -> do
         fork_ $ runWorkerWithDelta epochDelta env st
         serve port st env
+
+addToBank :: Bool -> FilePath -> ContextArgument -> SecretKey -> String -> Int -> IO ()
+addToBank deleteIfExists dbPath ctxArg mintetteSK host port = do
+    mintetteWrapperReal deleteIfExists (Just dbPath) ctxArg impl
+      where
+        impl st = do
+          CC.addMintetteUsingPermission mintetteSK host port
 
 dumpStorageStatistics :: Bool -> FilePath -> ContextArgument -> IO ()
 dumpStorageStatistics deleteIfExists dbPath ctxArg =

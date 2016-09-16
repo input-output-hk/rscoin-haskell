@@ -19,7 +19,7 @@ import           Control.Monad.Trans        (lift, liftIO)
 import           Data.Binary                (Binary)
 import           Data.IORef                 (IORef, atomicWriteIORef,
                                              modifyIORef, newIORef, readIORef)
-import           Data.List                  (nub, (\\))
+import           Data.List                  (genericLength, nub, (\\))
 import           Data.Maybe                 (catMaybes)
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as TIO
@@ -155,6 +155,61 @@ serveGetHBlocks sk st (nub -> periodIds) =
            listBuilderJSON (periodIds \\ gotIndices)
        return $ map fst blocks
 
+constructRanges :: Word -> Word -> Word -> [(Word, Word)]
+constructRanges lo hi d
+    | hi <= lo = []
+    | otherwise = map constructRange [0 .. (hi - lo - 1) `div` d]
+  where
+    constructRange i = (lo + i * d, min (hi - 1) (lo + (i + 1) * d - 1))
+
+getExtraBlocksFromMintette
+    :: C.WorkMode m
+    => C.SecretKey
+    -> C.Mintette
+    -> C.PeriodId
+    -> C.PeriodResult
+    -> m [[C.LBlock]]
+getExtraBlocksFromMintette sk mintette pId C.PeriodResult {..} =
+    mapM (C.getExtraMintetteBlocks mintette sk pId) $
+    constructRanges (genericLength prBlocks) prBlocksNumber C.lBlocksQueryLimit
+
+getExtraLogFromMintette
+    :: C.WorkMode m
+    => C.SecretKey
+    -> C.Mintette
+    -> C.PeriodId
+    -> C.PeriodResult
+    -> m [C.ActionLog]
+getExtraLogFromMintette sk mintette pId C.PeriodResult {..} =
+    mapM (C.getExtraMintetteLogs mintette sk pId) $
+    constructRanges
+        (genericLength prActionLog)
+        prActionLogSize
+        C.actionLogQueryLimit
+
+-- | Get full period result from given mintette. If it's split into
+-- parts, they are concatenated.
+getPeriodResult
+    :: C.WorkMode m
+    => C.SecretKey -> C.Mintette -> C.PeriodId -> m (Maybe C.PeriodResult)
+getPeriodResult sk mintette pId = (Just <$> getPeriodResultDo) `catch` handler
+  where
+    getPeriodResultDo = do
+        pr@C.PeriodResult {..} <- C.sendPeriodFinished mintette sk pId
+        extraBlocks <- concat <$> getExtraBlocksFromMintette sk mintette pId pr
+        extraLogs <- concat <$> getExtraLogFromMintette sk mintette pId pr
+        return
+            C.PeriodResult
+            { C.prBlocks = prBlocks ++ extraBlocks
+            , C.prActionLog = prActionLog ++ extraLogs
+            , ..
+            }
+    -- TODO: catch appropriate exception according to protocol implementation
+    handler (e :: SomeException) = do
+        C.logWarning $
+            sformat ("Error occurred in communicating with mintette " % build) e
+        return Nothing
+
 getPeriodResults
     :: C.WorkMode m
     => C.SecretKey -> C.Mintettes -> C.PeriodId -> m [Maybe C.PeriodResult]
@@ -164,14 +219,7 @@ getPeriodResults sk mts pId = do
     liftIO $ reverse <$> readIORef res
   where
     f res mintette =
-        (C.sendPeriodFinished mintette sk pId >>=
-         liftIO . modifyIORef res . (:) . Just) `catch`
-        handler res
-    handler res (e :: SomeException) =
-        liftIO $
-        do C.logWarning $ sformat
-               ("Error occurred in communicating with mintette " % build) e
-           modifyIORef res (Nothing :)
+        getPeriodResult sk mintette pId >>= liftIO . modifyIORef res . (:)
 
 onPeriodFinished :: C.WorkMode m => SecretKey -> State -> m ()
 onPeriodFinished sk st = do

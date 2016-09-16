@@ -33,6 +33,7 @@ module RSCoin.Mintette.Storage
          -- * Queries
        , Query
        , getCurMintetteId
+       , getLastLBlocks
        , getLogs
        , getPeriodId
        , getPrevMintetteId
@@ -59,16 +60,15 @@ module RSCoin.Mintette.Storage
        ) where
 
 import           Control.Applicative   ((<|>))
-import           Control.Lens          (at, makeLenses, to, use, uses, view,
-                                        views, (%=), (+=), (.=), (<>=), (<~),
-                                        (^.), _1)
+import           Control.Lens          (at, makeLenses, use, uses, view, views,
+                                        (%=), (+=), (.=), (<>=), (<~), (^.), _1)
 import           Control.Monad         (unless, when)
 import           Control.Monad.Catch   (MonadThrow (throwM))
 import           Control.Monad.Extra   (unlessM, whenJust)
 import           Control.Monad.Reader  (MonadReader, Reader, ReaderT, runReader)
 import           Control.Monad.State   (MonadState, gets)
 import qualified Data.HashMap.Strict   as HM
-import           Data.List             (genericTake)
+import           Data.List             (genericLength, genericTake)
 import qualified Data.Map.Strict       as M
 import           Data.Maybe            (fromJust, fromMaybe, isJust, isNothing)
 import           Data.SafeCopy         (base, deriveSafeCopy)
@@ -166,6 +166,9 @@ getCurMintetteId = view curMintetteId
 
 getPrevMintetteId :: Query (Maybe MintetteId)
 getPrevMintetteId = view prevMintetteId
+
+getLastLBlocks :: Query [C.LBlock]
+getLastLBlocks = view lBlocks
 
 type Update a = forall m. MonadState Storage m =>
                           m a
@@ -280,16 +283,23 @@ commitTxChecked True tx bundle = do
 
 -- | Finish ongoing period, returning its result.
 -- Do nothing if period id is not an expected one.
-finishPeriod :: C.PeriodId -> ExceptUpdateInEnv C.PeriodResult
-finishPeriod pId = do
+finishPeriod :: Int -> Int -> C.PeriodId -> ExceptUpdateInEnv C.PeriodResult
+finishPeriod blocksLimit logsLimit pId = do
     checkIsActive
     checkPeriodId pId
     finishEpoch
     prevMintetteId <~ use curMintetteId
     curMintetteId .= Nothing
     blocksRes <- use lBlocks
-    lBlocks .= mempty
-    (pId, blocksRes, ) <$> use (actionLogs . to head)
+    actionLog <- uses actionLogs head
+    return
+        C.PeriodResult
+        { prPeriodId = pId
+        , prBlocks = take blocksLimit blocksRes
+        , prBlocksNumber = genericLength blocksRes
+        , prActionLog = take logsLimit actionLog
+        , prActionLogSize = genericLength actionLog
+        }
 
 -- | Start new period. False return value indicates that mintette
 -- didn't start the period because it received some other index, so
@@ -311,6 +321,7 @@ startPeriod C.NewPeriodData {..} = do
         (curMintetteId <~ use prevMintetteId)
         (uncurryN onMintetteIdChanged)
         npdNewIdPayload
+    lBlocks .= mempty
     actionLogs %= (replicate (npdPeriodId - lastPeriodId) [] ++)
     actionLogsLimit <- view reActionLogsLimit
     actionLogs %= genericTake actionLogsLimit

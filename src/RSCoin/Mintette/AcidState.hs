@@ -13,6 +13,7 @@ module RSCoin.Mintette.AcidState
 
        , ConvertUpdateInEnv (..)
 
+       , getLastLBlocks
        , getLogs
        , getPeriodId
        , getStorage
@@ -36,9 +37,10 @@ import           Serokell.AcidState      (ExtendedState, queryExtended,
 
 import           RSCoin.Core             (ActionLog, AddrId, Address,
                                           CheckConfirmation, CheckConfirmations,
-                                          CommitAcknowledgment, MintetteId,
-                                          NewPeriodData, PeriodId, PeriodResult,
-                                          Pset, Signature, Transaction, Utxo)
+                                          CommitAcknowledgment, LBlock,
+                                          MintetteId, NewPeriodData, PeriodId,
+                                          PeriodResult, Pset, Signature,
+                                          Transaction, Utxo)
 
 import           RSCoin.Mintette.Env     (RuntimeEnv)
 import qualified RSCoin.Mintette.Storage as MS
@@ -57,6 +59,9 @@ update = updateExtended
 
 getUtxoPset :: Query MS.Storage (Utxo,Pset)
 getUtxoPset = MS.getUtxoPset
+
+getLastLBlocks :: Query MS.Storage [LBlock]
+getLastLBlocks = MS.getLastLBlocks
 
 getLogs :: PeriodId -> Query MS.Storage (Maybe ActionLog)
 getLogs = MS.getLogs
@@ -102,7 +107,7 @@ commitTx
     -> Update MS.Storage CommitAcknowledgment
 commitTx = convertUpdateInEnv MS.commitTx
 
-finishPeriod :: PeriodId -> RuntimeEnv -> Update MS.Storage PeriodResult
+finishPeriod :: Int -> Int -> PeriodId -> RuntimeEnv -> Update MS.Storage PeriodResult
 finishPeriod = convertUpdateInEnv MS.finishPeriod
 
 startPeriod :: NewPeriodData -> RuntimeEnv -> Update MS.Storage ()

@@ -164,7 +164,7 @@ updateMintettes sk goodMintettes = do
         dm <- use msDeadMintettes
         return $
             map (maybe [] dmsActionLog . flip M.lookup dm . snd) pendingPairs
-    appendNewLogDo (idx,(_,_,newLog)) = msActionLogs . ix idx %= (newLog ++)
+    appendNewLogDo (idx,C.PeriodResult {..}) = msActionLogs . ix idx %= (prActionLog ++)
 
 -- | Given the list of bad indices, new list to append and data list,
 -- this function returns datalist with appended data and removed bad

@@ -23,9 +23,11 @@ import           Control.Monad.Extra       (unlessM)
 import           Control.Monad.Trans       (lift)
 import           Data.Bifunctor            (first)
 import qualified Data.Map                  as M
+import           Data.Maybe                (fromMaybe)
 import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
 
+import           Serokell.Util.Common      (subList)
 import           Serokell.Util.Text        (listBuilderJSON,
                                             listBuilderJSONIndent, pairBuilder,
                                             show')
@@ -38,7 +40,8 @@ import qualified RSCoin.Core               as C
 
 import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
                                             CommitTx (..), FinishPeriod (..),
-                                            GetLogs (..), GetPeriodId (..),
+                                            GetLastLBlocks (..), GetLogs (..),
+                                            GetPeriodId (..),
                                             GetPreviousMintetteId (..),
                                             GetUtxoPset (..), StartPeriod (..),
                                             tidyState)
@@ -57,6 +60,8 @@ serve port st env = do
     idr6 <- serverTypeRestriction0
     idr7 <- serverTypeRestriction0
     idr8 <- serverTypeRestriction1
+    idr9 <- serverTypeRestriction1
+    idr10 <- serverTypeRestriction1
     C.serve port
         [ C.method (C.RSCMintette C.PeriodFinished) $
             idr1 $ handlePeriodFinished env st
@@ -74,6 +79,10 @@ serve port st env = do
             idr7 $ handleGetUtxo st
         , C.method (C.RSCDump C.GetMintetteLogs) $
             idr8 $ handleGetLogs st
+        , C.method (C.RSCMintette C.GetExtraBlocks) $
+            idr9 $ handleGetExtraBlocks st
+        , C.method (C.RSCMintette C.GetExtraLogs) $
+            idr10 $ handleGetExtraLogs st
         ]
 
 type ServerTE m a = ServerT m (Either T.Text a)
@@ -105,13 +114,13 @@ handlePeriodFinished env st signed =
                curUtxo
                curPset
        C.logInfo $ sformat ("Period " % int % " has just finished!") pId
-       res@(_, blks, lgs) <- update st $ FinishPeriod pId env
+       res <-
+           update st $
+           FinishPeriod C.lBlocksQueryLimit C.actionLogQueryLimit pId env
        C.logInfo $
            sformat
-               ("Here is PeriodResult:\n Blocks: " % build % "\n Logs: " % build %
-                "\n")
-               (listBuilderJSONIndent 2 blks)
-               lgs
+               ("Here is PeriodResult:\n " % build % "\n")
+               res
        (curUtxo', curPset') <- query st GetUtxoPset
        C.logDebug $
            sformat
@@ -119,8 +128,7 @@ handlePeriodFinished env st signed =
                 build)
                curUtxo'
                curPset'
-       tidyState st
-       return res
+       res <$ tidyState st
 
 handleNewPeriod
     :: C.WorkMode m
@@ -269,3 +277,37 @@ handleGetLogs st pId =
             sformat ("Getting logs for periodId " % int % ": " % build)
                 pId (listBuilderJSONIndent 2 . map pairBuilder <$> res)
        return res
+
+handleGetExtraBlocks
+    :: C.WorkMode m
+    => State
+    -> C.WithSignature (C.PeriodId, (Word, Word))
+    -> ServerTE m [C.LBlock]
+handleGetExtraBlocks st signed =
+    toServer $
+    do bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+       unless (C.verifyWithSignature bankPublicKey signed) $
+           throwM MEInvalidBankSignature
+       let (pId, (lo, hi)) = C.wsValue signed
+       expectedPId <- query st GetPeriodId
+       unless (pId == expectedPId) $ throwM $ MEPeriodMismatch expectedPId pId
+       when (hi - lo > C.actionLogQueryLimit) $
+           throwM $ C.BadRequest "too many blocks requested"
+       subList (lo, hi + 1) <$> query st GetLastLBlocks
+
+handleGetExtraLogs
+    :: C.WorkMode m
+    => State
+    -> C.WithSignature (C.PeriodId, (Word, Word))
+    -> ServerTE m C.ActionLog
+handleGetExtraLogs st signed =
+    toServer $
+    do bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+       unless (C.verifyWithSignature bankPublicKey signed) $
+           throwM MEInvalidBankSignature
+       let (pId, (lo, hi)) = C.wsValue signed
+       expectedPId <- query st GetPeriodId
+       unless (pId == expectedPId) $ throwM $ MEPeriodMismatch expectedPId pId
+       when (hi - lo > C.actionLogQueryLimit) $
+           throwM $ C.BadRequest "too many blocks requested"
+       subList (lo, hi + 1) . fromMaybe [] <$> query st (GetLogs pId)

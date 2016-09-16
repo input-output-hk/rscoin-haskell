@@ -22,8 +22,8 @@ module RSCoin.Bank.Storage.Updates
        , checkAndBumpStatisticsId
        ) where
 
-import           Control.Lens                  (Lens', use, uses, view, (%%=),
-                                                (%=), (+=), (.=), _3)
+import           Control.Lens                  (Lens', use, uses, (%%=), (%=),
+                                                (+=), (.=))
 import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (Exception, MonadThrow (throwM))
 import           Control.Monad.Except          (ExceptT, runExceptT)
@@ -231,18 +231,17 @@ checkResult :: PeriodId
             -> (Maybe PeriodResult, PublicKey, ActionLog)
             -> Maybe PeriodResult
 checkResult expectedPid lastHBlock (r,key,storedLog) = do
-    (pId,lBlocks,actionLog) <- r
-    guard $ pId == expectedPid
-    guard $ checkActionLog (headMay storedLog) actionLog
+    C.PeriodResult {..} <- r
+    guard $ prPeriodId == expectedPid
+    guard $ checkActionLog (headMay storedLog) prActionLog
     let logsToCheck =
             formLogsToCheck $
-            dropWhile (not . C.isCloseEpochEntry . fst) actionLog
-    let g3 = length logsToCheck == length lBlocks
-    guard g3
+            dropWhile (not . C.isCloseEpochEntry . fst) prActionLog
+    guard (length logsToCheck == length prBlocks)
     mapM_
         (\(blk,lg) ->
               guard $ checkLBlock key (hbHash lastHBlock) lg blk) $
-        zip lBlocks logsToCheck
+        zip prBlocks logsToCheck
     r
   where
     formLogsToCheck = unfoldr step
@@ -263,7 +262,7 @@ allocateCoins _ _ goodResults pId strategy
     | isNothing $
           (Strategies.allocateCoins strategy)
           pId
-          (map (view _3) . map snd $ goodResults) = Nothing
+          (map C.prActionLog . map snd $ goodResults) = Nothing
 allocateCoins bankPk mintetteKeys goodResults pId strategy =
     canonizeTx $ Transaction
     { txInputs = [(emissionHash pId, 0, inputValue)]
@@ -275,7 +274,7 @@ allocateCoins bankPk mintetteKeys goodResults pId strategy =
         fromJust $
         (Strategies.allocateCoins strategy)
             pId
-            (map (view _3) . map snd $ goodResults)
+            (map C.prActionLog . map snd $ goodResults)
     inputValue = sum (bankReward : goodMintetteRewards)
     idxInGoodToGlobal idxInGood = fst $ goodResults !! idxInGood
     mintetteOutputs =
@@ -290,7 +289,7 @@ mergeTransactions mts goodResults =
   where
     txMap :: HM.HashMap Transaction (S.HashSet MintetteId)
     txMap = foldr insertResult mempty goodResults
-    insertResult (mintId, (_, blks, _)) m = foldr (insertBlock mintId) m blks
+    insertResult (mintId, C.PeriodResult {..}) m = foldr (insertBlock mintId) m prBlocks
     insertBlock mintId blk m = foldr (insertTx mintId) m (lbTransactions blk)
     insertTx mintId tx m = HM.insertWith S.union tx (S.singleton mintId) m
     appendTxChecked :: Transaction

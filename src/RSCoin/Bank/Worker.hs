@@ -10,8 +10,10 @@ module RSCoin.Bank.Worker
        , runExplorerWorker
        ) where
 
+import           Control.Exception.Base   (AsyncException)
 import           Control.Monad            (when)
-import           Control.Monad.Catch      (SomeException, catch)
+import           Control.Monad.Catch      (SomeException, catch, catches,
+                                           Handler (..), throwM)
 import           Control.Monad.Extra      (unlessM)
 import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Data.IORef               (IORef, readIORef)
@@ -81,8 +83,9 @@ runExplorerWorker mainIsBusy sk st =
        mapM_ (update st . SuspendExplorer) failedExplorers
   where
     foreverSafe action = do
-        action `catch` handler
+        action `catches` [Handler skipAsyncHandler, Handler handler]
         foreverSafe action
+    skipAsyncHandler (e :: AsyncException) = throwM e
     handler (e :: SomeException) = do
         C.logError $ sformat ("Error occurred inside ExplorerWorker: " % build) e
         wait $ for 10 sec

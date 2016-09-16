@@ -29,7 +29,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp.git
-    commit: 3397b0112bd3b889a6f9c608ac5d2fb6ab156243
+    commit: 89a83e8ee7c3960bdaecc3fe001bd8947b9de309
   extra-dep: true
 
 nix:

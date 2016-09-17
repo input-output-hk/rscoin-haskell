@@ -104,6 +104,7 @@ startNotary :: Maybe C.Severity
             -> CommonParams
             -> IO ThreadId
 startNotary severity CommonParams {..} = do
+    putStrLn $ "Notary pubKey: " ++ show C.testNotaryPublicKey
     let workingDir = cpBaseDir </> "notary-workspace"
         workingDirDeprecated = toDeprecatedFilePath workingDir
         dbDir = workingDir </> "notary-db"
@@ -129,6 +130,7 @@ startBank
     -> PortsAndKeys
     -> IO ThreadId
 startBank CommonParams{..} mintettes explorers = do
+    putStrLn $ "Bank pubKey: " ++ show C.testBankPublicKey
     let workingDir = cpBaseDir </> "bank-workspace"
         workingDirDeprecated = toDeprecatedFilePath workingDir
         dbDir = workingDir </> "bank-db"

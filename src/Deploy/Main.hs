@@ -32,7 +32,10 @@ optionsParser :: Opts.Parser FilePath
 optionsParser =
     strArgument $
     mconcat
-        [Opts.value "local.yaml", Opts.showDefault, Opts.metavar "FILEPATH"]
+        [ Opts.value "local.yaml"
+        , Opts.showDefault
+        , Opts.metavar "CONFIG"
+        , Opts.help "Path to deployment config" ]
 {-    Opts.switch $
     mconcat
         [ Opts.short 'r', Opts.long "rebuild-db",

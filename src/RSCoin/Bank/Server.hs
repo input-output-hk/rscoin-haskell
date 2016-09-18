@@ -307,8 +307,8 @@ onPeriodFinished sk st = do
         let signedMsAddrs = C.sign sk msAddrs
         C.removeNotaryCompleteMSAddresses msAddrs signedMsAddrs
     announceNewPeriodsToNotary = do
-        pId    <- query st GetPeriodId
-        mHBlock <- query st (GetHBlock pId)
+        pId     <- query st GetPeriodId
+        mHBlock <- query st (GetHBlock $ pId - 1)
         whenJust mHBlock $ \hBlock -> C.announceNewPeriodToNotary sk pId hBlock
 
 serveFinishPeriod

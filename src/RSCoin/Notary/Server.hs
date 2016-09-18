@@ -37,7 +37,6 @@ import qualified RSCoin.Core.Protocol    as P
 import           RSCoin.Notary.AcidState (AddSignedTransaction (..),
                                           AllocateMSAddress (..),
                                           AnnounceNewPeriod (..),
-                                          CheckIfSynchronized (..),
                                           GetPeriodId (..), GetSignatures (..),
                                           NotaryState, PollPendingTxs (..),
                                           QueryAllMSAdresses (..),
@@ -53,18 +52,10 @@ type ServerTESigned m a = ServerTE m (C.WithSignature a)
 
 toServer
     :: C.WorkMode m
-    => NotaryState
-    -> m a
+    => m a
     -> ServerTE m a
-toServer st action = lift $ (Right <$> maybeFailedAction) `catch` handler
+toServer action = lift $ (Right <$> action) `catch` handler
   where
-    maybeFailedAction = do
-        isSynchronized <- query st CheckIfSynchronized
-        unless isSynchronized $
-            throwM $ NENotUpdated $ sformat
-                "Notary's storage is not synchronized with bank storage"
-        action
-
     handler (e :: NotaryError) = do
         C.logError $ sformat build e
         return $ Left $ show' e
@@ -77,10 +68,9 @@ signHandler sk = fmap (fmap (C.mkWithSignature sk))
 toServerSigned
     :: (Binary a, C.WorkMode m)
     => C.SecretKey
-    -> NotaryState
     -> m a
     -> ServerTESigned m a
-toServerSigned sk st = signHandler sk . toServer st
+toServerSigned sk = signHandler sk . toServer
 
 -- | Run Notary server which will process incoming sing requests.
 serveNotary
@@ -130,17 +120,15 @@ handlePublishTx
     -> (C.Address, C.Signature C.Transaction)
     -> ServerTESigned m [(C.Address, C.Signature C.Transaction)]
 handlePublishTx sk st tx addr sg =
-    toServerSigned sk st $
+    toServerSigned sk $
     do C.guardTransactionValidity tx
        update st $ AddSignedTransaction tx addr sg
        res <- query st $ GetSignatures tx
-       C.logDebug $
-           sformat
-               ("Getting signatures for tx " % build % ", addr " % build % ": " %
-                build)
-               tx
-               addr
-               res
+       C.logDebug $ sformat
+           ("Getting signatures for tx " % build % ", addr " % build % ": " % build)
+           tx
+           addr
+           res
        return res
 
 handleAnnounceNewPeriod
@@ -148,7 +136,7 @@ handleAnnounceNewPeriod
     => NotaryState
     -> C.WithSignature (C.PeriodId, C.HBlock)
     -> ServerTE m ()
-handleAnnounceNewPeriod st signed = toServer st $ do
+handleAnnounceNewPeriod st signed = toServer $ do
 --    DEBUG
 --    outdatedAllocs <- query st OutdatedAllocs
 --    C.logDebug $ sformat ("All discard info: " % shown) outdatedAllocs
@@ -157,6 +145,7 @@ handleAnnounceNewPeriod st signed = toServer st $ do
         throwM NEInvalidSignature
 
     let (pId, hblock) = C.wsValue signed
+    C.logDebug $ sformat ("Bank sent pid: " % int) pId
     update st $ AnnounceNewPeriod pId hblock
     tidyState st
     C.logDebug $ sformat ("New period announcement, hblock " % build % " from periodId " % int)
@@ -172,7 +161,7 @@ handleGetPeriodIdUnsigned
     :: C.WorkMode m
     => NotaryState -> ServerTE m C.PeriodId
 handleGetPeriodIdUnsigned st =
-    toServer st $
+    toServer $
     do res <- query st GetPeriodId
        res <$ C.logDebug (sformat ("Getting periodId: " % int) res)
 
@@ -184,7 +173,7 @@ handleGetSignatures
     -> C.Address
     -> ServerTESigned m [(C.Address, C.Signature C.Transaction)]
 handleGetSignatures sk st tx addr =
-    toServerSigned sk st $
+    toServerSigned sk $
     do C.guardTransactionValidity tx
        res <- query st $ GetSignatures tx
        C.logDebug $
@@ -202,7 +191,7 @@ handleQueryCompleteMS
     -> NotaryState
     -> ServerTESigned m [(C.Address, C.TxStrategy)]
 handleQueryCompleteMS sk st =
-    toServerSigned sk st $
+    toServerSigned sk $
     do res <- query st QueryCompleteMSAdresses
        C.logDebug $ sformat ("Getting complete MS: " % shown) res
        return res
@@ -214,7 +203,7 @@ handleRemoveCompleteMS
     -> [C.Address]
     -> C.Signature [C.MSAddress]
     -> ServerTE m ()
-handleRemoveCompleteMS st bankPublicKey addresses signedAddrs = toServer st $ do
+handleRemoveCompleteMS st bankPublicKey addresses signedAddrs = toServer $ do
     C.logDebug $ sformat ("Removing complete MS of " % shown) addresses
     update st $ RemoveCompleteMSAddresses bankPublicKey addresses signedAddrs
 
@@ -227,7 +216,7 @@ handleAllocateMultisig
     -> C.Signature (C.MSAddress, C.AllocationStrategy)
     -> Maybe (C.PublicKey, C.Signature C.PublicKey)
     -> ServerTE m ()
-handleAllocateMultisig st msAddr partyAddr allocStrat signature mMasterCheck = toServer st $ do
+handleAllocateMultisig st msAddr partyAddr allocStrat signature mMasterCheck = toServer $ do
     C.logDebug "Begining allocation MS address..."
     C.logDebug $
         sformat ("SigPair: " % build % ", Chain: " % build) signature (pairBuilder <$> mMasterCheck)
@@ -244,7 +233,7 @@ handleQueryMyAllocationMS
     -> C.AllocationAddress
     -> ServerTESigned m [(C.MSAddress, C.AllocationInfo)]
 handleQueryMyAllocationMS sk st allocAddr =
-    toServerSigned sk st $
+    toServerSigned sk $
     do C.logDebug "Querying my MS allocations..."
        query st $ QueryMyMSRequests allocAddr
 
@@ -255,7 +244,7 @@ handlePollPendingTxs
     -> [C.Address]
     -> ServerTESigned m [C.Transaction]
 handlePollPendingTxs sk st parties =
-    toServerSigned sk st $
+    toServerSigned sk $
     do when (length parties > C.pollTransactionsLimit) $
            throwM $ C.BadRequest "too many addresses given"
        C.logDebug "Polling pending txs..."

@@ -34,14 +34,14 @@ runFetchWorker st = do
     fetchWorker = do
         logDebug "Fetching HBlocks..."
 
-        -- TODO: atomicity problems?
+        -- TODO: atomicity problems? Notary period can change and we will got error =\
         notaryPid <- query st GetPeriodId
         bankPid   <- CC.getBlockchainHeight
         logDebug $ sformat ("Notary's pid " % int % "; bank's " % int)
             notaryPid
             bankPid
 
-        if notaryPid /= bankPid then do
+        if notaryPid < bankPid then do
             update st $ SetSynchronization False
             logWarning "Notary is not synched!"
             runStorageUpdate st notaryPid (bankPid - 1)
@@ -71,4 +71,4 @@ runStorageUpdate st from to = do
     forM_ fetchBatches $ \pids -> do
         let lastBatchPid = last pids
         newHBlocks <- CC.getBlocksByHeight (head pids) lastBatchPid
-        update st $ BatchUpdatePeriods lastBatchPid newHBlocks
+        update st $ BatchUpdatePeriods (lastBatchPid + 1) newHBlocks

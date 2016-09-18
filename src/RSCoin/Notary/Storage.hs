@@ -135,6 +135,10 @@ emptyNotaryStorage =
     , _isSynchronized         = False
     }
 
+guardIfSynchronized :: Query Storage ()
+guardIfSynchronized = unlessM (view isSynchronized) $
+    throwM $ NENotUpdated "Notary is not synchronized!"
+
 -- ==============
 -- UPDATE SECTION
 -- ==============
@@ -173,6 +177,8 @@ allocateMSAddress
     requestSig
     mMasterSlavePair
   = do
+      liftQuery $ guardIfSynchronized
+
       -- too many checks :( I wish I know which one we shouldn't check
       -- but order of checks matters!!!
       let partyAddr@(Address partyPk) = partyAddress argPartyAddress
@@ -261,6 +267,7 @@ addSignedTransaction :: Transaction
                      -> (Address, Signature Transaction)
                      -> Update Storage ()
 addSignedTransaction tx@Transaction{..} msAddr (partyAddr, sig) = do
+    liftQuery $ guardIfSynchronized
     checkTransactionValidity
     checkAddrIdsKnown
 --    checkAddrRelativeToTx
@@ -310,12 +317,13 @@ updateWithLastHBlock
     -> Update Storage ()
 updateWithLastHBlock bankPid HBlock{..} = do
     pid <- use periodId
-    when (bankPid /= pid + 1) $ do
+    let expectedPid = pid + 1
+    when (bankPid /= expectedPid) $ do
         isSynchronized .= False
         throwM $ NENotUpdated $ sformat
-            ("Got period id " % int % " but Notary period is " % int)
+            ("Got HBlock from period id " % int % " but Notary expected " % int)
             bankPid
-            pid
+            expectedPid
 
     isSynchronized .= True
     addresses      %= M.union hbAddresses
@@ -439,12 +447,12 @@ getStrategy addr = fromMaybe DefaultStrategy . M.lookup addr <$> view addresses
 getSignatures :: Transaction -> Query Storage [(Address, Signature Transaction)]
 getSignatures tx = HM.toList . (HM.lookupDefault HM.empty tx) <$> view txPool
 
-
 -- | Collect all pending multisignature transactions which have one of
 -- party is a member of given list.
 -- @TODO: replace [Address] with @HashSet Address@ for faster checks
 pollPendingTxs :: [Address] -> Query Storage [Transaction]
 pollPendingTxs parties = do
+    guardIfSynchronized
     pendingTxs     <- views txPool HM.keys
     curUtxo        <- view utxo
     let resultTxSet = F.foldl' (partyFold curUtxo) HS.empty pendingTxs

@@ -16,6 +16,7 @@ import           Serokell.Aeson.Options (defaultOptions, leaveTagOptions)
 
 data DeployConfig = DeployConfig
     { dcDirectory        :: !FilePath
+    , dcCreateTemp       :: !Bool
     , dcMintettes        :: !Word
     , dcExplorers        :: !Word
     , dcPeriod           :: !Word

@@ -1,4 +1,5 @@
 directory: .
+createTemp: yes
 mintettes: 5
 explorers: 1
 period: 10000

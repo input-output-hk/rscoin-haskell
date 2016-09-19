@@ -4,7 +4,7 @@
 import           Control.Concurrent      (ThreadId, forkIO, killThread)
 import           Control.Exception       (finally)
 
-import           Control.Monad           (forM_)
+import           Control.Monad           (forM_, unless)
 import           Control.Monad.Catch     (bracket)
 import           Control.Monad.Extra     (whenJust)
 
@@ -32,7 +32,10 @@ optionsParser :: Opts.Parser FilePath
 optionsParser =
     strArgument $
     mconcat
-        [Opts.value "local.yaml", Opts.showDefault, Opts.metavar "FILEPATH"]
+        [ Opts.value "local.yaml"
+        , Opts.showDefault
+        , Opts.metavar "CONFIG"
+        , Opts.help "Path to deployment config" ]
 {-    Opts.switch $
     mconcat
         [ Opts.short 'r', Opts.long "rebuild-db",
@@ -63,14 +66,26 @@ bankSecretKey = C.testBankSecretKey
 toDeprecatedFilePath :: FilePath -> Cherepakha.FilePath
 toDeprecatedFilePath = Cherepakha.fromText . cs
 
+-- | Either generate a pair of keys and write them to the directory (if it
+-- doesn't exist yet), or retrieve keys if they do exist.
+getKeys :: FilePath -> IO (C.SecretKey, C.PublicKey)
+getKeys workingDir = do
+    let workingDirDeprecated = toDeprecatedFilePath workingDir
+    existsDir <- Cherepakha.testdir workingDirDeprecated
+    if existsDir then do
+        read <$> readFile (workingDir </> "keys")
+    else do
+        Cherepakha.mktree workingDirDeprecated
+        keys <- C.keyGen
+        writeFile (workingDir </> "keys") (show keys)
+        return keys
+
 startMintette :: CommonParams -> Word -> IO (ThreadId, C.PublicKey)
 startMintette CommonParams{..} idx = do
     let workingDir = cpBaseDir </> mconcat ["mintette-workspace-", show idx]
-        workingDirDeprecated = toDeprecatedFilePath workingDir
         port = mintettePort idx
         dbDir = workingDir </> "mintette-db"
-    Cherepakha.mkdir workingDirDeprecated
-    (sk,pk) <- C.keyGen
+    (sk,pk) <- getKeys workingDir
     let env = M.mkRuntimeEnv 1000000000 sk
         start =
             M.launchMintetteReal cpRebuild cpEpoch port env (Just dbDir) contextArgument
@@ -83,12 +98,10 @@ startExplorer
     -> IO (ThreadId, C.PublicKey)
 startExplorer severity CommonParams{..} idx = do
     let workingDir = cpBaseDir </> mconcat ["explorer-workspace-", show idx]
-        workingDirDeprecated = toDeprecatedFilePath workingDir
         portRpc = explorerPort idx
         portWeb = explorerWebPort idx
         dbDir = workingDir </> "explorer-db"
-    Cherepakha.mkdir workingDirDeprecated
-    (sk,pk) <- C.keyGen
+    (sk,pk) <- getKeys workingDir
     let start =
             E.launchExplorerReal
                 cpRebuild
@@ -119,7 +132,7 @@ startNotary severity CommonParams {..} = do
                 []
                 Default
                 Default
-    Cherepakha.mkdir workingDirDeprecated
+    Cherepakha.mktree workingDirDeprecated
     forkIO start
 
 type PortsAndKeys = [(Int, C.PublicKey)]
@@ -134,25 +147,27 @@ startBank CommonParams{..} mintettes explorers = do
     let workingDir = cpBaseDir </> "bank-workspace"
         workingDirDeprecated = toDeprecatedFilePath workingDir
         dbDir = workingDir </> "bank-db"
-    Cherepakha.mkdir workingDirDeprecated
-    forM_
-        explorers
-        (\(port,key) ->
-              B.addExplorerInPlace
-                  contextArgument
-                  bankSecretKey
-                  dbDir
-                  (C.Explorer C.localhost port key)
-                  0)
-    forM_
-        mintettes
-        (\(port,key) ->
-              B.addMintetteInPlace
-                  contextArgument
-                  bankSecretKey
-                  dbDir
-                  (C.Mintette C.localhost port)
-                  key)
+    existsDir <- Cherepakha.testdir workingDirDeprecated
+    unless existsDir $ do
+        Cherepakha.mktree workingDirDeprecated
+        forM_
+            explorers
+            (\(port,key) ->
+                  B.addExplorerInPlace
+                      contextArgument
+                      bankSecretKey
+                      dbDir
+                      (C.Explorer C.localhost port key)
+                      0)
+        forM_
+            mintettes
+            (\(port,key) ->
+                  B.addMintetteInPlace
+                      contextArgument
+                      bankSecretKey
+                      dbDir
+                      (C.Mintette C.localhost port)
+                      key)
     forkIO $ B.launchBankReal cpRebuild  cpPeriod dbDir contextArgument bankSecretKey
 
 -- TODO: we can setup other users similar way
@@ -164,7 +179,7 @@ setupBankUser CommonParams{..} = do
         addressesNum = 5
         walletPathArg = sformat (" --wallet-path " % string % " ") dbDir
         skPath = workingDir </> "secret-key"
-    Cherepakha.mkdir workingDirDeprecated
+    Cherepakha.mktree workingDirDeprecated
     C.writeSecretKey skPath bankSecretKey
     C.runRealModeUntrusted C.userLoggerName contextArgument $
         bracket (U.openState cpRebuild dbDir) U.closeState $
@@ -204,11 +219,15 @@ main = do
     maybeInitLogger dcMintetteSeverity C.mintetteLoggerName
     maybeInitLogger dcExplorerSeverity C.explorerLoggerName
     absoluteDir <- makeAbsolute dcDirectory
-    withTempDirectory absoluteDir "rscoin-deploy" $
-        \tmpDir -> do
+    let withDeployDir act =
+            if dcCreateTemp
+            then withTempDirectory absoluteDir "rscoin-deploy" act
+            else Cherepakha.mktree (toDeprecatedFilePath absoluteDir) >>
+                 act absoluteDir
+    withDeployDir $ \deployDir -> do
             let cp =
                     CommonParams
-                    { cpBaseDir = tmpDir
+                    { cpBaseDir = deployDir
                     , cpPeriod = fromIntegral dcPeriod
                     , cpEpoch = fromIntegral dcEpoch
                     , cpRebuild = False

@@ -415,7 +415,7 @@ checkIsActive :: ExceptUpdate ()
 checkIsActive = unlessM (readerToState isActive) $ throwM MEInactive
 
 checkTxSum :: C.Transaction -> ExceptUpdate ()
-checkTxSum tx = unless (C.validateTxPure tx) $ throwM MEInvalidTxSums
+checkTxSum tx = unless (C.isValidTx tx) $ throwM MEInvalidTxSums
 
 checkPeriodId :: PeriodId -> ExceptUpdate ()
 checkPeriodId received = do

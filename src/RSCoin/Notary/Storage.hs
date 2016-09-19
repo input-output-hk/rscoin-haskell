@@ -48,7 +48,8 @@ import           Formatting             (build, int, sformat, (%))
 
 import           RSCoin.Core            (Address (..), HBlock (..), PeriodId,
                                          PublicKey, Signature, Transaction (..),
-                                         Utxo, computeOutputAddrids,
+                                         TxVerdict(..), Utxo,
+                                         computeOutputAddrids,
                                          maxStrategySize, validateSignature,
                                          validateTxPure, verify)
 import           RSCoin.Core.Strategy   (AddressToTxStrategyMap,
@@ -277,11 +278,11 @@ addSignedTransaction tx@Transaction{..} msAddr (partyAddr, sig) = do
     discardTransactions %= IM.alter (Just . (tx :) . fromMaybe []) pId
     txPool %= HM.alter (Just . HM.insert partyAddr sig . fromMaybe HM.empty) tx
   where
-    checkTransactionValidity =
-        unless (validateTxPure tx) $
-            throwM $ NEInvalidArguments $ sformat
-                ("Transaction doesn't pass valitidy check: " % build)
-                tx
+    checkTransactionValidity = case validateTxPure tx of
+        TxValid -> return ()
+        TxInvalid err -> throwM $ NEInvalidArguments $
+            sformat ("Transaction doesn't pass validity check (" % build % "): " % build)
+                    err tx
     -- | Throws error if addrid isn't known (with corresponding label).
     -- User should repeat transaction after some timeout
     checkAddrIdsKnown = do

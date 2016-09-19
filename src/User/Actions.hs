@@ -310,10 +310,11 @@ processListPendingTxs st = do
                          ]
 
 validateTxThrow :: MonadThrow m => C.Transaction -> m ()
-validateTxThrow tx
-    | C.validateTxPure tx = pure ()
-    | otherwise =
-        throwText $ sformat ("Can't validate transaction: " % build) tx
+validateTxThrow tx = case C.validateTxPure tx of
+    C.TxValid -> pure ()
+    C.TxInvalid err -> throwText $
+        sformat ("Can't validate transaction: (" % build % "): " % build)
+                err tx
 
 processSendPendingTx
     :: (MonadIO m, C.WorkMode m)

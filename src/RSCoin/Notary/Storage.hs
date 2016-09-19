@@ -25,9 +25,8 @@ module RSCoin.Notary.Storage
        , setSynchronization
        ) where
 
-import           Control.Lens           (Getter, Lens', at, makeLenses, to, use,
-                                         uses, view, views, (%=), (%~), (&),
-                                         (.=), (?=), (^.))
+import           Control.Lens           (Getter, Lens', at, makeLenses, to, use, uses,
+                                         view, views, (%=), (%~), (&), (.=), (?=), (^.))
 import           Control.Monad          (forM_, unless, when)
 import           Control.Monad.Catch    (MonadThrow (throwM))
 import           Control.Monad.Extra    (unlessM, whenJust, whenM)
@@ -46,19 +45,15 @@ import           Data.Maybe             (fromJust, fromMaybe, mapMaybe)
 import qualified Data.Set               as S
 import           Formatting             (build, int, sformat, (%))
 
-import           RSCoin.Core            (Address (..), HBlock (..), PeriodId,
-                                         PublicKey, Signature, Transaction (..),
-                                         Utxo, computeOutputAddrids,
-                                         maxStrategySize, validateSignature,
-                                         validateTxPure, verify)
-import           RSCoin.Core.Strategy   (AddressToTxStrategyMap,
-                                         AllocationAddress (..),
-                                         AllocationInfo (..),
-                                         AllocationStrategy (..), MSAddress,
-                                         PartyAddress (..), TxStrategy (..),
+import           RSCoin.Core            (Address (..), HBlock (..), PeriodId, PublicKey,
+                                         Signature, Transaction (..), Utxo,
+                                         computeOutputAddrids, maxStrategySize,
+                                         validateSignature, validateTxPure, verify)
+import           RSCoin.Core.Strategy   (AddressToTxStrategyMap, AllocationAddress (..),
+                                         AllocationInfo (..), AllocationStrategy (..),
+                                         MSAddress, PartyAddress (..), TxStrategy (..),
                                          allParties, allocateTxFromAlloc,
-                                         allocationStrategy,
-                                         currentConfirmations,
+                                         allocationStrategy, currentConfirmations,
                                          partyToAllocation)
 import           RSCoin.Notary.Defaults (allocationAttemptsLimit,
                                          defaultAllocationEndurance,
@@ -109,7 +104,7 @@ data Storage = Storage
       -- transaction signing.
     , _masterKeys             :: ![PublicKey]  -- @TODO: replace with HashSet
 
-      -- | Last periodId, known to Notary.
+      -- | PeriodId of block which Notary expects.
     , _periodId               :: !PeriodId
 
       -- | This flag is @True@ if 'Notary' has up-to-date 'Storage'.
@@ -316,19 +311,18 @@ updateWithLastHBlock
     -> HBlock
     -> Update Storage ()
 updateWithLastHBlock bankPid HBlock{..} = do
-    pid <- use periodId
-    let expectedPid = pid + 1
-    when (bankPid /= expectedPid) $ do
+    expectedBlockId <- use periodId
+    when (bankPid /= expectedBlockId) $ do
         isSynchronized .= False
         throwM $ NENotUpdated $ sformat
             ("Got HBlock from period id " % int % " but Notary expected " % int)
             bankPid
-            expectedPid
+            expectedBlockId
 
     isSynchronized .= True
     addresses      %= M.union hbAddresses
     periodStats    .= HM.empty
-    periodId       .= bankPid
+    periodId       .= bankPid + 1
     forM_ hbTransactions processPublishedTransacion
   where
     processPublishedTransacion tx@Transaction{..} = do

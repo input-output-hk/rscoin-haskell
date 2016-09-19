@@ -12,14 +12,13 @@ module RSCoin.Bank.Server
 import           Control.Applicative        (liftA2)
 import           Control.Lens               ((^.))
 import           Control.Monad              (forM_, unless, when)
-import           Control.Monad.Catch        (SomeException, bracket_, catch,
-                                             throwM)
+import           Control.Monad.Catch        (SomeException, bracket_, catch, throwM)
 import           Control.Monad.Extra        (whenJust)
 import           Control.Monad.Trans        (lift, liftIO)
 
 import           Data.Binary                (Binary)
-import           Data.IORef                 (IORef, atomicWriteIORef,
-                                             modifyIORef, newIORef, readIORef)
+import           Data.IORef                 (IORef, atomicWriteIORef, modifyIORef,
+                                             newIORef, readIORef)
 import           Data.List                  (genericLength, nub, (\\))
 import           Data.Maybe                 (catMaybes)
 import qualified Data.Text                  as T
@@ -32,10 +31,9 @@ import           Serokell.Util.Exceptions   (throwText)
 import           Serokell.Util.Text         (listBuilderJSON, show')
 
 import qualified Control.TimeWarp.Rpc       as Rpc
-import           RSCoin.Core                (Explorers, HBlock, Mintettes,
-                                             PeriodId, PublicKey, SecretKey,
-                                             getNodeContext, logDebug, logError,
-                                             logInfo)
+import           RSCoin.Core                (Explorers, HBlock, Mintettes, PeriodId,
+                                             PublicKey, SecretKey, getNodeContext,
+                                             logDebug, logError, logInfo)
 import qualified RSCoin.Core                as C
 import qualified RSCoin.Core.NodeConfig     as NC
 import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
@@ -44,16 +42,12 @@ import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
 import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),
                                              CheckAndBumpStatisticsId (..),
-                                             GetExplorersAndPeriods (..),
-                                             GetHBlock (..), GetMintettes (..),
-                                             GetPeriodId (..),
-                                             GetStatisticsId (..),
-                                             RemoveExplorer (..),
-                                             RemoveMintette (..),
-                                             RestoreExplorers (..),
-                                             StartNewPeriod (..), State,
-                                             getStatistics, query, tidyState,
-                                             update)
+                                             GetExplorersAndPeriods (..), GetHBlock (..),
+                                             GetMintettes (..), GetPeriodId (..),
+                                             GetStatisticsId (..), RemoveExplorer (..),
+                                             RemoveMintette (..), RestoreExplorers (..),
+                                             StartNewPeriod (..), State, getStatistics,
+                                             query, tidyState, update)
 import           RSCoin.Bank.Error          (BankError (BEBadRequest))
 
 serve
@@ -280,7 +274,7 @@ onPeriodFinished sk st = do
                 sformat
                     ("Announced new period, sent these newPeriodData's:\n" % build)
                     newPeriodData
-    announceNewPeriodsToNotary `catch` handlerAnnouncePeriodsN
+    announceNewBlockToNotary pId `catch` handlerAnnouncePeriodsN
     update st RestoreExplorers
   where
     -- TODO: catch appropriate exception according to protocol implementation
@@ -306,10 +300,9 @@ onPeriodFinished sk st = do
         let msAddrs       = map fst newMSAddresses
         let signedMsAddrs = C.sign sk msAddrs
         C.removeNotaryCompleteMSAddresses msAddrs signedMsAddrs
-    announceNewPeriodsToNotary = do
-        pId     <- query st GetPeriodId
-        mHBlock <- query st (GetHBlock $ pId - 1)
-        whenJust mHBlock $ \hBlock -> C.announceNewPeriodToNotary sk pId hBlock
+    announceNewBlockToNotary blockId = do
+        mHBlock <- query st (GetHBlock blockId)
+        whenJust mHBlock $ C.announceNewPeriodToNotary sk blockId
 
 serveFinishPeriod
     :: C.WorkMode m

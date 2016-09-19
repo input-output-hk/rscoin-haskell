@@ -8,17 +8,15 @@ import           Control.Monad             (forM_)
 import           Data.List.Split           (chunksOf)
 import           Formatting                (build, int, sformat, (%))
 
-import           Control.TimeWarp.Timed    (for, ms, repeatForever, sec, tu,
-                                            wait)
+import           Control.TimeWarp.Timed    (for, ms, repeatForever, sec, tu, wait)
 import           Serokell.Util.Exceptions  ()
 
-import           RSCoin.Core               (PeriodId, WorkMode, logDebug,
-                                            logError, logInfo, logWarning)
+import           RSCoin.Core               (PeriodId, WorkMode, logDebug, logError,
+                                            logInfo, logWarning)
 import qualified RSCoin.Core.Communication as CC
 
-import           RSCoin.Notary.AcidState   (BatchUpdatePeriods (..),
-                                            GetPeriodId (..), NotaryState,
-                                            SetSynchronization (..), query,
+import           RSCoin.Notary.AcidState   (BatchUpdatePeriods (..), GetPeriodId (..),
+                                            NotaryState, SetSynchronization (..), query,
                                             update)
 
 -- | This worker queries Bank each period to see if notary and bank periods match.
@@ -71,4 +69,4 @@ runStorageUpdate st from to = do
     forM_ fetchBatches $ \pids -> do
         let lastBatchPid = last pids
         newHBlocks <- CC.getBlocksByHeight (head pids) lastBatchPid
-        update st $ BatchUpdatePeriods (lastBatchPid + 1) newHBlocks
+        update st $ BatchUpdatePeriods lastBatchPid newHBlocks

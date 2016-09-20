@@ -44,6 +44,8 @@ module RSCoin.Mintette.Storage
        , UpdateInEnv
        , ExceptUpdate
        , ExceptUpdateInEnv
+       , applyExtraAddresses
+       , applyExtraUtxo
        , checkNotDoubleSpent
        , commitTx
        , finishPeriod
@@ -419,3 +421,9 @@ discardCurrentPeriod = do
     prevMintetteId .= Nothing
     curMintetteId .= Nothing
     dpk .= mempty
+
+applyExtraUtxo :: C.Utxo -> Update ()
+applyExtraUtxo = (utxo <>=)
+
+applyExtraAddresses :: C.AddressToTxStrategyMap -> Update ()
+applyExtraAddresses = (addresses <>=)

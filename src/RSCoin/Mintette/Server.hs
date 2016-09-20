@@ -28,9 +28,8 @@ import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
 
 import           Serokell.Util.Common      (subList)
-import           Serokell.Util.Text        (listBuilderJSON,
-                                            listBuilderJSONIndent, pairBuilder,
-                                            show')
+import           Serokell.Util.Text        (listBuilderJSON, listBuilderJSONIndent,
+                                            pairBuilder, show')
 
 import           Control.TimeWarp.Rpc      (ServerT, serverTypeRestriction0,
                                             serverTypeRestriction1,
@@ -38,17 +37,15 @@ import           Control.TimeWarp.Rpc      (ServerT, serverTypeRestriction0,
                                             serverTypeRestriction3)
 import qualified RSCoin.Core               as C
 
-import           RSCoin.Mintette.Acidic    (CheckNotDoubleSpent (..),
-                                            CommitTx (..), FinishPeriod (..),
-                                            GetLastLBlocks (..), GetLogs (..),
-                                            GetPeriodId (..),
-                                            GetPreviousMintetteId (..),
-                                            GetUtxoPset (..), StartPeriod (..),
-                                            tidyState)
+import           RSCoin.Mintette.Acidic    (ApplyExtraAddresses (..), ApplyExtraUtxo (..),
+                                            CheckNotDoubleSpent (..), CommitTx (..),
+                                            FinishPeriod (..), GetLastLBlocks (..),
+                                            GetLogs (..), GetPeriodId (..),
+                                            GetPreviousMintetteId (..), GetUtxoPset (..),
+                                            StartPeriod (..), tidyState)
 import           RSCoin.Mintette.AcidState (State, query, update)
 import           RSCoin.Mintette.Env       (RuntimeEnv)
-import           RSCoin.Mintette.Error     (MintetteError (..),
-                                            logMintetteError)
+import           RSCoin.Mintette.Error     (MintetteError (..), logMintetteError)
 
 serve :: C.WorkMode m => Int -> State -> RuntimeEnv -> m ()
 serve port st env = do
@@ -62,6 +59,8 @@ serve port st env = do
     idr8 <- serverTypeRestriction1
     idr9 <- serverTypeRestriction1
     idr10 <- serverTypeRestriction1
+    idr11 <- serverTypeRestriction1
+    idr12 <- serverTypeRestriction1
     C.serve port
         [ C.method (C.RSCMintette C.PeriodFinished) $
             idr1 $ handlePeriodFinished env st
@@ -83,6 +82,10 @@ serve port st env = do
             idr9 $ handleGetExtraBlocks st
         , C.method (C.RSCMintette C.GetExtraLogs) $
             idr10 $ handleGetExtraLogs st
+        , C.method (C.RSCMintette C.AnnounceExtraUtxo) $
+            idr11 $ handleAnnounceExtraUtxo st
+        , C.method (C.RSCMintette C.AnnounceExtraAddresses) $
+            idr12 $ handleAnnounceExtraAddresses st
         ]
 
 type ServerTE m a = ServerT m (Either T.Text a)
@@ -311,3 +314,29 @@ handleGetExtraLogs st signed =
        when (hi - lo > C.actionLogQueryLimit) $
            throwM $ C.BadRequest "too many blocks requested"
        subList (lo, hi + 1) . fromMaybe [] <$> query st (GetLogs pId)
+
+handleAnnounceExtraUtxo
+    :: C.WorkMode m
+    => State
+    -> C.WithSignature C.Utxo
+    -> ServerTE m ()
+handleAnnounceExtraUtxo st signed =
+    toServer $
+    do bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+       unless (C.verifyWithSignature bankPublicKey signed) $
+           throwM MEInvalidBankSignature
+       let utxo = C.wsValue signed
+       update st $ ApplyExtraUtxo utxo
+
+handleAnnounceExtraAddresses
+    :: C.WorkMode m
+    => State
+    -> C.WithSignature C.AddressToTxStrategyMap
+    -> ServerTE m ()
+handleAnnounceExtraAddresses st signed =
+    toServer $
+    do bankPublicKey <- view C.bankPublicKey <$> C.getNodeContext
+       unless (C.verifyWithSignature bankPublicKey signed) $
+           throwM MEInvalidBankSignature
+       let addresses = C.wsValue signed
+       update st $ ApplyExtraAddresses addresses

@@ -21,6 +21,8 @@ module RSCoin.Mintette.Acidic
        , FinishPeriod (..)
        , StartPeriod (..)
        , FinishEpoch (..)
+       , ApplyExtraAddresses (..)
+       , ApplyExtraUtxo (..)
        , GetLastLBlocks (..)
        , GetLogs (..)
        , GetPeriodId (..)
@@ -36,8 +38,7 @@ import           Serokell.AcidState            (closeExtendedState,
                                                 openLocalExtendedState,
                                                 openMemoryExtendedState,
                                                 tidyExtendedState)
-import           Serokell.AcidState.Statistics (StoragePart (..),
-                                                estimateMemoryUsage)
+import           Serokell.AcidState.Statistics (StoragePart (..), estimateMemoryUsage)
 import           Serokell.Data.Memory.Units    (Byte, memory)
 import           Serokell.Util.Text            (listBuilderJSONIndent, show')
 
@@ -71,6 +72,8 @@ $(makeAcidic ''MS.Storage
              , 'S.finishPeriod
              , 'S.startPeriod
              , 'S.finishEpoch
+             , 'S.applyExtraAddresses
+             , 'S.applyExtraUtxo
              ])
 
 getStatistics

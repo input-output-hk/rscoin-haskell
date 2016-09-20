@@ -20,6 +20,8 @@ module RSCoin.Mintette.AcidState
        , getUtxoPset
        , getPreviousMintetteId
 
+       , applyExtraAddresses
+       , applyExtraUtxo
        , checkNotDoubleSpent
        , commitTx
        , finishEpoch
@@ -29,18 +31,17 @@ module RSCoin.Mintette.AcidState
 
 import           Control.Monad.Reader    (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans     (MonadIO)
-import           Data.Acid               (EventResult, EventState, Query,
-                                          QueryEvent, Update, UpdateEvent)
+import           Data.Acid               (EventResult, EventState, Query, QueryEvent,
+                                          Update, UpdateEvent)
 
-import           Serokell.AcidState      (ExtendedState, queryExtended,
-                                          updateExtended)
+import           Serokell.AcidState      (ExtendedState, queryExtended, updateExtended)
 
 import           RSCoin.Core             (ActionLog, AddrId, Address,
-                                          CheckConfirmation, CheckConfirmations,
-                                          CommitAcknowledgment, LBlock,
-                                          MintetteId, NewPeriodData, PeriodId,
-                                          PeriodResult, Pset, Signature,
-                                          Transaction, Utxo)
+                                          AddressToTxStrategyMap, CheckConfirmation,
+                                          CheckConfirmations, CommitAcknowledgment,
+                                          LBlock, MintetteId, NewPeriodData, PeriodId,
+                                          PeriodResult, Pset, Signature, Transaction,
+                                          Utxo)
 
 import           RSCoin.Mintette.Env     (RuntimeEnv)
 import qualified RSCoin.Mintette.Storage as MS
@@ -96,7 +97,8 @@ instance ConvertUpdateInEnv (arg1 -> arg2 -> arg3 -> arg4 -> ReaderT env (Update
 checkNotDoubleSpent
     :: Transaction
     -> AddrId
-    -> [(Address, Signature Transaction)] -> RuntimeEnv
+    -> [(Address, Signature Transaction)]
+    -> RuntimeEnv
     -> Update MS.Storage CheckConfirmation
 checkNotDoubleSpent = convertUpdateInEnv MS.checkNotDoubleSpent
 
@@ -115,3 +117,9 @@ startPeriod = convertUpdateInEnv MS.startPeriod
 
 finishEpoch :: RuntimeEnv -> Update MS.Storage ()
 finishEpoch = convertUpdateInEnv MS.finishEpoch
+
+applyExtraUtxo :: Utxo -> Update MS.Storage ()
+applyExtraUtxo = MS.applyExtraUtxo
+
+applyExtraAddresses :: AddressToTxStrategyMap -> Update MS.Storage ()
+applyExtraAddresses = MS.applyExtraAddresses

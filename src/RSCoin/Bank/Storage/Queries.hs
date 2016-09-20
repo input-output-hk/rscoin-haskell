@@ -16,6 +16,7 @@ module RSCoin.Bank.Storage.Queries
        , getExplorers
        , getExplorersAndPeriods
        , getMintettes
+       , getPermittedMintettes
 
          -- | HBlocks
        , getAllHBlocks
@@ -34,6 +35,7 @@ module RSCoin.Bank.Storage.Queries
 
 import           Control.Lens                  (Getter, to)
 import qualified Data.HashMap.Strict           as HM
+import qualified Data.Set                      as Set
 import           Safe                          (atMay)
 
 import           RSCoin.Core                   (PeriodId)
@@ -61,6 +63,9 @@ getAddressFromUtxo addrId = utxo . to (HM.lookup addrId)
 getMintettes :: Query C.Mintettes
 getMintettes = mintettesStorage . MS.getMintettes
 
+getPermittedMintettes :: Query (Set.Set C.PublicKey)
+getPermittedMintettes = mintettesStorage . MS.getPermittedMintettes
+
 -- | Returns explorers list
 getExplorers :: Query C.Explorers
 getExplorers = explorersStorage . ES.getExplorers
@@ -73,6 +78,7 @@ getExplorersAndPeriods = explorersStorage . ES.getExplorersAndPeriods
 -- | Get dpk
 getDpk :: Query C.Dpk
 getDpk = mintettesStorage . MS.getDpk
+
 
 -- | Get current periodId
 getPeriodId :: Query C.PeriodId

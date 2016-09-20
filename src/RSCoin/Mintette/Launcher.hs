@@ -6,6 +6,7 @@ module RSCoin.Mintette.Launcher
        , dumpStorageStatistics
        , launchMintetteReal
        , mintetteWrapperReal
+       , addToBank
        ) where
 
 import           Control.Monad.Catch       (bracket)
@@ -13,8 +14,10 @@ import           Control.Monad.Trans       (MonadIO (liftIO))
 import qualified Data.Text.IO              as TIO
 import           Formatting                (int, sformat, stext, (%))
 
-import           RSCoin.Core               (ContextArgument (..), RealMode,
+import           RSCoin.Core               (ContextArgument (..), RealMode, SecretKey,
                                             mintetteLoggerName, runRealModeUntrusted)
+import qualified RSCoin.Core.Communication as CC
+import           RSCoin.Core.Types         (Mintette)
 
 import           RSCoin.Mintette.Acidic    (GetPeriodId (..), closeState, getStatistics,
                                             openMemState, openState)
@@ -37,6 +40,10 @@ launchMintetteReal
     Bool -> Int -> RuntimeEnv -> Maybe FilePath -> ContextArgument -> IO ()
 launchMintetteReal deleteIfExists port env dbPath ctxArg =
     mintetteWrapperReal deleteIfExists dbPath ctxArg $ \st -> serve port st env
+
+addToBank :: ContextArgument -> SecretKey -> Mintette -> IO ()
+addToBank ctxArg mintetteSK mintette = do
+  runRealModeUntrusted mintetteLoggerName ctxArg $ CC.addMintetteUsingPermission mintetteSK mintette
 
 dumpStorageStatistics :: Bool -> FilePath -> ContextArgument -> IO ()
 dumpStorageStatistics deleteIfExists dbPath ctxArg =

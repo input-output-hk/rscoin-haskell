@@ -4,6 +4,7 @@ module MintetteOptions
        ( Command (..)
        , Options (..)
        , ServeOptions (..)
+       , AddToBankOptions (..)
 
        , getOptions
        ) where
@@ -23,12 +24,20 @@ import           RSCoin.Core            (Severity (Error), configDirectory,
 data Command
     = Serve ServeOptions
     | DumpStatistics
+    | CreatePermissionKeypair
+    | AddToBank AddToBankOptions
 
 data ServeOptions = ServeOptions
     { cloPort            :: Int
     , cloSecretKeyPath   :: FilePath
     , cloAutoCreateKey   :: Bool
     , cloActionLogsLimit :: Word
+    }
+
+data AddToBankOptions = AddToBankOptions
+    { atboMintetteHost     :: String
+    , atboMintettePort     :: Int
+    , atboSecretKeyPath    :: FilePath
     }
 
 data Options = Options
@@ -47,8 +56,26 @@ commandParser defaultSKPath =
         (command "serve" (info serveOpts (progDesc "Serve users and others")) <>
          command
              "dump-statistics"
-             (info (pure DumpStatistics) (progDesc "Dump statistics")))
+             (info (pure DumpStatistics) (progDesc "Dump statistics")) <>
+         command
+             "create-permission-keypair"
+             -- TODO: option to override the generated keypair location
+             (info (pure CreatePermissionKeypair) (progDesc "Generates mintette permission keypair")) <>
+         command
+             "add-to-bank"
+             (info addToBankOpts (progDesc "Adds mintette to the bank given the bank has mintette public key permitted")))
   where
+    addToBankOpts =
+      fmap AddToBank $
+      AddToBankOptions
+      <$> strOption (short 'h' <> long "host")
+      <*> option auto (short 'p' <> long "port")
+      <*> strOption
+            (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <>
+             help "Path to the secret key" <>
+             showDefault <>
+             metavar "FILEPATH")
+
     serveOpts =
         fmap Serve $
         ServeOptions <$>

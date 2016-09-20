@@ -12,6 +12,7 @@ module RSCoin.Bank.Storage.Updates
 
        , addAddress
        , addMintette
+       , permitMintette
        , addExplorer
        , removeMintette
        , removeExplorer
@@ -83,6 +84,10 @@ addAddress addr strategy =
 -- | Add given mintette to storage and associate given key with it.
 addMintette :: C.Mintette -> C.PublicKey -> ExceptUpdate ()
 addMintette m k = runExceptState mintettesStorage $ MS.addMintette m k
+
+-- | Add mintette public key to storage
+permitMintette :: C.PublicKey -> ExceptUpdate ()
+permitMintette k = runExceptState mintettesStorage $ MS.permitMintette k
 
 -- | Add given explorer to storage and associate given PeriodId with
 -- it. If explorer exists, it is updated.

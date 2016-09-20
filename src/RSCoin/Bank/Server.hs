@@ -21,6 +21,7 @@ import           Data.IORef                 (IORef, atomicWriteIORef, modifyIORe
                                              newIORef, readIORef)
 import           Data.List                  (genericLength, nub, (\\))
 import           Data.Maybe                 (catMaybes)
+import qualified Data.Set                   as Set
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as TIO
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
@@ -41,6 +42,8 @@ import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
 
 import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),
+                                             PermitMintette (..),
+                                             GetPermittedMintettes (..),
                                              CheckAndBumpStatisticsId (..),
                                              GetExplorersAndPeriods (..), GetHBlock (..),
                                              GetMintettes (..), GetPeriodId (..),
@@ -61,6 +64,7 @@ serve st bankSK isPeriodChanging = do
     -- idr5 <- Rpc.serverTypeRestriction0
     idr6 <- Rpc.serverTypeRestriction0
     idr7 <- Rpc.serverTypeRestriction1
+    idr8 <- Rpc.serverTypeRestriction2
     (bankPK,bankPort) <-
         liftA2 (,) (^. NC.bankPublicKey) (^. NC.bankPort) <$> getNodeContext
     C.serve
@@ -73,7 +77,10 @@ serve st bankSK isPeriodChanging = do
         -- , C.method (C.RSCBank C.GetAddresses) $ idr5 $ serveGetAddresses bankSK st
         , C.method (C.RSCBank C.GetExplorers) $ idr6 $ serveGetExplorers bankSK st
         , C.method (C.RSCBank C.LocalControlRequest) $
-          idr7 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging]
+          idr7 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging
+        , C.method (C.RSCBank C.AddMintetteUsingPermit) $ idr8 $
+          serveAddMintetteUsingPermit st
+        ]
 
 type ServerTE m a = Rpc.ServerT m (Either T.Text a)
 
@@ -351,6 +358,7 @@ serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest =
        logInfo $ sformat ("Executing control request: " % build) controlRequest
        case controlRequest of
            PT.AddMintette m pk _ -> update st (AddMintette m pk)
+           PT.PermitMintette pk _ -> update st (PermitMintette pk)
            PT.AddExplorer e pid _ -> update st (AddExplorer e pid)
            PT.RemoveMintette host port _ -> update st (RemoveMintette host port)
            PT.RemoveExplorer host port _ -> update st (RemoveExplorer host port)
@@ -369,3 +377,22 @@ serveGetExplorers sk st =
     do curPeriod <- query st GetPeriodId
        map fst . filter ((== curPeriod) . snd) <$>
            query st GetExplorersAndPeriods
+
+serveAddMintetteUsingPermit
+     :: C.WorkMode m
+     => State -> PublicKey -> C.WithSignature (String, Int) -> ServerTE m ()
+serveAddMintetteUsingPermit st mintettePK signed = do
+  toServer $ do
+    permittedMintettes <- query st GetPermittedMintettes
+    unless (Set.member mintettePK permittedMintettes) $
+      throwM $ C.BadRequest "Given Mintettes public key doesn't have permission to add new mintette"
+    unless (C.verifyWithSignature mintettePK signed) $
+      throwM $ C.BadRequest "Mintette signatured failed to verify"
+    let (host, port) = C.wsValue signed
+    update st $ AddMintette (C.Mintette host port) mintettePK
+    logInfo $
+        sformat
+            ("AddMintetteUsingPermit succesfully added mintette " % build % ":" % build)
+            host
+            port
+

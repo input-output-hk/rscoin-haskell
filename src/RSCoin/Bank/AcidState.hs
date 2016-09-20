@@ -17,6 +17,7 @@ module RSCoin.Bank.AcidState
 
          -- | Queries
        , GetMintettes (..)
+       , GetPermittedMintettes (..)
        , GetAddresses (..)
        , GetExplorers (..)
        , GetExplorersAndPeriods (..)
@@ -30,6 +31,7 @@ module RSCoin.Bank.AcidState
          -- | Updates
        , AddAddress (..)
        , AddMintette (..)
+       , PermitMintette (..)
        , AddExplorer (..)
        , RemoveMintette (..)
        , RemoveExplorer (..)
@@ -48,6 +50,7 @@ import           Data.Acid                     (EventResult, EventState, Query,
                                                 makeAcidic)
 import           Data.Maybe                    (fromMaybe)
 import           Data.Text                     (Text)
+import qualified Data.Set                      as Set
 import           Data.Time.Clock.POSIX         (POSIXTime)
 import           Formatting                    (bprint, stext, (%))
 import           Safe                          (headMay)
@@ -108,6 +111,9 @@ getAddresses = view BS.getAddresses
 getMintettes :: Query BS.Storage Mintettes
 getMintettes = view BS.getMintettes
 
+getPermittedMintettes :: Query BS.Storage (Set.Set PublicKey)
+getPermittedMintettes = view BS.getPermittedMintettes
+
 getExplorers :: Query BS.Storage Explorers
 getExplorers = view BS.getExplorers
 
@@ -139,6 +145,9 @@ addAddress = BS.addAddress
 addMintette :: Mintette -> PublicKey -> Update BS.Storage ()
 addMintette = BS.addMintette
 
+permitMintette :: PublicKey -> Update BS.Storage ()
+permitMintette = BS.permitMintette
+
 addExplorer :: Explorer -> PeriodId -> Update BS.Storage ()
 addExplorer = BS.addExplorer
 
@@ -169,6 +178,7 @@ checkAndBumpStatisticsId = BS.checkAndBumpStatisticsId
 
 $(makeAcidic ''BS.Storage
              [ 'getMintettes
+             , 'getPermittedMintettes
              , 'getAddresses
              , 'getExplorers
              , 'getExplorersAndPeriods
@@ -184,6 +194,7 @@ $(makeAcidic ''BS.Storage
              , 'addAddress
              , 'addMintette
              , 'addExplorer
+             , 'permitMintette
              , 'removeMintette
              , 'removeExplorer
              , 'setExplorerPeriod

@@ -278,6 +278,7 @@ executable rscoin-mintette
                      , lens >= 4.13
                      , mtl >= 2.2.1
                      , optparse-applicative
+                     , directory
                      , rscoin
                      , rscoin-core
                      , serokell-core

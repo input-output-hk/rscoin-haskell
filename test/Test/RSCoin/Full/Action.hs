@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
 {-# LANGUAGE ViewPatterns              #-}
 
@@ -34,11 +35,11 @@ import           Data.Text.Buildable      (Buildable (build))
 import           Data.Text.Lazy.Builder   (Builder)
 import           Formatting               (bprint, builder, int, shown, (%))
 import qualified Formatting
+import           GHC.Exts                 (IsList (..))
 import           Test.QuickCheck          (NonEmptyList (..))
 
-import           Serokell.Util            (indexModulo, indexModuloMay,
-                                           listBuilderJSON, mapBuilder,
-                                           pairBuilder)
+import           Serokell.Util            (indexModulo, indexModuloMay, listBuilderJSON,
+                                           mapBuilder, pairBuilder)
 
 import           Control.TimeWarp.Timed   (Millisecond, after, invoke, ms)
 import qualified RSCoin.Core              as C
@@ -100,6 +101,11 @@ applyPartToSend (PartToSend p) coin =
 newtype PartsToSend = PartsToSend
     { getPartsToSend :: M.IntMap PartToSend
     } deriving (Show)
+
+instance IsList PartsToSend where
+    type Item PartsToSend = (Int, PartToSend)
+    fromList = PartsToSend . fromList
+    toList = toList . getPartsToSend
 
 instance Buildable PartsToSend where
     build = mapBuilder . M.assocs . getPartsToSend

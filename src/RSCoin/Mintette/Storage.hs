@@ -60,11 +60,11 @@ module RSCoin.Mintette.Storage
        ) where
 
 import           Control.Applicative   ((<|>))
-import           Control.Lens          (at, makeLenses, use, uses, view, views,
-                                        (%=), (+=), (.=), (<>=), (<~), (^.), _1)
+import           Control.Lens          (at, makeLenses, use, uses, view, views, (%=),
+                                        (+=), (.=), (<>=), (<~), (^.), _1)
 import           Control.Monad         (unless, when)
 import           Control.Monad.Catch   (MonadThrow (throwM))
-import           Control.Monad.Extra   (unlessM, whenJust)
+import           Control.Monad.Extra   (unlessM, whenJust, whenM)
 import           Control.Monad.Reader  (MonadReader, Reader, ReaderT, runReader)
 import           Control.Monad.State   (MonadState, gets)
 import qualified Data.HashMap.Strict   as HM
@@ -76,20 +76,16 @@ import qualified Data.Set              as S
 import           Data.Tuple.Curry      (uncurryN)
 import           Safe                  (atMay, headMay)
 
-import           RSCoin.Core           (ActionLog, ActionLogHeads,
-                                        AddressToTxStrategyMap, HBlock (..),
-                                        HBlockHash, LBlock, MintetteId,
-                                        Mintettes, PeriodId, Pset,
-                                        TxStrategy (..), Utxo,
+import           RSCoin.Core           (ActionLog, ActionLogHeads, AddressToTxStrategyMap,
+                                        HBlock (..), HBlockHash, LBlock, MintetteId,
+                                        Mintettes, PeriodId, Pset, TxStrategy (..), Utxo,
                                         computeOutputAddrids, derivePublicKey,
-                                        hbTransactions, isOwner,
-                                        isStrategyCompleted,
-                                        mkCheckConfirmation, mkLBlock, owners,
-                                        sign, verifyCheckConfirmation)
+                                        hbTransactions, isOwner, isStrategyCompleted,
+                                        mkCheckConfirmation, mkLBlock, owners, sign,
+                                        verifyCheckConfirmation)
 import qualified RSCoin.Core           as C
 
-import           RSCoin.Mintette.Env   (RuntimeEnv, reActionLogsLimit,
-                                        reSecretKey)
+import           RSCoin.Mintette.Env   (RuntimeEnv, reActionLogsLimit, reSecretKey)
 import           RSCoin.Mintette.Error (MintetteError (..))
 
 data Storage = Storage
@@ -274,6 +270,7 @@ commitTxChecked True tx bundle = do
     utxo <>= toAddIntoUtxo
     utxoAdded <>= toAddIntoUtxo
     txset %= S.insert tx
+    whenM ((C.maxLBlockSize <=) <$> uses txset S.size) finishEpoch
     sk <- view reSecretKey
     let pk = derivePublicKey sk
     hsh <- snd . fromJust <$> readerToState getLogHead
@@ -382,14 +379,8 @@ startPeriod C.NewPeriodData {..} = do
         addresses .= newAddrs
         curMintetteId .= Just newMId
 
--- | This function creates new LBlock with transactions from txset
--- and adds CloseEpochEntry to log.
--- It does nothing if txset is empty.
-finishEpoch :: ExceptUpdateInEnv ()
-finishEpoch = do
-    checkIsActive
-    txList <- S.toList <$> use txset
-    finishEpochDo txList
+finishEpoch :: UpdateInEnv ()
+finishEpoch = finishEpochDo =<< uses txset S.toList
 
 finishEpochDo :: [C.Transaction] -> UpdateInEnv ()
 finishEpochDo [] = return ()

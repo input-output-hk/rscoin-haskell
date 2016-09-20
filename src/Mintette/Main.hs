@@ -2,15 +2,14 @@
 
 import           Control.Exception   (SomeException)
 import           Control.Monad.Catch (throwM, try)
-import           Data.Monoid         ((<>))
 import           Data.Functor        (void)
+import           Data.Monoid         ((<>))
 import           Data.Time.Units     (Second)
 import           System.Directory    (doesFileExist)
 
-import           RSCoin.Core         (initLogging, keyGen, readSecretKey,
-                                      writePublicKey, writeSecretKey,
-                                      defaultSecretKeyPath, SecretKey,
-                                      readSecretKey)
+import           RSCoin.Core         (SecretKey, defaultSecretKeyPath, initLogging,
+                                      keyGen, readSecretKey, readSecretKey,
+                                      writePublicKey, writeSecretKey)
 import           RSCoin.Core.Types   as T
 import qualified RSCoin.Mintette     as M
 
@@ -25,8 +24,8 @@ main = do
                 then M.CADefault
                 else M.CACustomLocation cloConfigPath
     case cloCommand of
-        Opts.Serve serveOpts -> mainServe ctxArg serveOpts opts
-        Opts.DumpStatistics -> mainDumpStatistics ctxArg opts
+        Opts.Serve serveOpts         -> mainServe ctxArg serveOpts opts
+        Opts.DumpStatistics          -> mainDumpStatistics ctxArg opts
         Opts.CreatePermissionKeypair -> mainCreatePermissionKeypair ctxArg opts
         Opts.AddToBank addToBankOpts -> mainAddToBank ctxArg addToBankOpts opts
 
@@ -48,12 +47,7 @@ mainServe ctxArg Opts.ServeOptions {..} Opts.Options {..} = do
 
 mainAddToBank :: M.ContextArgument -> Opts.AddToBankOptions -> Opts.Options -> IO ()
 mainAddToBank ctxArg Opts.AddToBankOptions {..} Opts.Options {..} = do
-    skEither <- try $ readSecretKey atboSecretKeyPath
-    sk <-
-        case skEither of
-            Left (err :: SomeException) -> throwM err
-            Left err -> throwM err
-            Right sk -> return sk
+    sk <- readSecretKey atboSecretKeyPath
     M.addToBank ctxArg sk $ T.Mintette atboMintetteHost atboMintettePort
 
 mainDumpStatistics :: M.ContextArgument -> Opts.Options -> IO ()

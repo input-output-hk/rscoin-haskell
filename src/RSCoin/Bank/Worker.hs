@@ -12,8 +12,8 @@ module RSCoin.Bank.Worker
 
 import           Control.Exception.Base   (AsyncException)
 import           Control.Monad            (when)
-import           Control.Monad.Catch      (SomeException, catch, catches,
-                                           Handler (..), throwM)
+import           Control.Monad.Catch      (Handler (..), SomeException, catch, catches,
+                                           throwM)
 import           Control.Monad.Extra      (unlessM)
 import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Data.IORef               (IORef, readIORef)
@@ -24,14 +24,12 @@ import           Formatting               (build, int, sformat, (%))
 
 import           Serokell.Util.Exceptions ()
 
-import           Control.TimeWarp.Timed   (for, ms, repeatForever, sec, tu,
-                                           wait)
+import           Control.TimeWarp.Timed   (for, ms, repeatForever, sec, tu, wait)
 import           RSCoin.Core              (defaultPeriodDelta, sign)
 import qualified RSCoin.Core              as C
 
 import           RSCoin.Bank.AcidState    (GetExplorersAndPeriods (..),
-                                           GetHBlockWithMetadata (..),
-                                           GetPeriodId (..),
+                                           GetHBlockWithMetadata (..), GetPeriodId (..),
                                            SetExplorerPeriod (..), State,
                                            SuspendExplorer (..), query, update)
 
@@ -89,7 +87,7 @@ runExplorerWorker mainIsBusy sk st =
     handler (e :: SomeException) = do
         C.logError $ sformat ("Error occurred inside ExplorerWorker: " % build) e
         wait $ for 10 sec
-    shortWait = wait $ for 200 ms
+    shortWait = wait $ for 100 ms
     -- It would be much more elegant to use MVar here, but it's not
     -- supported by C.WorkMode
     waitUntilPredicate predicate =

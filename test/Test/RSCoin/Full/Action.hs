@@ -41,7 +41,7 @@ import           Test.QuickCheck          (NonEmptyList (..))
 import           Serokell.Util            (indexModulo, indexModuloMay, listBuilderJSON,
                                            mapBuilder, pairBuilder)
 
-import           Control.TimeWarp.Timed   (Millisecond, after, invoke, ms)
+import           Control.TimeWarp.Timed   (Millisecond, after, invoke)
 import qualified RSCoin.Core              as C
 import qualified RSCoin.User              as U
 
@@ -70,7 +70,7 @@ type WaitSomeAction = WaitAction SomeAction
 
 instance Action a => Action (WaitAction a) where
     doAction (WaitAction time action) =
-        invoke (after time ms) $ doAction action
+        invoke (after time) $ doAction action
 
 instance Buildable a => Buildable (WaitAction a) where
     build (WaitAction time action) =

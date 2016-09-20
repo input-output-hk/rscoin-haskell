@@ -93,7 +93,7 @@ getExtraSignatures tx requests time = do
     if null waiting
     then return (if itsCoolAlready then Just (toBundle ready) else Nothing)
     else do
-        timeoutRes <- timeout (sec time) $ do
+        timeoutRes <- timeout time $ do
             logInfo "Waiting for others to sign."
             pingUntilDead waiting []
         return $ Just $ toBundle $ ready ++ timeoutRes

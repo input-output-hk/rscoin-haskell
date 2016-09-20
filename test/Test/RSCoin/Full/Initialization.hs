@@ -25,7 +25,7 @@ import           Test.QuickCheck            (NonEmptyList (..))
 
 import           Control.TimeWarp.Logging   (LoggerName (..), modifyLoggerName,
                                              setLoggerName)
-import           Control.TimeWarp.Timed     (Second, for, interval, ms, sec,
+import           Control.TimeWarp.Timed     (Second, for, interval, ms,
                                              wait, workWhileMVarEmpty')
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
@@ -85,7 +85,7 @@ mkTestContext mNum uNum scen = do
     mapM_ initUser uinfos
     let ctx = TestContext binfo minfos ninfo buinfo uinfos scen isActiveVar
     sendInitialCoins ctx
-    wait $ for periodDelta sec
+    wait $ for periodDelta
     logInfo "Successfully initialized system"
     return ctx
   where

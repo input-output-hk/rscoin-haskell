@@ -33,7 +33,7 @@ packages:
   extra-dep: true
 
 nix:
-    enable: true
+    enable: false
     packages: [zlib.out,zlib.dev,glib,cairo,gnome.pango,gnome3.gtk,git,pkgconfig,haskell.compiler.ghc7103,
                openssh,autoreconfHook,stack,nodejs,haskellPackages.purescript]
 

@@ -46,7 +46,7 @@ import           RSCoin.Core.Types             (CheckConfirmation,
                                                 CommitAcknowledgment (..),
                                                 Mintette, MintetteId, PeriodId)
 
-import           Control.TimeWarp.Timed        (for, ms, sec, timeout, wait)
+import           Control.TimeWarp.Timed        (for, ms, timeout, wait)
 import           RSCoin.User.Cache             (UserCache, getOwnersByAddrid,
                                                 getOwnersByTx,
                                                 invalidateUserCache)

@@ -316,20 +316,29 @@ updateWithLastHBlock
     :: PeriodId
     -> HBlock
     -> Update Storage ()
-updateWithLastHBlock bankPid HBlock{..} = do
+updateWithLastHBlock bankPid hb = do
     expectedBlockId <- use periodId
-    when (bankPid /= expectedBlockId) $ do
+    guardIncomingHBlock bankPid expectedBlockId hb
+
+guardIncomingHBlock
+    :: PeriodId
+    -> PeriodId
+    -> HBlock
+    -> Update Storage ()
+guardIncomingHBlock bankPid expectedBlockId HBlock{..}
+    | bankPid < expectedBlockId  = return ()
+    | bankPid /= expectedBlockId = do
         isSynchronized .= False
         throwM $ NENotUpdated $ sformat
             ("Got HBlock from period id " % int % " but Notary expected " % int)
             bankPid
             expectedBlockId
-
-    isSynchronized .= True
-    addresses      %= M.union hbAddresses
-    periodStats    .= HM.empty
-    periodId       .= bankPid + 1
-    forM_ hbTransactions processPublishedTransacion
+    | otherwise                  = do
+        isSynchronized .= True
+        addresses      %= M.union hbAddresses
+        periodStats    .= HM.empty
+        periodId       .= bankPid + 1
+        forM_ hbTransactions processPublishedTransacion
   where
     processPublishedTransacion tx@Transaction{..} = do
         txPool %= HM.delete tx

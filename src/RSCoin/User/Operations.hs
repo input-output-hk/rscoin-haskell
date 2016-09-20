@@ -437,19 +437,16 @@ constructTransactions st TransactionData {..} = do
             , txOutputs = outputs ++ map (tdOutputAddress, ) tdOutputCoins
             }
         outTxs = splitTransaction outTx
-    forM_ outTxs $
-        \tx -> do
-            when (not (null tdOutputCoins) && not (C.validateTxPure tx)) $
-                commitError $
-                sformat
-                    ("Your transaction doesn't pass validity check: " % build)
-                    tx
-            when (null tdOutputCoins && not (C.validateTxPure tx)) $
-                commitError $
-                sformat
-                    ("Our code is broken and our auto-generated transaction is invalid: " %
-                     build)
-                    tx
+    forM_ outTxs $ \tx -> case C.validateTxPure tx of
+        C.TxValid -> return ()
+        C.TxInvalid err -> commitError $
+            if null tdOutputCoins
+            then sformat
+                 ("Your transaction doesn't pass validity check (" % build % "): " % build)
+                 err tx
+            else sformat
+                 ("Our code is broken and our auto-generated transaction is invalid (" % build % "): " % build)
+                 err tx
     return outTxs
 
 splitTransactionChunkSize :: Int

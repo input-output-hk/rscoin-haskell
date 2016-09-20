@@ -38,10 +38,9 @@ data ServeOptions = ServeOptions
     }
 
 data AddToBankOptions = AddToBankOptions
-    { cloMintetteHost     :: String
-    , cloMintettePort     :: Int
-    , cloSecretKeyPath_   :: FilePath
-    , cloAutoCreateKey_   :: Bool
+    { atboMintetteHost     :: String
+    , atboMintettePort     :: Int
+    , atboSecretKeyPath    :: FilePath
     }
 
 data Options = Options
@@ -79,11 +78,6 @@ commandParser defaultSKPath =
              help "Path to the secret key" <>
              showDefault <>
              metavar "FILEPATH")
-      <*> switch
-            (long "auto-create-sk" <>
-             help
-                 ("If the \"sk\" is pointing to non-existing " <>
-                  "file, generate a keypair"))
 
     serveOpts =
         fmap Serve $

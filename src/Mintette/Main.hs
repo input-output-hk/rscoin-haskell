@@ -3,11 +3,15 @@
 import           Control.Exception   (SomeException)
 import           Control.Monad.Catch (throwM, try)
 import           Data.Monoid         ((<>))
+import           Data.Functor        (void)
 import           Data.Time.Units     (Second)
+import           System.Directory    (doesFileExist)
 
 import           RSCoin.Core         (initLogging, keyGen, readSecretKey,
                                       writePublicKey, writeSecretKey,
-                                      defaultSecretKeyPath, SecretKey)
+                                      defaultSecretKeyPath, SecretKey,
+                                      readSecretKey)
+import           RSCoin.Core.Types   as T
 import qualified RSCoin.Mintette     as M
 
 import qualified MintetteOptions     as Opts
@@ -44,13 +48,13 @@ mainServe ctxArg Opts.ServeOptions {..} Opts.Options {..} = do
 
 mainAddToBank :: M.ContextArgument -> Opts.AddToBankOptions -> Opts.Options -> IO ()
 mainAddToBank ctxArg Opts.AddToBankOptions {..} Opts.Options {..} = do
-    skEither <- try $ readSecretKey cloSecretKeyPath_
+    skEither <- try $ readSecretKey atboSecretKeyPath
     sk <-
         case skEither of
-            Left (_ :: SomeException) | cloAutoCreateKey_ -> createKeypair cloSecretKeyPath_
+            Left (err :: SomeException) -> throwM err
             Left err -> throwM err
             Right sk -> return sk
-    M.addToBank cloRebuildDB cloPath ctxArg sk cloMintetteHost cloMintettePort
+    M.addToBank ctxArg sk $ T.Mintette atboMintetteHost atboMintettePort
 
 mainDumpStatistics :: M.ContextArgument -> Opts.Options -> IO ()
 mainDumpStatistics ctxArg Opts.Options {..} = do
@@ -59,8 +63,7 @@ mainDumpStatistics ctxArg Opts.Options {..} = do
 mainCreatePermissionKeypair :: M.ContextArgument -> Opts.Options -> IO ()
 mainCreatePermissionKeypair _ Opts.Options {..} = do
     directory <- defaultSecretKeyPath
-    _ <- createKeypair directory
-    return ()
+    void $ createKeypair directory
 
 -- TODO: should this go to RSCoin.Core.Crypto.Signing?
 createKeypair :: FilePath -> IO SecretKey
@@ -69,8 +72,14 @@ createKeypair directory = do
     let fpPublic = directory <> ".pub"
     putStrLn $ "Generating secret key at " ++ fpSecret
     putStrLn $ "Generating public key at " ++ fpPublic
-    (sk, pk) <- keyGen
-    writePublicKey fpPublic pk
-    writeSecretKey fpSecret sk
-    putStrLn "Done."
-    return sk
+    secretKeyExists <- doesFileExist fpSecret
+    if secretKeyExists
+       then do
+           putStrLn "Secret key already exists, not overwriting."
+           readSecretKey fpSecret
+       else do
+           (sk, pk) <- keyGen
+           writePublicKey fpPublic pk
+           writeSecretKey fpSecret sk
+           putStrLn "Done."
+           return sk

@@ -83,7 +83,7 @@ mkMintettesStorage =
     MintettesStorage
     { _msMintettes = []
     , _msPendingMintettes = []
-    , _msPermittedMintettes = Set.empty
+    , _msPermittedMintettes = mempty
     , _msMintettesToRemove = []
     , _msDpk = []
     , _msDeadMintettes = M.empty

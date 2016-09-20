@@ -84,7 +84,7 @@ serve st bankSK isPeriodChanging = do
         , C.method (C.RSCBank C.LocalControlRequest) $
           idr7 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging
         , C.method (C.RSCBank C.AddMintetteUsingPermit) $ idr8 $
-          serveAddMintetteUsingPermit st bankSK
+          serveAddMintetteUsingPermit st
         ]
 
 type ServerTE m a = Rpc.ServerT m (Either T.Text a)
@@ -312,12 +312,12 @@ serveGetExplorers sk st =
 
 serveAddMintetteUsingPermit
      :: C.WorkMode m
-     => State -> C.SecretKey -> PublicKey -> C.WithSignature (String, Int) -> ServerTESigned m ()
-serveAddMintetteUsingPermit st bankSK mintettePK signed = do
-  toServerSigned bankSK $ do
+     => State -> PublicKey -> C.WithSignature (String, Int) -> ServerTE m ()
+serveAddMintetteUsingPermit st mintettePK signed = do
+  toServer $ do
     permittedMintettes <- query st GetPermittedMintettes
     unless (Set.member mintettePK permittedMintettes) $
-      throwM $ C.BadRequest "Mintette public key doesn't exist"
+      throwM $ C.BadRequest "Given Mintettes public key doesn't have permission to add new mintette"
     unless (C.verifyWithSignature mintettePK signed) $
       throwM $ C.BadRequest "Mintette signatured failed to verify"
     let (host, port) = C.wsValue signed

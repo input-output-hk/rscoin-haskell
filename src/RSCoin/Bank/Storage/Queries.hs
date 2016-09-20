@@ -80,7 +80,6 @@ getDpk :: Query C.Dpk
 getDpk = mintettesStorage . MS.getDpk
 
 
-
 -- | Get current periodId
 getPeriodId :: Query C.PeriodId
 getPeriodId = periodId

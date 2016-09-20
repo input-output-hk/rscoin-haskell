@@ -8,18 +8,16 @@ module MintetteOptions
        , getOptions
        ) where
 
-import           Options.Applicative    (Parser, auto, command, execParser,
-                                         fullDesc, help, helper, info, long,
-                                         metavar, option, progDesc, short,
-                                         showDefault, subparser, switch, value,
-                                         (<>))
+import           Options.Applicative    (Parser, auto, command, execParser, fullDesc,
+                                         help, helper, info, long, metavar, option,
+                                         progDesc, short, showDefault, subparser, switch,
+                                         value, (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
 import           RSCoin.Core            (Severity (Error), configDirectory,
-                                         defaultConfigurationPath,
-                                         defaultEpochDelta, defaultPort,
+                                         defaultConfigurationPath, defaultPort,
                                          defaultSecretKeyPath)
 
 data Command
@@ -28,7 +26,6 @@ data Command
 
 data ServeOptions = ServeOptions
     { cloPort            :: Int
-    , cloEpochDelta      :: Integer
     , cloSecretKeyPath   :: FilePath
     , cloAutoCreateKey   :: Bool
     , cloActionLogsLimit :: Word
@@ -58,12 +55,6 @@ commandParser defaultSKPath =
         option
             auto
             (short 'p' <> long "port" <> value defaultPort <> showDefault) <*>
-        option
-            auto
-            (long "epoch-delta" <> value (toInteger defaultEpochDelta) <>
-             showDefault <>
-             help "Epoch length in seconds" <>
-             metavar "INT") <*>
         strOption
             (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <>
              help "Path to the secret key" <>

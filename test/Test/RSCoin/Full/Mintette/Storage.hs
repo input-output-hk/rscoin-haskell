@@ -5,14 +5,15 @@
 {-# LANGUAGE TupleSections         #-}
 
 -- | Storage for mintette's data (configurable).
+-- WARNING: this module is outdated! Rewrite it when needed.
 
 module Test.RSCoin.Full.Mintette.Storage
        ( checkNotDoubleSpent
        , commitTx
        ) where
 
-import           Control.Lens                     (at, use, uses, view, (%=),
-                                                   (.=), (<>=), _1)
+import           Control.Lens                     (at, use, uses, view, (%=), (.=), (<>=),
+                                                   _1)
 import           Control.Monad                    (unless, when)
 import           Control.Monad.Catch              (MonadThrow (throwM))
 import           Control.Monad.Reader             (ReaderT)
@@ -23,26 +24,20 @@ import           Data.Maybe                       (fromJust, fromMaybe, isJust)
 import qualified Data.Set                         as S
 import           Safe                             (atMay)
 
-import           RSCoin.Core                      (AddrId, SecretKey,
-                                                   Transaction (..),
-                                                   TxStrategy (..),
-                                                   computeOutputAddrids,
-                                                   derivePublicKey,
-                                                   isStrategyCompleted,
-                                                   mkCheckConfirmation, owners,
-                                                   sign,
+import           RSCoin.Core                      (AddrId, SecretKey, Transaction (..),
+                                                   TxStrategy (..), computeOutputAddrids,
+                                                   derivePublicKey, isStrategyCompleted,
+                                                   mkCheckConfirmation, owners, sign,
                                                    verifyCheckConfirmation)
 import qualified RSCoin.Core                      as C
 import           RSCoin.Mintette.Env              (RuntimeEnv, reSecretKey)
 import           RSCoin.Mintette.Error            (MintetteError (..))
-import           RSCoin.Mintette.Storage          (Storage, addresses,
-                                                   checkIsActive, checkTxSum,
-                                                   curMintetteId, dpk,
-                                                   getLogHead, logHeads,
-                                                   logSize, mintettes, periodId,
-                                                   pset, pushLogEntry,
-                                                   readerToState, txset, utxo,
-                                                   utxoAdded, utxoDeleted)
+import           RSCoin.Mintette.Storage          (Storage, addresses, checkIsActive,
+                                                   checkTxSum, curMintetteId, dpk,
+                                                   getLogHead, logHeads, logSize,
+                                                   mintettes, periodId, pset,
+                                                   pushLogEntry, readerToState, txset,
+                                                   utxo, utxoAdded, utxoDeleted)
 
 import           Test.RSCoin.Full.Mintette.Config (MintetteConfig (..))
 

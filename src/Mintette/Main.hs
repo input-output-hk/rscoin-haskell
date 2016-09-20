@@ -3,10 +3,9 @@
 import           Control.Exception   (SomeException)
 import           Control.Monad.Catch (throwM, try)
 import           Data.Monoid         ((<>))
-import           Data.Time.Units     (Second)
 
-import           RSCoin.Core         (initLogging, keyGen, readSecretKey,
-                                      writePublicKey, writeSecretKey)
+import           RSCoin.Core         (initLogging, keyGen, readSecretKey, writePublicKey,
+                                      writeSecretKey)
 import qualified RSCoin.Mintette     as M
 
 import qualified MintetteOptions     as Opts
@@ -46,9 +45,8 @@ mainServe ctxArg Opts.ServeOptions {..} Opts.Options {..} = do
             if cloMemMode
                 then Nothing
                 else Just cloPath
-        epochDelta = fromInteger cloEpochDelta :: Second
         env = M.mkRuntimeEnv cloActionLogsLimit sk
-    M.launchMintetteReal cloRebuildDB epochDelta cloPort env dbPath ctxArg
+    M.launchMintetteReal cloRebuildDB cloPort env dbPath ctxArg
 
 mainDumpStatistics :: M.ContextArgument -> Opts.Options -> IO ()
 mainDumpStatistics ctxArg Opts.Options {..} = do

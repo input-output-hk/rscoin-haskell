@@ -20,7 +20,6 @@ data DeployConfig = DeployConfig
     , dcMintettes        :: !Word
     , dcExplorers        :: !Word
     , dcPeriod           :: !Word
-    , dcEpoch            :: !Word
     , dcGlobalSeverity   :: !Severity
     , dcBankSeverity     :: !(Maybe Severity)
     , dcNotarySeverity   :: !(Maybe Severity)

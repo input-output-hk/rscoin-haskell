@@ -53,7 +53,6 @@ getConfigPath =
 data CommonParams = CommonParams
     { cpBaseDir :: !FilePath
     , cpPeriod  :: !Millisecond
-    , cpEpoch   :: !Millisecond
     , cpRebuild :: !Bool
     } deriving (Show)
 
@@ -88,7 +87,7 @@ startMintette CommonParams{..} idx = do
     (sk,pk) <- getKeys workingDir
     let env = M.mkRuntimeEnv 1000000000 sk
         start =
-            M.launchMintetteReal cpRebuild cpEpoch port env (Just dbDir) contextArgument
+            M.launchMintetteReal cpRebuild port env (Just dbDir) contextArgument
     (, pk) <$> forkIO start
 
 startExplorer
@@ -229,7 +228,6 @@ main = do
                     CommonParams
                     { cpBaseDir = deployDir
                     , cpPeriod = fromIntegral dcPeriod
-                    , cpEpoch = fromIntegral dcEpoch
                     , cpRebuild = False
                     }
                 mintetteIndices = [1 .. dcMintettes]

@@ -11,10 +11,8 @@ import           Control.Lens                     (view, (^.))
 import qualified RSCoin.Core                      as C
 import qualified RSCoin.Mintette                  as M
 
-import           Test.RSCoin.Full.Context         (MintetteInfo, port,
-                                                   secretKey, state)
-import           Test.RSCoin.Full.Mintette.Config (MintetteConfig,
-                                                   malfunctioningConfig)
+import           Test.RSCoin.Full.Context         (MintetteInfo, port, secretKey, state)
+import           Test.RSCoin.Full.Mintette.Config (MintetteConfig, malfunctioningConfig)
 import qualified Test.RSCoin.Full.Mintette.Server as FM
 
 initialization
@@ -30,7 +28,6 @@ initialization conf forkTmp m = do
                 Nothing -> M.serve
                 Just s  -> FM.serve s
     forkTmp $ runner <$> view port <*> view state <*> pure env $ m
-    forkTmp $ M.runWorker env <$> view state $ m
 
 defaultMintetteInit
     :: C.WorkMode m

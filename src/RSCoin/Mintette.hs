@@ -11,4 +11,3 @@ import           RSCoin.Mintette.Env       as Exports
 import           RSCoin.Mintette.Error     as Exports
 import           RSCoin.Mintette.Launcher  as Exports
 import           RSCoin.Mintette.Server    as Exports
-import           RSCoin.Mintette.Worker    as Exports

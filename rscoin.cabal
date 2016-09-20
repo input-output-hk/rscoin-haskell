@@ -43,7 +43,6 @@ library
                      , RSCoin.Mintette.Launcher
                      , RSCoin.Mintette.Server
                      , RSCoin.Mintette.Storage
-                     , RSCoin.Mintette.Worker
 
                      , RSCoin.Notary
                      , RSCoin.Notary.AcidState

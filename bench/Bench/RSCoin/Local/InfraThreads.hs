@@ -12,11 +12,9 @@ import           System.FilePath            ((</>))
 
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (ContextArgument (CADefault),
-                                             Mintette (Mintette), PublicKey,
-                                             SecretKey, Severity (Warning),
-                                             defaultEpochDelta, defaultPort,
-                                             localhost, testBankSecretKey,
-                                             testNotarySecretKey)
+                                             Mintette (Mintette), PublicKey, SecretKey,
+                                             Severity (Warning), defaultPort, localhost,
+                                             testBankSecretKey, testNotarySecretKey)
 import qualified RSCoin.Mintette            as M
 import qualified RSCoin.Notary              as N
 
@@ -41,7 +39,6 @@ mintetteThread :: Int -> FilePath -> SecretKey -> IO ()
 mintetteThread mintetteId benchDir sk =
     M.launchMintetteReal
         False
-        defaultEpochDelta
         port
         (M.mkRuntimeEnv 100000 sk)
         dbPath

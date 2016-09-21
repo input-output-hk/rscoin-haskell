@@ -205,6 +205,7 @@ html, body, #app, .max-height,
     line-height: 12px;
     margin: 30px auto;
     text-align: center;
+    width: 520px;
 }
 
 #footer-links a {

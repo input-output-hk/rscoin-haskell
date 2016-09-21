@@ -34,8 +34,7 @@ packages:
 
 nix:
     enable: false
-    packages: [zlib.out,zlib.dev,glib,cairo,gnome.pango,gnome3.gtk,git,pkgconfig,haskell.compiler.ghc7103,
-               openssh,autoreconfHook,stack,nodejs,haskellPackages.purescript]
+    shell-file: shell.nix
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:

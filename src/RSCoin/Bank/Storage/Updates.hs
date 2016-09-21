@@ -12,6 +12,7 @@ module RSCoin.Bank.Storage.Updates
 
        , addAddress
        , addMintette
+       , addMintetteIfPermitted
        , permitMintette
        , addExplorer
        , removeMintette
@@ -23,13 +24,11 @@ module RSCoin.Bank.Storage.Updates
        , checkAndBumpStatisticsId
        ) where
 
-import           Control.Lens                  (Lens', use, uses, (%%=), (%=),
-                                                (+=), (.=))
+import           Control.Lens                  (Lens', use, uses, (%%=), (%=), (+=), (.=))
 import           Control.Monad                 (forM_, guard, unless, when)
 import           Control.Monad.Catch           (Exception, MonadThrow (throwM))
 import           Control.Monad.Except          (ExceptT, runExceptT)
-import           Control.Monad.State           (MonadState, State, execState,
-                                                runState)
+import           Control.Monad.State           (MonadState, State, execState, runState)
 import           Data.Bifunctor                (first)
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.HashSet                  as S
@@ -41,17 +40,15 @@ import           Safe                          (headMay)
 
 import           Serokell.Util                 (enumerate)
 
-import           RSCoin.Core                   (ActionLog, AddrId, Address (..),
-                                                Dpk, HBlock (..), MintetteId,
-                                                Mintettes, NewPeriodData (..),
-                                                PeriodId, PeriodResult,
-                                                PublicKey, SecretKey,
+import           RSCoin.Core                   (ActionLog, AddrId, Address (..), Dpk,
+                                                HBlock (..), MintetteId, Mintettes,
+                                                NewPeriodData (..), PeriodId,
+                                                PeriodResult, PublicKey, SecretKey,
                                                 Transaction (..), canonizeTx,
                                                 checkActionLog, checkLBlock,
-                                                computeOutputAddrids,
-                                                emissionHash, hash,
-                                                lbTransactions, mkGenesisHBlock,
-                                                mkHBlock, owners)
+                                                computeOutputAddrids, emissionHash, hash,
+                                                lbTransactions, mkGenesisHBlock, mkHBlock,
+                                                owners)
 import qualified RSCoin.Core                   as C
 
 import           RSCoin.Bank.Error             (BankError (..))
@@ -59,10 +56,9 @@ import qualified RSCoin.Bank.Storage.Addresses as AS
 import qualified RSCoin.Bank.Storage.Explorers as ES
 import qualified RSCoin.Bank.Storage.Mintettes as MS
 import qualified RSCoin.Bank.Storage.Queries   as Q
-import           RSCoin.Bank.Storage.Storage   (Storage, addressesStorage,
-                                                blocks, explorersStorage,
-                                                mintettesStorage, periodId,
-                                                statisticsId, utxo)
+import           RSCoin.Bank.Storage.Storage   (Storage, addressesStorage, blocks,
+                                                explorersStorage, mintettesStorage,
+                                                periodId, statisticsId, utxo)
 import qualified RSCoin.Bank.Strategies        as Strategies
 
 type Update a = forall m . MonadState Storage m => m a
@@ -84,6 +80,12 @@ addAddress addr strategy =
 -- | Add given mintette to storage and associate given key with it.
 addMintette :: C.Mintette -> C.PublicKey -> ExceptUpdate ()
 addMintette m k = runExceptState mintettesStorage $ MS.addMintette m k
+
+-- | Add given mintette to storage and associate given key with it if
+-- this key has a permission.
+addMintetteIfPermitted :: C.Mintette -> C.PublicKey -> ExceptUpdate ()
+addMintetteIfPermitted m k =
+    runExceptState mintettesStorage $ MS.addMintetteIfPermitted m k
 
 -- | Add mintette public key to storage
 permitMintette :: C.PublicKey -> ExceptUpdate ()

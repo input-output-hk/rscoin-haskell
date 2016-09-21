@@ -31,15 +31,16 @@ module RSCoin.Bank.AcidState
          -- | Updates
        , AddAddress (..)
        , AddMintette (..)
-       , PermitMintette (..)
+       , AddMintetteIfPermitted (..)
        , AddExplorer (..)
+       , CheckAndBumpStatisticsId (..)
+       , PermitMintette (..)
+       , RestoreExplorers (..)
        , RemoveMintette (..)
        , RemoveExplorer (..)
        , SetExplorerPeriod (..)
        , SuspendExplorer (..)
-       , RestoreExplorers (..)
        , StartNewPeriod (..)
-       , CheckAndBumpStatisticsId (..)
        ) where
 
 import           Control.Lens                  (Getter, to, view)
@@ -49,31 +50,26 @@ import           Data.Acid                     (EventResult, EventState, Query,
                                                 QueryEvent, Update, UpdateEvent,
                                                 makeAcidic)
 import           Data.Maybe                    (fromMaybe)
-import           Data.Text                     (Text)
 import qualified Data.Set                      as Set
+import           Data.Text                     (Text)
 import           Data.Time.Clock.POSIX         (POSIXTime)
 import           Formatting                    (bprint, stext, (%))
 import           Safe                          (headMay)
 
-import           Serokell.AcidState            (ExtendedState,
-                                                closeExtendedState,
+import           Serokell.AcidState            (ExtendedState, closeExtendedState,
                                                 openLocalExtendedState,
-                                                openMemoryExtendedState,
-                                                queryExtended,
-                                                tidyExtendedState,
-                                                updateExtended)
-import           Serokell.AcidState.Statistics (StoragePart (..),
-                                                estimateMemoryUsage)
+                                                openMemoryExtendedState, queryExtended,
+                                                tidyExtendedState, updateExtended)
+import           Serokell.AcidState.Statistics (StoragePart (..), estimateMemoryUsage)
 import           Serokell.Data.Memory.Units    (Byte, memory)
 import           Serokell.Util.Text            (listBuilderJSONIndent, show')
 
 import           RSCoin.Core                   (ActionLog, Address,
-                                                AddressToTxStrategyMap,
-                                                Explorer, Explorers, HBlock,
-                                                Mintette, MintetteId, Mintettes,
-                                                NewPeriodData, PeriodId,
-                                                PeriodResult, PublicKey,
-                                                SecretKey, TxStrategy)
+                                                AddressToTxStrategyMap, Explorer,
+                                                Explorers, HBlock, Mintette, MintetteId,
+                                                Mintettes, NewPeriodData, PeriodId,
+                                                PeriodResult, PublicKey, SecretKey,
+                                                TxStrategy)
 import qualified RSCoin.Core                   as C
 
 import qualified RSCoin.Bank.Storage           as BS
@@ -145,6 +141,9 @@ addAddress = BS.addAddress
 addMintette :: Mintette -> PublicKey -> Update BS.Storage ()
 addMintette = BS.addMintette
 
+addMintetteIfPermitted :: Mintette -> PublicKey -> Update BS.Storage ()
+addMintetteIfPermitted = BS.addMintetteIfPermitted
+
 permitMintette :: PublicKey -> Update BS.Storage ()
 permitMintette = BS.permitMintette
 
@@ -193,6 +192,7 @@ $(makeAcidic ''BS.Storage
 
              , 'addAddress
              , 'addMintette
+             , 'addMintetteIfPermitted
              , 'addExplorer
              , 'permitMintette
              , 'removeMintette

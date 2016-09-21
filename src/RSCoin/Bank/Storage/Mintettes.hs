@@ -17,21 +17,23 @@ module RSCoin.Bank.Storage.Mintettes
 
        , Update
        , addMintette
+       , addMintetteIfPermitted
        , permitMintette
        , removeMintette
        , updateMintettes
 
        ) where
 
-import           Control.Lens         (Getter, ix, makeLenses, use, uses, (%=),
-                                       (&), (.=), (.~))
+import           Control.Lens         (Getter, ix, makeLenses, use, uses, (%=), (&), (.=),
+                                       (.~))
 import           Control.Monad        (unless, when)
 import           Control.Monad.Except (ExceptT, MonadError (throwError))
+import           Control.Monad.Extra  (unlessM)
 import           Control.Monad.State  (State)
 import           Data.List            (delete, find, nub, (\\))
 import qualified Data.Map             as M
-import qualified Data.Set             as Set
 import           Data.SafeCopy        (base, deriveSafeCopy)
+import qualified Data.Set             as Set
 import           Formatting           (build, sformat, (%))
 
 import           RSCoin.Bank.Error    (BankError (BEBadRequest))
@@ -50,29 +52,29 @@ type DeadMintettesMap = M.Map C.PublicKey DeadMintetteState
 data MintettesStorage = MintettesStorage
     {
       -- | List of active mintettes.
-      _msMintettes         :: !C.Mintettes
+      _msMintettes          :: !C.Mintettes
     ,
       -- | List of mintettes which were added in current period and
       -- will become active for the next period.
       -- TODO: should be a set for sake of simplicity
-      _msPendingMintettes  :: ![(C.Mintette, C.PublicKey)]
+      _msPendingMintettes   :: ![(C.Mintette, C.PublicKey)]
     ,
       -- | Set of permissions for adding mintettes
       _msPermittedMintettes :: !(Set.Set C.PublicKey)
     ,
       -- | Mintettes that should be excluded in the next period
-      _msMintettesToRemove :: !C.Mintettes
+      _msMintettesToRemove  :: !C.Mintettes
     ,
       -- | DPK set for the ongoing period. Doesn't mean anything if
       -- there is no active period.
-      _msDpk               :: !C.Dpk
+      _msDpk                :: !C.Dpk
     ,
       -- | State of all known dead mintettes.
-      _msDeadMintettes     :: !DeadMintettesMap
+      _msDeadMintettes      :: !DeadMintettesMap
     ,
       -- | Mintettes' action logs. actionLogs[i] stores action log for
       -- i-th mintette.  Head of action log is the most recent entry.
-      _msActionLogs        :: ![C.ActionLog]
+      _msActionLogs         :: ![C.ActionLog]
     }
 
 $(makeLenses ''MintettesStorage)
@@ -117,10 +119,19 @@ addMintette m k = do
     msMintettesToRemove %= delete m
     msPendingMintettes %= ((m, k) :)
 
+-- | Add mintette to the storage if public key has permission to do so.
+addMintetteIfPermitted :: C.Mintette -> C.PublicKey -> ExceptUpdate ()
+addMintetteIfPermitted mintette pk = do
+    unlessM (uses msPermittedMintettes (Set.member pk)) $
+        throwError $ BEBadRequest $
+        sformat
+            ("Public key " % build % " doesn't have permission to add Mintette") pk
+    addMintette mintette pk
+    msPermittedMintettes %= Set.delete pk
+
 -- | Add mintette public key to the storage
 permitMintette :: C.PublicKey -> ExceptUpdate ()
-permitMintette k = do
-    msPermittedMintettes %= Set.insert k
+permitMintette k = msPermittedMintettes %= Set.insert k
 
 -- | Unstages a mintette from being in a next period. Is canceled by
 -- `addMintette` and vice versa

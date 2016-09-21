@@ -21,7 +21,6 @@ import           Data.IORef                 (IORef, atomicWriteIORef, modifyIORe
                                              newIORef, readIORef)
 import           Data.List                  (genericLength, nub, (\\))
 import           Data.Maybe                 (catMaybes)
-import qualified Data.Set                   as Set
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as TIO
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
@@ -42,15 +41,15 @@ import qualified RSCoin.Core.Protocol.Types as PT (BankLocalControlRequest (..),
 
 import           RSCoin.Bank.AcidState      (AddAddress (..), AddExplorer (..),
                                              AddMintette (..),
-                                             PermitMintette (..),
-                                             GetPermittedMintettes (..),
+                                             AddMintetteIfPermitted (..),
                                              CheckAndBumpStatisticsId (..),
                                              GetExplorersAndPeriods (..), GetHBlock (..),
                                              GetMintettes (..), GetPeriodId (..),
-                                             GetStatisticsId (..), RemoveExplorer (..),
-                                             RemoveMintette (..), RestoreExplorers (..),
-                                             StartNewPeriod (..), State, getStatistics,
-                                             query, tidyState, update)
+                                             GetStatisticsId (..), PermitMintette (..),
+                                             RemoveExplorer (..), RemoveMintette (..),
+                                             RestoreExplorers (..), StartNewPeriod (..),
+                                             State, getStatistics, query, tidyState,
+                                             update)
 import           RSCoin.Bank.Error          (BankError (BEBadRequest))
 
 serve
@@ -381,18 +380,15 @@ serveGetExplorers sk st =
 serveAddMintetteUsingPermit
      :: C.WorkMode m
      => State -> PublicKey -> C.WithSignature (String, Int) -> ServerTE m ()
-serveAddMintetteUsingPermit st mintettePK signed = do
-  toServer $ do
-    permittedMintettes <- query st GetPermittedMintettes
-    unless (Set.member mintettePK permittedMintettes) $
-      throwM $ C.BadRequest "Given Mintettes public key doesn't have permission to add new mintette"
-    unless (C.verifyWithSignature mintettePK signed) $
-      throwM $ C.BadRequest "Mintette signatured failed to verify"
-    let (host, port) = C.wsValue signed
-    update st $ AddMintette (C.Mintette host port) mintettePK
-    logInfo $
-        sformat
-            ("AddMintetteUsingPermit succesfully added mintette " % build % ":" % build)
-            host
-            port
-
+serveAddMintetteUsingPermit st mintettePK signed =
+    toServer $
+    do unless (C.verifyWithSignature mintettePK signed) $
+           throwM $ C.BadRequest "Mintette signature failed to verify"
+       let (host, port) = C.wsValue signed
+       update st $ AddMintetteIfPermitted (C.Mintette host port) mintettePK
+       logInfo $ sformat
+               ("AddMintetteUsingPermit succesfully added mintette " %
+                build %
+                ":" %
+                build)
+               host port

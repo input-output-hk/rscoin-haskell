@@ -260,7 +260,7 @@ view addr state =
                     , src adaSymbolDarkPath
                     ]
                     []
-                , text <<< show $ c.getCoin
+                , text <<< show $ c.coinAmount
                 ]
             ]
     colorsActive f = if f state.colors then "active" else ""

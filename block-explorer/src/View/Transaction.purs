@@ -187,7 +187,7 @@ view teFull@(WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(Tra
                     , src adaSymbolDarkPath
                     ]
                     []
-                , text <<< show $ c.getCoin
+                , text <<< show $ c.coinAmount
                 ]
             ]
     colorsActive f = if f state.colors then "active" else ""

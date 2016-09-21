@@ -136,6 +136,6 @@ transactionTableItem colors mAddr (WithMetadata {wmValue: tran@(Transaction t), 
                     , src adaSymbolDarkPath
                     ]
                     []
-                , text <<< show $ c.getCoin
+                , text <<< show $ c.coinAmount
                 ]
             ]

@@ -59,7 +59,7 @@ getPublicKey :: C.Address -> T.PublicKey
 getPublicKey (C.Address obj) = obj.getAddress
 
 coinToColor :: C.Coin -> Int
-coinToColor (C.Coin {getColor: C.Color c}) = c.getC
+coinToColor (C.Coin {coinColor: C.Color c}) = c.getColor
 
 isTransactionIncome :: C.Address -> C.Transaction -> Boolean
 isTransactionIncome addr (C.Transaction t) =

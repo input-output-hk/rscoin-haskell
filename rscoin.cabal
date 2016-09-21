@@ -405,6 +405,7 @@ test-suite rscoin-test
                      , Test.RSCoin.Full.Mintette.Config
                      , Test.RSCoin.Full.Mintette.Acidic
                      , Test.RSCoin.Full.Property
+                     , Test.RSCoin.Full.Threads
                      , Test.RSCoin.Local.Arbitrary
                      , Test.RSCoin.Local.MessagePackSpec
                      -- , Test.RSCoin.Pure.BankState

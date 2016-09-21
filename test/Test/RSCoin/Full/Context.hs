@@ -14,23 +14,22 @@ module Test.RSCoin.Full.Context
        , TestContext (..)
        , TestEnv
        , MintetteNumber (..), UserNumber (..)
-       , bank, mintettes, notary, buser, users, scenario, isActive
+       , bank, mintettes, notary, buser, users, scenario, stopNodes
        , keys, secretKey, publicKey
        , state
        , port
        ) where
 
-import           Control.Concurrent.MVar (MVar)
-import           Control.Lens            (Getter, makeLenses, to, _1, _2)
-import           Control.Monad.Reader    (ReaderT)
-import           Data.Word               (Word16, Word8)
-import           System.Random           (Random)
+import           Control.Lens             (Getter, makeLenses, to, _1, _2)
+import           Control.Monad.Reader     (ReaderT)
+import           Data.Word                (Word16, Word8)
+import           System.Random            (Random)
 
-import qualified RSCoin.Bank             as B
-import           RSCoin.Core             (PublicKey, SecretKey, defaultPort)
-import qualified RSCoin.Mintette         as M
-import qualified RSCoin.Notary           as N
-import qualified RSCoin.User             as U
+import qualified RSCoin.Bank              as B
+import           RSCoin.Core              (PublicKey, SecretKey, defaultPort)
+import qualified RSCoin.Mintette          as M
+import qualified RSCoin.Notary            as N
+import qualified RSCoin.User              as U
 
 -- | Number of mintettes in system.
 newtype MintetteNumber = MintetteNumber
@@ -75,19 +74,19 @@ data Scenario
     | AdversarialMintettes Double    -- ^ Mintettes try to execute malicious actions
     deriving (Show)
 
-data TestContext = TestContext
+data TestContext s = TestContext
     { _bank      :: BankInfo
     , _mintettes :: [MintetteInfo]
     , _notary    :: NotaryInfo
     , _buser     :: UserInfo  -- ^ user in bank mode
     , _users     :: [UserInfo]
     , _scenario  :: Scenario
-    , _isActive  :: MVar ()
+    , _stopNodes :: s ()
     }
 
 $(makeLenses ''TestContext)
 
-type TestEnv m = ReaderT TestContext m
+type TestEnv s m = ReaderT (TestContext s) m
 
 -- * Shortcuts
 

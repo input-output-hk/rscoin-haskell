@@ -49,7 +49,7 @@ import           Test.RSCoin.Full.Context (TestEnv, buser, state, users)
 import           Test.RSCoin.Full.Error   (TestError (TestError))
 
 class Action a where
-    doAction :: C.WorkMode m => a -> TestEnv m ()
+    doAction :: C.WorkMode m => a -> TestEnv s m ()
 
 data SomeAction =
     forall a. (Action a, Show a, Buildable a) => SomeAction a
@@ -211,7 +211,7 @@ instance Buildable UserAction where
 
 toAddress
     :: C.WorkMode m
-    => ToAddress -> TestEnv m C.Address
+    => ToAddress -> TestEnv s m C.Address
 toAddress =
     either return $
     \(userIndex,addressIndex) -> do
@@ -224,7 +224,7 @@ toAddress =
 
 toInputs
     :: C.WorkMode m
-    => UserIndex -> FromAddresses -> TestEnv m Inputs
+    => UserIndex -> FromAddresses -> TestEnv s m Inputs
 toInputs userIndex (getNonEmpty -> fromIndexes) = do
     userState <- getUserState userIndex
     allAddresses <-
@@ -245,7 +245,7 @@ toInputs userIndex (getNonEmpty -> fromIndexes) = do
 
 getUserState
     :: C.WorkMode m
-    => UserIndex -> TestEnv m U.UserState
+    => UserIndex -> TestEnv s m U.UserState
 getUserState Nothing =
     view $ buser . state
 getUserState (Just index) = do

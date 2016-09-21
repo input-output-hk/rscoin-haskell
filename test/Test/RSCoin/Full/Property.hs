@@ -50,7 +50,7 @@ import           Test.RSCoin.Full.Context        (MintetteNumber,
 import           Test.RSCoin.Full.Gen            (genValidActions)
 import           Test.RSCoin.Full.Initialization (finishTest, mkTestContext)
 
-type FullProperty m = TestEnv (PropertyM m)
+type FullProperty m = TestEnv m (PropertyM m)
 type FullPropertyEmulation = FullProperty EmulationMode
 type FullPropertyRealMode = FullProperty RealMode
 
@@ -117,7 +117,7 @@ runWorkModeFP a = do
 
 runTestEnvFP
     :: WorkMode m
-    => TestEnv m a -> FullProperty m a
+    => TestEnv m m a -> FullProperty m a
 runTestEnvFP a = runWorkModeFP . runReaderT a =<< ask
 
 doActionFP

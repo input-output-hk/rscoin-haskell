@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE ViewPatterns     #-}
 
 -- | This module defines how to initialize RSCoin.
 
@@ -8,12 +9,12 @@ module Test.RSCoin.Full.Initialization
        , bankUserAddressesCount, userAddressesCount
        ) where
 
-import           Control.Concurrent.MVar    (newEmptyMVar, tryPutMVar)
-import           Control.Exception          (assert)
+import           Control.Exception          (Exception, assert,
+                                             AsyncException (ThreadKilled))
 import           Control.Lens               (view, (^.))
 import           Control.Monad              (forM_, replicateM)
 import           Control.Monad.Reader       (runReaderT)
-import           Control.Monad.Trans        (MonadIO (liftIO))
+import           Control.Monad.Trans        (MonadIO (liftIO), lift)
 import qualified Data.IntMap.Strict         as M
 import           Data.IORef                 (newIORef)
 import           Data.List                  (genericLength)
@@ -25,8 +26,9 @@ import           Test.QuickCheck            (NonEmptyList (..))
 
 import           Control.TimeWarp.Logging   (LoggerName (..), modifyLoggerName,
                                              setLoggerName)
-import           Control.TimeWarp.Timed     (Second, for, interval, ms,
-                                             wait, workWhileMVarEmpty')
+import           Control.TimeWarp.Timed     (Second, for, ms,
+                                             wait)
+import           Test.RSCoin.Full.Threads   (makeThreadsController)
 import qualified RSCoin.Bank                as B
 import           RSCoin.Core                (Color (..), Mintette (..),
                                              SecretKey, WithNamedLogger,
@@ -52,7 +54,7 @@ import           Test.RSCoin.Full.Context   (BankInfo (..), MintetteInfo (..),
                                              MintetteNumber, NotaryInfo (..),
                                              Scenario (..), TestContext (..),
                                              TestEnv, UserInfo (..), UserNumber,
-                                             buser, isActive, port, publicKey,
+                                             buser, stopNodes, port, publicKey,
                                              secretKey, state, users)
 import qualified Test.RSCoin.Full.Mintette  as TM
 
@@ -62,7 +64,7 @@ periodDelta = defaultPeriodDelta
 -- | Start all servers/workers and create TestContext.
 mkTestContext
     :: WorkMode m
-    => MintetteNumber -> UserNumber -> Scenario -> m TestContext
+    => MintetteNumber -> UserNumber -> Scenario -> m (TestContext m)
 mkTestContext mNum uNum scen = do
     binfo <- BankInfo <$> bankKeyPair <*> liftIO B.openMemState
     ninfo <- NotaryInfo <$> liftIO (N.openMemState [] Default Default)
@@ -70,8 +72,7 @@ mkTestContext mNum uNum scen = do
     buinfo <- UserInfo <$> liftIO U.openMemState
     uinfos <-
         replicateM (fromIntegral uNum) $ UserInfo <$> liftIO U.openMemState
-    isActiveVar <- liftIO newEmptyMVar
-    let forkTmp = workWhileMVarEmpty' (interval 500 ms) isActiveVar
+    (forkTmp, killAll) <- makeThreadsController ThreadKilled
     logInfo "Initializing system…"
     runMintettes forkTmp minfos scen
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
@@ -83,7 +84,7 @@ mkTestContext mNum uNum scen = do
     shortWait -- DON'T TOUCH IT (you can, but take responsibility then)
     initBUser buinfo bankSk
     mapM_ initUser uinfos
-    let ctx = TestContext binfo minfos ninfo buinfo uinfos scen isActiveVar
+    let ctx = TestContext binfo minfos ninfo buinfo uinfos scen killAll
     sendInitialCoins ctx
     wait $ for periodDelta
     logInfo "Successfully initialized system"
@@ -97,9 +98,14 @@ mkTestContext mNum uNum scen = do
     bankKeyPair = pure (bankSk, bankPk)
     shortWait = wait $ for 10 ms
 
+data TestFinished = TestFinished
+    deriving (Show)
+
+instance Exception TestFinished
+
 -- | Finish everything that's going on in TestEnv.
-finishTest :: WorkMode m => TestEnv m ()
-finishTest = () <$ (liftIO . flip tryPutMVar () =<< view isActive)
+finishTest :: WorkMode m => TestEnv m m ()
+finishTest = view stopNodes >>= lift
 
 runBank
     :: WorkMode m
@@ -184,7 +190,7 @@ initUser user = U.initState (user ^. state) userAddressesCount Nothing
 
 sendInitialCoins
     :: WorkMode m
-    => TestContext -> m ()
+    => TestContext m -> m ()
 sendInitialCoins ctx = do
     genesisIdx <-
         fromMaybe reportFatalError <$>

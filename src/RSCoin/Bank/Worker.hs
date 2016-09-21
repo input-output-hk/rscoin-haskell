@@ -19,12 +19,12 @@ import           Control.Monad.Trans      (MonadIO (liftIO))
 import           Data.IORef               (IORef, readIORef)
 import           Data.List                (sortOn)
 import           Data.Maybe               (fromMaybe)
-import           Data.Time.Units          (TimeUnit)
+import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
 
 import           Serokell.Util.Exceptions ()
 
-import           Control.TimeWarp.Timed   (for, ms, repeatForever, sec, tu, wait)
+import           Control.TimeWarp.Timed   (for, ms, repeatForever, sec, wait)
 import           RSCoin.Core              (defaultPeriodDelta, sign)
 import qualified RSCoin.Core              as C
 
@@ -48,7 +48,7 @@ runWorker
     :: (TimeUnit t, C.WorkMode m)
     => t -> C.SecretKey -> State -> m ()
 runWorker periodDelta bankSK st =
-    repeatForever (tu periodDelta) handler worker
+    repeatForever (convertUnit periodDelta) handler worker
   where
     worker = do
         periodId <- query st GetPeriodId

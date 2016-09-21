@@ -8,7 +8,7 @@ import           Control.Monad             (forM_)
 import           Data.List.Split           (chunksOf)
 import           Formatting                (build, int, sformat, (%))
 
-import           Control.TimeWarp.Timed    (for, ms, repeatForever, sec, tu, wait)
+import           Control.TimeWarp.Timed    (for, ms, repeatForever, interval, sec, wait)
 import           Serokell.Util.Exceptions  ()
 
 import           RSCoin.Core               (PeriodId, WorkMode, logDebug, logError,
@@ -27,7 +27,7 @@ runFetchWorker
     -> m ()
 runFetchWorker st = do
     wait $ for 500 ms  -- Short wait to make rscoin-deploy happy
-    repeatForever (tu $ sec 30) handler fetchWorker  -- TODO: use not magic constant
+    repeatForever (interval 30 sec) handler fetchWorker  -- TODO: use not magic constant
   where
     fetchWorker = do
         logDebug "Fetching HBlocks..."

@@ -138,9 +138,14 @@ html, body, #app, .max-height,
     border-radius: 4px;
 }
 
+.dropdown a, .dropup a {
+    cursor: pointer;
+}
+
 #dropdown li a {
     padding: 6px 13px;
     text-align: right;
+    cursor: pointer;
 }
 
 #dropdown li:hover {

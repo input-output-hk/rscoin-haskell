@@ -34,7 +34,8 @@ import           Test.QuickCheck.Monadic         (PropertyM (..), assert,
 
 import           Serokell.Util                   (listBuilderJSONIndent)
 
-import           Control.TimeWarp.Rpc            (Delays)
+import           Control.TimeWarp.Timed          (Microsecond)
+import           Control.TimeWarp.Rpc            (DelaysSpecifier)
 import           RSCoin.Core                     (ContextArgument (CADefault),
                                                   EmulationMode, RealMode,
                                                   WithNamedLogger (..),
@@ -54,7 +55,9 @@ type FullProperty m = TestEnv m (PropertyM m)
 type FullPropertyEmulation = FullProperty EmulationMode
 type FullPropertyRealMode = FullProperty RealMode
 
-launchPure :: StdGen -> Delays -> EmulationMode a -> IO a
+launchPure ::
+    DelaysSpecifier delays =>
+    StdGen -> delays -> EmulationMode a -> IO a
 launchPure gen = runEmulationMode (Just gen)
 
 launchReal :: RealMode a -> IO a
@@ -92,8 +95,10 @@ instance Testable (FullPropertyEmulation a) where
    property fp =
        property $
        \gen ->
-            \delays ->
-                 toTestable (launchPure gen delays) fp
+             toTestable (launchPure gen delays) fp
+      where
+        delays :: (Microsecond, Microsecond)
+        delays = (0, 1000)
 
 instance Testable (FullPropertyRealMode a) where
     property = property . toTestable launchReal

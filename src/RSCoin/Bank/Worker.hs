@@ -83,6 +83,7 @@ runExplorerWorker mainIsBusy sk st =
     foreverSafe action = do
         action `catches` [Handler skipAsyncHandler, Handler handler]
         foreverSafe action
+    -- TODO: don't catch for async exception separatelly
     skipAsyncHandler (e :: AsyncException) = throwM e
     handler (e :: SomeException) = do
         C.logError $ sformat ("Error occurred inside ExplorerWorker: " % build) e

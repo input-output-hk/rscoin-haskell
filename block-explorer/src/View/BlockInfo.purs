@@ -120,9 +120,9 @@ view state =
             [ td
                 []
                 [ text $ show hbe.hbeHeight ]
-            , td -- FIXME: this is not age, it is time now!
+            , td
                 []
-                [ text $ (prettyDuration :: Milliseconds -> String) $ diff (fromMaybe init.now date) state.now ]
+                [ text $ (prettyDuration :: Milliseconds -> String) $ diff state.now (fromMaybe init.now date) ]
             , td
                 []
                 [ text $ show hbe.hbeTxNumber ]
@@ -147,7 +147,7 @@ view state =
                 ]
             , td
                 []
-                [ text $ (prettyDuration :: Milliseconds -> String) $ diff (fromMaybe init.now date) state.now ]
+                [ text $ (prettyDuration :: Milliseconds -> String) $ diff state.now (fromMaybe init.now date) ]
             , td
                 []
                 [ img

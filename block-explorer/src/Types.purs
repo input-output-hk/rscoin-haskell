@@ -3,6 +3,10 @@ module App.Types
        , module Color
        , Action (..)
        , SearchQuery (..)
+       , Timestamp
+       , MaybeTimestamp
+       , noTimestamp
+       , timestamp
        , init
        , State
        , queryToString
@@ -24,6 +28,12 @@ import Data.I18N                   (Language (..))
 
 import Data.Maybe                  (Maybe (..))
 import Data.Generic                (gEq)
+import Data.Tuple                  (Tuple (..))
+import Data.DateTime               (DateTime)
+import Data.DateTime.Instant       (instant, toDateTime)
+import Data.Time.Duration          (Milliseconds (..))
+
+import Serokell.Data.Maybe         (unsafeFromJust)
 
 
 data Action
@@ -34,6 +44,9 @@ data Action
     | DismissError
     | ColorToggle
     | LanguageSet Language
+    | TimestampTransactions (Array TransactionExtended) DateTime
+    | UpdateClock
+    | SetClock DateTime
     | Nop
 
 data SearchQuery
@@ -54,6 +67,15 @@ searchQueryAddress :: SearchQuery -> Maybe Address
 searchQueryAddress (SQAddress addr) = Just addr
 searchQueryAddress _ = Nothing
 
+type Timestamp a = Tuple DateTime a
+type MaybeTimestamp a = Tuple (Maybe DateTime) a
+
+noTimestamp :: forall a. a -> MaybeTimestamp a
+noTimestamp = Tuple Nothing
+
+timestamp :: forall a. DateTime -> a -> MaybeTimestamp a
+timestamp d = Tuple (Just d)
+
 type State =
     { route            :: Path
     , socket           :: Maybe C.Connection
@@ -63,12 +85,13 @@ type State =
     , searchQuery      :: String
     , balance          :: Maybe CoinsMapExtended
     , txNumber         :: Maybe Int
-    , transactions     :: Array TransactionExtended
+    , transactions     :: Array (MaybeTimestamp TransactionExtended)
     , blocks           :: Array HBlockExtension
     , periodId         :: Int
     , error            :: Maybe String
     , colors           :: Boolean
     , language         :: Language
+    , now              :: DateTime
     }
 
 init :: State
@@ -87,4 +110,5 @@ init =
     , error:            Nothing
     , colors:           false
     , language:         English
+    , now:              toDateTime $ unsafeFromJust $ instant $ Milliseconds 0.0
     }

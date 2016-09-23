@@ -208,7 +208,7 @@ view addr state =
             , div
                 [ id_ "info-table-margins" ]
                 -- NOTE: =<< == foldMap == concatMap
-                $ (=<<) (transactionTableItem state.colors $ Just addr) state.transactions
+                $ (=<<) (transactionTableItem state.colors (Just addr) <<< snd) state.transactions
                 <>
                 [ div
                     [ className "row transaction-body no-margin" ]

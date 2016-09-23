@@ -9,7 +9,7 @@ import App.Types                       (Action (..), State, Coin(..), Color(Colo
                                        Transaction (..), TransactionExtension (..),
                                        searchQueryAddress, isTransactionIncome,
                                        nominalDiffTimeToDateTime, TransactionExtended,
-                                       HBlockExtension (..))
+                                       HBlockExtension (..), init)
 import App.View.TransactionTableItem  (transactionTableItem)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
@@ -29,13 +29,15 @@ import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
 
-import Data.Tuple                     (fst, snd)
+import Data.Tuple                     (fst, snd, uncurry)
 import Data.Array                     (length, null)
 import Data.Array.Partial             (tail)
 import Data.Maybe                     (Maybe (..), fromMaybe)
 import Data.Functor                   ((<$>))
 import Data.Generic                   (gEq)
-import Serokell.Data.DateTime         (prettyDate)
+import Data.DateTime                  (diff)
+import Data.Time.Duration             (Milliseconds)
+import Serokell.Data.DateTime         (prettyDate, prettyDuration)
 
 import Partial.Unsafe                 (unsafePartial)
 
@@ -96,7 +98,7 @@ view state =
                         [ className "table table-striped fix-table-padding" ]
                         [ tbody
                             [ id_ "info-table" ]
-                            $ map transactionsFeedItem state.transactions
+                            $ map (uncurry transactionsFeedItem) state.transactions
                         ]
 
                     ]
@@ -134,7 +136,7 @@ view state =
                 , text $ show hbe.hbeTotalSent
                 ]
             ]
-    transactionsFeedItem (WithMetadata {wmMetadata: TransactionExtension te}) =
+    transactionsFeedItem date (WithMetadata {wmMetadata: TransactionExtension te}) =
         tr
             []
             [ td
@@ -145,7 +147,7 @@ view state =
                 ]
             , td
                 []
-                [ text $ fromMaybe "Date error" $ prettyDate <$> nominalDiffTimeToDateTime te.teTimestamp ]
+                [ text $ (prettyDuration :: Milliseconds -> String) $ diff (fromMaybe init.now date) state.now ]
             , td
                 []
                 [ img

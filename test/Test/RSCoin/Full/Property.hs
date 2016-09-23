@@ -45,6 +45,7 @@ import           RSCoin.Core                     (ContextArgument (CADefault),
                                                   testingLoggerName)
 
 import           Test.RSCoin.Full.Action         (Action (doAction))
+import           Test.RSCoin.Full.Arbitrary      ()
 import           Test.RSCoin.Full.Context        (MintetteNumber,
                                                   Scenario (DefaultScenario),
                                                   TestEnv, UserNumber)

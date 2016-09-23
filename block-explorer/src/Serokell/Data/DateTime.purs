@@ -8,7 +8,7 @@ import Data.Time          (hour, minute, second, millisecond)
 import Data.Time.Duration (class Duration, Minutes (..), Hours (..), Days (..),
                            unMinutes, unHours, unDays, convertDuration)
 import Data.Enum          (fromEnum)
-import Data.String        (length, joinWith)
+import Data.String        (length, joinWith, trim)
 import Data.Int           (floor, toNumber)
 import Data.Tuple         (uncurry, Tuple (..))
 
@@ -19,7 +19,7 @@ prettyDate = formatDate <<< toRecord
 
 prettyDuration :: forall a. Duration a => a -> String
 prettyDuration dur | convertDuration dur < Minutes 1.0 = "< 1 minute"
-                   | otherwise = joinWith " " $ map (uncurry showIfNonZero)
+                   | otherwise = trim $ joinWith " " $ map (uncurry showIfNonZero)
                         [ Tuple d "days"
                         , Tuple h "hours"
                         , Tuple m "minutes"

@@ -3,10 +3,6 @@ module App.Types
        , module Color
        , Action (..)
        , SearchQuery (..)
-       , Timestamp
-       , MaybeTimestamp
-       , noTimestamp
-       , timestamp
        , init
        , State
        , queryToString
@@ -44,8 +40,6 @@ data Action
     | DismissError
     | ColorToggle
     | LanguageSet Language
-    | TimestampTransactions (Array TransactionExtended) DateTime
-    | TimestampBlocks (Array HBlockExtension) DateTime
     | UpdateClock
     | SetClock DateTime
     | Nop
@@ -68,15 +62,6 @@ searchQueryAddress :: SearchQuery -> Maybe Address
 searchQueryAddress (SQAddress addr) = Just addr
 searchQueryAddress _ = Nothing
 
-type Timestamp a = Tuple DateTime a
-type MaybeTimestamp a = Tuple (Maybe DateTime) a
-
-noTimestamp :: forall a. a -> MaybeTimestamp a
-noTimestamp = Tuple Nothing
-
-timestamp :: forall a. DateTime -> a -> MaybeTimestamp a
-timestamp d = Tuple (Just d)
-
 type State =
     { route            :: Path
     , socket           :: Maybe C.Connection
@@ -86,8 +71,8 @@ type State =
     , searchQuery      :: String
     , balance          :: Maybe CoinsMapExtended
     , txNumber         :: Maybe Int
-    , transactions     :: Array (MaybeTimestamp TransactionExtended)
-    , blocks           :: Array (MaybeTimestamp HBlockExtension)
+    , transactions     :: Array TransactionExtended
+    , blocks           :: Array HBlockExtension
     , periodId         :: Int
     , error            :: Maybe String
     , colors           :: Boolean

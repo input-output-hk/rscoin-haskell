@@ -14,7 +14,7 @@ import App.Types                      (Address (..), ControlMsg (..),
                                        OutcomingMsg (..),
                                        Action (..), State, SearchQuery (..),
                                        PublicKey (..), ServerError (..), Hash (..),
-                                       getTransactionId, noTimestamp, timestamp)
+                                       getTransactionId)
 import App.CSS                        (veryLightGrey, styleSheet)
 import App.View.Address               (view) as Address
 import App.View.NotFound              (view) as NotFound
@@ -105,7 +105,7 @@ update (PageView route@(R.Transaction tId)) state =
     getTransaction =
         queryGetTx state.queryInfo
         <|>
-        head (filter ((==) tId <<< getTransactionId) $ map snd state.transactions)
+        head (filter ((==) tId <<< getTransactionId) state.transactions)
     queryGetTx (Just (SQTransaction tx))
         | getTransactionId tx == tId = Just tx
     queryGetTx _ = Nothing
@@ -126,7 +126,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                 ]
             }
         OMAddrTransactions addr _ arr ->
-            noEffects $ state { transactions = map (noTimestamp <<< snd) arr, queryInfo = Just (SQAddress addr) }
+            noEffects $ state { transactions = map snd arr, queryInfo = Just (SQAddress addr) }
         OMTransaction _ tx ->
             { state: state { queryInfo = Just $ SQTransaction tx }
             , effects:
@@ -140,17 +140,9 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         OMTxNumber addr _ txNum ->
             noEffects $ state { txNumber = Just txNum, queryInfo = Just (SQAddress addr) }
         OMBlocksOverview blocks ->
-            onlyEffects state $
-                [ do
-                    dt <- extract <$> liftEff nowDateTime
-                    pure $ TimestampBlocks (reverse $ map snd blocks) dt
-                ]
+            noEffects $ state { blocks = reverse $ map snd blocks }
         OMTransactionsGlobal _ txs ->
-            onlyEffects state $
-                [ do
-                    dt <- extract <$> liftEff nowDateTime
-                    pure $ TimestampTransactions (map snd txs) dt
-                ]
+            noEffects $ state { transactions = map snd txs }
         OMBlockchainHeight pId ->
             onlyEffects state $
                 [ do
@@ -182,8 +174,6 @@ update ColorToggle state =
     noEffects $ state { colors = not state.colors }
 update (LanguageSet l) state =
     noEffects $ state { language = l }
-update (TimestampTransactions txs date) state = noEffects $ state { transactions = map (timestamp date) txs }
-update (TimestampBlocks blocks date) state = noEffects $ state { blocks = map (timestamp date) blocks }
 update UpdateClock state = onlyEffects state $
     [ do
          SetClock <<< extract <$> liftEff nowDateTime

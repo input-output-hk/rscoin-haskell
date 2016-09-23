@@ -29,7 +29,7 @@ import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
 
-import Data.Tuple                     (fst, snd, uncurry)
+import Data.Tuple                     (fst, snd)
 import Data.Array                     (length, null)
 import Data.Array.Partial             (tail)
 import Data.Maybe                     (Maybe (..), fromMaybe)
@@ -70,7 +70,7 @@ view state =
                             ]
                         , tbody
                             [ id_ "info-table" ]
-                            $ map (uncurry blockTableItem) state.blocks
+                            $ map blockTableItem state.blocks
                         ]
 
                     ]
@@ -98,7 +98,7 @@ view state =
                         [ className "table table-striped fix-table-padding" ]
                         [ tbody
                             [ id_ "info-table" ]
-                            $ map (uncurry transactionsFeedItem) state.transactions
+                            $ map transactionsFeedItem state.transactions
                         ]
 
                     ]
@@ -114,7 +114,7 @@ view state =
         ]
   where
     ttext' = ttext state.language
-    blockTableItem date block@(HBlockExtension hbe) =
+    blockTableItem block@(HBlockExtension hbe) =
         tr
             []
             [ td
@@ -122,7 +122,7 @@ view state =
                 [ text $ show hbe.hbeHeight ]
             , td
                 []
-                [ text $ (prettyDuration :: Milliseconds -> String) $ diff state.now (fromMaybe init.now date) ]
+                [ text $ fromMaybe "Date error" $ (prettyDuration :: Milliseconds -> String) <<< diff state.now <$> nominalDiffTimeToDateTime hbe.hbeTimestamp ]
             , td
                 []
                 [ text $ show hbe.hbeTxNumber ]
@@ -136,7 +136,7 @@ view state =
                 , text $ show hbe.hbeTotalSent
                 ]
             ]
-    transactionsFeedItem date (WithMetadata {wmMetadata: TransactionExtension te}) =
+    transactionsFeedItem (WithMetadata {wmMetadata: TransactionExtension te}) =
         tr
             []
             [ td
@@ -147,7 +147,7 @@ view state =
                 ]
             , td
                 []
-                [ text $ (prettyDuration :: Milliseconds -> String) $ diff state.now (fromMaybe init.now date) ]
+                [ text $ fromMaybe "Date error" $ (prettyDuration :: Milliseconds -> String) <<< diff state.now <$> nominalDiffTimeToDateTime te.teTimestamp ]
             , td
                 []
                 [ img

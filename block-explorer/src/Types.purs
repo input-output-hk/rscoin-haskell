@@ -45,6 +45,7 @@ data Action
     | ColorToggle
     | LanguageSet Language
     | TimestampTransactions (Array TransactionExtended) DateTime
+    | TimestampBlocks (Array HBlockExtension) DateTime
     | UpdateClock
     | SetClock DateTime
     | Nop
@@ -86,7 +87,7 @@ type State =
     , balance          :: Maybe CoinsMapExtended
     , txNumber         :: Maybe Int
     , transactions     :: Array (MaybeTimestamp TransactionExtended)
-    , blocks           :: Array HBlockExtension
+    , blocks           :: Array (MaybeTimestamp HBlockExtension)
     , periodId         :: Int
     , error            :: Maybe String
     , colors           :: Boolean

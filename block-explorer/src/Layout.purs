@@ -140,7 +140,11 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         OMTxNumber addr _ txNum ->
             noEffects $ state { txNumber = Just txNum, queryInfo = Just (SQAddress addr) }
         OMBlocksOverview blocks ->
-            noEffects $ state { blocks = reverse $ map snd blocks }
+            onlyEffects state $
+                [ do
+                    dt <- extract <$> liftEff nowDateTime
+                    pure $ TimestampBlocks (reverse $ map snd blocks) dt
+                ]
         OMTransactionsGlobal _ txs ->
             onlyEffects state $
                 [ do
@@ -178,7 +182,8 @@ update ColorToggle state =
     noEffects $ state { colors = not state.colors }
 update (LanguageSet l) state =
     noEffects $ state { language = l }
-update (TimestampTransactions txs date) state = noEffects $ state { transactions = map (timestamp date) txs, now = date }
+update (TimestampTransactions txs date) state = noEffects $ state { transactions = map (timestamp date) txs }
+update (TimestampBlocks blocks date) state = noEffects $ state { blocks = map (timestamp date) blocks }
 update UpdateClock state = onlyEffects state $
     [ do
          SetClock <<< extract <$> liftEff nowDateTime

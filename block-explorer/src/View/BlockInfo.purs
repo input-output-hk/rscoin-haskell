@@ -70,7 +70,7 @@ view state =
                             ]
                         , tbody
                             [ id_ "info-table" ]
-                            $ map blockTableItem state.blocks
+                            $ map (uncurry blockTableItem) state.blocks
                         ]
 
                     ]
@@ -114,7 +114,7 @@ view state =
         ]
   where
     ttext' = ttext state.language
-    blockTableItem block@(HBlockExtension hbe) =
+    blockTableItem date block@(HBlockExtension hbe) =
         tr
             []
             [ td
@@ -122,7 +122,7 @@ view state =
                 [ text $ show hbe.hbeHeight ]
             , td -- FIXME: this is not age, it is time now!
                 []
-                [ text $ fromMaybe "Date error" $ prettyDate <$> nominalDiffTimeToDateTime hbe.hbeTimestamp ]
+                [ text $ (prettyDuration :: Milliseconds -> String) $ diff (fromMaybe init.now date) state.now ]
             , td
                 []
                 [ text $ show hbe.hbeTxNumber ]

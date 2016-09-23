@@ -14,7 +14,7 @@ import App.Types                      (Address (..), ControlMsg (..),
                                        OutcomingMsg (..),
                                        Action (..), State, SearchQuery (..),
                                        PublicKey (..), ServerError (..), Hash (..),
-                                       getTransactionId)
+                                       getTransactionId, noTimestamp, timestamp)
 import App.CSS                        (veryLightGrey, styleSheet)
 import App.View.Address               (view) as Address
 import App.View.NotFound              (view) as NotFound
@@ -33,6 +33,7 @@ import Data.Tuple                     (Tuple (..), snd)
 import Data.Either                    (fromRight)
 import Data.Generic                   (gShow)
 import Data.Array                     (filter, head, reverse)
+import Data.Functor                   ((<$>))
 import Debug.Trace                    (traceAny)
 
 import Pux                            (EffModel, noEffects, onlyEffects)
@@ -49,7 +50,9 @@ import Control.Applicative            (when, unless)
 
 import DOM                            (DOM)
 import Control.Monad.Eff.Console      (CONSOLE)
+import Control.Monad.Eff.Now          (nowDateTime, NOW)
 import Control.Monad.Eff.Class        (liftEff)
+import Control.Comonad                (extract)
 
 import Partial.Unsafe                 (unsafePartial)
 
@@ -62,7 +65,7 @@ blocksNum = 5
 txGlobalNum :: Int
 txGlobalNum = 5
 
-update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM)
+update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM, now :: NOW)
 update (PageView route@R.Home) state =
     { state: state { route = route }
     , effects:
@@ -102,7 +105,7 @@ update (PageView route@(R.Transaction tId)) state =
     getTransaction =
         queryGetTx state.queryInfo
         <|>
-        head (filter ((==) tId <<< getTransactionId) state.transactions)
+        head (filter ((==) tId <<< getTransactionId) $ map snd state.transactions)
     queryGetTx (Just (SQTransaction tx))
         | getTransactionId tx == tId = Just tx
     queryGetTx _ = Nothing
@@ -123,7 +126,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                 ]
             }
         OMAddrTransactions addr _ arr ->
-            noEffects $ state { transactions = map snd arr, queryInfo = Just (SQAddress addr) }
+            noEffects $ state { transactions = map (noTimestamp <<< snd) arr, queryInfo = Just (SQAddress addr) }
         OMTransaction _ tx ->
             { state: state { queryInfo = Just $ SQTransaction tx }
             , effects:
@@ -139,7 +142,11 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         OMBlocksOverview blocks ->
             noEffects $ state { blocks = reverse $ map snd blocks }
         OMTransactionsGlobal _ txs ->
-            noEffects $ state { transactions = map snd txs }
+            onlyEffects state $
+                [ do
+                    dt <- extract <$> liftEff nowDateTime
+                    pure $ TimestampTransactions (map snd txs) dt
+                ]
         OMBlockchainHeight pId ->
             onlyEffects state $
                 [ do
@@ -171,6 +178,12 @@ update ColorToggle state =
     noEffects $ state { colors = not state.colors }
 update (LanguageSet l) state =
     noEffects $ state { language = l }
+update (TimestampTransactions txs date) state = noEffects $ state { transactions = map (timestamp date) txs, now = date }
+update UpdateClock state = onlyEffects state $
+    [ do
+         SetClock <<< extract <$> liftEff nowDateTime
+    ]
+update (SetClock date) state = noEffects $ state { now = date }
 update Nop state = noEffects state
 
 -- TODO: make safe version of bootstrap like

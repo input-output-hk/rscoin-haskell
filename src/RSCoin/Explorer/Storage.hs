@@ -33,9 +33,8 @@ module RSCoin.Explorer.Storage
        ) where
 
 import           Control.Applicative      (liftA2, (<|>))
-import           Control.Lens             (at, ix, makeLenses, makeLensesFor,
-                                           preview, use, view, views, (%=),
-                                           (+=), (.=), _Just)
+import           Control.Lens             (at, ix, makeLenses, makeLensesFor, preview,
+                                           use, view, views, (%=), (+=), (.=), _Just)
 import           Control.Monad            (forM_, unless)
 import           Control.Monad.Catch      (MonadThrow (throwM))
 import           Control.Monad.Extra      (ifM, whenJust)
@@ -56,10 +55,9 @@ import           Serokell.Util.Common     (enumerate, indexedSubList)
 import qualified RSCoin.Core              as C
 
 import           RSCoin.Explorer.Error    (ExplorerError (..))
-import           RSCoin.Explorer.Extended (CoinsMapExtended, HBlockExtended,
-                                           Timestamp, TransactionExtended,
-                                           TransactionExtension (..), cmeTotal,
-                                           mkCoinsMapExtended, mkHBlockExtended,
+import           RSCoin.Explorer.Extended (CoinsMapExtended, HBlockExtended, Timestamp,
+                                           TransactionExtended, TransactionExtension (..),
+                                           cmeTotal, mkCoinsMapExtended, mkHBlockExtended,
                                            mkTransactionExtension)
 
 $(makeLensesFor
@@ -195,6 +193,7 @@ getTxExtensions i =
     V.toList . fromMaybe mempty <$> preview (txExtensions . ix i)
 
 -- | Get transactions within given range from global history.
+-- 0-th transaction is the latest one.
 getTxsGlobal :: (Word, Word) -> Query (C.PeriodId, [(Word, TransactionExtended)])
 getTxsGlobal range =
     addTimestamp $

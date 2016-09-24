@@ -14,32 +14,26 @@ module RSCoin.Explorer.Web.Sockets.App
        ) where
 
 import           Control.Concurrent                (forkIO)
-import           Control.Concurrent.MVar           (MVar, modifyMVar, newMVar,
-                                                    readMVar)
-import           Control.Lens                      (at, makeLenses, preuse, use,
-                                                    view, (%=), (+=), (.=),
-                                                    (^.), _Just)
+import           Control.Concurrent.MVar           (MVar, modifyMVar, newMVar, readMVar)
+import           Control.Lens                      (at, makeLenses, preuse, use, view,
+                                                    (%=), (+=), (.=), (^.), _Just)
 import           Control.Monad                     (forever, join, unless)
-import           Control.Monad.Catch               (Handler (Handler),
-                                                    MonadCatch, MonadMask,
-                                                    MonadThrow, SomeException,
+import           Control.Monad.Catch               (Handler (Handler), MonadCatch,
+                                                    MonadMask, MonadThrow, SomeException,
                                                     catches, finally, throwM)
-import           Control.Monad.Extra               (ifM, whenJust, whenJustM,
-                                                    whenM)
-import           Control.Monad.Reader              (MonadReader, ReaderT,
-                                                    runReaderT)
+import           Control.Monad.Extra               (ifM, whenJust, whenJustM, whenM)
+import           Control.Monad.Reader              (MonadReader, ReaderT, runReaderT)
 import           Control.Monad.State               (MonadState, State, runState)
 import           Control.Monad.Trans               (MonadIO (liftIO))
-import           Data.Acid                         (EventResult, EventState,
-                                                    QueryEvent)
+import           Data.Acid                         (EventResult, EventState, QueryEvent)
 import           Data.Bifunctor                    (second)
 import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (catMaybes, fromMaybe)
 import qualified Data.Set                          as S
 import           Data.Text                         (Text)
 import           Data.Time.Units                   (Second)
-import           Formatting                        (build, int, sformat, shown,
-                                                    stext, (%))
+import           Formatting                        (build, int, sformat, shown, stext,
+                                                    (%))
 import qualified Network.WebSockets                as WS
 
 import           Serokell.Util.Common              (indexedSubList)
@@ -52,12 +46,9 @@ import           RSCoin.Explorer.Channel           (Channel, ChannelItem (..),
                                                     readChannel)
 import           RSCoin.Explorer.Error             (ExplorerError (..))
 import qualified RSCoin.Explorer.Storage           as ES
-import           RSCoin.Explorer.Web.Sockets.Types (AddressInfoMsg (..),
-                                                    ControlMsg (..),
-                                                    ErrorableMsg,
-                                                    HBlockInfoMsg (..),
-                                                    IncomingMsg (..),
-                                                    OutcomingMsg (..),
+import           RSCoin.Explorer.Web.Sockets.Types (AddressInfoMsg (..), ControlMsg (..),
+                                                    ErrorableMsg, HBlockInfoMsg (..),
+                                                    IncomingMsg (..), OutcomingMsg (..),
                                                     ServerError (..))
 
 type SessionId = Word
@@ -341,6 +332,22 @@ onGetTransactionsGlobal sessId range = do
                query (DB.GetTxsGlobal range)
     recvLoop sessId
 
+onSubscribeNewBlock :: SessionId -> ServerMonad ()
+onSubscribeNewBlock sessId = do
+    C.logDebug $ sformat ("Client " % int % " subscribes to new blocks") sessId
+    modifyConnectionsState (subscribeHBlocks sessId)
+    recvLoop sessId
+
+onSubscribeAddress :: SessionId -> C.Address -> ServerMonad ()
+onSubscribeAddress sessId addr = do
+    C.logDebug $
+        sformat
+            ("Client " % int % " subscribes to updates about " % build)
+            sessId
+            addr
+    modifyConnectionsState (subscribeAddr sessId addr)
+    recvLoop sessId
+
 receiveControlMessage :: SessionId
                       -> (Text -> ServerMonad ())
                       -> ControlMsg
@@ -377,6 +384,8 @@ receiveControlMessage sessId errorCB msg =
         CMGetBlockchainHeight -> onGetBlockchainHeight sessId
         CMGetBlocksOverview range -> onGetBlocksOverview sessId range
         CMGetTransactionsGlobal range -> onGetTransactionsGlobal sessId range
+        CMSubscribeNewBlock -> onSubscribeNewBlock sessId
+        CMSubscribeAddress addr -> onSubscribeAddress sessId addr
   where
     setAddressCB = onSetAddress sessId
     getTransactionCB = onGetTransaction sessId

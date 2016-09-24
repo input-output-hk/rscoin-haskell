@@ -81,6 +81,12 @@ data ControlMsg
       -- interval is half-opened ([lo, hi)). Probably it will also be
       -- moved into HTTP.
     | CMGetTransactionsGlobal !(Word, Word)
+      -- | SubscribeNewBlock makes client receive notifications about
+      -- new blocks as soon as explorer receives them.
+    | CMSubscribeNewBlock
+      -- | SubscribeNewBlock makes client receive notifications about
+      -- updates related to given address.
+    | CMSubscribeAddress !C.Address
     deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''ControlMsg)

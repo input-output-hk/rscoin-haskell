@@ -22,6 +22,7 @@ import App.RSCoin                  (Coin, Address,
 import Data.Color                  as Color
 import Data.I18N                   (Language (..))
 
+import Data.Monoid                 (mempty)
 import Data.Maybe                  (Maybe (..))
 import Data.Generic                (gEq)
 import Data.Tuple                  (Tuple (..))
@@ -42,6 +43,8 @@ data Action
     | LanguageSet Language
     | UpdateClock
     | SetClock DateTime
+    -- NOTE: Int should be good enough for frontpage
+    | ExpandTransactions
     | Nop
 
 data SearchQuery
@@ -87,11 +90,11 @@ init =
     , socketReady:      false
     , pendingActions:   []
     , queryInfo:        Nothing
-    , searchQuery:      ""
+    , searchQuery:      mempty
     , balance:          Nothing
     , txNumber:         Nothing
-    , transactions:     []
-    , blocks:           []
+    , transactions:     mempty
+    , blocks:           mempty
     , periodId:         0
     , error:            Nothing
     , colors:           false

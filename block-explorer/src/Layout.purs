@@ -32,7 +32,7 @@ import Serokell.Data.Maybe            (unsafeFromJust)
 import Data.Tuple                     (Tuple (..), snd)
 import Data.Either                    (fromRight)
 import Data.Generic                   (gShow)
-import Data.Array                     (filter, head, reverse)
+import Data.Array                     (filter, head, reverse, length)
 import Data.Functor                   ((<$>))
 import Debug.Trace                    (traceAny)
 
@@ -142,14 +142,16 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         OMBlocksOverview blocks ->
             noEffects $ state { blocks = reverse $ map snd blocks }
         OMTransactionsGlobal _ txs ->
-            noEffects $ state { transactions = map snd txs }
+            noEffects $ state { transactions = state.transactions <> map snd txs }
         OMBlockchainHeight pId ->
-            onlyEffects state $
+            { state: state { transactions = [] }
+            , effects:
                 [ do
                     C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple (pId - blocksNum) (pId + 1)
                     C.send socket' $ IMControl $ CMGetTransactionsGlobal $ Tuple 0 txGlobalNum
                     pure Nop
                 ]
+            }
         OMError (ParseError e) ->
             noEffects $ state { error = Just $ "ParseError: " <> e.peTypeName <> " : " <> e.peError }
         OMError (NotFound e) ->
@@ -179,6 +181,15 @@ update UpdateClock state = onlyEffects state $
          SetClock <<< extract <$> liftEff nowDateTime
     ]
 update (SetClock date) state = noEffects $ state { now = date }
+update ExpandTransactions state = onlyEffects state $
+    [ do
+        let txLen = length state.transactions
+        C.send socket' $ IMControl $ CMGetTransactionsGlobal $
+            Tuple txLen $ txLen + txGlobalNum
+        pure Nop
+    ]
+  where
+    socket' = unsafeFromJust state.socket
 update Nop state = noEffects state
 
 -- TODO: make safe version of bootstrap like

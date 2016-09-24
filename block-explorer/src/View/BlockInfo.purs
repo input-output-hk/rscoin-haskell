@@ -24,7 +24,7 @@ import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt, role, href,
                                        autoComplete, htmlFor, rowSpan, checked)
-import Pux.Html.Events                (onChange)
+import Pux.Html.Events                (onChange, onClick)
 import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
@@ -106,6 +106,7 @@ view state =
                     [ className "font-light text-center" ]
                     [ button
                         [ id_ "expand-button"
+                        , onClick $ const $ ExpandTransactions
                         ]
                         [ ttext' _.expand ]
                     ]

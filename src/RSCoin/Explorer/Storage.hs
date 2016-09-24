@@ -204,14 +204,16 @@ getRecentTxsIndices :: Word -> Query (V.Vector TransactionIndex)
 getRecentTxsIndices n = do
     blocks <- view hBlocks
     let blocksNumber = V.length blocks
-        blocksTxsLengths = fmap (genericLength . C.hbTransactions . C.wmValue) blocks
-    pure $ V.reverse .
-        foldr' step [] .
-        V.zip [0 .. blocksNumber] $ blocksTxsLengths
+        blocksTxsLengths =
+            fmap (genericLength . C.hbTransactions . C.wmValue) blocks
+    pure $
+        V.reverse . foldr' step [] . V.zip [0 .. blocksNumber] $
+        blocksTxsLengths
   where
     step (blkIdx, blkTxsLen) res
         | blkTxsLen == 0 || V.length res >= fromIntegral n = res
-        | otherwise = fmap (TransactionIndex blkIdx) [0 .. blkTxsLen] `mappend` res
+        | otherwise =
+            fmap (TransactionIndex blkIdx) [0 .. blkTxsLen - 1] `mappend` res
 
 -- | Get indexed list of extended HBlocks in given range.
 getHBlocksExtended :: (C.PeriodId, C.PeriodId) -> Query [(C.PeriodId, HBlockExtended)]

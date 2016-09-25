@@ -1,6 +1,6 @@
 module App.Layout where
 
-import Prelude                        (($), map, (<<<), pure, bind, not, (*),
+import Prelude                        (($), map, (<<<), pure, bind, not, (*), max,
                                        (==), flip, (<>), (/=), otherwise, (+), (-))
 import Prelude                        (div) as P
 
@@ -15,7 +15,7 @@ import App.Types                      (Address (..), ControlMsg (..),
                                        OutcomingMsg (..),
                                        Action (..), State, SearchQuery (..),
                                        PublicKey (..), ServerError (..), Hash (..),
-                                       getTransactionId, HBlockInfoMsg (..), HBlockExtension (..))
+                                       getTransactionId, HBlockInfoMsg (..), HBlockExtension (..), getTransactionTimestamp)
 import App.CSS                        (veryLightGrey, styleSheet)
 import App.View.Address               (view) as Address
 import App.View.NotFound              (view) as NotFound
@@ -34,10 +34,11 @@ import Data.Tuple                     (Tuple (..), snd)
 import Data.Either                    (fromRight)
 import Data.Generic                   (gShow, gEq)
 import Data.Array                     (filter, head, reverse, length, singleton, range,
-                                       take, nubBy)
+                                       take, nubBy, sortBy)
 import Data.Array.Partial             (init)
 import Data.Functor                   ((<$>))
 import Data.Traversable               (traverse)
+import Data.Ord                       (compare)
 import Debug.Trace                    (traceAny)
 
 import Pux                            (EffModel, noEffects, onlyEffects)
@@ -61,7 +62,7 @@ import Control.Comonad                (extract)
 import Partial.Unsafe                 (unsafePartial)
 
 txNum :: Int
-txNum = 15
+txNum = 5
 
 blocksNum :: Int
 blocksNum = 5
@@ -130,7 +131,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             { state: state { balance = Just coinsMap, periodId = pId, queryInfo = Just (SQAddress addr) }
             , effects:
                 [ do
-                    C.send socket' <<< IMAddrInfo <<< AIGetTransactions $ Tuple 0 txNum
+                    C.send socket' <<< IMAddrInfo <<< AIGetTransactions $ Tuple 0 $ max txNum $ length state.transactions
                     let expectedUrl = R.addressUrl addr
                     unless (state.route == R.match expectedUrl) $
                         liftEff $ R.navigateTo expectedUrl
@@ -138,7 +139,17 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                 ]
             }
         OMAddrTransactions addr _ arr ->
-            noEffects $ state { transactions = map snd arr, queryInfo = Just (SQAddress addr) }
+            let transactionTimeComp t1 t2 =
+                    getTransactionTimestamp t1 `compare` getTransactionTimestamp t2
+            in noEffects $ state
+                   { transactions =
+                       -- TODO: this is really inefficient, like 2*(N^2) or worse.
+                 --      sortBy transactionTimeComp $
+                 --      unsafePartial $ take (length state.transactions) $
+                 --      nubBy gEq $
+                       map snd arr
+                   , queryInfo = Just (SQAddress addr)
+                   }
         OMTransaction _ tx ->
             { state: state { queryInfo = Just $ SQTransaction tx }
             , effects:
@@ -179,7 +190,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             let transactionSlices =
                     map (\i -> Tuple (i*txLimit) $ (i+1)*txLimit) $
                     range 0 (hbeTxNumber `P.div` txLimit)
-            in { state: state { blocks = unsafePartial $ init $ singleton block <> state.blocks }
+            in { state: state { blocks = unsafePartial $ take (max blocksNum $ length state.blocks) $ singleton block <> state.blocks }
                , effects:
                    [ do
                         traverse
@@ -192,8 +203,8 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             noEffects $ state
                 { transactions =
                     -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
-                    nubBy gEq $ unsafePartial $
-                    take (length state.transactions) $
+                    unsafePartial $ take (max txGlobalNum $ length state.transactions) $
+                    nubBy gEq $
                     map snd txs <> state.transactions
                 }
         OMError (ParseError e) ->
@@ -226,6 +237,14 @@ update UpdateClock state = onlyEffects state $
     ]
 update (SetClock date) state = noEffects $ state { now = date }
 update ExpandTransactions state = onlyEffects state $
+    [ do
+        let txLen = length state.transactions
+        C.send socket' <<< IMAddrInfo <<< AIGetTransactions $ Tuple 0 $ max txNum $ length state.transactions + txNum
+        pure Nop
+    ]
+  where
+    socket' = unsafeFromJust state.socket
+update ExpandTransactionsGlobal state = onlyEffects state $
     [ do
         let txLen = length state.transactions
         C.send socket' $ IMControl $ CMGetTransactionsGlobal $

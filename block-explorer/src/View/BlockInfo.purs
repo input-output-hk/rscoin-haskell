@@ -107,7 +107,7 @@ view state =
                     [ className "font-light text-center" ]
                     [ button
                         [ id_ "expand-button"
-                        , onClick $ const ExpandTransactions
+                        , onClick $ const ExpandTransactionsGlobal
                         ]
                         [ ttext' _.expand ]
                     ]

@@ -23,7 +23,7 @@ import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt, role, href,
                                        autoComplete, htmlFor, rowSpan, checked)
-import Pux.Html.Events                (onChange)
+import Pux.Html.Events                (onChange, onClick)
 import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
@@ -218,30 +218,38 @@ view addr state =
                         ]
                     ]
                 , div
-                    [ className "center-block font-light"
-                    , id_ "pagination" ]
-                    [ span
-                        [ className "glyphicon glyphicon-triangle-left"
-                        , id_ "navigation-arrow" ]
-                        []
-                    ,  input
-                        [ type_ "search"
-                        , id_ "pagination-search"
-                        , placeholder "1200"
+                    [ className "font-light text-center" ]
+                    [ button
+                        [ id_ "expand-button"
+                        , onClick $ const ExpandTransactions
                         ]
-                        []
-                    , span
-                        [ className "navagation-text-span"
-                        , id_ "disabled-text" ]
-                        [ text "of" ]
-                    , span
-                        [ className "navagation-text-span" ]
-                        [ text "9090" ]
-                    , span
-                        [ className "glyphicon glyphicon-triangle-right"
-                        , id_ "navigation-arrow" ]
-                        []
+                        [ ttext' _.expand ]
                     ]
+                --, div
+                --    [ className "center-block font-light"
+                --    , id_ "pagination" ]
+                --    [ span
+                --        [ className "glyphicon glyphicon-triangle-left"
+                --        , id_ "navigation-arrow" ]
+                --        []
+                --    ,  input
+                --        [ type_ "search"
+                --        , id_ "pagination-search"
+                --        , placeholder "1200"
+                --        ]
+                --        []
+                --    , span
+                --        [ className "navagation-text-span"
+                --        , id_ "disabled-text" ]
+                --        [ text "of" ]
+                --    , span
+                --        [ className "navagation-text-span" ]
+                --        [ text "9090" ]
+                --    , span
+                --        [ className "glyphicon glyphicon-triangle-right"
+                --        , id_ "navigation-arrow" ]
+                --        []
+                --    ]
                 ]
             ]
         ]

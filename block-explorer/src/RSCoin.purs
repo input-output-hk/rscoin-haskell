@@ -6,6 +6,7 @@ module App.RSCoin
        , TransactionExtended
        , CoinsMap
        , getTransactionId
+       , getTransactionTimestamp
        , getBalance
        , getCoins
        , newAddress
@@ -38,7 +39,10 @@ type CoinsMapExtended = C.WithMetadata CoinsMap E.CoinsMapExtension
 type TransactionExtended = C.WithMetadata C.Transaction E.TransactionExtension
 
 getTransactionId :: TransactionExtended -> T.Hash
-getTransactionId (C.WithMetadata {wmMetadata: E.TransactionExtension tId}) = tId.teId
+getTransactionId (C.WithMetadata {wmMetadata: E.TransactionExtension te}) = te.teId
+
+getTransactionTimestamp :: TransactionExtended -> T.NominalDiffTime
+getTransactionTimestamp (C.WithMetadata {wmMetadata: E.TransactionExtension te}) = te.teTimestamp
 
 getCoins :: CoinsMapExtended -> Array C.Coin
 getCoins (C.WithMetadata cm) = map snd cm.wmValue

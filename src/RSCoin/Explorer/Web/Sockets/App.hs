@@ -332,8 +332,8 @@ onGetTransactionsGlobal sessId range = do
                query (DB.GetTxsGlobal range)
     recvLoop sessId
 
-onSubscribeNewBlock :: SessionId -> ServerMonad ()
-onSubscribeNewBlock sessId = do
+onSubscribeNewBlocks :: SessionId -> ServerMonad ()
+onSubscribeNewBlocks sessId = do
     C.logDebug $ sformat ("Client " % int % " subscribes to new blocks") sessId
     modifyConnectionsState (subscribeHBlocks sessId)
     recvLoop sessId
@@ -346,6 +346,21 @@ onSubscribeAddress sessId addr = do
             sessId
             addr
     modifyConnectionsState (subscribeAddr sessId addr)
+    recvLoop sessId
+
+onUnsubscribeNewBlocks :: SessionId -> ServerMonad ()
+onUnsubscribeNewBlocks sessId = do
+    C.logDebug $ sformat ("Client " % int % " unsubscribes from new blocks") sessId
+    modifyConnectionsState (unsubscribeHBlocks sessId)
+    recvLoop sessId
+
+onUnsubscribeAddress :: SessionId -> ServerMonad ()
+onUnsubscribeAddress sessId = do
+    C.logDebug $
+        sformat
+            ("Client " % int % " unsubscribes from updates about address")
+            sessId
+    modifyConnectionsState (unsubscribeAddr sessId)
     recvLoop sessId
 
 receiveControlMessage :: SessionId
@@ -384,8 +399,10 @@ receiveControlMessage sessId errorCB msg =
         CMGetBlockchainHeight -> onGetBlockchainHeight sessId
         CMGetBlocksOverview range -> onGetBlocksOverview sessId range
         CMGetTransactionsGlobal range -> onGetTransactionsGlobal sessId range
-        CMSubscribeNewBlock -> onSubscribeNewBlock sessId
+        CMSubscribeNewBlocks -> onSubscribeNewBlocks sessId
         CMSubscribeAddress addr -> onSubscribeAddress sessId addr
+        CMUnsubscribeNewBlocks -> onUnsubscribeNewBlocks sessId
+        CMUnsubscribeAddress -> onUnsubscribeAddress sessId
   where
     setAddressCB = onSetAddress sessId
     getTransactionCB = onGetTransaction sessId

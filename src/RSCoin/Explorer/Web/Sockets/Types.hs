@@ -83,10 +83,16 @@ data ControlMsg
     | CMGetTransactionsGlobal !(Word, Word)
       -- | SubscribeNewBlock makes client receive notifications about
       -- new blocks as soon as explorer receives them.
-    | CMSubscribeNewBlock
-      -- | SubscribeNewBlock makes client receive notifications about
+    | CMSubscribeNewBlocks
+      -- | UnsubscribeNewBlock unsubscribes client from notifications
+      -- about new blocks.
+    | CMUnsubscribeNewBlocks
+      -- | SubscribeAddress makes client receive notifications about
       -- updates related to given address.
     | CMSubscribeAddress !C.Address
+      -- | UnsubscribeAddress unsubscribes client from notifications
+      -- about updates related to address he is subscribed to.
+    | CMUnsubscribeAddress
     deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''ControlMsg)

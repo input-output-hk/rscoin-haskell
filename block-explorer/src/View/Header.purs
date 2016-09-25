@@ -19,6 +19,8 @@ import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
 import Pux.Html.Events                (onChange, onKeyDown)
 
+import Data.I18N                      (getTranslation)
+
 view :: State -> Html Action
 view state =
     nav
@@ -76,7 +78,8 @@ view state =
                 [ input
                     [ type_ "search"
                     , id_ "search-field"
-                    , placeholder "Address / IP / SHA hash"
+                    , placeholder $
+                        translation.address <> " / " <> translation.transaction
                     , value state.searchQuery
                     , onChange $ SearchQueryChange <<< _.value <<< _.target
                     , onKeyDown $ \e -> if e.keyCode == 13 then SearchButton else Nop
@@ -90,3 +93,5 @@ view state =
                 ]
             ]
         ]
+  where
+    translation = getTranslation state.language

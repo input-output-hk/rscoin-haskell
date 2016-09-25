@@ -12,19 +12,22 @@ import Data.String        (length, joinWith, trim)
 import Data.Int           (floor, toNumber)
 import Data.Tuple         (uncurry, Tuple (..))
 
+import Data.I18N          (getTranslation, Language)
+
 prettyDate :: DateTime -> String
 prettyDate = formatDate <<< toRecord
   where
     formatDate dt = dt.year <> "-" <> dt.month <> "-" <> dt.day <> " " <> dt.hour <> ":" <> dt.minute <> ":" <> dt.second
 
-prettyDuration :: forall a. Duration a => a -> String
-prettyDuration dur | convertDuration dur < Minutes 1.0 = "< 1 minute"
-                   | otherwise = trim $ joinWith " " $ map (uncurry showIfNonZero)
-                        [ Tuple d "days"
-                        , Tuple h "hours"
-                        , Tuple m "minutes"
-                        ]
+prettyDuration :: forall a. Duration a => Language -> a -> String
+prettyDuration lang dur | convertDuration dur < Minutes 1.0 = "< 1 " <> _.minute (getTranslation lang)
+                        | otherwise = trim $ joinWith " " $ map (uncurry showIfNonZero)
+                             [ Tuple d translation.days
+                             , Tuple h translation.hours
+                             , Tuple m translation.minutes
+                             ]
   where
+    translation = getTranslation lang
     m = floor <<< unMinutes $ convertDuration dur `sub` convertDuration (Days $ toNumber d) `sub` convertDuration (Hours $ toNumber h)
     h = floor <<< unHours $ convertDuration dur `sub` convertDuration (Days $ toNumber d)
     d = floor <<< unDays $ convertDuration dur

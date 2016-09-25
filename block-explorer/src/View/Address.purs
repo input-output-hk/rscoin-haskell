@@ -185,7 +185,7 @@ view addr state =
                                             ]
                                             , td
                                                 [ id_ "qr-code-text-cell" ]
-                                                [ text "Scan this QR Code to copy address to clipboard"
+                                                [ ttext' _._qrCodeMsg
                                                 ]
                                             ]
                                         ]
@@ -208,7 +208,7 @@ view addr state =
             , div
                 [ id_ "info-table-margins" ]
                 -- NOTE: =<< == foldMap == concatMap
-                $ (=<<) (transactionTableItem state.colors $ Just addr) state.transactions
+                $ (=<<) (transactionTableItem state.language state.colors $ Just addr) state.transactions
                 <>
                 [ div
                     [ className "row transaction-body no-margin" ]

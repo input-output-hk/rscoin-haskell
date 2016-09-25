@@ -32,6 +32,12 @@ type Translation =
     , age              :: String
     , totalSent        :: String
     , expand           :: String
+    , emission         :: String
+    , _qrCodeMsg       :: String
+    , minute           :: String
+    , minutes          :: String
+    , hours            :: String
+    , days             :: String
     }
 
 data Language
@@ -73,6 +79,12 @@ getTranslation lang@English =
     , age: "Age"
     , totalSent: "Total Sent"
     , expand: "Expand"
+    , emission: "Emission"
+    , _qrCodeMsg: "Scan this QR Code to copy address to clipboard"
+    , minute: "minute"
+    , minutes: "minutes"
+    , hours: "hours"
+    , days: "days"
     }
 getTranslation lang@Japanese =
     { _nativeName: languageNativeName lang
@@ -100,6 +112,12 @@ getTranslation lang@Japanese =
     , age: "?"
     , totalSent: "?"
     , expand: "?"
+    , emission: "?"
+    , _qrCodeMsg: "?"
+    , minute: "?"
+    , minutes: "?"
+    , hours: "?"
+    , days: "?"
     }
 getTranslation lang@Russian =
     { _nativeName: languageNativeName lang
@@ -127,6 +145,12 @@ getTranslation lang@Russian =
     , age: "?"
     , totalSent: "?"
     , expand: "?"
+    , emission: "?"
+    , _qrCodeMsg: "?"
+    , minute: "?"
+    , minutes: "?"
+    , hours: "?"
+    , days: "?"
     }
 
 allLanguages :: Array Language

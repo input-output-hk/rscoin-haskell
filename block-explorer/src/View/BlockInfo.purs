@@ -124,7 +124,7 @@ view state =
                 [ text $ show hbe.hbeHeight ]
             , td
                 []
-                [ text $ fromMaybe "Date error" $ (prettyDuration :: Milliseconds -> String) <<< diff state.now <$> nominalDiffTimeToDateTime hbe.hbeTimestamp ]
+                [ text $ fromMaybe "Date error" $ (prettyDuration state.language :: Milliseconds -> String) <<< diff state.now <$> nominalDiffTimeToDateTime hbe.hbeTimestamp ]
             , td
                 []
                 [ text $ show hbe.hbeTxNumber ]
@@ -149,7 +149,7 @@ view state =
                 ]
             , td
                 []
-                [ text $ fromMaybe "Date error" $ (prettyDuration :: Milliseconds -> String) <<< diff state.now <$> nominalDiffTimeToDateTime te.teTimestamp ]
+                [ text $ fromMaybe "Date error" $ (prettyDuration state.language :: Milliseconds -> String) <<< diff state.now <$> nominalDiffTimeToDateTime te.teTimestamp ]
             , td
                 []
                 [ img

@@ -53,7 +53,7 @@ view teFull@(WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(Tra
                 ]
             , div
                 [ id_ "info-table-margins" ]
-                $ transactionTableItem state.colors Nothing teFull
+                $ transactionTableItem state.language state.colors Nothing teFull
             ]
         , div
             [ className "row" ]

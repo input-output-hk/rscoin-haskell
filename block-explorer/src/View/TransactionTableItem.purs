@@ -34,12 +34,13 @@ import Data.Array.Partial             (tail)
 import Data.Maybe                     (Maybe (..), fromMaybe)
 import Data.Functor                   ((<$>))
 import Data.Generic                   (gEq)
+import Data.I18N                      (Language)
 import Serokell.Data.DateTime         (prettyDate)
 
 import Partial.Unsafe                 (unsafePartial)
 
-transactionTableItem :: Boolean -> Maybe Address -> TransactionExtended -> forall a. Array (Html a)
-transactionTableItem colors mAddr (WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(TransactionExtension te)}) =
+transactionTableItem :: Language -> Boolean -> Maybe Address -> TransactionExtended -> forall a. Array (Html a)
+transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(TransactionExtension te)}) =
     let addressLink mAddr' =
             div
                 [ className "text-center addressLink" ]
@@ -49,7 +50,7 @@ transactionTableItem colors mAddr (WithMetadata {wmValue: tran@(Transaction t), 
                                     link (R.addressUrl addr)
                                         [ id_ "link"]
                                         [ text $ addressToString addr ]
-                    Nothing -> text "Emission"
+                    Nothing -> ttext lang _.emission
                 ]
         moneyFlow tx =
             case flip isTransactionExtensionOutcome tx <$> mAddr of

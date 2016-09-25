@@ -17,9 +17,10 @@ import Control.Monad.Eff.Now       (NOW, nowDateTime)
 import Control.Comonad             (extract)
 import DOM                         (DOM)
 
-import Data.Maybe                  (Maybe (..))
+import Data.Maybe                  (Maybe (..), fromMaybe)
 import Data.Array                  (singleton)
 import Data.Functor                ((<$>))
+import Data.I18N                   (detectLanguage)
 
 import Pux                         (App, Config, CoreEffects, renderToDOM,
                                     start, EffModel, noEffects)
@@ -60,8 +61,9 @@ config state = do
     socket <- C.init wsInput =<< wsUrl
     let wsSignal = subscribe wsInput ~> SocketAction
     dt <- extract <$> nowDateTime
+    detectedLang <- detectLanguage
     pure
-        { initialState: state { socket = Just socket, now = dt }
+        { initialState: state { socket = Just socket, now = dt, language = fromMaybe state.language detectedLang }
         , update: maybeWaitSocket update
         , view: view
         , inputs: [clockSignal, wsSignal, routeSignal]

@@ -100,6 +100,6 @@ init =
     , periodId:         0
     , error:            Nothing
     , colors:           false
-    , language:         English
+    , language:         Japanese
     , now:              toDateTime $ unsafeFromJust $ instant $ Milliseconds 0.0
     }

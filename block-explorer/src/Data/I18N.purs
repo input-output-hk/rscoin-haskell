@@ -1,10 +1,18 @@
 module Data.I18N where
 
-import Prelude (class Show, show, class Eq, ($))
+import Prelude (class Show, show, class Eq, ($), (<<<))
 
 import Data.Maybe (Maybe (..))
+import Data.Functor ((<$>))
+import Data.String (take)
 
--- import Data.Enum (class Enum, enumFromTo)
+import DOM (DOM)
+import Control.Monad.Eff (Eff)
+
+foreign import detectLanguage_ :: forall e. Eff (dom :: DOM | e) String
+
+detectLanguage :: forall e. Eff (dom :: DOM | e) (Maybe Language)
+detectLanguage = readLanguage <<< take 2 <$> detectLanguage_
 
 type Translation =
     { _nativeName      :: String
@@ -161,15 +169,11 @@ readBool "true" = Just true
 readBool "false" = Just false
 readBool _ = Nothing
 
--- | ISO 639 https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+-- | ISO 639-1 https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
 readLanguage :: String -> Maybe Language
 readLanguage "en" = Just English
-readLanguage "eng" = Just English
-readLanguage "engs" = Just English
 readLanguage "ja" = Just Japanese
-readLanguage "jpn" = Just Japanese
 readLanguage "ru" = Just Russian
-readLanguage "rus" = Just Russian
 readLanguage _ = Nothing
 
 -- | ISO 639-1 https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes

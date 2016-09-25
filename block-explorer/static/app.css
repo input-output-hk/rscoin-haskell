@@ -15,7 +15,7 @@ body {
     font-family: inherit;
 }
 
-.language-ja {
+.language-ja, input[type=search] {
     font-family: 'Noto Sans Japanese', sans-serif !important; 
     font-weight: 400;
 }

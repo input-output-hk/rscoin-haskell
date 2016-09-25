@@ -78,6 +78,7 @@ view state =
                     [ className "font-light text-center" ]
                     [ button
                         [ id_ "expand-button"
+                        , onClick $ const ExpandBlockchain
                         ]
                         [ ttext' _.expand ]
                     ]
@@ -106,7 +107,7 @@ view state =
                     [ className "font-light text-center" ]
                     [ button
                         [ id_ "expand-button"
-                        , onClick $ const $ ExpandTransactions
+                        , onClick $ const ExpandTransactions
                         ]
                         [ ttext' _.expand ]
                     ]

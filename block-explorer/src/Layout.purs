@@ -1,7 +1,8 @@
 module App.Layout where
 
-import Prelude                        (($), map, (<<<), pure, bind, not,
+import Prelude                        (($), map, (<<<), pure, bind, not, (*),
                                        (==), flip, (<>), (/=), otherwise, (+), (-))
+import Prelude                        (div) as P
 
 import App.Routes                     (Path (..), addressUrl, txUrl,
                                        match) as R
@@ -14,7 +15,7 @@ import App.Types                      (Address (..), ControlMsg (..),
                                        OutcomingMsg (..),
                                        Action (..), State, SearchQuery (..),
                                        PublicKey (..), ServerError (..), Hash (..),
-                                       getTransactionId)
+                                       getTransactionId, HBlockInfoMsg (..), HBlockExtension (..))
 import App.CSS                        (veryLightGrey, styleSheet)
 import App.View.Address               (view) as Address
 import App.View.NotFound              (view) as NotFound
@@ -31,9 +32,12 @@ import Serokell.Data.Maybe            (unsafeFromJust)
 
 import Data.Tuple                     (Tuple (..), snd)
 import Data.Either                    (fromRight)
-import Data.Generic                   (gShow)
-import Data.Array                     (filter, head, reverse, length)
+import Data.Generic                   (gShow, gEq)
+import Data.Array                     (filter, head, reverse, length, singleton, range,
+                                       take, nubBy)
+import Data.Array.Partial             (init)
 import Data.Functor                   ((<$>))
+import Data.Traversable               (traverse)
 import Debug.Trace                    (traceAny)
 
 import Pux                            (EffModel, noEffects, onlyEffects)
@@ -64,6 +68,10 @@ blocksNum = 5
 
 txGlobalNum :: Int
 txGlobalNum = 5
+
+-- NOTE: this should be less then or equal to RSCoin.Explorer.Web.Sockets.App.transactionsLimit
+txLimit :: Int
+txLimit = 80
 
 update :: Action -> State -> EffModel State Action (console :: CONSOLE, ws :: C.WEBSOCKET, dom :: DOM, now :: NOW)
 update (PageView route@R.Home) state =
@@ -140,18 +148,50 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         OMTxNumber addr _ txNum ->
             noEffects $ state { txNumber = Just txNum, queryInfo = Just (SQAddress addr) }
         OMBlocksOverview blocks ->
-            noEffects $ state { blocks = reverse $ map snd blocks }
+            -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
+            noEffects $ state { blocks = nubBy gEq $ state.blocks <> reverse (map snd blocks) }
         OMTransactionsGlobal _ txs ->
             noEffects $ state { transactions = state.transactions <> map snd txs }
         OMBlockchainHeight pId ->
-            { state: state { transactions = [] }
+            { state: state { periodId = pId, transactions = [], blocks = [] }
             , effects:
                 [ do
                     C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple (pId - blocksNum + 1) (pId + 1)
                     C.send socket' $ IMControl $ CMGetTransactionsGlobal $ Tuple 0 txGlobalNum
+                    C.send socket' $ IMControl $ CMSetHBlock pId
                     pure Nop
                 ]
             }
+        OMNewBlock pId ->
+            { state: state { periodId = pId }
+            , effects:
+                [ do
+                    C.send socket' $ IMControl $ CMSetHBlock pId
+                    C.send socket' $ IMHBlockInfo HIGetMetadata
+                    pure Nop
+                ]
+            }
+        OMBlockMetadata _ block@(HBlockExtension {hbeTxNumber}) ->
+            let transactionSlices =
+                    map (\i -> Tuple (i*txLimit) $ (i+1)*txLimit) $
+                    range 0 (hbeTxNumber `P.div` txLimit)
+            in { state: state { blocks = unsafePartial $ init $ singleton block <> state.blocks }
+               , effects:
+                   [ do
+                        traverse
+                            (C.send socket' <<< IMHBlockInfo <<< HIGetTransactions)
+                            transactionSlices
+                        pure Nop
+                   ]
+               }
+        OMBlockTransactions _ txs ->
+            noEffects $ state
+                { transactions =
+                    -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
+                    nubBy gEq $ unsafePartial $
+                    take (length state.transactions) $
+                    map snd txs <> state.transactions
+                }
         OMError (ParseError e) ->
             noEffects $ state { error = Just $ "ParseError: " <> e.peTypeName <> " : " <> e.peError }
         OMError (NotFound e) ->
@@ -186,6 +226,15 @@ update ExpandTransactions state = onlyEffects state $
         let txLen = length state.transactions
         C.send socket' $ IMControl $ CMGetTransactionsGlobal $
             Tuple txLen $ txLen + txGlobalNum
+        pure Nop
+    ]
+  where
+    socket' = unsafeFromJust state.socket
+update ExpandBlockchain state = onlyEffects state $
+    [ do
+        let txLen = length state.blocks
+        C.send socket' $ IMControl $ CMGetBlocksOverview $
+            Tuple (state.periodId - txLen - blocksNum) $ state.periodId - txLen + 1
         pure Nop
     ]
   where

@@ -45,6 +45,7 @@ data Action
     | SetClock DateTime
     -- NOTE: Int should be good enough for frontpage
     | ExpandTransactions
+    | ExpandBlockchain
     | Nop
 
 data SearchQuery

@@ -35,7 +35,6 @@ import Data.Either                    (fromRight)
 import Data.Generic                   (gShow, gEq)
 import Data.Array                     (filter, head, reverse, length, singleton, range,
                                        take, nubBy, sortBy)
-import Data.Array.Partial             (init)
 import Data.Functor                   ((<$>))
 import Data.Traversable               (traverse)
 import Data.Ord                       (compare)
@@ -90,7 +89,7 @@ update (PageView route@R.Home) state =
     onNewQueryDo action | state.route == route = pure Nop -- ignore
                         | otherwise = action
 update (PageView route@(R.Address addr)) state =
-    { state: state { route = route }
+    { state: state { route = route, transactions = [] }
     , effects:
         [ onNewQueryDo do
             C.send socket' $ IMControl CMUnsubscribeNewBlocks

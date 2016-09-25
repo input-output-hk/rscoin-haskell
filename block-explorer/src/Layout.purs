@@ -78,6 +78,7 @@ update (PageView route@R.Home) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
+            C.send socket' $ IMControl CMUnsubscribeAddress
             C.send socket' $ IMControl CMGetBlockchainHeight
             pure Nop
         ]
@@ -91,6 +92,7 @@ update (PageView route@(R.Address addr)) state =
     { state: state { route = route }
     , effects:
         [ onNewQueryDo do
+            C.send socket' $ IMControl CMUnsubscribeNewBlocks
             C.send socket' $ IMControl $ CMSetAddress addr
             pure Nop
         ]
@@ -103,7 +105,9 @@ update (PageView route@(R.Transaction tId)) state =
     { state: state { route = route, queryInfo = map SQTransaction getTransaction }
     , effects:
         [ onNewQueryDo do
-            when (isNothing getTransaction) $
+            when (isNothing getTransaction) $ do
+                C.send socket' $ IMControl CMUnsubscribeAddress
+                C.send socket' $ IMControl CMUnsubscribeNewBlocks
                 C.send socket' $ IMControl $ CMGetTransaction tId
             pure Nop
         ]

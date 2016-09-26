@@ -240,6 +240,26 @@ readerToState
     => Reader s a -> m a
 readerToState = gets . runReader
 
+getTxChecked ::
+    forall m.
+    (MonadThrow m, MonadState Storage m)
+    => C.PeriodId
+    -> HM.HashMap C.TransactionId C.Transaction
+    -> C.TransactionId
+    -> m (Maybe C.Transaction)
+getTxChecked pId newTxs txId = do
+    oldTx <- readerToState $ getTx txId
+    let msg = sformat ("Invalid transaction id seen: " % build)txId
+        newTx = HM.lookup txId newTxs
+        tx = oldTx <|> newTx
+    case tx of
+        Nothing ->
+            ifM
+                (HS.member txId <$> use emissionHashes)
+                (pure Nothing)
+                (throwM $ EEIncorrectBlock pId msg)
+        justTx -> pure justTx
+
 -- | Modify storage by adding given higher-level block. Period
 -- identifier is required to check that given HBlock is the next after
 -- last applied block.
@@ -252,11 +272,11 @@ addHBlock pId blkWithMeta@(C.WithMetadata C.HBlock {..} C.HBlockMetadata {..}) =
             { pmExpectedPeriod = expectedPid
             , pmReceivedPeriod = pId
             }
-    let extendedBlk = mkHBlockExtended pId blkWithMeta
-    hBlocks %= flip V.snoc extendedBlk
     forM_ hbmEmission (\em -> emissionHashes %= HS.insert em)
     mapM_ (addTxToMap pId) $ enumerate hbTransactions
     let newTxs = HM.fromList $ map (\tx -> (C.hash tx, tx)) hbTransactions
+    extendedBlk <- mkHBlockExtended pId blkWithMeta (getTxChecked pId newTxs)
+    hBlocks %= flip V.snoc extendedBlk
     extensions <- mapM (mkTxExtension newTxs pId hbmTimestamp) hbTransactions
     txExtensions %= flip V.snoc (V.fromList extensions)
     let extendedTxs = zipWith C.WithMetadata hbTransactions extensions
@@ -278,20 +298,9 @@ mkTxExtension
     -> Timestamp
     -> C.Transaction
     -> ExceptUpdate TransactionExtension
-mkTxExtension newTxs pId timestamp = mkTransactionExtension pId timestamp getTxChecked
+mkTxExtension newTxs pId timestamp = mkTransactionExtension pId timestamp getTxs
   where
-    getTxChecked i = do
-        oldTx <- readerToState $ getTx i
-        let msg = sformat ("Invalid transaction id seen: " % build) i
-            newTx = HM.lookup i newTxs
-            tx = oldTx <|> newTx
-        case tx of
-            Nothing ->
-                ifM
-                    (HS.member i <$> use emissionHashes)
-                    (pure Nothing)
-                    (throwM $ EEIncorrectBlock pId msg)
-            justTx -> pure justTx
+    getTxs = getTxChecked pId newTxs
 
 applyTxToAddresses :: (TransactionIndex, TransactionExtended) -> Update ()
 applyTxToAddresses (i, C.WithMetadata C.Transaction {..} TransactionExtension {..}) = do

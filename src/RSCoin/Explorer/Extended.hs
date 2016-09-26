@@ -98,40 +98,54 @@ data HBlockExtension = HBlockExtension
     -- , hbeSize      :: !Byte
     } deriving (Show, Generic)
 
-mkHBlockExtension :: C.PeriodId
-                  -> C.WithMetadata C.HBlock C.HBlockMetadata
-                  -> HBlockExtension
-mkHBlockExtension pId C.WithMetadata {wmValue = C.HBlock {..}
-                                     ,wmMetadata = C.HBlockMetadata {..}} =
-    HBlockExtension
-    { hbeHeight = pId
-    , hbeTimestamp = hbmTimestamp
-    , hbeTxNumber = genericLength hbTransactions
-    , hbeTotalSent = totalSent
-    -- , hbeSize = size
-    }
+mkHBlockExtension ::
+    forall m.
+       Monad m
+    => C.PeriodId
+    -> C.WithMetadata C.HBlock C.HBlockMetadata
+    -> (C.TransactionId -> m (Maybe C.Transaction))
+    -> m HBlockExtension
+mkHBlockExtension pId C.WithMetadata
+                     {wmValue = C.HBlock {..}
+                     ,wmMetadata = C.HBlockMetadata {..}}
+                     getTx =
+    HBlockExtension pId hbmTimestamp (genericLength hbTransactions) <$> totalSent
+    -- previous comment: (hbeSize = size)
+    -- what needs to be used now if uncommented: <*> pure size
+
   where
-    totalSent = sum . map transactionTotalSent $ hbTransactions
-    transactionTotalSent :: C.Transaction -> C.CoinAmount
-    transactionTotalSent C.Transaction{..} =
-        let amountMap =
-                M.fromListWith (+) $
-                map (\(_, i, C.coinAmount -> c) -> (fst $ txOutputs !! i, c)) $
-                txInputs
-            step (adr, c) cMap = M.update (\oldC -> Just $ oldC - c) adr cMap
-            newMap =
-                foldr step amountMap (map (\(a, C.coinAmount -> c) ->
-                                               (a, c)) txOutputs)
-        in sum $ M.elems newMap
+    totalSent = do
+        l <- mapM transactionTotalSent hbTransactions
+        return $ sum l
+    transactionTotalSent :: C.Transaction -> m C.CoinAmount
+    transactionTotalSent tx@(C.Transaction txinps _) = do
+        tx1 <- getTx $ C.hash tx
+        return $ case tx1 of
+            Nothing -> 0
+            Just C.Transaction{..} ->
+                let amountMap =
+                        M.fromListWith (+) $
+                        map (\(_, i, C.coinAmount -> c) -> (fst $ txOutputs !! i, c))
+                        txinps
+                    step (adr, c) cMap = M.update (\oldC -> Just $ oldC - c) adr cMap
+                    newMap =
+                        foldr step amountMap (map (\(a, C.coinAmount -> c) ->
+                                                       (a, c)) txOutputs)
+                in sum $ M.elems newMap
     -- size = undefined
 
 type HBlockExtended = C.WithMetadata C.HBlock HBlockExtension
 
-mkHBlockExtended :: C.PeriodId
-                 -> C.WithMetadata C.HBlock C.HBlockMetadata
-                 -> HBlockExtended
-mkHBlockExtended pId blkWithMeta =
-    second (const $ mkHBlockExtension pId blkWithMeta) blkWithMeta
+mkHBlockExtended ::
+    forall m.
+    Monad m
+    => C.PeriodId
+    -> C.WithMetadata C.HBlock C.HBlockMetadata
+    -> (C.TransactionId -> m (Maybe C.Transaction))
+    -> m HBlockExtended
+mkHBlockExtended pId blkWithMeta getTx = do
+    newHBExtension <- mkHBlockExtension pId blkWithMeta getTx
+    return $ second (const newHBExtension) blkWithMeta
 
 $(deriveSafeCopy 0 'base ''CoinsMapExtension)
 $(deriveSafeCopy 0 'base ''TransactionExtension)

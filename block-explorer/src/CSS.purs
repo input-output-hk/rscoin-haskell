@@ -48,6 +48,9 @@ transactionArrowGreenPath = imagePath "transaction-arrow-green.svg"
 transactionArrowRedPath :: String
 transactionArrowRedPath = imagePath "transaction-arrow-red.svg"
 
+transactionArrowBlackPath :: String
+transactionArrowBlackPath = imagePath "transaction-arrow-black.svg"
+
 opacity :: Number -> CSS
 opacity = key $ fromString "opacity"
 

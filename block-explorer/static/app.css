@@ -418,8 +418,7 @@ td {
     cursor: pointer;
 }
 
-.income-button {
-    background-color: #118d1a;
+.money-button {
     border: none;
     border-radius: 4px;
     color: white;
@@ -427,6 +426,14 @@ td {
     line-height: 12px;
     padding: 5px 12px;
     margin: 12px;
+}
+
+.neutral-button, .neutral-button:hover, .neutral-button:active {
+    background-color: #030F21;
+}
+
+.income-button {
+    background-color: #118d1a;
 }
 
 .income-button:hover {
@@ -439,13 +446,6 @@ td {
 
 .outcome-button {
     background-color: #b42b0b;
-    border: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 10px;
-    line-height: 12px;
-    padding: 5px 12px;
-    margin: 12px;
 }
 
 .outcome-button:hover {

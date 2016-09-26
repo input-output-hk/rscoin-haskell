@@ -14,7 +14,7 @@ import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams)
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
                                        adaSymbolDarkPath, transactionArrowGreenPath,
-                                       transactionArrowRedPath)
+                                       transactionArrowRedPath, transactionArrowBlackPath)
 import App.Common.Html                (ttext, ttextUpper, visible)
 
 import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span,
@@ -52,10 +52,11 @@ transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction
                                         [ text $ addressToString addr ]
                     Nothing -> ttext lang _.emission
                 ]
-        moneyFlow tx =
+        moneyFlow tx outcome income neutral =
             case flip isTransactionExtensionOutcome tx <$> mAddr of
-                Just true -> "outcome"
-                _ -> "income"
+                Just true -> outcome
+                Just false -> income
+                Nothing -> neutral
     in
         [ div
             [ className "row transaction-header no-margin" ]
@@ -73,7 +74,7 @@ transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction
                     , id_ "transaction-date" ]
                     [ text $ fromMaybe "Date error" $ prettyDate <$> nominalDiffTimeToDateTime te.teTimestamp ]
                 , button
-                    [ className $ moneyFlow tranE <> "-button pull-right" ]
+                    [ className $ "money-button " <> moneyFlow tranE "outcome" "income" "neutral" <> "-button pull-right" ]
                     [ img
                         [ id_ "ada-symbol"
                         , src adaSymbolPath
@@ -102,7 +103,7 @@ transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction
                                 []
                                 [ img
                                     [ id_ "transaction-arrow"
-                                    , src transactionArrowGreenPath
+                                    , src $ moneyFlow tranE transactionArrowRedPath transactionArrowGreenPath transactionArrowBlackPath
                                     ]
                                     []
                                 ]

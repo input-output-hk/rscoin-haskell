@@ -2,6 +2,7 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Extensions of some Core types. They contain extra data needed by
 -- web clients.
@@ -29,6 +30,8 @@ import           Control.Lens          (makeLenses, view, _2, _3)
 import           Data.Bifunctor        (second)
 import           Data.IntMap           (elems)
 import           Data.List             (genericLength)
+import qualified Data.Map              as M (elems, fromListWith,
+                                             update)
 import           Data.SafeCopy         (base, deriveSafeCopy)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           GHC.Generics          (Generic)
@@ -108,8 +111,18 @@ mkHBlockExtension pId C.WithMetadata {wmValue = C.HBlock {..}
     -- , hbeSize = size
     }
   where
-    totalSent =
-        sum . map (C.coinAmount . view _2) . concatMap C.txOutputs $ hbTransactions
+    totalSent = sum . map transactionTotalSent $ hbTransactions
+    transactionTotalSent :: C.Transaction -> C.CoinAmount
+    transactionTotalSent C.Transaction{..} =
+        let amountMap =
+                M.fromListWith (+) $
+                map (\(_, i, C.coinAmount -> c) -> (fst $ txOutputs !! i, c)) $
+                txInputs
+            step (adr, c) cMap = M.update (\oldC -> Just $ oldC - c) adr cMap
+            newMap =
+                foldr step amountMap (map (\(a, C.coinAmount -> c) ->
+                                               (a, c)) txOutputs)
+        in sum $ M.elems newMap
     -- size = undefined
 
 type HBlockExtended = C.WithMetadata C.HBlock HBlockExtension

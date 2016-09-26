@@ -35,9 +35,9 @@ data ServeOptions = ServeOptions
     }
 
 data AddToBankOptions = AddToBankOptions
-    { atboMintetteHost     :: String
-    , atboMintettePort     :: Int
-    , atboSecretKeyPath    :: FilePath
+    { atboMintetteHost  :: String
+    , atboMintettePort  :: Int
+    , atboSecretKeyPath :: FilePath
     }
 
 data Options = Options
@@ -68,20 +68,20 @@ commandParser defaultSKPath =
     addToBankOpts =
       fmap AddToBank $
       AddToBankOptions
-      <$> strOption (short 'h' <> long "host")
-      <*> option auto (short 'p' <> long "port")
+      <$> strOption (short 'h' <> long "host" <> metavar "HOST")
+      <*> option auto (short 'p' <> long "port" <> metavar "INTEGER")
       <*> strOption
             (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <>
              help "Path to the secret key" <>
              showDefault <>
              metavar "FILEPATH")
-
     serveOpts =
         fmap Serve $
         ServeOptions <$>
         option
             auto
-            (short 'p' <> long "port" <> value defaultPort <> showDefault) <*>
+            (short 'p' <> long "port" <> value defaultPort <>
+             showDefault <> metavar "INTEGER") <*>
         strOption
             (long "sk" <> value defaultSKPath <> metavar "FILEPATH" <>
              help "Path to the secret key" <>

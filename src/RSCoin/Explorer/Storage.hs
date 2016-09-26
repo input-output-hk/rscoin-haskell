@@ -73,7 +73,7 @@ $(makeLensesFor [("hbTransactions", "hbTransactionsL")] ''C.HBlock)
 data TransactionIndex = TransactionIndex
     { tiPeriod :: !C.PeriodId
     , tiIdx    :: !Word
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 $(deriveSafeCopy 0 'base ''TransactionIndex)
 
@@ -316,10 +316,13 @@ applyTxOutput i (addr,c) = changeAddressData i c addr
 changeAddressData :: TransactionIndex -> C.Coin -> C.Address -> Update ()
 changeAddressData tx c addr = do
     ensureAddressExists addr
-    addresses . at addr . _Just . adTransactions %= (tx :)
+    addresses . at addr . _Just . adTransactions %= prependChecked tx
     let aBalance = addresses . at addr . _Just . adBalance
     aBalance . wmVal  %= I.insertWith (+) (C.getColor $ C.coinColor c) c
     aBalance . wmExtension . cmeTotal += C.coinAmount c
+  where
+    prependChecked i l | i `elem` l = l
+                       | otherwise = i:l
 
 ensureAddressExists :: C.Address -> Update ()
 ensureAddressExists addr =

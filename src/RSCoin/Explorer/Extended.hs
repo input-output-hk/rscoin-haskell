@@ -107,7 +107,7 @@ getAdrAmountPair inps getTx =
     mapM (\(h, i, C.coinAmount -> c) ->
        do
          mayTx <- getTx h
-         let t = maybe [(undefined,C.Coin 1 2)] C.txOutputs mayTx
+         let t = maybe [] C.txOutputs mayTx
              adr = (!! i) . fmap fst $ t
          return (adr, c)) inps
 

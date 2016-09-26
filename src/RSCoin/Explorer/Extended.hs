@@ -98,6 +98,19 @@ data HBlockExtension = HBlockExtension
     -- , hbeSize      :: !Byte
     } deriving (Show, Generic)
 
+getAdrAmountPair ::
+    forall m. Monad m
+    => [C.AddrId]
+    -> (C.TransactionId -> m (Maybe C.Transaction))
+    -> m [(C.Address, C.CoinAmount)]
+getAdrAmountPair inps getTx =
+    mapM (\(h, i, C.coinAmount -> c) ->
+       do
+         mayTx <- getTx h
+         let t = maybe [(undefined,C.Coin 1 2)] C.txOutputs mayTx
+             adr = (!! i) . fmap fst $ t
+         return (adr, c)) inps
+
 mkHBlockExtension ::
     forall m.
        Monad m
@@ -120,21 +133,19 @@ mkHBlockExtension pId C.WithMetadata
   where
     totalSent = sum <$> mapM transactionTotalSent hbTransactions
     transactionTotalSent :: C.Transaction -> m C.CoinAmount
-    transactionTotalSent tx@(C.Transaction txinps _) = do
+    transactionTotalSent tx@C.Transaction{..} = do
         tx1 <- getTx $ C.hash tx
-        return $ case tx1 of
-            Nothing -> 0
-            Just C.Transaction{..} ->
-                let amountMap =
-                        M.fromListWith (+) $
-                        map (\(_, i, C.coinAmount -> c) ->
-                                 (fst $ txOutputs !! i, c))
-                        txinps
-                    step (adr, c) cMap = M.update (Just . subtract c) adr cMap
-                    newMap =
-                        foldr step amountMap (map (\(a, C.coinAmount -> c) ->
-                                                       (a, c)) txOutputs)
-                in sum $ M.elems newMap
+        case tx1 of
+            Nothing -> return 0
+            Just (C.Transaction _ txouts) -> do
+                 amountMap <-
+                    M.fromListWith (+) <$>
+                    getAdrAmountPair txInputs getTx
+                 let step (adr, c) cMap = M.update (Just . subtract c) adr cMap
+                     newMap =
+                         foldr step amountMap (map (\(a, C.coinAmount -> c) ->
+                                                         (a, c)) txouts)
+                 return $ sum $ M.elems newMap
     -- size = undefined
 
 type HBlockExtended = C.WithMetadata C.HBlock HBlockExtension

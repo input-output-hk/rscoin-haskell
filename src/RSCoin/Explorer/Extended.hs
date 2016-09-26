@@ -109,14 +109,16 @@ mkHBlockExtension pId C.WithMetadata
                      {wmValue = C.HBlock {..}
                      ,wmMetadata = C.HBlockMetadata {..}}
                      getTx =
-    HBlockExtension pId hbmTimestamp (genericLength hbTransactions) <$> totalSent
+    HBlockExtension
+    pId
+    hbmTimestamp
+    (genericLength hbTransactions)
+    <$> totalSent
     -- previous comment: (hbeSize = size)
     -- what needs to be used now if uncommented: <*> pure size
 
   where
-    totalSent = do
-        l <- mapM transactionTotalSent hbTransactions
-        return $ sum l
+    totalSent = sum <$> mapM transactionTotalSent hbTransactions
     transactionTotalSent :: C.Transaction -> m C.CoinAmount
     transactionTotalSent tx@(C.Transaction txinps _) = do
         tx1 <- getTx $ C.hash tx
@@ -125,9 +127,10 @@ mkHBlockExtension pId C.WithMetadata
             Just C.Transaction{..} ->
                 let amountMap =
                         M.fromListWith (+) $
-                        map (\(_, i, C.coinAmount -> c) -> (fst $ txOutputs !! i, c))
+                        map (\(_, i, C.coinAmount -> c) ->
+                                 (fst $ txOutputs !! i, c))
                         txinps
-                    step (adr, c) cMap = M.update (\oldC -> Just $ oldC - c) adr cMap
+                    step (adr, c) cMap = M.update (Just . subtract c) adr cMap
                     newMap =
                         foldr step amountMap (map (\(a, C.coinAmount -> c) ->
                                                        (a, c)) txOutputs)

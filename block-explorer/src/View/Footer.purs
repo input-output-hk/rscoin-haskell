@@ -9,7 +9,7 @@ import App.CSS                        (darkRed, opacity, logoPath,
                                        headerBitmapPath, headFootHeight)
 import App.Common.Html                (ttext)
 
-import Data.I18N                      (allLanguages)
+import Data.I18N                      (allLanguages, languageNativeName)
 
 import Pux.Html                       (Html, div, text, span, button,
                                        input, a, li, ul, nav, img, footer)
@@ -60,7 +60,7 @@ view state =
                         , aria "expanded" "false"
                         , id_ "toggle"
                         ]
-                        [ ttext' _._nativeName
+                        [ ttext' $ const $ languageNativeName state.language
                         , span
                             [ className "caret"
                             , id_ "caret"]
@@ -102,5 +102,5 @@ view state =
                 [ data_ "target" "#"
                 , onClick $ const $ LanguageSet lang
                 ]
-                [ ttext lang _._nativeName ]
+                [ ttext lang $ const $ languageNativeName lang ]
             ]

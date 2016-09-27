@@ -9,15 +9,15 @@ import Data.String (take)
 import DOM (DOM)
 import Control.Monad.Eff (Eff)
 
+import LanguagePack.Translation (english, japanese, russian)
+
 foreign import detectLanguage_ :: forall e. Eff (dom :: DOM | e) String
 
 detectLanguage :: forall e. Eff (dom :: DOM | e) (Maybe Language)
 detectLanguage = readLanguage <<< take 2 <$> detectLanguage_
 
 type Translation =
-    { _nativeName      :: String
-    , _code            :: String
-    , aboutUs          :: String
+    { aboutUs          :: String
     , contacts         :: String
     , privacyPolicy    :: String
     , termsOfService   :: String
@@ -61,105 +61,9 @@ derive instance eqLanguage :: Eq Language
 
 
 getTranslation :: Language -> Translation
-getTranslation lang@English =
-    { _nativeName: languageNativeName lang
-    , _code: languageCode lang
-    , aboutUs: "About us"
-    , contacts: "Contacts"
-    , privacyPolicy: "Privacy Policy"
-    , termsOfService: "Terms of Service"
-    , address: "Address"
-    , transaction: "Transaction"
-    , transactions: "Transactions"
-    , finalBalance: "Final balance"
-    , colorBalance: "Color balance"
-    , qrCode: "QR code"
-    , to: "to"
-    , notFound: "Not Found"
-    , receivedTime: "Received Time"
-    , totalInput: "Total Input"
-    , totalOutput: "Total Output"
-    , includedInBlocks: "Included In Blocks"
-    , summary: "Summary"
-    , currentBlocks: "Current Blocks"
-    , transactionsFeed: "Transactions Feed"
-    , height: "Height"
-    , age: "Age"
-    , totalSent: "Total Sent"
-    , expand: "Expand"
-    , emission: "Emission"
-    , _qrCodeMsg: "Scan this QR Code to copy address to clipboard"
-    , minute: "minute"
-    , minutes: "minutes"
-    , hours: "hours"
-    , days: "days"
-    }
-getTranslation lang@Japanese =
-    { _nativeName: languageNativeName lang
-    , _code: languageCode lang
-    , aboutUs: "私たちに関しては"
-    , contacts: "コンタクト"
-    , privacyPolicy: "個人情報保護方針"
-    , termsOfService: "利用規約"
-    , address: "アドレス"
-    , transaction: "トランザクション"
-    , transactions: "トランザクション"
-    , finalBalance: "最終残高"
-    , colorBalance: "各色の残高"
-    , qrCode: "QRコード"
-    , to: "に"
-    , notFound: "見つかりません"
-    , receivedTime: "受信時間"
-    , totalInput: "インプット合計"
-    , totalOutput: "アウトプット合計"
-    , includedInBlocks: "ブロックに含む"
-    , summary: "要約"
-    , currentBlocks: "?"
-    , transactionsFeed: "?"
-    , height: "?"
-    , age: "?"
-    , totalSent: "?"
-    , expand: "?"
-    , emission: "?"
-    , _qrCodeMsg: "?"
-    , minute: "?"
-    , minutes: "?"
-    , hours: "?"
-    , days: "?"
-    }
-getTranslation lang@Russian =
-    { _nativeName: languageNativeName lang
-    , _code: languageCode lang
-    , aboutUs: "О нас"
-    , contacts: "контакты"
-    , privacyPolicy: "политика конфиденциальности"
-    , termsOfService: "Условия использования"
-    , address: "Адрес"
-    , transaction: "?"
-    , transactions: "операции"
-    , finalBalance: "Окончательный баланс"
-    , colorBalance: "Цветовой баланс"
-    , qrCode: "QR код"
-    , to: "к"
-    , notFound: "не обнаружена"
-    , receivedTime: "?"
-    , totalInput: "?"
-    , totalOutput: "?"
-    , includedInBlocks: "?"
-    , summary: "?"
-    , currentBlocks: "?"
-    , transactionsFeed: "?"
-    , height: "?"
-    , age: "?"
-    , totalSent: "?"
-    , expand: "?"
-    , emission: "?"
-    , _qrCodeMsg: "?"
-    , minute: "?"
-    , minutes: "?"
-    , hours: "?"
-    , days: "?"
-    }
+getTranslation lang@English = english
+getTranslation lang@Japanese = japanese
+getTranslation lang@Russian = russian
 
 allLanguages :: Array Language
 allLanguages = [English, Japanese, Russian]

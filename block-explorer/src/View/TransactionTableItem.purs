@@ -95,10 +95,10 @@ transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction
                         []
                         [ tr
                             []
-                            [ td [] $ map addressLink $
-                                if null te.teInputAddresses
-                                    then [Nothing]
-                                    else te.teInputAddresses
+                            [ td [] $ map addressLink $ testEmission $
+                                if colors
+                                    then te.teInputAddresses
+                                    else map (Just <<< fst) te.teSumPerInputAddr
                             , td
                                 []
                                 [ img
@@ -107,7 +107,10 @@ transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction
                                     ]
                                     []
                                 ]
-                            , td [] $ map (addressLink <<< Just <<< fst) t.txOutputs
+                            , td [] $ map addressLink $
+                                if colors
+                                    then map (Just <<< fst) t.txOutputs
+                                    else map (Just <<< fst) te.teSumPerOutputAddr
                             ]
                         ]
                     ]
@@ -119,7 +122,9 @@ transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction
                     , id_ "transaction-addresses-table" ]
                     [ tbody
                         []
-                        $ map (colorTableItem <<< snd) t.txOutputs
+                        $ if colors
+                            then map (colorTableItem <<< snd) t.txOutputs
+                            else map (colorAmountTableItem <<< snd) te.teSumPerOutputAddr
                     ]
                 ]
             ]
@@ -141,3 +146,20 @@ transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction
                 , text <<< show $ c.coinAmount
                 ]
             ]
+    colorAmountTableItem coinAmount =
+        tr
+            []
+            [ td
+                [ className "money-amount" ]
+                [ img
+                    [ id_ "ada-symbol"
+                    , src adaSymbolDarkPath
+                    ]
+                    []
+                , text $ show coinAmount
+                ]
+            ]
+    testEmission addresses =
+        if null addresses
+            then [Nothing]
+            else addresses

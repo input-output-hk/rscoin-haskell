@@ -21,8 +21,8 @@ module RSCoin.Bank.Storage.Explorers
 
        ) where
 
-import           Control.Lens         (Getter, at, makeLenses, to, use, uses,
-                                       (%=), (.=), (<>=))
+import           Control.Lens         (Getter, at, makeLenses, to, use, uses, (%=), (.=),
+                                       (<>=))
 import           Control.Monad.Except (ExceptT, MonadError (throwError))
 import           Control.Monad.State  (State)
 import           Data.List            (find)
@@ -97,8 +97,9 @@ suspendExplorer explorer = do
     esSuspendedExplorers . at explorer .= explorerData
 
 -- | Restore all suspended explorers.
-restoreExplorers :: Update ()
+restoreExplorers :: Update [C.Explorer]
 restoreExplorers = do
     suspended <- use esSuspendedExplorers
     esExplorers <>= suspended
-    esSuspendedExplorers .= M.empty
+    esSuspendedExplorers .= mempty
+    return $ M.keys suspended

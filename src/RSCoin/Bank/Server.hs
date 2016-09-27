@@ -281,7 +281,10 @@ onPeriodFinished sk st = do
                     ("Announced new period, sent these newPeriodData's:\n" % build)
                     newPeriodData
     announceNewBlockToNotary pId `catch` handlerAnnouncePeriodsN
-    update st RestoreExplorers
+    restored <- update st RestoreExplorers
+    unless (null restored) $
+        C.logInfo $ sformat ("Restored explorers: " % build) $
+                    listBuilderJSON restored
   where
     -- TODO: catch appropriate exception according to protocol implementation
     handlerAnnouncePeriodM (e :: SomeException) =

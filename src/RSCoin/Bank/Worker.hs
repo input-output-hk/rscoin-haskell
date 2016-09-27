@@ -11,7 +11,7 @@ module RSCoin.Bank.Worker
        ) where
 
 import           Control.Exception.Base   (AsyncException)
-import           Control.Monad            (when)
+import           Control.Monad            (unless, when)
 import           Control.Monad.Catch      (Handler (..), SomeException, catch, catches,
                                            throwM)
 import           Control.Monad.Extra      (unlessM)
@@ -23,6 +23,7 @@ import           Data.Time.Units          (TimeUnit, convertUnit)
 import           Formatting               (build, int, sformat, (%))
 
 import           Serokell.Util.Exceptions ()
+import           Serokell.Util.Text       (listBuilderJSON)
 
 import           Control.TimeWarp.Timed   (for, ms, repeatForever, sec, wait)
 import           RSCoin.Core              (defaultPeriodDelta, sign)
@@ -74,10 +75,14 @@ runExplorerWorker mainIsBusy sk st =
            explorers = map fst explorersAndPeriods
         -- if all explorers are up-to-date, it doesn't make sense to
         -- do anything until period finish.
-       when (null outdated) $ waitUntilPredicate (liftIO $ readIORef mainIsBusy)
+       when (null outdated) $
+           waitUntilPredicate ((== blocksNumber + 1) <$> query st GetPeriodId)
        failedExplorers <-
            map fst . filter (not . snd) . zip explorers <$>
            communicateWithExplorers sk st blocksNumber outdated
+       unless (null failedExplorers) $ C.logInfo $
+           sformat ("Some Explorers failed, they will be suspended: " % build) $
+           listBuilderJSON failedExplorers
        mapM_ (update st . SuspendExplorer) failedExplorers
   where
     foreverSafe action = do

@@ -118,8 +118,8 @@ suspendExplorer :: C.Explorer -> Update ()
 suspendExplorer e = explorersStorage %= execState (ES.suspendExplorer e)
 
 -- | Restore all suspended explorers.
-restoreExplorers :: Update ()
-restoreExplorers = explorersStorage %= execState ES.restoreExplorers
+restoreExplorers :: Update [C.Explorer]
+restoreExplorers = explorersStorage %%= runState ES.restoreExplorers
 
 -- | When period finishes, Bank receives period results from
 -- mintettes, updates storage and starts new period with potentially

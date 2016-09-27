@@ -162,7 +162,7 @@ setExplorerPeriod = BS.setExplorerPeriod
 suspendExplorer :: Explorer -> Update BS.Storage ()
 suspendExplorer = BS.suspendExplorer
 
-restoreExplorers :: Update BS.Storage ()
+restoreExplorers :: Update BS.Storage [Explorer]
 restoreExplorers = BS.restoreExplorers
 
 startNewPeriod

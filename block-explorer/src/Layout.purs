@@ -1,13 +1,14 @@
 module App.Layout where
 
-import Prelude                        (($), map, (<<<), pure, bind, not, (*), max,
-                                       (==), flip, (<>), (/=), otherwise, (+), (-))
+import Prelude                        (($), map, (<<<), pure, bind, not, (*), max, min,
+                                       (==), flip, (<>), (/=), otherwise, (+), (-),
+                                       Unit, (=<<), show)
 import Prelude                        (div) as P
 
 import App.Routes                     (Path (..), addressUrl, txUrl,
                                        match) as R
 import App.Connection                 (Action (..), WEBSOCKET,
-                                       send, sendControl) as C
+                                       send, sendControl, Connection) as C
 import App.Types                      (Address (..), ControlMsg (..),
                                        AddressInfoMsg (..),
                                        IncomingMsg (..),
@@ -26,9 +27,10 @@ import App.View.Alert                 (view) as Alert
 import App.View.Footer                (view) as Footer
 
 import Data.Maybe                     (Maybe(Nothing, Just), maybe,
-                                       isNothing, isJust)
+                                       isNothing, isJust, fromMaybe)
 
 import Serokell.Data.Maybe            (unsafeFromJust)
+import Serokell.Data.Char             (isDigit, isSpace)
 
 import Data.Tuple                     (Tuple (..), snd)
 import Data.Either                    (fromRight)
@@ -39,6 +41,10 @@ import Data.Functor                   ((<$>))
 import Data.Traversable               (traverse)
 import Data.Ord                       (compare)
 import Debug.Trace                    (traceAny)
+import Data.Int                       (fromString)
+import Data.String                    (toCharArray, fromCharArray)
+import Data.String                    (take) as S
+import Data.Enum                      (pred, succ)
 
 import Pux                            (EffModel, noEffects, onlyEffects)
 import Pux.Html                       (Html, div, style, text)
@@ -56,9 +62,16 @@ import DOM                            (DOM)
 import Control.Monad.Eff.Console      (CONSOLE)
 import Control.Monad.Eff.Now          (nowDateTime, NOW)
 import Control.Monad.Eff.Class        (liftEff)
+import Control.Monad.Aff              (Aff)
 import Control.Comonad                (extract)
 
 import Partial.Unsafe                 (unsafePartial)
+
+removeWhiteSpace :: String -> String
+removeWhiteSpace = fromCharArray <<< filter (not <<< isSpace) <<< toCharArray
+
+removeNonDigit :: String -> String
+removeNonDigit = fromCharArray <<< filter isDigit <<< toCharArray
 
 txNum :: Int
 txNum = 5
@@ -68,6 +81,9 @@ blocksNum = 5
 
 txGlobalNum :: Int
 txGlobalNum = 5
+
+paginationNum :: Int
+paginationNum = 10
 
 -- NOTE: this should be less then or equal to RSCoin.Explorer.Web.Sockets.App.transactionsLimit
 txLimit :: Int
@@ -89,7 +105,7 @@ update (PageView route@R.Home) state =
     onNewQueryDo action | state.route == route = pure Nop -- ignore
                         | otherwise = action
 update (PageView route@(R.Address addr)) state =
-    { state: state { route = route, transactions = [] }
+    { state: state { route = route, blocks = [], paginationPage = "" }
     , effects:
         [ onNewQueryDo do
             C.send socket' $ IMControl CMUnsubscribeNewBlocks
@@ -102,7 +118,7 @@ update (PageView route@(R.Address addr)) state =
     onNewQueryDo action | state.queryInfo == Just (SQAddress addr) = pure Nop -- ignore
                         | otherwise = action
 update (PageView route@(R.Transaction tId)) state =
-    { state: state { route = route, queryInfo = map SQTransaction getTransaction }
+    { state: state { route = route, queryInfo = map SQTransaction getTransaction, transactions = [], blocks = [], paginationPage = "" }
     , effects:
         [ onNewQueryDo do
             when (isNothing getTransaction) $ do
@@ -130,7 +146,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             { state: state { balance = Just coinsMap, periodId = pId, queryInfo = Just (SQAddress addr) }
             , effects:
                 [ do
-                    C.send socket' <<< IMAddrInfo <<< AIGetTransactions $ Tuple 0 $ max txNum $ length state.transactions
+                    transactionPage socket' paginationPage
                     let expectedUrl = R.addressUrl addr
                     unless (state.route == R.match expectedUrl) $
                         liftEff $ R.navigateTo expectedUrl
@@ -163,11 +179,11 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             noEffects $ state { txNumber = Just txNum, queryInfo = Just (SQAddress addr) }
         OMBlocksOverview blocks ->
             -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
-            noEffects $ state { blocks = nubBy gEq $ state.blocks <> reverse (map snd blocks) }
+            noEffects $ state { blocks = reverse $ map snd blocks }
         OMTransactionsGlobal _ txs ->
             noEffects $ state { transactions = state.transactions <> map snd txs }
         OMBlockchainHeight pId ->
-            { state: state { periodId = pId, transactions = [], blocks = [] }
+            { state: state { periodId = pId, transactions = [], blocks = [], paginationPage = "" }
             , effects:
                 [ do
                     C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple (pId - blocksNum + 1) (pId + 1)
@@ -215,6 +231,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
         _ -> noEffects state
   where
     socket' = unsafeFromJust state.socket
+    paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ fromString state.paginationPage
 update (SocketAction _) state = noEffects state
 update (SearchQueryChange sq) state = noEffects $ state { searchQuery = sq }
 update SearchButton state =
@@ -237,12 +254,12 @@ update UpdateClock state = onlyEffects state $
 update (SetClock date) state = noEffects $ state { now = date }
 update ExpandTransactions state = onlyEffects state $
     [ do
-        let txLen = length state.transactions
-        C.send socket' <<< IMAddrInfo <<< AIGetTransactions $ Tuple 0 $ max txNum $ length state.transactions + txNum
+        transactionPage socket' paginationPage
         pure Nop
     ]
   where
     socket' = unsafeFromJust state.socket
+    paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ fromString state.paginationPage
 update ExpandTransactionsGlobal state = onlyEffects state $
     [ do
         let txLen = length state.transactions
@@ -254,14 +271,61 @@ update ExpandTransactionsGlobal state = onlyEffects state $
     socket' = unsafeFromJust state.socket
 update ExpandBlockchain state = onlyEffects state $
     [ do
-        let txLen = length state.blocks
-        C.send socket' $ IMControl $ CMGetBlocksOverview $
-            Tuple (state.periodId - txLen - blocksNum) $ state.periodId - txLen + 1
+        blockchainPage socket' state.periodId 0
         pure Nop
     ]
   where
     socket' = unsafeFromJust state.socket
+update (PaginationUpdate page) state = noEffects $ state { paginationPage = S.take 4 $ removeNonDigit page }
+update PaginationLeft state =
+    { state: state { paginationPage = show paginationPage }
+    , effects:
+        [ do
+            blockchainPage socket' state.periodId paginationPage
+            pure Nop
+        ]
+    }
+  where
+    socket' = unsafeFromJust state.socket
+    paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ pred =<< fromString state.paginationPage
+update PaginationRight state =
+    { state: state { paginationPage = show paginationPage }
+    , effects:
+        [ do
+            blockchainPage socket' state.periodId paginationPage
+            pure Nop
+        ]
+    }
+  where
+    socket' = unsafeFromJust state.socket
+    paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ succ =<< fromString state.paginationPage
+update PaginationSearchBlocks state = onlyEffects state $
+    [ do
+        blockchainPage socket' state.periodId paginationPage
+        pure Nop
+    ]
+  where
+    socket' = unsafeFromJust state.socket
+    paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ fromString state.paginationPage
+update PaginationSearchTransactions state = onlyEffects state $
+    [ do
+        transactionPage socket' paginationPage
+        pure Nop
+    ]
+  where
+    socket' = unsafeFromJust state.socket
+    paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ fromString state.paginationPage
 update Nop state = noEffects state
+
+-- blockchainPage :: forall eff. C.Connection -> Int -> Int -> Aff (channel :: CHANNEL | eff) Unit
+blockchainPage socket' pId page = do
+    let pageOffset = page * paginationNum
+    C.send socket' $ IMControl $ CMGetBlocksOverview $
+        Tuple (pId - paginationNum - pageOffset) $ pId + 1 - pageOffset
+
+transactionPage socket' page = do
+    let pageOffset = page * paginationNum
+    C.send socket' <<< IMAddrInfo <<< AIGetTransactions $ Tuple pageOffset $ paginationNum + pageOffset + 1
 
 -- TODO: make safe version of bootstrap like
 -- https://github.com/slamdata/purescript-halogen-bootstrap/blob/master/src/Halogen/Themes/Bootstrap3.purs

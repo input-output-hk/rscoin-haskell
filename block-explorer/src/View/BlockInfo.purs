@@ -1,7 +1,9 @@
 module App.View.BlockInfo where
 
 import Prelude                        (($), map, show, (<<<), const, (<>), id,
-                                       join, not, flip, otherwise, map, (=<<))
+                                       join, not, flip, otherwise, map, (=<<),
+                                       (<), (==))
+import Prelude                        (div) as P
 
 import App.Types                       (Action (..), State, Coin(..), Color(Color),
                                        getBalance, colorToString, addressToString,
@@ -24,13 +26,14 @@ import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt, role, href,
                                        autoComplete, htmlFor, rowSpan, checked)
-import Pux.Html.Events                (onChange, onClick)
+import Pux.Html.Events                (onChange, onClick, onKeyDown)
 import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
 
+import Data.String                    (null)
 import Data.Tuple                     (fst, snd)
-import Data.Array                     (length, null)
+import Data.Array                     (length)
 import Data.Array.Partial             (tail)
 import Data.Maybe                     (Maybe (..), fromMaybe)
 import Data.Functor                   ((<$>))
@@ -74,15 +77,50 @@ view state =
                         ]
 
                     ]
-                , div
-                    [ className "font-light text-center" ]
-                    [ button
-                        [ id_ "expand-button"
-                        , onClick $ const ExpandBlockchain
-                        ]
-                        [ ttext' _.expand ]
-                    ]
                 ]
+            -- TODO: refactor! there is the same funcitonality in Address.purs
+            , if length state.blocks < 10
+                then
+                    div
+                        [ className "font-light text-center" ]
+                        [ button
+                            [ id_ "expand-button"
+                            , onClick $ const ExpandBlockchain
+                            ]
+                            [ ttext' _.expand ]
+                        ]
+                else
+                    div
+                        [ className "center-block font-light"
+                        , id_ "pagination" ]
+                        [ span
+                            [ className "glyphicon glyphicon-triangle-left"
+                            , onClick $ const PaginationLeft
+                            , id_ "navigation-arrow" ]
+                            []
+                        ,  input
+                            [ type_ "search"
+                            , id_ "pagination-search"
+                            , value state.paginationPage
+
+                            , onChange $ PaginationUpdate <<< _.value <<< _.target
+                            , onKeyDown $ \e -> if e.keyCode == 13 then PaginationSearchBlocks else Nop
+                            ]
+                            []
+                        , span
+                            [ className "navagation-text-span"
+                            , id_ "disabled-text" ]
+                            [ text "of" ]
+                        , span
+                            [ className "navagation-text-span" ]
+                            -- FIXME: don't hardcode this
+                            [ text $ show $ state.periodId `P.div` 10 ]
+                        , span
+                            [ className "glyphicon glyphicon-triangle-right"
+                            , onClick $ const PaginationRight
+                            , id_ "navigation-arrow" ]
+                            []
+                        ]
             ]
         , div
             [ className "row" ]

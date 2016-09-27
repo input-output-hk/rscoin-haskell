@@ -47,6 +47,11 @@ data Action
     | ExpandTransactions
     | ExpandTransactionsGlobal
     | ExpandBlockchain
+    | PaginationUpdate String
+    | PaginationLeft
+    | PaginationRight
+    | PaginationSearchBlocks
+    | PaginationSearchTransactions
     | Nop
 
 data SearchQuery
@@ -83,6 +88,7 @@ type State =
     , colors           :: Boolean
     , language         :: Language
     , now              :: DateTime
+    , paginationPage   :: String
     }
 
 init :: State
@@ -102,4 +108,5 @@ init =
     , colors:           false
     , language:         Japanese
     , now:              toDateTime $ unsafeFromJust $ instant $ Milliseconds 0.0
+    , paginationPage:   mempty
     }

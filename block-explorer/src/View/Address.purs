@@ -1,7 +1,9 @@
 module App.View.Address where
 
 import Prelude                        (($), map, show, (<<<), const, (<>), id,
-                                       join, not, flip, otherwise, map, (=<<))
+                                       join, not, flip, otherwise, map, (=<<),
+                                       (<), (==))
+import Prelude                        (div) as P
 
 import App.Types                       (Action (..), State, Coin(..), Color(Color),
                                        getBalance, colorToString, addressToString,
@@ -23,7 +25,7 @@ import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt, role, href,
                                        autoComplete, htmlFor, rowSpan, checked)
-import Pux.Html.Events                (onChange, onClick)
+import Pux.Html.Events                (onChange, onClick, onKeyDown)
 import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
@@ -217,39 +219,49 @@ view addr state =
                         [
                         ]
                     ]
-                , div
-                    [ className "font-light text-center" ]
-                    [ button
-                        [ id_ "expand-button"
-                        , onClick $ const ExpandTransactions
-                        ]
-                        [ ttext' _.expand ]
-                    ]
-                --, div
-                --    [ className "center-block font-light"
-                --    , id_ "pagination" ]
-                --    [ span
-                --        [ className "glyphicon glyphicon-triangle-left"
-                --        , id_ "navigation-arrow" ]
-                --        []
-                --    ,  input
-                --        [ type_ "search"
-                --        , id_ "pagination-search"
-                --        , placeholder "1200"
-                --        ]
-                --        []
-                --    , span
-                --        [ className "navagation-text-span"
-                --        , id_ "disabled-text" ]
-                --        [ text "of" ]
-                --    , span
-                --        [ className "navagation-text-span" ]
-                --        [ text "9090" ]
-                --    , span
-                --        [ className "glyphicon glyphicon-triangle-right"
-                --        , id_ "navigation-arrow" ]
-                --        []
-                --    ]
+                -- TODO: refactor! there is the same funcitonality in BlockInfo.purs
+                , if length state.transactions < 10
+                    then
+                        div
+                            [ className "font-light text-center" ]
+                            [ button
+                                [ id_ "expand-button"
+                                , onClick $ const ExpandTransactions
+                                ]
+                                [ ttext' _.expand ]
+                            ]
+                    else
+                        div
+                            [ className "center-block font-light"
+                            , id_ "pagination" ]
+                            [ span
+                                [ className "glyphicon glyphicon-triangle-left"
+                                , onClick $ const PaginationLeft
+                                , id_ "navigation-arrow" ]
+                                []
+                            ,  input
+                                [ type_ "search"
+                                , id_ "pagination-search"
+                                , value state.paginationPage
+
+                                , onChange $ PaginationUpdate <<< _.value <<< _.target
+                                , onKeyDown $ \e -> if e.keyCode == 13 then PaginationSearchTransactions else Nop
+                                ]
+                                []
+                            , span
+                                [ className "navagation-text-span"
+                                , id_ "disabled-text" ]
+                                [ text "of" ]
+                            , span
+                                [ className "navagation-text-span" ]
+                                -- FIXME: don't hardcode this
+                                [ text $ show $ (fromMaybe 0 $ state.txNumber) `P.div` 10 ]
+                            , span
+                                [ className "glyphicon glyphicon-triangle-right"
+                                , onClick $ const PaginationRight
+                                , id_ "navigation-arrow" ]
+                                []
+                            ]
                 ]
             ]
         ]

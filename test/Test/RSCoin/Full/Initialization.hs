@@ -116,18 +116,18 @@ runBank forkTmp b =
         mainIsBusy <- liftIO $ newIORef False
         -- TODO: this code is a modified version of launchBank. Invent
         -- smth to share code
-        forkTmp $
-            modifyLoggerName (<> "server") $
+        modifyLoggerName (<> "server") $
+            forkTmp $
                 B.serve (b ^. state) (b ^. secretKey) mainIsBusy
         wait $ for 10 ms
-        forkTmp $
-            modifyLoggerName (<> "worker") $
+        modifyLoggerName (<> "worker") $
+            forkTmp $
                 B.runWorker
                     periodDelta
                     (b ^. secretKey)
                     (b ^. state)
-        forkTmp $
-            modifyLoggerName (<> "explorer-worker") $
+        modifyLoggerName (<> "explorer-worker") $
+            forkTmp $
                 B.runExplorerWorker
                     mainIsBusy
                     (b ^. secretKey)

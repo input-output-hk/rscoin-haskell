@@ -2,6 +2,7 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE ViewPatterns        #-}
 
 -- | Extensions of some Core types. They contain extra data needed by
@@ -28,10 +29,11 @@ module RSCoin.Explorer.Extended
 
 import           Control.Lens          (makeLenses, view, _2, _3)
 import           Data.Bifunctor        (second)
+import qualified Data.HashMap.Strict   as HM
 import           Data.IntMap           (elems)
 import           Data.List             (genericLength)
-import qualified Data.Map              as M (elems, fromListWith,
-                                             update)
+import qualified Data.Map              as M (elems, fromListWith, update)
+import           Data.Maybe            (catMaybes)
 import           Data.SafeCopy         (base, deriveSafeCopy)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           GHC.Generics          (Generic)
@@ -59,12 +61,15 @@ type Timestamp = POSIXTime
 
 -- | Extension of Transaction.
 data TransactionExtension = TransactionExtension
-    { teId             :: !C.TransactionId
-    , tePeriodId       :: !C.PeriodId
-    , teInputAddresses :: ![Maybe C.Address]
-    , teInputsSum      :: !CoinsMapExtended
-    , teOutputsSum     :: !CoinsMapExtended
-    , teTimestamp      :: !Timestamp
+    { teId               :: !C.TransactionId
+    , tePeriodId         :: !C.PeriodId
+    , teInputAddresses   :: ![Maybe C.Address]
+    , teInputsSum        :: !CoinsMapExtended
+    -- List is used to simplify JSON encoding
+    , teSumPerInputAddr  :: ![(C.Address, C.CoinAmount)]
+    , teOutputsSum       :: !CoinsMapExtended
+    , teSumPerOutputAddr :: ![(C.Address, C.CoinAmount)]
+    , teTimestamp        :: !Timestamp
     } deriving (Show, Generic)
 
 type TransactionExtended = C.WithMetadata C.Transaction TransactionExtension
@@ -78,16 +83,22 @@ mkTransactionExtension
     -> C.Transaction
     -> m TransactionExtension
 mkTransactionExtension pId timestamp getTx tx@C.Transaction {..} =
-    TransactionExtension (C.hash tx) pId <$> mapM getAddress txInputs <*>
-    pure inputsSum <*>
-    pure outputsSum <*>
-    pure timestamp
+  TransactionExtension (C.hash tx) pId <$> mapM getAddress txInputs <*> pure inputsSum <*>
+  sumPerInputAddr <*>
+  pure outputsSum <*>
+  pure sumPerOutputAddr <*>
+  pure timestamp
   where
     getAddress :: C.AddrId -> m (Maybe C.Address)
     getAddress (txId, idx, _) = do
-        (fmap fst . (`atMay` idx) . C.txOutputs =<<) <$> getTx txId
+      (fmap fst . (`atMay` idx) . C.txOutputs =<<) <$> getTx txId
     inputsSum = mkCoinsMapExtended . C.coinsToMap . map (view _3) $ txInputs
+    groupByAddr = HM.toList . HM.fromListWith (+) . map (second C.coinAmount)
+    sumPerInputAddr =
+      groupByAddr . catMaybes <$>
+      mapM (\a -> fmap (, view _3 a) <$> getAddress a) txInputs
     outputsSum = mkCoinsMapExtended . C.coinsToMap . map (view _2) $ txOutputs
+    sumPerOutputAddr = groupByAddr txOutputs
 
 -- | Extension of HBlock.
 data HBlockExtension = HBlockExtension

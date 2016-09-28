@@ -83,20 +83,20 @@ mkTransactionExtension
     -> C.Transaction
     -> m TransactionExtension
 mkTransactionExtension pId timestamp getTx tx@C.Transaction {..} =
-  TransactionExtension (C.hash tx) pId <$> mapM getAddress txInputs <*> pure inputsSum <*>
-  sumPerInputAddr <*>
-  pure outputsSum <*>
-  pure sumPerOutputAddr <*>
-  pure timestamp
+    TransactionExtension (C.hash tx) pId <$> mapM getAddress txInputs <*> pure inputsSum <*>
+    sumPerInputAddr <*>
+    pure outputsSum <*>
+    pure sumPerOutputAddr <*>
+    pure timestamp
   where
     getAddress :: C.AddrId -> m (Maybe C.Address)
     getAddress (txId, idx, _) = do
-      (fmap fst . (`atMay` idx) . C.txOutputs =<<) <$> getTx txId
+        (fmap fst . (`atMay` idx) . C.txOutputs =<<) <$> getTx txId
     inputsSum = mkCoinsMapExtended . C.coinsToMap . map (view _3) $ txInputs
     groupByAddr = HM.toList . HM.fromListWith (+) . map (second C.coinAmount)
     sumPerInputAddr =
-      groupByAddr . catMaybes <$>
-      mapM (\a -> fmap (, view _3 a) <$> getAddress a) txInputs
+        groupByAddr . catMaybes <$>
+        mapM (\a -> fmap (, view _3 a) <$> getAddress a) txInputs
     outputsSum = mkCoinsMapExtended . C.coinsToMap . map (view _2) $ txOutputs
     sumPerOutputAddr = groupByAddr txOutputs
 
@@ -129,35 +129,21 @@ mkHBlockExtension ::
     -> C.WithMetadata C.HBlock C.HBlockMetadata
     -> (C.TransactionId -> m (Maybe C.Transaction))
     -> m HBlockExtension
-mkHBlockExtension pId C.WithMetadata
-                     {wmValue = C.HBlock {..}
-                     ,wmMetadata = C.HBlockMetadata {..}}
-                     getTx =
-    HBlockExtension
-    pId
-    hbmTimestamp
-    (genericLength hbTransactions)
-    <$> totalSent
-    -- previous comment: (hbeSize = size)
-    -- what needs to be used now if uncommented: <*> pure size
-
+mkHBlockExtension pId C.WithMetadata {wmValue = C.HBlock {..}
+                                     ,wmMetadata = C.HBlockMetadata {..}} getTx =
+    HBlockExtension pId hbmTimestamp (genericLength hbTransactions) <$> totalSent
   where
     totalSent = sum <$> mapM transactionTotalSent hbTransactions
     transactionTotalSent :: C.Transaction -> m C.CoinAmount
-    transactionTotalSent tx@C.Transaction{..} = do
-        tx1 <- getTx $ C.hash tx
-        case tx1 of
-            Nothing -> return 0
-            Just (C.Transaction _ txouts) -> do
-                 amountMap <-
-                    M.fromListWith (+) <$>
-                    getAdrAmountPair txInputs getTx
-                 let step (adr, c) cMap = M.update (Just . subtract c) adr cMap
-                     newMap =
-                         foldr step amountMap (map (\(a, C.coinAmount -> c) ->
-                                                         (a, c)) txouts)
-                 return $ sum $ M.elems newMap
-    -- size = undefined
+    transactionTotalSent C.Transaction {..} = do
+        amountMap <- M.fromListWith (+) <$> getAdrAmountPair txInputs getTx
+        let step (adr, c) cMap = M.update (Just . subtract c) adr cMap
+            newMap =
+                foldr
+                    step
+                    amountMap
+                    (map (\(a, C.coinAmount -> c) -> (a, c)) txOutputs)
+        return $ sum $ M.elems newMap
 
 type HBlockExtended = C.WithMetadata C.HBlock HBlockExtension
 

@@ -36,7 +36,7 @@ main = do
         err = W.ParseError "github" "error"
         introMsg = W.CMSetAddress addr
         aiMsg = W.AIGetTransactions (0, 2)
-        outMsg = W.OMTxNumber addr 8 10
+        outMsg = W.OMTxNumber addr 8 (10, 10)
         values =
             [ V coin
             , V key

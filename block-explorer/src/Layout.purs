@@ -175,7 +175,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                     pure Nop
                 ]
             }
-        OMTxNumber addr _ txNum ->
+        OMTxNumber addr _ (Tuple txNum _) ->
             noEffects $ state { txNumber = Just txNum, queryInfo = Just (SQAddress addr) }
         OMBlocksOverview blocks ->
             -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time

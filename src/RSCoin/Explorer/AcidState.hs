@@ -30,21 +30,18 @@ module RSCoin.Explorer.AcidState
        ) where
 
 import           Control.Monad.Trans      (MonadIO)
-import           Data.Acid                (EventResult, EventState, Query,
-                                           QueryEvent, Update, UpdateEvent,
-                                           makeAcidic)
+import           Data.Acid                (EventResult, EventState, Query, QueryEvent,
+                                           Update, UpdateEvent, makeAcidic)
 
 import           Serokell.AcidState       (ExtendedState, closeExtendedState,
                                            openLocalExtendedState,
-                                           openMemoryExtendedState,
-                                           queryExtended, tidyExtendedState,
-                                           updateExtended)
+                                           openMemoryExtendedState, queryExtended,
+                                           tidyExtendedState, updateExtended)
 
 import qualified RSCoin.Core              as C
 
 import           RSCoin.Explorer.Extended (CoinsMapExtended, HBlockExtended,
-                                           TransactionExtended,
-                                           TransactionExtension)
+                                           TransactionExtended, TransactionExtension)
 import qualified RSCoin.Explorer.Storage  as ES
 
 type State = ExtendedState ES.Storage
@@ -74,7 +71,7 @@ tidyState = tidyExtendedState
 getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, CoinsMapExtended)
 getAddressBalance = ES.getAddressBalance
 
-getAddressTxNumber :: C.Address -> Query ES.Storage (C.PeriodId, Word)
+getAddressTxNumber :: C.Address -> Query ES.Storage (C.PeriodId, (Word, Word))
 getAddressTxNumber = ES.getAddressTxNumber
 
 getAddressTransactions

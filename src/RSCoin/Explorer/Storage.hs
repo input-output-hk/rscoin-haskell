@@ -34,8 +34,9 @@ module RSCoin.Explorer.Storage
 
 import           Control.Applicative      (liftA2, (<|>))
 import           Control.Lens             (at, ix, makeLenses, makeLensesFor, preview,
-                                           use, view, views, (%=), (+=), (.=), _Just)
-import           Control.Monad            (forM_, unless)
+                                           use, view, views, (%%=), (%=), (+=), (.=),
+                                           _Just)
+import           Control.Monad            (forM_, unless, when)
 import           Control.Monad.Catch      (MonadThrow (throwM))
 import           Control.Monad.Extra      (ifM, whenJust)
 import           Control.Monad.Reader     (MonadReader, Reader, runReader)
@@ -46,6 +47,7 @@ import qualified Data.HashSet             as HS
 import qualified Data.IntMap.Strict       as I
 import           Data.List                (genericLength)
 import           Data.Maybe               (catMaybes, fromMaybe)
+import           Data.Monoid              (Any (..))
 import           Data.SafeCopy            (base, deriveSafeCopy)
 import qualified Data.Vector              as V
 import           Formatting               (build, sformat, (%))
@@ -57,7 +59,8 @@ import qualified RSCoin.Core              as C
 import           RSCoin.Explorer.Error    (ExplorerError (..))
 import           RSCoin.Explorer.Extended (CoinsMapExtended, HBlockExtended, Timestamp,
                                            TransactionExtended, TransactionExtension (..),
-                                           cmeTotal, mkCoinsMapExtended, mkHBlockExtended,
+                                           cmeTotal, isTransactionInteresting,
+                                           mkCoinsMapExtended, mkHBlockExtended,
                                            mkTransactionExtension)
 
 $(makeLensesFor
@@ -78,8 +81,9 @@ data TransactionIndex = TransactionIndex
 $(deriveSafeCopy 0 'base ''TransactionIndex)
 
 data AddressData = AddressData
-    { _adBalance      :: !CoinsMapExtended
-    , _adTransactions :: ![TransactionIndex]
+    { _adBalance                    :: !CoinsMapExtended
+    , _adTransactions               :: ![TransactionIndex]
+    , _adInterestingTransactionsNum :: !Word
     }
 
 mkAddressData :: AddressData
@@ -87,6 +91,7 @@ mkAddressData =
     AddressData
     { _adBalance = mkCoinsMapExtended C.zeroCoinsMap
     , _adTransactions = mempty
+    , _adInterestingTransactionsNum = 0
     }
 
 $(makeLenses ''AddressData)
@@ -141,12 +146,15 @@ getAddressBalance addr =
         (addresses . at addr)
         (maybe (mkCoinsMapExtended C.zeroCoinsMap) (view adBalance))
 
--- | Get number of transactions refering to given address. Result is
--- timestamped with id of ongoing period.
-getAddressTxNumber :: C.Address -> Query (C.PeriodId, Word)
+-- | Get number of transactions refering to given address and number
+-- of interesting transactions (the second one). Result is timestamped
+-- with id of ongoing period.
+getAddressTxNumber :: C.Address -> Query (C.PeriodId, (Word, Word))
 getAddressTxNumber addr =
     addTimestamp $
-    views (addresses . at addr) (maybe 0 (genericLength . view adTransactions))
+    (,) <$>
+    views (addresses . at addr) (maybe 0 (genericLength . view adTransactions)) <*>
+    views (addresses . at addr) (maybe 0 (view adInterestingTransactionsNum))
 
 -- | Get subset of transactions referring to given address. Index of
 -- the most recent transaction is 0. Returns indexed list of
@@ -280,8 +288,7 @@ addHBlock pId blkWithMeta@(C.WithMetadata C.HBlock {..} C.HBlockMetadata {..}) =
     extensions <- mapM (mkTxExtension newTxs pId hbmTimestamp) hbTransactions
     txExtensions %= flip V.snoc (V.fromList extensions)
     let extendedTxs = zipWith C.WithMetadata hbTransactions extensions
-    mapM_ applyTxToAddresses $
-        zip (map (TransactionIndex pId) [0 ..]) extendedTxs
+    mapM_ applyTxToAddresses $ zip (map (TransactionIndex pId) [0 ..]) extendedTxs
 
 addTxToMap :: C.PeriodId -> (Word, C.Transaction) -> Update ()
 addTxToMap pId (txIdx, tx) = transactionsMap . at (C.hash tx) .= Just index
@@ -303,26 +310,32 @@ mkTxExtension newTxs pId timestamp = mkTransactionExtension pId timestamp getTxs
     getTxs = getTxChecked pId newTxs
 
 applyTxToAddresses :: (TransactionIndex, TransactionExtended) -> Update ()
-applyTxToAddresses (i, C.WithMetadata C.Transaction {..} TransactionExtension {..}) = do
-    mapM_ (applyTxInput i) $ zip txInputs teInputAddresses
-    mapM_ (applyTxOutput i) txOutputs
+applyTxToAddresses (i, C.WithMetadata tx@C.Transaction {..} TransactionExtension {..}) = do
+    isInterestingTx <- isTransactionInteresting (readerToState . getTx) tx
+    mapM_ (applyTxInput i isInterestingTx) $ zip txInputs teInputAddresses
+    mapM_ (applyTxOutput i isInterestingTx) txOutputs
 
-applyTxInput :: TransactionIndex -> (C.AddrId, Maybe C.Address) -> Update ()
-applyTxInput i ((_, _, c), mAddr) = whenJust mAddr $ changeAddressData i (-c)
+applyTxInput :: TransactionIndex -> Bool -> (C.AddrId, Maybe C.Address) -> Update ()
+applyTxInput i isInteresting ((_, _, c), mAddr) =
+    whenJust mAddr $ changeAddressData i isInteresting (-c)
 
-applyTxOutput :: TransactionIndex -> (C.Address, C.Coin) -> Update ()
-applyTxOutput i (addr,c) = changeAddressData i c addr
+applyTxOutput :: TransactionIndex -> Bool -> (C.Address, C.Coin) -> Update ()
+applyTxOutput i isInteresting (addr, c) = changeAddressData i isInteresting c addr
 
-changeAddressData :: TransactionIndex -> C.Coin -> C.Address -> Update ()
-changeAddressData tx c addr = do
+changeAddressData :: TransactionIndex -> Bool -> C.Coin -> C.Address -> Update ()
+changeAddressData tx isInteresting c addr = do
     ensureAddressExists addr
-    addresses . at addr . _Just . adTransactions %= prependChecked tx
+    Any prepended <-
+        addresses . at addr . _Just . adTransactions %%= prependChecked tx
+    when (prepended && isInteresting) $ addresses . at addr . _Just . adInterestingTransactionsNum +=
+        1
     let aBalance = addresses . at addr . _Just . adBalance
-    aBalance . wmVal  %= I.insertWith (+) (C.getColor $ C.coinColor c) c
+    aBalance . wmVal %= I.insertWith (+) (C.getColor $ C.coinColor c) c
     aBalance . wmExtension . cmeTotal += C.coinAmount c
   where
-    prependChecked i l | i `elem` l = l
-                       | otherwise = i:l
+    prependChecked i l
+        | i `elem` l = (Any False, l)
+        | otherwise = (Any True, i : l)
 
 ensureAddressExists :: C.Address -> Update ()
 ensureAddressExists addr =

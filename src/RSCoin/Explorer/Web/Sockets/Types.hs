@@ -169,11 +169,13 @@ data OutcomingMsg
     | OMBalance !C.Address
                 !C.PeriodId
                 !CoinsMapExtended
-      -- | Sent within `AddressInfo` session. Contains number of
-      -- transactions referencing address over given PeriodId.
+      -- | Sent within `AddressInfo` session. The first number is
+      -- number of transactions referencing address over given
+      -- PeriodId. The second number is number of interesting
+      -- transactions.
     | OMTxNumber !C.Address
                  !C.PeriodId
-                 !Word
+                 !(Word, Word)
       -- | Sent in response to CMGetTransaction message.
     | OMTransaction !C.TransactionId
                     !TransactionExtended

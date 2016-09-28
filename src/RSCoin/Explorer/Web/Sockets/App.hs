@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 
 -- | Logic of Explorer WebSockets Server.
+
 module RSCoin.Explorer.Web.Sockets.App
        ( wsLoggerName
        , mkWsApp
@@ -431,8 +432,7 @@ onAddressInfo sessId msg addr = do
         AIGetTransactions indices@(lo, hi) -> do
             C.logDebug $
                 sformat
-                    ("Transactions [" % int % ", " % int % "] pointing to " %
-                     build %
+                    ("Transactions [" % int % ", " % int % "] pointing to " % build %
                      " are requested")
                     lo
                     hi

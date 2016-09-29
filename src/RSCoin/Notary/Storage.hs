@@ -73,12 +73,6 @@ data Storage = Storage
       -- collected signatures.
       _txPool                 :: !(HashMap Transaction TxPoolSignatureBundle)
 
---      -- | Mapping between address and a set of unspent addrids, owned by it.
---      -- Basically it is just Utxo^(-1).
---      -- @TODO: replace 'Set' with 'HashSet'
---      -- @TODO: do we need it?
---      -- , _unspentAddresses       :: !(HashMap Address (Set AddrId))
-
       -- | Mapping from newly allocated multisignature addresses. This Map is
       -- used only during multisignature address allocation process.
     , _allocationStrategyPool :: !(HashMap MSAddress AllocationInfo)
@@ -277,7 +271,6 @@ addSignedTransaction tx@Transaction{..} msAddr (partyAddr, sig) = do
     liftQuery $ guardIfSynchronized
     checkTransactionValidity
     checkAddrIdsKnown
---    checkAddrRelativeToTx
     checkSigRelativeToAddr
 
     pId <- use periodId
@@ -295,10 +288,6 @@ addSignedTransaction tx@Transaction{..} msAddr (partyAddr, sig) = do
         curUtxo <- use utxo
         unless (all (`HM.member` curUtxo) txInputs) $
             use periodId >>= throwM . NEAddrIdNotInUtxo
---    checkAddrRelativeToTx = do
---        s <- HM.lookupDefault S.empty addr <$> use unspentAddresses
---        unless (any (`S.member` s) txInputs) $
---            throwM NEAddrNotRelativeToTx
     checkSigRelativeToAddr = do
         strategy <- liftQuery (getStrategy msAddr)
         case strategy of

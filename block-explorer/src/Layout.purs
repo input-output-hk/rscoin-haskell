@@ -40,7 +40,7 @@ import Data.Array                     (filter, head, reverse, length, singleton,
 import Data.Functor                   ((<$>))
 import Data.Traversable               (traverse)
 import Data.Ord                       (compare)
-import Debug.Trace                    (traceAny)
+import Debug.Trace                    (traceAny, traceAnyM)
 import Data.Int                       (fromString)
 import Data.String                    (toCharArray, fromCharArray)
 import Data.String                    (take) as S
@@ -59,7 +59,7 @@ import Control.Alternative            ((<|>))
 import Control.Applicative            (when, unless)
 
 import DOM                            (DOM)
-import Control.Monad.Eff.Console      (CONSOLE)
+import Control.Monad.Eff.Console      (CONSOLE, log)
 import Control.Monad.Eff.Now          (nowDateTime, NOW)
 import Control.Monad.Eff.Class        (liftEff)
 import Control.Monad.Aff              (Aff)
@@ -186,7 +186,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             { state: state { periodId = pId, transactions = [], blocks = [], paginationPage = "", paginationExpand = true }
             , effects:
                 [ do
-                    C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple (pId - blocksNum + 1) (pId + 1)
+                    blockchainPage socket' state.periodId 0
                     C.send socket' $ IMControl $ CMGetTransactionsGlobal $ Tuple 0 txGlobalNum
                     C.send socket' $ IMControl $ CMSetHBlock pId
                     pure Nop
@@ -220,7 +220,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                 { transactions =
                     -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
                     unsafePartial $ take (pagination txGlobalNum $ length state.transactions) $
-                    map snd txs
+                    map snd txs <> state.transactions
                 }
         OMError (ParseError e) ->
             noEffects $ state { error = Just $ "ParseError: " <> e.peTypeName <> " : " <> e.peError }

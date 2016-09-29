@@ -193,7 +193,13 @@ allocateMSAddress
           Nothing -> throwM $ NEInvalidArguments "You should provide master pk and slave signature"
           Just (masterPk, masterSlaveSig) -> do
               unless (verify masterPk masterSlaveSig slavePk) $
-                  throwM $ NEUnrelatedSignature "partyAddr not signed with masterPk"
+                  throwM $ NEUnrelatedSignature $ sformat
+                      ("Invalid signature " % build %
+                       " of slave address " % build %
+                       " with master " % build)
+                      masterSlaveSig
+                      slavePk
+                      masterPk
               when (masterPk `notElem` trustedKeys) $
                   throwM $ NEInvalidArguments "provided master pk is not a trusted key"
       unless (verify slavePk requestSig signedData) $

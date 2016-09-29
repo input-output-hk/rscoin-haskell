@@ -105,7 +105,7 @@ update (PageView route@R.Home) state =
     onNewQueryDo action | state.route == route = pure Nop -- ignore
                         | otherwise = action
 update (PageView route@(R.Address addr)) state =
-    { state: state { route = route, blocks = [], paginationPage = "" }
+    { state: state { route = route, blocks = [], paginationPage = "", paginationExpand = true }
     , effects:
         [ onNewQueryDo do
             C.send socket' $ IMControl CMUnsubscribeNewBlocks
@@ -118,7 +118,7 @@ update (PageView route@(R.Address addr)) state =
     onNewQueryDo action | state.queryInfo == Just (SQAddress addr) = pure Nop -- ignore
                         | otherwise = action
 update (PageView route@(R.Transaction tId)) state =
-    { state: state { route = route, queryInfo = map SQTransaction getTransaction, transactions = [], blocks = [], paginationPage = "" }
+    { state: state { route = route, queryInfo = map SQTransaction getTransaction, transactions = [], blocks = [], paginationPage = "", paginationExpand = true }
     , effects:
         [ onNewQueryDo do
             when (isNothing getTransaction) $ do
@@ -179,11 +179,11 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             noEffects $ state { txNumber = Just txNum, queryInfo = Just (SQAddress addr) }
         OMBlocksOverview blocks ->
             -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
-            noEffects $ state { blocks = reverse $ map snd blocks }
+            noEffects $ state { blocks = take (pagination blocksNum $ length state.blocks) $ reverse $ map snd blocks }
         OMTransactionsGlobal _ txs ->
             noEffects $ state { transactions = state.transactions <> map snd txs }
         OMBlockchainHeight pId ->
-            { state: state { periodId = pId, transactions = [], blocks = [], paginationPage = "" }
+            { state: state { periodId = pId, transactions = [], blocks = [], paginationPage = "", paginationExpand = true }
             , effects:
                 [ do
                     C.send socket' $ IMControl $ CMGetBlocksOverview $ Tuple (pId - blocksNum + 1) (pId + 1)
@@ -198,6 +198,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                 [ do
                     C.send socket' $ IMControl $ CMSetHBlock pId
                     C.send socket' $ IMHBlockInfo HIGetMetadata
+                    blockchainPage socket' state.periodId paginationPage
                     pure Nop
                 ]
             }
@@ -205,7 +206,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             let transactionSlices =
                     map (\i -> Tuple (i*txLimit) $ (i+1)*txLimit) $
                     range 0 (hbeTxNumber `P.div` txLimit)
-            in { state: state { blocks = unsafePartial $ take (max blocksNum $ length state.blocks) $ singleton block <> state.blocks }
+            in { state: state
                , effects:
                    [ do
                         traverse
@@ -218,7 +219,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             noEffects $ state
                 { transactions =
                     -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
-                    unsafePartial $ take (max txGlobalNum $ length state.transactions) $
+                    unsafePartial $ take (pagination txGlobalNum $ length state.transactions) $
                     nubBy gEq $
                     map snd txs <> state.transactions
                 }
@@ -230,6 +231,10 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             noEffects $ state { error = Just $ "LogicError: " <> e }
         _ -> noEffects state
   where
+    pagination max' len =
+        if state.paginationExpand
+            then max max' len
+            else paginationNum
     socket' = unsafeFromJust state.socket
     paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ fromString state.paginationPage
 update (SocketAction _) state = noEffects state
@@ -252,11 +257,14 @@ update UpdateClock state = onlyEffects state $
          SetClock <<< extract <$> liftEff nowDateTime
     ]
 update (SetClock date) state = noEffects $ state { now = date }
-update ExpandTransactions state = onlyEffects state $
-    [ do
-        transactionPage socket' paginationPage
-        pure Nop
-    ]
+update ExpandTransactions state =
+    { state: state { paginationExpand = false }
+    , effects:
+        [ do
+            transactionPage socket' paginationPage
+            pure Nop
+        ]
+    }
   where
     socket' = unsafeFromJust state.socket
     paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ fromString state.paginationPage
@@ -269,11 +277,14 @@ update ExpandTransactionsGlobal state = onlyEffects state $
     ]
   where
     socket' = unsafeFromJust state.socket
-update ExpandBlockchain state = onlyEffects state $
-    [ do
-        blockchainPage socket' state.periodId 0
-        pure Nop
-    ]
+update ExpandBlockchain state =
+    { state: state { paginationExpand = false }
+    , effects:
+        [ do
+            blockchainPage socket' state.periodId 0
+            pure Nop
+        ]
+    }
   where
     socket' = unsafeFromJust state.socket
 update (PaginationUpdate page) state = noEffects $ state { paginationPage = S.take 4 $ removeNonDigit page }

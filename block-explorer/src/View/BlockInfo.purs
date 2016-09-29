@@ -79,7 +79,7 @@ view state =
                     ]
                 ]
             -- TODO: refactor! there is the same funcitonality in Address.purs
-            , if length state.blocks < 10
+            , if state.paginationExpand
                 then
                     div
                         [ className "font-light text-center" ]

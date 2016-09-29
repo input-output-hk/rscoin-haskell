@@ -89,6 +89,7 @@ type State =
     , language         :: Language
     , now              :: DateTime
     , paginationPage   :: String
+    , paginationExpand :: Boolean
     }
 
 init :: State
@@ -109,4 +110,5 @@ init =
     , language:         Japanese
     , now:              toDateTime $ unsafeFromJust $ instant $ Milliseconds 0.0
     , paginationPage:   mempty
+    , paginationExpand: true
     }

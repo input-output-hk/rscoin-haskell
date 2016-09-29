@@ -220,7 +220,7 @@ view addr state =
                         ]
                     ]
                 -- TODO: refactor! there is the same funcitonality in BlockInfo.purs
-                , if length state.transactions < 10
+                , if state.paginationExpand
                     then
                         div
                             [ className "font-light text-center" ]

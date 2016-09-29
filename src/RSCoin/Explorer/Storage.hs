@@ -247,7 +247,7 @@ getRecentTxsIndices onlyInteresting n = do
                     | otherwise = isTransactionInteresting getTx . snd
             filteredIndices :: [Word] <-
                 map fst <$> filterM filterF (zip [0 ..] blkTxs)
-            return $ res `mappend` fmap (TransactionIndex blkIdx) filteredIndices
+            return $ fmap (TransactionIndex blkIdx) filteredIndices `mappend` res
 
 -- | Get indexed list of extended HBlocks in given range.
 getHBlocksExtended :: (C.PeriodId, C.PeriodId) -> Query [(C.PeriodId, HBlockExtended)]

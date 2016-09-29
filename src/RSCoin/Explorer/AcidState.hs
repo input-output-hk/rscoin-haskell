@@ -14,11 +14,13 @@ module RSCoin.Explorer.AcidState
        , update
 
        , GetAddressBalance (..)
+       , GetAddressInterestingTransactions (..)
        , GetAddressTransactions (..)
        , GetAddressTxNumber (..)
        , GetExpectedPeriodId (..)
        , GetHBlocksExtended (..)
        , GetHBlockExtended (..)
+       , GetInterestingTxsGlobal (..)
        , GetTx (..)
        , GetTxExtended (..)
        , GetTxExtensions (..)
@@ -71,6 +73,12 @@ tidyState = tidyExtendedState
 getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, CoinsMapExtended)
 getAddressBalance = ES.getAddressBalance
 
+getAddressInterestingTransactions
+    :: C.Address
+    -> (Word, Word)
+    -> Query ES.Storage (C.PeriodId, [(Word, TransactionExtended)])
+getAddressInterestingTransactions = ES.getAddressInterestingTransactions
+
 getAddressTxNumber :: C.Address -> Query ES.Storage (C.PeriodId, (Word, Word))
 getAddressTxNumber = ES.getAddressTxNumber
 
@@ -82,6 +90,10 @@ getAddressTransactions = ES.getAddressTransactions
 
 getExpectedPeriodId :: Query ES.Storage C.PeriodId
 getExpectedPeriodId = ES.getExpectedPeriodId
+
+getInterestingTxsGlobal :: (Word, Word)
+                        -> Query ES.Storage (C.PeriodId, [(Word, TransactionExtended)])
+getInterestingTxsGlobal = ES.getInterestingTxsGlobal
 
 getTx :: C.TransactionId -> Query ES.Storage (Maybe C.Transaction)
 getTx = ES.getTx
@@ -116,6 +128,7 @@ $(makeAcidic ''ES.Storage
              [ 'getAddressBalance
              , 'getAddressTxNumber
              , 'getAddressTransactions
+             , 'getAddressInterestingTransactions
              , 'getExpectedPeriodId
              , 'getHBlocksExtended
              , 'getHBlockExtended
@@ -123,6 +136,7 @@ $(makeAcidic ''ES.Storage
              , 'getTxExtended
              , 'getTxExtensions
              , 'getTxsGlobal
+             , 'getInterestingTxsGlobal
              , 'isAddressKnown
              , 'isTransactionKnown
              , 'addHBlock

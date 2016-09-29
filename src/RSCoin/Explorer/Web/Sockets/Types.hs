@@ -76,11 +76,14 @@ data ControlMsg
       -- of some blocks. Indices are (lo, hi) and mean periods in
       -- range [lo, hi). It shouldn't exist here, only in HTTP.
     | CMGetBlocksOverview !(C.PeriodId, C.PeriodId)
-      -- | GetRecentTransactions requests transactions from global
+      -- | GetTransactionsGlobal requests transactions from global
       -- history. Low indices mean the most recent transactions,
       -- interval is half-opened ([lo, hi)). Probably it will also be
       -- moved into HTTP.
     | CMGetTransactionsGlobal !(Word, Word)
+      -- | Like GetTransactionsGlobal, but considers only interesting
+      -- transactions.
+    | CMGetInterestingTransactionsGlobal !(Word, Word)
       -- | SubscribeNewBlock makes client receive notifications about
       -- new blocks as soon as explorer receives them.
     | CMSubscribeNewBlocks
@@ -125,6 +128,10 @@ data AddressInfoMsg
       -- `AIGetTransactions (0, 2)` requests two most recent
       -- transactions.
       AIGetTransactions !(Word, Word)
+    |
+      -- | Like GetTransactions but returns only interesting
+      -- transactions.
+      AIGetInterestingTransactions !(Word, Word)
     deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''AddressInfoMsg)
@@ -144,6 +151,9 @@ data HBlockInfoMsg
       -- indices, transactions with indices in range [lo, hi) are
       -- returned.
     | HIGetTransactions !(Word, Word)
+      -- | Like GetTransactions, but considers only interesting
+      -- transactions.
+    | HIGetInterestingTransactions !(Word, Word)
     deriving (Show, Generic)
 
 $(deriveJSON defaultOptionsPS ''HBlockInfoMsg)
@@ -184,6 +194,11 @@ data OutcomingMsg
     | OMAddrTransactions !C.Address
                          !C.PeriodId
                          ![(Word, TransactionExtended)]
+      -- | Sent within `AddressInfo` session. Has an indexed list of
+      -- transactions referencing address over given PeriodId.
+    | OMAddrInterestingTransactions !C.Address
+                                    !C.PeriodId
+                                    ![(Word, TransactionExtended)]
       -- | Sent within `HBlockInfo` session. Has metadata associated
       -- with block and index of block.
     | OMBlockMetadata !C.PeriodId
@@ -192,6 +207,10 @@ data OutcomingMsg
       -- transactions in block, as well as index of block.
     | OMBlockTransactions !C.PeriodId
                           ![(Word, TransactionExtended)]
+      -- | Sent within `HBlockInfo` session. Has an indexed list of
+      -- interesting transactions in block, as well as index of block.
+    | OMBlockInterestingTransactions !C.PeriodId
+                                     ![(Word, TransactionExtended)]
       -- | Sent in response to CMGetBlockchainHeight message.
     | OMBlockchainHeight !C.PeriodId
       -- | Sent in response to CMGetBlocksOverview message.
@@ -201,6 +220,9 @@ data OutcomingMsg
       -- | Sent in response to CMGetTransactionsGlobal message.
     | OMTransactionsGlobal !C.PeriodId
                            ![(Word, TransactionExtended)]
+      -- | Sent in response to CMGetInterestingTransactionsGlobal message.
+    | OMInterestingTransactionsGlobal !C.PeriodId
+                                      ![(Word, TransactionExtended)]
     deriving (Show, Generic)
 
 $(deriveToJSON defaultOptionsPS ''OutcomingMsg)

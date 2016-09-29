@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
 -- | Explorer data storage.
@@ -13,9 +14,11 @@ module RSCoin.Explorer.Storage
          -- | Queries
        , Query
        , getAddressBalance
+       , getAddressInterestingTransactions
        , getAddressTxNumber
        , getAddressTransactions
        , getExpectedPeriodId
+       , getInterestingTxsGlobal
        , getHBlocksExtended
        , getHBlockExtended
        , getTx
@@ -36,12 +39,11 @@ import           Control.Applicative      (liftA2, (<|>))
 import           Control.Lens             (at, ix, makeLenses, makeLensesFor, preview,
                                            use, view, views, (%%=), (%=), (+=), (.=),
                                            _Just)
-import           Control.Monad            (forM_, unless, when)
+import           Control.Monad            (filterM, foldM, forM_, unless, when)
 import           Control.Monad.Catch      (MonadThrow (throwM))
 import           Control.Monad.Extra      (ifM, whenJust)
 import           Control.Monad.Reader     (MonadReader, Reader, runReader)
 import           Control.Monad.State      (MonadState, gets)
-import           Data.Foldable            (foldr')
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
 import qualified Data.IntMap.Strict       as I
@@ -81,9 +83,9 @@ data TransactionIndex = TransactionIndex
 $(deriveSafeCopy 0 'base ''TransactionIndex)
 
 data AddressData = AddressData
-    { _adBalance                    :: !CoinsMapExtended
-    , _adTransactions               :: ![TransactionIndex]
-    , _adInterestingTransactionsNum :: !Word
+    { _adBalance                 :: !CoinsMapExtended
+    , _adTransactions            :: ![TransactionIndex]
+    , _adInterestingTransactions :: ![TransactionIndex]
     }
 
 mkAddressData :: AddressData
@@ -91,7 +93,7 @@ mkAddressData =
     AddressData
     { _adBalance = mkCoinsMapExtended C.zeroCoinsMap
     , _adTransactions = mempty
-    , _adInterestingTransactionsNum = 0
+    , _adInterestingTransactions = mempty
     }
 
 $(makeLenses ''AddressData)
@@ -154,7 +156,9 @@ getAddressTxNumber addr =
     addTimestamp $
     (,) <$>
     views (addresses . at addr) (maybe 0 (genericLength . view adTransactions)) <*>
-    views (addresses . at addr) (maybe 0 (view adInterestingTransactionsNum))
+    views
+        (addresses . at addr)
+        (maybe 0 (genericLength . view adInterestingTransactions))
 
 -- | Get subset of transactions referring to given address. Index of
 -- the most recent transaction is 0. Returns indexed list of
@@ -168,6 +172,16 @@ getAddressTransactions addr indices =
     indexedSubList indices . catMaybes <$>
     (mapM txIdxToTxExtended =<<
      views (addresses . at addr) (maybe [] (view adTransactions)))
+
+-- | Like getAddressTransactions, but returns only interesting transactions.
+getAddressInterestingTransactions :: C.Address
+                                  -> (Word, Word)
+                                  -> Query (C.PeriodId, [(Word, TransactionExtended)])
+getAddressInterestingTransactions addr indices =
+    addTimestamp $
+    indexedSubList indices . catMaybes <$>
+    (mapM txIdxToTxExtended =<<
+     views (addresses . at addr) (maybe [] (view adInterestingTransactions)))
 
 -- | Get PeriodId of expected HBlock.
 getExpectedPeriodId :: Query C.PeriodId
@@ -205,23 +219,35 @@ getTxExtensions i =
 getTxsGlobal :: (Word, Word) -> Query (C.PeriodId, [(Word, TransactionExtended)])
 getTxsGlobal range =
     addTimestamp $
-    (indexedSubList range . catMaybes . V.toList) <$>
-    (mapM txIdxToTxExtended =<< getRecentTxsIndices (snd range))
+    (indexedSubList range . catMaybes) <$>
+    (mapM txIdxToTxExtended =<< getRecentTxsIndices False (snd range))
 
-getRecentTxsIndices :: Word -> Query (V.Vector TransactionIndex)
-getRecentTxsIndices n = do
-    blocks <- view hBlocks
-    let blocksNumber = V.length blocks
-        blocksTxsLengths =
-            fmap (genericLength . C.hbTransactions . C.wmValue) blocks
-    pure $
-        V.reverse . foldr' step [] . V.zip [0 .. blocksNumber] $
-        blocksTxsLengths
+-- | Like getTxsGlobal, but considers only interesting transactions.
+getInterestingTxsGlobal :: (Word, Word)
+                        -> Query (C.PeriodId, [(Word, TransactionExtended)])
+getInterestingTxsGlobal range =
+    addTimestamp $
+    (indexedSubList range . catMaybes) <$>
+    (mapM txIdxToTxExtended =<< getRecentTxsIndices True (snd range))
+
+getRecentTxsIndices :: Bool -> Word -> Query [TransactionIndex]
+getRecentTxsIndices onlyInteresting n = do
+    blocksTxs <- views hBlocks (V.toList . fmap (C.hbTransactions . C.wmValue))
+    foldM step [] . zip [0 .. genericLength blocksTxs - 1] $ blocksTxs
   where
-    step (blkIdx, blkTxsLen) res
-        | blkTxsLen == 0 || V.length res >= fromIntegral n = res
-        | otherwise =
-            fmap (TransactionIndex blkIdx) [0 .. blkTxsLen - 1] `mappend` res
+    step
+        :: [TransactionIndex]
+        -> (C.PeriodId, [C.Transaction])
+        -> Query [TransactionIndex]
+    step res (blkIdx, blkTxs)
+        | length blkTxs == 0 || length res >= fromIntegral n = pure res
+        | otherwise = do
+            let filterF
+                    | onlyInteresting = const $ pure True
+                    | otherwise = isTransactionInteresting getTx . snd
+            filteredIndices :: [Word] <-
+                map fst <$> filterM filterF (zip [0 ..] blkTxs)
+            return $ res `mappend` fmap (TransactionIndex blkIdx) filteredIndices
 
 -- | Get indexed list of extended HBlocks in given range.
 getHBlocksExtended :: (C.PeriodId, C.PeriodId) -> Query [(C.PeriodId, HBlockExtended)]
@@ -327,8 +353,8 @@ changeAddressData tx isInteresting c addr = do
     ensureAddressExists addr
     Any prepended <-
         addresses . at addr . _Just . adTransactions %%= prependChecked tx
-    when (prepended && isInteresting) $ addresses . at addr . _Just . adInterestingTransactionsNum +=
-        1
+    when (prepended && isInteresting) $ addresses . at addr . _Just . adInterestingTransactions %=
+        (tx :)
     let aBalance = addresses . at addr . _Just . adBalance
     aBalance . wmVal %= I.insertWith (+) (C.getColor $ C.coinColor c) c
     aBalance . wmExtension . cmeTotal += C.coinAmount c

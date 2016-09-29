@@ -18,7 +18,7 @@ import           Control.Concurrent                (forkIO)
 import           Control.Concurrent.MVar           (MVar, modifyMVar, newMVar, readMVar)
 import           Control.Lens                      (at, makeLenses, preuse, use, view,
                                                     (%=), (+=), (.=), (^.), _Just)
-import           Control.Monad                     (forever, join, unless)
+import           Control.Monad                     (filterM, forever, join, unless)
 import           Control.Monad.Catch               (Handler (Handler), MonadCatch,
                                                     MonadMask, MonadThrow, SomeException,
                                                     catches, finally, throwM)
@@ -46,6 +46,7 @@ import qualified RSCoin.Explorer.AcidState         as DB
 import           RSCoin.Explorer.Channel           (Channel, ChannelItem (..),
                                                     readChannel)
 import           RSCoin.Explorer.Error             (ExplorerError (..))
+import           RSCoin.Explorer.Extended          (isTransactionInteresting)
 import qualified RSCoin.Explorer.Storage           as ES
 import           RSCoin.Explorer.Web.Sockets.Types (AddressInfoMsg (..), ControlMsg (..),
                                                     ErrorableMsg, HBlockInfoMsg (..),
@@ -333,6 +334,15 @@ onGetTransactionsGlobal sessId range = do
                query (DB.GetTxsGlobal range)
     recvLoop sessId
 
+onGetInterestingTransactionsGlobal :: SessionId -> (Word, Word) -> ServerMonad ()
+onGetInterestingTransactionsGlobal sessId range = do
+    C.logDebug "Transactions from global history requested"
+    whenM (checkLimit sessId transactionsLimit range "transactions") $
+        do conn <- myConnection sessId
+           send conn . uncurry OMInterestingTransactionsGlobal =<<
+               query (DB.GetInterestingTxsGlobal range)
+    recvLoop sessId
+
 onSubscribeNewBlocks :: SessionId -> ServerMonad ()
 onSubscribeNewBlocks sessId = do
     C.logDebug $ sformat ("Client " % int % " subscribes to new blocks") sessId
@@ -400,6 +410,7 @@ receiveControlMessage sessId errorCB msg =
         CMGetBlockchainHeight -> onGetBlockchainHeight sessId
         CMGetBlocksOverview range -> onGetBlocksOverview sessId range
         CMGetTransactionsGlobal range -> onGetTransactionsGlobal sessId range
+        CMGetInterestingTransactionsGlobal range -> onGetInterestingTransactionsGlobal sessId range
         CMSubscribeNewBlocks -> onSubscribeNewBlocks sessId
         CMSubscribeAddress addr -> onSubscribeAddress sessId addr
         CMUnsubscribeNewBlocks -> onUnsubscribeNewBlocks sessId
@@ -433,13 +444,18 @@ onAddressInfo sessId msg addr = do
             C.logDebug $
                 sformat
                     ("Transactions [" % int % ", " % int % "] pointing to " % build %
-                     " are requested")
-                    lo
-                    hi
-                    addr
+                     " are requested") lo hi addr
             whenM (checkLimit sessId transactionsLimit indices "transactions") $
                 send conn . uncurry (OMAddrTransactions addr) =<<
                 query (DB.GetAddressTransactions addr indices)
+        AIGetInterestingTransactions indices@(lo, hi) -> do
+            C.logDebug $
+                sformat
+                    ("Interesting transactions [" % int % ", " % int % "] pointing to " % build %
+                     " are requested") lo hi addr
+            whenM (checkLimit sessId transactionsLimit indices "transactions") $
+                send conn . uncurry (OMAddrInterestingTransactions addr) =<<
+                query (DB.GetAddressInterestingTransactions addr indices)
 
 onHBlockInfo :: SessionId -> HBlockInfoMsg -> C.PeriodId -> ServerMonad ()
 onHBlockInfo sessId msg blkId = do
@@ -448,20 +464,25 @@ onHBlockInfo sessId msg blkId = do
     let sendError =
             send conn $
             OMError $ NotFound $ sformat ("HBlock #" % int % " not found") blkId
+        getTx = query . DB.GetTx
+        isInteresting (C.WithMetadata tx _) = isTransactionInteresting getTx tx
         proceed C.WithMetadata {wmValue = C.HBlock {..}, wmMetadata = ext} = do
             txExtensions <- query (DB.GetTxExtensions blkId)
             case msg of
                 HIGetMetadata -> send conn . OMBlockMetadata blkId $ ext
                 (HIGetTransactions indices) ->
                     whenM
-                        (checkLimit
-                             sessId
-                             transactionsLimit
-                             indices
-                             "transactions") $
+                        (checkLimit sessId transactionsLimit indices "transactions") $
                     send conn . OMBlockTransactions blkId $
                     indexedSubList indices $
                     zipWith C.WithMetadata hbTransactions txExtensions
+                (HIGetInterestingTransactions indices) ->
+                    whenM
+                        (checkLimit sessId transactionsLimit indices "transactions") .
+                    send conn . OMBlockInterestingTransactions blkId .
+                    indexedSubList indices =<<
+                    (filterM isInteresting $
+                     zipWith C.WithMetadata hbTransactions txExtensions)
     maybe sendError proceed blkExtendedMaybe
 
 recvLoop :: SessionId -> ServerMonad ()

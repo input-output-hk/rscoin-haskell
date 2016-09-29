@@ -162,7 +162,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                  --      sortBy transactionTimeComp $
                  --      unsafePartial $ take (length state.transactions) $
                  --      nubBy gEq $
-                       map snd arr
+                       take (pagination txGlobalNum $ length state.transactions) $ map snd arr
                    , queryInfo = Just (SQAddress addr)
                    }
         OMTransaction _ tx ->
@@ -220,8 +220,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                 { transactions =
                     -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
                     unsafePartial $ take (pagination txGlobalNum $ length state.transactions) $
-                    nubBy gEq $
-                    map snd txs <> state.transactions
+                    map snd txs
                 }
         OMError (ParseError e) ->
             noEffects $ state { error = Just $ "ParseError: " <> e.peTypeName <> " : " <> e.peError }
@@ -288,7 +287,7 @@ update ExpandBlockchain state =
   where
     socket' = unsafeFromJust state.socket
 update (PaginationUpdate page) state = noEffects $ state { paginationPage = S.take 4 $ removeNonDigit page }
-update PaginationLeft state =
+update PaginationLeftBlocks state =
     { state: state { paginationPage = show paginationPage }
     , effects:
         [ do
@@ -299,7 +298,7 @@ update PaginationLeft state =
   where
     socket' = unsafeFromJust state.socket
     paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ pred =<< fromString state.paginationPage
-update PaginationRight state =
+update PaginationRightBlocks state =
     { state: state { paginationPage = show paginationPage }
     , effects:
         [ do
@@ -310,6 +309,29 @@ update PaginationRight state =
   where
     socket' = unsafeFromJust state.socket
     paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ succ =<< fromString state.paginationPage
+update PaginationLeftTransactions state =
+    { state: state { paginationPage = show paginationPage }
+    , effects:
+        [ do
+            transactionPage socket' paginationPage
+            pure Nop
+        ]
+    }
+  where
+    socket' = unsafeFromJust state.socket
+    paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ pred =<< fromString state.paginationPage
+update PaginationRightTransactions state =
+    { state: state { paginationPage = show paginationPage }
+    , effects:
+        [ do
+            transactionPage socket' paginationPage
+            pure Nop
+        ]
+    }
+  where
+    socket' = unsafeFromJust state.socket
+    paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ succ =<< fromString state.paginationPage
+
 update PaginationSearchBlocks state = onlyEffects state $
     [ do
         blockchainPage socket' state.periodId paginationPage

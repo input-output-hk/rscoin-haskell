@@ -236,7 +236,7 @@ view addr state =
                             , id_ "pagination" ]
                             [ span
                                 [ className "glyphicon glyphicon-triangle-left"
-                                , onClick $ const PaginationLeft
+                                , onClick $ const PaginationLeftTransactions
                                 , id_ "navigation-arrow" ]
                                 []
                             ,  input
@@ -258,7 +258,7 @@ view addr state =
                                 [ text $ show $ (fromMaybe 0 $ state.txNumber) `P.div` 10 ]
                             , span
                                 [ className "glyphicon glyphicon-triangle-right"
-                                , onClick $ const PaginationRight
+                                , onClick $ const PaginationRightTransactions
                                 , id_ "navigation-arrow" ]
                                 []
                             ]

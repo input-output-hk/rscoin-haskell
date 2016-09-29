@@ -48,8 +48,10 @@ data Action
     | ExpandTransactionsGlobal
     | ExpandBlockchain
     | PaginationUpdate String
-    | PaginationLeft
-    | PaginationRight
+    | PaginationLeftBlocks
+    | PaginationRightBlocks
+    | PaginationLeftTransactions
+    | PaginationRightTransactions
     | PaginationSearchBlocks
     | PaginationSearchTransactions
     | Nop

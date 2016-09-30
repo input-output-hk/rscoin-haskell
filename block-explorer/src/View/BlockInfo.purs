@@ -54,7 +54,7 @@ view state =
                 [ id_ "section-title"
                 , className "padding-left-16"
                 ]
-                [ ttextUpper state.language _.summary ] -- TODO: current blocks
+                [ ttextUpper state.language _.currentBlocks ]
             , div
                 [ className "row"
                 , id_ "info-table-margins" ]

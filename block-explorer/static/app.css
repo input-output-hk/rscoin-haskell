@@ -2,7 +2,7 @@ body {
     /*font-family: 'Source Sans Pro', 'Trebuchet MS', 'Lucida Grande', 'Helvetica Neue', sans-serif;*/
     font-family: 'Montserrat', sans-serif !important;
     font-weight: 400;
-    font-size: 14px;
+    font-size: 10px;
     letter-spacing: .2px;
     text-rendering: optimizeLegibility;
     text-size-adjust: 100;
@@ -282,7 +282,11 @@ td {
     z-index: 1030 !important;
 }
 
-#info-table-margins {
+.padding-left-16 {
+    padding-left: 16px;
+}
+
+#info-table-margins, .info-table-margins {
     margin: 24px 48px !important;
 }
 
@@ -467,7 +471,7 @@ td {
     margin: 10px 0px;
 }
 
-#transaction-addresses-table tr, td, #transaction-addresses-table tr td > div {
+#transaction-addresses-table tr, td, #transaction-addresses-table tr td > div, th {
     padding: 8px 24px !important;
     height: 28px !important;
     line-height: 12px !important;
@@ -556,6 +560,7 @@ input:checked + .slider:before {
     font-size: 8px;
     line-height: 8px;
     padding: 8px 6px;
+    margin-bottom: 24px;
 }
 
 #pagination-search {
@@ -612,6 +617,7 @@ input:checked + .slider:before {
     opacity: 0.4;
     text-align: center;
     margin: 0 auto;
+    margin-bottom: 24px;
 }
 
 #expand-button:hover {

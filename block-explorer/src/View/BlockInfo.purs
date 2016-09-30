@@ -18,7 +18,7 @@ import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
                                        adaSymbolDarkPath, transactionArrowGreenPath,
                                        transactionArrowRedPath)
-import App.Common.Html                (ttext, ttextUpper, visible)
+import App.Common.Html                (ttext, ttextUpper, visible, ttextClass)
 
 import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span,
                                        table, div, small, h3, td, img, ul, li,
@@ -52,17 +52,18 @@ view state =
             [ className "row light-grey-background" ]
             [ div
                 [ id_ "section-title"
+                , className "padding-left-16"
                 ]
-                [ ttextUpper state.language _.summary ]
+                [ ttextUpper state.language _.summary ] -- TODO: current blocks
             , div
                 [ className "row"
                 , id_ "info-table-margins" ]
                 [ div
                     [ className "col-xs-12" ]
                     [ table
-                        [ className "table table-striped fix-table-padding striped-dark" ]
+                        [ className "table table-striped striped-dark" ]
                         [ thead
-                            []
+                            [ className "info-table-margins" ]
                             [ tr
                                 []
                                 [ th [] [ ttext' _.height ]
@@ -77,6 +78,7 @@ view state =
                         ]
 
                     ]
+
                 ]
             -- TODO: refactor! there is the same funcitonality in Address.purs
             , if state.paginationExpand
@@ -126,6 +128,7 @@ view state =
             [ className "row" ]
             [ div
                 [ id_ "section-title"
+                , className "padding-left-16"
                 ]
                 [ ttextUpper state.language _.transactionsFeed ]
             , div
@@ -134,7 +137,7 @@ view state =
                 [ div
                     [ className "col-xs-12" ]
                     [ table
-                        [ className "table table-striped fix-table-padding" ]
+                        [ className "table table-striped" ]
                         [ tbody
                             [ id_ "info-table" ]
                             $ map transactionsFeedItem state.transactions

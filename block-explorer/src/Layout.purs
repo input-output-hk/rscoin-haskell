@@ -186,7 +186,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             { state: state { periodId = pId, transactions = [], blocks = [], paginationPage = "", paginationExpand = true }
             , effects:
                 [ do
-                    blockchainPage socket' state.periodId 0
+                    blockchainPage socket' pId paginationPage
                     C.send socket' $ IMControl $ CMGetTransactionsGlobal $ Tuple 0 txGlobalNum
                     C.send socket' $ IMControl $ CMSetHBlock pId
                     pure Nop
@@ -198,7 +198,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                 [ do
                     C.send socket' $ IMControl $ CMSetHBlock pId
                     C.send socket' $ IMHBlockInfo HIGetMetadata
-                    blockchainPage socket' state.periodId paginationPage
+                    blockchainPage socket' pId paginationPage
                     pure Nop
                 ]
             }

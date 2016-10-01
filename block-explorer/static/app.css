@@ -653,3 +653,6 @@ th {
     line-height: 14px;
     font-weight: bold;
 }
+.balance #ada-symbol {
+    height: 10px;
+}

@@ -220,6 +220,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                 { transactions =
                     -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
                     unsafePartial $ take (pagination txGlobalNum $ length state.transactions) $
+                    nubBy gEq $
                     map snd txs <> state.transactions
                 }
         OMError (ParseError e) ->

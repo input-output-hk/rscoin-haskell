@@ -79,7 +79,7 @@ view addr state =
                                 []
                                 [ td [] [ ttext' _.finalBalance ]
                                 , td
-                                    []
+                                    [ className "balance" ]
                                     [ img
                                         [ id_ "ada-symbol"
                                         , src adaSymbolDarkPath

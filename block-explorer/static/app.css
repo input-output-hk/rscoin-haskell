@@ -647,3 +647,9 @@ th {
 .fix-table-padding tr td {
     padding: 8px !important;
 }
+
+.balance {
+    font-size: 12px;
+    line-height: 14px;
+    font-weight: bold;
+}

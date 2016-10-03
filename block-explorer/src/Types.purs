@@ -40,6 +40,7 @@ data Action
     | SearchButton
     | DismissError
     | ColorToggle
+    | TransactionsToggle
     | LanguageSet Language
     | UpdateClock
     | SetClock DateTime
@@ -92,6 +93,7 @@ type State =
     , now              :: DateTime
     , paginationPage   :: String
     , paginationExpand :: Boolean
+    , showTransactions :: Boolean
     }
 
 init :: State
@@ -113,4 +115,5 @@ init =
     , now:              toDateTime $ unsafeFromJust $ instant $ Milliseconds 0.0
     , paginationPage:   mempty
     , paginationExpand: true
+    , showTransactions: false
     }

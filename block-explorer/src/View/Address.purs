@@ -79,31 +79,55 @@ view addr state =
                                 []
                                 [ td [] [ ttext' _.finalBalance ]
                                 , td
-                                    [ className "balance" ]
+                                    []
                                     [ img
                                         [ id_ "ada-symbol"
                                         , src adaSymbolDarkPath
+                                        , className "balance"
                                         ]
                                         []
-                                    , text $ fromMaybe "0" $ show <<< getBalance <$> state.balance
+                                    , span
+                                        [ className "balance" ]
+                                        [ text $ fromMaybe "0" $ show <<< getBalance <$> state.balance ]
                                     , div
                                         [ className "pull-right" ]
-                                        [ label
-                                            [ className "switch" ]
-                                            [ input
-                                                [ type_ "checkbox"
-                                                , onChange $ const ColorToggle
-                                                , checked state.colors
+                                        [ div
+                                            []
+                                            [ span
+                                                [ className "font-light toggle-label" ]
+                                                [ ttext' _.colorBalance ]
+                                            , label
+                                                [ className "switch pull-right" ]
+                                                [ input
+                                                    [ type_ "checkbox"
+                                                    , onChange $ const ColorToggle
+                                                    , checked state.colors
+                                                    ]
+                                                    []
+                                                , div
+                                                    [ className "slider round" ]
+                                                    []
                                                 ]
-                                                []
-                                            , div
-                                                [ className "slider round" ]
-                                                []
+                                            ]
+                                        , div
+                                            []
+                                            [ span
+                                                [ className "font-light toggle-label" ]
+                                                [ ttext' _.transactions ]
+                                            , label
+                                                [ className "switch pull-right" ]
+                                                [ input
+                                                    [ type_ "checkbox"
+                                                    , onChange $ const TransactionsToggle
+                                                    , checked state.showTransactions
+                                                    ]
+                                                    []
+                                                , div
+                                                    [ className "slider round" ]
+                                                    []
+                                                ]
                                             ]
                                         ]
-                                    , div
-                                        [ className "pull-right font-light" ]
-                                        [ ttext' _.colorBalance ]
                                     ]
                                 ]
                             ]
@@ -198,7 +222,7 @@ view addr state =
                     ]
                 ]
             ]
-        , div
+        , visible div state.showTransactions $ div
             [ className "row light-grey-background" ]
             [ div
                 [ className "row no-margin" ]

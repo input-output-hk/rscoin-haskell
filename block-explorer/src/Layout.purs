@@ -248,6 +248,8 @@ update SearchButton state =
   where
     socket' = unsafeFromJust state.socket
 update DismissError state = noEffects $ state { error = Nothing }
+update TransactionsToggle state =
+    noEffects $ state { showTransactions = not state.showTransactions }
 update ColorToggle state =
     noEffects $ state { colors = not state.colors }
 update (LanguageSet l) state =

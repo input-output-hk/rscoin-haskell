@@ -653,6 +653,12 @@ th {
     line-height: 14px;
     font-weight: bold;
 }
-.balance #ada-symbol {
-    height: 10px;
+
+#ada-symbol.balance {
+    height: 11px;
+    vertical-align: text-top;
+}
+
+.toggle-label {
+    text-align: right;
 }

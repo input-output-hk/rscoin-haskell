@@ -131,6 +131,7 @@ startNotary severity CommonParams {..} = do
                 []
                 Default
                 Default
+                False
     Cherepakha.mktree workingDirDeprecated
     forkIO start
 

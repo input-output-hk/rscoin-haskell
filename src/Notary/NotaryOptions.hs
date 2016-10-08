@@ -6,18 +6,15 @@ module NotaryOptions
         ) where
 
 import           Data.Text              (Text)
-import           Options.Applicative    (Parser, auto, execParser, fullDesc,
-                                         help, helper, info, long, many,
-                                         metavar, option, progDesc, short,
-                                         showDefault, switch, value, (<>))
+import           Options.Applicative    (Parser, auto, execParser, fullDesc, help, helper,
+                                         info, long, many, metavar, option, progDesc,
+                                         short, showDefault, switch, value, (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (PeriodId, Severity (Error),
-                                         configDirectory,
-                                         defaultConfigurationPath,
-                                         defaultSecretKeyPath)
+import           RSCoin.Core            (PeriodId, Severity (Error), configDirectory,
+                                         defaultConfigurationPath, defaultSecretKeyPath)
 import           RSCoin.Notary.Defaults (defaultAllocationEndurance,
                                          defaultTransactionEndurance)
 
@@ -34,6 +31,7 @@ data Options = Options
     , cloRebuildDB      :: Bool
     , cloSkPath         :: FilePath
     , cloAutoCreateKey  :: Bool
+    , cloDisableReqs    :: Bool
     } deriving Show
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
@@ -92,7 +90,12 @@ optionsParser defaultSKPath configDir defaultConfigPath =
         (long "auto-create-sk" <>
          help
              ("If the \"sk\" is pointing to non-existing " <>
-              "file, generate a keypair"))
+              "file, generate a keypair")) <*>
+    switch
+        (long "disable" <>
+         help
+             ("If set, notary will comminucate with bank only," <>
+              " ignoring all other reqests))"))
 
 getOptions :: IO Options
 getOptions = do

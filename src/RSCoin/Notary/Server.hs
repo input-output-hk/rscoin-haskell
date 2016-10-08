@@ -20,6 +20,7 @@ import           Control.Monad           (unless, when)
 import           Control.Monad.Catch     (catch, throwM)
 import           Control.Monad.Trans     (lift)
 import           Data.Binary             (Binary)
+import           Data.Bool               (bool)
 import           Data.Text               (Text)
 
 import           Formatting              (build, int, sformat, shown, (%))
@@ -27,16 +28,13 @@ import           Formatting              (build, int, sformat, shown, (%))
 import           Serokell.Util.Text      (pairBuilder, show')
 
 import           Control.TimeWarp.Rpc    (ServerT, serverTypeRestriction0,
-                                          serverTypeRestriction1,
-                                          serverTypeRestriction2,
-                                          serverTypeRestriction3,
-                                          serverTypeRestriction5)
+                                          serverTypeRestriction1, serverTypeRestriction2,
+                                          serverTypeRestriction3, serverTypeRestriction5)
 import qualified RSCoin.Core             as C
 import qualified RSCoin.Core.Protocol    as P
 
 import           RSCoin.Notary.AcidState (AddSignedTransaction (..),
-                                          AllocateMSAddress (..),
-                                          AnnounceNewPeriod (..),
+                                          AllocateMSAddress (..), AnnounceNewPeriod (..),
                                           GetPeriodId (..), GetSignatures (..),
                                           NotaryState, PollPendingTxs (..),
                                           QueryAllMSAdresses (..),
@@ -75,8 +73,8 @@ toServerSigned sk = signHandler sk . toServer
 -- | Run Notary server which will process incoming sing requests.
 serveNotary
     :: C.WorkMode m
-    => C.SecretKey -> NotaryState -> m ()
-serveNotary sk st = do
+    => Bool -> C.SecretKey -> NotaryState -> m ()
+serveNotary isDisabled sk st = do
     idr1 <- serverTypeRestriction3
     idr2 <- serverTypeRestriction2
     idr3 <- serverTypeRestriction1
@@ -89,27 +87,31 @@ serveNotary sk st = do
 
     (bankPublicKey, notaryPort) <- liftA2 (,) (^. C.bankPublicKey) (^. C.notaryPort)
                                    <$> C.getNodeContext
-    P.serve
-        notaryPort
-        [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1
-            $ handlePublishTx sk st
-        , P.method (P.RSCNotary P.GetSignatures)              $ idr2
-            $ handleGetSignatures sk st
-        , P.method (P.RSCNotary P.AnnounceNewPeriodsToNotary) $ idr3
-            $ handleAnnounceNewPeriod st
-        , P.method (P.RSCNotary P.GetNotaryPeriod)            $ idr4
-            $ handleGetPeriodId sk st
-        , P.method (P.RSCNotary P.QueryCompleteMS)            $ idr5
-            $ handleQueryCompleteMS sk st
-        , P.method (P.RSCNotary P.RemoveCompleteMS)           $ idr6
-            $ handleRemoveCompleteMS st bankPublicKey
-        , P.method (P.RSCNotary P.AllocateMultisig)           $ idr7
-            $ handleAllocateMultisig st
-        , P.method (P.RSCNotary P.QueryMyAllocMS)             $ idr8
-            $ handleQueryMyAllocationMS sk st
-        , P.method (P.RSCNotary P.PollPendingTransactions)    $ idr9
-            $ handlePollPendingTxs sk st
-        ]
+
+    let userEndpoints =
+            [ P.method (P.RSCNotary P.PublishTransaction)         $ idr1
+                $ handlePublishTx sk st
+            , P.method (P.RSCNotary P.GetSignatures)              $ idr2
+                $ handleGetSignatures sk st
+            , P.method (P.RSCNotary P.AllocateMultisig)           $ idr7
+                $ handleAllocateMultisig st
+            , P.method (P.RSCNotary P.QueryMyAllocMS)             $ idr8
+                $ handleQueryMyAllocationMS sk st
+            , P.method (P.RSCNotary P.PollPendingTransactions)    $ idr9
+                $ handlePollPendingTxs sk st
+            ]
+    let bankEndpoints =
+            [ P.method (P.RSCNotary P.AnnounceNewPeriodsToNotary) $ idr3
+                $ handleAnnounceNewPeriod st
+            , P.method (P.RSCNotary P.GetNotaryPeriod)            $ idr4
+                $ handleGetPeriodId sk st
+            , P.method (P.RSCNotary P.QueryCompleteMS)            $ idr5
+                $ handleQueryCompleteMS sk st
+            , P.method (P.RSCNotary P.RemoveCompleteMS)           $ idr6
+                $ handleRemoveCompleteMS st bankPublicKey
+            ]
+
+    P.serve notaryPort $ bankEndpoints ++ bool userEndpoints [] isDisabled
 
 handlePublishTx
     :: C.WorkMode m

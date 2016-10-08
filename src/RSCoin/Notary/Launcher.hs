@@ -5,6 +5,7 @@ module RSCoin.Notary.Launcher
        , launchNotaryReal
        ) where
 
+import           Control.Monad                        (unless)
 import           Control.Monad.Catch                  (bracket)
 import           Control.Monad.Trans                  (MonadIO, liftIO)
 import           Data.Optional                        (Optional)
@@ -13,11 +14,9 @@ import           Network.Wai.Handler.Warp             (run)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
 import           Control.TimeWarp.Timed               (fork_)
-import           RSCoin.Core                          (ContextArgument (..),
-                                                       NodeContext, PeriodId,
-                                                       PublicKey, SecretKey,
-                                                       Severity (..),
-                                                       getNodeContext,
+import           RSCoin.Core                          (ContextArgument (..), NodeContext,
+                                                       PeriodId, PublicKey, SecretKey,
+                                                       Severity (..), getNodeContext,
                                                        notaryLoggerName,
                                                        runRealModeUntrusted)
 
@@ -37,6 +36,7 @@ launchNotaryReal
     -> [PublicKey]
     -> Optional PeriodId
     -> Optional PeriodId
+    -> Bool
     -> IO ()
 launchNotaryReal
     logSeverity
@@ -48,13 +48,14 @@ launchNotaryReal
     trustedKeys
     allocationEndurance
     transactionEndurance
+    isDisabled
   = do
     let openAction = maybe openMemState (openState deleteIfExists) dbPath
     runRealModeUntrusted notaryLoggerName ca $
         bracket (openAction trustedKeys allocationEndurance transactionEndurance) closeState $
         \st -> do
-            fork_ $ serveNotary sk st
-            fork_ $ runFetchWorker st
+            fork_ $ serveNotary isDisabled sk st
+            unless isDisabled $ fork_ $ runFetchWorker st
             launchWeb webPort logSeverity st =<< getNodeContext
 
 loggingMiddleware :: Severity -> Middleware

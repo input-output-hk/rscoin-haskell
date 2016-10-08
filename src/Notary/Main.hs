@@ -7,9 +7,8 @@ import           Control.Monad.Catch (throwM, try)
 import           Data.Maybe          (mapMaybe)
 import           Data.Monoid         ((<>))
 
-import           RSCoin.Core         (constructPublicKey, initLogging, keyGen,
-                                      logWarning, readSecretKey,
-                                      testNotarySecretKey, writePublicKey,
+import           RSCoin.Core         (constructPublicKey, initLogging, keyGen, logWarning,
+                                      readSecretKey, testNotarySecretKey, writePublicKey,
                                       writeSecretKey)
 import qualified RSCoin.Notary       as N
 
@@ -59,3 +58,4 @@ main = do
         trustedKeys
         (fromIntegral cliAllocAlive)
         (fromIntegral cliTxAlive)
+        cloDisableReqs

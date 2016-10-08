@@ -54,8 +54,8 @@ import           RSCoin.Bank.Error          (BankError (BEBadRequest))
 
 serve
     :: C.WorkMode m
-    => State -> SecretKey -> IORef Bool -> m ()
-serve st bankSK isPeriodChanging = do
+    => State -> SecretKey -> [C.Address] -> IORef Bool -> m ()
+serve st bankSK permittedAddrs isPeriodChanging = do
     idr1 <- Rpc.serverTypeRestriction0
     idr2 <- Rpc.serverTypeRestriction0
     idr3 <- Rpc.serverTypeRestriction0
@@ -76,7 +76,7 @@ serve st bankSK isPeriodChanging = do
         -- , C.method (C.RSCBank C.GetAddresses) $ idr5 $ serveGetAddresses bankSK st
         , C.method (C.RSCBank C.GetExplorers) $ idr6 $ serveGetExplorers bankSK st
         , C.method (C.RSCBank C.LocalControlRequest) $
-          idr7 $ serveLocalControlRequest st bankPK bankSK isPeriodChanging
+          idr7 $ serveLocalControlRequest st bankPK bankSK permittedAddrs isPeriodChanging
         , C.method (C.RSCBank C.AddMintetteUsingPermit) $ idr8 $
           serveAddMintetteUsingPermit st
         ]
@@ -247,8 +247,8 @@ getPeriodResults sk mts pId = do
     f res mintette =
         getPeriodResult sk mintette pId >>= liftIO . modifyIORef res . (:)
 
-onPeriodFinished :: C.WorkMode m => SecretKey -> State -> m ()
-onPeriodFinished sk st = do
+onPeriodFinished :: C.WorkMode m => [C.Address] -> SecretKey -> State -> m ()
+onPeriodFinished allowedAddrs sk st = do
     mintettes <- query st GetMintettes
     pId <- query st GetPeriodId
     C.logInfo $ sformat ("Period " % int % " has just finished!") pId
@@ -260,7 +260,7 @@ onPeriodFinished sk st = do
     -- get [] here in this case (and it's fine).
     periodResults <- getPeriodResults sk mintettes pId
     timestamp <- liftIO getPOSIXTime
-    newPeriodData <- update st $ StartNewPeriod timestamp sk periodResults
+    newPeriodData <- update st $ StartNewPeriod timestamp sk periodResults allowedAddrs
     tidyState st
     newMintettes <- query st GetMintettes
     if null newMintettes
@@ -317,15 +317,16 @@ serveFinishPeriod
     :: C.WorkMode m
     => State
     -> SecretKey
+    -> [C.Address]
     -> IORef Bool
     -> m ()
-serveFinishPeriod st bankSK isPeriodChanging = do
+serveFinishPeriod st bankSK permittedAddrs isPeriodChanging = do
     let br =
             bracket_
                 (liftIO $ atomicWriteIORef isPeriodChanging True)
                 (liftIO $ atomicWriteIORef isPeriodChanging False)
     logInfo "Finish of period was requested"
-    t <- br $ measureTime_ $ onPeriodFinished bankSK st
+    t <- br $ measureTime_ $ onPeriodFinished permittedAddrs bankSK st
     logInfo $ sformat ("Finishing period took " % build) t
 
 serveDumpStatistics
@@ -344,10 +345,11 @@ serveLocalControlRequest
     => State
     -> PublicKey
     -> SecretKey
+    -> [C.Address]
     -> IORef Bool
     -> PT.BankLocalControlRequest
     -> ServerTE m ()
-serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest =
+serveLocalControlRequest st bankPK bankSK permittedAddrs isPeriodChanging controlRequest =
     toServer $
     do periodId <- query st GetPeriodId
        unless (PT.checkLocalControlRequest periodId bankPK controlRequest) $
@@ -364,7 +366,7 @@ serveLocalControlRequest st bankPK bankSK isPeriodChanging controlRequest =
            PT.AddExplorer e pid _ -> update st (AddExplorer e pid)
            PT.RemoveMintette host port _ -> update st (RemoveMintette host port)
            PT.RemoveExplorer host port _ -> update st (RemoveExplorer host port)
-           PT.FinishPeriod _ -> serveFinishPeriod st bankSK isPeriodChanging
+           PT.FinishPeriod _ -> serveFinishPeriod st bankSK permittedAddrs isPeriodChanging
            PT.DumpStatistics sId _ -> serveDumpStatistics st sId
        logInfo $
            sformat

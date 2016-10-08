@@ -34,7 +34,7 @@ import qualified Data.HashMap.Strict           as HM
 import qualified Data.HashSet                  as S
 import           Data.List                     (unfoldr)
 import qualified Data.Map                      as MP
-import           Data.Maybe                    (fromJust, isNothing, mapMaybe)
+import           Data.Maybe                    (fromJust, isJust, isNothing, mapMaybe)
 import           Data.Time.Clock.POSIX         (POSIXTime)
 import           Safe                          (headMay)
 
@@ -44,7 +44,7 @@ import           RSCoin.Core                   (ActionLog, AddrId, Address (..),
                                                 HBlock (..), MintetteId, Mintettes,
                                                 NewPeriodData (..), PeriodId,
                                                 PeriodResult, PublicKey, SecretKey,
-                                                Transaction (..), canonizeTx,
+                                                Transaction (..), Utxo, canonizeTx,
                                                 checkActionLog, checkLBlock,
                                                 computeOutputAddrids, emissionHash, hash,
                                                 lbTransactions, mkGenesisHBlock, mkHBlock,
@@ -129,15 +129,16 @@ startNewPeriod
     :: POSIXTime
     -> SecretKey
     -> [Maybe PeriodResult]
+    -> [Address]
     -> ExceptUpdate [NewPeriodData]
-startNewPeriod timestamp sk results = do
+startNewPeriod timestamp sk results permittedAddrs = do
     mintettes <- use Q.getMintettes
     unless (length mintettes == length results) $
         throwM $
         BEInternal
             "Length of results is different from the length of mintettes"
     pId <- use periodId
-    changedMintetteIx <- startNewPeriodDo timestamp sk pId results
+    changedMintetteIx <- startNewPeriodDo timestamp sk pId results permittedAddrs
     currentMintettes <- use Q.getMintettes
     payload' <- formPayload currentMintettes changedMintetteIx
     periodId' <- use periodId
@@ -159,13 +160,14 @@ startNewPeriodDo
     -> SecretKey
     -> PeriodId
     -> [Maybe PeriodResult]
+    -> [Address]
     -> ExceptUpdate [MintetteId]
-startNewPeriodDo timestamp sk 0 _ =
+startNewPeriodDo timestamp sk 0 _ _ =
     startNewPeriodFinally metadata sk [] (const $ mkGenesisHBlock genAddr)
   where
     genAddr = C.Address $ C.derivePublicKey sk
     metadata = C.HBlockMetadata timestamp [C.genesisEmissionHash]
-startNewPeriodDo timestamp sk pId results = do
+startNewPeriodDo timestamp sk pId results permittedAddrs = do
     lastHBlock <- uses blocks (C.wmValue . head)
     curDpk <- use Q.getDpk
     logs <- use $ mintettesStorage . MS.getActionLogs
@@ -175,8 +177,9 @@ startNewPeriodDo timestamp sk pId results = do
         BEInternal
             "Length of keys is different from the length of results"
     mintettes <- use Q.getMintettes
+    curUtxo <- use utxo
     let checkedResults =
-            map (checkResult pId lastHBlock) $ zip3 results keys logs
+            map (checkResult pId lastHBlock permittedAddrs curUtxo) $ zip3 results keys logs
         filteredResults =
             mapMaybe filterCheckedResults (zip [0 ..] checkedResults)
         emissionTransaction =
@@ -235,12 +238,22 @@ updateUtxo newTxs = do
 -- regarding pid and action logs check
 checkResult :: PeriodId
             -> HBlock
+            -> [Address]
+            -> Utxo
             -> (Maybe PeriodResult, PublicKey, ActionLog)
             -> Maybe PeriodResult
-checkResult expectedPid lastHBlock (r,key,storedLog) = do
+checkResult expectedPid lastHBlock permittedAddrs curUtxo (r,key,storedLog) = do
     C.PeriodResult {..} <- r
     guard $ prPeriodId == expectedPid
     guard $ checkActionLog (headMay storedLog) prActionLog
+    unless (null permittedAddrs) $
+        forM_
+            [addr | lb <- prBlocks
+                  , tx <- lbTransactions lb
+                  , txInput <- txInputs tx
+                  , let addr = HM.lookup txInput curUtxo]
+            (\addr -> do guard $ isJust addr
+                         guard $ fromJust addr `elem` permittedAddrs)
     let logsToCheck =
             formLogsToCheck $
             dropWhile (not . C.isCloseEpochEntry . fst) prActionLog
@@ -267,11 +280,12 @@ allocateCoins
     -> Maybe Transaction
 allocateCoins _ _ goodResults pId strategy
     | isNothing $
-          (Strategies.allocateCoins strategy)
+          Strategies.allocateCoins
+          strategy
           pId
-          (map C.prActionLog . map snd $ goodResults) = Nothing
+          (map (C.prActionLog . snd) goodResults) = Nothing
 allocateCoins bankPk mintetteKeys goodResults pId strategy =
-    canonizeTx $ Transaction
+    canonizeTx Transaction
     { txInputs = [(emissionHash pId, 0, inputValue)]
     , txOutputs = (bankAddress, bankReward) : mintetteOutputs
     }
@@ -279,9 +293,10 @@ allocateCoins bankPk mintetteKeys goodResults pId strategy =
     bankAddress = Address bankPk
     (bankReward,goodMintetteRewards) =
         fromJust $
-        (Strategies.allocateCoins strategy)
+        Strategies.allocateCoins
+            strategy
             pId
-            (map C.prActionLog . map snd $ goodResults)
+            (map (C.prActionLog . snd) goodResults)
     inputValue = sum (bankReward : goodMintetteRewards)
     idxInGoodToGlobal idxInGood = fst $ goodResults !! idxInGood
     mintetteOutputs =

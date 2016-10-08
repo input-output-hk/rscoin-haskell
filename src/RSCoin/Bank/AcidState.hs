@@ -169,6 +169,7 @@ startNewPeriod
     :: POSIXTime
     -> SecretKey
     -> [Maybe PeriodResult]
+    -> [Address]
     -> Update BS.Storage [NewPeriodData]
 startNewPeriod = BS.startNewPeriod
 

@@ -10,10 +10,9 @@ import           Data.Time.Units     (Second)
 import qualified BankOptions         as Opts
 import qualified RSCoin.Bank         as B
 import           RSCoin.Core         (Explorer (..), Mintette (Mintette),
-                                      constructPublicKey, initLogging, keyGen,
-                                      logWarning, readPublicKey, readSecretKey,
-                                      testBankSecretKey, writePublicKey,
-                                      writeSecretKey)
+                                      constructPublicKey, initLogging, keyGen, logWarning,
+                                      readPublicKey, readSecretKey, testBankSecretKey,
+                                      writePublicKey, writeSecretKey)
 
 main :: IO ()
 main = do
@@ -66,7 +65,7 @@ main = do
         Opts.DumpStatistics -> B.dumpStatisticsReq ca bankSecretKey
         Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
-            B.launchBankReal cloRebuildDB periodDelta cloPath ca bankSecretKey
+            B.launchBankReal cloRebuildDB periodDelta cloPath ca bankSecretKey cloPermittedAddrs
   where
     readPk pk = maybe (readPublicKeyFallback pk) return (constructPublicKey pk)
     readPublicKeyFallback pk = do

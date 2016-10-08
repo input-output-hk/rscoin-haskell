@@ -168,7 +168,7 @@ startBank CommonParams{..} mintettes explorers = do
                       dbDir
                       (C.Mintette C.localhost port)
                       key)
-    forkIO $ B.launchBankReal cpRebuild  cpPeriod dbDir contextArgument bankSecretKey
+    forkIO $ B.launchBankReal cpRebuild  cpPeriod dbDir contextArgument bankSecretKey []
 
 -- TODO: we can setup other users similar way
 setupBankUser :: CommonParams -> IO ()

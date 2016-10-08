@@ -28,18 +28,16 @@ import           Data.Time.Units           (TimeUnit)
 import           Formatting                (int, sformat, (%))
 
 import           Control.TimeWarp.Timed    (for, fork_, ms, wait)
-import           RSCoin.Core               (ContextArgument (..), Explorer (..),
-                                            Mintette, PeriodId, PublicKey,
-                                            RealMode, SecretKey, WorkMode,
-                                            runRealModeBank, sign)
-import           RSCoin.Core.Communication (getBlockchainHeight,
-                                            getMintettePeriod, getStatisticsId,
-                                            sendBankLocalControlRequest)
+import           RSCoin.Core               (Address, ContextArgument (..), Explorer (..),
+                                            Mintette, PeriodId, PublicKey, RealMode,
+                                            SecretKey, WorkMode, runRealModeBank, sign)
+import           RSCoin.Core.Communication (getBlockchainHeight, getMintettePeriod,
+                                            getStatisticsId, sendBankLocalControlRequest)
 import qualified RSCoin.Core.Protocol      as P (BankLocalControlRequest (..))
 
 import           RSCoin.Bank.AcidState     (AddExplorer (AddExplorer),
-                                            AddMintette (AddMintette), State,
-                                            closeState, openState, update)
+                                            AddMintette (AddMintette), State, closeState,
+                                            openState, update)
 import           RSCoin.Bank.Error         (BankError (BEBadRequest))
 import           RSCoin.Bank.Server        (serve)
 import           RSCoin.Bank.Worker        (runExplorerWorker, runWorker)
@@ -57,18 +55,24 @@ bankWrapperReal bankSk deleteIfExists storagePath ca =
 -- | Launch Bank in real mode. This function works indefinitely.
 launchBankReal
     :: (TimeUnit t)
-    => Bool -> t -> FilePath -> ContextArgument -> SecretKey -> IO ()
-launchBankReal deleteIfExists periodDelta storagePath ca bankSk =
+    => Bool
+    -> t
+    -> FilePath
+    -> ContextArgument
+    -> SecretKey
+    -> [Address]
+    -> IO ()
+launchBankReal deleteIfExists periodDelta storagePath ca bankSk permittedAddrs =
     bankWrapperReal bankSk deleteIfExists storagePath ca $
-    launchBank periodDelta bankSk
+    launchBank periodDelta bankSk permittedAddrs
 
 -- | Launch Bank in any WorkMode. This function works indefinitely.
 launchBank
     :: (TimeUnit t, WorkMode m)
-    => t -> SecretKey -> State -> m ()
-launchBank periodDelta bankSk st = do
+    => t -> SecretKey -> [Address] -> State -> m ()
+launchBank periodDelta bankSk permittedAddrs st = do
     isPeriodChanging <- liftIO $ newIORef False
-    fork_ $ serve st bankSk isPeriodChanging
+    fork_ $ serve st bankSk permittedAddrs isPeriodChanging
     wait $ for 1 ms
     fork_ $ runWorker periodDelta bankSk st
     runExplorerWorker isPeriodChanging bankSk st

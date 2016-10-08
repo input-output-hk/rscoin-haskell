@@ -6,19 +6,19 @@ module BankOptions
        , getOptions
        ) where
 
+import           Data.Maybe             (fromMaybe)
 import qualified Data.Text              as T
-import           Options.Applicative    (Parser, auto, command, execParser,
-                                         fullDesc, help, helper, info, long,
-                                         metavar, option, progDesc, short,
-                                         showDefault, subparser, switch, value,
-                                         (<>))
+import           Options.Applicative    (Parser, auto, command, execParser, fullDesc,
+                                         help, helper, info, long, many, metavar, option,
+                                         progDesc, short, showDefault, subparser, switch,
+                                         value, (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), configDirectory,
-                                         defaultConfigurationPath,
-                                         defaultPeriodDelta,
+import           RSCoin.Core            (Address (Address), Severity (Error),
+                                         configDirectory, constructPublicKey,
+                                         defaultConfigurationPath, defaultPeriodDelta,
                                          defaultSecretKeyPath)
 
 data Command
@@ -40,6 +40,7 @@ data Options = Options
     , cloConfigPath     :: FilePath
     , cloDefaultContext :: Bool      -- ^ Use defaultNodeContext
     , cloRebuildDB      :: Bool
+    , cloPermittedAddrs :: [Address]
     }
 
 commandParser :: Parser Command
@@ -153,8 +154,16 @@ optionsParser defaultSKPath configDir defaultConfigPath =
         (mconcat
              [ short 'r'
              , long "rebuild-db"
-             , help
-                   ("Erase database if it already exists")])
+             , help "Erase database if it already exists"]) <*>
+    many
+        (Address .
+         fromMaybe (error "failed to read permit-addr address: not base64") .
+         constructPublicKey <$>
+             strOption
+                 (long "permit-addr" <>
+                  help "Permitted address" <>
+                  metavar "ADDRESS"))
+
 
 getOptions :: IO Options
 getOptions = do

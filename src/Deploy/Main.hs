@@ -71,7 +71,7 @@ getKeys :: FilePath -> IO (C.SecretKey, C.PublicKey)
 getKeys workingDir = do
     let workingDirDeprecated = toDeprecatedFilePath workingDir
     existsDir <- Cherepakha.testdir workingDirDeprecated
-    if existsDir then do
+    if existsDir then
         read <$> readFile (workingDir </> "keys")
     else do
         Cherepakha.mktree workingDirDeprecated
@@ -85,7 +85,7 @@ startMintette CommonParams{..} idx = do
         port = mintettePort idx
         dbDir = workingDir </> "mintette-db"
     (sk,pk) <- getKeys workingDir
-    let env = M.mkRuntimeEnv 1000000000 sk
+    let env = M.mkRuntimeEnv 1000000000 sk []
         start =
             M.launchMintetteReal cpRebuild port env (Just dbDir) contextArgument
     (, pk) <$> forkIO start
@@ -148,27 +148,34 @@ startBank CommonParams{..} mintettes explorers = do
         workingDirDeprecated = toDeprecatedFilePath workingDir
         dbDir = workingDir </> "bank-db"
     existsDir <- Cherepakha.testdir workingDirDeprecated
-    unless existsDir $ do
-        Cherepakha.mktree workingDirDeprecated
-        forM_
-            explorers
-            (\(port,key) ->
-                  B.addExplorerInPlace
-                      contextArgument
-                      bankSecretKey
-                      dbDir
-                      (C.Explorer C.localhost port key)
-                      0)
-        forM_
-            mintettes
-            (\(port,key) ->
-                  B.addMintetteInPlace
-                      contextArgument
-                      bankSecretKey
-                      dbDir
-                      (C.Mintette C.localhost port)
-                      key)
-    forkIO $ B.launchBankReal cpRebuild  cpPeriod dbDir contextArgument bankSecretKey []
+    unless existsDir $
+        do Cherepakha.mktree workingDirDeprecated
+           forM_
+               explorers
+               (\(port,key) ->
+                     B.addExplorerInPlace
+                         contextArgument
+                         bankSecretKey
+                         dbDir
+                         (C.Explorer C.localhost port key)
+                         0)
+           forM_
+               mintettes
+               (\(port,key) ->
+                     B.addMintetteInPlace
+                         contextArgument
+                         bankSecretKey
+                         dbDir
+                         (C.Mintette C.localhost port)
+                         key)
+    forkIO $
+        B.launchBankReal
+            cpRebuild
+            cpPeriod
+            dbDir
+            contextArgument
+            bankSecretKey
+            []
 
 -- TODO: we can setup other users similar way
 setupBankUser :: CommonParams -> IO ()

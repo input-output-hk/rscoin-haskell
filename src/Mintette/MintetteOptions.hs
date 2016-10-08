@@ -9,15 +9,17 @@ module MintetteOptions
        , getOptions
        ) where
 
+import           Data.Maybe             (fromMaybe)
 import           Options.Applicative    (Parser, auto, command, execParser, fullDesc,
-                                         help, helper, info, long, metavar, option,
+                                         help, helper, info, long, many, metavar, option,
                                          progDesc, short, showDefault, subparser, switch,
                                          value, (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
 
-import           RSCoin.Core            (Severity (Error), configDirectory,
+import           RSCoin.Core            (Address (Address), Severity (Error),
+                                         configDirectory, constructPublicKey,
                                          defaultConfigurationPath, defaultPort,
                                          defaultSecretKeyPath)
 
@@ -48,6 +50,7 @@ data Options = Options
     , cloConfigPath     :: FilePath
     , cloDefaultContext :: Bool
     , cloRebuildDB      :: Bool
+    , cloPermittedAddrs :: [Address]
     }
 
 commandParser :: FilePath -> Parser Command
@@ -124,7 +127,17 @@ optionsParser defaultSKPath configDir defaultConfigPath =
              [ short 'r'
              , long "rebuild-db"
              , help
-                   ("Erase database if it already exists")])
+                   "Erase database if it already exists"]) <*>
+    many
+        (Address .
+         fromMaybe (error "failed to read permit-addr address: not base64") .
+         constructPublicKey <$>
+             strOption
+                 (long "permit-addr" <>
+                  help "Permitted address" <>
+                  metavar "ADDRESS"))
+
+
 
 getOptions :: IO Options
 getOptions = do

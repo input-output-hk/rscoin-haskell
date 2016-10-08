@@ -40,7 +40,7 @@ mainServe ctxArg Opts.ServeOptions {..} Opts.Options {..} = do
             if cloMemMode
                 then Nothing
                 else Just cloPath
-        env = M.mkRuntimeEnv cloActionLogsLimit sk
+        env = M.mkRuntimeEnv cloActionLogsLimit sk cloPermittedAddrs
     M.launchMintetteReal cloRebuildDB cloPort env dbPath ctxArg
 
 mainAddToBank :: M.ContextArgument -> Opts.AddToBankOptions -> Opts.Options -> IO ()

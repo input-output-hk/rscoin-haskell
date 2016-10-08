@@ -8,14 +8,12 @@ module RSCoin.Mintette.Error
 
 import           Control.Exception       (Exception (..), SomeException)
 import           Control.Monad.Trans     (MonadIO)
-import           Data.MessagePack        (MessagePack (fromObject, toObject),
-                                          Object)
+import           Data.MessagePack        (MessagePack (fromObject, toObject), Object)
 import           Data.Monoid             ((<>))
 import           Data.Text               (Text)
 import qualified Data.Text.Buildable     as B (Buildable (build))
 import           Data.Typeable           (Typeable)
-import           Formatting              (bprint, build, int, sformat, stext,
-                                          (%))
+import           Formatting              (bprint, build, int, sformat, stext, (%))
 
 import           RSCoin.Core.Error       (rscExceptionFromException,
                                           rscExceptionToException)
@@ -37,6 +35,8 @@ data MintetteError
     | MEAlreadyActive                     -- ^ Can't start new period because mintette
                                           -- is already active.
     | MEInvalidBankSignature              -- ^ Bank's signature can't be verified.
+    | MENotAllowed                        -- ^ Tried to send transaction that spends money
+                                          -- from blacklisted address
     deriving (Show, Typeable, Eq)
 
 instance Exception MintetteError where
@@ -59,10 +59,10 @@ instance B.Buildable MintetteError where
     build MENotConfirmed = "transaction doesn't have enough confirmations"
     build MEAlreadyActive = "can't start new period when period is active"
     build MEInvalidBankSignature = "bank's signature can't be verified"
+    build MENotAllowed =
+        "tried to send transaction that spends money from blacklisted address"
 
-toObj
-    :: MessagePack a
-    => (Int, a) -> Object
+toObj :: MessagePack a => (Int, a) -> Object
 toObj = toObject
 
 instance MessagePack MintetteError where
@@ -76,20 +76,22 @@ instance MessagePack MintetteError where
     toObject MENotConfirmed            = toObj (7, ())
     toObject MEAlreadyActive           = toObj (8, ())
     toObject MEInvalidBankSignature    = toObj (9, ())
+    toObject MENotAllowed              = toObj (10, ())
     fromObject obj = do
         (i,payload) <- fromObject obj
         case (i :: Int) of
-            0 -> MEInternal <$> fromObject payload
-            1 -> pure MEInactive
-            2 -> uncurry MEPeriodMismatch <$> fromObject payload
-            3 -> pure MEInvalidTxSums
-            4 -> MEInconsistentRequest <$> fromObject payload
-            5 -> MENotUnspent <$> fromObject payload
-            6 -> pure MEInvalidSignature
-            7 -> pure MENotConfirmed
-            8 -> pure MEAlreadyActive
-            9 -> pure MEInvalidBankSignature
-            _ -> Nothing
+            0  -> MEInternal <$> fromObject payload
+            1  -> pure MEInactive
+            2  -> uncurry MEPeriodMismatch <$> fromObject payload
+            3  -> pure MEInvalidTxSums
+            4  -> MEInconsistentRequest <$> fromObject payload
+            5  -> MENotUnspent <$> fromObject payload
+            6  -> pure MEInvalidSignature
+            7  -> pure MENotConfirmed
+            8  -> pure MEAlreadyActive
+            9  -> pure MEInvalidBankSignature
+            10 -> pure MENotAllowed
+            _  -> Nothing
 
 isMEInactive :: SomeException -> Bool
 isMEInactive = maybe False (== MEInactive) . fromException

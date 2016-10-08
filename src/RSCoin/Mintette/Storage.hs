@@ -87,7 +87,8 @@ import           RSCoin.Core           (ActionLog, ActionLogHeads, AddressToTxSt
                                         verifyCheckConfirmation)
 import qualified RSCoin.Core           as C
 
-import           RSCoin.Mintette.Env   (RuntimeEnv, reActionLogsLimit, reSecretKey)
+import           RSCoin.Mintette.Env   (RuntimeEnv, reActionLogsLimit, rePermittedAddrs,
+                                        reSecretKey)
 import           RSCoin.Mintette.Error (MintetteError (..))
 
 data Storage = Storage
@@ -193,11 +194,18 @@ checkNotDoubleSpent :: C.Transaction
 checkNotDoubleSpent tx addrId sg = do
     checkIsActive
     checkTxSum tx
+    checkPermitted
     unless (addrId `elem` C.txInputs tx) $
         throwM $ MEInconsistentRequest "AddrId is not part of inputs"
     inPset <- HM.lookup addrId <$> use pset
     maybe notInPsetCase inPsetCase inPset
   where
+    checkPermitted = do
+        maybeAddr <- uses utxo $ HM.lookup addrId
+        permitted <- view rePermittedAddrs
+        unless (null permitted) $ do
+            let res = maybe False (`elem` permitted) maybeAddr
+            unless res $ throwM MENotAllowed
     inPsetCase storedTx
         | storedTx == tx = finishCheck
         | otherwise = throwM $ MENotUnspent addrId

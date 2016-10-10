@@ -5,6 +5,6 @@ in
   haskell.lib.buildStackProject {
      ghc = haskell.packages.${lts}.ghc;
      name = "rscoin";
-     buildInputs = [ zlib glib cairo gnome.pango gnome3.gtk git cabal-install
+     buildInputs = [ zlib glib cairo gnome2.pango gnome3.gtk git cabal-install
                      openssh autoreconfHook stack nodejs haskellPackages.purescript ];
    }

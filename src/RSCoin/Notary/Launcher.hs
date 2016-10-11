@@ -55,8 +55,8 @@ launchNotaryReal
         bracket (openAction trustedKeys allocationEndurance transactionEndurance) closeState $
         \st -> do
             fork_ $ serveNotary isDisabled sk st
-            unless isDisabled $ fork_ $ runFetchWorker st
-            launchWeb webPort logSeverity st =<< getNodeContext
+            fork_ $ runFetchWorker st
+            unless isDisabled $ launchWeb webPort logSeverity st =<< getNodeContext
 
 loggingMiddleware :: Severity -> Middleware
 loggingMiddleware Debug = logStdoutDev

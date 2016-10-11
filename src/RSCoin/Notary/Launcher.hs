@@ -5,7 +5,7 @@ module RSCoin.Notary.Launcher
        , launchNotaryReal
        ) where
 
-import           Control.Monad                        (unless)
+import           Control.Monad                        (unless, when)
 import           Control.Monad.Catch                  (bracket)
 import           Control.Monad.Trans                  (MonadIO, liftIO)
 import           Data.Optional                        (Optional)
@@ -54,9 +54,11 @@ launchNotaryReal
     runRealModeUntrusted notaryLoggerName ca $
         bracket (openAction trustedKeys allocationEndurance transactionEndurance) closeState $
         \st -> do
-            fork_ $ serveNotary isDisabled sk st
             fork_ $ runFetchWorker st
-            unless isDisabled $ launchWeb webPort logSeverity st =<< getNodeContext
+            when isDisabled $ serveNotary isDisabled sk st
+            unless isDisabled $ do
+                fork_ $ serveNotary isDisabled sk st
+                launchWeb webPort logSeverity st =<< getNodeContext
 
 loggingMiddleware :: Severity -> Middleware
 loggingMiddleware Debug = logStdoutDev

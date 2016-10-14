@@ -47,29 +47,31 @@ import           Control.Lens                  (Getter, to, view)
 import           Control.Monad.Reader          (ask)
 import           Control.Monad.Trans           (MonadIO)
 import           Data.Acid                     (EventResult, EventState, Query,
-                                                QueryEvent, Update, UpdateEvent,
+                                                QueryEvent, UpdateEvent,
                                                 makeAcidic)
 import           Data.Maybe                    (fromMaybe)
 import qualified Data.Set                      as Set
 import           Data.Text                     (Text)
-import           Data.Time.Clock.POSIX         (POSIXTime)
 import           Formatting                    (bprint, stext, (%))
 import           Safe                          (headMay)
 
-import           Serokell.AcidState            (ExtendedState, closeExtendedState,
+import           Serokell.AcidState            (ExtendedState,
+                                                closeExtendedState,
                                                 openLocalExtendedState,
-                                                openMemoryExtendedState, queryExtended,
-                                                tidyExtendedState, updateExtended)
-import           Serokell.AcidState.Statistics (StoragePart (..), estimateMemoryUsage)
+                                                openMemoryExtendedState,
+                                                queryExtended,
+                                                tidyExtendedState,
+                                                updateExtended)
+import           Serokell.AcidState.Statistics (StoragePart (..),
+                                                estimateMemoryUsage)
 import           Serokell.Data.Memory.Units    (Byte, memory)
 import           Serokell.Util.Text            (listBuilderJSONIndent, show')
 
-import           RSCoin.Core                   (ActionLog, Address,
-                                                AddressToTxStrategyMap, Explorer,
-                                                Explorers, HBlock, Mintette, MintetteId,
-                                                Mintettes, NewPeriodData, PeriodId,
-                                                PeriodResult, PublicKey, SecretKey,
-                                                TxStrategy)
+import           RSCoin.Core                   (ActionLog,
+                                                AddressToTxStrategyMap,
+                                                Explorer, Explorers, HBlock,
+                                                MintetteId, Mintettes, PeriodId,
+                                                PublicKey)
 import qualified RSCoin.Core                   as C
 
 import qualified RSCoin.Bank.Storage           as BS
@@ -135,47 +137,6 @@ getLogs m fromIdx toIdx = view $ BS.getLogs m fromIdx toIdx
 getStatisticsId :: Query BS.Storage Int
 getStatisticsId = view BS.getStatisticsId
 
-addAddress :: Address -> TxStrategy -> Update BS.Storage ()
-addAddress = BS.addAddress
-
-addMintette :: Mintette -> PublicKey -> Update BS.Storage ()
-addMintette = BS.addMintette
-
-addMintetteIfPermitted :: Mintette -> PublicKey -> Update BS.Storage ()
-addMintetteIfPermitted = BS.addMintetteIfPermitted
-
-permitMintette :: PublicKey -> Update BS.Storage ()
-permitMintette = BS.permitMintette
-
-addExplorer :: Explorer -> PeriodId -> Update BS.Storage ()
-addExplorer = BS.addExplorer
-
-removeMintette :: String -> Int -> Update BS.Storage ()
-removeMintette = BS.removeMintette
-
-removeExplorer :: String -> Int -> Update BS.Storage ()
-removeExplorer = BS.removeExplorer
-
-setExplorerPeriod :: Explorer -> PeriodId -> Update BS.Storage ()
-setExplorerPeriod = BS.setExplorerPeriod
-
-suspendExplorer :: Explorer -> Update BS.Storage ()
-suspendExplorer = BS.suspendExplorer
-
-restoreExplorers :: Update BS.Storage [Explorer]
-restoreExplorers = BS.restoreExplorers
-
-startNewPeriod
-    :: POSIXTime
-    -> SecretKey
-    -> [Maybe PeriodResult]
-    -> [Address]
-    -> Update BS.Storage [NewPeriodData]
-startNewPeriod = BS.startNewPeriod
-
-checkAndBumpStatisticsId :: Int -> Update BS.Storage Bool
-checkAndBumpStatisticsId = BS.checkAndBumpStatisticsId
-
 $(makeAcidic ''BS.Storage
              [ 'getMintettes
              , 'getPermittedMintettes
@@ -191,18 +152,18 @@ $(makeAcidic ''BS.Storage
 
              , 'getStorage
 
-             , 'addAddress
-             , 'addMintette
-             , 'addMintetteIfPermitted
-             , 'addExplorer
-             , 'permitMintette
-             , 'removeMintette
-             , 'removeExplorer
-             , 'setExplorerPeriod
-             , 'suspendExplorer
-             , 'restoreExplorers
-             , 'startNewPeriod
-             , 'checkAndBumpStatisticsId
+             , 'BS.addAddress
+             , 'BS.addMintette
+             , 'BS.addMintetteIfPermitted
+             , 'BS.addExplorer
+             , 'BS.permitMintette
+             , 'BS.removeMintette
+             , 'BS.removeExplorer
+             , 'BS.setExplorerPeriod
+             , 'BS.suspendExplorer
+             , 'BS.restoreExplorers
+             , 'BS.startNewPeriod
+             , 'BS.checkAndBumpStatisticsId
              ])
 
 getStatistics

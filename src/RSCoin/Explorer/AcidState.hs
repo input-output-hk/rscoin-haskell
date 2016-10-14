@@ -31,20 +31,17 @@ module RSCoin.Explorer.AcidState
        , AddHBlock (..)
        ) where
 
-import           Control.Monad.Trans      (MonadIO)
-import           Data.Acid                (EventResult, EventState, Query, QueryEvent,
-                                           Update, UpdateEvent, makeAcidic)
+import           Control.Monad.Trans     (MonadIO)
+import           Data.Acid               (EventResult, EventState, QueryEvent,
+                                          UpdateEvent, makeAcidic)
 
-import           Serokell.AcidState       (ExtendedState, closeExtendedState,
-                                           openLocalExtendedState,
-                                           openMemoryExtendedState, queryExtended,
-                                           tidyExtendedState, updateExtended)
+import           Serokell.AcidState      (ExtendedState, closeExtendedState,
+                                          openLocalExtendedState,
+                                          openMemoryExtendedState,
+                                          queryExtended, tidyExtendedState,
+                                          updateExtended)
 
-import qualified RSCoin.Core              as C
-
-import           RSCoin.Explorer.Extended (CoinsMapExtended, HBlockExtended,
-                                           TransactionExtended, TransactionExtension)
-import qualified RSCoin.Explorer.Storage  as ES
+import qualified RSCoin.Explorer.Storage as ES
 
 type State = ExtendedState ES.Storage
 
@@ -70,74 +67,20 @@ closeState = closeExtendedState
 tidyState :: MonadIO m => State -> m ()
 tidyState = tidyExtendedState
 
-getAddressBalance :: C.Address -> Query ES.Storage (C.PeriodId, CoinsMapExtended)
-getAddressBalance = ES.getAddressBalance
-
-getAddressInterestingTransactions
-    :: C.Address
-    -> (Word, Word)
-    -> Query ES.Storage (C.PeriodId, [(Word, TransactionExtended)])
-getAddressInterestingTransactions = ES.getAddressInterestingTransactions
-
-getAddressTxNumber :: C.Address -> Query ES.Storage (C.PeriodId, (Word, Word))
-getAddressTxNumber = ES.getAddressTxNumber
-
-getAddressTransactions
-    :: C.Address
-    -> (Word, Word)
-    -> Query ES.Storage (C.PeriodId, [(Word, TransactionExtended)])
-getAddressTransactions = ES.getAddressTransactions
-
-getExpectedPeriodId :: Query ES.Storage C.PeriodId
-getExpectedPeriodId = ES.getExpectedPeriodId
-
-getInterestingTxsGlobal :: (Word, Word)
-                        -> Query ES.Storage (C.PeriodId, [(Word, TransactionExtended)])
-getInterestingTxsGlobal = ES.getInterestingTxsGlobal
-
-getTx :: C.TransactionId -> Query ES.Storage (Maybe C.Transaction)
-getTx = ES.getTx
-
-getTxExtended :: C.TransactionId -> Query ES.Storage (Maybe TransactionExtended)
-getTxExtended = ES.getTxExtended
-
-getTxExtensions :: C.PeriodId -> Query ES.Storage [TransactionExtension]
-getTxExtensions = ES.getTxExtensions
-
-getTxsGlobal :: (Word, Word) -> Query ES.Storage (C.PeriodId, [(Word, TransactionExtended)])
-getTxsGlobal = ES.getTxsGlobal
-
-getHBlocksExtended :: (C.PeriodId, C.PeriodId) -> Query ES.Storage [(C.PeriodId, HBlockExtended)]
-getHBlocksExtended = ES.getHBlocksExtended
-
-getHBlockExtended :: C.PeriodId -> Query ES.Storage (Maybe HBlockExtended)
-getHBlockExtended = ES.getHBlockExtended
-
-isAddressKnown :: C.Address -> Query ES.Storage Bool
-isAddressKnown = ES.isAddressKnown
-
-isTransactionKnown :: C.TransactionId -> Query ES.Storage Bool
-isTransactionKnown = ES.isTransactionKnown
-
-addHBlock :: C.PeriodId
-          -> C.WithMetadata C.HBlock C.HBlockMetadata
-          -> Update ES.Storage ()
-addHBlock = ES.addHBlock
-
 $(makeAcidic ''ES.Storage
-             [ 'getAddressBalance
-             , 'getAddressTxNumber
-             , 'getAddressTransactions
-             , 'getAddressInterestingTransactions
-             , 'getExpectedPeriodId
-             , 'getHBlocksExtended
-             , 'getHBlockExtended
-             , 'getTx
-             , 'getTxExtended
-             , 'getTxExtensions
-             , 'getTxsGlobal
-             , 'getInterestingTxsGlobal
-             , 'isAddressKnown
-             , 'isTransactionKnown
-             , 'addHBlock
+             [ 'ES.getAddressBalance
+             , 'ES.getAddressTxNumber
+             , 'ES.getAddressTransactions
+             , 'ES.getAddressInterestingTransactions
+             , 'ES.getExpectedPeriodId
+             , 'ES.getHBlocksExtended
+             , 'ES.getHBlockExtended
+             , 'ES.getTx
+             , 'ES.getTxExtended
+             , 'ES.getTxExtensions
+             , 'ES.getTxsGlobal
+             , 'ES.getInterestingTxsGlobal
+             , 'ES.isAddressKnown
+             , 'ES.isTransactionKnown
+             , 'ES.addHBlock
              ])

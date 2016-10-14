@@ -53,10 +53,7 @@ import           Control.Monad        (replicateM, unless)
 import           Control.Monad.Trans  (MonadIO (liftIO))
 import           Data.Acid            (EventResult, EventState, QueryEvent,
                                        UpdateEvent, makeAcidic)
-import qualified Data.Acid            as A
-import           Data.Map             (Map)
 import           Data.SafeCopy        (base, deriveSafeCopy)
-import           Data.Set             (Set)
 
 import           Serokell.AcidState   (ExtendedState, closeExtendedState,
                                        openLocalExtendedState,
@@ -65,7 +62,6 @@ import           Serokell.AcidState   (ExtendedState, closeExtendedState,
 
 import qualified RSCoin.Core          as C
 import           RSCoin.Core.Crypto   (keyGen)
-import           RSCoin.Core.Strategy (AllocationInfo, MSAddress)
 
 import           RSCoin.User.Logic    (getBlockchainHeight)
 import           RSCoin.User.Wallet   (TxHStatus, TxHistoryRecord,
@@ -106,90 +102,34 @@ closeState st = tidyState st >> closeExtendedState st
 tidyState :: MonadIO m => UserState -> m ()
 tidyState = tidyExtendedState
 
-isInitialized :: A.Query WalletStorage Bool
-getSecretKey :: C.Address -> A.Query WalletStorage (Maybe (Maybe C.SecretKey))
-findUserAddress :: C.Address -> A.Query WalletStorage (C.Address, Maybe C.SecretKey)
-getDependentAddresses :: C.Address -> A.Query WalletStorage [C.Address]
-getUserAddresses :: A.Query WalletStorage [(C.Address,C.SecretKey)]
-getOwnedAddresses :: C.Address -> A.Query WalletStorage [C.Address]
-getOwnedDefaultAddresses :: C.Address -> A.Query WalletStorage [C.Address]
-getOwnedAddrIds :: C.Address -> C.Address -> A.Query WalletStorage [C.AddrId]
-getTransactions :: C.Address -> C.Address -> A.Query WalletStorage [C.Transaction]
-getLastBlockId :: A.Query WalletStorage Int
-getTxsHistory :: A.Query WalletStorage [TxHistoryRecord]
-getAddressStrategy :: C.Address -> A.Query WalletStorage (Maybe C.TxStrategy)
-resolveAddressLocally :: C.AddrId -> A.Query WalletStorage (Maybe C.Address)
-getAllocationStrategies :: A.Query WalletStorage (Map MSAddress AllocationInfo)
-getIgnoredAllocationStrategies :: A.Query WalletStorage (Map MSAddress AllocationInfo)
-getAllocationByIndex :: Int -> A.Query WalletStorage (MSAddress, AllocationInfo)
-getPendingTxs :: A.Query WalletStorage [C.Transaction]
-
-getSecretKey = W.getSecretKey
-isInitialized = W.isInitialized
-findUserAddress = W.findUserAddress
-getDependentAddresses = W.getDependentAddresses
-getUserAddresses = W.getUserAddresses
-getOwnedAddresses = W.getOwnedAddresses
-getOwnedDefaultAddresses = W.getOwnedDefaultAddresses
-getOwnedAddrIds = W.getOwnedAddrIds
-getTransactions = W.getTransactions
-getLastBlockId = W.getLastBlockId
-getTxsHistory = W.getTxsHistory
-getAddressStrategy = W.getAddressStrategy
-resolveAddressLocally = W.resolveAddressLocally
-getAllocationStrategies = W.getAllocationStrategies
-getIgnoredAllocationStrategies = W.getIgnoredAllocationStrategies
-getAllocationByIndex = W.getAllocationByIndex
-getPendingTxs = W.getPendingTxs
-
-withBlockchainUpdate :: C.PeriodId -> C.HBlock -> A.Update WalletStorage ()
-addTemporaryTransaction :: C.PeriodId -> C.Transaction -> A.Update WalletStorage ()
-addAddress :: C.Address -> Maybe C.SecretKey -> Map C.PeriodId C.HBlock -> A.Update WalletStorage ()
-deleteAddress :: C.Address -> A.Update WalletStorage ()
-updateAllocationStrategies :: Map MSAddress AllocationInfo -> A.Update WalletStorage ()
-blacklistAllocation :: MSAddress -> A.Update WalletStorage ()
-whitelistAllocation :: MSAddress -> A.Update WalletStorage ()
-updatePendingTxs :: Set C.Transaction -> A.Update WalletStorage ()
-initWallet :: [(C.SecretKey,C.PublicKey)] -> Maybe Int -> A.Update WalletStorage ()
-
-withBlockchainUpdate = W.withBlockchainUpdate
-addTemporaryTransaction = W.addTemporaryTransaction
-addAddress = W.addAddress
-deleteAddress = W.deleteAddress
-updateAllocationStrategies = W.updateAllocationStrategies
-blacklistAllocation = W.blacklistAllocation
-whitelistAllocation = W.whitelistAllocation
-updatePendingTxs = W.updatePendingTxs
-initWallet = W.initWallet
-
 $(makeAcidic
       ''WalletStorage
-      [ 'isInitialized
-      , 'getSecretKey
-      , 'findUserAddress
-      , 'getDependentAddresses
-      , 'getUserAddresses
-      , 'getOwnedAddresses
-      , 'getOwnedDefaultAddresses
-      , 'getOwnedAddrIds
-      , 'getTransactions
-      , 'getLastBlockId
-      , 'getTxsHistory
-      , 'getAddressStrategy
-      , 'resolveAddressLocally
-      , 'getAllocationStrategies
-      , 'getIgnoredAllocationStrategies
-      , 'getAllocationByIndex
-      , 'getPendingTxs
-      , 'withBlockchainUpdate
-      , 'addTemporaryTransaction
-      , 'addAddress
-      , 'deleteAddress
-      , 'updateAllocationStrategies
-      , 'blacklistAllocation
-      , 'whitelistAllocation
-      , 'updatePendingTxs
-      , 'initWallet])
+      [ 'W.isInitialized
+      , 'W.getSecretKey
+      , 'W.findUserAddress
+      , 'W.getDependentAddresses
+      , 'W.getUserAddresses
+      , 'W.getOwnedAddresses
+      , 'W.getOwnedDefaultAddresses
+      , 'W.getOwnedAddrIds
+      , 'W.getTransactions
+      , 'W.getLastBlockId
+      , 'W.getTxsHistory
+      , 'W.getAddressStrategy
+      , 'W.resolveAddressLocally
+      , 'W.getAllocationStrategies
+      , 'W.getIgnoredAllocationStrategies
+      , 'W.getAllocationByIndex
+      , 'W.getPendingTxs
+      , 'W.withBlockchainUpdate
+      , 'W.addTemporaryTransaction
+      , 'W.addAddress
+      , 'W.deleteAddress
+      , 'W.updateAllocationStrategies
+      , 'W.blacklistAllocation
+      , 'W.whitelistAllocation
+      , 'W.updatePendingTxs
+      , 'W.initWallet])
 
 -- | This function generates 'n' new addresses ((pk,sk) pairs
 -- essentially), and if the boolean flag 'is-bank-mode' is set, it

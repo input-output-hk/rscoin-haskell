@@ -13,7 +13,8 @@ import           Control.Monad.Catch                  (bracket)
 import           Control.Monad.Trans                  (MonadIO (liftIO))
 
 import           Network.Wai                          (Middleware)
-import           Network.Wai.Handler.Warp             (run)
+import qualified Network.Wai.Handler.Warp             as W
+import qualified Network.Wai.Handler.WarpTLS          as WTLS
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
 import           Control.TimeWarp.Timed               (fork_)
@@ -46,13 +47,14 @@ launchExplorerReal :: Bool
                    -> FilePath
                    -> ContextArgument
                    -> SecretKey
+                   -> Maybe (FilePath, FilePath)
                    -> IO ()
-launchExplorerReal deleteIfExists portRpc portWeb severity storagePath ca sk = do
+launchExplorerReal deleteIfExists portRpc portWeb severity storagePath ca sk tlsPaths = do
     channel <- newChannel
     explorerWrapperReal deleteIfExists storagePath ca $
         \st -> do
             fork_ $ launchExplorer portRpc sk channel st
-            launchWeb portWeb severity channel st
+            launchWeb portWeb severity channel st tlsPaths
 
 launchExplorer
     :: WorkMode m
@@ -66,8 +68,12 @@ loggingMiddleware _     = id
 
 launchWeb
     :: MonadIO m
-    => Int -> Severity -> Channel -> State -> m ()
-launchWeb port sev ch st = do
+    => Int -> Severity -> Channel -> State -> Maybe (FilePath, FilePath) -> m ()
+launchWeb port sev ch st tlsPaths = do
     app <- Web.mkApplication ch st
     liftIO $ initLoggerByName sev Web.wsLoggerName  -- @TODO: this logger name never used
-    liftIO . run port . loggingMiddleware sev $ app
+    liftIO . run . loggingMiddleware sev $ app
+  where
+    run = case tlsPaths of
+                  Just (certP, keyP) -> WTLS.runTLS (WTLS.tlsSettings certP keyP) (W.setPort port W.defaultSettings)
+                  _ -> W.run port

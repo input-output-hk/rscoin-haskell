@@ -1,6 +1,6 @@
 module App.Config where
 
-import Prelude (map, (<>), pure, (==), bind, (||))
+import Prelude (map, (<>), pure, (==), bind, (||), ($))
 
 import Control.Bind ((>>=))
 import Control.Monad.Eff (Eff)
@@ -23,13 +23,13 @@ wsUrl = do
         then wsUrlDebug
         else wsUrlProduction
 
+protocol :: String
+protocol = if secureWebSocket
+             then "wss"
+             else "ws"
+
 wsUrlProduction :: forall eff. Eff (dom :: DOM | eff) String
 wsUrlProduction = map (\h -> protocol <> "://" <> h <> "/websocket") hostname
-  where
-    protocol =
-        if secureWebSocket
-            then "wss"
-            else "ws"
 
 wsUrlDebug :: forall eff. Eff (dom :: DOM | eff) String
-wsUrlDebug = pure "ws://127.0.0.1:8001"
+wsUrlDebug = pure "wss://localhost:6001"

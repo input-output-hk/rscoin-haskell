@@ -36,4 +36,7 @@ main = do
             if cloDefaultContext
                 then E.CADefault
                 else E.CACustomLocation cloConfigPath
-    E.launchExplorerReal cloRebuildDB cloPortRpc cloPortWeb cloLogSeverity cloPath ctxArg sk
+    tlsPaths <- if cloTlsOn
+                   then Just <$> (maybe (fail "TLS: either certificate or key not specified") return $ (,) <$> cloTlsCertPath <*> cloTlsKeyPath)
+                   else return Nothing
+    E.launchExplorerReal cloRebuildDB cloPortRpc cloPortWeb cloLogSeverity cloPath ctxArg sk tlsPaths

@@ -110,6 +110,7 @@ startExplorer severity CommonParams{..} idx = do
                 dbDir
                 contextArgument
                 sk
+                Nothing
     (, pk) <$> forkIO start
 
 startNotary :: Maybe C.Severity

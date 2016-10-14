@@ -7,8 +7,8 @@ module ExplorerOptions
 
 import           Options.Applicative    (Parser, auto, execParser, fullDesc,
                                          help, helper, info, long, metavar,
-                                         option, progDesc, short, showDefault,
-                                         switch, value, (<>))
+                                         option, optional, progDesc, short,
+                                         showDefault, switch, value, (<>))
 import           System.FilePath        ((</>))
 
 import           Serokell.Util.OptParse (strOption)
@@ -27,6 +27,9 @@ data Options = Options
     , cloConfigPath     :: FilePath
     , cloDefaultContext :: Bool
     , cloRebuildDB      :: Bool
+    , cloTlsOn          :: Bool
+    , cloTlsKeyPath     :: Maybe FilePath
+    , cloTlsCertPath    :: Maybe FilePath
     }
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
@@ -92,7 +95,23 @@ optionsParser defaultSKPath configDir defaultConfigPath =
              [ short 'r'
              , long "rebuild-db"
              , help
-                   ("Erase database if it already exists")])
+                   ("Erase database if it already exists")]) <*>
+    switch
+        (mconcat
+             [ long "tls-on"
+             , help "Enable TLS"]) <*>
+    (optional $
+         strOption $
+         (mconcat
+             [ long "tls-key"
+             , metavar "FILEPATH"
+             , help "Path to tls key.pem"])) <*>
+    (optional $
+         strOption $
+         (mconcat
+             [ long "tls-cert"
+             , metavar "FILEPATH"
+             , help "Path to tls certificate.pem"]))
 
 
 getOptions :: IO Options

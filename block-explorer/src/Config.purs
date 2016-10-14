@@ -10,6 +10,8 @@ import DOM.HTML          (window)
 import DOM.HTML.Window   (location)
 import DOM.HTML.Location (hostname) as L
 
+import App.Constants (secureWebSocket)
+
 hostname :: forall eff. Eff (dom :: DOM | eff) String
 hostname = window >>= location >>= L.hostname
 
@@ -22,7 +24,12 @@ wsUrl = do
         else wsUrlProduction
 
 wsUrlProduction :: forall eff. Eff (dom :: DOM | eff) String
-wsUrlProduction = map (\h -> "wss://" <> h <> "/websocket") hostname
+wsUrlProduction = map (\h -> protocol <> "://" <> h <> "/websocket") hostname
+  where
+    protocol =
+        if secureWebSocket
+            then "wss"
+            else "ws"
 
 wsUrlDebug :: forall eff. Eff (dom :: DOM | eff) String
 wsUrlDebug = pure "ws://127.0.0.1:8001"

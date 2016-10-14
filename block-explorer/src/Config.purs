@@ -32,4 +32,4 @@ wsUrlProduction :: forall eff. Eff (dom :: DOM | eff) String
 wsUrlProduction = map (\h -> protocol <> "://" <> h <> "/websocket") hostname
 
 wsUrlDebug :: forall eff. Eff (dom :: DOM | eff) String
-wsUrlDebug = pure "wss://localhost:6001"
+wsUrlDebug = pure "ws://localhost:8001"

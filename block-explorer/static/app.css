@@ -29,6 +29,16 @@ body {
     font-weight: 400;
 }
 
+.language-kr {
+    font-family: 'Noto Sans KR', sans-serif !important; 
+    font-weight: 400;
+}
+
+.language-ch {
+    font-family: 'Noto Sans TC', sans-serif !important; 
+    font-weight: 400;
+}
+
 .language-ru {
     font-family: inherit;
 }
@@ -38,7 +48,7 @@ body {
     font-weight: 400;
 }
 
-.font-light .language-ja {
+.font-light .language-ja, .font-light .language-ch, .font-light .language-kr {
     font-weight: 300 !important;
 }
 

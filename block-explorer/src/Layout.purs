@@ -2,7 +2,7 @@ module App.Layout where
 
 import Prelude                        (($), map, (<<<), pure, bind, not, (*), max, min,
                                        (==), flip, (<>), (/=), otherwise, (+), (-),
-                                       Unit, (=<<), show)
+                                       Unit, (=<<), show, (&&))
 import Prelude                        (div) as P
 
 import App.Routes                     (Path (..), addressUrl, txUrl,
@@ -251,7 +251,7 @@ update DismissError state = noEffects $ state { error = Nothing }
 update TransactionsToggle state =
     noEffects $ state { showTransactions = not state.showTransactions }
 update ColorToggle state =
-    noEffects $ state { colors = not state.colors }
+    noEffects $ state { colors = state.isAdmin && not state.colors }
 update (LanguageSet l) state =
     noEffects $ state { language = l }
 update UpdateClock state = onlyEffects state $

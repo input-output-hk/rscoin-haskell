@@ -104,10 +104,13 @@ view teFull@(WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(Tra
                                         ]
                                         []
                                     , text $ show <<< getBalance $ te.teOutputsSum
-                                    , div
-                                        [ className "pull-right" ]
-                                        [ label
-                                            [ className "switch" ]
+                                    , visible div state.isAdmin $ div
+                                        []
+                                        [ span
+                                            [ className "font-light toggle-label" ]
+                                            [ ttext' _.colorBalance ]
+                                        , label
+                                            [ className "switch pull-right" ]
                                             [ input
                                                 [ type_ "checkbox"
                                                 , onChange $ const ColorToggle
@@ -119,9 +122,6 @@ view teFull@(WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(Tra
                                                 []
                                             ]
                                         ]
-                                    , div
-                                        [ className "pull-right font-light" ]
-                                        [ ttext' _.colorBalance ]
                                     ]
                                 ]
                             ]

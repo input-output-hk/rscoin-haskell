@@ -7,7 +7,7 @@ import App.Routes                  (match)
 import App.Layout                  (view, update)
 import App.Connection              (init, Action (..), WEBSOCKET) as C
 import App.Types                   (Action(PageView, SocketAction, UpdateClock), State)
-import App.Config                  (wsUrl)
+import App.Config                  (wsUrl, isAdmin)
 
 import Control.Bind                ((=<<))
 import Control.Monad.Eff           (Eff)
@@ -62,8 +62,9 @@ config state = do
     let wsSignal = subscribe wsInput ~> SocketAction
     dt <- extract <$> nowDateTime
     detectedLang <- detectLanguage
+    admin <- isAdmin
     pure
-        { initialState: state { socket = Just socket, now = dt, language = fromMaybe state.language detectedLang }
+        { initialState: state { socket = Just socket, now = dt, language = fromMaybe state.language detectedLang, isAdmin = admin }
         , update: maybeWaitSocket update
         , view: view
         , inputs: [clockSignal, wsSignal, routeSignal]

@@ -91,7 +91,7 @@ view addr state =
                                         [ text $ fromMaybe "0" $ show <<< getBalance <$> state.balance ]
                                     , div
                                         [ className "pull-right" ]
-                                        [ div
+                                        [ visible div state.isAdmin $ div
                                             []
                                             [ span
                                                 [ className "font-light toggle-label" ]

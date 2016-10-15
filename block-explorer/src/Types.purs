@@ -94,6 +94,7 @@ type State =
     , paginationPage   :: String
     , paginationExpand :: Boolean
     , showTransactions :: Boolean
+    , isAdmin          :: Boolean
     }
 
 init :: State
@@ -116,4 +117,5 @@ init =
     , paginationPage:   mempty
     , paginationExpand: true
     , showTransactions: false
+    , isAdmin:          false
     }

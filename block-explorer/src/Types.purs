@@ -95,6 +95,7 @@ type State =
     , paginationExpand :: Boolean
     , showTransactions :: Boolean
     , isAdmin          :: Boolean
+    , wsSupport        :: Boolean
     }
 
 init :: State
@@ -118,4 +119,5 @@ init =
     , paginationExpand: true
     , showTransactions: false
     , isAdmin:          false
+    , wsSupport:        false
     }

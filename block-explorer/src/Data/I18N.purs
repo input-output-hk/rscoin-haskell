@@ -17,35 +17,36 @@ detectLanguage :: forall e. Eff (dom :: DOM | e) (Maybe Language)
 detectLanguage = readLanguage <<< take 2 <$> detectLanguage_
 
 type Translation =
-    { aboutUs          :: String
-    , contacts         :: String
-    , privacyPolicy    :: String
-    , termsOfService   :: String
-    , address          :: String
-    , transaction      :: String
-    , transactions     :: String
-    , finalBalance     :: String
-    , colorBalance     :: String
-    , qrCode           :: String
-    , to               :: String
-    , notFound         :: String
-    , receivedTime     :: String
-    , totalInput       :: String
-    , totalOutput      :: String
-    , includedInBlocks :: String
-    , summary          :: String
-    , currentBlocks    :: String
-    , transactionsFeed :: String
-    , height           :: String
-    , age              :: String
-    , totalSent        :: String
-    , expand           :: String
-    , emission         :: String
-    , _qrCodeMsg       :: String
-    , minute           :: String
-    , minutes          :: String
-    , hours            :: String
-    , days             :: String
+    { aboutUs              :: String
+    , contacts             :: String
+    , privacyPolicy        :: String
+    , termsOfService       :: String
+    , address              :: String
+    , transaction          :: String
+    , transactions         :: String
+    , finalBalance         :: String
+    , colorBalance         :: String
+    , qrCode               :: String
+    , to                   :: String
+    , notFound             :: String
+    , receivedTime         :: String
+    , totalInput           :: String
+    , totalOutput          :: String
+    , includedInBlocks     :: String
+    , summary              :: String
+    , currentBlocks        :: String
+    , transactionsFeed     :: String
+    , height               :: String
+    , age                  :: String
+    , totalSent            :: String
+    , expand               :: String
+    , emission             :: String
+    , _qrCodeMsg           :: String
+    , minute               :: String
+    , minutes              :: String
+    , hours                :: String
+    , days                 :: String
+    , _browserNotSupported :: String
     }
 
 data Language

@@ -8,6 +8,7 @@ import App.Layout                  (view, update)
 import App.Connection              (init, Action (..), WEBSOCKET) as C
 import App.Types                   (Action(PageView, SocketAction, UpdateClock), State)
 import App.Config                  (wsUrl, isAdmin)
+import App.Common.Html             (wsSupport)
 
 import Control.Bind                ((=<<))
 import Control.Monad.Eff           (Eff)
@@ -58,13 +59,16 @@ config state = do
     -- FIXME: C.init is blocking and whole application is waiting for
     -- socket connection. Do this async if possible or at least show Loading intro page
     wsInput <- channel C.ConnectionClosed
-    socket <- C.init wsInput =<< wsUrl
+    wsOn <- wsSupport
+    socket <- if wsOn
+        then map Just $ C.init wsInput =<< wsUrl
+        else pure Nothing
     let wsSignal = subscribe wsInput ~> SocketAction
     dt <- extract <$> nowDateTime
     detectedLang <- detectLanguage
     admin <- isAdmin
     pure
-        { initialState: state { socket = Just socket, now = dt, language = fromMaybe state.language detectedLang, isAdmin = admin }
+        { initialState: state { socket = socket, now = dt, language = fromMaybe state.language detectedLang, isAdmin = admin, wsSupport = wsOn }
         , update: maybeWaitSocket update
         , view: view
         , inputs: [clockSignal, wsSignal, routeSignal]

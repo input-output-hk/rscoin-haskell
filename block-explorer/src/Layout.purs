@@ -20,6 +20,7 @@ import App.Types                      (Address (..), ControlMsg (..),
 import App.CSS                        (veryLightGrey, styleSheet)
 import App.View.Address               (view) as Address
 import App.View.NotFound              (view) as NotFound
+import App.View.BrowserInfo           (view) as BrowserInfo
 import App.View.BlockInfo             (view) as BlockInfo
 import App.View.Transaction           (view) as Transaction
 import App.View.Header                (view) as Header
@@ -378,19 +379,22 @@ view state =
             [ className "container-fluid"
             , id_ "page-content"
             ]
-            [ case state.route of
-                R.Home -> BlockInfo.view state
-                R.Address addr ->
-                    let
-                        queryGetAddr (Just (SQAddress addr)) = Just addr
-                        queryGetAddr _ = Nothing
-                    in  maybe (NotFound.view state) (flip Address.view state) $ queryGetAddr state.queryInfo
-                R.Transaction tId ->
-                    let
-                        queryGetTx (Just (SQTransaction tx)) = Just tx
-                        queryGetTx _ = Nothing
-                    in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
-                R.NotFound -> NotFound.view state
+            [ if not state.wsSupport
+                then BrowserInfo.view state
+                else
+                    case state.route of
+                        R.Home -> BlockInfo.view state
+                        R.Address addr ->
+                            let
+                                queryGetAddr (Just (SQAddress addr)) = Just addr
+                                queryGetAddr _ = Nothing
+                            in  maybe (NotFound.view state) (flip Address.view state) $ queryGetAddr state.queryInfo
+                        R.Transaction tId ->
+                            let
+                                queryGetTx (Just (SQTransaction tx)) = Just tx
+                                queryGetTx _ = Nothing
+                            in  maybe (NotFound.view state) (flip Transaction.view state) $ queryGetTx state.queryInfo
+                        R.NotFound -> NotFound.view state
             ]
         , Footer.view state
         ]

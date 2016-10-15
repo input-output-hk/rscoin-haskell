@@ -7,6 +7,11 @@ import Pux.Html.Attributes (className)
 
 import Data.I18N (languageCode, Language, getTranslation, Translation)
 
+import DOM (DOM)
+import Control.Monad.Eff (Eff)
+
+foreign import wsSupport :: forall e. Eff (dom :: DOM | e) Boolean
+
 ttext :: forall a. Language -> (Translation -> String) -> Html a
 ttext = ttextClass ""
 

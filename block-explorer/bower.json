@@ -15,7 +15,7 @@
     "purescript-argonaut-generic-codecs": "^2.0.0",
     "purescript-websocket-simple": "^0.4.0",
     "purescript-now": "^1.0.0",
-    "purescript-rscoin-be-language-pack": "https://github.com/input-output-hk/rscoin-be-language-pack.git#34b253e96291dcec87f2325cfab1e90fcde32994"
+    "purescript-rscoin-be-language-pack": "https://github.com/input-output-hk/rscoin-be-language-pack.git#d8ab7a3cb40864ccb2cfed496222507934eb1ba6"
   },
   "devDependencies": {
     "purescript-psci-support": "^1.0.0"

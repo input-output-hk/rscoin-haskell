@@ -9,13 +9,14 @@ import App.CSS                        (darkRed, opacity, logoPath,
                                        headerBitmapPath, headFootHeight)
 import App.Common.Html                (ttext)
 
-import Data.I18N                      (allLanguages, languageNativeName)
+import Data.I18N                      (allLanguages, languageNativeName, footerAboutUs, footerContactUs,
+                                       footerPrivacyPolicy, footerTermsOfService)
 
 import Pux.Html                       (Html, div, text, span, button,
                                        input, a, li, ul, nav, img, footer)
 import Pux.Router                     (link) as R
 import Pux.Html.Attributes            (aria, data_, type_, className, id_,
-                                       placeholder, value, src, alt)
+                                       placeholder, value, src, alt, href, target)
 import Pux.Html.Events                (onClick)
 
 import Pux.CSS                        (style, backgroundColor, height, px,
@@ -76,19 +77,27 @@ view state =
             , div
                 [ id_ "footer-links" ]
                 [ a
-                    [ data_ "target" "#" ]
+                    [ href $ footerAboutUs state.language
+                    , target "_blank"
+                    ]
                     [ ttext' _.aboutUs ]
-                , text "|"
+                , text " | "
                 , a
-                    [ data_ "target" "#" ]
+                    [ href $ footerContactUs state.language
+                    , target "_blank"
+                    ]
                     [ ttext' _.contacts ]
-                , text "|"
+                , text " | "
                 , a
-                    [ data_ "target" "#" ]
+                    [ href $ footerPrivacyPolicy state.language
+                    , target "_blank"
+                    ]
                     [ ttext' _.privacyPolicy ]
-                , text "|"
+                , text " | "
                 , a
-                    [ data_ "target" "#" ]
+                    [ href $ footerTermsOfService state.language
+                    , target "_blank"
+                    ]
                     [ ttext' _.termsOfService ]
                 ]
             ]

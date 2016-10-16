@@ -1,4 +1,4 @@
 
-const config =
+var config =
     { secureWebSocket: true
     };

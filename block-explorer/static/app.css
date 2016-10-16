@@ -7,6 +7,14 @@
         url(montserrat-light_d508f4bcd80b35f5ab68ae7d0e466277.ttf) format('truetype');
 }
 
+.websockets #browser-not-supported {
+    display: none;
+}
+
+.no-websockets #app {
+    display: none;
+}
+
 body {
     /*font-family: 'Source Sans Pro', 'Trebuchet MS', 'Lucida Grande', 'Helvetica Neue', sans-serif;*/
     font-family: 'Montserrat', sans-serif !important;

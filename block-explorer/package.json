@@ -42,6 +42,11 @@
     "webpack": "^1.12.14"
   },
   "devDependencies": {
+    "babel-core": "^6.17.0",
+    "babel-loader": "^6.2.5",
+    "babel-polyfill": "^6.16.0",
+    "babel-preset-es2015": "^6.16.0",
+    "custom-event-polyfill": "https://github.com/serokell/custom-event-polyfill#f68935d8fcd45361a4384fbd0a5c45cacb272054",
     "pulp": "^9.0.1",
     "source-map-loader": "^0.1.5",
     "webpack-dev-middleware": "^1.6.1",

@@ -3,7 +3,7 @@ var webpack = require('webpack');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-  entry: [ path.join(__dirname, 'support/index.js') ],
+  entry: [ 'babel-polyfill', 'custom-event-polyfill', path.join(__dirname, 'support/index.js') ],
   debug: false,
   output: {
     path: path.resolve('./static/dist'),
@@ -20,6 +20,14 @@ module.exports = {
           psc: 'psa',
           bundle: true,
           warnings: false
+        }
+      }
+    , {
+        test: /\.js$/,
+        exclude: /(node_modules|bower_components)/,
+        loader: 'babel', // 'babel-loader' is also a valid name to reference
+        query: {
+          presets: ['es2015']
         }
       }
     ],

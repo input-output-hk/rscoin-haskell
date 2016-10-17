@@ -182,7 +182,9 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
             noEffects $ state { blocks = take (pagination blocksNum $ length state.blocks) $ reverse $ map snd blocks }
         OMTransactionsGlobal _ txs ->
-            noEffects $ state { transactions = state.transactions <> map snd txs }
+            noEffects $ state
+                { transactions = appendTxs state.transactions txs
+                }
         OMBlockchainHeight pId ->
             { state: state { periodId = pId, transactions = [], blocks = [], paginationPage = "", paginationExpand = true }
             , effects:
@@ -218,11 +220,7 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                }
         OMBlockTransactions _ txs ->
             noEffects $ state
-                { transactions =
-                    -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
-                    unsafePartial $ take (pagination txGlobalNum $ length state.transactions) $
-                    nubBy gEq $
-                    map snd txs <> state.transactions
+                { transactions = appendTxs state.transactions txs
                 }
         OMError (ParseError e) ->
             noEffects $ state { error = Just $ "ParseError: " <> e.peTypeName <> " : " <> e.peError }
@@ -232,6 +230,11 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             noEffects $ state { error = Just $ "LogicError: " <> e }
         _ -> noEffects state
   where
+    -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
+    appendTxs oldTxs txs = unsafePartial $
+                    take (pagination txGlobalNum $ length oldTxs) $
+                    nubBy gEq $
+                    map snd txs <> oldTxs
     pagination max' len =
         if state.paginationExpand
             then max max' len

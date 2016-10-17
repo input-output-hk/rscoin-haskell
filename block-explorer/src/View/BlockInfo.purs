@@ -12,7 +12,6 @@ import App.Types                       (Action (..), State, Coin(..), Color(Colo
                                        searchQueryAddress, isTransactionIncome,
                                        nominalDiffTimeToDateTime, TransactionExtended,
                                        HBlockExtension (..), init)
-import App.View.TransactionTableItem  (transactionTableItem)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,

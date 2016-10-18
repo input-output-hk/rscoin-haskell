@@ -42,14 +42,14 @@ adaSymbolDarkPath = imagePath "ada-currency-symbol-dark.svg"
 adaSymbolPath :: String
 adaSymbolPath = imagePath "ada-currency-symbol.svg"
 
-transactionArrowGreenPath :: String
-transactionArrowGreenPath = imagePath "transaction-arrow-green.svg"
+transactionArrowIncomePath :: String
+transactionArrowIncomePath = imagePath "transaction-arrow-income.svg"
 
-transactionArrowRedPath :: String
-transactionArrowRedPath = imagePath "transaction-arrow-red.svg"
+transactionArrowOutcomePath :: String
+transactionArrowOutcomePath = imagePath "transaction-arrow-outcome.svg"
 
-transactionArrowBlackPath :: String
-transactionArrowBlackPath = imagePath "transaction-arrow-black.svg"
+transactionArrowNeutralPath :: String
+transactionArrowNeutralPath = imagePath "transaction-arrow-neutral.svg"
 
 opacity :: Number -> CSS
 opacity = key $ fromString "opacity"

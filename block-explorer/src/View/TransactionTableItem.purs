@@ -13,8 +13,8 @@ import App.Types                       (Action (..), State, Coin(..), Color(Colo
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
-                                       adaSymbolDarkPath, transactionArrowGreenPath,
-                                       transactionArrowRedPath, transactionArrowBlackPath)
+                                       adaSymbolDarkPath, transactionArrowIncomePath,
+                                       transactionArrowOutcomePath, transactionArrowNeutralPath)
 import App.Common.Html                (ttext, ttextUpper, visible)
 
 import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span,
@@ -103,7 +103,7 @@ transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction
                                 []
                                 [ img
                                     [ id_ "transaction-arrow"
-                                    , src $ moneyFlow tranE transactionArrowRedPath transactionArrowGreenPath transactionArrowBlackPath
+                                    , src $ moneyFlow tranE transactionArrowOutcomePath transactionArrowIncomePath transactionArrowNeutralPath
                                     ]
                                     []
                                 ]

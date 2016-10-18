@@ -13,8 +13,7 @@ import App.View.TransactionTableItem  (transactionTableItem)
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
-                                       adaSymbolDarkPath, transactionArrowGreenPath,
-                                       transactionArrowRedPath)
+                                       adaSymbolDarkPath)
 import App.Common.Html                (ttext, ttextUpper, visible)
 
 import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span,

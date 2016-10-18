@@ -15,8 +15,7 @@ import App.Types                       (Action (..), State, Coin(..), Color(Colo
 import App.Routes                     (txUrl, addressUrl, toUrl, getQueryParams) as R
 import App.CSS                        (darkRed, opacity, logoPath, lightGrey,
                                        headerBitmapPath, noBorder, adaSymbolPath,
-                                       adaSymbolDarkPath, transactionArrowGreenPath,
-                                       transactionArrowRedPath)
+                                       adaSymbolDarkPath)
 import App.Common.Html                (ttext, ttextUpper, visible, ttextClass)
 
 import Pux.Html                       (Html, tbody, text, th, tr, thead, a, span,

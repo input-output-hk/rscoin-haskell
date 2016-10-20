@@ -34,7 +34,7 @@ import Serokell.Data.Maybe            (unsafeFromJust)
 import Serokell.Data.Char             (isDigit, isSpace)
 
 import Data.Tuple                     (Tuple (..), snd)
-import Data.Either                    (fromRight)
+import Data.Either                    (fromRight, Either (Right))
 import Data.Generic                   (gShow, gEq)
 import Data.Array                     (filter, head, reverse, length, singleton, range,
                                        take, nubBy, sortBy)
@@ -147,13 +147,15 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             { state: state { balance = Just coinsMap, periodId = pId, queryInfo = Just (SQAddress addr) }
             , effects:
                 [ do
-                    transactionPage socket' paginationPage
+                    transactionPage state.colors socket' paginationPage
                     let expectedUrl = R.addressUrl addr
                     unless (state.route == R.match expectedUrl) $
                         liftEff $ R.navigateTo expectedUrl
                     pure Nop
                 ]
             }
+        OMAddrInterestingTransactions addr pId arr ->
+            update (SocketAction $ C.ReceivedData $ Right $ OMAddrTransactions addr pId arr) state
         OMAddrTransactions addr _ arr ->
             let transactionTimeComp t1 t2 =
                     getTransactionTimestamp t1 `compare` getTransactionTimestamp t2
@@ -176,11 +178,19 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                     pure Nop
                 ]
             }
-        OMTxNumber addr _ (Tuple txNum _) ->
-            noEffects $ state { txNumber = Just txNum, queryInfo = Just (SQAddress addr) }
+        OMTxNumber addr _ (Tuple txNum txInterestingNum) ->
+            noEffects $ state
+                { txNumber =
+                    if state.colors
+                        then Just txInterestingNum
+                        else Just txNum
+                , queryInfo = Just (SQAddress addr)
+                }
         OMBlocksOverview blocks ->
             -- NOTE: nubBy is needed because live update and expand buttone could be triggered at the same time
             noEffects $ state { blocks = take (pagination blocksNum $ length state.blocks) $ reverse $ map snd blocks }
+        OMInterestingTransactionsGlobal pId txs ->
+            update (SocketAction $ C.ReceivedData $ Right $ OMTransactionsGlobal pId txs) state
         OMTransactionsGlobal _ txs ->
             noEffects $ state
                 { transactions = appendTxs state.transactions txs
@@ -190,7 +200,9 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
             , effects:
                 [ do
                     blockchainPage socket' pId paginationPage
-                    C.send socket' $ IMControl $ CMGetTransactionsGlobal $ Tuple 0 txGlobalNum
+                    if state.colors
+                        then C.send socket' $ IMControl $ CMGetInterestingTransactionsGlobal $ Tuple 0 txGlobalNum
+                        else C.send socket' $ IMControl $ CMGetTransactionsGlobal $ Tuple 0 txGlobalNum
                     C.send socket' $ IMControl $ CMSetHBlock pId
                     pure Nop
                 ]
@@ -213,11 +225,16 @@ update (SocketAction (C.ReceivedData msg)) state = traceAny (gShow msg) $
                , effects:
                    [ do
                         traverse
-                            (C.send socket' <<< IMHBlockInfo <<< HIGetTransactions)
+                            (C.send socket' <<< IMHBlockInfo <<<
+                                if state.colors
+                                    then HIGetInterestingTransactions
+                                    else HIGetTransactions)
                             transactionSlices
                         pure Nop
                    ]
                }
+        OMBlockInterestingTransactions pId txs ->
+            update (SocketAction $ C.ReceivedData $ Right $ OMBlockTransactions pId txs) state
         OMBlockTransactions _ txs ->
             noEffects $ state
                 { transactions = appendTxs state.transactions txs
@@ -267,7 +284,7 @@ update ExpandTransactions state =
     { state: state { paginationExpand = false }
     , effects:
         [ do
-            transactionPage socket' paginationPage
+            transactionPage state.colors socket' paginationPage
             pure Nop
         ]
     }
@@ -277,8 +294,12 @@ update ExpandTransactions state =
 update ExpandTransactionsGlobal state = onlyEffects state $
     [ do
         let txLen = length state.transactions
-        C.send socket' $ IMControl $ CMGetTransactionsGlobal $
-            Tuple txLen $ txLen + txGlobalNum
+            request = Tuple txLen $ txLen + txGlobalNum
+        C.send socket' $ IMControl $
+            if state.colors
+                then CMGetInterestingTransactionsGlobal request
+                else CMGetTransactionsGlobal request
+
         pure Nop
     ]
   where
@@ -320,7 +341,7 @@ update PaginationLeftTransactions state =
     { state: state { paginationPage = show paginationPage }
     , effects:
         [ do
-            transactionPage socket' paginationPage
+            transactionPage state.colors socket' paginationPage
             pure Nop
         ]
     }
@@ -331,7 +352,7 @@ update PaginationRightTransactions state =
     { state: state { paginationPage = show paginationPage }
     , effects:
         [ do
-            transactionPage socket' paginationPage
+            transactionPage state.colors socket' paginationPage
             pure Nop
         ]
     }
@@ -349,7 +370,7 @@ update PaginationSearchBlocks state = onlyEffects state $
     paginationPage = min 9999 $ max 0 $ fromMaybe 0 $ fromString state.paginationPage
 update PaginationSearchTransactions state = onlyEffects state $
     [ do
-        transactionPage socket' paginationPage
+        transactionPage state.colors socket' paginationPage
         pure Nop
     ]
   where
@@ -363,9 +384,13 @@ blockchainPage socket' pId page = do
     C.send socket' $ IMControl $ CMGetBlocksOverview $
         Tuple (pId - paginationNum - pageOffset) $ pId + 1 - pageOffset
 
-transactionPage socket' page = do
+transactionPage colors socket' page = do
     let pageOffset = page * paginationNum
-    C.send socket' <<< IMAddrInfo <<< AIGetTransactions $ Tuple pageOffset $ paginationNum + pageOffset + 1
+        request = Tuple pageOffset $ paginationNum + pageOffset + 1
+    C.send socket' <<< IMAddrInfo $
+        if colors
+            then AIGetInterestingTransactions request
+            else AIGetTransactions request
 
 -- TODO: make safe version of bootstrap like
 -- https://github.com/slamdata/purescript-halogen-bootstrap/blob/master/src/Halogen/Themes/Bootstrap3.purs

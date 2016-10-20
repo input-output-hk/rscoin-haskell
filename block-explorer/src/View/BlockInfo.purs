@@ -166,7 +166,11 @@ view state =
                 [ text $ fromMaybe "Date error" $ (prettyDuration state.language :: Milliseconds -> String) <<< diff state.now <$> nominalDiffTimeToDateTime hbe.hbeTimestamp ]
             , td
                 []
-                [ text $ show hbe.hbeTxNumber ]
+                [ text $ show $
+                    if state.colors
+                        then hbe.hbeInterestingTxNumber
+                        else hbe.hbeTxNumber
+                ]
             , td
                 []
                 [ img

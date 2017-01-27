@@ -1,4 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE TemplateHaskell      #-}
 
 -- | Storage containing whole bank's data.
 
@@ -22,14 +24,18 @@ module RSCoin.Bank.Storage.Storage
        ) where
 
 import           Control.Lens                  (makeLenses)
+import           Data.Aeson                    (ToJSON, toJSON, object, (.=))
+import qualified Data.HashMap.Strict           as HM
 import           Data.SafeCopy                 (base, deriveSafeCopy)
 import           Data.Typeable                 (Typeable)
 
 import qualified RSCoin.Core                   as C
+import           RSCoin.Core.AesonJS           ()
 
 import qualified RSCoin.Bank.Storage.Addresses as AS
 import qualified RSCoin.Bank.Storage.Explorers as ES
 import qualified RSCoin.Bank.Storage.Mintettes as MS
+
 
 -- | Storage contains all the data used by Bank.
 data Storage = Storage
@@ -54,6 +60,15 @@ data Storage = Storage
 
 $(makeLenses ''Storage)
 $(deriveSafeCopy 0 'base ''Storage)
+
+instance ToJSON C.Utxo where
+    toJSON = toJSON . map toAddrCoin . HM.toList
+        where
+            toAddrCoin ((_, _, coin), addr) =
+                object
+                    [ "address" .= C.getAddress addr
+                    , "coin"    .= coin
+                    ]
 
 -- | Make empty storage
 mkStorage :: Storage

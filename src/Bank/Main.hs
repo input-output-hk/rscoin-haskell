@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import           Control.Exception   (SomeException)
+import           Control.Monad       (void)
 import           Control.Monad.Catch (throwM, try)
 import           Data.Monoid         ((<>))
 import qualified Data.Text           as T
@@ -63,6 +64,7 @@ main = do
         Opts.RemoveExplorer host port ->
             B.removeExplorerReq ca bankSecretKey host port
         Opts.DumpStatistics -> B.dumpStatisticsReq ca bankSecretKey
+        Opts.DumpUtxo output -> void $ B.dumpUtxo cloPath output
         Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
             B.launchBankReal cloRebuildDB periodDelta cloPath ca bankSecretKey cloPermittedAddrs

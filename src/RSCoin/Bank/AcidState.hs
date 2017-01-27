@@ -14,6 +14,7 @@ module RSCoin.Bank.AcidState
        , query
        , tidyState
        , update
+       , dumpUtxo
 
          -- | Queries
        , GetMintettes (..)
@@ -25,6 +26,8 @@ module RSCoin.Bank.AcidState
        , GetHBlock (..)
        , GetHBlockWithMetadata (..)
        , GetHBlocks (..)
+       , GetAllHBlocks (..)
+       , GetUtxo (..)
        , GetLogs (..)
        , GetStatisticsId (..)
 
@@ -49,9 +52,11 @@ import           Control.Monad.Trans           (MonadIO)
 import           Data.Acid                     (EventResult, EventState, Query,
                                                 QueryEvent, UpdateEvent,
                                                 makeAcidic)
+import           Data.Aeson                    (encode, object, (.=))
 import           Data.Maybe                    (fromMaybe)
 import qualified Data.Set                      as Set
 import           Data.Text                     (Text)
+import           Data.ByteString.Lazy.Char8    as BS hiding (map, filter)
 import           Formatting                    (bprint, stext, (%))
 import           Safe                          (headMay)
 
@@ -131,6 +136,12 @@ getHBlockWithMetadata = view . BS.getHBlockWithMetadata
 getHBlocks :: PeriodId -> PeriodId -> Query BS.Storage [HBlock]
 getHBlocks fromIdx toIdx = view $ BS.getHBlocks fromIdx toIdx
 
+getAllHBlocks :: Query BS.Storage [HBlock]
+getAllHBlocks = view BS.getAllHBlocks
+
+getUtxo :: Query BS.Storage C.Utxo
+getUtxo = view BS.getUtxo
+
 getLogs :: MintetteId -> Int -> Int -> Query BS.Storage (Maybe ActionLog)
 getLogs m fromIdx toIdx = view $ BS.getLogs m fromIdx toIdx
 
@@ -147,6 +158,8 @@ $(makeAcidic ''BS.Storage
              , 'getHBlock
              , 'getHBlockWithMetadata
              , 'getHBlocks
+             , 'getAllHBlocks
+             , 'getUtxo
              , 'getLogs
              , 'getStatisticsId
 
@@ -165,6 +178,15 @@ $(makeAcidic ''BS.Storage
              , 'BS.startNewPeriod
              , 'BS.checkAndBumpStatisticsId
              ])
+
+dumpUtxo :: FilePath -> FilePath -> IO ()
+dumpUtxo fp outputFp = do
+    state  <- openState False fp
+    utxo   <- query state GetUtxo
+    BS.writeFile outputFp . encode $ object
+      [ "utxo"   .= utxo
+      ]
+    pure ()
 
 getStatistics
     :: MonadIO m

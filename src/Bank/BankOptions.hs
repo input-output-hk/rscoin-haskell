@@ -29,6 +29,7 @@ data Command
     | RemoveMintette String Int
     | RemoveExplorer String Int
     | DumpStatistics
+    | DumpUtxo FilePath
 
 data Options = Options
     { cloCommand        :: Command
@@ -76,7 +77,12 @@ commandParser =
              "dump-statistics"
              (info
                   dumpStatisticsOpts
-                  (progDesc "Dump statistics about bank's database")))
+                  (progDesc "Dump statistics about bank's database")) <>
+         command
+            "dump-state"
+            (info
+                  dumpStateOpts
+                  (progDesc "Dump current bank state to json")))
   where
     mHost = strOption (long "host" <> help "Mintette's host" <> metavar "HOST")
     mPort =
@@ -109,6 +115,9 @@ commandParser =
     removeMintetteOpts = RemoveMintette <$> mHost <*> mPort
     removeExplorerOpts = RemoveExplorer <$> eHost <*> ePort
     dumpStatisticsOpts = pure DumpStatistics
+    dumpStateOpts      =
+        DumpUtxo <$>
+            strOption (long "output-file" <> help "Output file for dump")
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options
 optionsParser defaultSKPath configDir defaultConfigPath =

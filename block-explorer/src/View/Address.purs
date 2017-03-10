@@ -39,6 +39,8 @@ import Serokell.Data.DateTime         (prettyDate)
 
 import Partial.Unsafe                 (unsafePartial)
 
+import App.Common.Hash (unescapeB64U)
+
 view :: Address -> State -> Html Action
 view addr state =
     div
@@ -66,7 +68,7 @@ view addr state =
                                     [ link
                                         (R.toUrl state.route)
                                         [ id_ "address-link" ]
-                                        [ text $ addressToString addr ]
+                                        [ text $ unescapeB64U $ addressToString addr ]
                                     ]
                                 ]
                             , tr

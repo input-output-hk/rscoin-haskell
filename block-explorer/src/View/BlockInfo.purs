@@ -42,6 +42,8 @@ import Serokell.Data.DateTime         (prettyDate, prettyDuration)
 
 import Partial.Unsafe                 (unsafePartial)
 
+import App.Common.Hash (unescapeB64U)
+
 view :: State -> Html Action
 view state =
     div
@@ -188,7 +190,7 @@ view state =
                 []
                 [ link (R.txUrl te.teId)
                     [ id_ "link" ]
-                    [ text $ show te.teId ]
+                    [ text $ unescapeB64U $ show te.teId ]
                 ]
             , td
                 []

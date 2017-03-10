@@ -39,17 +39,19 @@ import Serokell.Data.DateTime         (prettyDate)
 
 import Partial.Unsafe                 (unsafePartial)
 
+import App.Common.Hash (unescapeB64U)
+
 transactionTableItem :: Language -> Boolean -> Maybe Address -> TransactionExtended -> forall a. Array (Html a)
 transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction t), wmMetadata: tranE@(TransactionExtension te)}) =
     let addressLink mAddr' =
             div
                 [ className "text-center addressLink" ]
                 [ case mAddr' of
-                    Just addr | mAddr `gEq` mAddr' -> text $ addressToString addr
+                    Just addr | mAddr `gEq` mAddr' -> text $ unescapeB64U $ addressToString addr
                                | otherwise ->
                                     link (R.addressUrl addr)
                                         [ id_ "link"]
-                                        [ text $ addressToString addr ]
+                                        [ text $ unescapeB64U $ addressToString addr ]
                     Nothing -> ttext lang _.emission
                 ]
         moneyFlow tx outcome income neutral =
@@ -65,7 +67,7 @@ transactionTableItem lang colors mAddr (WithMetadata {wmValue: tran@(Transaction
                 , id_ "transaction-hash" ]
                 [ link (R.txUrl te.teId)
                     [ id_ "link" ]
-                    [ text $ show te.teId ]
+                    [ text $ unescapeB64U $ show te.teId ]
                 ]
             , div
                 [ className "col-xs-4 no-padding-only-left" ]

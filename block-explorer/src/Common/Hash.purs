@@ -25,3 +25,7 @@ replaceAll reg = replaceR reg "g"
 
 unescapeB64U :: DataB64U -> DataB64
 unescapeB64U = replaceAll "-" "+" <<< replaceAll "_" "/"
+
+escapeB64U :: DataB64 -> DataB64U
+escapeB64U = replaceAll "\\+" "-" <<< replaceAll "/" "_"
+

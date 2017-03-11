@@ -68,6 +68,8 @@ import Control.Comonad                (extract)
 
 import Partial.Unsafe                 (unsafePartial)
 
+import App.Common.Hash                (escapeB64U)
+
 removeWhiteSpace :: String -> String
 removeWhiteSpace = fromCharArray <<< filter (not <<< isSpace) <<< toCharArray
 
@@ -263,7 +265,7 @@ update (SearchQueryChange sq) state = noEffects $ state { searchQuery = sq }
 update SearchButton state =
     onlyEffects state $
         [ do
-            C.send socket' $ IMControl $ CMSmart state.searchQuery
+            C.send socket' $ IMControl $ CMSmart $ escapeB64U state.searchQuery
             pure Nop
         ]
   where

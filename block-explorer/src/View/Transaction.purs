@@ -23,7 +23,6 @@ import Pux.Html.Attributes            (aria, data_, type_, className, id_,
                                        placeholder, value, src, alt, role, href,
                                        autoComplete, htmlFor, rowSpan, checked)
 import Pux.Html.Events                (onChange)
-import Pux.Router                     (link)
 import Pux.CSS                        (style, backgroundColor, padding, px,
                                        color, white, backgroundImage, url)
 

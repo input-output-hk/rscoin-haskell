@@ -232,8 +232,14 @@ getInterestingTxsGlobal range =
 
 getRecentTxsIndices :: Bool -> Word -> Query [TransactionIndex]
 getRecentTxsIndices onlyInteresting n = do
-    blocksTxs <- views hBlocks (V.toList . fmap (C.hbTransactions . C.wmValue))
-    foldM step [] . zip [0 .. genericLength blocksTxs - 1] $ blocksTxs
+    blocksTxs <-
+        V.toList . V.reverse . fmap (C.hbTransactions . C.wmValue) <$>
+        view hBlocks
+    let blkNum = genericLength blocksTxs
+    let blkIndices | blkNum == 0 = []
+                   | blkNum == 1 = [0]
+                   | otherwise = [blkNum - 1, blkNum - 2 .. 0]
+    foldM step [] . zip blkIndices $ blocksTxs
   where
     step
         :: [TransactionIndex]
@@ -247,7 +253,7 @@ getRecentTxsIndices onlyInteresting n = do
                     | otherwise = isTransactionInteresting getTx . snd
             filteredIndices :: [Word] <-
                 map fst <$> filterM filterF (zip [0 ..] blkTxs)
-            return $ fmap (TransactionIndex blkIdx) filteredIndices `mappend` res
+            return $ res `mappend` fmap (TransactionIndex blkIdx) filteredIndices
 
 -- | Get indexed list of extended HBlocks in given range.
 getHBlocksExtended :: (C.PeriodId, C.PeriodId) -> Query [(C.PeriodId, HBlockExtended)]

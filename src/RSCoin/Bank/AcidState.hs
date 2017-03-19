@@ -52,7 +52,7 @@ import           Control.Monad.Trans           (MonadIO)
 import           Data.Acid                     (EventResult, EventState, Query,
                                                 QueryEvent, UpdateEvent, makeAcidic)
 import           Data.Aeson                    (encode, object, (.=))
-import           Data.ByteString.Lazy.Char8    as BS hiding (filter, map)
+import qualified Data.ByteString.Lazy.Char8    as BS hiding (filter, map)
 import           Data.Maybe                    (fromMaybe)
 import qualified Data.Set                      as Set
 import           Data.Text                     (Text)

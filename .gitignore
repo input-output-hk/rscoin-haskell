@@ -22,3 +22,6 @@ flycheck_*
 
 # MAC OS X
 .DS_Store
+
+# Story
+benchmarks.txt

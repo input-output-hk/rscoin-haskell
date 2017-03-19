@@ -50,34 +50,28 @@ import           Control.Lens                  (Getter, to, view)
 import           Control.Monad.Reader          (ask)
 import           Control.Monad.Trans           (MonadIO)
 import           Data.Acid                     (EventResult, EventState, Query,
-                                                QueryEvent, UpdateEvent,
-                                                makeAcidic)
+                                                QueryEvent, UpdateEvent, makeAcidic)
 import           Data.Aeson                    (encode, object, (.=))
+import           Data.ByteString.Lazy.Char8    as BS hiding (filter, map)
 import           Data.Maybe                    (fromMaybe)
 import qualified Data.Set                      as Set
 import           Data.Text                     (Text)
-import           Data.ByteString.Lazy.Char8    as BS hiding (map, filter)
 import           Formatting                    (bprint, stext, (%))
 import           Safe                          (headMay)
 
-import           Serokell.AcidState            (ExtendedState,
-                                                closeExtendedState,
+import           Serokell.AcidState            (ExtendedState, closeExtendedState,
                                                 openLocalExtendedState,
-                                                openMemoryExtendedState,
-                                                queryExtended,
-                                                tidyExtendedState,
-                                                updateExtended)
-import           Serokell.AcidState.Statistics (StoragePart (..),
-                                                estimateMemoryUsage)
+                                                openMemoryExtendedState, queryExtended,
+                                                tidyExtendedState, updateExtended)
+import           Serokell.AcidState.Statistics (StoragePart (..), estimateMemoryUsage)
 import           Serokell.Data.Memory.Units    (Byte, memory)
 import           Serokell.Util.Text            (listBuilderJSONIndent, show')
 
-import           RSCoin.Core                   (ActionLog,
-                                                AddressToTxStrategyMap,
-                                                Explorer, Explorers, HBlock,
-                                                MintetteId, Mintettes, PeriodId,
-                                                PublicKey)
+import           RSCoin.Core                   (ActionLog, AddressToTxStrategyMap,
+                                                Explorer, Explorers, HBlock, MintetteId,
+                                                Mintettes, PeriodId, PublicKey)
 import qualified RSCoin.Core                   as C
+import           RSCoin.Core.AesonJS           (utxoAsBalances)
 
 import qualified RSCoin.Bank.Storage           as BS
 
@@ -184,7 +178,7 @@ dumpUtxo fp outputFp = do
     state  <- openState False fp
     utxo   <- query state GetUtxo
     BS.writeFile outputFp . encode $ object
-      [ "utxo"   .= utxo
+      [ "utxo"   .= utxoAsBalances utxo
       ]
     pure ()
 

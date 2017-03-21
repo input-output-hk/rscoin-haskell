@@ -87,7 +87,7 @@ commandParser =
          command
             "dump-state-old"
             (info
-                  dumpStateOpts
+                  dumpStateOldOpts
                   (progDesc "Dump current bank state to json in old format")))
   where
     mHost = strOption (long "host" <> help "Mintette's host" <> metavar "HOST")
@@ -123,6 +123,9 @@ commandParser =
     dumpStatisticsOpts = pure DumpStatistics
     dumpStateOpts      =
         DumpUtxo <$>
+            strOption (long "output-file" <> help "Output file for dump")
+    dumpStateOldOpts   =
+        DumpUtxoOld <$>
             strOption (long "output-file" <> help "Output file for dump")
 
 optionsParser :: FilePath -> FilePath -> FilePath -> Parser Options

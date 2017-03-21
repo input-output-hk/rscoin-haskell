@@ -15,6 +15,7 @@ module RSCoin.Bank.AcidState
        , tidyState
        , update
        , dumpUtxo
+       , dumpUtxoOld
 
          -- | Queries
        , GetMintettes (..)
@@ -71,7 +72,8 @@ import           RSCoin.Core                   (ActionLog, AddressToTxStrategyMa
                                                 Explorer, Explorers, HBlock, MintetteId,
                                                 Mintettes, PeriodId, PublicKey)
 import qualified RSCoin.Core                   as C
-import           RSCoin.Core.AesonJS           (utxoAsBalances)
+import           RSCoin.Core.Aeson             (utxoBalances)
+import           RSCoin.Core.AesonJS           (utxoBalancesJS)
 
 import qualified RSCoin.Bank.Storage           as BS
 
@@ -178,7 +180,16 @@ dumpUtxo fp outputFp = do
     state  <- openState False fp
     utxo   <- query state GetUtxo
     BS.writeFile outputFp . encode $ object
-      [ "utxo"   .= utxoAsBalances utxo
+      [ "utxo"   .= utxoBalances utxo
+      ]
+    pure ()
+
+dumpUtxoOld :: FilePath -> FilePath -> IO ()
+dumpUtxoOld fp outputFp = do
+    state  <- openState False fp
+    utxo   <- query state GetUtxo
+    BS.writeFile outputFp . encode $ object
+      [ "utxo"   .= utxoBalancesJS utxo
       ]
     pure ()
 

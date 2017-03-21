@@ -30,6 +30,7 @@ data Command
     | RemoveExplorer String Int
     | DumpStatistics
     | DumpUtxo FilePath
+    | DumpUtxoOld FilePath
 
 data Options = Options
     { cloCommand        :: Command
@@ -82,7 +83,12 @@ commandParser =
             "dump-state"
             (info
                   dumpStateOpts
-                  (progDesc "Dump current bank state to json")))
+                  (progDesc "Dump current bank state to json")) <>
+         command
+            "dump-state-old"
+            (info
+                  dumpStateOpts
+                  (progDesc "Dump current bank state to json in old format")))
   where
     mHost = strOption (long "host" <> help "Mintette's host" <> metavar "HOST")
     mPort =

@@ -65,6 +65,7 @@ main = do
             B.removeExplorerReq ca bankSecretKey host port
         Opts.DumpStatistics -> B.dumpStatisticsReq ca bankSecretKey
         Opts.DumpUtxo output -> void $ B.dumpUtxo cloPath output
+        Opts.DumpUtxoOld output -> void $ B.dumpUtxoOld cloPath output
         Opts.Serve -> do
             let periodDelta = fromInteger cloPeriodDelta :: Second
             B.launchBankReal cloRebuildDB periodDelta cloPath ca bankSecretKey cloPermittedAddrs
